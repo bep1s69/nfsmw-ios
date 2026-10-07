@@ -8,7 +8,8 @@ What to do for each release, so every published `.ipa` is built the same way.
 2. **Clean, current SDK.** `python3 tools/ios/prepare_sdk.py --status`: every
    patch applied. Diagnostic patches stay **off by default**
    (`ios_texture_stats`, `ios_dispatch_stats`, `ios_shared_stats`,
-   `ios_hot_pages`).
+   `ios_resolve_stats`, `ios_hot_pages`). Check each patch script's
+   `REXCVAR_DEFINE_BOOL(..., false, ...)`: a test build may have turned one on.
 3. **Generated code from the USA ISO**, with the game patches:
    `python3 tools/ios/generate_code.py`, then
    `python3 tools/ios/patch_game_pool.py --status` and

@@ -208,9 +208,9 @@ GPU_NEW = '''#if REX_PLATFORM_IOS
   MakeRangeValid(start, length, true);
 '''
 
-LOG_ANCHOR = '''                  ios_shared_uploads, REXCVAR_GET(ios_invalidation_widen_kb));
+LOG_ANCHOR = '''                  ios_shared_requests, double(ios_shared_requested_bytes) / (1024.0 * 1024.0));
 '''
-LOG_NEW = '''                  ios_shared_uploads, REXCVAR_GET(ios_invalidation_widen_kb));
+LOG_NEW = '''                  ios_shared_requests, double(ios_shared_requested_bytes) / (1024.0 * 1024.0));
       {
         uint64_t hot_now = 0;
         for (uint64_t block : ios_hot) {

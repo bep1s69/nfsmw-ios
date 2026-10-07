@@ -62,6 +62,7 @@ REXCVAR_DEFINE_INT32(ios_invalidation_widen_kb, 256, "GPU",
 namespace {
 std::atomic<uint64_t> ios_shared_faults{0}, ios_shared_pages_invalidated{0};
 uint64_t ios_shared_upload_pages = 0, ios_shared_uploads = 0;  // command processor only
+uint64_t ios_shared_requested_bytes = 0, ios_shared_requests = 0;
 std::chrono::steady_clock::time_point ios_shared_since = std::chrono::steady_clock::now();
 }  // namespace
 #endif
@@ -117,15 +118,33 @@ UPLOAD_NEW = '''#if REX_PLATFORM_IOS
       ios_shared_upload_pages += r.second;
     }
     ios_shared_uploads += upload_ranges_.size();
+    // The bytes the requests actually asked for inside the pages uploaded:
+    // what a byte-exact upload would copy.
+    for (const auto& m : merged_ranges) {
+      const uint64_t m_first = m.first, m_end = uint64_t(m.first) + m.second;
+      for (const auto& r : upload_ranges_) {
+        const uint64_t u_first = uint64_t(r.first) << page_size_log2_;
+        const uint64_t u_end = u_first + (uint64_t(r.second) << page_size_log2_);
+        const uint64_t a = std::max(m_first, u_first), b = std::min(m_end, u_end);
+        if (a < b) {
+          ios_shared_requested_bytes += b - a;
+        }
+      }
+    }
+    ++ios_shared_requests;
     const auto now = std::chrono::steady_clock::now();
     if (now - ios_shared_since >= std::chrono::seconds(5)) {
       REXGPU_INFO("[ios-shared] 5 s: {} CPU write faults, {} pages invalidated, {:.1f} MB "
-                  "uploaded in {} uploads (widening {} KB)",
+                  "uploaded in {} uploads (widening {} KB); {} requests asked for {:.1f} MB "
+                  "of it",
                   ios_shared_faults.exchange(0), ios_shared_pages_invalidated.exchange(0),
                   double(ios_shared_upload_pages << page_size_log2_) / (1024.0 * 1024.0),
-                  ios_shared_uploads, REXCVAR_GET(ios_invalidation_widen_kb));
+                  ios_shared_uploads, REXCVAR_GET(ios_invalidation_widen_kb),
+                  ios_shared_requests, double(ios_shared_requested_bytes) / (1024.0 * 1024.0));
       ios_shared_upload_pages = 0;
       ios_shared_uploads = 0;
+      ios_shared_requested_bytes = 0;
+      ios_shared_requests = 0;
       ios_shared_since = now;
     }
   }

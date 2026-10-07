@@ -121,6 +121,10 @@ IOS_PATCHES = [
     "patch_ios_dispatch_stats",
     "patch_ios_shared_stats",
     "patch_ios_hot_pages",
+    "patch_ios_async_copies",
+    "patch_ios_type0_ranges",
+    "patch_ios_resolve_stats",
+    "patch_ios_iso_stream",
 ]
 
 

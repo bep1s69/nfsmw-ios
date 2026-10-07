@@ -36,6 +36,7 @@ DECLS = f"""// LOCAL PATCH - iOS ({DECL_MARK}): Extra Options features
 // (tools/ios/patch_game_extra_options.py, ios/src/game_extra_options.cpp).
 extern "C" int32_t nfsmw_markers_to_pick();
 extern "C" int32_t nfsmw_purchased_car_limit();
+extern "C" int32_t nfsmw_shadow_map_size();
 """
 
 
@@ -60,6 +61,16 @@ def subfic_edit(value, call, mark):
     return re.compile(rf"\t// subfic (r\d+),(r\d+),{value}$"), edit
 
 
+def li_edit(value, call, mark):
+    """'li rD,<value>' -> rD = <call>."""
+    def edit(match, _):
+        rd = match.group(1)
+        old = [f"\tctx.{rd}.s64 = {value};"]
+        new = [f"\tctx.{rd}.s64 = {call};  // {mark}"]
+        return old, new
+    return re.compile(rf"\t// li (r\d+),{value}$"), edit
+
+
 # feature -> [(function, (pattern, edit), expected count)]
 FEATURES = {
     "markers": [
@@ -70,8 +81,16 @@ FEATURES = {
         ("sub_82564B88",
          compare_edit("r3", 10, "nfsmw_purchased_car_limit()", "nfsmw-car-limit"), 1),
     ],
+    # The shadow map's size (not an Extra Options feature: a graphics setting).
+    # sub_82454C18 creates it: a 1600x1600 render target descriptor (width and
+    # height both from one 'li r11,1600') for sub_8245D1B8, and two 1600x1600
+    # textures from sub_82589EA8 ('li r4,1600', 'li r3,1600').
+    "shadow-size": [
+        ("sub_82454C18", li_edit(1600, "nfsmw_shadow_map_size()", "nfsmw-shadow-size"), 3),
+    ],
 }
-MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1)}
+MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
+         "shadow-size": ("nfsmw-shadow-size", 3)}
 
 
 def fail(msg):
@@ -129,7 +148,7 @@ def main():
                              f"{span[0].strip() if span else '(end)'}")
                     found[(feature, efn)] += 1
         if changed:
-            if DECL_MARK not in "\n".join(lines[:60]):
+            if "nfsmw_shadow_map_size();" not in "\n".join(lines[:80]):
                 inc = next((k for k, l in enumerate(lines)
                             if l.startswith('#include "nfsmw_funcs.')), None)
                 if inc is None:

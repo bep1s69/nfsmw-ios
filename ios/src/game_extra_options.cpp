@@ -66,6 +66,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
 REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 60, "Game",
                      "Gameplay simulation rate in Hz: 60 (the game's) or 120 (experimental, "
                      "for the 120 fps cap)");
+REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
+                     "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
+                     "the most that fits in its 10 MB EDRAM)");
 
 namespace {
 
@@ -112,6 +115,14 @@ extern "C" int32_t nfsmw_markers_to_pick() {
 extern "C" int32_t nfsmw_purchased_car_limit() {
   static std::atomic<bool> logged{false};
   return Setting(REXCVAR_GET(nfsmw_purchased_car_limit), 1, 25, "cars you can buy", logged);
+}
+
+// The shadow map's size, read where the game creates it (sub_82454C18,
+// tools/ios/patch_game_extra_options.py). Smaller: less drawing, resolving and
+// texture reloading every frame, blurrier shadow edges.
+extern "C" int32_t nfsmw_shadow_map_size() {
+  static std::atomic<bool> logged{false};
+  return Setting(REXCVAR_GET(nfsmw_shadow_map_size), 512, 1600, "shadow map size", logged) & ~7;
 }
 
 // The data patches, once the XEX is loaded and before the game reads them

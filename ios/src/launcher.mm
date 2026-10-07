@@ -186,6 +186,12 @@ const std::vector<Section>& Sections() {
             @"Another way to emulate the Xbox 360's EDRAM. Ignored if the GPU does not support "
             @"it.",
             @"false"},
+           {@"shadow_size", Type::kChoice, @"Shadow quality",
+            @"Size of the shadow map, drawn and copied every frame. Lower: more fps where the GPU "
+            @"is the limit, softer shadow edges. The Xbox 360's is High.",
+            @"1600",
+            {{@"High (1600, Xbox 360)", @"1600"}, {@"Medium (1280)", @"1280"},
+             {@"Low (1024)", @"1024"}, {@"Very low (768)", @"768"}}},
            {@"widen_kb", Type::kChoice, @"CPU write invalidation (experimental)",
             @"How much memory around a CPU write is refreshed for the GPU. Smaller: less copying, "
             @"more faults on the game's threads. For measuring.",
@@ -203,6 +209,11 @@ const std::vector<Section>& Sections() {
             @"Memory coherence for what the shaders write. May cost performance.", @"true"},
            {@"pages", Type::kSwitch, @"Refresh GPU-written pages",
             @"Memory coherence. May cost performance.", @"true"},
+           {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
+            @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
+            @"memory. Used automatically when mapping fails (devices with less address space); "
+            @"on, it is used always, for testing.",
+            @"false"},
            {@"logging", Type::kSwitch, @"Logging",
             @"Writes Documents/logs/nfsmw.log and boot.txt. Off when just playing; on (and "
             @"send the log) when testing something.",
@@ -335,9 +346,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back(std::string("--render_target_path_vulkan=") + (On(s, @"edram_fsi") ? "fsi" : "fbo"));
   a.push_back("--occlusion_query_enable=" + b(On(s, @"occlusion")));
   a.push_back("--ios_invalidation_widen_kb=" + str(@"widen_kb"));
+  a.push_back("--nfsmw_shadow_map_size=" + str(@"shadow_size"));
   a.push_back(std::string("--readback_resolve=") + (On(s, @"exposure") ? "fast" : "none"));
   a.push_back("--readback_memexport=" + b(On(s, @"memexport")));
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
+  a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back(std::string("--log_level=") +
               (!On(s, @"logging") ? "off" : On(s, @"detailed_log") ? "debug" : "info"));
   a.push_back("--ios_mvk_performance=" + b(On(s, @"mvk_profiling")));
