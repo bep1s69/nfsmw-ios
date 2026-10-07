@@ -1,0 +1,20 @@
+# NFSMW Recomp - manifiesto del codegen para ANDROID
+#
+# El mismo juego y los mismos overrides que nfsmw_manifest.toml, pero la salida
+# va a generated-android/ y se genera con el CLI rexglue compilado desde el SDK
+# de Android (..\rexglue-sdk-android). Ese SDK cambia la plantilla del codegen
+# (barreras de memoria para ARM64, offset fisico en tiempo de ejecucion), asi
+# que el codigo de escritorio NO sirve para Android ni al reves.
+#
+# No se lanza a mano: tools/android/generar_codigo.py compila el CLI y lo usa.
+[project]
+name = "nfsmw"
+sdk_version = "0.10.0"
+game_root = "../assets/game_root"
+
+[entrypoint]
+file_path = "../assets/game_root/default.xex"
+out_directory_path = "generated-android/default"
+
+# Los mismos que en escritorio. Las direcciones son del XEX, no de la plataforma.
+includes = ["overrides.toml", "huecos.toml"]

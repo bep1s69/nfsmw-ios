@@ -1,0 +1,45 @@
+{
+  "referencia": "pal_es",
+  "ediciones": {
+    "pal_es": {
+      "nombre": "PAL España",
+      "pdb": "NfsMWEuropeSpanRelease.pdb",
+      "sha256": ["aad15fc218d034de3131f746e0b763dd8049a40dd676efc87667fcaf4fc72694"],
+      "idioma": 5,
+      "pais": 31
+    },
+    "usa": {
+      "nombre": "USA",
+      "pdb": "NfsMWRelease.pdb",
+      "sha256": ["aebdf3c14d1e4e4ed2c130d94bc1a0e97bd6d5bf39bdfdef33c3909c9cc4ba4c"],
+      "idioma": 1,
+      "pais": 103,
+      "nativo": {
+        "huellas_shaders": {
+          "E849A9F6D3323B87": "CBE1085BC16100E7",
+          "28AA3CDAC6C19705": "BD5DF403A547935F"
+        }
+      }
+    },
+    "jpn": {
+      "nombre": "Japón",
+      "pdb": "NfsMWJapanRelease.pdb",
+      "sha256": ["23af89d49a713ff948af7b9bc06557b06e94e8629adc40a29513ab6f5cafb33d"],
+      "idioma": 2,
+      "pais": 53,
+      "nativo": {
+        "huellas_shaders": {
+          "E849A9F6D3323B87": "CBE1085BC16100E7",
+          "28AA3CDAC6C19705": "D18B13A41506E263",
+          "19C0C358044A29BF": "BDA897AD5D6FF1D7"
+        }
+      }
+    }
+  },
+  "europeas": {
+    "pal_de": {"nombre": "PAL Alemania", "pdb_empieza": ["ger", "deu"], "idioma": 3, "pais": 24},
+    "pal_it": {"nombre": "PAL Italia", "pdb_empieza": ["ita"], "idioma": 6, "pais": 50},
+    "pal_fr": {"nombre": "PAL Francia", "pdb_empieza": ["fre", "fra"], "idioma": 4, "pais": 34},
+    "pal_es": {"nombre": "PAL España", "pdb_empieza": ["spa", "esp"], "idioma": 5, "pais": 31}
+  }
+}

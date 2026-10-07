@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  NFSMW Recompiled - the iOS app's entitlements.
+
+  They do NOT count inside LiveContainer: the app runs in LiveContainer's
+  process, and the entitlements SideStore signed LiveContainer with apply.
+  They are applied anyway in case the app is installed on its own.
+
+  increased-memory-limit: more RAM before iOS kills the app (jetsam).
+  extended-virtual-addressing: more address space; the SDK reserves ~4.5 GB
+  contiguous for the guest memory. The probe reports whether it fits.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>get-task-allow</key>
+	<true/>
+</dict>
+</plist>

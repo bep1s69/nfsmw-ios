@@ -1,0 +1,142 @@
+// NFSMW Recompiled - game functions replaced on iOS
+//
+// The iOS copy of android/app/src/main/cpp/ganchos.cpp: the same hooks, at the
+// same (PAL Spain) addresses, translated to the edition being built by
+// tools/ediciones/ediciones.py exactly like the Android ones (ios/CMakeLists.txt).
+// Only two things differ:
+//
+//   - the wait is os_sync_wait_on_address_with_timeout (iOS 17.4+) instead of
+//     the Linux futex. The CP wakes it with os_sync_wake_by_address_all, which
+//     tools/ios/patch_ios_waits.py adds next to the futex wake on Linux.
+//   - the switch to turn the wait off is the NFSMW_RING_WAIT=0 environment
+//     variable instead of the Android debug.nfsmw.espera_anillo property.
+//
+// The generated functions are weak symbols that jump to __imp__sub_X (see
+// DEFINE_REX_FUNC in nfsmw_pch.h; on Darwin, a weak symbol with a tail call).
+// Defining sub_X here with strong linkage replaces it, and __imp__sub_X is still
+// the original.
+//
+// WAITING FOR SPACE IN THE COMMAND RING (sub_825A5D18)
+//
+// When the GPU command ring is full, the game's D3D waits for the command
+// processor (CP) to advance its read pointer. It does so by SPINNING:
+// sub_82597690 and sub_82597380 re-read the pointer over and over, calling
+// sub_825A5D18, the hang watchdog, on every lap (it returns 0 if the pointer has
+// not moved for 2 s). On the Xbox 360 that was cheap. Here the CP is the
+// bottleneck and publishes the pointer only twice per frame: on Android the
+// game's render thread spent the whole frame at 100 % on a prime core, heating
+// the phone into thermal throttling.
+//
+// The hook: if the pointer has not moved since the last lap, sleep on the
+// CP's sequence counter (nfsmw_cp_rptr_seq, from tools/parche_espera_anillo.py)
+// until it publishes a new one, capped at 1 ms. Without that counter (an SDK
+// without the patch) nothing changes.
+//
+// Only for the two ring-space loops, recognised by their return address. The
+// other watchdog users wait on fences the CP writes mid-stream, and waiting
+// here would add latency to them.
+//
+// NO POST-PROCESSING (sub_822246F0 and sub_82224380)
+//
+// The "Disable Post Processing" Xenia patch for this game (game-patches,
+// 454107D9, by illusion): the only two reads of the global byte 0x828F48B2
+// -lbz at 0x82224710 and 0x8222442C- read 0 instead. Here, without touching the
+// generated code: while those two functions run the byte is 0, and it is
+// restored on return. Cvar nfsmw_sin_posprocesado, off by default.
+
+#include <dlfcn.h>
+#include <os/os_sync_wait_on_address.h>
+
+#include <atomic>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+
+#include "nfsmw_pch.h"
+
+#include <rex/cvar.h>
+
+REXCVAR_DEFINE_BOOL(nfsmw_sin_posprocesado, false, "Juego",
+                    "Remove post-processing: colour filter, bloom and blur. Less GPU work, but the "
+                    "game loses its look");
+
+extern "C" void __imp__sub_825A5D18(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void __imp__sub_822246F0(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void __imp__sub_82224380(PPCContext& __restrict ctx, uint8_t* base);
+
+namespace {
+
+// Return addresses of the watchdog calls from the two ring-space wait loops.
+constexpr uint32_t kRingWaitReturn1 = 0x82597730;  // sub_82597690
+constexpr uint32_t kRingWaitReturn2 = 0x82597404;  // sub_82597380
+
+// Offset, inside the D3D device, of the pointer to the in-memory copy of the
+// CP read pointer (lwz rX,10384(r31) in both loops).
+constexpr uint32_t kDeviceRptrPointer = 10384;
+
+std::atomic<uint32_t>* RptrSequence() {
+  static std::atomic<uint32_t>* const sequence = []() -> std::atomic<uint32_t>* {
+    const char* off = std::getenv("NFSMW_RING_WAIT");
+    if (off && std::strcmp(off, "0") == 0) {
+      return nullptr;
+    }
+    // The plugin is in the same Frameworks/ folder; RTLD_NOLOAD finds it by
+    // name only if the SDK has already loaded it, which it has by the time the
+    // game draws.
+    void* plugin = dlopen("@rpath/librexgpu-xenos.dylib", RTLD_NOW | RTLD_NOLOAD);
+    return plugin ? static_cast<std::atomic<uint32_t>*>(dlsym(plugin, "nfsmw_cp_rptr_seq"))
+                  : nullptr;
+  }();
+  return sequence;
+}
+
+}  // namespace
+
+extern "C" REX_FUNC(sub_825A5D18) {
+  const uint32_t ret = uint32_t(ctx.lr);
+  if (ret == kRingWaitReturn1 || ret == kRingWaitReturn2) {
+    if (std::atomic<uint32_t>* sequence = RptrSequence()) {
+      // The sequence first, then the pointer: if the CP publishes in between,
+      // the sequence has already changed and the wait returns at once.
+      const uint32_t before = sequence->load(std::memory_order_acquire);
+      // r3 points to the watchdog state: { device, tick, pointer seen }.
+      const uint32_t state = ctx.r3.u32;
+      const uint32_t device = REX_LOAD_U32(state + 0);
+      const uint32_t seen = REX_LOAD_U32(state + 8);
+      const uint32_t rptr = REX_LOAD_U32(REX_LOAD_U32(device + kDeviceRptrPointer));
+      if (rptr == seen) {
+        os_sync_wait_on_address_with_timeout(sequence, before, sizeof(uint32_t),
+                                             OS_SYNC_WAIT_ON_ADDRESS_NONE,
+                                             OS_CLOCK_MACH_ABSOLUTE_TIME, 1000000);  // 1 ms
+      }
+    }
+  }
+  __imp__sub_825A5D18(ctx, base);
+}
+
+namespace {
+
+// The global byte that turns post-processing on (lis r11,-32113 + 18610).
+constexpr uint32_t kPostProcessingOn = 0x828F48B2;
+
+template <void (*kOriginal)(PPCContext&, uint8_t*)>
+void WithoutPostProcessing(PPCContext& __restrict ctx, uint8_t* base) {
+  if (!REXCVAR_GET(nfsmw_sin_posprocesado)) {
+    kOriginal(ctx, base);
+    return;
+  }
+  const uint8_t before = REX_LOAD_U8(kPostProcessingOn);
+  REX_STORE_U8(kPostProcessingOn, 0);
+  kOriginal(ctx, base);
+  REX_STORE_U8(kPostProcessingOn, before);
+}
+
+}  // namespace
+
+extern "C" REX_FUNC(sub_822246F0) {
+  WithoutPostProcessing<__imp__sub_822246F0>(ctx, base);
+}
+
+extern "C" REX_FUNC(sub_82224380) {
+  WithoutPostProcessing<__imp__sub_82224380>(ctx, base);
+}

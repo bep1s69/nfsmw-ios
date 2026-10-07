@@ -1,0 +1,274 @@
+# ============================================================================
+#  NFSMW Recomp - declaraciones manuales para el codegen
+#
+#  Incluido desde nfsmw_manifest.toml via includes = ["overrides.toml"].
+#  Los archivos incluidos usan el esquema PLANO (secciones en la raiz), no el
+#  anidado bajo [entrypoint] del manifest.
+#
+#  Rango valido de direcciones: 0x82000000 - 0x82CD0000
+#  (image base 0x82000000 + 13,434,880 bytes de imagen)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+#  FUNCIONES DECLARADAS A MANO
+#
+#  Clave = direccion de inicio (hex, entre comillas).
+#  Campos, todos opcionales:
+#    name             nombre del simbolo (por defecto: sub_XXXXXXXX)
+#    size             tamano en bytes        \ excluyentes entre si
+#    end              direccion final        /
+#    parent           direccion de la funcion padre (fragmento discontinuo)
+#    share_registers  el fragmento comparte los registros del padre
+#
+#  Sin size ni end, el analizador descubre los limites el solo a partir de la
+#  direccion. Es lo que queremos cuando solo hay que decirle "aqui empieza una
+#  funcion".
+# ----------------------------------------------------------------------------
+# --- RENDIMIENTO: claves de raiz (tools/rendimiento.py) ---
+#
+# VA AQUI ARRIBA A PROPOSITO. En TOML una clave suelta pertenece a la
+# ultima tabla abierta, y mas abajo se abre [functions]. Escrito al final
+# del fichero, cr_as_local caeria dentro de [functions], el codegen no lo
+# leeria y no diria nada: una hora de compilacion para cero cambios.
+#
+# Lo escribe y lo borra tools/rendimiento.py. No editar a mano.
+
+# Registros de condicion como variables locales en vez de campos del
+# contexto, para que el compilador los tenga en registros de verdad.
+cr_as_local = true
+
+# xer_as_local y ctr_as_local SE PROBARON Y SE REVIRTIERON (2026-09-17).
+#
+# Con las dos activas el juego se colgaba de forma determinista, siempre en
+# el mismo punto: justo al arrancar en bloque los hilos guest que cargan la
+# primera pista (L2RA_Sunset), con exit code -1073741681 (0xC0000135) y sin
+# ni un [error]/[fatal] antes en el log -exactamente el patron de un salto
+# indirecto (bctr) aterrizando en direccion basura, no el de una DLL que
+# falte-. Reproducido igual en dos maquinas distintas.
+#
+# SOSPECHA: ctr_as_local convierte CTR de campo del contexto por-hilo a
+# variable local de cada funcion generada. bctr/bctrl -saltos indirectos,
+# tablas de switch, vtables- LEEN ese CTR para decidir a donde saltar. Si
+# algun codigo generado espera que CTR sobreviva entre llamadas a otras
+# funciones recompiladas -o a traves de un limite setjmp/longjmp, que este
+# proyecto SI usa (ver setjmp/longjmp mas abajo)-, la version local se queda
+# desincronizada del valor real y el salto indirecto aterriza en cualquier
+# sitio. xer_as_local se revirtio a la vez por prudencia, no porque haya
+# evidencia propia contra el: no hubo tiempo de aislar cual de las dos era
+# la culpable por separado.
+#
+# NO reactivar sin, antes: (a) probarlas por separado -primero xer solo,
+# reconstruir, jugar una sesion larga; luego ctr solo- y (b) revisar si el
+# codegen de ReXGlue hace write-back de CTR al contexto antes de cada
+# llamada/salto entre funciones cuando ctr_as_local esta activo. Si no lo
+# hace, es un bug del codegen y no algo que se pueda arreglar desde aqui.
+# xer_as_local = true
+# ctr_as_local = true
+
+# --- fin RENDIMIENTO raiz ---
+
+[functions]
+
+# Dos tail calls (b, salto incondicional) apuntan aqui desde 0x8286931C y
+# 0x82866664, pero el descubrimiento automatico nunca creo una funcion en esta
+# direccion. Resultado: la fase Validate falla con
+#   UnresolvedCall: 0x8285CE80 - target not in any function
+# Declararla como punto de entrada basta; los limites los deduce Discover.
+"0x8285CE80" = { }
+
+# Hueco de 104 bytes tras el final de sub_824EDE88 (que acaba en 0x824EDEA8)
+# y antes de la siguiente funcion en 0x824EDF10. Ahi dentro hay codigo real:
+# la fase Write avisaba de dos saltos condicionales sin resolver,
+#   0x824EDEB0 -> 0x824EDED4   y   0x824EDEC0 -> 0x824EDECC
+# porque el origen estaba en tierra de nadie. Declarando el inicio, Discover
+# reclama el bloque entero y los saltos pasan a ser internos.
+"0x824EDEB0" = { }
+
+# EL QUE ROMPIA EL ARRANQUE:
+#   [FATAL] Call to invalid or unregistered function at guest address 0x826BE258
+# sub_826BE1B0 es memcpy (bucle byte a byte + camino rapido por palabras) y
+# termina justo en 0x826BE258. Entre ese final y la siguiente funcion, en
+# 0x826BE260, quedan 8 bytes sin reclamar que alguien llama de forma INDIRECTA
+# -por eso la fase Validate no protesto: solo verifica saltos directos b/bl-.
+"0x826BE258" = { }
+
+# Mismo patron, siguiente crash:
+#   [FATAL] Call to invalid or unregistered function at guest address 0x8215FEA8
+# Hueco de 8 bytes entre el final de sub_8215FE90 y la funcion en 0x8215FEB0,
+# en una zona plagada de funciones de 8 y 16 bytes (tabla de thunks).
+"0x8215FEA8" = { }
+
+# Unica direccion que aparecio en el sondeo completo (REXGLUE_SURVEY=1), con el
+# juego ya corriendo su bucle principal y alimentando audio. Es decir: con esta,
+# no queda ninguna llamada indirecta sin resolver conocida.
+"0x8285CB90" = { }
+
+# Aparecio ya CON graficos, en la pantalla de carga. El sondeo anterior no la
+# vio porque, con el estado corrupto por las funciones omitidas, el juego nunca
+# llegaba tan lejos. Cada vez que el juego alcanza codigo nuevo pueden salir
+# mas: son destinos de llamada indirecta, invisibles al analisis estatico.
+"0x8220C090" = { }
+
+# En la misma vecindad que 0x8285CE80, cuyos llamadores estaban en 0x8286931C
+# y 0x82866664. Toda la zona 0x8285xxxx-0x8286xxxx parece una tabla de thunks.
+"0x82869668" = { }
+
+# 0x8262E768 - RETIRADA. No declarar. La explicacion completa, porque el
+# error volvera a aparecer si alguien prueba la build con otra ISO:
+#
+#   [error] XThread::Execute - No function registered at 8262E768
+#
+# Ese mensaje NO significaba que faltara una funcion. 0x8262E768 era el PUNTO
+# DE ENTRADA DEL EJECUTABLE de una version del juego DISTINTA a la nuestra.
+# El runtime lee esa direccion de la cabecera del XEX que hay dentro de la
+# ISO, asi que cada region tiene la suya. En nuestro XEX la entrada esta en
+# 0x8262E960; la del amigo que reportaba el crash, en 0x8262E768.
+#
+# Declararla aqui hacia dos danos:
+#   1. Convertia un mensaje que senalaba el problema real -ISO equivocada- en
+#      un crash mudo por lectura de la direccion 0.
+#   2. Partia en dos la funcion 0x8262E708..0x8262E7B0, que es una funcion
+#      sana de NUESTRA build. De ahi salia el aviso del codegen
+#      "Unresolved conditional branch to 0x8262E728 from 0x8262E7A4".
+#
+# COMO RECONOCERLO OTRA VEZ: si "No function registered at X" sale con X = el
+# start_address del hilo PRINCIPAL, no es una funcion que falte. Es que la ISO
+# no es la version con la que se compilo. Comparar esa direccion con la
+# entrada de nuestro XEX lo resuelve en un minuto.
+
+# Cinematica in-game del prologo:
+#   [FATAL] Call to invalid or unregistered function at guest address 0x8212F670
+# Otro destino de llamada indirecta, invisible al analisis estatico. Aparecio
+# solo cuando el arreglo de coma flotante dejo al juego llegar hasta aqui: cada
+# tramo nuevo que el juego alcanza puede destapar mas.
+"0x8212F670" = { }
+
+# Siguen apareciendo en la misma cinematica del prologo, una por ejecucion.
+# Es el patron de siempre: destinos de llamada indirecta invisibles al
+# analisis estatico, que solo se destapan cuando el juego pisa ese camino.
+# 0x824B1640 salio con la build Release, 0x823EB808 con la Debug: son
+# caminos distintos del mismo tramo, no una diferencia entre builds.
+"0x824B1640" = { }
+"0x823EB808" = { }
+
+# ----------------------------------------------------------------------------
+#  TABLAS DE SALTO
+#
+#    address   direccion de la instruccion bctr que despacha
+#    register  numero de GPR con el indice
+#    labels    destinos EN ORDEN DE INDICE (labels[0] = indice 0)
+#
+#  Equivocar el orden no da error de compilacion: da crashes aleatorios.
+# ----------------------------------------------------------------------------
+# [[switch_tables]]
+# address  = 0x82000000
+# register = 11
+# labels   = [0x82000000, 0x82000000]
+
+# ----------------------------------------------------------------------------
+#  REGIONES DE DATOS EN .text
+#    data  patron de 32 bits a marcar como "no codigo"
+#    size  bytes de la region que empieza en cada instancia del patron
+# ----------------------------------------------------------------------------
+# [[invalid_instructions]]
+# data = 0x00000000
+# size = 16
+
+# ----------------------------------------------------------------------------
+#  MID-ASM HOOKS
+#  Interceptar una instruccion concreta sin reescribir la funcion. Es la
+#  herramienta para parches (disc check, framerate, resolucion) sin tocar el
+#  binario original.
+#
+#    address            instruccion PPC a enganchar
+#    name               funcion C++ a llamar
+#    registers          lista de registros pasados como PPCRegister&
+#    after_instruction  false = antes de ejecutarla; true = despues
+#    return / jump_address                    control de flujo incondicional
+#    return_on_true / return_on_false         segun lo que devuelva el hook
+#    jump_address_on_true / _on_false
+# ----------------------------------------------------------------------------
+# [[midasm_hook]]
+# address        = 0x82000000
+# name           = "MiHook"
+# registers      = ["r3"]
+# return_on_true = true
+
+# ----------------------------------------------------------------------------
+#  PISTAS DE LLAMADAS INDIRECTAS
+#  Direcciones que sabemos que son destino de un call indirecto y que el
+#  analisis no dedujo. (No documentado en la wiki.)
+# ----------------------------------------------------------------------------
+# indirect_calls = [0x82000000]
+
+# ----------------------------------------------------------------------------
+#  setjmp / longjmp
+#  Sin esto, los saltos no locales corrompen el contexto del hilo y el crash
+#  aparece muy lejos de la causa. Localizarlos en el desensamblado:
+#    setjmp  guarda r14-r31 + LR + CR + SP en el buffer de r3 y retorna 0
+#    longjmp restaura ese buffer y termina en mtctr/bctr
+# ----------------------------------------------------------------------------
+# setjmp_address  = 0x82000000
+# longjmp_address = 0x82000000
+
+# ----------------------------------------------------------------------------
+#  CALIDAD DEL CODIGO GENERADO
+#  Todas empiezan en false. Activarlas SOLO cuando el juego ya arranque: cambian
+#  el codegen y pueden enmascarar bugs reales del runtime.
+#  Orden sugerido: cr_as_local (el que mas rinde en codigo con muchos branches),
+#  luego xer, ctr, non_volatile, skip_lr.
+# ----------------------------------------------------------------------------
+# skip_lr                      = false
+# skip_msr                     = false
+# ctr_as_local                 = false
+# xer_as_local                 = false
+# cr_as_local                  = false
+# reserved_as_local            = false
+# non_argument_as_local        = false
+# non_volatile_as_local        = false
+# generate_exception_handlers  = false   # ojo: la wiki lo llama enable_*, es generate_*
+
+# ----------------------------------------------------------------------------
+#  AJUSTE DEL ANALISIS
+# ----------------------------------------------------------------------------
+# [analysis]
+# max_jump_extension       = 65536
+# data_region_threshold    = 16       # bajar a 8 si hay muchos falsos "invalid instruction"
+# large_function_threshold = 1048576
+# exception_handler_funcs  = []
+
+# ----------------------------------------------------------------------------
+#  ReXCRT - mapear funciones del CRT del guest a implementaciones nativas.
+#  Gran ganancia: en vez de ejecutar el memcpy recompilado instruccion por
+#  instruccion, se llama al del host. El grupo de heap es todo-o-nada.
+# ----------------------------------------------------------------------------
+# HALLAZGO: memcpy del juego identificado en 0x826BE1B0 (leyendo el C++
+# generado: bucle byte a byte, camino rapido por palabras, manejo de
+# desalineados, r3 intacto como valor de retorno). Mapearlo aqui sustituye el
+# bucle recompilado por el memcpy del host: ganancia grande, porque memcpy es
+# de lo mas caliente en cualquier juego.
+# NO activarlo todavia. Primero que arranque; una variable cada vez.
+# [rexcrt]
+# memcpy = 0x826BE1B0
+#
+# [rexcrt]
+# RtlAllocateHeap   = 0x82000000
+# RtlFreeHeap       = 0x82000000
+# RtlSizeHeap       = 0x82000000
+# RtlReAllocateHeap = 0x82000000
+# memcpy            = 0x82000000
+# memset            = 0x82000000
+
+# --- RENDIMIENTO: rexcrt (tools/rendimiento.py) ---
+#
+# El memcpy del juego, sustituido por el del host.
+# sub_826BE1B0 identificado leyendo el C++ generado: copia solo hacia
+# delante, sin deteccion de solape, r3 intacto como retorno. Es memcpy,
+# no memmove, asi que std::memcpy es equivalente.
+#
+# Lo escribe y lo borra tools/rendimiento.py. No editar a mano.
+
+[rexcrt]
+memcpy = 0x826BE1B0
+
+# --- fin RENDIMIENTO rexcrt ---

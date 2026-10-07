@@ -1,0 +1,50 @@
+# =============================================================================
+#  NEVER committed: the game, and anything derived from it
+#
+#  The generated C++ is the game's code, translated. The built app contains
+#  it. Logs, captures and memory dumps contain game data. None of it may
+#  ever be published. See "Legal" in README.md.
+# =============================================================================
+
+# --- The game's files ---------------------------------------------------------
+assets/
+*.iso
+*.xex
+*.xexp
+*.pe
+*.big
+*.bun
+*.viv
+*.bin
+default.xex
+
+# --- The code generator's output (the game's code, translated) ---------------
+generated/
+ios/generated/
+
+# --- Builds (the app contains the translated game code) -----------------------
+build/
+ios/build/
+out/
+*.ipa
+*.app/
+*.dSYM/
+*.dylib
+CMakeUserPresets.json
+
+# --- Logs, captures, traces, dumps ----------------------------------------------
+logs/
+*.log
+*.gputrace
+*.trace
+*.xml
+captures/
+image.bin
+*_image.bin
+
+# --- Local and system files -----------------------------------------------------
+.DS_Store
+__pycache__/
+*.pyc
+.vscode/
+.idea/

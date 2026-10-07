@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  NFSMW Recompiled - the iOS app's Info.plist (filled in by ios/CMakeLists.txt).
+
+  UIFileSharingEnabled + LSSupportsOpeningDocumentsInPlace: the app's
+  Documents/ folder shows up in the Files app ("On My iPhone") and in Finder
+  with the device connected. The log (Documents/logs/nfsmw.log) and the probe
+  report end up there, and that is where the ISO goes.
+
+  An empty UILaunchScreen: with no launch screen declared, iOS runs the app in
+  compatibility mode, at an old iPhone resolution with bars.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>@NFSMW_DISPLAY_NAME@</string>
+	<key>CFBundleExecutable</key>
+	<string>@NFSMW_EXECUTABLE@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@NFSMW_BUNDLE_ID@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>@NFSMW_DISPLAY_NAME@</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@NFSMW_VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@NFSMW_VERSION_CODE@</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>iPhoneOS</string>
+	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>MinimumOSVersion</key>
+	<string>@NFSMW_IOS_MIN@</string>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+		<string>metal</string>
+	</array>
+
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.racing-games</string>
+	<key>GCSupportsGameMode</key>
+	<true/>
+	<key>GCSupportsControllerUserInteraction</key>
+	<true/>
+	<key>GCSupportedGameControllers</key>
+	<array>
+		<dict>
+			<key>ProfileName</key>
+			<string>ExtendedGamepad</string>
+		</dict>
+	</array>
+
+	<!-- The app icon (resources/Assets.xcassets, compiled by actool into
+	     Assets.car and the AppIcon*.png files; ios/CMakeLists.txt). These are
+	     the keys actool itself generates for a single-size icon. -->
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon60x60</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+		</dict>
+	</dict>
+	<key>CFBundleIcons~ipad</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon60x60</string>
+				<string>AppIcon76x76</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+		</dict>
+	</dict>
+
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+
+	<key>UILaunchScreen</key>
+	<dict/>
+	<!-- Metal GPU frame captures to a file (src/gpu_capture.mm), outside LiveContainer.
+	     Inside it, MTL_CAPTURE_ENABLED=1 (ios_main.mm) does the same. -->
+	<!-- iPhone: allow ProMotion's 120 Hz (the 40 and 120 fps caps). iPads allow it already. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>MetalCaptureEnabled</key>
+	<true/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,25 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "ios",
+            "displayName": "iOS arm64 (iOS 26+)",
+            "generator": "Ninja",
+            "binaryDir": "$env{HOME}/Library/Caches/nfsmw-ios/build",
+            "cacheVariables": {
+                "CMAKE_SYSTEM_NAME": "iOS",
+                "CMAKE_OSX_SYSROOT": "iphoneos",
+                "CMAKE_OSX_ARCHITECTURES": "arm64",
+                "CMAKE_OSX_DEPLOYMENT_TARGET": "26.0",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "ios",
+            "configurePreset": "ios",
+            "targets": ["nfsmw_package"]
+        }
+    ]
+}
