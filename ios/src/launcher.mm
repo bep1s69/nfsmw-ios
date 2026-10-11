@@ -342,7 +342,16 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--present_effect=" + str(@"scaling"));
   a.push_back("--nfsmw_sin_posprocesado=" + b(!On(s, @"postprocessing")));
   a.push_back("--anisotropic_override=" + str(@"anisotropic"));
-  a.push_back("--resolution_scale=" + str(@"scale"));
+  // With the native renderer the scale is its own: the emulated renderer only
+  // draws what the native one does not (videos) and stays at 1x. Scaled, it
+  // allocates its scaled resolve buffer whole (512 MB x scale^2: MoltenVK has
+  // no sparse buffers), 2 GB at 2x that nothing used.
+  if (On(s, @"native_renderer")) {
+    a.push_back("--resolution_scale=1");
+    a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
+  } else {
+    a.push_back("--resolution_scale=" + str(@"scale"));
+  }
   a.push_back("--ios_thread_qos=" + b(On(s, @"thread_qos")));
   a.push_back("--ios_async_submits=" + b(On(s, @"async_submits")));
   // The single pass is the game's mode without anti-aliasing: not with MSAA.

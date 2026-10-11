@@ -44,6 +44,7 @@
 
 #include "boot_trace.h"
 #include "launcher.h"
+#include "memory_report.h"
 #include "probe.h"
 
 #if NFSMW_WITH_GAME
@@ -214,6 +215,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               " (MoltenVK submissions {}, MoltenVK profiling {})",
               REXCVAR_GET(ios_async_submits) ? "asynchronous" : "synchronous",
               REXCVAR_GET(ios_mvk_performance) ? "on" : "off");
+  nfsmw::memory::Report("log open");
   boot::Trace("game: initializing the SDL context");
 
   rex::ui::SDLWindowedAppContext context;
@@ -233,9 +235,12 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   }
   app->SetParsedArguments(std::move(options));
 
+  nfsmw::memory::Report("SDL ready");
   boot::Trace("game: OnInitialize (paths, log, GPU plugin, runtime, XEX)");
   rex::FlushLogging();
   const bool initialized = app->OnInitialize();
+  nfsmw::memory::Report("runtime, GPU and XEX loaded");
+  nfsmw::memory::StartPeriodicReports(10);
   boot::Trace(initialized ? "game: OnInitialize done, entering the main loop"
                           : "game: OnInitialize FAILED (reason in nfsmw.log)");
   rex::FlushLogging();

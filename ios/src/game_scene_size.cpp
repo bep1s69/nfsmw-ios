@@ -73,6 +73,15 @@ REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
                     "4:3 (SD) scene at 960x720 without MSAA instead of 640x480 with 2x MSAA "
                     "(experimental)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+// The HUD's title-safe shrink (sub_82440D80): the 360 draws the HUD smaller,
+// about the middle of the screen, to stay inside a TV's safe area: in SD by
+// 576/640 x 448/480, in HD by the constant at kHdSafeScale. A phone or tablet
+// shows the whole picture, and the PS2 version draws its HUD at full size
+// (its margins measured at 4:3: ours were 0.9 x 0.933 of them). Off: as the
+// PS2's, in SD (4:3) only: in HD (16:9 and wider, 0.92) the full-size HUD
+// came too close to the edges of a 19.5:9 iPhone.
+REXCVAR_DEFINE_BOOL(nfsmw_hud_title_safe, false, "Game",
+                    "Shrink the HUD into the TV title-safe area like the Xbox 360 (off: full size, like the PS2)");
 REXCVAR_DEFINE_INT32(nfsmw_wide_scene_width, 0, "Game",
                      "Scene width for video modes wider than 16:9 (e.g. 1560 for 19.5:9); 0 = "
                      "the game's 1280 (experimental)")
@@ -90,6 +99,12 @@ namespace {
 constexpr uint32_t kWidth = 960;
 constexpr uint32_t kHeight = 720;
 constexpr uint32_t kRenderSize = 0x82A2CF68;
+// sub_82440D80's constants: SD 576 and 448 (the safe area in pixels), HD the
+// safe scale (x and y), then x's 4:3/16:9.
+constexpr uint32_t kSdSafeWidth = 0x820B0660;
+constexpr uint32_t kSdSafeHeight = 0x820B065C;
+constexpr uint32_t kHdSafeScale = 0x820B0664;
+constexpr uint32_t kHdAspect = 0x82062DC4;
 
 // The wide scene's width, or 0. Only wider than 1280 and up to 1600 (EDRAM).
 float LoadF(uint8_t* base, uint32_t address) {
@@ -207,17 +222,47 @@ extern "C" REX_FUNC(sub_82440D80) {
   }
 }
 
+// The HUD's safe-area scale (x, y) in the matrix sub_82440D80 is making:
+// SD 576/width x 448/height of the pair it read, HD the constant. 1 when the
+// values are not the expected ones (left as they are).
+void HudSafeScale(uint8_t* base, float& x, float& y) {
+  x = y = 1.0f;
+  const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;  // the branch sub_82440D80 takes
+  if (hd) {
+    const float k = LoadF(base, kHdSafeScale);
+    if (k > 0.75f && k < 1.0f) x = y = k;
+  } else {
+    const float w = float(REX_LOAD_U32(kRenderSize + 8)), h = float(REX_LOAD_U32(kRenderSize + 12));
+    const float sw = LoadF(base, kSdSafeWidth), sh = LoadF(base, kSdSafeHeight);
+    if (w > 0 && h > 0 && sw > 0.75f * w && sw < w && sh > 0.75f * h && sh < h) {
+      x = sw / w;
+      y = sh / h;
+    }
+  }
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[hud] {} title-safe scale {:.3f} x {:.3f} (HD constant {:.3f}, aspect {:.3f}; SD {:.0f}x{:.0f}): {}",
+                hd ? "HD" : "SD", x, y, LoadF(base, kHdSafeScale), LoadF(base, kHdAspect),
+                LoadF(base, kSdSafeWidth), LoadF(base, kSdSafeHeight),
+                REXCVAR_GET(nfsmw_hud_title_safe) || hd ? "kept" : "removed");
+  }
+  if (hd) x = y = 1.0f;  // kept in HD (see nfsmw_hud_title_safe)
+}
+
 extern "C" REX_FUNC(sub_82453768) {
-  const uint32_t width = WideWidth();
-  if (g_hud_matrix && width && ctx.r4.u32) {
+  if (g_hud_matrix && ctx.r4.u32) {
     const uint32_t m = ctx.r4.u32;
-    float sx;
-    const uint32_t bits = REX_LOAD_U32(m);
-    std::memcpy(&sx, &bits, sizeof(sx));
-    sx *= 1280.0f / float(width);
-    uint32_t out;
-    std::memcpy(&out, &sx, sizeof(out));
-    REX_STORE_U32(m, out);
+    float sx = LoadF(base, m), sy = LoadF(base, m + 20);
+    if (const uint32_t width = WideWidth()) sx *= 1280.0f / float(width);
+    float safe_x, safe_y;
+    HudSafeScale(base, safe_x, safe_y);
+    if (!REXCVAR_GET(nfsmw_hud_title_safe)) {
+      sx /= safe_x;
+      sy /= safe_y;
+    }
+    StoreF(base, m, sx);
+    StoreF(base, m + 20, sy);
   }
   __imp__sub_82453768(ctx, base);
 }

@@ -38,6 +38,7 @@
 #include <mach/task_info.h>
 
 #include <algorithm>
+#include <deque>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -60,6 +61,7 @@
 #include <rex/system/xmemory.h>
 
 #include "native_renderer.h"
+#include "memory_report.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -138,8 +140,19 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_present, false, "GPU",
 
 namespace xenos = rex::graphics::xenos;
 
+// The native renderer's own scale: the launcher sets the emulated renderer's
+// resolution_scale to 1 while this one shows the game.
+// Experiment (did not help, off): above 1x, split a pass after this many
+// indices, for the race's first-seconds stalls at 2x (none at 1x), in case
+// the scene pass overflowed the GPU's tiler memory. The split pieces stalled
+// the same, as did 340-draw loading frames.
+REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
+                     "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
+REXCVAR_DEFINE_INT32(nfsmw_native_resolution_scale, 1, "GPU",
+                     "Native renderer: internal resolution scale (1 = the console's)");
+
 uint32_t NativeResolutionScale() {
-  static const uint32_t scale = uint32_t(std::clamp(rex::cvar::Query<int32_t>("resolution_scale"), 1, 8));
+  static const uint32_t scale = uint32_t(std::clamp(REXCVAR_GET(nfsmw_native_resolution_scale), 1, 8));
   return scale;
 }
 
@@ -383,6 +396,62 @@ struct Attribute {
   bool fresh = false;  // decoded this frame: uploaded with the frame, not kept
 };
 
+// --- Residency ---------------------------------------------------------------------
+//
+// The renderer's long-lived GPU memory (targets, the pool, the texture cache's
+// Metal copies, vertex buffers) in one residency set on the queue: resident
+// once. Without it the driver wired every resource a frame used when the
+// frame ran and unwired it after (about 1,000 a second, 15% of a core); in
+// the race's first seconds a wire of a 2x target took up to 6 ms, and the GPU
+// waited for each in the middle of the frame (50-150 ms frames).
+// Additions and removals come from any thread; the renderer's queue applies
+// them before each frame. A removal keeps the object until then.
+namespace residency {
+std::mutex mutex;
+std::vector<id<MTLAllocation>> adds, removes;
+
+void Add(id<MTLAllocation> a) {
+  if (!a) return;
+  std::lock_guard<std::mutex> lock(mutex);
+  adds.push_back(a);
+}
+
+void Remove(id<MTLAllocation> a) {
+  if (!a) return;
+  std::lock_guard<std::mutex> lock(mutex);
+  removes.push_back(a);
+}
+
+// The renderer's queue, before encoding a frame.
+void Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
+  static id<MTLResidencySet> set = nil;
+  if (!set) {
+    MTLResidencySetDescriptor* d = [MTLResidencySetDescriptor new];
+    d.label = @"nfsmw native";
+    d.initialCapacity = 4096;
+    NSError* error = nil;
+    set = [device newResidencySetWithDescriptor:d error:&error];
+    if (!set) {
+      REXLOG_WARN("[native] no residency set: {}", error ? error.localizedDescription.UTF8String : "?");
+      return;
+    }
+    [queue addResidencySet:set];
+    REXLOG_INFO("[native] resources kept resident in a residency set");
+  }
+  std::vector<id<MTLAllocation>> add, remove;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    add.swap(adds);
+    remove.swap(removes);
+  }
+  if (add.empty() && remove.empty()) return;
+  if (!add.empty()) [set addAllocations:add.data() count:add.size()];
+  if (!remove.empty()) [set removeAllocations:remove.data() count:remove.size()];
+  [set commit];
+  [set requestResidency];
+}
+}  // namespace residency
+
 // The Metal copy of a decoded texture: made by the renderer at its first
 // use, released with the texture (the cache entries own both). Counted for
 // the memory log.
@@ -399,6 +468,7 @@ struct GpuCopy {
   GpuCopy& operator=(const GpuCopy&) = delete;
   ~GpuCopy() {
     if (texture) {
+      residency::Remove(texture);
       --gpu_texture_count;
       gpu_texture_bytes -= int64_t(bytes);
     }
@@ -523,6 +593,10 @@ struct Frame {
   std::set<uint32_t> resolved_so_far;  // resolve destinations recorded so far
   std::vector<std::pair<size_t, std::string>> notes;  // first problems
   VertexDiagnostics vertex_diagnostics;
+  // For the hitch log: the recording's time and the textures decoded in it.
+  uint64_t record_us = 0;
+  uint32_t textures_decoded = 0;
+  uint64_t texture_decode_bytes = 0, texture_decode_us = 0;
 };
 
 std::unique_ptr<Frame> recording;
@@ -551,6 +625,11 @@ uint64_t frame_counter = 0;
 
 // Timing, logged every 300 native frames.
 std::atomic<uint64_t> record_us{0}, render_us{0}, presented{0};
+// For the hitch log (the renderer's queue only): this frame's texture uploads.
+uint32_t frame_uploads = 0, frame_new_buffers = 0;
+uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
+// Hitch lines left to log (frames much slower than the ones around them).
+std::atomic<int> hitch_lines_left{300};
 // Parts of the recording (game thread): vertex inputs, then constants and
 // textures.
 std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
@@ -1150,6 +1229,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     frame.texture_index[key] = index;
     return index;
   }
+  const auto decode_start = std::chrono::steady_clock::now();
   for (uint32_t face = 0; face < layers; ++face) {
   const uint8_t* base = texture_base + (volume ? (t.tiled ? 0 : face * linear_slice) : size_t(face) * face_stride);
   for (uint32_t by = 0; by < bh; ++by) {
@@ -1179,6 +1259,10 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     }
   }
   }
+  ++frame.textures_decoded;
+  frame.texture_decode_bytes += tex.data.size();
+  frame.texture_decode_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                          std::chrono::steady_clock::now() - decode_start).count());
   const uint32_t sw = t.swizzle;
   tex.swizzle = MTLTextureSwizzleChannelsMake(SwizzleOf(sw), SwizzleOf(sw >> 3), SwizzleOf(sw >> 6),
                                               SwizzleOf(sw >> 9));
@@ -1732,6 +1816,121 @@ struct KeptResolve {
   uint32_t scale;  // its source target's resolution scale
 };
 std::unordered_map<uint32_t, KeptResolve> kept_resolves;
+
+// --- Recycled GPU memory (the renderer's queue) ------------------------------------
+//
+// Made anew every frame, the frame's buffers and resolve textures (some the
+// size of the 2x screen, 17 MiB) cost the driver a wire and an unwire each:
+// 4 GB a second at 2x. While iOS is short of free memory (the race loading
+// and its first seconds, when it compresses the app's memory) every one
+// waited for pages, and the GPU sat idle in the middle of frames: 50-150 ms
+// frames. They are reused instead, back in the pool once the last frame that
+// may use them is done on the GPU (frames complete in order on one queue).
+std::atomic<uint32_t> gpu_frames_done{0};
+
+void FrameDoneOnGpu(uint32_t number) {
+  uint32_t done = gpu_frames_done.load();
+  while (number > done && !gpu_frames_done.compare_exchange_weak(done, number)) {
+  }
+}
+
+struct GpuPool {
+  struct Retired {
+    id object;
+    std::string key;
+    uint32_t after;  // reusable once this frame is done
+  };
+  struct Free {
+    id object;
+    uint32_t since;  // the frame it was freed at
+  };
+  std::unordered_map<std::string, std::vector<Free>> free;
+  std::deque<Retired> retired;
+  std::unordered_map<const void*, std::string> keys;  // the pool's objects
+  uint32_t made = 0, reused = 0;
+
+  void Reclaim(uint32_t now) {
+    const uint32_t done = gpu_frames_done.load();
+    while (!retired.empty() && retired.front().after <= done) {
+      free[retired.front().key].push_back({retired.front().object, now});
+      retired.pop_front();
+    }
+    // Unused for 10 s or so: released (a scene that needed more).
+    if ((now & 63) == 0) {
+      for (auto it = free.begin(); it != free.end();) {
+        auto& list = it->second;
+        list.erase(std::remove_if(list.begin(), list.end(),
+                                  [&](const Free& f) {
+                                    if (now - f.since <= 600) return false;
+                                    keys.erase((__bridge const void*)f.object);
+                                    residency::Remove(f.object);
+                                    return true;
+                                  }),
+                   list.end());
+        it = list.empty() ? free.erase(it) : std::next(it);
+      }
+    }
+  }
+
+  id Take(const std::string& key) {
+    auto it = free.find(key);
+    if (it == free.end() || it->second.empty()) return nil;
+    id object = it->second.back().object;
+    it->second.pop_back();
+    ++reused;
+    return object;
+  }
+
+  void Add(id object, std::string key) {
+    keys[(__bridge const void*)object] = std::move(key);
+    residency::Add(object);
+    ++made;
+  }
+
+  // Back to the pool once frame `after` is done (objects not the pool's: dropped).
+  void Retire(id object, uint32_t after) {
+    if (!object) return;
+    auto it = keys.find((__bridge const void*)object);
+    if (it == keys.end()) return;
+    retired.push_back({object, it->second, after});
+  }
+
+  // Zeroed up to `length` like a new buffer (the texture heaps' unset slots
+  // must read as no texture: a stale ID of a released texture hangs the GPU).
+  id<MTLBuffer> Buffer(id<MTLDevice> device, size_t length, MTLResourceOptions options) {
+    size_t size = 4096;
+    while (size < length) size *= 2;
+    const std::string key = fmt::format("b {} {}", size, uint64_t(options));
+    id<MTLBuffer> b = Take(key);
+    if (!b) {
+      b = [device newBufferWithLength:size options:options];
+      Add(b, key);
+    } else if (b.contents) {
+      std::memset(b.contents, 0, length);
+    }
+    return b;
+  }
+
+  // `row`: a linear texture over a buffer of its own with this row pitch (0: none).
+  id<MTLTexture> Texture(id<MTLDevice> device, MTLTextureDescriptor* d, NSUInteger row = 0) {
+    const std::string key = fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(d.textureType), uint64_t(d.pixelFormat),
+                                        d.width, d.height, d.depth, uint64_t(d.usage), uint64_t(d.storageMode), row);
+    id<MTLTexture> t = Take(key);
+    if (!t) {
+      if (row) {
+        id<MTLBuffer> backing = [device newBufferWithLength:row * d.height
+                                                    options:MTLResourceOptions(d.storageMode) << MTLResourceStorageModeShift];
+        t = [backing newTextureWithDescriptor:d offset:0 bytesPerRow:row];
+      } else {
+        t = [device newTextureWithDescriptor:d];
+      }
+      if (!t) return nil;
+      Add(t, key);
+    }
+    return t;
+  }
+};
+GpuPool gpu_pool;
 std::unordered_map<const void*, GpuBuffer> gpu_buffers;
 std::map<uint32_t, id<MTLSamplerState>> gpu_samplers;
 uint64_t gpu_frame = 0;
@@ -1758,6 +1957,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   if (t.data.empty()) {
     return nil;  // not expected: uploaded textures keep their Metal copy
   }
+  const auto upload_start = std::chrono::steady_clock::now();
   MTLTextureDescriptor* desc = [MTLTextureDescriptor new];
   desc.pixelFormat = t.format;
   desc.width = t.width;
@@ -1791,8 +1991,13 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   }
   t.gpu.texture = tex;
   t.gpu.bytes = tex.allocatedSize;
+  residency::Add(tex);
   ++gpu_texture_count;
   gpu_texture_bytes += int64_t(t.gpu.bytes);
+  ++frame_uploads;
+  frame_upload_bytes += t.data.size();
+  frame_upload_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now() - upload_start).count());
   std::vector<uint8_t>().swap(t.data);  // the CPU copy is not needed any more
   return tex;
 }
@@ -1825,10 +2030,12 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<std::vect
   GpuBuffer& g = gpu_buffers[values.get()];
   g.last_used = gpu_frame;
   if (!g.buffer) {
+    ++frame_new_buffers;
     g.keep = values;
     g.buffer = [device newBufferWithBytes:values->data()
                                    length:std::max<size_t>(values->size() * 4, 16)
                                   options:MTLResourceStorageModeShared];
+    residency::Add(g.buffer);
   }
   return g.buffer;
 }
@@ -1837,7 +2044,12 @@ void SweepGpu() {
   if ((gpu_frame & 63) != 0) return;
 
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
-    it = gpu_frame - it->second.last_used > 600 ? gpu_buffers.erase(it) : std::next(it);
+    if (gpu_frame - it->second.last_used > 600) {
+      residency::Remove(it->second.buffer);
+      it = gpu_buffers.erase(it);
+    } else {
+      ++it;
+    }
   }
 }
 
@@ -1899,9 +2111,29 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                 std::chrono::steady_clock::now() - t0).count());
     }
   } render_timer{render_start};
+  gpu_pool.Reclaim(number);
+  // This frame's pooled buffers and textures: retired when it ends.
+  struct FrameResources {
+    uint32_t number;
+    std::vector<id> objects;
+    ~FrameResources() {
+      for (id o : objects) gpu_pool.Retire(o, number);
+    }
+  } frame_resources{number, {}};
+  auto pooled_buffer = [&](size_t length, MTLResourceOptions options) {
+    id<MTLBuffer> b = gpu_pool.Buffer(store.device, length, options);
+    frame_resources.objects.push_back(b);
+    return b;
+  };
+  frame_uploads = 0;
+  frame_new_buffers = 0;
+  frame_upload_bytes = 0;
+  frame_upload_us = 0;
+  double drawable_wait_ms = 0;
   @autoreleasepool {
     id<MTLDevice> device = store.device;
     static id<MTLCommandQueue> queue = [device newCommandQueue];
+    residency::Apply(device, queue);
     ++gpu_frame;
     SweepGpu();
 
@@ -1964,9 +2196,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
     auto heap = [&](NSArray* objects, bool are_samplers) {
       // Room for the textures resolves make while the frame is encoded.
-      id<MTLBuffer> b = [device newBufferWithLength:(std::max<NSUInteger>(objects.count, 1) + frame->resolves.size() * 4 +
-                                                     frame->textures.size() * 2) * 8
-                                            options:MTLResourceStorageModeShared];
+      id<MTLBuffer> b = pooled_buffer((std::max<NSUInteger>(objects.count, 1) + frame->resolves.size() * 4 +
+                                       frame->textures.size() * 2) * 8,
+                                      MTLResourceStorageModeShared);
       auto* ids = static_cast<MTLResourceID*>(b.contents);
       for (NSUInteger i = 0; i < objects.count; ++i) {
         ids[i] = are_samplers ? [(id<MTLSamplerState>)objects[i] gpuResourceID]
@@ -1994,15 +2226,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
       return tex;
     };
-    id<MTLTexture> dummy_array = dummy(MTLTextureType2DArray);
-    id<MTLTexture> dummy_volume = dummy(MTLTextureType3D);
-    id<MTLTexture> dummy_cube = dummy(MTLTextureTypeCube);
+    static id<MTLTexture> dummy_array = dummy(MTLTextureType2DArray);
+    static id<MTLTexture> dummy_volume = dummy(MTLTextureType3D);
+    static id<MTLTexture> dummy_cube = dummy(MTLTextureTypeCube);
+    static const bool dummies_resident = [] {
+      residency::Add(dummy_array);
+      residency::Add(dummy_volume);
+      residency::Add(dummy_cube);
+      return true;
+    }();
+    (void)dummies_resident;
     id<MTLBuffer> array_heap = heap(@[ dummy_array ], false);
     [volumes insertObject:dummy_volume atIndex:0];
     id<MTLBuffer> volume_heap = heap(volumes, false);
     [cubes insertObject:dummy_cube atIndex:0];
     id<MTLBuffer> cube_heap = heap(cubes, false);
-    id<MTLBuffer> zeros = [device newBufferWithLength:1 << 16 options:MTLResourceStorageModeShared];
+    static id<MTLBuffer> zeros = [device newBufferWithLength:1 << 16 options:MTLResourceStorageModeShared];
+    static const bool zeros_resident = (residency::Add(zeros), true);
+    (void)zeros_resident;
 
     // Per-draw data in one shared buffer: VS constants, PS constants, shared
     // constants, vertex attributes, indices.
@@ -2019,8 +2260,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (a.fresh && a.values) total += a.values->size() * 4 + 256;
       }
     }
-    id<MTLBuffer> data = [device newBufferWithLength:std::max<size_t>(total, 256)
-                                             options:MTLResourceStorageModeShared];
+    id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared);
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
     const std::vector<uint32_t>* uploaded_vs = nullptr;
@@ -2130,6 +2370,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           t.requested_sample_count == sample_counts[key]) {
         continue;  // the same target as the last frame's
       }
+      // Replaced (another size or format): the old ones leave the residency set.
+      if (t.multisample_color != t.color) residency::Remove(t.multisample_color);
+      if (t.multisample_depth != t.depth) residency::Remove(t.multisample_depth);
+      residency::Remove(t.color);
+      residency::Remove(t.depth);
       t.pitch = pitch;
       t.height = height;
       t.requested_sample_count = sample_counts[key];
@@ -2180,6 +2425,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         t.multisample_color = t.color;
         t.multisample_depth = t.depth;
       }
+      residency::Add(t.color);
+      residency::Add(t.depth);
+      if (t.multisample_color != t.color) residency::Add(t.multisample_color);
+      if (t.multisample_depth != t.depth) residency::Add(t.multisample_depth);
     }
 
     // A target starts the frame as the game's resolves clear it (they clear
@@ -2316,14 +2565,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
     id<MTLRenderCommandEncoder> enc = nil;
     std::string current;
+    size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
+    uint32_t pass_splits = 0;
+    const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
     std::map<std::string, std::pair<size_t, size_t>> groups;  // snapshot: draw groups of the pass (first draw, count)
     std::string group_target;
     __unsafe_unretained id<MTLRenderCommandEncoder> clip_mode_encoder = nil;  // the depth clip mode set on
     bool clip_mode_clamp = false;
-    // GPU profile (every 300th frame, not in snapshots): a timestamp at the
-    // start and end of each pass and blit; the log lists the costliest.
-    static id<MTLCounterSampleBuffer> profile_buffer = nil;
+    // GPU profile (every frame while hitches are logged, else every 300th; not
+    // in snapshots): a timestamp at the start and end of each pass and blit.
+    // The log lists the costliest of every 300th frame and of slow frames.
+    // One sample buffer per frame in flight.
+    constexpr int kProfileBuffers = 4;
+    static id<MTLCounterSampleBuffer> profile_buffers[kProfileBuffers] = {};
     static bool profile_checked = false;
     static MTLTimestamp profile_cpu0 = 0, profile_gpu0 = 0;
     if (!profile_checked) {
@@ -2335,13 +2590,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           sd.counterSet = set;
           sd.sampleCount = 512;
           sd.storageMode = MTLStorageModeShared;
-          profile_buffer = [device newCounterSampleBufferWithDescriptor:sd error:nil];
+          for (auto& b : profile_buffers) b = [device newCounterSampleBufferWithDescriptor:sd error:nil];
           [device sampleTimestamps:&profile_cpu0 gpuTimestamp:&profile_gpu0];
         }
       }
-      REXLOG_INFO("[native] GPU pass profiling {}", profile_buffer ? "available" : "not available");
+      REXLOG_INFO("[native] GPU pass profiling {}", profile_buffers[kProfileBuffers - 1] ? "available" : "not available");
     }
-    const bool profile = profile_buffer && !dump && number % 300 == 150;
+    id<MTLCounterSampleBuffer> profile_buffer = profile_buffers[number % kProfileBuffers];
+    const bool profile_report = number % 300 == 150;
+    const bool profile = profile_buffer && !dump && (profile_report || hitch_lines_left.load() > 0);
     auto profile_labels = std::make_shared<std::vector<std::string>>();
     auto profile_pass = [&](MTLRenderPassDescriptor* rp, std::string label) {
       if (!profile || profile_labels->size() >= 255) return;
@@ -2401,7 +2658,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                          size:std::max(w, h)
                                                                                     mipmapped:NO];
           cd.usage = MTLTextureUsageShaderRead;
-          cube = [device newTextureWithDescriptor:cd];
+          cube = gpu_pool.Texture(device, cd);
+          frame_resources.objects.push_back(cube);
           resolved_cubes[ev.dest_base] = cube;
           static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = cube.gpuResourceID;
           resolved_cube_index[ev.dest_base] = next_cube++;
@@ -2449,13 +2707,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const NSUInteger bpp = (pf == MTLPixelFormatRGBA16Float || pf == MTLPixelFormatRG32Float) ? 8 : 4;
           const NSUInteger align = [device minimumLinearTextureAlignmentForPixelFormat:pf];
           const NSUInteger row = (dw * bpp + align - 1) / align * align;
-          id<MTLBuffer> backing = [device newBufferWithLength:row * dh options:MTLResourceStorageModePrivate];
           rd.storageMode = MTLStorageModePrivate;
-          dest = [backing newTextureWithDescriptor:rd offset:0 bytesPerRow:row];
+          dest = gpu_pool.Texture(device, rd, row);
         }
         if (!dest) {
           rd.storageMode = MTLStorageModePrivate;
-          dest = [device newTextureWithDescriptor:rd];
+          dest = gpu_pool.Texture(device, rd);
         }
         if (ev.depth) {
           id<MTLRenderPipelineState> copy = DepthCopyPipeline(device);
@@ -2500,7 +2757,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               size_t(ev.dest_pitch) * ev.dest_height * 4 <= 256 * 1024 &&
               x0 + w <= NSUInteger(ev.dest_pitch) * scale && y0 + h <= NSUInteger(ev.dest_height) * scale) {
             const uint32_t row_bytes = uint32_t((w * 4 + 255) & ~NSUInteger(255));
-            id<MTLBuffer> pixels = [device newBufferWithLength:row_bytes * h options:MTLResourceStorageModeShared];
+            id<MTLBuffer> pixels = pooled_buffer(row_bytes * h, MTLResourceStorageModeShared);
             [blit copyFromTexture:dest
                       sourceSlice:0
                       sourceLevel:0
@@ -2522,6 +2779,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         resolved_texture[ev.dest_base] = dest;
         resolved_swap[ev.dest_base] = !ev.depth && ev.swap;
         resolved_scale[ev.dest_base] = scale;
+        // The texture it replaces: back to the pool after this frame (which
+        // may still sample it, from before this resolve).
+        if (auto old = kept_resolves.find(ev.dest_base); old != kept_resolves.end() && old->second.texture != dest) {
+          gpu_pool.Retire(old->second.texture, number);
+        }
         kept_resolves[ev.dest_base] = {dest, !ev.depth && ev.swap, scale};
         // A face of a cube the frame samples: also copied into that cube.
         for (const CubeTarget& ct : cube_targets) {
@@ -2534,7 +2796,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                            size:ct.width * scale
                                                                                       mipmapped:NO];
             cd.usage = MTLTextureUsageShaderRead;
-            cube = [device newTextureWithDescriptor:cd];
+            cube = gpu_pool.Texture(device, cd);
+            frame_resources.objects.push_back(cube);
             resolved_cubes[ct.base] = cube;
             [assembled_cubes addObject:cube];
             static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = cube.gpuResourceID;
@@ -2622,7 +2885,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         t1 = nullptr;  // not the same size: drawn without it
       }
       const std::string pass_key = t1 ? tk + "+" + tk1 : tk;
-      if (pass_key != current) {
+      const bool split = pass_key == current && split_after && t.scale > 1 && pass_indices >= split_after;
+      pass_splits += split;
+      if (pass_key != current || split) {
+        pass_indices = 0;
         if (dump) diagnostics.push_back(fmt::format("draw {}: target {}{}{} (z {:08x}, viewport {}x{} at {},{})", di, tk,
                                           !t.used ? " first use" : "", t.clear_color ? " clear-color" : "",
                                           d.depth_control, 2 * std::fabs(d.viewport[2] == 0 ? 0.f : d.viewport[0]),
@@ -2701,6 +2967,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setFragmentBuffer:sampler_heap offset:0 atIndex:4];
         current = pass_key;
       }
+      pass_indices += d.indices.size();
 
       // Pipeline.
       // Alpha to coverage (bit 4) without multisampling: alpha at least 0.5
@@ -3096,7 +3363,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     CAMetalLayer* layer = present_layer;
     id<MTLRenderPipelineState> present_pso = present ? PresentPipeline(device) : nil;
     if (present && layer && final_texture && present_pso) {
+      const auto drawable_start = std::chrono::steady_clock::now();
       id<CAMetalDrawable> drawable = [layer nextDrawable];
+      drawable_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drawable_start).count();
       if (drawable) {
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         rp.colorAttachments[0].texture = drawable.texture;
@@ -3128,14 +3397,23 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // the argument buffers do not retain them, and the cache may release
       // a texture (with its Metal copy) while the frame is still running.
       NSArray* in_use = @[ textures, cubes, volumes ];
+      const uint32_t uploads = frame_uploads, new_buffers = frame_new_buffers;
+      const size_t drawn_count = drawn;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
         (void)in_use;
         if (done.error) {
           REXLOG_WARN("[native] GPU error: {}", done.error.localizedDescription.UTF8String);
         } else {
           ApplyWriteBacks(*writebacks);
-          gpu_us += uint64_t(std::max(0.0, done.GPUEndTime - done.GPUStartTime) * 1e6);
-          if (profile && !profile_labels->empty()) {
+          const double gpu_ms = std::max(0.0, done.GPUEndTime - done.GPUStartTime) * 1000.0;
+          gpu_us += uint64_t(gpu_ms * 1000.0);
+          const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
+          if (slow) {
+            REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms on the GPU ({} draws, {} texture uploads, "
+                        "{} new vertex buffers; thermal state {})",
+                        number, gpu_ms, drawn_count, uploads, new_buffers, nfsmw::memory::ThermalState());
+          }
+          if (profile && (profile_report || slow) && !profile_labels->empty()) {
             const NSUInteger n = profile_labels->size();
             NSData* raw = [profile_buffer resolveCounterRange:NSMakeRange(0, 2 * n)];
             const auto* ts = static_cast<const MTLCounterResultTimestamp*>(raw.bytes);
@@ -3152,17 +3430,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               sum += ms;
             }
             std::sort(cost.rbegin(), cost.rend());
-            REXLOG_INFO("[native] GPU profile: {} passes and blits, {:.2f} ms in them, frame {:.2f} ms on the GPU", n, sum,
-                        (done.GPUEndTime - done.GPUStartTime) * 1000.0);
-            for (size_t i = 0; i < cost.size() && i < 14; ++i) {
+            REXLOG_INFO("[native] GPU profile{}: {} passes and blits, {:.2f} ms in them, frame {:.2f} ms on the GPU",
+                        slow ? " of the slow frame" : "", n, sum, (done.GPUEndTime - done.GPUStartTime) * 1000.0);
+            for (size_t i = 0; i < cost.size() && i < (slow ? 8 : 14); ++i) {
               REXLOG_INFO("[native]   {:6.2f} ms  {}", cost[i].first, (*profile_labels)[cost[i].second]);
             }
           }
         }
+        FrameDoneOnGpu(number);
         --in_flight;
       }];
     }
     [cb commit];
+    {
+      const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
+      if (!dump && ms > 30.0 && hitch_lines_left.fetch_sub(1) > 0) {
+        REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms to encode: {} texture uploads ({} KiB, {:.1f} ms), "
+                    "waiting for a drawable {:.1f} ms",
+                    number, ms, frame_uploads, frame_upload_bytes >> 10, frame_upload_us / 1000.0, drawable_wait_ms);
+      }
+    }
     if (!final_texture) {
       ++frames_without_output;
     } else {
@@ -3189,23 +3476,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           (void)values;
           if (cached.buffer) buffer_bytes += cached.buffer.allocatedSize;
         }
+        nfsmw::memory::Report("native renderer");
         constexpr double kMiB = 1024.0 * 1024.0;
         REXLOG_INFO("[native] memory: process {:.0f} MiB; retained targets {} / {:.0f} MiB, resolves {} / {:.0f} MiB, "
-                    "textures {} / {:.0f} MiB (GPU), vertex buffers {} / {:.0f} MiB",
+                    "textures {} / {:.0f} MiB (GPU), vertex buffers {} / {:.0f} MiB | frame buffers and resolves: "
+                    "{} made, {} reused since the last line",
                     ProcessPhysicalFootprint() / kMiB, targets.size(), target_bytes / kMiB, kept_resolves.size(),
                     resolve_bytes / kMiB, gpu_texture_count.load(), texture_bytes / kMiB,
-                    gpu_buffers.size(), buffer_bytes / kMiB);
+                    gpu_buffers.size(), buffer_bytes / kMiB, gpu_pool.made, gpu_pool.reused);
+        gpu_pool.made = gpu_pool.reused = 0;
         const int64_t now = NowMs();
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
         REXLOG_INFO("[native] frame {}: {} of {} draws, {} resolves, {} textures ({} cached on the GPU), "
-                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames | {:.1f} frames/s on screen, recording "
+                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
                     number, drawn, frame->draws.size(), resolves_done, frame->textures.size(),
-                    gpu_texture_count.load(), gpu_buffers.size(), pipelines.size(), kept_used,
+                    gpu_texture_count.load(), gpu_buffers.size(), pipelines.size(), kept_used, pass_splits,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
                     record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
@@ -3227,6 +3517,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     [cb waitUntilCompleted];
     ApplyWriteBacks(*writebacks);
+    FrameDoneOnGpu(number);
     --in_flight;
 
     // Every target as a PNG, in order of first use.
@@ -3476,6 +3767,23 @@ bool NativeSwap() {
       if (pr != persistent_resolves.end()) pr->second.fingerprint = Fingerprint(Physical(a), pr->second.span);
     }
   }
+  // Hitch log: the time since the last swap on this (the command processor's)
+  // thread, and what the frame's recording spent it on.
+  static auto last_swap = std::chrono::steady_clock::now();
+  const auto swap_start = std::chrono::steady_clock::now();
+  const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
+  struct {
+    bool valid = false;
+    size_t draws = 0;
+    uint64_t record_us = 0, vertex_misses = 0, vertex_elements = 0;
+    uint32_t textures_decoded = 0;
+    uint64_t texture_bytes = 0, texture_us = 0;
+  } hitch;
+  if (recording) {
+    hitch = {true, recording->draws.size(), recording->record_us, recording->vertex_diagnostics.cache_misses,
+             recording->vertex_diagnostics.decoded_vertex_elements, recording->textures_decoded,
+             recording->texture_decode_bytes, recording->texture_decode_us};
+  }
   ++frame_counter;
   SweepTextureCache();
   Sweep(attribute_cache);
@@ -3504,6 +3812,17 @@ bool NativeSwap() {
     while (in_flight >= 2 && std::chrono::steady_clock::now() < give_up) {
       std::this_thread::sleep_for(std::chrono::microseconds(250));
     }
+  }
+  last_swap = std::chrono::steady_clock::now();
+  if (hitch.valid && swap_interval_ms > 40.0 && hitch_lines_left.fetch_sub(1) > 0) {
+    const double record_ms = hitch.record_us / 1000.0;
+    REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms between swaps ({} draws): recording {:.1f} ms "
+                "({} textures decoded, {} KiB, {:.1f} ms; {} vertex cache misses, {} elements), "
+                "outside the recording {:.1f} ms, then waiting for the renderer {:.1f} ms",
+                dump_number, swap_interval_ms, hitch.draws, record_ms, hitch.textures_decoded,
+                hitch.texture_bytes >> 10, hitch.texture_us / 1000.0, hitch.vertex_misses, hitch.vertex_elements,
+                swap_interval_ms - record_ms,
+                std::chrono::duration<double, std::milli>(last_swap - swap_start).count());
   }
   if (in_flight >= 2) {
     return false;
@@ -3540,8 +3859,10 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
   struct Timer {
     std::chrono::steady_clock::time_point t0;
     ~Timer() {
-      record_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
-                                std::chrono::steady_clock::now() - t0).count());
+      const uint64_t us = uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                       std::chrono::steady_clock::now() - t0).count());
+      record_us += us;
+      if (recording) recording->record_us += us;
     }
   } timer{t0};
   // Without the native renderer on screen, PNG frames are menu frames only

@@ -289,6 +289,7 @@ if(NFSMW_WITH_GAME)
         src/gpu_capture.mm
         src/display_rate.mm
         src/lifecycle.mm
+        src/memory_report.mm
         src/touch_controls.mm
         "${NFSMW_SDK}/src/ui/rex_app.cpp")
     target_include_directories(nfsmw PRIVATE
