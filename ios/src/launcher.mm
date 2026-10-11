@@ -209,6 +209,10 @@ const std::vector<Section>& Sections() {
             @"Memory coherence for what the shaders write. May cost performance.", @"true"},
            {@"pages", Type::kSwitch, @"Refresh GPU-written pages",
             @"Memory coherence. May cost performance.", @"true"},
+           {@"native_renderer", Type::kSwitch, @"Native Metal renderer (experimental)",
+            @"Draws the game with its own shaders translated to Metal instead of the emulated "
+            @"Xbox 360 GPU, shown over it. In development: needs the native shaders in this build.",
+            @"false"},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
             @"memory. Used automatically when mapping fails (devices with less address space); "
@@ -351,6 +355,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--readback_memexport=" + b(On(s, @"memexport")));
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
+  a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
   a.push_back(std::string("--log_level=") +
               (!On(s, @"logging") ? "off" : On(s, @"detailed_log") ? "debug" : "info"));
   a.push_back("--ios_mvk_performance=" + b(On(s, @"mvk_profiling")));

@@ -168,7 +168,7 @@ set_target_properties(nfsmw PROPERTIES
 target_compile_options(nfsmw PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include")
 target_link_libraries(nfsmw PRIVATE rex::runtime nfsmw_headers
-    "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework QuartzCore")
+    "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework QuartzCore" "-framework CoreImage")
 # The Xbox 360 language and country of the edition. With the game, from
 # ios/generated/edicion.json (tools/ios/generate_code.py); without it, USA's,
 # the edition this port targets (tools/ediciones/ediciones.json).
@@ -274,7 +274,8 @@ if(NFSMW_WITH_GAME)
                 "(${_extra}). Run: python3 tools/ios/patch_game_extra_options.py")
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
-            src/game_scene_size.cpp)
+            src/game_scene_size.cpp src/native_draw_census.cpp
+            src/native_metal_probe.mm src/native_renderer.mm)
         message(STATUS "NFSMW: ${_extra}")
     else()
         message(WARNING "NFSMW: no larger record pool for this edition; with Black "
@@ -297,7 +298,7 @@ if(NFSMW_WITH_GAME)
         "${NFSMW_SDK}/src/ui")
     target_link_libraries(nfsmw PRIVATE nfsmw_recomp
         "-framework AudioToolbox" "-framework AVFoundation" "-framework GameController"
-        "-framework Metal" "-framework QuartzCore")
+        "-framework Metal" "-framework QuartzCore" "-framework CoreImage")
 
 endif()
 
@@ -317,6 +318,8 @@ add_dependencies(nfsmw rexgpu-xenos)
 #  POST_BUILD runs only when the executable relinks, so a change only in the
 #  SDK (librexgpu-xenos, librexruntime) shipped the old library.
 # -----------------------------------------------------------------------------
+set(NFSMW_NATIVE_SHADERS_DIR "" CACHE PATH
+    "Native renderer bring-up: folder of .metallib shaders to bundle (local test builds only)")
 set(_app "$<TARGET_BUNDLE_DIR:nfsmw>")
 set(_fw "${_app}/Frameworks")
 add_custom_target(nfsmw_package ALL
@@ -334,6 +337,11 @@ add_custom_target(nfsmw_package ALL
             --target-device iphone --target-device ipad --app-icon AppIcon
             --output-partial-info-plist "${CMAKE_CURRENT_BINARY_DIR}/actool-partial.plist"
             --output-format human-readable-text --errors --warnings
+    # Native renderer bring-up: the Metal shader libraries built by
+    # tools/native/build_shaders.sh from your own game files, for local test
+    # builds only (-DNFSMW_NATIVE_SHADERS_DIR=...; empty: none).
+    COMMAND ${CMAKE_COMMAND} -E $<IF:$<BOOL:${NFSMW_NATIVE_SHADERS_DIR}>,copy_directory,true>
+            ${NFSMW_NATIVE_SHADERS_DIR} "${_app}/NativeShaders"
     # codesign will not sign files with extended attributes ("resource fork,
     # Finder information, or similar detritus"): the MoltenVK tar and macOS'
     # provenance tagging bring them.
