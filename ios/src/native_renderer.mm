@@ -165,6 +165,8 @@ uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msa
   return std::max(samples, 1u);
 }
 
+extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y;  // game_scene_size.cpp
+
 namespace {
 
 // --- Registers ----------------------------------------------------------------
@@ -3113,15 +3115,31 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (pixels && !internal) {
         ++screen_space_game_draws;
       }
+      // The rear-view mirror's picture (8436534c: the environment cube seen
+      // backwards, RVMWorldBrightness): its quad has screen positions of its
+      // own, not through the HUD's matrix, which game_scene_size.cpp scales
+      // (title-safe area removed at 4:3, wider than 16:9). Scaled as much,
+      // about the middle of the screen (the viewport's centre), to stay in
+      // its frame.
+      const bool mirror = d.ps_key == 0x8436534cfafcc0ebull;
+      if (mirror) {
+        static bool said = false;
+        if (!said) {
+          said = true;
+          REXLOG_INFO("[native] mirror picture: scaled {:.3f} x {:.3f} ({})", nfsmw_mirror_scale_x,
+                      nfsmw_mirror_scale_y, pixels ? "positions in pixels: not scaled" : "by its viewport");
+        }
+      }
       MTLViewport vp;
       if (pixels) {
         vp = {0, 0, double(t.pitch), double(t.height), (d.vte & 32) ? double(d.viewport[5]) : 0.0, 1.0};
         [enc setViewport:vp];
       } else {
-      vp.originX = ox - std::fabs(sx) + wx;
-      vp.width = 2 * std::fabs(sx);
-      vp.originY = oy - std::fabs(sy) + wy;
-      vp.height = 2 * std::fabs(sy);
+      const float mx = mirror ? nfsmw_mirror_scale_x : 1.0f, my = mirror ? nfsmw_mirror_scale_y : 1.0f;
+      vp.originX = ox - std::fabs(sx) * mx + wx;
+      vp.width = 2 * std::fabs(sx) * mx;
+      vp.originY = oy - std::fabs(sy) * my + wy;
+      vp.height = 2 * std::fabs(sy) * my;
       vp.znear = oz;
       vp.zfar = oz + sz;
       if (!(vp.width >= 1 && vp.height >= 1)) {

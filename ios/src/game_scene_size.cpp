@@ -123,6 +123,19 @@ void StoreF(uint8_t* base, uint32_t address, float v) {
 // Set while sub_82440D80 runs: its call to sub_82453768 hands on the HUD's matrix.
 thread_local bool g_hud_matrix = false;
 
+}  // namespace
+
+// How much the HUD's matrix is scaled here beyond the game's own (x, y): the
+// rear-view mirror's picture is not drawn through that matrix (its quad has
+// its own screen positions), so the native renderer scales it by as much,
+// about the middle of the screen, to stay inside its frame.
+extern "C" {
+float nfsmw_mirror_scale_x = 1.0f;
+float nfsmw_mirror_scale_y = 1.0f;
+}
+
+namespace {
+
 uint32_t WideWidth() {
   const int32_t w = REXCVAR_GET(nfsmw_wide_scene_width);
   return (w > 1280 && w <= 1600) ? uint32_t(w) & ~7u : 0;
@@ -253,7 +266,8 @@ void HudSafeScale(uint8_t* base, float& x, float& y) {
 extern "C" REX_FUNC(sub_82453768) {
   if (g_hud_matrix && ctx.r4.u32) {
     const uint32_t m = ctx.r4.u32;
-    float sx = LoadF(base, m), sy = LoadF(base, m + 20);
+    const float game_sx = LoadF(base, m), game_sy = LoadF(base, m + 20);
+    float sx = game_sx, sy = game_sy;
     if (const uint32_t width = WideWidth()) sx *= 1280.0f / float(width);
     float safe_x, safe_y;
     HudSafeScale(base, safe_x, safe_y);
@@ -263,6 +277,10 @@ extern "C" REX_FUNC(sub_82453768) {
     }
     StoreF(base, m, sx);
     StoreF(base, m + 20, sy);
+    if (game_sx != 0 && game_sy != 0) {
+      nfsmw_mirror_scale_x = sx / game_sx;
+      nfsmw_mirror_scale_y = sy / game_sy;
+    }
   }
   __imp__sub_82453768(ctx, base);
 }
