@@ -403,6 +403,31 @@ class NfsmwApp : public rex::ReXApp {
     return {};
   }
 
+  // La pila del guest de un hilo parado: las direcciones de vuelta, de la
+  // funcion actual hacia arriba. Convenio del 360: el puntero de pila apunta a
+  // la cadena (0(r1) = el r1 del que llamo) y cada funcion guarda su LR en
+  // -8 del marco de quien la llamo. Solo dentro de las pilas de los hilos
+  // (0x70000000-0x7FFFFFFF, siempre mapeadas), y como mucho 16 marcos.
+  static std::string PilaGuest(uint32_t sp) {
+    auto* kernel = rex::system::kernel_state();
+    auto* memoria = kernel ? kernel->memory() : nullptr;
+    if (!memoria) return {};
+    auto en_pila = [](uint32_t a) { return a >= 0x70000000u && a < 0x80000000u && (a & 3) == 0; };
+    auto leer = [&](uint32_t a) {
+      uint32_t v;
+      std::memcpy(&v, memoria->TranslateVirtual<const uint8_t*>(a), 4);
+      return __builtin_bswap32(v);
+    };
+    std::string out;
+    for (int i = 0; i < 16 && en_pila(sp); ++i) {
+      const uint32_t arriba = leer(sp);
+      if (!en_pila(arriba) || arriba <= sp || arriba - sp > 0x40000) break;
+      out += fmt::format(" <- 0x{:08X}", leer(arriba - 8));
+      sp = arriba;
+    }
+    return out.empty() ? out : " | pila" + out;
+  }
+
   // Volcado de la tabla de hilos. 'grave' decide si sale como error -cuando
   // es una alarma de verdad- o como debug -las instantaneas de rutina-.
   template <typename Lista>
@@ -415,10 +440,10 @@ class NfsmwApp : public rex::ReXApp {
         if (grave) {
           REXLOG_ERROR("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "
-                       "ultimo_indirecto=0x{:08X}{}",
+                       "ultimo_indirecto=0x{:08X}{}{}",
                        h->thread_id(), cp->start_address, h->main_thread(), h->is_running(),
                        static_cast<uint32_t>(c.lr), c.r1.u32, c.r13.u32, c.r3.u32, c.ctr.u32,
-                       c.last_indirect_target, DescribirEspera(c.r3.u32));
+                       c.last_indirect_target, DescribirEspera(c.r3.u32), PilaGuest(c.r1.u32));
         } else {
           REXLOG_DEBUG("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "
