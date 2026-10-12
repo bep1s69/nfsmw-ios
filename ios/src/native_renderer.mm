@@ -114,10 +114,6 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
                     "Native renderer test: car paint without its environment cube");
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
-// k_4_4_4_4: the Metal channel (r, g, b, a of ABGR4) read for the console's
-// R, G, B and A.
-REXCVAR_DEFINE_STRING(nfsmw_native_rgba4_order, "grab", "GPU",
-                      "Native renderer: Metal channels read for k_4_4_4_4's R, G, B, A");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -1585,6 +1581,22 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   frame.texture_decode_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
                                           std::chrono::steady_clock::now() - decode_start).count());
+  // k_4_4_4_4 to RGBA8 on the CPU, exactly as rexglue's load shader
+  // (texture_load_r4g4b4a4_rgba8): R in bits 0-3, G 4-7, B 8-11, A 12-15,
+  // each nibble repeated into a byte. Metal's ABGR4 channel order did not
+  // match it (the tuning shop's reflection cube came out yellow, then pink).
+  if (xenos::TextureFormat(t.format) == xenos::TextureFormat::k_4_4_4_4 && tex.format == MTLPixelFormatABGR4Unorm) {
+    std::vector<uint8_t> out(tex.data.size() * 2);
+    for (size_t i = 0, n = tex.data.size() / 2; i < n; ++i) {
+      uint16_t v;
+      std::memcpy(&v, tex.data.data() + 2 * i, 2);
+      for (int k = 0; k < 4; ++k) out[4 * i + k] = uint8_t(((v >> (4 * k)) & 15) * 17);
+    }
+    tex.data.swap(out);
+    tex.format = MTLPixelFormatRGBA8Unorm;
+    tex.row_bytes *= 2;
+    tex.bytes = tex.data.size();
+  }
   // The fetch swizzle over what the console's fetch returns for formats with
   // fewer components: one-component formats read as RRRR, two-component as
   // RGGG, 5_6_5 as RGBB (rexglue texture_cache.cpp host swizzles). Metal
@@ -1593,24 +1605,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   uint32_t sw = t.swizzle;
   {
     uint8_t host[4] = {0, 1, 2, 3};
-    if (xenos::TextureFormat(t.format) == xenos::TextureFormat::k_4_4_4_4 && tex.data.size() >= 2) {
-      // Diagnostics: the average of each nibble (bits 0-3 .. 12-15) as decoded,
-      // once per texture, to tell which holds which channel.
-      static std::set<uint32_t> said;
-      if (said.size() < 32 && said.insert(uint32_t(t.base_address) << 12).second) {
-        double sum[4] = {};
-        const size_t n = tex.data.size() / 2;
-        for (size_t i = 0; i < n; ++i) {
-          uint16_t v;
-          std::memcpy(&v, tex.data.data() + 2 * i, 2);
-          for (int k = 0; k < 4; ++k) sum[k] += (v >> (4 * k)) & 15;
-        }
-        REXLOG_INFO("[native] k_4_4_4_4 {:08x} {}x{}{}: average nibble bits 0-3 {:.1f}, 4-7 {:.1f}, 8-11 {:.1f}, "
-                    "12-15 {:.1f} (of 15), endian {}",
-                    uint32_t(t.base_address) << 12, width, height, cube ? " cube" : "", sum[0] / n, sum[1] / n,
-                    sum[2] / n, sum[3] / n, uint32_t(t.endianness));
-      }
-    }
     switch (xenos::TextureFormat(t.format)) {
       case xenos::TextureFormat::k_8:
       case xenos::TextureFormat::k_32_FLOAT:
@@ -1622,20 +1616,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
       case xenos::TextureFormat::k_5_6_5:
         host[3] = 2;
         break;
-      case xenos::TextureFormat::k_4_4_4_4: {
-        // Which Metal ABGR4 channel holds the console's R, G, B, A
-        // (nfsmw_native_rgba4_order, four letters of r g b a). The tuning
-        // shop's reflection cube (05cc1000) is k_4_4_4_4: its nibbles (after
-        // the 8-in-16 swap) average 4.0, 4.6, 5.0, 0 from bits 0-3 up, so
-        // A4R4G4B4 (D3D's A in 12-15, B in 0-3); Metal's ABGR4 reads R from
-        // bits 4-7, G 8-11, B 12-15, A 0-3 (read as is it was yellow).
-        const std::string order = REXCVAR_GET(nfsmw_native_rgba4_order);
-        for (int i = 0; i < 4 && i < int(order.size()); ++i) {
-          const char c = order[i];
-          host[i] = c == 'r' ? 0 : c == 'g' ? 1 : c == 'b' ? 2 : 3;
-        }
-        break;
-      }
       default:
         break;
     }
