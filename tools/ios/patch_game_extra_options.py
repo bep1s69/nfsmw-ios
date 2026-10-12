@@ -20,6 +20,8 @@ keeps a second run from touching anything.
   markers    sub_82586768: cmpwi cr6,r3,2 (x2)       nfsmw_markers_to_pick()
              sub_82586E78: subfic rD,rA,2 (x2)
   car-limit  sub_82564B88: cmpwi cr6,r3,10 (x1)      nfsmw_purchased_car_limit()
+  skip-movies sub_82282F18, sub_822BBA98, sub_824792D8:
+             lwz r11,-12772(r11) (x1 each)           | nfsmw_skip_movies()
 """
 
 import argparse
@@ -37,6 +39,7 @@ DECLS = f"""// LOCAL PATCH - iOS ({DECL_MARK}): Extra Options features
 extern "C" int32_t nfsmw_markers_to_pick();
 extern "C" int32_t nfsmw_purchased_car_limit();
 extern "C" int32_t nfsmw_shadow_map_size();
+extern "C" int32_t nfsmw_skip_movies();
 """
 
 
@@ -71,6 +74,15 @@ def li_edit(value, call, mark):
     return re.compile(rf"\t// li (r\d+),{value}$"), edit
 
 
+def load_or_edit(reg, base, offset, call, mark):
+    """'lwz <reg>,<offset>(<base>)' -> the loaded word | <call>."""
+    def edit(match, _):
+        old = [f"\tctx.{reg}.u64 = REX_LOAD_U32(ctx.{base}.u32 + {offset});"]
+        new = [f"\tctx.{reg}.u64 = REX_LOAD_U32(ctx.{base}.u32 + {offset}) | uint32_t({call});  // {mark}"]
+        return old, new
+    return re.compile(rf"\t// lwz {reg},{offset}\({base}\)$"), edit
+
+
 # feature -> [(function, (pattern, edit), expected count)]
 FEATURES = {
     "markers": [
@@ -88,9 +100,16 @@ FEATURES = {
     "shadow-size": [
         ("sub_82454C18", li_edit(1600, "nfsmw_shadow_map_size()", "nfsmw-shadow-size"), 3),
     ],
+    # The game's own SkipMovies (the debug setting SKIPMOVIES, the word at
+    # 0x82A2CE1C; Extra Options' SkipMovies sets it on PC): its three readers
+    # see it set while nfsmw_skip_movies() is 1 (ios/src/game_extra_options.cpp).
+    "skip-movies": [
+        (fn, load_or_edit("r11", "r11", -12772, "nfsmw_skip_movies()", "nfsmw-skip-movies"), 1)
+        for fn in ("sub_82282F18", "sub_822BBA98", "sub_824792D8")
+    ],
 }
 MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
-         "shadow-size": ("nfsmw-shadow-size", 3)}
+         "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3)}
 
 
 def fail(msg):
@@ -148,7 +167,7 @@ def main():
                              f"{span[0].strip() if span else '(end)'}")
                     found[(feature, efn)] += 1
         if changed:
-            if "nfsmw_shadow_map_size();" not in "\n".join(lines[:80]):
+            if "nfsmw_skip_movies();" not in "\n".join(lines[:80]):
                 inc = next((k for k, l in enumerate(lines)
                             if l.startswith('#include "nfsmw_funcs.')), None)
                 if inc is None:

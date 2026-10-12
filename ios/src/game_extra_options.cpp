@@ -46,6 +46,19 @@
 // it; both are written, as the mod does). The string is in read-only data:
 // the page is made writable for the two bytes and put back.
 
+//
+// SKIP MOVIES (Extra Options: Main > SkipMovies)
+//
+// The game keeps its debug setting SKIPMOVIES (read from a debug config by
+// sub_82538C10; 0 on retail) in the word at 0x82A2CE1C. Set, the movie screen
+// (sub_82282F18, the message that starts a movie: "%sMOVIES\%s%s%s%s" is
+// built next door, in sub_82282E80) reports the movie finished at once
+// instead of playing it: the EA logo, the intro and the attract movie are
+// skipped and the game goes straight on to "press start". Two other places
+// read it (sub_822BBA98, sub_824792D8). On PC the mod writes 1 to the same
+// variable (0x926144). Here its three readers see it set while the setting is
+// on (the variable itself is left as it is).
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -66,6 +79,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
 REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 60, "Game",
                      "Gameplay simulation rate in Hz: 60 (the game's) or 120 (experimental, "
                      "for the 120 fps cap)");
+REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
+                    "Skip the game's movies (EA logo, intro, attract and story movies), as Extra Options' "
+                    "SkipMovies");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -168,4 +184,13 @@ extern "C" void nfsmw_extra_options_apply() {
                     PatchGuestBytes(kSceneryGroupDoor + 7, &eighth, 1);
     REXLOG_INFO("[extra-options] old bridge barrier: {}", ok ? "removed" : "COULD NOT PATCH");
   }
+}
+
+extern "C" int32_t nfsmw_skip_movies() {
+  const bool skip = REXCVAR_GET(nfsmw_skip_movies);
+  static std::atomic<bool> logged{false};
+  if (!logged.exchange(true)) {
+    REXLOG_INFO("[extra-options] skip movies: {}", skip ? "on" : "off");
+  }
+  return skip ? 1 : 0;
 }
