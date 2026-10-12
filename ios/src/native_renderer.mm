@@ -649,7 +649,9 @@ struct Texture {
   // Level 0, linear. Freed by the renderer once uploaded (gpu): a second
   // copy of every texture in CPU memory took the iPhone over its memory
   // limit in races.
-  mutable std::vector<uint8_t> data;
+  // Default-initialized: the decode writes every byte (zeroing it first was
+  // ~44 ms per second of the command processor thread in a race).
+  mutable std::vector<uint8_t, DefaultInitAllocator<uint8_t>> data;
   size_t bytes = 0;            // data's size when decoded (the cache's budget)
   mutable GpuCopy gpu;         // render thread only
   MTLTextureSwizzleChannels swizzle = MTLTextureSwizzleChannelsDefault;
@@ -832,6 +834,8 @@ std::atomic<int> hitch_lines_left{300};
 // Parts of the recording (game thread): vertex inputs, then constants and
 // textures.
 std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
+// Textures decoded from guest memory since the last stats line (cache misses).
+std::atomic<uint64_t> textures_decoded_total{0}, texture_decode_bytes_total{0};
 bool timed_draw = false;  // this draw's recording is timed (one in eight; command processor thread)
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
@@ -1483,8 +1487,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   tex.depth = depth;
   const size_t face_bytes = size_t(tex.row_bytes) * bh;
   const uint32_t layers = cube ? 6u : depth;
-  tex.data.resize(face_bytes * layers);
-  tex.bytes = tex.data.size();
   const uint8_t* texture_base = Physical(uint32_t(t.base_address) << 12);
   const uint32_t log2 = __builtin_ctz(info.bytes);
   const auto endian = xenos::Endian(uint32_t(t.endianness));
@@ -1535,6 +1537,10 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     return index;
   }
   const auto decode_start = std::chrono::steady_clock::now();
+  // Allocated only now, for a real decode (it was allocated, and zeroed,
+  // before the cache check: for every lookup, then thrown away on a hit).
+  tex.data.resize(face_bytes * layers);
+  tex.bytes = tex.data.size();
   for (uint32_t face = 0; face < layers; ++face) {
   const uint8_t* base = texture_base + (volume ? (t.tiled ? 0 : face * linear_slice) : size_t(face) * face_stride);
   for (uint32_t by = 0; by < bh; ++by) {
@@ -1566,6 +1572,8 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   ++frame.textures_decoded;
   frame.texture_decode_bytes += tex.data.size();
+  ++textures_decoded_total;
+  texture_decode_bytes_total += tex.data.size();
   {  // Decoded again frame after frame (its memory keeps changing): which one.
     static std::unordered_map<uint32_t, std::pair<uint64_t, uint32_t>> streaks;  // address -> last frame, run
     static std::set<uint32_t> said;
@@ -1586,7 +1594,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   // each nibble repeated into a byte. Metal's ABGR4 channel order did not
   // match it (the tuning shop's reflection cube came out yellow, then pink).
   if (xenos::TextureFormat(t.format) == xenos::TextureFormat::k_4_4_4_4 && tex.format == MTLPixelFormatABGR4Unorm) {
-    std::vector<uint8_t> out(tex.data.size() * 2);
+    decltype(tex.data) out(tex.data.size() * 2);
     for (size_t i = 0, n = tex.data.size() / 2; i < n; ++i) {
       uint16_t v;
       std::memcpy(&v, tex.data.data() + 2 * i, 2);
@@ -2799,7 +2807,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   frame_upload_bytes += t.data.size();
   frame_upload_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
                                   std::chrono::steady_clock::now() - upload_start).count());
-  std::vector<uint8_t>().swap(t.data);  // the CPU copy is not needed any more
+  decltype(t.data)().swap(t.data);  // the CPU copy is not needed any more
   return tex;
 }
 
@@ -4706,7 +4714,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
-                    "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
+                    "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample) | "
+                    "textures decoded {} ({} MiB)",
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
@@ -4722,7 +4731,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     vertex_diagnostics.fingerprint_sample_count
                         ? double(vertex_diagnostics.fingerprint_sample_ns) /
                               double(vertex_diagnostics.fingerprint_sample_count) / 1000.0
-                        : 0.0);
+                        : 0.0,
+                    textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
         vertex_diagnostics = {};
         stats_since_ms = now;
         pipeline_cache.Report();
