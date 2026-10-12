@@ -4259,6 +4259,34 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                           : ft.format == MTLPixelFormatInvalid ? " (a resolve)" : "",
                           ft.fetch_swizzle, ft.exp_adjust);
             }
+            // Snapshots: which cube the paint reads (decoded from memory or
+            // made from resolves), and its six faces saved once per frame.
+            if (dump && ft.cube) {
+              const bool from_resolves = resolved_cubes.count(ft.address) && resolved_cubes[ft.address];
+              id<MTLTexture> bound = from_resolves ? resolved_cubes[ft.address]
+                                     : cube_index[d.textures[s]] < cubes.count ? cubes[cube_index[d.textures[s]]] : nil;
+              const std::string line = fmt::format("group car cube: ps {:016x} slot {} cube {:08x} {}", d.ps_key, s,
+                                                   ft.address, from_resolves ? "made from resolves" : "decoded from memory");
+              static std::set<std::string> seen_this_frame;
+              static uint32_t seen_frame = 0;
+              if (seen_frame != number) {
+                seen_this_frame.clear();
+                seen_frame = number;
+              }
+              if (bound && seen_this_frame.insert(line).second) {
+                diagnostics.push_back(line);
+                for (NSUInteger face = 0; face < 6; ++face) {
+                  id<MTLTexture> v = [bound newTextureViewWithPixelFormat:bound.pixelFormat
+                                                              textureType:MTLTextureType2D
+                                                                   levels:NSMakeRange(0, 1)
+                                                                   slices:NSMakeRange(face, 1)];
+                  if (v) {
+                    watch_saves.push_back({v, fmt::format("car_cube_{:08x}_{}_face{}", ft.address,
+                                                          from_resolves ? "resolved" : "decoded", face)});
+                  }
+                }
+              }
+            }
             if (ft.cube && REXCVAR_GET(nfsmw_native_test_no_envcube)) shared[48 + s] = 0;
             if (ft.volume && REXCVAR_GET(nfsmw_native_test_grey_volume)) shared[32 + s] = grey_volume_index;
           }
