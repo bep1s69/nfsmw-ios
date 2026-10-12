@@ -378,6 +378,11 @@ const std::vector<Section>& Sections() {
             @"memory. Used automatically when mapping fails (devices with less address space); "
             @"on, it is used always, for testing.",
             @"false"},
+           {@"audio_starve_reset", Type::kSwitch, @"Audio stream reset",
+            @"When a sound stream runs out of data, drop what it had decoded but not yet played "
+            @"(Xenia Canary's fix for stale sounds in NFS). Off if speech such as the police "
+            @"radio cuts out. For testing.",
+            @"true"},
            {@"logging", Type::kSwitch, @"Logging",
             @"Writes Documents/logs/nfsmw.log and boot.txt. Off when just playing; on (and "
             @"send the log) when testing something.",
@@ -558,6 +563,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--readback_memexport=" + b(On(s, @"memexport")));
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
+  a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
   a.push_back("--nfsmw_skip_movies=" + b(On(s, @"skip_movies")));
   a.push_back("--nfsmw_native_async_pipelines=" + b(On(s, @"async_pipelines")));

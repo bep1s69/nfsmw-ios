@@ -132,6 +132,7 @@ IOS_PATCHES = [
     "patch_ios_native_present_skip",
     "patch_ios_suboptimal_limit",
     "patch_ios_native_occlusion",
+    "patch_ios_xma_starve_switch",
 ]
 
 
