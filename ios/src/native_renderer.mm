@@ -167,6 +167,9 @@ REXCVAR_DEFINE_INT32(nfsmw_test_cpu_load, 0, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_constant_ranges, true, "GPU",
                     "Native renderer: compare and upload only the float constants each shader reads "
                     "(false: all 256 of each stage, per draw)");
+REXCVAR_DEFINE_INT32(nfsmw_native_writeback_kb, 16, "GPU",
+                     "Native renderer: colour resolves up to this size (KB) are copied back to guest memory for the "
+                     "game's CPU (the exposure reads its brightness from one); 256 = the old limit");
 REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
@@ -3494,8 +3497,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                destinationLevel:0
               destinationOrigin:MTLOriginMake(x0, y0, 0)];
           // Small 8-bit colour resolves also go to guest memory (WriteBack).
+          // Up to nfsmw_native_writeback_kb: what the game reads on the CPU is
+          // small (the scene's brightness for the exposure); the environment
+          // cube's faces (256 KB each) and the bloom buffer were copied back
+          // too, ~1.3 ms of CPU a frame, for nobody.
+          const size_t writeback_bytes = size_t(ev.dest_pitch) * ev.dest_height * 4;
+          if (ev.dest_format == 6 && dest.pixelFormat == MTLPixelFormatRGBA8Unorm && ev.dest_pitch) {
+            static std::set<uint32_t> said;
+            if (said.size() < 24 && said.insert(ev.dest_base).second) {
+              REXLOG_INFO("[native] resolve {:08x} {}x{} ({} KiB): {} to guest memory", ev.dest_base, ev.dest_pitch,
+                          ev.dest_height, writeback_bytes >> 10,
+                          writeback_bytes <= size_t(REXCVAR_GET(nfsmw_native_writeback_kb)) * 1024 ? "written back"
+                                                                                                  : "not written back");
+            }
+          }
           if (ev.dest_format == 6 && dest.pixelFormat == MTLPixelFormatRGBA8Unorm && ev.dest_pitch &&
-              size_t(ev.dest_pitch) * ev.dest_height * 4 <= 256 * 1024 &&
+              writeback_bytes <= size_t(REXCVAR_GET(nfsmw_native_writeback_kb)) * 1024 &&
               x0 + w <= Px(ev.dest_pitch, scale) && y0 + h <= Px(ev.dest_height, scale)) {
             const uint32_t row_bytes = uint32_t((w * 4 + 255) & ~NSUInteger(255));
             id<MTLBuffer> pixels = pooled_buffer(row_bytes * h, MTLResourceStorageModeShared);
