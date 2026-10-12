@@ -1577,7 +1577,35 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   frame.texture_decode_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
                                           std::chrono::steady_clock::now() - decode_start).count());
-  const uint32_t sw = t.swizzle;
+  // The fetch swizzle over what the console's fetch returns for formats with
+  // fewer components: one-component formats read as RRRR, two-component as
+  // RGGG, 5_6_5 as RGBB (rexglue texture_cache.cpp host swizzles). Metal
+  // gives 0 for the missing ones: a k_8_8 cube (the tuning shop's
+  // reflection) lost its blue and turned yellow.
+  uint32_t sw = t.swizzle;
+  {
+    uint8_t host[4] = {0, 1, 2, 3};
+    switch (xenos::TextureFormat(t.format)) {
+      case xenos::TextureFormat::k_8:
+      case xenos::TextureFormat::k_32_FLOAT:
+        host[1] = host[2] = host[3] = 0;
+        break;
+      case xenos::TextureFormat::k_8_8:
+        host[2] = host[3] = 1;
+        break;
+      case xenos::TextureFormat::k_5_6_5:
+        host[3] = 2;
+        break;
+      default:
+        break;
+    }
+    uint32_t mapped = 0;
+    for (int i = 0; i < 4; ++i) {
+      const uint32_t sel = (sw >> (3 * i)) & 7;
+      mapped |= (sel < 4 ? host[sel] : sel) << (3 * i);
+    }
+    sw = mapped;
+  }
   tex.swizzle = MTLTextureSwizzleChannelsMake(SwizzleOf(sw), SwizzleOf(sw >> 3), SwizzleOf(sw >> 6),
                                               SwizzleOf(sw >> 9));
   tex.clamp_x = uint32_t(t.clamp_x);
