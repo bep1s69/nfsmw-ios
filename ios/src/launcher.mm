@@ -362,10 +362,12 @@ const std::vector<Section>& Sections() {
             @"Memory coherence for what the shaders write. May cost performance.", @"true"},
            {@"pages", Type::kSwitch, @"Refresh GPU-written pages",
             @"Memory coherence. May cost performance.", @"true"},
-           {@"native_renderer", Type::kSwitch, @"Native Metal renderer (experimental)",
-            @"Draws the game with its own shaders translated to Metal instead of the emulated "
-            @"Xbox 360 GPU, shown over it. In development: needs the native shaders in this build.",
-            @"false"},
+           {@"native_renderer", Type::kSwitch, @"Native Metal renderer",
+            @"Draws the game with its own shaders translated to Metal, instead of emulating the "
+            @"Xbox 360's GPU: much faster, sharper settings possible (Render resolution). Movies "
+            @"still play through the emulated renderer. Off: the emulated renderer for everything. "
+            @"Needs the native shaders in this build (without them the emulated one is used).",
+            @"true"},
            {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
             @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
             @"background and that object is missing for a few frames, instead of a hitch of up to "
@@ -448,6 +450,8 @@ void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s) {
   [data writeToFile:SettingsPath(docs) atomically:YES];
 }
 
+bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
+
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   NSString* v = s[key];
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
@@ -461,7 +465,7 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   // sharp as the screen on a phone, at about half the GPU work of 2x), 1x
   // without it.
   if ([key isEqualToString:@"scale"]) {
-    return [s[@"native_renderer"] isEqualToString:@"true"] ? @"1.5" : @"1";
+    return On(s, @"native_renderer") ? @"1.5" : @"1";
   }
   const Option* o = FindOption(key);
   return o ? o->default_value : @"";

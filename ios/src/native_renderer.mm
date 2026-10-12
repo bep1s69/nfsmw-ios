@@ -506,12 +506,32 @@ ShaderStore store;
 
 // --- A recorded frame ----------------------------------------------------------
 
+// Vertex data arrays: not zeroed when made (every element is written right
+// after; zeroing them cost ~1 ms per frame of dynamic vertices).
+template <typename T>
+struct DefaultInitAllocator : std::allocator<T> {
+  template <typename U>
+  struct rebind {
+    using other = DefaultInitAllocator<U>;
+  };
+  using std::allocator<T>::allocator;
+  template <typename U>
+  void construct(U* p) noexcept {
+    ::new (static_cast<void*>(p)) U;
+  }
+  template <typename U, typename... Args>
+  void construct(U* p, Args&&... args) {
+    ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
+  }
+};
+using FloatArray = std::vector<float, DefaultInitAllocator<float>>;
+
 struct Attribute {
   uint32_t location;
   bool integer;                // uint4 (blend indices) instead of float4
   // 4 per vertex (uint bits when integer); shared with the attribute cache
   // (and the renderer's Metal buffer for it) while the source is unchanged.
-  std::shared_ptr<std::vector<float>> values;
+  std::shared_ptr<FloatArray> values;
   bool fresh = false;  // decoded this frame: uploaded with the frame, not kept
 };
 
@@ -638,6 +658,17 @@ struct ResolveEvent {
   uint32_t dest_format = 6;    // RB_COPY_DEST_INFO bits 7-12 (6: k_8_8_8_8)
 };
 
+// A stage's float constants, c0-c255 (1024 dwords). Only the registers its
+// draws' shaders read are filled in (Record copies just those): the rest is
+// left as it was allocated, never read.
+struct ConstantBank {
+  uint32_t v[1024];
+  const uint32_t* data() const { return v; }
+  uint32_t* data() { return v; }
+  const uint32_t& operator[](size_t i) const { return v[i]; }
+  uint32_t& operator[](size_t i) { return v[i]; }
+};
+
 struct Draw {
   id<MTLFunction> vs, ps;
   uint64_t vs_key, ps_key;
@@ -650,7 +681,7 @@ struct Draw {
   size_t index_count() const { return indices ? indices->size() : 0; }
   uint32_t vertex_count = 0;
   // 1024 dwords each; shared with the draw before while unchanged (most are).
-  std::shared_ptr<const std::vector<uint32_t>> vs_constants, ps_constants;
+  std::shared_ptr<const ConstantBank> vs_constants, ps_constants;
   // The registers its shaders read of them (FIRST..END-1): compared, uploaded.
   std::pair<uint16_t, uint16_t> vs_range{0, 256}, ps_range{0, 256};
   uint32_t booleans = 0;
@@ -681,6 +712,7 @@ struct VertexDiagnostics {
   uint64_t fingerprint_calls = 0;
   uint64_t fingerprint_sample_count = 0;
   uint64_t fingerprint_sample_ns = 0;
+  uint64_t fingerprint_shared = 0;  // inputs that reused their draw's region fingerprint
   uint64_t decoded_vertex_elements = 0;
   uint64_t expanded_input_indices = 0;
   uint64_t expanded_output_indices = 0;
@@ -693,6 +725,7 @@ struct VertexDiagnostics {
     fingerprint_calls += other.fingerprint_calls;
     fingerprint_sample_count += other.fingerprint_sample_count;
     fingerprint_sample_ns += other.fingerprint_sample_ns;
+    fingerprint_shared += other.fingerprint_shared;
     decoded_vertex_elements += other.decoded_vertex_elements;
     expanded_input_indices += other.expanded_input_indices;
     expanded_output_indices += other.expanded_output_indices;
@@ -709,7 +742,7 @@ struct Frame {
   uint32_t slot_fetch[16][6] = {};
   int slot_texture[16] = {};
   bool slot_valid[16] = {};
-  std::shared_ptr<const std::vector<uint32_t>> last_vs_constants, last_ps_constants;
+  std::shared_ptr<const ConstantBank> last_vs_constants, last_ps_constants;
   std::vector<ResolveEvent> resolves;
   // The frame's textures (indices in Draw::textures), shared with the
   // texture cache while their memory is unchanged.
@@ -762,6 +795,7 @@ std::atomic<int> hitch_lines_left{300};
 // Parts of the recording (game thread): vertex inputs, then constants and
 // textures.
 std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
+bool timed_draw = false;  // this draw's recording is timed (one in eight; command processor thread)
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
 
@@ -1037,7 +1071,7 @@ struct AttributeKeyHash {
     return size_t(h);
   }
 };
-std::unordered_map<AttributeKey, CacheEntry<std::vector<float>>, AttributeKeyHash> attribute_cache;
+std::unordered_map<AttributeKey, CacheEntry<FloatArray>, AttributeKeyHash> attribute_cache;
 // A draw's indices as the renderer draws them (read, byte-swapped, offset,
 // rebased to the lowest vertex, fans and quads made triangles), by where and
 // how they were read, checked against their memory like the attributes: most
@@ -1643,7 +1677,10 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.vertex_count = hi - lo + 1;
 
   // Vertex inputs.
-  const auto vertex_start = FastClock::now();
+  const auto vertex_start = timed_draw ? FastClock::now() : FastClock::time_point{};
+  const uint8_t* region_fp_base = nullptr;  // the fingerprint of this draw's vertex region, per stream
+  size_t region_fp_start = 0, region_fp_size = 0;
+  uint64_t region_fp = 0;
   auto inputs_it = store.inputs.find(in.vs_key);
   if (inputs_it != store.inputs.end()) {
     for (const VertexInput& input : inputs_it->second) {
@@ -1718,7 +1755,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
                               remapped ? uint32_t(remap[0] | remap[1] << 3 | remap[2] << 6 | remap[3] << 9) : 0u};
       const size_t first = (size_t(lo) * f.stride + f.offset) * 4;
       const size_t range = size_t(d.vertex_count) * f.stride * 4 + 16;
-      CacheEntry<std::vector<float>>& acached = attribute_cache[akey];
+      CacheEntry<FloatArray>& acached = attribute_cache[akey];
       acached.last_used = frame_counter;
       const bool watchable = REXCVAR_GET(nfsmw_native_write_watch) && buffer && !in.up_vertices && !acached.dynamic;
       if (acached.value && acached.watched && write_watch::Clean(buffer + uint32_t(first), range)) {
@@ -1730,15 +1767,29 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       if (watchable) write_watch::Arm(buffer + uint32_t(first), range);
       uint64_t afp = 0;
       if (buffer) {
+        // The draw's other inputs usually sit in the same vertices (one
+        // interleaved buffer): the region of whole vertices is fingerprinted
+        // once per draw and stream, not once per input.
+        const size_t region = size_t(lo) * f.stride * 4;
+        const size_t region_size = size_t(d.vertex_count + 1) * f.stride * 4 + 16;
+        if (base == region_fp_base && region == region_fp_start && region_size == region_fp_size) {
+          afp = region_fp;
+          ++frame.vertex_diagnostics.fingerprint_shared;
+        } else {
         const uint64_t call = frame.vertex_diagnostics.fingerprint_calls++;
         const bool sample = (call & 63) == 0;
         const auto fingerprint_start = sample ? FastClock::now() : FastClock::time_point{};
-        afp = Fingerprint(base + first, range);
+        afp = Fingerprint(base + region, region_size);
+        region_fp_base = base;
+        region_fp_start = region;
+        region_fp_size = region_size;
+        region_fp = afp;
         if (sample) {
           frame.vertex_diagnostics.fingerprint_sample_ns += uint64_t(
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                   FastClock::now() - fingerprint_start).count());
           ++frame.vertex_diagnostics.fingerprint_sample_count;
+        }
         }
       }
       if (acached.value && acached.fingerprint == afp) {
@@ -1758,9 +1809,9 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       if (acached.value && frame_counter - acached.last_changed <= 2) acached.dynamic = true;
       acached.last_changed = frame_counter;
       acached.watched = watchable && !acached.dynamic;
-      a.values = std::make_shared<std::vector<float>>(size_t(d.vertex_count) * 4);
+      a.values = std::make_shared<FloatArray>(size_t(d.vertex_count) * 4);
       a.fresh = true;
-      std::vector<float>& values = *a.values;
+      FloatArray& values = *a.values;
       bool ok = true;
       for (uint32_t v = 0; v < d.vertex_count && ok; ++v) {
         const uint32_t at = ((lo + v) * f.stride + f.offset) * 4;
@@ -1831,13 +1882,13 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         break;
       case 8: {  // rectangle list: the fourth corner = v1 + v2 - v0, for every input
         for (Attribute& a : d.attributes) {  // a copy: the cached arrays stay as they were
-          a.values = std::make_shared<std::vector<float>>(*a.values);
+          a.values = std::make_shared<FloatArray>(*a.values);
           a.fresh = true;
         }
         for (uint32_t i = 0; i + 2 < count; i += 3) {
           const uint32_t v0 = at(i), v1 = at(i + 1), v2 = at(i + 2), v3 = d.vertex_count++;
           for (Attribute& a : d.attributes) {
-            std::vector<float>& values = *a.values;
+            FloatArray& values = *a.values;
             values.resize(size_t(d.vertex_count) * 4);
             for (int k = 0; k < 4; ++k) {
               values[v3 * 4 + k] = values[v1 * 4 + k] + values[v2 * 4 + k] - values[v0 * 4 + k];
@@ -1872,16 +1923,23 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // a copy per draw, and one upload of them).
   // Only the registers the draw's shader reads are compared: the others may
   // differ from the draw before's, unread.
-  auto constants = [&](std::shared_ptr<const std::vector<uint32_t>>& last, const uint32_t* from,
+  // A new bank holds only those registers too (not zeroed, not all 4 KB
+  // copied): a draw whose shader reads others never matches it (their
+  // compare differs), so it never reads what was not copied.
+  auto constants = [&](std::shared_ptr<const ConstantBank>& last, const uint32_t* from,
                        std::pair<uint16_t, uint16_t> range) {
     const size_t at = size_t(range.first) * 4, n = size_t(range.second - range.first) * 16;
     if (!last || (n && std::memcmp(last->data() + at, from + at, n) != 0)) {
-      last = std::make_shared<const std::vector<uint32_t>>(from, from + 1024);
+      auto bank = std::shared_ptr<ConstantBank>(new ConstantBank);  // default-initialized: no zeroing
+      std::memcpy(bank->data() + at, from + at, n);
+      last = std::move(bank);
     }
     return last;
   };
-  const auto texture_start = FastClock::now();
-  record_vertex_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(texture_start - vertex_start).count());
+  const auto texture_start = timed_draw ? FastClock::now() : FastClock::time_point{};
+  if (timed_draw) {
+    record_vertex_us += 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(texture_start - vertex_start).count());
+  }
   d.vs_range = store.ConstantRange(false, d.vs_key);
   d.ps_range = store.ConstantRange(true, d.ps_key);
   d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
@@ -1898,7 +1956,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // drawn last (their shadows came and went with the scenery).
   if ((d.vs_key == 0x2f583d7c8ddf572aull || d.vs_key == 0x88e2dcfd95a47a7bull) &&
       d.ps_key == 0x4fbaecfb8e7c4f40ull && (*d.ps_constants)[4] != 0) {
-    auto copy = std::make_shared<std::vector<uint32_t>>(*d.ps_constants);
+    auto copy = std::make_shared<ConstantBank>(*d.ps_constants);
     (*copy)[4] = 0;  // c1.x = 0.0f
     d.ps_constants = copy;
   }
@@ -1918,8 +1976,10 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     frame.slot_texture[s] = d.textures[s];
     frame.slot_valid[s] = true;
   }
-  record_texture_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
-                                    FastClock::now() - texture_start).count());
+  if (timed_draw) {
+    record_texture_us += 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                          FastClock::now() - texture_start).count());
+  }
 
   d.surface_info = regs[kRbSurfaceInfo];
   d.color_info = regs[kRbColorInfo];
@@ -3725,7 +3785,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // Uploaded once per distinct set (consecutive draws share them).
       // The stage's constant address is where register 0 would be: the
       // upload starts at the range's first register.
-      auto upload = [&](UploadedConstants& u, const std::vector<uint32_t>& set, std::pair<uint16_t, uint16_t> r) {
+      auto upload = [&](UploadedConstants& u, const ConstantBank& set, std::pair<uint16_t, uint16_t> r) {
         if (!u.Covers(&set, r)) {
           u = {&set, r, put(set.data() + size_t(r.first) * 4, size_t(r.second - r.first) * 16)};
         }
@@ -3838,7 +3898,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (dump && (d.ps_key == 0x684f4711f29b9f77ull || d.ps_key == 0xaf393d4c46af230cull ||
                    d.ps_key == 0xd1f317fad0f46ac6ull) &&
           watched_seen[d.ps_key ^ 0x5A5A]++ < 2) {
-        auto c = [](const std::vector<uint32_t>& k, int r) {
+        auto c = [](const ConstantBank& k, int r) {
           float f[4];
           std::memcpy(f, &k[r * 4], 16);
           return fmt::format("({:.3g} {:.3g} {:.3g} {:.3g})", f[0], f[1], f[2], f[3]);
@@ -4542,16 +4602,21 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
   if (!recording) {
     return;
   }
-  const auto t0 = FastClock::now();
+  // Timed: one draw in eight (counted eight times). Reading the clock five
+  // times for every draw cost ~1 ms per frame on its own.
+  static uint32_t draw_tick = 0;
+  timed_draw = (++draw_tick & 7) == 0;
   struct Timer {
     FastClock::time_point t0;
+    bool on;
     ~Timer() {
-      const uint64_t us = uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
-                                       FastClock::now() - t0).count());
+      if (!on) return;
+      const uint64_t us = 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                           FastClock::now() - t0).count());
       record_us += us;
       if (recording) recording->record_us += us;
     }
-  } timer{t0};
+  } timer{timed_draw ? FastClock::now() : FastClock::time_point{}, timed_draw};
   // Without the native renderer on screen, PNG frames are menu frames only
   // (~330 draws): a race frame (2,000-3,000) is dropped instead of decoded.
   const size_t limit = REXCVAR_GET(nfsmw_native_present) ? 20000 : 700;

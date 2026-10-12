@@ -580,12 +580,17 @@ class NfsmwApp : public rex::ReXApp {
       // (sub_823BB508, NFS\ZDIR.BIN) esperando una lectura pedida, y los hilos
       // que leen esperando trabajo, cada uno en un semaforo: un aviso perdido.
       // Durante los primeros dos minutos, a los hilos que esperan un semaforo
-      // se les da un aviso de mas (hasta tres veces): el codigo del juego
-      // vuelve a mirar si de verdad tiene trabajo, asi que un aviso de sobra
-      // solo da una vuelta; el que faltaba lo despierta.
+      // se les da un aviso de mas (hasta tres veces).
+      //
+      // OJO: SOLO tras 20 s parados. Los arranques normales tambien se quedan
+      // quietos unos 7 s (cargando) y vuelven solos; un aviso de sobra ahi
+      // descuadra las cuentas de las esperas del juego (contador propio +
+      // semaforo) y sus dos hilos de lectura se quedaban girando para siempre,
+      // mas de un nucleo entero (Time Profiler, 2026-10-12). Un cuelgue de
+      // verdad no vuelve nunca: 20 s lo distinguen de una carga.
       const auto desde_inicio =
           std::chrono::duration_cast<std::chrono::seconds>(Reloj::now() - inicio).count();
-      if (desde_inicio < 120 && empujones < 3) {
+      if (desde_inicio < 120 && quietos >= 20 && empujones < 3) {
         ++empujones;
         int despertados = 0;
         for (auto& h : hilos) {
