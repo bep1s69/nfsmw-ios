@@ -1600,6 +1600,17 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
       case xenos::TextureFormat::k_5_6_5:
         host[3] = 2;
         break;
+      case xenos::TextureFormat::k_4_4_4_4:
+        // The console's nibbles (after the 8-in-16 swap) are one place over
+        // from Metal's ABGR4 (rexglue converts them in a load shader): as
+        // ABGR4, red reads the console's G, green its B, blue its A, alpha
+        // its R. The tuning shop's reflection cube (05cc1000) is k_4_4_4_4:
+        // read as is, its blue was its alpha (0) and the car turned yellow.
+        host[0] = 3;
+        host[1] = 0;
+        host[2] = 1;
+        host[3] = 2;
+        break;
       default:
         break;
     }
