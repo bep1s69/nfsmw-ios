@@ -129,6 +129,7 @@ IOS_PATCHES = [
     "patch_ios_semaphore_trace",
     "patch_ios_xma_canary",
     "patch_ios_mnk_modifiers",
+    "patch_ios_native_present_skip",
 ]
 
 

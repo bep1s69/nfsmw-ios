@@ -151,6 +151,20 @@ struct Control {
     const CGFloat r = kind == Kind::kStick ? radius * 1.35 : radius * 1.15;
     return std::hypot(p.x - center.x, p.y - center.y) <= r;
   }
+
+  // What it covers on screen (with its outline and label), for redrawing
+  // only what changed.
+  CGRect Bounds() const {
+    const bool round = kind == Kind::kStick || kind == Kind::kRoundButton;
+    const CGFloat w = round ? radius * 2 : size.width, h = round ? radius * 2 : size.height;
+    return CGRectInset(CGRectMake(center.x - w / 2, center.y - h / 2, w, h), -6, -6);
+  }
+
+  // Its look: pressed, where the knob is, which D-pad arrows.
+  uint64_t Look() const {
+    return uint64_t(pressed) | uint64_t(dpad_bits & 0xFFFF) << 1 |
+           uint64_t(uint16_t(int16_t(knob.x * 1000))) << 17 | uint64_t(uint16_t(int16_t(knob.y * 1000))) << 33;
+  }
 };
 
 }  // namespace
@@ -160,6 +174,7 @@ struct Control {
 
 @implementation NFSTouchView {
   std::vector<Control> _controls;
+  std::vector<uint64_t> _drawnLook;  // each control's look when last drawn
   NSMapTable<UITouch*, NSNumber*>* _owners;  // touch -> control index
   CGRect _toggle;
   CGRect _modeToggle;  // DRIVE/PAD
@@ -231,6 +246,8 @@ struct Control {
   const CGFloat stick = unit * 0.78, button = unit * 0.38;
   const CGFloat shoulderW = unit * 1.25, shoulderH = unit * 0.55;
   auto P = [&](CGFloat fx, CGFloat fy) { return CGPointMake(w * fx, h * fy); };
+  [self setNeedsDisplay];  // a new layout: everything redrawn once
+  _drawnLook.clear();
   _controls.clear();
   _toggle = CGRectMake(w * .5 - unit * .9, h * .02, unit * 1.8, unit * .5);
   _modeToggle = CGRectOffset(_toggle, -(_toggle.size.width + unit * .3), 0);
@@ -478,7 +495,22 @@ struct Control {
     }
   }
   SetPadState(buttons, axes[0], axes[1], axes[2], axes[3], triggers[0], triggers[1]);
-  [self setNeedsDisplay];
+  // Redraw only the controls whose look changed (a moving finger used to
+  // redraw the whole screen-sized overlay at every move: ~0.1 of a core).
+  if (_drawnLook.size() != _controls.size()) {
+    _drawnLook.assign(_controls.size(), ~uint64_t(0));
+  }
+  CGRect dirty = CGRectNull;
+  for (size_t i = 0; i < _controls.size(); ++i) {
+    const uint64_t look = _controls[i].Look();
+    if (look != _drawnLook[i]) {
+      _drawnLook[i] = look;
+      dirty = CGRectUnion(dirty, _controls[i].Bounds());
+    }
+  }
+  if (!CGRectIsNull(dirty)) {
+    [self setNeedsDisplayInRect:dirty];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +585,7 @@ struct Control {
              size:_modeToggle.size.height * 0.42];
 
   for (const Control& c : _controls) {
+    if (!CGRectIntersectsRect(c.Bounds(), dirty)) continue;  // not in the part being redrawn
     switch (c.kind) {
       case Kind::kStick: {
         UIBezierPath* ring = [UIBezierPath
