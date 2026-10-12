@@ -664,6 +664,8 @@ struct Texture {
   uint32_t depth = 1;          // 3D textures: depth slices in data, one after another
   bool volume = false;
   uint32_t guest_format = 0;   // the fetch constant's format (diagnostics)
+  uint32_t guest_endian = 0;   // the fetch constant's endianness (diagnostics)
+  bool guest_tiled = false;    // (diagnostics)
   bool guest_signed = false;   // any component signed (diagnostics)
 };
 
@@ -1468,6 +1470,8 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   tex.address = uint32_t(t.base_address) << 12;
   tex.format = info.format;
   tex.guest_format = uint32_t(t.format);
+  tex.guest_endian = uint32_t(t.endianness);
+  tex.guest_tiled = t.tiled;
   tex.guest_signed = t.sign_x != xenos::TextureSign::kUnsigned || t.sign_y != xenos::TextureSign::kUnsigned ||
                      t.sign_z != xenos::TextureSign::kUnsigned || t.sign_w != xenos::TextureSign::kUnsigned;
   tex.width = width;
@@ -4277,15 +4281,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           if (d.ps_key == 0x2442daf2d3a7097aull || d.ps_key == 0xd1f317fad0f46ac6ull) {
             const Texture& ft = *frame->textures[d.textures[s]];
             static std::set<std::tuple<uint64_t, int, uint32_t>> said;
-            if (said.size() < 64 && said.insert({d.ps_key, s, ft.address}).second) {
+            // 2D textures: the first 64; cubes and 3D textures: all (few).
+            if ((said.size() < 64 || ft.cube || ft.volume) && said.insert({d.ps_key, s, ft.address}).second) {
               REXLOG_INFO("[car-paint] ps {:016x} slot {}: {:08x} {}x{}x{} guest format {}{} metal format {} {}{} "
-                          "fetch swizzle {:03x} exp_adjust {}",
+                          "fetch swizzle {:03x} exp_adjust {} endian {} tiled {}",
                           d.ps_key, s, ft.address, ft.width, ft.height, ft.depth, ft.guest_format,
                           ft.guest_signed ? " signed" : "", int(ft.format),
                           ft.cube ? "cube" : ft.volume ? "3D" : "2D",
                           resolved_cube_index.count(ft.address) ? " (made from resolves)"
                           : ft.format == MTLPixelFormatInvalid ? " (a resolve)" : "",
-                          ft.fetch_swizzle, ft.exp_adjust);
+                          ft.fetch_swizzle, ft.exp_adjust, ft.guest_endian, ft.guest_tiled);
             }
             // Snapshots: which cube the paint reads (decoded from memory or
             // made from resolves), and its six faces saved once per frame.
