@@ -347,6 +347,71 @@ float4 tfetch2D(constant Texture2DDescriptorHeap* textureHeap,
 #endif
 }
 
+// NFSMW's soft shadows: 9 linear fetches of the shadow map's depth at -0.5,
+// 0 and +0.5 texels in x and y around one coordinate, each compared with the
+// receiver's depth by the shader (tools/native/rewrite_shadow_filter.py
+// replaces those 9 fetches with this). The 9 bilinear values only use the
+// 3x3 texels from floor(c - 0.5): 4 gathers fetch them and the 9 values are
+// interpolated here (9 filtered 32-bit fetches -> 4 unfiltered gathers).
+// Function constant 1 off: the 9 fetches as before (A/B).
+constant bool NFSMW_SHADOW_GATHER_FC [[function_constant(1)]];
+constant bool NFSMW_SHADOW_GATHER =
+    is_function_constant_defined(NFSMW_SHADOW_GATHER_FC) ? NFSMW_SHADOW_GATHER_FC : true;
+
+struct Shadow9
+{
+    float v[9];  // [x * 3 + y], x and y 0, 1, 2 for -0.5, 0, +0.5 texels
+};
+
+Shadow9 tfetch2DShadow9(constant Texture2DDescriptorHeap* textureHeap,
+                        constant SamplerDescriptorHeap* samplerHeap,
+                        uint resourceDescriptorIndex,
+                        uint samplerDescriptorIndex,
+                        float2 texCoord)
+{
+    Shadow9 r;
+    if (!NFSMW_SHADOW_GATHER)
+    {
+        for (int x = 0; x < 3; ++x)
+            for (int y = 0; y < 3; ++y)
+                r.v[x * 3 + y] = tfetch2D(textureHeap, samplerHeap, resourceDescriptorIndex, samplerDescriptorIndex,
+                                          texCoord, float2(x * 0.5 - 0.5, y * 0.5 - 0.5)).x;
+        return r;
+    }
+    texture2d<float> texture = textureHeap[resourceDescriptorIndex].tex;
+    sampler sampler = samplerHeap[samplerDescriptorIndex].samp;
+    const float2 size = (float2)getTexture2DDimensions(texture);
+    const float2 c = texCoord * size - 0.5;  // texel centres at whole numbers
+    const float2 b = floor(c - 0.5);         // the first texel the -0.5 fetch reads
+    // gather at (k + 1) / size returns texels k and k + 1: x (k, k+1 in y),
+    // y (k+1, k+1), z (k+1, k), w (k, k).
+    const float4 g00 = texture.gather(sampler, (b + float2(1.0, 1.0)) / size);
+    const float4 g10 = texture.gather(sampler, (b + float2(3.0, 1.0)) / size);
+    const float4 g01 = texture.gather(sampler, (b + float2(1.0, 3.0)) / size);
+    const float4 g11 = texture.gather(sampler, (b + float2(3.0, 3.0)) / size);
+    // Columns x = b, b+1, b+2 (texels y = b, b+1, b+2).
+    const float3 t0 = float3(g00.w, g00.x, g01.w);
+    const float3 t1 = float3(g00.z, g00.y, g01.z);
+    const float3 t2 = float3(g10.w, g10.x, g11.w);
+    // -0.5 and +0.5 start at b and b+1 with the weight fract(c - 0.5); 0
+    // starts at floor(c) (b or b+1) with fract(c).
+    const float2 w0 = c - 0.5 - b;
+    const float2 w1 = fract(c);
+    const bool2 mid = (floor(c) - b) > 0.5;
+    const float3 l0 = mix(t0, t1, w0.x);
+    const float3 l2 = mix(t1, t2, w0.x);
+    const float3 l1 = mid.x ? mix(t1, t2, w1.x) : mix(t0, t1, w1.x);
+    const float3 l[3] = {l0, l1, l2};
+    for (int x = 0; x < 3; ++x)
+    {
+        const float3 v = l[x];
+        r.v[x * 3 + 0] = mix(v.x, v.y, w0.y);
+        r.v[x * 3 + 1] = mid.y ? mix(v.y, v.z, w1.y) : mix(v.x, v.y, w1.y);
+        r.v[x * 3 + 2] = mix(v.y, v.z, w0.y);
+    }
+    return r;
+}
+
 float4 tfetch2DArray(constant Texture2DArrayDescriptorHeap* textureHeap,
                      constant SamplerDescriptorHeap* samplerHeap,
                      uint resourceDescriptorIndex,

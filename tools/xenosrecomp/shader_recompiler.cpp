@@ -381,6 +381,14 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     }
 #endif
 
+    // The fetch's own filters (0 point, 1 linear, 2 base map, 3 the fetch
+    // constant's): for the native renderer's samplers and shader rewrites.
+    if (instr.opcode == FetchOpcode::TextureFetch)
+    {
+        indent();
+        println("// tfetch filter: mag {} min {} mip {}", uint32_t(instr.magFilter), uint32_t(instr.minFilter),
+                uint32_t(instr.mipFilter));
+    }
     indent();
     print("r{}.", instr.dstRegister);
     printDstSwizzle(instr.dstSwizzle, false);

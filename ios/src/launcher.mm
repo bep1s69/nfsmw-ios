@@ -92,6 +92,10 @@ const std::vector<Section>& Sections() {
             @"The game moves its world 60 times a second at any frame rate. On, 120 times: for "
             @"the 120 fps cap. Under test; turn it off if the game runs too fast or too slow.",
             @"false"},
+           {@"skip_movies", Type::kSwitch, @"Skip movies",
+            @"Skips the game's movies, as Extra Options' SkipMovies: the EA logo and intro go "
+            @"straight to \"press start\". The story movies of the career are skipped too.",
+            @"false"},
            {@"old_bridge", Type::kSwitch, @"Open the road to the Old Bridge",
             @"Removes the barrier that closes the road to the Old Bridge.",
             @"false"},
@@ -213,6 +217,11 @@ const std::vector<Section>& Sections() {
             @"Draws the game with its own shaders translated to Metal instead of the emulated "
             @"Xbox 360 GPU, shown over it. In development: needs the native shaders in this build.",
             @"false"},
+           {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
+            @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
+            @"background and that object is missing for a few frames, instead of a hitch of up to "
+            @"~70 ms. Pipelines from earlier sessions are compiled at startup either way.",
+            @"true"},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
             @"memory. Used automatically when mapping fails (devices with less address space); "
@@ -365,6 +374,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
+  a.push_back("--nfsmw_skip_movies=" + b(On(s, @"skip_movies")));
+  a.push_back("--nfsmw_native_async_pipelines=" + b(On(s, @"async_pipelines")));
   a.push_back(std::string("--log_level=") +
               (!On(s, @"logging") ? "off" : On(s, @"detailed_log") ? "debug" : "info"));
   a.push_back("--ios_mvk_performance=" + b(On(s, @"mvk_profiling")));

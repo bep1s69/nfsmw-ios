@@ -199,9 +199,9 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   // Before OnInitialize, which loads MoltenVK: it reads its settings from the
   // environment when it starts.
   setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", REXCVAR_GET(ios_async_submits) ? "0" : "1", 1);
-  if (REXCVAR_GET(ios_gpu_capture)) {
-    setenv("MTL_CAPTURE_ENABLED", "1", 1);
-  }
+  // Metal's capture layer only for the capture button: it wraps every Metal
+  // call (several times the renderer's encoding cost).
+  setenv("MTL_CAPTURE_ENABLED", REXCVAR_GET(ios_gpu_capture) ? "1" : "0", 1);
   if (REXCVAR_GET(ios_mvk_performance)) {
     setenv("MVK_CONFIG_PERFORMANCE_TRACKING", "1", 1);
     setenv("MVK_CONFIG_PERFORMANCE_LOGGING_FRAME_COUNT", "300", 1);

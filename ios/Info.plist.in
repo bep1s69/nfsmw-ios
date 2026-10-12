@@ -100,13 +100,12 @@
 
 	<key>UILaunchScreen</key>
 	<dict/>
-	<!-- Metal GPU frame captures to a file (src/gpu_capture.mm), outside LiveContainer.
-	     Inside it, MTL_CAPTURE_ENABLED=1 (ios_main.mm) does the same. -->
 	<!-- iPhone: allow ProMotion's 120 Hz (the 40 and 120 fps caps). iPads allow it already. -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>MetalCaptureEnabled</key>
-	<true/>
+	<!-- No MetalCaptureEnabled: it puts Metal's capture layer under every call
+	     (CaptureMTLDevice) all the time, a large CPU cost in the renderer. The GPU
+	     capture button sets MTL_CAPTURE_ENABLED=1 instead (ios_main.mm). -->
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UIStatusBarHidden</key>
