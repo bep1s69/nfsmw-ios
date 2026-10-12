@@ -114,6 +114,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
                     "Native renderer test: car paint without its environment cube");
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
+// k_4_4_4_4: the Metal channel (r, g, b, a of ABGR4) read for the console's
+// R, G, B and A.
+REXCVAR_DEFINE_STRING(nfsmw_native_rgba4_order, "rgab", "GPU",
+                      "Native renderer: Metal channels read for k_4_4_4_4's R, G, B, A");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -1600,17 +1604,19 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
       case xenos::TextureFormat::k_5_6_5:
         host[3] = 2;
         break;
-      case xenos::TextureFormat::k_4_4_4_4:
-        // The console's nibbles (after the 8-in-16 swap) are one place over
-        // from Metal's ABGR4 (rexglue converts them in a load shader): as
-        // ABGR4, red reads the console's G, green its B, blue its A, alpha
-        // its R. The tuning shop's reflection cube (05cc1000) is k_4_4_4_4:
-        // read as is, its blue was its alpha (0) and the car turned yellow.
-        host[0] = 3;
-        host[1] = 0;
-        host[2] = 1;
-        host[3] = 2;
+      case xenos::TextureFormat::k_4_4_4_4: {
+        // Which Metal ABGR4 channel holds the console's R, G, B, A
+        // (nfsmw_native_rgba4_order, four letters of r g b a). The tuning
+        // shop's reflection cube (05cc1000) is k_4_4_4_4: read as is
+        // ("rgba") it was yellow, as "argb" pink; its nibbles say
+        // (r, g, b, a) = (v, v, 0, 15), so blue is in Metal's alpha.
+        const std::string order = REXCVAR_GET(nfsmw_native_rgba4_order);
+        for (int i = 0; i < 4 && i < int(order.size()); ++i) {
+          const char c = order[i];
+          host[i] = c == 'r' ? 0 : c == 'g' ? 1 : c == 'b' ? 2 : 3;
+        }
         break;
+      }
       default:
         break;
     }
