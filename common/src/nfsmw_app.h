@@ -29,7 +29,11 @@
 #include <rex/system/util/object_table.h>  // VIGILANTE DE CUELGUES - que espera cada hilo
 #include <rex/system/xmemory.h>            // TranslateVirtual (parche Black Edition)
 #include <rex/system/xobject.h>            // VIGILANTE DE CUELGUES - que espera cada hilo
+#include <rex/system/xsemaphore.h>         // VIGILANTE DE CUELGUES - empujon del arranque
 #include <rex/system/xthread.h>            // VIGILANTE DE CUELGUES
+
+// The SDK's ring of recent semaphore operations (xboxkrnl_threading.cpp).
+extern "C" void rex_semaphore_trace_log();
 
 #include <algorithm>
 #include <atomic>
@@ -406,13 +410,23 @@ class NfsmwApp : public rex::ReXApp {
   // La pila del guest de un hilo parado: las direcciones de vuelta, de la
   // funcion actual hacia arriba. Convenio del 360: el puntero de pila apunta a
   // la cadena (0(r1) = el r1 del que llamo) y cada funcion guarda su LR en
-  // -8 del marco de quien la llamo. Solo dentro de las pilas de los hilos
-  // (0x70000000-0x7FFFFFFF, siempre mapeadas), y como mucho 16 marcos.
-  static std::string PilaGuest(uint32_t sp) {
+  // -8 del marco de quien la llamo. Solo dentro de la pila de ESE hilo, entre
+  // su final y su base (PCR +0x74 y +0x70): la primera version leia hasta
+  // 0x70030000, la base de una pila sin usar, sin mapear, y el vigilante se
+  // quedo atascado en el fallo. Como mucho 16 marcos.
+  static std::string PilaGuest(uint32_t pcr, uint32_t sp) {
     auto* kernel = rex::system::kernel_state();
     auto* memoria = kernel ? kernel->memory() : nullptr;
-    if (!memoria) return {};
-    auto en_pila = [](uint32_t a) { return a >= 0x70000000u && a < 0x80000000u && (a & 3) == 0; };
+    if (!memoria || !pcr) return {};
+    auto leer_pcr = [&](uint32_t off) {
+      uint32_t v;
+      std::memcpy(&v, memoria->TranslateVirtual<const uint8_t*>(pcr + off), 4);
+      return __builtin_bswap32(v);
+    };
+    const uint32_t base = leer_pcr(0x70), final_pila = leer_pcr(0x74);
+    if (final_pila >= base || base - final_pila > 0x1000000) return {};
+    // 'a' y 'a - 8' dentro de la pila: entre su final y su base, alineadas.
+    auto en_pila = [&](uint32_t a) { return a >= final_pila + 8 && a + 4 <= base && (a & 3) == 0; };
     auto leer = [&](uint32_t a) {
       uint32_t v;
       std::memcpy(&v, memoria->TranslateVirtual<const uint8_t*>(a), 4);
@@ -443,7 +457,7 @@ class NfsmwApp : public rex::ReXApp {
                        "ultimo_indirecto=0x{:08X}{}{}",
                        h->thread_id(), cp->start_address, h->main_thread(), h->is_running(),
                        static_cast<uint32_t>(c.lr), c.r1.u32, c.r13.u32, c.r3.u32, c.ctr.u32,
-                       c.last_indirect_target, DescribirEspera(c.r3.u32), PilaGuest(c.r1.u32));
+                       c.last_indirect_target, DescribirEspera(c.r3.u32), PilaGuest(h->pcr_ptr(), c.r1.u32));
         } else {
           REXLOG_DEBUG("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "
@@ -468,6 +482,8 @@ class NfsmwApp : public rex::ReXApp {
     constexpr int kSegundosParaSospechar = 5;
     constexpr int kSegundosEntreVolcados = 15;
 
+    const auto inicio = Reloj::now();
+    int empujones = 0;
     uint64_t firma_anterior = 0;
     int quietos = 0;
     int desde_ultimo_volcado = 0;
@@ -556,7 +572,37 @@ class NfsmwApp : public rex::ReXApp {
                    "del juego. Esto no es lentitud: esta parado.",
                    quietos, hilos.size());
       VolcarHilos(hilos, true);
+      if (!avisado) rex_semaphore_trace_log();  // quien solto que antes de pararse
       avisado = true;
+
+      // Red de seguridad del arranque. Un arranque de cada muchos se quedaba
+      // parado para siempre (sobre todo tras cambiar ajustes): el cargador
+      // (sub_823BB508, NFS\ZDIR.BIN) esperando una lectura pedida, y los hilos
+      // que leen esperando trabajo, cada uno en un semaforo: un aviso perdido.
+      // Durante los primeros dos minutos, a los hilos que esperan un semaforo
+      // se les da un aviso de mas (hasta tres veces): el codigo del juego
+      // vuelve a mirar si de verdad tiene trabajo, asi que un aviso de sobra
+      // solo da una vuelta; el que faltaba lo despierta.
+      const auto desde_inicio =
+          std::chrono::duration_cast<std::chrono::seconds>(Reloj::now() - inicio).count();
+      if (desde_inicio < 120 && empujones < 3) {
+        ++empujones;
+        int despertados = 0;
+        for (auto& h : hilos) {
+          auto* estado = h->thread_state();
+          if (!estado || !estado->context()) continue;
+          const uint32_t r3 = estado->context()->r3.u32;
+          if (auto sem = kernel->object_table()->LookupObject<rex::system::XSemaphore>(r3)) {
+            int32_t anterior = 0;
+            const bool ok = sem->ReleaseSemaphore(1, &anterior);
+            ++despertados;
+            REXLOG_ERROR("[vigilante] empujon {}: hilo 0x{:X}, semaforo 0x{:08X} (tenia {}): {}", empujones,
+                         h->thread_id(), r3, anterior, ok ? "soltado" : "no se pudo");
+          }
+        }
+        REXLOG_ERROR("[vigilante] empujon {} en el arranque ({} s): {} hilos despertados", empujones,
+                     desde_inicio, despertados);
+      }
     }
   }
 

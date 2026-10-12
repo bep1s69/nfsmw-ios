@@ -42,6 +42,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "audio/coreaudio_driver.h"
 #include "boot_trace.h"
 #include "launcher.h"
 #include "memory_report.h"
@@ -192,6 +193,9 @@ void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
 // from GetWindowedAppCreator(), as on desktop.
 int RunGame(int argc, char* argv[], const fs::path& docs) {
   namespace boot = nfsmw::boot;
+  // The audio session, activated off the game's threads while the rest starts
+  // (coreaudio_driver.mm: setActive can block).
+  rex::audio::ios::PrepareAudioSession();
   boot::Trace("game: parsing the arguments");
   auto leftovers = rex::cvar::Init(argc, argv);
   rex::cvar::ApplyEnvironment();

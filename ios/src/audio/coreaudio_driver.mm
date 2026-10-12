@@ -11,7 +11,12 @@
 #include <rex/system/xmemory.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstring>
+#include <mutex>
+
+#include "../boot_trace.h"
 
 namespace rex::audio::ios {
 
@@ -50,25 +55,62 @@ bool SDLCALL EventWatch(void* userdata, SDL_Event* event) {
   return true;
 }
 
+// The session is activated on a queue of its own, started as early as
+// possible (PrepareAudioSession, when the game is launched), never on the
+// game's threads: setActive is a blocking call into the system's audio
+// server. Some launches right after the app restarted (a settings change)
+// hung for good with the game's audio thread inside it, before any game
+// frame: the game waits for its audio thread, which never returned.
+dispatch_semaphore_t session_ready = dispatch_semaphore_create(0);
+std::atomic<bool> session_activated{false};
+
+void ActivateSessionOnce() {
+  static std::once_flag once;
+  std::call_once(once, [] {
+    nfsmw::boot::Trace("audio: activating the session");
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+      const auto start = std::chrono::steady_clock::now();
+      AVAudioSession* session = AVAudioSession.sharedInstance;
+      NSError* error = nil;
+      // SoloAmbient, the iOS default for games: it respects the silent switch
+      // and stops other apps' audio.
+      [session setCategory:AVAudioSessionCategorySoloAmbient error:&error];
+      [session setPreferredSampleRate:kSampleRate error:nil];
+      // ~5 ms per callback, one game block's worth (256 / 48000).
+      [session setPreferredIOBufferDuration:256.0 / kSampleRate error:nil];
+      const bool active = [session setActive:YES error:&error];
+      const double ms =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+      nfsmw::boot::Trace(fmt::format("audio: session {} in {:.0f} ms", active ? "active" : "NOT active", ms));
+      if (!active) {
+        REXLOG_WARN("[coreaudio] AVAudioSession setActive failed: {}", error.localizedDescription.UTF8String);
+      }
+      session_activated = true;
+      dispatch_semaphore_signal(session_ready);
+    });
+  });
+}
+
 void ConfigureSession() {
-  AVAudioSession* session = AVAudioSession.sharedInstance;
-  NSError* error = nil;
-  // SoloAmbient, the iOS default for games: it respects the silent switch and
-  // stops other apps' audio.
-  [session setCategory:AVAudioSessionCategorySoloAmbient error:&error];
-  [session setPreferredSampleRate:kSampleRate error:nil];
-  // ~5 ms per callback, one game block's worth (256 / 48000).
-  [session setPreferredIOBufferDuration:256.0 / kSampleRate error:nil];
-  if (![session setActive:YES error:&error]) {
-    REXLOG_WARN("[coreaudio] AVAudioSession setActive failed: {}",
-                error.localizedDescription.UTF8String);
+  ActivateSessionOnce();
+  // Normally long done (it was started at launch). If the system's audio
+  // server is stuck, the game goes on: RemoteIO starts without it, and the
+  // session's settings come when it is ready.
+  if (!session_activated &&
+      dispatch_semaphore_wait(session_ready, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC)) != 0) {
+    REXLOG_WARN("[coreaudio] the audio session is still activating after 3 s: starting without waiting");
+    nfsmw::boot::Trace("audio: session still activating after 3 s, going on without it");
+    return;
   }
+  AVAudioSession* session = AVAudioSession.sharedInstance;
   REXLOG_INFO("[coreaudio] session: {} Hz, IO buffer {:.1f} ms, {} output channels",
               session.sampleRate, session.IOBufferDuration * 1000.0,
               static_cast<long>(session.outputNumberOfChannels));
 }
 
 }  // namespace
+
+void PrepareAudioSession() { ActivateSessionOnce(); }
 
 CoreAudioDriver::CoreAudioDriver(memory::Memory* memory, rex::thread::Semaphore* semaphore)
     : AudioDriver(memory), semaphore_(semaphore), ring_(new float[kCapacity]()) {}

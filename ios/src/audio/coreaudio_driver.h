@@ -35,6 +35,11 @@ typedef struct OpaqueAudioComponentInstance* AudioComponentInstance;
 
 namespace rex::audio::ios {
 
+// Starts activating the app's audio session on a queue of its own (blocking
+// system call); called when the game is launched, so it is done before the
+// game's audio thread needs it. Safe to call more than once.
+void PrepareAudioSession();
+
 class CoreAudioDriver final : public AudioDriver {
  public:
   CoreAudioDriver(memory::Memory* memory, rex::thread::Semaphore* semaphore);
