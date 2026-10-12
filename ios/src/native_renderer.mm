@@ -100,6 +100,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
                     "Native renderer: answer the game's occlusion queries (the sun glare) by "
                     "counting its own samples");
+// Cubes made from resolves (environment maps) sampled with the resolves'
+// red/blue swap and the fetch swizzle, as 2D resolves are.
+REXCVAR_DEFINE_BOOL(nfsmw_native_cube_swizzle, true, "GPU",
+                    "Native renderer: sample resolved cube maps with their red/blue swap and fetch swizzle");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -2512,6 +2516,7 @@ std::unordered_map<uint32_t, KeptResolve> kept_resolves;
 // into it as they are resolved (in GPU order: draws before a face's copy see
 // the frame before's face, as the console's sampling of that memory would).
 std::unordered_map<uint32_t, id<MTLTexture>> kept_cubes;
+std::unordered_map<uint32_t, bool> kept_cube_swaps;  // whether their faces' resolves swapped red and blue
 
 // --- Recycled GPU memory (the renderer's queue) ------------------------------------
 //
@@ -3263,6 +3268,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // Resolved cubes (faces resolved one by one) by address -> cube heap index.
     std::map<uint32_t, id<MTLTexture>> resolved_cubes;
     std::map<uint32_t, uint32_t> resolved_cube_index;
+    // Whether the faces' resolves swapped red and blue in memory (sampled
+    // like 2D resolves: that swap, then the fetch swizzle), and the swizzled
+    // views made for them: (cube, swizzle | swap << 12) -> cube heap index.
+    std::map<uint32_t, bool> resolved_cube_swap;
+    std::map<std::pair<uintptr_t, uint32_t>, uint32_t> cube_views;
     uint32_t next_cube = uint32_t(cubes.count);
     const uint32_t cube_capacity = uint32_t(cubes.count + frame->resolves.size() + cube_targets.size());
     // Cubes kept from earlier frames: bound from the frame's start.
@@ -3270,6 +3280,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       auto kept = kept_cubes.find(ct.base);
       if (kept == kept_cubes.end() || next_cube >= cube_capacity) continue;
       resolved_cubes[ct.base] = kept->second;
+      resolved_cube_swap[ct.base] = kept_cube_swaps[ct.base];
       [assembled_cubes addObject:kept->second];
       static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = kept->second.gpuResourceID;
       resolved_cube_index[ct.base] = next_cube++;
@@ -3444,7 +3455,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:src.color.pixelFormat
                                                                                          size:std::max(w, h)
                                                                                     mipmapped:NO];
-          cd.usage = MTLTextureUsageShaderRead;
+          cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
           cube = gpu_pool.Texture(device, cd);
           frame_resources.objects.push_back(cube);
           resolved_cubes[ev.dest_base] = cube;
@@ -3455,6 +3466,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           resolve_rects.push_back(CGRectMake(0, 0, w, h));
         }
         if (cube && ev.slice < 6) {
+          resolved_cube_swap[ev.dest_base] = ev.swap;
           id<MTLBlitCommandEncoder> blit = new_blit("blit: cube face");
           [blit copyFromTexture:src.color
                     sourceSlice:0
@@ -3602,7 +3614,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:dest.pixelFormat
                                                                                            size:Px(ct.width, scale)
                                                                                       mipmapped:NO];
-            cd.usage = MTLTextureUsageShaderRead;
+            cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
             cd.storageMode = MTLStorageModePrivate;
             cube = [device newTextureWithDescriptor:cd];
             residency::Add(cube);
@@ -3617,6 +3629,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             resolved_cube_index[ct.base] = next_cube++;
           }
           if (cube && cube.pixelFormat == dest.pixelFormat) {
+            resolved_cube_swap[ct.base] = kept_cube_swaps[ct.base] = ev.swap;
             id<MTLBlitCommandEncoder> blit = new_blit("blit: cube assembly");
             [blit copyFromTexture:dest
                       sourceSlice:0
@@ -4081,6 +4094,44 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           auto rc = resolved_cube_index.find(frame->textures[d.textures[s]]->address);
           if (rc != resolved_cube_index.end()) {
             shared[48 + s] = rc->second;  // a cube resolved earlier in this frame
+            // Sampled as the console does: the faces' red/blue swap in memory,
+            // then the fetch swizzle (as for 2D resolves above).
+            const Texture& ft = *frame->textures[d.textures[s]];
+            const bool swap = resolved_cube_swap[ft.address];
+            const uint32_t sw = ft.fetch_swizzle;
+            id<MTLTexture> base = resolved_cubes[ft.address];
+            if (base && (sw != 0x688 || swap) && REXCVAR_GET(nfsmw_native_cube_swizzle)) {
+              const auto view_key = std::make_pair(uintptr_t((__bridge void*)base), sw | (swap ? 0x1000u : 0u));
+              auto view = cube_views.find(view_key);
+              if (view != cube_views.end()) {
+                shared[48 + s] = view->second;
+              } else if (next_cube < cube_heap.length / sizeof(MTLResourceID)) {
+                auto channel = [&](uint32_t sel) {
+                  switch (sel & 7) {
+                    case 0: return swap ? MTLTextureSwizzleBlue : MTLTextureSwizzleRed;
+                    case 1: return MTLTextureSwizzleGreen;
+                    case 2: return swap ? MTLTextureSwizzleRed : MTLTextureSwizzleBlue;
+                    case 3: return MTLTextureSwizzleAlpha;
+                    case 4: return MTLTextureSwizzleZero;
+                    default: return MTLTextureSwizzleOne;
+                  }
+                };
+                id<MTLTexture> v = [base newTextureViewWithPixelFormat:base.pixelFormat
+                                                           textureType:MTLTextureTypeCube
+                                                                levels:NSMakeRange(0, 1)
+                                                                slices:NSMakeRange(0, 6)
+                                                               swizzle:MTLTextureSwizzleChannelsMake(
+                                                                           channel(sw), channel(sw >> 3),
+                                                                           channel(sw >> 6), channel(sw >> 9))];
+                if (v) {
+                  static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = v.gpuResourceID;
+                  [assembled_cubes addObject:v];
+                  [enc useResource:v usage:MTLResourceUsageRead stages:MTLRenderStageVertex | MTLRenderStageFragment];
+                  cube_views[view_key] = next_cube;
+                  shared[48 + s] = next_cube++;
+                }
+              }
+            }
           }
           shared[32 + s] = volume_index[d.textures[s]];  // Texture3D index (byte 128)
         }
