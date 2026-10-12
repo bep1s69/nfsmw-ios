@@ -586,7 +586,11 @@ struct Draw {
   uint64_t vs_key, ps_key;
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
   std::vector<Attribute> attributes;
-  std::vector<uint32_t> indices;  // rebased to the decoded vertices
+  // Rebased to the decoded vertices; shared with the index cache (and the
+  // renderer's Metal buffer for them) unless made this frame (indices_fresh).
+  std::shared_ptr<const std::vector<uint32_t>> indices;
+  bool indices_fresh = true;
+  size_t index_count() const { return indices ? indices->size() : 0; }
   uint32_t vertex_count = 0;
   // 1024 dwords each; shared with the draw before while unchanged (most are).
   std::shared_ptr<const std::vector<uint32_t>> vs_constants, ps_constants;
@@ -621,6 +625,7 @@ struct VertexDiagnostics {
   uint64_t decoded_vertex_elements = 0;
   uint64_t expanded_input_indices = 0;
   uint64_t expanded_output_indices = 0;
+  uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
     watched_cache_hits += other.watched_cache_hits;
@@ -632,6 +637,8 @@ struct VertexDiagnostics {
     decoded_vertex_elements += other.decoded_vertex_elements;
     expanded_input_indices += other.expanded_input_indices;
     expanded_output_indices += other.expanded_output_indices;
+    index_cache_hits += other.index_cache_hits;
+    index_cache_misses += other.index_cache_misses;
     return *this;
   }
 };
@@ -970,6 +977,45 @@ struct AttributeKeyHash {
   }
 };
 std::unordered_map<AttributeKey, CacheEntry<std::vector<float>>, AttributeKeyHash> attribute_cache;
+// A draw's indices as the renderer draws them (read, byte-swapped, offset,
+// rebased to the lowest vertex, fans and quads made triangles), by where and
+// how they were read, checked against their memory like the attributes: most
+// draws are static scenery whose index buffers never change.
+struct IndexKey {
+  uint32_t base, count, offset, flags;  // flags: initiator bits (primitive, source, 32-bit) | endian << 16
+  bool operator==(const IndexKey& o) const {
+    return base == o.base && count == o.count && offset == o.offset && flags == o.flags;
+  }
+};
+struct IndexKeyHash {
+  size_t operator()(const IndexKey& k) const {
+    uint64_t h = (uint64_t(k.base) << 32 | k.count) * 0x9E3779B97F4A7C15ull;
+    h ^= (uint64_t(k.offset) << 32 | k.flags) + (h >> 29);
+    return size_t(h * 0x100000001B3ull);
+  }
+};
+struct IndexEntry {
+  std::shared_ptr<const std::vector<uint32_t>> indices;
+  uint64_t fingerprint = 0, last_used = 0;
+  uint32_t lo = 0, hi = 0;
+  MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
+};
+std::unordered_map<IndexKey, IndexEntry, IndexKeyHash> index_cache;
+
+// The index memory's fingerprint: every word up to 4 KB (most draws), else
+// the sampled one.
+uint64_t IndexFingerprint(const uint8_t* p, size_t size) {
+  if (size > 4096) return Fingerprint(p, size);
+  uint64_t h = 0xCBF29CE484222325ull ^ size;
+  size_t i = 0;
+  for (; i + 8 <= size; i += 8) {
+    uint64_t v;
+    std::memcpy(&v, p + i, 8);
+    h = (h ^ v) * 0x100000001B3ull;
+  }
+  for (; i < size; ++i) h = (h ^ p[i]) * 0x100000001B3ull;
+  return h;
+}
 
 // --- Vertex fetch -------------------------------------------------------------
 
@@ -1459,38 +1505,59 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   const uint32_t count = in.initiator >> 16;
   const bool index32 = (in.initiator >> 11) & 1;
   const uint32_t offset = in.from_arguments ? in.start_vertex : regs[kVgtIndxOffset];
-  static std::vector<uint32_t> raw_buffer;  // reused: no allocation or zeroing per draw
-  if (raw_buffer.size() < count) raw_buffer.resize(count);
-  uint32_t* const raw = raw_buffer.data();
-  if (source == 0) {
-    const auto endian = xenos::Endian(in.index_size >> 30);
-    const uint8_t* p = Physical(in.index_base);
-    for (uint32_t i = 0; i < count; ++i) {
-      if (index32) {
-        raw[i] = xenos::GpuSwap(LoadLE32(p + 4 * i), endian);
-      } else {
-        uint16_t v;
-        std::memcpy(&v, p + 2 * i, 2);
-        raw[i] = xenos::GpuSwap(v, endian);
-      }
-    }
-  } else if (source == 2) {
-    for (uint32_t i = 0; i < count; ++i) raw[i] = i;
-  } else {
-    ++frame.skipped_other;
-    Note(frame, fmt::format("index source {}", source));
-    return;
-  }
+  // Converted before from the same memory: the cached indices.
+  const uint32_t endian_bits = source == 0 ? (in.index_size >> 30) : 0;
+  const IndexKey ikey{source == 0 ? in.index_base : 0u, count, offset,
+                      (in.initiator & 0xFFFF) | (endian_bits << 16)};
+  // Rectangle lists add vertices to the attributes: not cached.
+  IndexEntry* ientry = prim != 8 && count ? &index_cache[ikey] : nullptr;
+  const uint64_t ifp = source == 0 && count ? IndexFingerprint(Physical(in.index_base), size_t(count) * (index32 ? 4 : 2))
+                                            : 0;
+  const bool index_hit = ientry && ientry->indices && ientry->fingerprint == ifp;
   uint32_t lo = UINT32_MAX, hi = 0;
-  for (uint32_t i = 0; i < count; ++i) {
-    uint32_t& v = raw[i];
-    v += offset;
-    lo = std::min(lo, v);
-    hi = std::max(hi, v);
-  }
-  if (count == 0 || hi - lo > (1u << 20)) {
-    ++frame.skipped_other;
-    return;
+  static std::vector<uint32_t> raw_buffer;  // reused: no allocation or zeroing per draw
+  uint32_t* raw = nullptr;
+  if (index_hit) {
+    ++frame.vertex_diagnostics.index_cache_hits;
+    ientry->last_used = frame_counter;
+    lo = ientry->lo;
+    hi = ientry->hi;
+    d.indices = ientry->indices;
+    d.indices_fresh = false;
+    d.primitive = ientry->primitive;
+  } else {
+    ++frame.vertex_diagnostics.index_cache_misses;
+    if (raw_buffer.size() < count) raw_buffer.resize(count);
+    raw = raw_buffer.data();
+    if (source == 0) {
+      const auto endian = xenos::Endian(in.index_size >> 30);
+      const uint8_t* p = Physical(in.index_base);
+      for (uint32_t i = 0; i < count; ++i) {
+        if (index32) {
+          raw[i] = xenos::GpuSwap(LoadLE32(p + 4 * i), endian);
+        } else {
+          uint16_t v;
+          std::memcpy(&v, p + 2 * i, 2);
+          raw[i] = xenos::GpuSwap(v, endian);
+        }
+      }
+    } else if (source == 2) {
+      for (uint32_t i = 0; i < count; ++i) raw[i] = i;
+    } else {
+      ++frame.skipped_other;
+      Note(frame, fmt::format("index source {}", source));
+      return;
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+      uint32_t& v = raw[i];
+      v += offset;
+      lo = std::min(lo, v);
+      hi = std::max(hi, v);
+    }
+    if (count == 0 || hi - lo > (1u << 20)) {
+      ++frame.skipped_other;
+      return;
+    }
   }
   d.vertex_count = hi - lo + 1;
 
@@ -1662,49 +1729,61 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     }
   }
 
-  // Primitive: lists Metal has, or triangles made from fans/quads/rectangles.
-  std::vector<uint32_t>& out = d.indices;
-  out.reserve(prim == 5 ? 3 * size_t(count) : prim == 13 ? 3 * size_t(count) / 2 : prim == 8 ? 2 * size_t(count) : count);
-  auto at = [&](uint32_t i) { return raw[i] - lo; };
-  switch (prim) {
-    case 1: d.primitive = MTLPrimitiveTypePoint; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
-    case 2: d.primitive = MTLPrimitiveTypeLine; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
-    case 3: d.primitive = MTLPrimitiveTypeLineStrip; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
-    case 4: for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
-    case 6: d.primitive = MTLPrimitiveTypeTriangleStrip; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
-    case 5:  // fan
-      for (uint32_t i = 2; i < count; ++i) out.insert(out.end(), {at(0), at(i - 1), at(i)});
-      break;
-    case 13:  // quad list
-      for (uint32_t i = 0; i + 3 < count; i += 4)
-        out.insert(out.end(), {at(i), at(i + 1), at(i + 2), at(i), at(i + 2), at(i + 3)});
-      break;
-    case 8: {  // rectangle list: the fourth corner = v1 + v2 - v0, for every input
-      for (Attribute& a : d.attributes) {  // a copy: the cached arrays stay as they were
-        a.values = std::make_shared<std::vector<float>>(*a.values);
-        a.fresh = true;
-      }
-      for (uint32_t i = 0; i + 2 < count; i += 3) {
-        const uint32_t v0 = at(i), v1 = at(i + 1), v2 = at(i + 2), v3 = d.vertex_count++;
-        for (Attribute& a : d.attributes) {
-          std::vector<float>& values = *a.values;
-          values.resize(size_t(d.vertex_count) * 4);
-          for (int k = 0; k < 4; ++k) {
-            values[v3 * 4 + k] = values[v1 * 4 + k] + values[v2 * 4 + k] - values[v0 * 4 + k];
-          }
+  if (!index_hit) {
+    // Primitive: lists Metal has, or triangles made from fans/quads/rectangles.
+    auto made = std::make_shared<std::vector<uint32_t>>();
+    std::vector<uint32_t>& out = *made;
+    out.reserve(prim == 5 ? 3 * size_t(count) : prim == 13 ? 3 * size_t(count) / 2 : prim == 8 ? 2 * size_t(count) : count);
+    auto at = [&](uint32_t i) { return raw[i] - lo; };
+    switch (prim) {
+      case 1: d.primitive = MTLPrimitiveTypePoint; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
+      case 2: d.primitive = MTLPrimitiveTypeLine; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
+      case 3: d.primitive = MTLPrimitiveTypeLineStrip; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
+      case 4: for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
+      case 6: d.primitive = MTLPrimitiveTypeTriangleStrip; for (uint32_t i = 0; i < count; ++i) out.push_back(at(i)); break;
+      case 5:  // fan
+        for (uint32_t i = 2; i < count; ++i) out.insert(out.end(), {at(0), at(i - 1), at(i)});
+        break;
+      case 13:  // quad list
+        for (uint32_t i = 0; i + 3 < count; i += 4)
+          out.insert(out.end(), {at(i), at(i + 1), at(i + 2), at(i), at(i + 2), at(i + 3)});
+        break;
+      case 8: {  // rectangle list: the fourth corner = v1 + v2 - v0, for every input
+        for (Attribute& a : d.attributes) {  // a copy: the cached arrays stay as they were
+          a.values = std::make_shared<std::vector<float>>(*a.values);
+          a.fresh = true;
         }
-        out.insert(out.end(), {v0, v1, v2, v1, v3, v2});
+        for (uint32_t i = 0; i + 2 < count; i += 3) {
+          const uint32_t v0 = at(i), v1 = at(i + 1), v2 = at(i + 2), v3 = d.vertex_count++;
+          for (Attribute& a : d.attributes) {
+            std::vector<float>& values = *a.values;
+            values.resize(size_t(d.vertex_count) * 4);
+            for (int k = 0; k < 4; ++k) {
+              values[v3 * 4 + k] = values[v1 * 4 + k] + values[v2 * 4 + k] - values[v0 * 4 + k];
+            }
+          }
+          out.insert(out.end(), {v0, v1, v2, v1, v3, v2});
+        }
+        break;
       }
-      break;
+      default:
+        ++frame.skipped_other;
+        Note(frame, fmt::format("primitive {}", prim));
+        return;
     }
-    default:
-      ++frame.skipped_other;
-      Note(frame, fmt::format("primitive {}", prim));
-      return;
-  }
-  if (prim == 5 || prim == 13 || prim == 8) {
-    frame.vertex_diagnostics.expanded_input_indices += count;
-    frame.vertex_diagnostics.expanded_output_indices += d.indices.size();
+    if (prim == 5 || prim == 13 || prim == 8) {
+      frame.vertex_diagnostics.expanded_input_indices += count;
+      frame.vertex_diagnostics.expanded_output_indices += out.size();
+    }
+    d.indices = made;
+    if (ientry) {
+      ientry->indices = made;
+      ientry->fingerprint = ifp;
+      ientry->last_used = frame_counter;
+      ientry->lo = lo;
+      ientry->hi = hi;
+      ientry->primitive = d.primitive;
+    }
   }
 
   // Constants: c0-255 of each stage (VS at 0x4000, PS at 0x4400).
@@ -2156,10 +2235,74 @@ id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
 // --- GPU-side state kept across frames (render queue only) ----------------------
 
 struct GpuBuffer {
-  id<MTLBuffer> buffer;
-  std::shared_ptr<std::vector<float>> keep;
+  id<MTLBuffer> buffer;  // an arena chunk's
+  size_t offset = 0, size = 0;
+  uint32_t chunk = 0;
+  std::shared_ptr<const void> keep;
   uint64_t last_used = 0;
 };
+
+// The cached vertex and index arrays' GPU copies, packed into large shared
+// buffers: one Metal allocation (and one residency set change) per 32 MB
+// instead of one per array. Thousands of small buffers made as a race starts
+// meant thousands of allocations, each wired and added to the residency set.
+// A chunk is reused once nothing in it is alive (arrays leave the cache after
+// 600 frames unused, long after the GPU last read them).
+struct BufferArena {
+  static constexpr size_t kChunk = 32u << 20;
+  struct Chunk {
+    id<MTLBuffer> buffer;
+    size_t used = 0, live = 0;  // bytes handed out, still in use
+  };
+  std::vector<Chunk> chunks;
+  uint32_t current = UINT32_MAX;
+
+  // Room for `size` bytes: its chunk, buffer and offset.
+  bool Allocate(id<MTLDevice> device, size_t size, uint32_t& chunk, __strong id<MTLBuffer>& buffer, size_t& offset) {
+    size = (size + 255) & ~size_t(255);
+    if (current == UINT32_MAX || chunks[current].buffer.length - chunks[current].used < size) {
+      if (!Fresh(device, std::max(size, kChunk))) return false;  // larger than a chunk: one of its size
+    }
+    Chunk& c = chunks[current];
+    chunk = current;
+    buffer = c.buffer;
+    offset = c.used;
+    c.used += size;
+    c.live += size;
+    return true;
+  }
+
+  void Release(uint32_t chunk, size_t size) {
+    size = (size + 255) & ~size_t(255);
+    Chunk& c = chunks[chunk];
+    c.live -= std::min(c.live, size);
+    if (c.live == 0 && chunk != current) c.used = 0;  // empty: reusable
+  }
+
+  size_t Bytes() const {
+    size_t n = 0;
+    for (const Chunk& c : chunks) n += c.buffer.length;
+    return n;
+  }
+
+ private:
+  bool Fresh(id<MTLDevice> device, size_t size) {
+    // An empty chunk big enough, else a new one.
+    for (uint32_t i = 0; i < chunks.size(); ++i) {
+      if (i != current && chunks[i].used == 0 && chunks[i].buffer.length >= size) {
+        current = i;
+        return true;
+      }
+    }
+    id<MTLBuffer> b = [device newBufferWithLength:size options:MTLResourceStorageModeShared];
+    if (!b) return false;
+    residency::Add(b);
+    chunks.push_back({b, 0, 0});
+    current = uint32_t(chunks.size() - 1);
+    return true;
+  }
+};
+BufferArena buffer_arena;
 // The renderer's resolve outputs kept across frames, by address (and whether
 // the resolve swapped red and blue).
 struct KeptResolve {
@@ -2249,7 +2392,9 @@ struct GpuPool {
 
   // Zeroed up to `length` like a new buffer (the texture heaps' unset slots
   // must read as no texture: a stale ID of a released texture hangs the GPU).
-  id<MTLBuffer> Buffer(id<MTLDevice> device, size_t length, MTLResourceOptions options) {
+  // Zeroed when reused (heap and argument buffers must not keep stale
+  // resource IDs), unless the caller writes every byte it uses (zero false).
+  id<MTLBuffer> Buffer(id<MTLDevice> device, size_t length, MTLResourceOptions options, bool zero = true) {
     size_t size = 4096;
     while (size < length) size *= 2;
     const std::string key = fmt::format("b {} {}", size, uint64_t(options));
@@ -2257,7 +2402,7 @@ struct GpuPool {
     if (!b) {
       b = [device newBufferWithLength:size options:options];
       Add(b, key);
-    } else if (b.contents) {
+    } else if (zero && b.contents) {
       std::memset(b.contents, 0, length);
     }
     return b;
@@ -2378,17 +2523,25 @@ id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp
   return s;
 }
 
-id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<std::vector<float>>& values) {
+// The array's GPU copy (made once, in the arena): its buffer, and the offset
+// in it.
+template <typename T>
+id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
   GpuBuffer& g = gpu_buffers[values.get()];
   g.last_used = gpu_frame;
   if (!g.buffer) {
+    const size_t size = std::max<size_t>(values->size() * sizeof(values->front()), 16);
+    if (!buffer_arena.Allocate(device, size, g.chunk, g.buffer, g.offset)) {
+      offset = 0;
+      return nil;
+    }
     ++frame_new_buffers;
     g.keep = values;
-    g.buffer = [device newBufferWithBytes:values->data()
-                                   length:std::max<size_t>(values->size() * 4, 16)
-                                  options:MTLResourceStorageModeShared];
-    residency::Add(g.buffer);
+    g.size = size;
+    std::memcpy(static_cast<uint8_t*>(g.buffer.contents) + g.offset, values->data(),
+                values->size() * sizeof(values->front()));
   }
+  offset = g.offset;
   return g.buffer;
 }
 
@@ -2397,7 +2550,7 @@ void SweepGpu() {
 
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
     if (gpu_frame - it->second.last_used > 600) {
-      residency::Remove(it->second.buffer);
+      if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.size);
       it = gpu_buffers.erase(it);
     } else {
       ++it;
@@ -2472,8 +2625,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       for (id o : objects) gpu_pool.Retire(o, number);
     }
   } frame_resources{number, {}};
-  auto pooled_buffer = [&](size_t length, MTLResourceOptions options) {
-    id<MTLBuffer> b = gpu_pool.Buffer(store.device, length, options);
+  auto pooled_buffer = [&](size_t length, MTLResourceOptions options, bool zero = true) {
+    id<MTLBuffer> b = gpu_pool.Buffer(store.device, length, options, zero);
     frame_resources.objects.push_back(b);
     return b;
   };
@@ -2603,7 +2756,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const void* last_vs = nullptr;
     const void* last_ps = nullptr;
     for (const Draw& d : frame->draws) {
-      total += 1024 + d.indices.size() * 4 + 256;
+      total += 1024 + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
       if (d.vs_constants.get() != last_vs) total += 4096 + 256;
       if (d.ps_constants.get() != last_ps) total += 4096 + 256;
       last_vs = d.vs_constants.get();
@@ -2612,7 +2765,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (a.fresh && a.values) total += a.values->size() * 4 + 256;
       }
     }
-    id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared);
+    // Every byte read from it is written by put() first: not zeroed.
+    id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared, false);
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
     const std::vector<uint32_t>* uploaded_vs = nullptr;
@@ -3315,7 +3469,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setFragmentBuffer:sampler_heap offset:0 atIndex:4];
         current = pass_key;
       }
-      pass_indices += d.indices.size();
+      pass_indices += d.index_count();
       if (probe_ps && d.ps_key == probe_ps) continue;  // the cost probe's left-out shader
       // State of the shaders that cost the most (cost probe, 2x race): every
       // 600 frames, per pixel shader, the alpha test, blend and depth state
@@ -3329,7 +3483,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                        d.ps_key, tk, (d.color_control & 8) ? "on" : "off", d.color_control & 7,
                                        d.alpha_ref, d.blend_control, d.depth_control & 0xFFF, d.color_mask & 0xF)];
           ++e.first;
-          e.second += d.indices.size();
+          e.second += d.index_count();
         }
         if (di + 1 == frame->draws.size()) {
           for (const auto& [k, e] : states) REXLOG_INFO("[cost-state] {}: {} draws, {} indices", k, e.first, e.second);
@@ -3600,7 +3754,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             "ndc ({:.3g} {:.3g} {:.3g}) | {} attributes, prim {}, {} indices | PS c0 {:.3g} c1 {:.3g} cc {:08x} t0 {}",
             &d - frame->draws.data(), m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13],
             m[14], m[15], p[0], p[1], p[2], d.vertex_count, o[0], o[1], o[2], o[3], o[0] / o[3], o[1] / o[3], o[2] / o[3],
-            d.attributes.size(), uint32_t(d.primitive), d.indices.size(), [&] { float f; std::memcpy(&f, &(*d.ps_constants)[0], 4); return f; }(),
+            d.attributes.size(), uint32_t(d.primitive), d.index_count(), [&] { float f; std::memcpy(&f, &(*d.ps_constants)[0], 4); return f; }(),
             [&] { float f; std::memcpy(&f, &(*d.ps_constants)[4], 4); return f; }(), d.color_control,
             d.textures[0] < 0 ? std::string("none")
                               : fmt::format("{:08x} {}x{} format {}", frame->textures[d.textures[0]]->address,
@@ -3646,18 +3800,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // Changed this frame: with the frame's data, no buffer of its own.
           [enc setVertexBuffer:data offset:put(found->values->data(), found->values->size() * 4) atIndex:9 + k];
         } else if (found && found->values && !found->values->empty()) {
-          id<MTLBuffer> vb = GpuBufferFor(device, found->values);
-          [enc setVertexBuffer:vb offset:0 atIndex:9 + k];  // bound: resident without useResource
+          size_t vb_offset = 0;
+          id<MTLBuffer> vb = GpuBufferFor(device, found->values, vb_offset);
+          [enc setVertexBuffer:vb ?: zeros offset:vb_offset atIndex:9 + k];  // bound: resident without useResource
         } else {
           [enc setVertexBuffer:zeros offset:0 atIndex:9 + k];
         }
       }
-      const size_t index_at = put(d.indices.data(), d.indices.size() * 4);
-      if (!d.indices.empty()) {
+      if (d.index_count()) {
+        // Made this frame: with the frame's data; cached: its own buffer.
+        size_t index_at = 0;
+        id<MTLBuffer> ib = data;
+        if (d.indices_fresh) {
+          index_at = put(d.indices->data(), d.index_count() * 4);
+        } else if (!(ib = GpuBufferFor(device, d.indices, index_at))) {
+          continue;
+        }
         [enc drawIndexedPrimitives:d.primitive
-                        indexCount:d.indices.size()
+                        indexCount:d.index_count()
                          indexType:MTLIndexTypeUInt32
-                       indexBuffer:data
+                       indexBuffer:ib
                  indexBufferOffset:index_at];
         ++drawn;
       }
@@ -3843,10 +4005,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         const int64_t texture_bytes = gpu_texture_bytes.load();
         uint64_t buffer_bytes = 0;
-        for (const auto& [values, cached] : gpu_buffers) {
-          (void)values;
-          if (cached.buffer) buffer_bytes += cached.buffer.allocatedSize;
-        }
+        buffer_bytes = buffer_arena.Bytes();
         nfsmw::memory::Report("native renderer");
         constexpr double kMiB = 1024.0 * 1024.0;
         REXLOG_INFO("[native] memory: process {:.0f} MiB; retained targets {} / {:.0f} MiB, resolves {} / {:.0f} MiB, "
@@ -3864,7 +4023,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
-                    "expanded indices {} -> {}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
+                    "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
                     number, drawn, frame->draws.size(), resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
@@ -3875,6 +4034,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     vertex_diagnostics.watched_cache_hits, vertex_diagnostics.fingerprint_cache_hits,
                     vertex_diagnostics.cache_misses, vertex_diagnostics.decoded_vertex_elements,
                     vertex_diagnostics.expanded_input_indices, vertex_diagnostics.expanded_output_indices,
+                    vertex_diagnostics.index_cache_hits, vertex_diagnostics.index_cache_misses,
                     vertex_diagnostics.fingerprint_calls, vertex_diagnostics.fingerprint_sample_count,
                     vertex_diagnostics.fingerprint_sample_count
                         ? double(vertex_diagnostics.fingerprint_sample_ns) /
@@ -4158,6 +4318,7 @@ bool NativeSwap() {
   ++frame_counter;
   SweepTextureCache();
   Sweep(attribute_cache);
+  Sweep(index_cache);
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);
