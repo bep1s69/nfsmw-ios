@@ -89,6 +89,19 @@ class CoreAudioDriver final : public AudioDriver {
   // the render callback touches it.
   size_t consumed_ = 0;
 
+  // Diagnostics, logged every 5 s by the producer (SubmitFrame): render
+  // callbacks that found the ring short (each one a gap of silence: a click),
+  // the frames of silence, permits the semaphore refused (it was full), the
+  // lowest ring level seen, and the longest gap between two submitted blocks.
+  std::atomic<uint32_t> underruns_{0}, silent_frames_{0}, refused_permits_{0};
+  uint32_t dropped_full_ = 0, trimmed_ = 0;  // producer only: blocks not queued (full / over the target depth)
+  std::atomic<uint32_t> lowest_floats_{UINT32_MAX};
+  uint64_t last_submit_ns_ = 0, worst_submit_gap_ns_ = 0, stats_since_ns_ = 0;  // producer only
+  uint32_t submitted_ = 0;                                                       // producer only
+  // The output limiter (SubmitFrame, producer only): its gain, and for the log.
+  float limiter_gain_ = 1.0f, deepest_gain_ = 1.0f;
+  uint64_t limited_samples_ = 0;
+
   // The AVAudioSession interruption observer (an NSObject token, retained).
   void* interruption_observer_ = nullptr;
 

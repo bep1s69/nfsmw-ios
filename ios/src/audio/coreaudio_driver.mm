@@ -13,8 +13,12 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <mutex>
+
+#include <pthread.h>
+#include <time.h>
 
 #include "../boot_trace.h"
 
@@ -259,12 +263,44 @@ void CoreAudioDriver::SubmitFrame(uint32_t samples_ptr) {
     return;
   }
 
+  const uint64_t now_ns = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+  if (last_submit_ns_) worst_submit_gap_ns_ = std::max(worst_submit_gap_ns_, now_ns - last_submit_ns_);
+  last_submit_ns_ = now_ns;
+  ++submitted_;
+  if (!stats_since_ns_) stats_since_ns_ = now_ns;
+  if (now_ns - stats_since_ns_ >= 5'000'000'000ull) {
+    const uint32_t lowest = lowest_floats_.exchange(UINT32_MAX);
+    REXLOG_INFO("[coreaudio] 5 s: {} blocks, {} gaps ({} frames of silence), {} permits refused, ring at least "
+                "{} blocks, longest wait between blocks {:.1f} ms | {} blocks dropped (ring full), {} trimmed "
+                "(over 12 queued) | limiter: {:.2f}% of samples turned down, deepest {:.1f} dB",
+                submitted_, underruns_.exchange(0), silent_frames_.exchange(0), refused_permits_.exchange(0),
+                lowest == UINT32_MAX ? 0u : lowest / uint32_t(kFloatsPerBlock), worst_submit_gap_ns_ / 1e6,
+                dropped_full_, trimmed_, submitted_ ? 100.0 * limited_samples_ / (double(submitted_) * kSamplesPerChannel) : 0.0,
+                20.0 * std::log10(std::max(deepest_gain_, 1e-6f)));
+    submitted_ = 0;
+    dropped_full_ = trimmed_ = 0;
+    limited_samples_ = 0;
+    deepest_gain_ = 1.0f;
+    worst_submit_gap_ns_ = 0;
+    stats_since_ns_ = now_ns;
+  }
+
   // No room for a whole block: the NEW one is dropped. The producer never
-  // touches the read index, which is what allows going without a lock. With
-  // the ring sized to kMaximumQueuedFrames it should not happen.
+  // touches the read index, which is what allows going without a lock.
   const size_t w = write_.load(std::memory_order_relaxed);
   const size_t r = read_.load(std::memory_order_acquire);
   if (kCapacity - (w - r) < kFloatsPerBlock) {
+    ++dropped_full_;
+    return;
+  }
+  // The latency: the game queued blocks ahead until the ring was full (64,
+  // ~340 ms of sound behind the picture), and it stayed that full. Kept at
+  // most kTargetBlocks deep (~64 ms); a block beyond that is not queued. In
+  // steady play the game delivers one block per block played, so this only
+  // trims the surplus once, when the sound starts.
+  constexpr size_t kTargetBlocks = 12;
+  if (w - r >= kTargetBlocks * kFloatsPerBlock) {
+    ++trimmed_;
     return;
   }
 
@@ -280,6 +316,14 @@ void CoreAudioDriver::SubmitFrame(uint32_t samples_ptr) {
 
   // Folded straight into the ring. A block is 512 floats and the capacity is
   // a multiple of 512, so a block never wraps: one base position is enough.
+  //
+  // Folding 5.1 to stereo adds front, centre, LFE and surround: loud moments
+  // (engine, music and effects together; several menu sounds at once) go past
+  // full scale. Cut off hard (the old clamp), that is the harsh, glitched
+  // sound. A limiter instead: the gain drops at once to keep the peak at
+  // kCeiling, and comes back over ~100 ms. (The Android port found the same.)
+  constexpr float kCeiling = 0.98f;
+  const float release = 1.0f - std::exp(-1.0f / (0.1f * float(kSampleRate)));  // ~100 ms
   float* dst = ring_.get() + (w & kMask);
   for (size_t i = 0; i < kSamplesPerChannel; ++i) {
     const float c = LoadBEFloat(ch_c[i]) * kCenterGain;
@@ -287,8 +331,18 @@ void CoreAudioDriver::SubmitFrame(uint32_t samples_ptr) {
     const float mid = c + lfe;
     const float left = LoadBEFloat(ch_fl[i]) + mid + LoadBEFloat(ch_bl[i]) * kSurroundGain;
     const float right = LoadBEFloat(ch_fr[i]) + mid + LoadBEFloat(ch_br[i]) * kSurroundGain;
-    dst[i * 2 + 0] = std::clamp(left, -1.0f, 1.0f);
-    dst[i * 2 + 1] = std::clamp(right, -1.0f, 1.0f);
+    const float peak = std::max(std::fabs(left), std::fabs(right));
+    if (peak * limiter_gain_ > kCeiling) {
+      limiter_gain_ = kCeiling / peak;
+    } else {
+      limiter_gain_ += (1.0f - limiter_gain_) * release;
+    }
+    if (limiter_gain_ < 0.999f) {
+      ++limited_samples_;
+      deepest_gain_ = std::min(deepest_gain_, limiter_gain_);
+    }
+    dst[i * 2 + 0] = std::clamp(left * limiter_gain_, -1.0f, 1.0f);
+    dst[i * 2 + 1] = std::clamp(right * limiter_gain_, -1.0f, 1.0f);
   }
 
   // Publish the block: the release makes the consumer see the samples before
@@ -317,6 +371,14 @@ void CoreAudioDriver::Render(float* out, uint32_t frames) {
   // Whatever is missing, silence.
   if (n < wanted) {
     std::memset(out + n, 0, (wanted - n) * sizeof(float));
+    underruns_.fetch_add(1, std::memory_order_relaxed);
+    silent_frames_.fetch_add(uint32_t((wanted - n) / kOutputChannels), std::memory_order_relaxed);
+  }
+  {
+    const uint32_t level = uint32_t(w - r);
+    uint32_t low = lowest_floats_.load(std::memory_order_relaxed);
+    while (level < low && !lowest_floats_.compare_exchange_weak(low, level, std::memory_order_relaxed)) {
+    }
   }
   read_.store(r + n, std::memory_order_release);
 
@@ -327,7 +389,9 @@ void CoreAudioDriver::Render(float* out, uint32_t frames) {
     const size_t release = consumed_ / kSamplesPerChannel;
     if (release > 0) {
       consumed_ -= release * kSamplesPerChannel;
-      semaphore_->Release(int32_t(release), nullptr);
+      if (!semaphore_->Release(int32_t(release), nullptr)) {
+        refused_permits_.fetch_add(uint32_t(release), std::memory_order_relaxed);
+      }
     }
   }
 }

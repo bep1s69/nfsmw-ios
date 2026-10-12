@@ -127,6 +127,7 @@ IOS_PATCHES = [
     "patch_ios_iso_stream",
     "patch_ios_native_only",
     "patch_ios_semaphore_trace",
+    "patch_ios_xma_canary",
 ]
 
 
