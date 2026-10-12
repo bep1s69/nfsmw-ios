@@ -97,7 +97,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
                     "Native renderer: skip the emulated renderer's draws while it shows the game");
 // The game waits for the native renderer instead of it dropping frames.
 // The sun glare's occlusion query counted by the native renderer.
-REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, false, "GPU",
                     "Native renderer: answer the game's occlusion queries (the sun glare) by "
                     "counting its own samples");
 // Cubes made from resolves (environment maps) sampled with the resolves'
