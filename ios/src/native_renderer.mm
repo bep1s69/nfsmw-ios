@@ -1048,6 +1048,7 @@ std::unordered_map<uint32_t, uint64_t> resolve_destinations;  // address -> last
 struct PersistentResolve {
   uint64_t fingerprint;
   uint32_t span;
+  uint64_t frame = 0;  // frame_counter when the renderer last resolved there
 };
 std::unordered_map<uint32_t, PersistentResolve> persistent_resolves;
 // Decoded vertex inputs, by where and how they were read (no strings: one
@@ -1361,7 +1362,14 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   if (!frame.resolved_so_far.count(uint32_t(t.base_address) << 12)) {
     auto pr = persistent_resolves.find(uint32_t(t.base_address) << 12);
     if (pr != persistent_resolves.end()) {
-      if (Fingerprint(Physical(pr->first), pr->second.span) == pr->second.fingerprint) {
+      // Resolved by the renderer in the last two frames: its own copy, without
+      // looking at memory. Its own write-back (small resolves, read back for
+      // the CPU) changes that memory a moment after the fingerprint was
+      // taken, so the check failed and the texture was decoded again from it
+      // every frame (the race's environment cube: 1.5 MB, the bloom buffer).
+      if (frame_counter - pr->second.frame <= 2) {
+        persistent = true;
+      } else if (Fingerprint(Physical(pr->first), pr->second.span) == pr->second.fingerprint) {
         persistent = true;  // the renderer's copy from an earlier frame
       } else {
         persistent_resolves.erase(pr);  // the CPU wrote there since
@@ -1507,6 +1515,19 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   ++frame.textures_decoded;
   frame.texture_decode_bytes += tex.data.size();
+  {  // Decoded again frame after frame (its memory keeps changing): which one.
+    static std::unordered_map<uint32_t, std::pair<uint64_t, uint32_t>> streaks;  // address -> last frame, run
+    static std::set<uint32_t> said;
+    auto& [last, run] = streaks[tex.address];
+    run = (last + 1 == frame_counter || last == frame_counter) ? run + (last != frame_counter) : 1;
+    last = frame_counter;
+    if (run == 10 && said.size() < 20 && said.insert(tex.address).second) {
+      REXLOG_INFO("[native] texture {:08x} decoded every frame: {}x{} format {} ({} KiB, tiled {}, {} layers, "
+                  "resolved here before: {})",
+                  tex.address, width, height, uint32_t(t.format), tex.data.size() >> 10, bool(t.tiled), layers,
+                  resolve_destinations.count(tex.address) ? "yes" : "no");
+    }
+  }
   frame.texture_decode_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
                                           std::chrono::steady_clock::now() - decode_start).count());
   const uint32_t sw = t.swizzle;
@@ -2458,6 +2479,11 @@ struct KeptResolve {
   float scale;  // its source target's resolution scale
 };
 std::unordered_map<uint32_t, KeptResolve> kept_resolves;
+// The cubes the renderer assembles from face resolves (the race's environment
+// map), by address: one texture kept from frame to frame, the faces copied
+// into it as they are resolved (in GPU order: draws before a face's copy see
+// the frame before's face, as the console's sampling of that memory would).
+std::unordered_map<uint32_t, id<MTLTexture>> kept_cubes;
 
 // --- Recycled GPU memory (the renderer's queue) ------------------------------------
 //
@@ -2672,9 +2698,24 @@ id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp
 
 // The array's GPU copy (made once, in the arena): its buffer, and the offset
 // in it.
+// A small direct-mapped cache in front of gpu_buffers (one hash lookup per
+// vertex input per draw added up to ~0.5 ms a frame): its entries point into
+// the map, whose nodes stay put until erased; SweepGpu clears an erased
+// entry's slot.
+struct GpuBufferSlot {
+  const void* key = nullptr;
+  GpuBuffer* entry = nullptr;
+};
+GpuBufferSlot gpu_buffer_slots[4096];
+
 template <typename T>
 id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
-  GpuBuffer& g = gpu_buffers[values.get()];
+  GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(values.get()) >> 4) & 4095];
+  if (slot.key != values.get()) {
+    slot.key = values.get();
+    slot.entry = &gpu_buffers[values.get()];
+  }
+  GpuBuffer& g = *slot.entry;
   g.last_used = gpu_frame;
   if (!g.buffer) {
     const size_t size = std::max<size_t>(values->size() * sizeof(values->front()), 16);
@@ -2698,6 +2739,8 @@ void SweepGpu() {
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
     if (gpu_frame - it->second.last_used > 600) {
       if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.size);
+      GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(it->first) >> 4) & 4095];
+      if (slot.key == it->first) slot = GpuBufferSlot{};  // only this entry's slot
       it = gpu_buffers.erase(it);
     } else {
       ++it;
@@ -2934,6 +2977,39 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
     UploadedConstants uploaded_vs, uploaded_ps;
+    // What the current encoder already has set: a draw sets only what differs
+    // from the draw before (each set costs the driver; most draws in a pass
+    // share their pipeline, depth state, viewport and vertex buffers, and the
+    // cached arrays share a few large buffers, so mostly only the offset
+    // changes). Reset with each new encoder.
+    struct EncoderState {
+      __unsafe_unretained id<MTLRenderCommandEncoder> enc = nil;
+      __unsafe_unretained id<MTLRenderPipelineState> pso = nil;
+      __unsafe_unretained id<MTLDepthStencilState> ds = nil;
+      bool viewport_set = false, scissor_set = false, push_set = false;
+      MTLViewport viewport{};
+      MTLScissorRect scissor{};
+      uint64_t push[3] = {};
+      __unsafe_unretained id<MTLBuffer> vb[31] = {};
+      NSUInteger vb_offset[31] = {};
+      void For(id<MTLRenderCommandEncoder> e) {
+        if (e == enc) return;
+        *this = EncoderState{};
+        enc = e;
+      }
+      void VertexBuffer(id<MTLBuffer> b, NSUInteger offset, NSUInteger index) {
+        if (vb[index] == b) {
+          if (vb_offset[index] != offset) {
+            [enc setVertexBufferOffset:offset atIndex:index];
+            vb_offset[index] = offset;
+          }
+          return;
+        }
+        [enc setVertexBuffer:b offset:offset atIndex:index];
+        vb[index] = b;
+        vb_offset[index] = offset;
+      }
+    } state;
     uint32_t last_shared[256];
     size_t last_shared_at = 0;
     bool have_last_shared = false;
@@ -3160,7 +3236,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::map<uint32_t, id<MTLTexture>> resolved_cubes;
     std::map<uint32_t, uint32_t> resolved_cube_index;
     uint32_t next_cube = uint32_t(cubes.count);
-    const uint32_t cube_capacity = uint32_t(cubes.count + frame->resolves.size());
+    const uint32_t cube_capacity = uint32_t(cubes.count + frame->resolves.size() + cube_targets.size());
+    // Cubes kept from earlier frames: bound from the frame's start.
+    for (const CubeTarget& ct : cube_targets) {
+      auto kept = kept_cubes.find(ct.base);
+      if (kept == kept_cubes.end() || next_cube >= cube_capacity) continue;
+      resolved_cubes[ct.base] = kept->second;
+      [assembled_cubes addObject:kept->second];
+      static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = kept->second.gpuResourceID;
+      resolved_cube_index[ct.base] = next_cube++;
+    }
     NSMutableArray<id<MTLTexture>>* resolved_textures = [NSMutableArray array];
     uint32_t next_heap = uint32_t(textures.count);
     uint32_t resolves_done = 0, resolves_skipped = 0;
@@ -3450,13 +3535,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const uint32_t face = (ev.dest_base - ct.base) / ct.face_stride;
           if (face >= 6) continue;
           id<MTLTexture> cube = resolved_cubes[ct.base];
+          if (cube && (cube.pixelFormat != dest.pixelFormat || cube.width != Px(ct.width, scale))) {
+            cube = nil;  // the kept one no longer matches (another scale or format): a new one
+          }
           if (!cube && next_cube < cube_capacity) {
             MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:dest.pixelFormat
                                                                                            size:Px(ct.width, scale)
                                                                                       mipmapped:NO];
             cd.usage = MTLTextureUsageShaderRead;
-            cube = gpu_pool.Texture(device, cd);
-            frame_resources.objects.push_back(cube);
+            cd.storageMode = MTLStorageModePrivate;
+            cube = [device newTextureWithDescriptor:cd];
+            residency::Add(cube);
+            if (auto old = kept_cubes.find(ct.base); old != kept_cubes.end()) {
+              // Frames in flight keep it alive (their command buffers retain it).
+              residency::Remove(old->second);
+            }
+            kept_cubes[ct.base] = cube;
             resolved_cubes[ct.base] = cube;
             [assembled_cubes addObject:cube];
             static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = cube.gpuResourceID;
@@ -3684,7 +3778,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         pipeline_failures += pipeline_failed;
         continue;  // failed, or compiling in the background (left out until ready)
       }
-      [enc setRenderPipelineState:pso];
+      state.For(enc);
+      if (state.pso != pso) {
+        [enc setRenderPipelineState:pso];
+        state.pso = pso;
+      }
       // Depth clamped where the game turns clipping off (as the emulated
       // renderer does with depthClamp); per encoder, so set on each new one.
       if (enc != clip_mode_encoder || d.clip_disable != clip_mode_clamp) {
@@ -3708,8 +3806,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         ds = depth_states[dc] = [device newDepthStencilStateWithDescriptor:dsd];
       }
-      [enc setDepthStencilState:ds];
-      [enc setCullMode:MTLCullModeNone];
+      if (state.ds != ds) {
+        [enc setDepthStencilState:ds];
+        state.ds = ds;
+      }
+      // (Culling is off by default on a new encoder.)
 
       // Viewport: Xenos window = ndc * scale + offset (each enabled by
       // PA_CL_VTE_CNTL), plus the window offset.
@@ -3756,7 +3857,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       MTLViewport vp;
       if (pixels) {
         vp = {0, 0, double(t.pitch), double(t.height), (d.vte & 32) ? double(d.viewport[5]) : 0.0, 1.0};
-        [enc setViewport:vp];
+        if (!state.viewport_set || std::memcmp(&vp, &state.viewport, sizeof(vp)) != 0) {
+          [enc setViewport:vp];
+          state.viewport = vp;
+          state.viewport_set = true;
+        }
       } else {
       const float mx = mirror ? nfsmw_mirror_scale_x : 1.0f, my = mirror ? nfsmw_mirror_scale_y : 1.0f;
       vp.originX = ox - std::fabs(sx) * mx + wx;
@@ -3768,7 +3873,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (!(vp.width >= 1 && vp.height >= 1)) {
         continue;
       }
-      [enc setViewport:vp];
+      if (!state.viewport_set || std::memcmp(&vp, &state.viewport, sizeof(vp)) != 0) {
+        [enc setViewport:vp];
+        state.viewport = vp;
+        state.viewport_set = true;
+      }
       }
       MTLScissorRect sc;
       if (true) {
@@ -3779,7 +3888,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       sc.width = std::min<NSUInteger>(std::max<int>(int(d.scissor[2]) - int(sc.x), 1), t.pitch - sc.x);
       sc.height = std::min<NSUInteger>(std::max<int>(int(d.scissor[3]) - int(sc.y), 1), t.height - sc.y);
       }
-      [enc setScissorRect:sc];
+      if (!state.scissor_set || std::memcmp(&sc, &state.scissor, sizeof(sc)) != 0) {
+        [enc setScissorRect:sc];
+        state.scissor = sc;
+        state.scissor_set = true;
+      }
 
       // Constants and shared constants (texture/sampler indices, booleans).
       // Uploaded once per distinct set (consecutive draws share them).
@@ -3967,8 +4080,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       struct {
         uint64_t vs, ps, shared;
       } push = {vs_address, ps_address, data.gpuAddress + shared_at};
-      [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
-      [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
+      if (!state.push_set || std::memcmp(&push, state.push, sizeof(push)) != 0) {
+        [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
+        [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
+        std::memcpy(state.push, &push, sizeof(push));
+        state.push_set = true;
+      }
 
       // Vertex attributes: the shader's active inputs, in order, in buffers
       // 9 onwards; an input the draw did not provide reads zeros.
@@ -3980,13 +4097,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         if (found && found->values && !found->values->empty() && found->fresh) {
           // Changed this frame: with the frame's data, no buffer of its own.
-          [enc setVertexBuffer:data offset:put(found->values->data(), found->values->size() * 4) atIndex:9 + k];
+          state.VertexBuffer(data, put(found->values->data(), found->values->size() * 4), 9 + k);
         } else if (found && found->values && !found->values->empty()) {
           size_t vb_offset = 0;
           id<MTLBuffer> vb = GpuBufferFor(device, found->values, vb_offset);
-          [enc setVertexBuffer:vb ?: zeros offset:vb_offset atIndex:9 + k];  // bound: resident without useResource
+          state.VertexBuffer(vb ?: zeros, vb_offset, 9 + k);  // bound: resident without useResource
         } else {
-          [enc setVertexBuffer:zeros offset:0 atIndex:9 + k];
+          state.VertexBuffer(zeros, 0, 9 + k);
         }
       }
       if (d.index_count()) {
@@ -4685,7 +4802,7 @@ void NativeResolve(const uint32_t* regs) {
   std::fill(std::begin(recording->slot_valid), std::end(recording->slot_valid), false);
   {
     const uint32_t span = std::max<uint32_t>(ev.dest_pitch, 32) * std::max<uint32_t>(ev.dest_height, 32) * 4;
-    persistent_resolves[ev.dest_base] = {Fingerprint(Physical(ev.dest_base), span), span};
+    persistent_resolves[ev.dest_base] = {Fingerprint(Physical(ev.dest_base), span), span, frame_counter};
   }
 }
 
