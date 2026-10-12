@@ -41,7 +41,7 @@ namespace {
 // ---------------------------------------------------------------------------
 //  The options
 // ---------------------------------------------------------------------------
-enum class Type { kSwitch, kChoice, kText };
+enum class Type { kSwitch, kChoice, kText, kLink };  // kLink: a row that opens a screen
 
 struct Choice {
   NSString* title;
@@ -65,6 +65,122 @@ struct Section {
 
 // What the game uses when an option has never been changed: the iOS port's
 // current defaults (ios_main.mm), which are Android's except where noted.
+// ---------------------------------------------------------------------------
+//  Keyboard controls
+// ---------------------------------------------------------------------------
+// The SDK's keyboard driver (mnk_mode) presses the controller's inputs from
+// the keys in its keybind_* settings: a comma-separated list of key names
+// (rex/ui/keybinds.cpp: "A", "Up", "Space", "Shift", "Return"...), optionally
+// "Shift+X". The launcher keeps each one as "kb_<setting>"; unset, the
+// default below. The defaults follow the PC version's way of playing.
+struct KeyBind {
+  NSString* setting;  // the SDK's cvar
+  NSString* action;   // what it does in NFSMW
+  NSString* pad;      // the controller input it presses
+  NSString* standard;
+};
+
+const std::vector<KeyBind>& KeyBinds() {
+  static const std::vector<KeyBind> binds = {
+      {@"keybind_right_trigger", @"Accelerate", @"RT", @"Up,W"},
+      {@"keybind_left_trigger", @"Brake / reverse", @"LT", @"Down,S"},
+      {@"keybind_lstick_left", @"Steer left", @"left stick", @"Left,A"},
+      {@"keybind_lstick_right", @"Steer right", @"left stick", @"Right,D"},
+      {@"keybind_lstick_up", @"Menu up", @"left stick", @"Up,W"},
+      {@"keybind_lstick_down", @"Menu down", @"left stick", @"Down,S"},
+      {@"keybind_a", @"Accept / handbrake", @"A", @"Return,Space"},
+      {@"keybind_b", @"Back / nitrous", @"B", @"Backspace,Alt"},
+      {@"keybind_x", @"Speedbreaker", @"X", @"X"},
+      {@"keybind_y", @"Y (map, details)", @"Y", @"Tab"},
+      {@"keybind_rstick_up", @"Shift up", @"right stick", @"Shift"},
+      {@"keybind_rstick_down", @"Shift down", @"right stick", @"Control"},
+      {@"keybind_left_shoulder", @"Look back", @"LB", @"C"},
+      {@"keybind_right_shoulder", @"Change camera", @"RB", @"V"},
+      {@"keybind_back", @"Reset car", @"Back", @"R"},
+      {@"keybind_start", @"Pause / start", @"Start", @"Escape,P"},
+      {@"keybind_dpad_up", @"D-pad up", @"D-pad", @"I"},
+      {@"keybind_dpad_down", @"D-pad down", @"D-pad", @"K"},
+      {@"keybind_dpad_left", @"D-pad left", @"D-pad", @"J"},
+      {@"keybind_dpad_right", @"D-pad right", @"D-pad", @"L"},
+      {@"keybind_rstick_left", @"Right stick left", @"right stick", @""},
+      {@"keybind_rstick_right", @"Right stick right", @"right stick", @""},
+      {@"keybind_lstick_press", @"Left stick click", @"L3", @""},
+      {@"keybind_rstick_press", @"Right stick click", @"R3", @""},
+      {@"keybind_guide", @"Guide", @"Guide", @""},
+  };
+  return binds;
+}
+
+NSString* KeyBindValue(NSDictionary<NSString*, NSString*>* s, const KeyBind& b) {
+  NSString* v = s[[@"kb_" stringByAppendingString:b.setting]];
+  return v ?: b.standard;
+}
+
+// A key, as the SDK names it, from a hardware keyboard press (UIKey).
+NSString* KeyName(UIKeyboardHIDUsage usage) {
+  if (usage >= UIKeyboardHIDUsageKeyboardA && usage <= UIKeyboardHIDUsageKeyboardZ) {
+    return [NSString stringWithFormat:@"%c", char('A' + (usage - UIKeyboardHIDUsageKeyboardA))];
+  }
+  if (usage >= UIKeyboardHIDUsageKeyboard1 && usage <= UIKeyboardHIDUsageKeyboard9) {
+    return [NSString stringWithFormat:@"%c", char('1' + (usage - UIKeyboardHIDUsageKeyboard1))];
+  }
+  if (usage >= UIKeyboardHIDUsageKeyboardF1 && usage <= UIKeyboardHIDUsageKeyboardF12) {
+    return [NSString stringWithFormat:@"F%d", int(usage - UIKeyboardHIDUsageKeyboardF1) + 1];
+  }
+  if (usage >= UIKeyboardHIDUsageKeypad1 && usage <= UIKeyboardHIDUsageKeypad9) {
+    return [NSString stringWithFormat:@"Numpad%d", int(usage - UIKeyboardHIDUsageKeypad1) + 1];
+  }
+  switch (usage) {
+    case UIKeyboardHIDUsageKeyboard0: return @"0";
+    case UIKeyboardHIDUsageKeypad0: return @"Numpad0";
+    case UIKeyboardHIDUsageKeyboardReturnOrEnter: return @"Return";
+    case UIKeyboardHIDUsageKeypadEnter: return @"NumpadEnter";
+    case UIKeyboardHIDUsageKeyboardEscape: return @"Escape";
+    case UIKeyboardHIDUsageKeyboardDeleteOrBackspace: return @"Backspace";
+    case UIKeyboardHIDUsageKeyboardTab: return @"Tab";
+    case UIKeyboardHIDUsageKeyboardSpacebar: return @"Space";
+    case UIKeyboardHIDUsageKeyboardHyphen: return @"Minus";
+    case UIKeyboardHIDUsageKeyboardEqualSign: return @"Plus";
+    case UIKeyboardHIDUsageKeyboardOpenBracket: return @"LBracket";
+    case UIKeyboardHIDUsageKeyboardCloseBracket: return @"RBracket";
+    case UIKeyboardHIDUsageKeyboardBackslash: return @"Backslash";
+    case UIKeyboardHIDUsageKeyboardSemicolon: return @"Semicolon";
+    case UIKeyboardHIDUsageKeyboardQuote: return @"Quote";
+    case UIKeyboardHIDUsageKeyboardGraveAccentAndTilde: return @"Backtick";
+    case UIKeyboardHIDUsageKeyboardComma: return @"Comma";
+    case UIKeyboardHIDUsageKeyboardPeriod: return @"Period";
+    case UIKeyboardHIDUsageKeyboardSlash: return @"Slash";
+    case UIKeyboardHIDUsageKeyboardCapsLock: return @"CapsLock";
+    case UIKeyboardHIDUsageKeyboardInsert: return @"Insert";
+    case UIKeyboardHIDUsageKeyboardHome: return @"Home";
+    case UIKeyboardHIDUsageKeyboardPageUp: return @"PageUp";
+    case UIKeyboardHIDUsageKeyboardDeleteForward: return @"Delete";
+    case UIKeyboardHIDUsageKeyboardEnd: return @"End";
+    case UIKeyboardHIDUsageKeyboardPageDown: return @"PageDown";
+    case UIKeyboardHIDUsageKeyboardRightArrow: return @"Right";
+    case UIKeyboardHIDUsageKeyboardLeftArrow: return @"Left";
+    case UIKeyboardHIDUsageKeyboardDownArrow: return @"Down";
+    case UIKeyboardHIDUsageKeyboardUpArrow: return @"Up";
+    case UIKeyboardHIDUsageKeyboardLeftShift:
+    case UIKeyboardHIDUsageKeyboardRightShift: return @"Shift";
+    case UIKeyboardHIDUsageKeyboardLeftControl:
+    case UIKeyboardHIDUsageKeyboardRightControl: return @"Control";
+    case UIKeyboardHIDUsageKeyboardLeftAlt:
+    case UIKeyboardHIDUsageKeyboardRightAlt: return @"Alt";
+    default: return nil;  // Cmd and keys the driver has no name for
+  }
+}
+
+// For display: "Up, W" -> "Up or W"; "Control" -> "Ctrl"; nothing -> "—".
+NSString* KeysForDisplay(NSString* value) {
+  NSMutableArray<NSString*>* keys = [NSMutableArray array];
+  for (NSString* k in [value componentsSeparatedByString:@","]) {
+    NSString* t = [k stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    if (t.length) [keys addObject:[t isEqualToString:@"Control"] ? @"Ctrl" : [t isEqualToString:@"Escape"] ? @"Esc" : t];
+  }
+  return keys.count ? [keys componentsJoinedByString:@" or "] : @"—";
+}
+
 // The screen in landscape, in pixels (long side, short side).
 CGSize ScreenPixels() {
   const CGSize n = UIScreen.mainScreen.nativeBounds.size;
@@ -163,6 +279,18 @@ const std::vector<Section>& Sections() {
             @"On-screen gamepad. It hides itself while a physical controller is connected; "
             @"a tap brings it back.",
             @"true"},
+       }},
+      {@"Keyboard", nil,
+       {
+           {@"keyboard", Type::kSwitch, @"Keyboard controls",
+            @"Play with a hardware keyboard (Magic Keyboard, Bluetooth or USB): its keys act as "
+            @"the controller, together with the touch controls and any gamepad.",
+            @"true"},
+           {@"keyboard_bindings", Type::kLink, @"Customize keyboard controls",
+            @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
+            @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
+            @"Esc to pause.",
+            @""},
        }},
       {@"Graphics", nil,
        {
@@ -389,6 +517,10 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--present_letterbox=" + b(!On(s, @"stretch")));
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
+  a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
+  for (const KeyBind& kb : KeyBinds()) {
+    a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
+  }
   NSString* aa = Value(s, @"antialiasing");
   const bool msaa = Msaa(s);
   a.push_back("--gpu_sin_msaa=" + b(!msaa));
@@ -617,6 +749,219 @@ NSString* AchievementSummary(const Achievements& a) {
 // ---------------------------------------------------------------------------
 //  The screen
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+//  Keyboard controls: the editor
+// ---------------------------------------------------------------------------
+// "Press a key": takes the next key from a hardware keyboard (UIPress), shown
+// as a sheet; Cancel (or a tap outside) leaves the binding as it was.
+@interface NFSKeyCaptureController : UIViewController
+- (instancetype)initWithPrompt:(NSString*)prompt done:(void (^)(NSString* key))done;
+@end
+
+@implementation NFSKeyCaptureController {
+  NSString* _prompt;
+  void (^_done)(NSString*);
+  UILabel* _hint;
+}
+
+- (instancetype)initWithPrompt:(NSString*)prompt done:(void (^)(NSString*))done {
+  if ((self = [super initWithNibName:nil bundle:nil])) {
+    _prompt = prompt;
+    _done = done;
+    self.modalPresentationStyle = UIModalPresentationFormSheet;
+  }
+  return self;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.view.backgroundColor = UIColor.systemBackgroundColor;
+  UILabel* title = [[UILabel alloc] init];
+  title.text = _prompt;
+  title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle2];
+  title.numberOfLines = 0;
+  title.textAlignment = NSTextAlignmentCenter;
+  _hint = [[UILabel alloc] init];
+  _hint.text = @"Press a key on the keyboard.";
+  _hint.textColor = UIColor.secondaryLabelColor;
+  _hint.numberOfLines = 0;
+  _hint.textAlignment = NSTextAlignmentCenter;
+  UIButton* cancel = [UIButton buttonWithType:UIButtonTypeSystem];
+  [cancel setTitle:@"Cancel" forState:UIControlStateNormal];
+  [cancel addAction:[UIAction actionWithHandler:^(UIAction*) {
+            [self dismissViewControllerAnimated:YES completion:nil];
+          }]
+      forControlEvents:UIControlEventTouchUpInside];
+  UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[ title, _hint, cancel ]];
+  stack.axis = UILayoutConstraintAxisVertical;
+  stack.spacing = 16;
+  stack.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:stack];
+  [NSLayoutConstraint activateConstraints:@[
+    [stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+    [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+    [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.leadingAnchor constant:24],
+  ]];
+}
+
+- (BOOL)canBecomeFirstResponder {
+  return YES;
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+  [super viewDidAppear:animated];
+  [self becomeFirstResponder];
+}
+
+- (void)pressesBegan:(NSSet<UIPress*>*)presses withEvent:(UIPressesEvent*)event {
+  for (UIPress* press in presses) {
+    if (!press.key) continue;
+    NSString* name = KeyName(press.key.keyCode);
+    if (!name) {
+      _hint.text = @"That key cannot be used. Press another one.";
+      continue;
+    }
+    void (^done)(NSString*) = _done;
+    [self dismissViewControllerAnimated:YES completion:^{
+      done(name);
+    }];
+    return;
+  }
+  [super pressesBegan:presses withEvent:event];
+}
+
+@end
+
+// The list of actions and their keys. Tapping one: replace its key, add a
+// second one, clear it or put the default back.
+@interface NFSKeyBindsController : UITableViewController
+- (instancetype)initWithSettings:(NSMutableDictionary<NSString*, NSString*>*)settings
+                            save:(void (^)(void))save;
+@end
+
+@implementation NFSKeyBindsController {
+  NSMutableDictionary<NSString*, NSString*>* _settings;
+  void (^_save)(void);
+}
+
+- (instancetype)initWithSettings:(NSMutableDictionary<NSString*, NSString*>*)settings
+                            save:(void (^)(void))save {
+  if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
+    _settings = settings;
+    _save = save;
+    self.title = @"Keyboard controls";
+  }
+  return self;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.navigationItem.rightBarButtonItem =
+      [[UIBarButtonItem alloc] initWithTitle:@"Defaults"
+                                       style:UIBarButtonItemStylePlain
+                                      target:self
+                                      action:@selector(confirmDefaults)];
+}
+
+- (void)setValue:(NSString*)value forBind:(const KeyBind&)b {
+  NSString* key = [@"kb_" stringByAppendingString:b.setting];
+  if ([value isEqualToString:b.standard]) {
+    [_settings removeObjectForKey:key];
+  } else {
+    _settings[key] = value;
+  }
+  _save();
+  [self.tableView reloadData];
+}
+
+- (void)confirmDefaults {
+  UIAlertController* alert =
+      [UIAlertController alertControllerWithTitle:@"Default keys for everything?"
+                                          message:nil
+                                   preferredStyle:UIAlertControllerStyleAlert];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Defaults"
+                                            style:UIAlertActionStyleDestructive
+                                          handler:^(UIAlertAction*) {
+                                            for (const KeyBind& b : KeyBinds()) {
+                                              [self->_settings removeObjectForKey:[@"kb_" stringByAppendingString:b.setting]];
+                                            }
+                                            self->_save();
+                                            [self.tableView reloadData];
+                                          }]];
+  [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
+  return NSInteger(KeyBinds().size());
+}
+
+- (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
+  return @"Each action presses a controller input (shown in grey), so the game behaves as with a "
+         @"gamepad. One key can do several things (Up accelerates in a race and moves up in the "
+         @"menus). Shift, Ctrl and Alt work on their own.";
+}
+
+- (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
+  const KeyBind& b = KeyBinds()[size_t(ip.row)];
+  UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1
+                                                 reuseIdentifier:nil];
+  UIListContentConfiguration* c = UIListContentConfiguration.valueCellConfiguration;
+  c.text = b.action;
+  c.secondaryText = KeysForDisplay(KeyBindValue(_settings, b));
+  cell.contentConfiguration = c;
+  UILabel* pad = [[UILabel alloc] init];
+  pad.text = b.pad;
+  pad.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
+  pad.textColor = UIColor.tertiaryLabelColor;
+  [pad sizeToFit];
+  cell.accessoryView = pad;
+  return cell;
+}
+
+- (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)ip {
+  [tableView deselectRowAtIndexPath:ip animated:YES];
+  const KeyBind b = KeyBinds()[size_t(ip.row)];
+  NSString* current = KeyBindValue(_settings, b);
+  UIAlertController* sheet =
+      [UIAlertController alertControllerWithTitle:b.action
+                                          message:[NSString stringWithFormat:@"Now: %@", KeysForDisplay(current)]
+                                   preferredStyle:UIAlertControllerStyleActionSheet];
+  auto capture = [self, b](bool add, NSString* current) {
+    NFSKeyCaptureController* cap = [[NFSKeyCaptureController alloc]
+        initWithPrompt:b.action
+                  done:^(NSString* key) {
+                    NSString* value = key;
+                    if (add && current.length) {
+                      NSArray* parts = [current componentsSeparatedByString:@","];
+                      value = [parts containsObject:key] ? current : [current stringByAppendingFormat:@",%@", key];
+                    }
+                    [self setValue:value forBind:b];
+                  }];
+    [self presentViewController:cap animated:YES completion:nil];
+  };
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Set a key…"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction*) { capture(false, current); }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Add another key…"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction*) { capture(true, current); }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"No key"
+                                            style:UIAlertActionStyleDestructive
+                                          handler:^(UIAlertAction*) { [self setValue:@"" forBind:b]; }]];
+  [sheet addAction:[UIAlertAction
+                       actionWithTitle:[NSString stringWithFormat:@"Default (%@)", KeysForDisplay(b.standard)]
+                                 style:UIAlertActionStyleDefault
+                               handler:^(UIAlertAction*) { [self setValue:b.standard forBind:b]; }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  // On iPad an action sheet needs an anchor: the row.
+  sheet.popoverPresentationController.sourceView = [tableView cellForRowAtIndexPath:ip];
+  sheet.popoverPresentationController.sourceRect = [tableView cellForRowAtIndexPath:ip].bounds;
+  [self presentViewController:sheet animated:YES completion:nil];
+}
+
+@end
+
 @interface NFSLauncherController : UITableViewController <UITextFieldDelegate>
 - (instancetype)initWithDocuments:(fs::path)docs done:(std::function<void(fs::path)>)done;
 @end
@@ -856,6 +1201,11 @@ static constexpr NSInteger kFixedSections = 2;
       cell.accessoryView = button;
       break;
     }
+    case Type::kLink: {
+      cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+      cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+      break;
+    }
     case Type::kText: {
       UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
@@ -897,6 +1247,18 @@ static constexpr NSInteger kFixedSections = 2;
       [self.navigationController
           pushViewController:[[NFSAchievementsController alloc] initWithAchievements:std::move(a)]
                     animated:YES];
+    }
+    return;
+  }
+  if (ip.section >= kFixedSections) {
+    const Option& o = Sections()[size_t(ip.section - kFixedSections)].options[size_t(ip.row)];
+    if (o.type == Type::kLink && [o.key isEqualToString:@"keyboard_bindings"]) {
+      NFSKeyBindsController* editor =
+          [[NFSKeyBindsController alloc] initWithSettings:_settings
+                                                     save:^{
+                                                       SaveSettings(self->_docs, self->_settings);
+                                                     }];
+      [self.navigationController pushViewController:editor animated:YES];
     }
     return;
   }

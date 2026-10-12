@@ -43,6 +43,7 @@
 #include <cmath>
 #include <vector>
 
+#include <rex/cvar.h>
 #include <rex/logging.h>
 
 #include "touch_controls.h"
@@ -77,6 +78,9 @@ constexpr float kDriveShiftDown = 1.0f;
 SDL_Joystick* g_pad = nullptr;
 int g_buttons = 0;
 Sint16 g_axes[kAxes] = {};
+
+// Keyboard controls (the SDK's mnk_mode, set by the launcher).
+bool KeyboardControlsOn() { return rex::cvar::Query<bool>("mnk_mode"); }
 
 Sint16 AxisToS16(float v) { return Sint16(std::clamp(v, -1.0f, 1.0f) * 32767.0f); }
 Sint16 TriggerToS16(float v) { return Sint16(std::clamp(v, 0.0f, 1.0f) * 65535.0f - 32768.0f); }
@@ -171,7 +175,9 @@ struct Control {
     self.multipleTouchEnabled = YES;
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     _owners = [NSMapTable strongToStrongObjectsMapTable];
-    _controlsVisible = !GCController.current;
+    // Hidden while a gamepad, or a keyboard with keyboard controls on, is
+    // connected (a tap brings them back).
+    _controlsVisible = !GCController.current && !(KeyboardControlsOn() && GCKeyboard.coalescedKeyboard);
     _driving = [NSUserDefaults.standardUserDefaults boolForKey:@"nfsmw.touch.driving"];
     _haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
@@ -183,6 +189,16 @@ struct Control {
            selector:@selector(controllerDisconnected:)
                name:GCControllerDidDisconnectNotification
              object:nil];
+    if (KeyboardControlsOn()) {
+      [nc addObserver:self
+             selector:@selector(controllerConnected:)
+                 name:GCKeyboardDidConnectNotification
+               object:nil];
+      [nc addObserver:self
+             selector:@selector(controllerDisconnected:)
+                 name:GCKeyboardDidDisconnectNotification
+               object:nil];
+    }
   }
   return self;
 }
@@ -192,7 +208,7 @@ struct Control {
 }
 
 - (void)controllerDisconnected:(NSNotification*)note {
-  if (GCController.controllers.count == 0) {
+  if (GCController.controllers.count == 0 && !(KeyboardControlsOn() && GCKeyboard.coalescedKeyboard)) {
     [self setControlsVisible:YES];
   }
 }
