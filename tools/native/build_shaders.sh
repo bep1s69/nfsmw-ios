@@ -12,6 +12,8 @@
 # 3. tools/native/rewrite_shadow_filter.py: the soft-shadow filter's 9
 #    fetches as one call (4 gathers; see shader_common.h).
 # 4. xcrun metal: one .metallib per shader, named vs_/ps_<microcode hash>.
+# 5. tools/native/constant_ranges.py: the float constants each shader reads
+#    (lib/constant_ranges.txt), so the renderer handles only those.
 #
 # Output (default ~/Library/Caches/nfsmw-ios/shaders): containers/, msl/,
 # air/, lib/. Nothing derived from the game goes into the repository.
@@ -52,6 +54,7 @@ for container in "$out"/containers/*.bin; do
   fi
 done
 cp "$out/containers/vertex_inputs.txt" "$out/lib/"
+python3 "$repo/tools/native/constant_ranges.py" "$out/msl" "$out/lib/constant_ranges.txt"
 echo "$translated translated, $compiled Metal libraries in $out/lib"
 if [ -n "$failed" ]; then
   echo "failed:$failed"

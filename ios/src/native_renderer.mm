@@ -164,6 +164,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_pipelines, true, "GPU",
 REXCVAR_DEFINE_INT32(nfsmw_test_cpu_load, 0, "GPU",
                      "Experiment: this many extra threads kept busy from the start (0-6), to see whether CPU load "
                      "makes the system throttle the GPU (the race-start stutter)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_constant_ranges, true, "GPU",
+                    "Native renderer: compare and upload only the float constants each shader reads "
+                    "(false: all 256 of each stage, per draw)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
@@ -308,6 +311,14 @@ struct ShaderStore {
   std::map<std::pair<uint64_t, uint32_t>, id<MTLFunction>> ps_variants;
   std::unordered_map<uint64_t, std::vector<VertexInput>> inputs;  // by VS key
   std::set<uint64_t> internal_keys;  // D3D's run-time vertex shaders (written here)
+  // The float constant registers each shader reads, FIRST..END-1
+  // (constant_ranges.txt, tools/native/constant_ranges.py); not listed: all.
+  std::unordered_map<uint64_t, std::pair<uint16_t, uint16_t>> constant_ranges;  // by "vs"/"ps" key ^ kind
+  std::pair<uint16_t, uint16_t> ConstantRange(bool pixel, uint64_t key) const {
+    if (!REXCVAR_GET(nfsmw_native_constant_ranges)) return {0, 256};
+    auto it = constant_ranges.find(key ^ (pixel ? 1ull : 0ull) << 63);
+    return it != constant_ranges.end() ? it->second : std::pair<uint16_t, uint16_t>{0, 256};
+  }
   bool loaded = false;
 
   void Load() {
@@ -371,9 +382,20 @@ struct ShaderStore {
         inputs[key].push_back({address, usage, uint32_t(location), swizzle, dst});
       }
     }
+    NSString* ranges = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:@"constant_ranges.txt"]
+                                                 encoding:NSUTF8StringEncoding
+                                                    error:nil];
+    for (NSString* line in [ranges componentsSeparatedByString:@"\n"]) {
+      char kind[3] = {};
+      unsigned long long key = 0;
+      unsigned first = 0, end = 0;
+      if (sscanf(line.UTF8String, "%2s_%llx %u %u", kind, &key, &first, &end) == 4 && first <= end && end <= 256) {
+        constant_ranges[key ^ (kind[0] == 'p' ? 1ull : 0ull) << 63] = {uint16_t(first), uint16_t(end)};
+      }
+    }
     LoadD3DInternalShaders(constants);
-    REXLOG_INFO("[native] renderer built {} {}: {} shaders, vertex inputs of {} vertex shaders",
-                __DATE__, __TIME__, functions.size(), inputs.size());
+    REXLOG_INFO("[native] renderer built {} {}: {} shaders, vertex inputs of {} vertex shaders, constant ranges of {}",
+                __DATE__, __TIME__, functions.size(), inputs.size(), constant_ranges.size());
   }
 
   // The vertex shaders D3D builds at run time (draws from user memory: the
@@ -629,6 +651,8 @@ struct Draw {
   uint32_t vertex_count = 0;
   // 1024 dwords each; shared with the draw before while unchanged (most are).
   std::shared_ptr<const std::vector<uint32_t>> vs_constants, ps_constants;
+  // The registers its shaders read of them (FIRST..END-1): compared, uploaded.
+  std::pair<uint16_t, uint16_t> vs_range{0, 256}, ps_range{0, 256};
   uint32_t booleans = 0;
   int textures[16];  // index into Frame::textures, or -1
   // Render state.
@@ -1828,16 +1852,22 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // Constants: c0-255 of each stage (VS at 0x4000, PS at 0x4400).
   // The draw before's constants if they are the same (one compare instead of
   // a copy per draw, and one upload of them).
-  auto constants = [&](std::shared_ptr<const std::vector<uint32_t>>& last, const uint32_t* from) {
-    if (!last || std::memcmp(last->data(), from, 4096) != 0) {
+  // Only the registers the draw's shader reads are compared: the others may
+  // differ from the draw before's, unread.
+  auto constants = [&](std::shared_ptr<const std::vector<uint32_t>>& last, const uint32_t* from,
+                       std::pair<uint16_t, uint16_t> range) {
+    const size_t at = size_t(range.first) * 4, n = size_t(range.second - range.first) * 16;
+    if (!last || (n && std::memcmp(last->data() + at, from + at, n) != 0)) {
       last = std::make_shared<const std::vector<uint32_t>>(from, from + 1024);
     }
     return last;
   };
   const auto texture_start = FastClock::now();
   record_vertex_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(texture_start - vertex_start).count());
-  d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase);
-  d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024);
+  d.vs_range = store.ConstantRange(false, d.vs_key);
+  d.ps_range = store.ConstantRange(true, d.ps_key);
+  d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
+  d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range);
   // The car's shadow casters: D3D's position-only vertex shader (2f583d7c,
   // no texture coordinate) with the shadow-map pixel shader (4fbaecfb). That
   // one cuts out see-through casters (g_bShadowMapAlphaEnabled, c1) by the
@@ -2791,15 +2821,32 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
     // Per-draw data in one shared buffer: VS constants, PS constants, shared
     // constants, vertex attributes, indices.
+    // Constants: the registers the draw's shader reads, uploaded again only
+    // when they are not already (the same set, a range that covers them).
+    struct UploadedConstants {
+      const void* set = nullptr;
+      std::pair<uint16_t, uint16_t> range{0, 0};
+      size_t at = 0;
+      bool Covers(const void* s, std::pair<uint16_t, uint16_t> r) const {
+        return r.first >= r.second || (set == s && range.first <= r.first && r.second <= range.second);
+      }
+    };
     size_t total = 0;
-    const void* last_vs = nullptr;
-    const void* last_ps = nullptr;
+    {
+      UploadedConstants vs, ps;
+      for (const Draw& d : frame->draws) {
+        if (!vs.Covers(d.vs_constants.get(), d.vs_range)) {
+          total += (d.vs_range.second - d.vs_range.first) * 16 + 256;
+          vs = {d.vs_constants.get(), d.vs_range};
+        }
+        if (!ps.Covers(d.ps_constants.get(), d.ps_range)) {
+          total += (d.ps_range.second - d.ps_range.first) * 16 + 256;
+          ps = {d.ps_constants.get(), d.ps_range};
+        }
+      }
+    }
     for (const Draw& d : frame->draws) {
       total += 1024 + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
-      if (d.vs_constants.get() != last_vs) total += 4096 + 256;
-      if (d.ps_constants.get() != last_ps) total += 4096 + 256;
-      last_vs = d.vs_constants.get();
-      last_ps = d.ps_constants.get();
       for (const Attribute& a : d.attributes) {
         if (a.fresh && a.values) total += a.values->size() * 4 + 256;
       }
@@ -2808,9 +2855,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared, false);
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
-    const std::vector<uint32_t>* uploaded_vs = nullptr;
-    const std::vector<uint32_t>* uploaded_ps = nullptr;
-    size_t uploaded_vs_at = 0, uploaded_ps_at = 0;
+    UploadedConstants uploaded_vs, uploaded_ps;
+    uint32_t last_shared[256];
+    size_t last_shared_at = 0;
+    bool have_last_shared = false;
     auto put = [&](const void* bytes, size_t size) {
       used = (used + 255) & ~size_t(255);
       std::memcpy(cursor + used, bytes, size);
@@ -3657,15 +3705,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
       // Constants and shared constants (texture/sampler indices, booleans).
       // Uploaded once per distinct set (consecutive draws share them).
-      if (d.vs_constants.get() != uploaded_vs) {
-        uploaded_vs = d.vs_constants.get();
-        uploaded_vs_at = put(uploaded_vs->data(), 4096);
-      }
-      if (d.ps_constants.get() != uploaded_ps) {
-        uploaded_ps = d.ps_constants.get();
-        uploaded_ps_at = put(uploaded_ps->data(), 4096);
-      }
-      const size_t vs_at = uploaded_vs_at, ps_at = uploaded_ps_at;
+      // The stage's constant address is where register 0 would be: the
+      // upload starts at the range's first register.
+      auto upload = [&](UploadedConstants& u, const std::vector<uint32_t>& set, std::pair<uint16_t, uint16_t> r) {
+        if (!u.Covers(&set, r)) {
+          u = {&set, r, put(set.data() + size_t(r.first) * 4, size_t(r.second - r.first) * 16)};
+        }
+        return data.gpuAddress + u.at - size_t(u.range.first) * 16;
+      };
+      const uint64_t vs_address = upload(uploaded_vs, *d.vs_constants, d.vs_range);
+      const uint64_t ps_address = upload(uploaded_ps, *d.ps_constants, d.ps_range);
       uint32_t shared[256] = {};
       for (int s = 0; s < 16; ++s) {
         int index = d.textures[s] < 0 ? 0 : d.textures[s] + 1;
@@ -3830,10 +3879,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const float threshold = (!(d.color_control & 8) && (d.color_control & 0x10)) ? 0.5f : d.alpha_ref;
         std::memcpy(&shared[93], &threshold, 4);  // g_AlphaThreshold at byte 372
       }
-      const size_t shared_at = put(shared, sizeof(shared));
+      // The same as the draw before's (most are): its copy again.
+      if (!have_last_shared || std::memcmp(last_shared, shared, sizeof(shared)) != 0) {
+        last_shared_at = put(shared, sizeof(shared));
+        std::memcpy(last_shared, shared, sizeof(shared));
+        have_last_shared = true;
+      }
+      const size_t shared_at = last_shared_at;
       struct {
         uint64_t vs, ps, shared;
-      } push = {data.gpuAddress + vs_at, data.gpuAddress + ps_at, data.gpuAddress + shared_at};
+      } push = {vs_address, ps_address, data.gpuAddress + shared_at};
       [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
       [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
 
