@@ -129,7 +129,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_debug, false, "GPU",
 - (void)layoutSubviews {
   [super layoutSubviews];
   CAMetalLayer* layer = (CAMetalLayer*)self.layer;
-  const CGFloat scale = self.window.screen.scale ?: UIScreen.mainScreen.scale;
+  // The screen's real pixels per point: nativeScale, not scale. With Display
+  // Zoom ("More Space" on an iPad M1: 1389x970 points on 2388x1668 pixels)
+  // scale stays 2 and the drawable would have 35% more pixels than the panel.
+  UIScreen* screen = self.window.screen ?: UIScreen.mainScreen;
+  const CGFloat scale = screen.nativeScale ?: screen.scale;
   layer.contentsScale = scale;
   layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
 }
