@@ -104,6 +104,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
 // red/blue swap and the fetch swizzle, as 2D resolves are.
 REXCVAR_DEFINE_BOOL(nfsmw_native_cube_swizzle, true, "GPU",
                     "Native renderer: sample resolved cube maps with their red/blue swap and fetch swizzle");
+// Colour resolves scaled by their exponent bias (colour * 2^bias), as the
+// console's resolve does.
+REXCVAR_DEFINE_BOOL(nfsmw_native_exp_bias, true, "GPU",
+                    "Native renderer: apply the resolves' exponent bias (colour * 2^bias)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -2432,6 +2436,41 @@ id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
   return pso;
 }
 
+// Colour resolves with an exponent bias (RB_COPY_DEST_INFO bits 16-21: the
+// console writes colour * 2^bias): a copy that scales, per destination format.
+// The source is read at the destination pixel plus an offset.
+id<MTLRenderPipelineState> ScaledCopyPipeline(id<MTLDevice> device, MTLPixelFormat format) {
+  static std::map<MTLPixelFormat, id<MTLRenderPipelineState>> made;
+  auto it = made.find(format);
+  if (it != made.end()) {
+    return it->second;
+  }
+  static id<MTLLibrary> library;
+  if (!library) {
+    NSString* source = @"#include <metal_stdlib>\n"
+                        "using namespace metal;\n"
+                        "struct V { float4 p [[position]]; };\n"
+                        "struct C { float scale; int2 offset; };\n"
+                        "vertex V vs(uint id [[vertex_id]]) {\n"
+                        "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                        "  V v; v.p = float4(uv * 2.0 - 1.0, 0.0, 1.0); return v; }\n"
+                        "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]], constant C& c [[buffer(0)]]) {\n"
+                        "  return t.read(uint2(int2(in.p.xy) + c.offset)) * c.scale; }\n";
+    NSError* error = nil;
+    library = [device newLibraryWithSource:source options:nil error:&error];
+    if (!library) {
+      REXLOG_WARN("[native] scaled copy shader: {}", error.localizedDescription.UTF8String);
+      return made[format] = nil;
+    }
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+  desc.colorAttachments[0].pixelFormat = format;
+  NSError* error = nil;
+  return made[format] = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+}
+
 // --- GPU-side state kept across frames (render queue only) ----------------------
 
 struct GpuBuffer {
@@ -3415,6 +3454,44 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       profile_labels->push_back(label);
       return [cb blitCommandEncoderWithDescriptor:bd];
     };
+    // A colour resolve with an exponent bias: copied by a draw that scales by
+    // 2^bias (a blit cannot). False when there is no bias: the caller blits.
+    auto scaled_copy = [&](id<MTLTexture> from, id<MTLTexture> to, NSUInteger slice, NSUInteger fx, NSUInteger fy,
+                           NSUInteger tx, NSUInteger ty, NSUInteger cw, NSUInteger ch, const ResolveEvent& ev,
+                           const char* label) -> bool {
+      if (!ev.exp_bias || !REXCVAR_GET(nfsmw_native_exp_bias) || !(to.usage & MTLTextureUsageRenderTarget)) {
+        return false;
+      }
+      id<MTLRenderPipelineState> copy = ScaledCopyPipeline(device, to.pixelFormat);
+      if (!copy || !cw || !ch) return false;
+      {
+        static std::set<std::pair<uint32_t, int32_t>> said;
+        if (said.size() < 32 && said.insert({ev.dest_base, ev.exp_bias}).second) {
+          REXLOG_INFO("[native] resolve to {:08x}{}: exponent bias {} (colour x {})", ev.dest_base,
+                      ev.array ? fmt::format(" face {}", ev.slice) : std::string(), ev.exp_bias,
+                      std::ldexp(1.0, ev.exp_bias));
+        }
+      }
+      MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
+      rp.colorAttachments[0].texture = to;
+      rp.colorAttachments[0].slice = slice;
+      rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
+      rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+      profile_pass(rp, label);
+      id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+      [e setRenderPipelineState:copy];
+      [e setFragmentTexture:from atIndex:0];
+      struct {
+        float scale;
+        float pad;  // int2 is 8-byte aligned in the shader
+        int32_t offset[2];
+      } c = {std::ldexp(1.0f, ev.exp_bias), 0.0f, {int32_t(fx) - int32_t(tx), int32_t(fy) - int32_t(ty)}};
+      [e setFragmentBytes:&c length:sizeof(c) atIndex:0];
+      [e setScissorRect:(MTLScissorRect){tx, ty, cw, ch}];
+      [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+      [e endEncoding];
+      return true;
+    };
     auto writebacks = std::make_shared<std::vector<WriteBack>>();
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
       // The source: the EDRAM layout in the resolve's own registers (a
@@ -3455,7 +3532,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:src.color.pixelFormat
                                                                                          size:std::max(w, h)
                                                                                     mipmapped:NO];
-          cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
+          cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView | MTLTextureUsageRenderTarget;
           cube = gpu_pool.Texture(device, cd);
           frame_resources.objects.push_back(cube);
           resolved_cubes[ev.dest_base] = cube;
@@ -3467,6 +3544,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         if (cube && ev.slice < 6) {
           resolved_cube_swap[ev.dest_base] = ev.swap;
+          if (scaled_copy(src.color, cube, ev.slice, x0, y0, 0, 0, std::min(w, cube.width), std::min(h, cube.height),
+                          ev, "cube face (exp bias)")) {
+            ++resolves_done;
+          } else {
           id<MTLBlitCommandEncoder> blit = new_blit("blit: cube face");
           [blit copyFromTexture:src.color
                     sourceSlice:0
@@ -3479,6 +3560,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               destinationOrigin:MTLOriginMake(0, 0, 0)];
           [blit endEncoding];
           ++resolves_done;
+          }
         } else {
           ++resolves_skipped;
         }
@@ -3492,6 +3574,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                      mipmapped:NO];
         rd.usage = ev.depth ? (MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget)
                             : (MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView);
+        if (!ev.depth && ev.exp_bias && REXCVAR_GET(nfsmw_native_exp_bias)) {
+          rd.usage |= MTLTextureUsageRenderTarget;  // the scaled copy draws into it
+        }
         id<MTLTexture> dest = nil;
         // Linear (slow for the GPU to write: a 1600 x 1600 shadow map copy took
         // 2.5 ms) only when the resolve does not fill its pitch, i.e. when
@@ -3541,7 +3626,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
           [e endEncoding];
         } else {
-          id<MTLBlitCommandEncoder> blit = new_blit("blit: resolve copy");
+          id<MTLBlitCommandEncoder> blit = nil;
+          if (!scaled_copy(src.color, dest, 0, x0, y0, x0, y0, w, h, ev, "resolve copy (exp bias)")) {
+          blit = new_blit("blit: resolve copy");
           [blit copyFromTexture:src.color
                     sourceSlice:0
                     sourceLevel:0
@@ -3551,6 +3638,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                destinationSlice:0
                destinationLevel:0
               destinationOrigin:MTLOriginMake(x0, y0, 0)];
+          }
           // Small 8-bit colour resolves also go to guest memory (WriteBack).
           // Up to nfsmw_native_writeback_kb: what the game reads on the CPU is
           // small (the scene's brightness for the exposure); the environment
@@ -3571,6 +3659,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               x0 + w <= Px(ev.dest_pitch, scale) && y0 + h <= Px(ev.dest_height, scale)) {
             const uint32_t row_bytes = uint32_t((w * 4 + 255) & ~NSUInteger(255));
             id<MTLBuffer> pixels = pooled_buffer(row_bytes * h, MTLResourceStorageModeShared);
+            if (!blit) blit = new_blit("blit: write-back");
             [blit copyFromTexture:dest
                       sourceSlice:0
                       sourceLevel:0
@@ -3587,7 +3676,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             writebacks->push_back({pixels, row_bytes, uint32_t(w), uint32_t(h), ev.dest_base, ev.dest_pitch,
                                    gx0, gy0, gw, gh, scale, ev.swap, ev.dest_endian});
           }
-          [blit endEncoding];
+          [blit endEncoding];  // nil when the scaled copy did it and nothing was written back: no-op
         }
         static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = dest.gpuResourceID;
         heap_object[next_heap] = dest;
