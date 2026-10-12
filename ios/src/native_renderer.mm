@@ -4675,6 +4675,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     for (const std::string& key : order) {
       const Target& t = targets[key];
       CIImage* image = [CIImage imageWithMTLTexture:t.color options:@{kCIImageColorSpace : (__bridge id)space}];
+      // Opaque: targets often keep alpha 0, which saved as plain white.
+      image = [image imageBySettingAlphaOneInExtent:image.extent];
       image = [image imageByApplyingTransform:CGAffineTransformMake(1, 0, 0, -1, 0, t.height)];
       NSString* file = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"pass_%02d_%ux%u_fmt%u_%udraws.png", n++,
                                                                                       t.pitch, t.height, t.format, t.draws]];
@@ -4694,6 +4696,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         continue;  // cubes (environment map faces) and swizzled views: not saved
       }
       CIImage* image = [CIImage imageWithMTLTexture:tex options:@{kCIImageColorSpace : (__bridge id)space}];
+      // Opaque: targets often keep alpha 0, which saved as plain white.
+      image = [image imageBySettingAlphaOneInExtent:image.extent];
       if (tex.pixelFormat == MTLPixelFormatR32Float) {
         // Depth (one channel): grey, stretched over 0.9-1.0 where it lives.
         CIFilter* matrix = [CIFilter filterWithName:@"CIColorMatrix"];
@@ -4722,6 +4726,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     for (const WatchSave& w : watch_saves) {
       if (w.texture.textureType != MTLTextureType2D) continue;
       CIImage* image = [CIImage imageWithMTLTexture:w.texture options:@{kCIImageColorSpace : (__bridge id)space}];
+      // Opaque: targets often keep alpha 0, which saved as plain white.
+      image = [image imageBySettingAlphaOneInExtent:image.extent];
       image = [image imageByApplyingTransform:CGAffineTransformMake(1, 0, 0, -1, 0, w.texture.height)];
       NSString* file = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%s.png", w.name.c_str()]];
       [ci writePNGRepresentationOfImage:image toURL:[NSURL fileURLWithPath:file] format:kCIFormatRGBA8
