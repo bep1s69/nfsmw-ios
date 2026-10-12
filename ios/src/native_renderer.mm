@@ -116,7 +116,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
 // k_4_4_4_4: the Metal channel (r, g, b, a of ABGR4) read for the console's
 // R, G, B and A.
-REXCVAR_DEFINE_STRING(nfsmw_native_rgba4_order, "rgab", "GPU",
+REXCVAR_DEFINE_STRING(nfsmw_native_rgba4_order, "grab", "GPU",
                       "Native renderer: Metal channels read for k_4_4_4_4's R, G, B, A");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
@@ -1625,9 +1625,10 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
       case xenos::TextureFormat::k_4_4_4_4: {
         // Which Metal ABGR4 channel holds the console's R, G, B, A
         // (nfsmw_native_rgba4_order, four letters of r g b a). The tuning
-        // shop's reflection cube (05cc1000) is k_4_4_4_4: read as is
-        // ("rgba") it was yellow, as "argb" pink; its nibbles say
-        // (r, g, b, a) = (v, v, 0, 15), so blue is in Metal's alpha.
+        // shop's reflection cube (05cc1000) is k_4_4_4_4: its nibbles (after
+        // the 8-in-16 swap) average 4.0, 4.6, 5.0, 0 from bits 0-3 up, so
+        // A4R4G4B4 (D3D's A in 12-15, B in 0-3); Metal's ABGR4 reads R from
+        // bits 4-7, G 8-11, B 12-15, A 0-3 (read as is it was yellow).
         const std::string order = REXCVAR_GET(nfsmw_native_rgba4_order);
         for (int i = 0; i < 4 && i < int(order.size()); ++i) {
           const char c = order[i];
