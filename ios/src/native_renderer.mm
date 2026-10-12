@@ -1593,6 +1593,24 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   uint32_t sw = t.swizzle;
   {
     uint8_t host[4] = {0, 1, 2, 3};
+    if (xenos::TextureFormat(t.format) == xenos::TextureFormat::k_4_4_4_4 && tex.data.size() >= 2) {
+      // Diagnostics: the average of each nibble (bits 0-3 .. 12-15) as decoded,
+      // once per texture, to tell which holds which channel.
+      static std::set<uint32_t> said;
+      if (said.size() < 32 && said.insert(uint32_t(t.base_address) << 12).second) {
+        double sum[4] = {};
+        const size_t n = tex.data.size() / 2;
+        for (size_t i = 0; i < n; ++i) {
+          uint16_t v;
+          std::memcpy(&v, tex.data.data() + 2 * i, 2);
+          for (int k = 0; k < 4; ++k) sum[k] += (v >> (4 * k)) & 15;
+        }
+        REXLOG_INFO("[native] k_4_4_4_4 {:08x} {}x{}{}: average nibble bits 0-3 {:.1f}, 4-7 {:.1f}, 8-11 {:.1f}, "
+                    "12-15 {:.1f} (of 15), endian {}",
+                    uint32_t(t.base_address) << 12, width, height, cube ? " cube" : "", sum[0] / n, sum[1] / n,
+                    sum[2] / n, sum[3] / n, uint32_t(t.endianness));
+      }
+    }
     switch (xenos::TextureFormat(t.format)) {
       case xenos::TextureFormat::k_8:
       case xenos::TextureFormat::k_32_FLOAT:
