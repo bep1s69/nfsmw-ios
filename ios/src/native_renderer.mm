@@ -83,6 +83,9 @@ struct RexNativeDraw {
 extern std::atomic<void (*)(const RexNativeDraw*)> rex_native_draw_hook;
 extern std::atomic<void (*)(const uint32_t*)> rex_native_resolve_hook;
 extern std::atomic<void (*)()> rex_native_swap_hook;
+// Occlusion queries (tools/ios/patch_ios_native_occlusion.py): (sample count
+// address, query end, count out) -> handled.
+extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
@@ -93,6 +96,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
                     "Native renderer: skip the emulated renderer's draws while it shows the game");
 // The game waits for the native renderer instead of it dropping frames.
+// The sun glare's occlusion query counted by the native renderer.
+REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
+                    "Native renderer: answer the game's occlusion queries (the sun glare) by "
+                    "counting its own samples");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -710,6 +717,7 @@ struct Draw {
   int32_t window_offset_x, window_offset_y;
   uint32_t scissor[4];
   bool window_offset_enable;
+  int query = -1;  // the occlusion query counting it (index into Frame::queries), or -1
 };
 
 struct VertexDiagnostics {
@@ -751,6 +759,10 @@ struct Frame {
   bool slot_valid[16] = {};
   std::shared_ptr<const ConstantBank> last_vs_constants, last_ps_constants;
   std::vector<ResolveEvent> resolves;
+  // Occlusion queries begun in the frame (their sample count addresses), and
+  // the one open now (its draws are counted).
+  std::vector<uint32_t> queries;
+  int open_query = -1;
   // The frame's textures (indices in Draw::textures), shared with the
   // texture cache while their memory is unchanged.
   std::vector<std::shared_ptr<const Texture>> textures;
@@ -805,6 +817,15 @@ std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
 bool timed_draw = false;  // this draw's recording is timed (one in eight; command processor thread)
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
+
+// Occlusion queries: the last count per sample count address, at the guest's
+// resolution (written when the GPU finishes a frame, read by the command
+// processor at the query's end). Visibility result slots per frame, in one of
+// a ring of buffers (frames in flight are far fewer).
+constexpr size_t kVisibilitySlots = 64;
+constexpr int kVisibilityBuffers = 8;
+std::mutex occlusion_mutex;
+std::unordered_map<uint32_t, uint64_t> occlusion_counts;
 
 // Compiled pipelines kept on disk (Library/Caches), so a pipeline compiled
 // once is loaded, not compiled, in later sessions: compiling them as the race
@@ -3310,6 +3331,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
     id<MTLRenderCommandEncoder> enc = nil;
     std::string current;
+    // Occlusion queries: each query's draws counted into a slot per pass
+    // (counts are per render pass), summed when the GPU is done.
+    id<MTLBuffer> visibility = nil;
+    struct VisibilitySlot {
+      int query;
+      double divisor;  // samples per guest pixel: scale squared times MSAA samples
+    };
+    std::vector<VisibilitySlot> visibility_slots;
+    std::vector<int> pass_slot(frame->queries.size(), -1);  // in the current pass
+    __unsafe_unretained id<MTLRenderCommandEncoder> visibility_encoder = nil;
+    int visibility_slot = -1;  // the slot the current encoder counts into
+    if (!frame->queries.empty() && REXCVAR_GET(nfsmw_native_occlusion)) {
+      static id<MTLBuffer> ring[kVisibilityBuffers];
+      const int at = number % kVisibilityBuffers;
+      if (!ring[at]) ring[at] = [device newBufferWithLength:kVisibilitySlots * 8 options:MTLResourceStorageModeShared];
+      std::memset(ring[at].contents, 0, kVisibilitySlots * 8);
+      visibility = ring[at];
+    }
     size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
     uint32_t pass_splits = 0;
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
@@ -3715,6 +3754,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.depthAttachment.texture = t.multisample_depth;
         rp.depthAttachment.loadAction = clear_depth ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.depthAttachment.clearDepth = t.clear_depth ? t.clear_depth_value : 1.0;
+        rp.visibilityResultBuffer = visibility;
         t.clear_color = t.clear_depth = false;
         if (t.sample_count > 1) {
           rp.depthAttachment.resolveTexture = t.depth;
@@ -3810,6 +3850,29 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setDepthClipMode:d.clip_disable ? MTLDepthClipModeClamp : MTLDepthClipModeClip];
         clip_mode_encoder = enc;
         clip_mode_clamp = d.clip_disable;
+      }
+      // Occlusion query: counted while its draws run (a new encoder starts
+      // with counting off, and with new slots).
+      if (visibility) {
+        if (enc != visibility_encoder) {
+          visibility_encoder = enc;
+          visibility_slot = -1;
+          std::fill(pass_slot.begin(), pass_slot.end(), -1);
+        }
+        int want = -1;
+        if (d.query >= 0) {
+          int& slot = pass_slot[d.query];
+          if (slot < 0 && visibility_slots.size() < kVisibilitySlots) {
+            slot = int(visibility_slots.size());
+            visibility_slots.push_back({d.query, double(t.scale) * t.scale * std::max<uint32_t>(t.sample_count, 1)});
+          }
+          want = slot;
+        }
+        if (want != visibility_slot) {
+          [enc setVisibilityResultMode:want >= 0 ? MTLVisibilityResultModeCounting : MTLVisibilityResultModeDisabled
+                                offset:want >= 0 ? NSUInteger(want) * 8 : 0];
+          visibility_slot = want;
+        }
       }
 
       // Depth: RB_DEPTHCONTROL z enable (bit 1), write (2), function (4-6).
@@ -4309,6 +4372,27 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         --in_flight;
       }];
     }
+    if (visibility && !visibility_slots.empty()) {
+      // The counts, once the GPU is done: per query, the sum of its slots at
+      // the guest's resolution. A query whose draws were all left out keeps
+      // its last count.
+      const std::vector<uint32_t> queries = frame->queries;
+      const std::vector<VisibilitySlot> slots = visibility_slots;
+      id<MTLBuffer> results = visibility;
+      [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
+        if (done.error) return;
+        const uint64_t* r = static_cast<const uint64_t*>(results.contents);
+        std::vector<double> sums(queries.size(), -1.0);
+        for (size_t i = 0; i < slots.size(); ++i) {
+          double& sum = sums[slots[i].query];
+          sum = std::max(sum, 0.0) + double(r[i]) / slots[i].divisor;
+        }
+        std::lock_guard<std::mutex> lock(occlusion_mutex);
+        for (size_t q = 0; q < queries.size(); ++q) {
+          if (sums[q] >= 0) occlusion_counts[queries[q]] = uint64_t(std::llround(sums[q]));
+        }
+      }];
+    }
     [cb commit];
     {
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
@@ -4621,11 +4705,33 @@ void CpSwap() {
   if (REXCVAR_GET(nfsmw_native_cp)) NativeSwap();
 }
 
+// A query's begin: the draws that follow are counted. Its end: the last count
+// the GPU gave for it (a frame or two late), or "fully visible" (a 1280x720
+// target) before the first, as the emulated renderer's async queries do.
+bool CpOcclusion(uint32_t address, bool end, uint64_t* samples) {
+  if (!REXCVAR_GET(nfsmw_native_cp) || !REXCVAR_GET(nfsmw_native_occlusion)) {
+    return false;
+  }
+  if (!end) {
+    if (recording && recording->queries.size() < kVisibilitySlots) {
+      recording->open_query = int(recording->queries.size());
+      recording->queries.push_back(address);
+    }
+    return true;
+  }
+  if (recording) recording->open_query = -1;
+  std::lock_guard<std::mutex> lock(occlusion_mutex);
+  auto it = occlusion_counts.find(address);
+  *samples = it != occlusion_counts.end() ? it->second : 1280u * 720u;
+  return true;
+}
+
 // Installed when the app loads; each checks nfsmw_native_cp when called.
 __attribute__((constructor)) void InstallCommandProcessorHooks() {
   rex_native_draw_hook.store(&CpDraw);
   rex_native_resolve_hook.store(&CpResolve);
   rex_native_swap_hook.store(&CpSwap);
+  rex_native_occlusion_hook.store(&CpOcclusion);
 }
 
 bool NativeSwap() {
@@ -4762,7 +4868,11 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
     recording.reset();
     return;
   }
+  const size_t before = recording->draws.size();
   Record(*recording, *draw);
+  if (recording && recording->open_query >= 0 && recording->draws.size() > before) {
+    recording->draws.back().query = recording->open_query;
+  }
 }
 
 void NativeResolve(const uint32_t* regs) {

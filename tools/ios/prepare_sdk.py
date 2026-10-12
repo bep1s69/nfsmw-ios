@@ -131,6 +131,7 @@ IOS_PATCHES = [
     "patch_ios_mnk_modifiers",
     "patch_ios_native_present_skip",
     "patch_ios_suboptimal_limit",
+    "patch_ios_native_occlusion",
 ]
 
 
