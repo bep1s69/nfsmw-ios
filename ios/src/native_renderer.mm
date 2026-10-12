@@ -37,6 +37,7 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <objc/runtime.h>
+#include <pthread.h>
 #include <mach/task_info.h>
 
 #include <algorithm>
@@ -160,17 +161,35 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_gather, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_async_pipelines, true, "GPU",
                     "Native renderer: compile new pipelines in the background, leaving their draws out until ready "
                     "(instead of a hitch while they compile)");
+REXCVAR_DEFINE_INT32(nfsmw_test_cpu_load, 0, "GPU",
+                     "Experiment: this many extra threads kept busy from the start (0-6), to see whether CPU load "
+                     "makes the system throttle the GPU (the race-start stutter)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
-REXCVAR_DEFINE_INT32(nfsmw_native_resolution_scale, 1, "GPU",
-                     "Native renderer: internal resolution scale (1 = the console's)");
+REXCVAR_DEFINE_STRING(nfsmw_native_resolution_scale, "1", "GPU",
+                      "Native renderer: internal resolution scale (1 = the console's 720p; fractions such as 1.5 "
+                      "work; \"native\" = the screen's own pixels)");
 
-uint32_t NativeResolutionScale() {
-  static const uint32_t scale = uint32_t(std::clamp(REXCVAR_GET(nfsmw_native_resolution_scale), 1, 8));
-  return scale;
+// "native": the scale that makes the game's output as many pixels high as the
+// screen (render thread: from the layer's drawable and the frame's last
+// colour resolve).
+std::atomic<float> native_screen_scale{0.0f};
+
+// The internal resolution scale: a target of W x H guest pixels is drawn at
+// round(W * scale) x round(H * scale).
+float NativeResolutionScale() {
+  static const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
+  static const bool native = setting == "native";
+  static const float fixed = std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, 4.0f);
+  if (!native) return std::isfinite(fixed) && fixed > 0 ? fixed : 1.0f;
+  const float s = native_screen_scale.load();
+  return s > 0 ? s : 1.0f;  // until the first frame has been shown
 }
+
+// Guest pixels at a scale: rounded, so that neighbouring rectangles meet.
+inline uint32_t Px(double v, float scale) { return uint32_t(std::max(0L, std::lround(v * scale))); }
 
 uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msaa_disabled,
                            uint32_t maximum) {
@@ -256,9 +275,10 @@ const uint8_t* Physical(uint32_t address) { return Mem()->TranslatePhysical<cons
 struct WriteBack {
   id<MTLBuffer> pixels;  // RGBA8, rows of row_bytes
   uint32_t row_bytes;
+  uint32_t src_w, src_h;  // the copied pixels' size
   uint32_t base, pitch;  // guest physical; pitch in texels
   uint32_t x0, y0, w, h;
-  uint32_t scale = 1;
+  float scale = 1;
   bool swap;
   uint32_t endian;
 };
@@ -296,6 +316,21 @@ struct ShaderStore {
     }
     loaded = true;
     device = MTLCreateSystemDefaultDevice();
+    // Experiment (nfsmw_test_cpu_load): CPU load that does nothing useful, to
+    // see whether the GPU's duty cycling at a race's start follows the SoC's
+    // power use rather than anything the renderer does.
+    for (int i = 0; i < std::clamp(REXCVAR_GET(nfsmw_test_cpu_load), 0, 6); ++i) {
+      std::thread([i] {
+        pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+        volatile double x = 1.0 + i;
+        for (;;) {
+          for (int k = 0; k < 1000000; ++k) x = x * 1.0000001 + 0.0000001;
+        }
+      }).detach();
+    }
+    if (REXCVAR_GET(nfsmw_test_cpu_load) > 0) {
+      REXLOG_INFO("[native] experiment: {} busy threads for CPU load", std::clamp(REXCVAR_GET(nfsmw_test_cpu_load), 0, 6));
+    }
     {  // Metal's capture layer wraps every call (several times the encoding cost)
       const char* cls = object_getClassName(device);
       const char* env = getenv("MTL_CAPTURE_ENABLED");
@@ -703,6 +738,7 @@ std::atomic<int> hitch_lines_left{300};
 // textures.
 std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
+std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
 
 // Compiled pipelines kept on disk (Library/Caches), so a pipeline compiled
 // once is loaded, not compiled, in later sessions: compiling them as the race
@@ -1195,7 +1231,10 @@ void ApplyWriteBacks(const std::vector<WriteBack>& list) {
     for (uint32_t y = 0; y < wb.h; ++y) {
       for (uint32_t x = 0; x < wb.w; ++x) {
         uint32_t v;
-        std::memcpy(&v, src + (y * wb.scale) * wb.row_bytes + (x * wb.scale) * 4, 4);  // R, G, B, A bytes
+        // The texel nearest the guest pixel's centre (the copy starts at the rect's scaled origin).
+        const uint32_t sy = std::min(uint32_t((y + 0.5f) * wb.scale), wb.src_h - 1);
+        const uint32_t sx = std::min(uint32_t((x + 0.5f) * wb.scale), wb.src_w - 1);
+        std::memcpy(&v, src + sy * wb.row_bytes + sx * 4, 4);  // R, G, B, A bytes
         if (wb.swap) v = (v & 0xFF00FF00u) | ((v >> 16) & 0xFFu) | ((v & 0xFFu) << 16);
         v = xenos::GpuSwap(v, endian);
         std::memcpy(base + TiledOffset2D(int32_t(wb.x0 + x), int32_t(wb.y0 + y), wb.pitch, 2), &v, 4);
@@ -2192,7 +2231,7 @@ struct Target {
   id<MTLTexture> multisample_color;
   id<MTLTexture> multisample_depth;
   uint32_t pitch, height, format;
-  uint32_t scale = 1;  // the resolution scale of this target (shadow maps 1)
+  float scale = 1;  // the resolution scale of this target (shadow maps 1)
   uint32_t sample_count = 1;
   uint32_t requested_sample_count = 1;
   uint32_t draws = 0;
@@ -2308,7 +2347,7 @@ BufferArena buffer_arena;
 struct KeptResolve {
   id<MTLTexture> texture;
   bool swap;
-  uint32_t scale;  // its source target's resolution scale
+  float scale;  // its source target's resolution scale
 };
 std::unordered_map<uint32_t, KeptResolve> kept_resolves;
 
@@ -2796,14 +2835,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // (a 1600 x 1600 map is 3200 x 3200 at 2x, for little visible gain).
     std::map<std::string, uint32_t> depth_only_draws;
     std::map<std::string, std::string> second_of;  // MRT: the second target's first target
-    const uint32_t resolution_scale = NativeResolutionScale();
+    const float resolution_scale = NativeResolutionScale();
     const bool msaa_disabled = rex::cvar::Query<bool>("gpu_sin_msaa");
     const int32_t configured_maximum = rex::cvar::Query<int32_t>("gpu_msaa_muestras");
     const uint32_t maximum_samples = configured_maximum >= 4 ? 4u : configured_maximum >= 2 ? 2u : 1u;
     static bool settings_logged = false;
     if (!settings_logged) {
       settings_logged = true;
-      REXLOG_INFO("[native] internal resolution {}x, MSAA {} (up to {}x)", resolution_scale,
+      REXLOG_INFO("[native] internal resolution {:.3f}x (setting {}), MSAA {} (up to {}x)", resolution_scale,
+                  REXCVAR_GET(nfsmw_native_resolution_scale),
                   msaa_disabled ? "off" : "from game targets", maximum_samples);
     }
     // A target per pass: each time the render target registers change, a
@@ -2859,17 +2899,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
     }
     const bool scale_shadows = REXCVAR_GET(nfsmw_native_scale_shadows);
-    auto scale_of = [&](const std::string& key) -> uint32_t {
+    auto scale_of = [&](const std::string& key) -> float {
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
-      return shadow && !scale_shadows ? 1u : resolution_scale;
+      return shadow && !scale_shadows ? 1.0f : resolution_scale;
     };
     for (auto& [key, size] : sizes) {
       Target& t = targets[key];
-      const uint32_t scale = scale_of(key);
-      const uint32_t pitch = size.first * scale;
-      const uint32_t height = std::max<uint32_t>(size.second * scale, 16);
+      const float scale = scale_of(key);
+      const uint32_t pitch = Px(size.first, scale);
+      const uint32_t height = std::max<uint32_t>(Px(size.second, scale), 16);
       t.scale = scale;
       if (t.color && t.pitch == pitch && t.height == height &&
           t.color.pixelFormat == ColorFormat(t.format) &&
@@ -2970,7 +3010,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // memory (RB_COPY_DEST_INFO swap) then the fetch constant's swizzle.
     std::map<uint32_t, id<MTLTexture>> resolved_texture;
     std::map<uint32_t, bool> resolved_swap;
-    std::map<uint32_t, uint32_t> resolved_scale;  // the resolution scale of its source target
+    std::map<uint32_t, float> resolved_scale;  // the resolution scale of its source target
     // (resolved texture, swizzle | swap << 12, width, height) -> heap index:
     // keyed by the texture, not the address (one address can be resolved
     // several times in a frame: each resolve is a new texture).
@@ -3036,6 +3076,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     id<MTLTexture> final_texture = nil;
     CGRect final_rect = CGRectZero;
+    int32_t final_guest_width = 0, final_guest_height = 0;  // the displayed resolve's size in guest pixels
     std::vector<std::string> diagnostics;
     if (dump) {  // textures read with an exp_adjust (values * 2^n)
       std::set<std::string> seen;
@@ -3125,15 +3166,18 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       [enc endEncoding];
       enc = nil;
       current.clear();
-      const uint32_t scale = src.scale;
-      NSUInteger dw = NSUInteger(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1))) * scale;
-      NSUInteger dh = NSUInteger(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1))) * scale;
+      const float scale = src.scale;
+      NSUInteger dw = Px(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1)), scale);
+      NSUInteger dh = Px(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1)), scale);
 
-      const NSUInteger x0 = NSUInteger(std::max(ev.x0, 0)) * scale;
-      const NSUInteger y0 = NSUInteger(std::max(ev.y0, 0)) * scale;
-      const NSUInteger w = std::min({NSUInteger(std::max(ev.x1 - ev.x0, 0)) * scale, NSUInteger(src.pitch) - std::min<NSUInteger>(x0, src.pitch),
+      // Edges rounded on their own, so that rectangles side by side meet.
+      const NSUInteger x0 = Px(std::max(ev.x0, 0), scale);
+      const NSUInteger y0 = Px(std::max(ev.y0, 0), scale);
+      const NSUInteger x1 = std::max<NSUInteger>(Px(std::max(ev.x1, 0), scale), x0);
+      const NSUInteger y1 = std::max<NSUInteger>(Px(std::max(ev.y1, 0), scale), y0);
+      const NSUInteger w = std::min({x1 - x0, NSUInteger(src.pitch) - std::min<NSUInteger>(x0, src.pitch),
                                      dw - std::min(x0, dw)});
-      const NSUInteger h = std::min({NSUInteger(std::max(ev.y1 - ev.y0, 0)) * scale, NSUInteger(src.height) - std::min<NSUInteger>(y0, src.height),
+      const NSUInteger h = std::min({y1 - y0, NSUInteger(src.height) - std::min<NSUInteger>(y0, src.height),
                                      dh - std::min(y0, dh)});
       if (ev.array && !ev.depth && w && h) {
         // Into a face of a cube (the race's environment map, from its 320
@@ -3241,7 +3285,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // Small 8-bit colour resolves also go to guest memory (WriteBack).
           if (ev.dest_format == 6 && dest.pixelFormat == MTLPixelFormatRGBA8Unorm && ev.dest_pitch &&
               size_t(ev.dest_pitch) * ev.dest_height * 4 <= 256 * 1024 &&
-              x0 + w <= NSUInteger(ev.dest_pitch) * scale && y0 + h <= NSUInteger(ev.dest_height) * scale) {
+              x0 + w <= Px(ev.dest_pitch, scale) && y0 + h <= Px(ev.dest_height, scale)) {
             const uint32_t row_bytes = uint32_t((w * 4 + 255) & ~NSUInteger(255));
             id<MTLBuffer> pixels = pooled_buffer(row_bytes * h, MTLResourceStorageModeShared);
             [blit copyFromTexture:dest
@@ -3253,9 +3297,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 destinationOffset:0
            destinationBytesPerRow:row_bytes
          destinationBytesPerImage:row_bytes * h];
-            writebacks->push_back({pixels, row_bytes, ev.dest_base, ev.dest_pitch,
-                                   uint32_t(x0 / scale), uint32_t(y0 / scale), uint32_t(w / scale),
-                                   uint32_t(h / scale), scale, ev.swap, ev.dest_endian});
+            // In guest pixels: the resolve's own rectangle (as far as was copied).
+            const uint32_t gx0 = uint32_t(std::max(ev.x0, 0)), gy0 = uint32_t(std::max(ev.y0, 0));
+            const uint32_t gw = std::min(uint32_t(std::max(ev.x1 - ev.x0, 0)), uint32_t(w / scale));
+            const uint32_t gh = std::min(uint32_t(std::max(ev.y1 - ev.y0, 0)), uint32_t(h / scale));
+            writebacks->push_back({pixels, row_bytes, uint32_t(w), uint32_t(h), ev.dest_base, ev.dest_pitch,
+                                   gx0, gy0, gw, gh, scale, ev.swap, ev.dest_endian});
           }
           [blit endEncoding];
         }
@@ -3279,7 +3326,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           id<MTLTexture> cube = resolved_cubes[ct.base];
           if (!cube && next_cube < cube_capacity) {
             MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:dest.pixelFormat
-                                                                                           size:ct.width * scale
+                                                                                           size:Px(ct.width, scale)
                                                                                       mipmapped:NO];
             cd.usage = MTLTextureUsageShaderRead;
             cube = gpu_pool.Texture(device, cd);
@@ -3307,6 +3354,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (!ev.depth) {  // the frame's last colour resolve: what is displayed
           final_texture = dest;
           final_rect = CGRectMake(x0, y0, w, h);
+          final_guest_width = std::max(ev.x1 - ev.x0, 0);
+          final_guest_height = std::max(ev.y1 - ev.y0, 0);
         }
         resolve_names.push_back(fmt::format("resolve_{:02}_{}_{}x{}_to_{:08x}", resolves_done,
                                             ev.depth ? "depth" : "color", w, h, ev.dest_base));
@@ -3387,7 +3436,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         t1 = nullptr;  // not the same size: drawn without it
       }
       const std::string pass_key = t1 ? tk + "+" + tk1 : tk;
-      const bool split = pass_key == current && split_after && t.scale > 1 && pass_indices >= split_after;
+      const bool split = pass_key == current && split_after && t.scale > 1.0f && pass_indices >= split_after;
       pass_splits += split;
       if (pass_key != current || split) {
         pass_indices = 0;
@@ -3639,8 +3688,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             // same memory (resolve textures are linear, in a buffer). The
             // fetch size is in guest texels: times the resolve's scale.
             const auto scale_it = resolved_scale.find(ft.address);
-            const uint32_t fs = scale_it != resolved_scale.end() ? scale_it->second : 1u;
-            const uint32_t fw = ft.width * fs, fh = ft.height * fs;
+            const float fs = scale_it != resolved_scale.end() ? scale_it->second : 1.0f;
+            const uint32_t fw = Px(ft.width, fs), fh = Px(ft.height, fs);
             const bool crop = base.buffer && fw && fh && (fw < base.width || fh < base.height) && fw <= base.width &&
                               fh <= base.height;
             if (sw != 0x688 || swap || crop) {
@@ -3847,6 +3896,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
         id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+        // "native" scale: the displayed image as large as it is shown (it fits
+        // the drawable by its height, or by its width when relatively wider).
+        if (final_guest_width >= 320 && final_guest_height >= 240) {
+          const float want = std::min(float(drawable.texture.width) / float(final_guest_width),
+                                      float(drawable.texture.height) / float(final_guest_height));
+          const float rounded = std::round(want * 1000.0f) / 1000.0f;
+          if (std::fabs(native_screen_scale.load() - rounded) > 0.0005f) {
+            native_screen_scale = rounded;
+            if (REXCVAR_GET(nfsmw_native_resolution_scale) == "native") {
+              REXLOG_INFO("[native] native resolution: {}x{} shown in {}x{}: scale {:.3f}", final_guest_width,
+                          final_guest_height, drawable.texture.width, drawable.texture.height, rounded);
+            }
+          }
+        }
         const float sw = float(final_rect.size.width), sh = float(final_rect.size.height);
         const float dw = float(drawable.texture.width), dh = float(drawable.texture.height);
         const float src = sw / sh, dst = dw / dh;
@@ -3911,6 +3974,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               recent[count++ % 8] = gpu_ms;
             }
           }
+          if (gpu_ms > 45.0) ++gpu_slow_frames;
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
             REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms on the GPU ({} draws, {} texture uploads, "
@@ -4022,7 +4086,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
-                    "GPU {:.2f} ms/frame | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
+                    "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
                     number, drawn, frame->draws.size(), resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits,
@@ -4030,7 +4094,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
                     record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
                     render_us.exchange(0) / 1000.0 / frames,
-                    gpu_us.exchange(0) / 1000.0 / frames,
+                    gpu_us.exchange(0) / 1000.0 / frames, gpu_slow_frames.exchange(0),
                     vertex_diagnostics.watched_cache_hits, vertex_diagnostics.fingerprint_cache_hits,
                     vertex_diagnostics.cache_misses, vertex_diagnostics.decoded_vertex_elements,
                     vertex_diagnostics.expanded_input_indices, vertex_diagnostics.expanded_output_indices,

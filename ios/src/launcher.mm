@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <functional>
 #include <regex>
 #include <system_error>
@@ -64,6 +65,33 @@ struct Section {
 
 // What the game uses when an option has never been changed: the iOS port's
 // current defaults (ios_main.mm), which are Android's except where noted.
+// The screen in landscape, in pixels (long side, short side).
+CGSize ScreenPixels() {
+  const CGSize n = UIScreen.mainScreen.nativeBounds.size;
+  return CGSizeMake(std::max(n.width, n.height), std::min(n.width, n.height));
+}
+
+// "auto": the shape closest to the screen's.
+NSString* AutoAspect() {
+  const CGSize px = ScreenPixels();
+  const double r = px.width / px.height;
+  return r >= 2.0 ? @"wide" : r <= 1.45 ? @"4:3" : @"16:9";
+}
+
+NSString* NativeScaleTitle() {
+  return [NSString stringWithFormat:@"Native · %.0fp (this screen)", ScreenPixels().height];
+}
+
+NSString* ScaleSummary() {
+  const CGSize px = ScreenPixels();
+  return [NSString stringWithFormat:
+      @"How many pixels the game is drawn with: 1x is the Xbox 360's 720p. Native draws as many as "
+      @"this screen shows (%.0f pixels high, about %.2fx), no more and no less. Higher is sharper and "
+      @"heavier: with the native renderer, 1.5x costs about half of 2x. Without it, the emulated "
+      @"renderer rounds to 1x or 2x.",
+      px.height, px.height / 720.0];
+}
+
 const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
       {@"Game", nil,
@@ -102,12 +130,19 @@ const std::vector<Section>& Sections() {
        }},
       {@"Display", nil,
        {
-           {@"retina", Type::kChoice, @"Resolution",
-            @"Size of the final image on screen. Auto: one pixel per point on large screens "
-            @"(iPad), every pixel on small ones (iPhone). Points is lighter and has the least "
-            @"input lag; Retina is the sharpest.",
+           {@"aspect", Type::kChoice, @"Screen shape",
+            @"The shape of the game's picture. Fit this screen: 19.5:9 on iPhone, 4:3 on iPad, "
+            @"16:9 elsewhere. 16:9 is the Xbox 360's own; on other screens it has black bars "
+            @"(or see Stretch). 4:3 is the game's own mode for 4:3 TVs, with its own field of "
+            @"view and HUD.",
             @"auto",
-            {{@"Auto", @"auto"}, {@"Retina", @"true"}, {@"Points", @"false"}}},
+            {{@"Fit this screen", @"auto"}, {@"16:9 (Xbox 360)", @"16:9"}, {@"4:3", @"4:3"},
+             {@"19.5:9", @"wide"}}},
+           {@"scale", Type::kChoice, @"Render resolution",
+            ScaleSummary(),
+            @"1",
+            {{@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
+             {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
             @"they run the console's screen refresh at 120 Hz, which the game was not made "
@@ -115,17 +150,6 @@ const std::vector<Section>& Sections() {
             @"60",
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
-           {@"aspect", Type::kChoice, @"Aspect ratio (experimental)",
-            @"The video mode the game is told the console has. 4:3 is the game's own mode for "
-            @"4:3 TVs, with its own field of view and HUD. The game draws its 4:3 scene at "
-            @"640×480; see Sharper 4:3 scene below.",
-            @"16:9",
-            {{@"16:9", @"16:9"}, {@"4:3 HD (1024×768)", @"1024x768"},
-             {@"4:3 SD (640×480)", @"640x480"}, {@"19.5:9 (1560×720)", @"1560x720"}}},
-           {@"sd_720", Type::kSwitch, @"Sharper 4:3 scene (experimental)",
-            @"At 4:3, the game draws its scene at 960×720 instead of 640×480 (without its "
-            @"2x MSAA). Use it with Internal resolution 1x.",
-            @"true"},
            {@"stretch", Type::kSwitch, @"Stretch to full screen",
             @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
             @"distorts the image.",
@@ -164,9 +188,6 @@ const std::vector<Section>& Sections() {
            {@"anisotropic", Type::kChoice, @"Anisotropic filtering",
             @"Sharper textures seen at an angle, like the road in the distance.", @"3",
             {{@"Off", @"0"}, {@"2x", @"2"}, {@"4x", @"3"}, {@"16x", @"5"}}},
-           {@"scale", Type::kChoice, @"Internal resolution",
-            @"2x renders at 2560×1440: sharper, but much heavier. 1x is recommended.", @"1",
-            {{@"1x", @"1"}, {@"2x", @"2"}}},
        }},
       {@"Performance", nil,
        {
@@ -301,8 +322,18 @@ void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s) {
 
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   NSString* v = s[key];
+  if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
+    if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
+    if ([v isEqualToString:@"1560x720"]) return @"wide";
+  }
   if (v) {
     return v;
+  }
+  // The render resolution's default: 1.5x with the native renderer (almost as
+  // sharp as the screen on a phone, at about half the GPU work of 2x), 1x
+  // without it.
+  if ([key isEqualToString:@"scale"]) {
+    return [s[@"native_renderer"] isEqualToString:@"true"] ? @"1.5" : @"1";
   }
   const Option* o = FindOption(key);
   return o ? o->default_value : @"";
@@ -310,6 +341,12 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
 
 bool On(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   return [Value(s, key) isEqualToString:@"true"];
+}
+
+// The shape in use: "16:9", "4:3" or "wide" ("auto" resolved for this screen).
+NSString* ResolvedAspect(NSDictionary<NSString*, NSString*>* s) {
+  NSString* aspect = Value(s, @"aspect");
+  return [aspect isEqualToString:@"auto"] ? AutoAspect() : aspect;
 }
 
 bool Msaa(NSDictionary<NSString*, NSString*>* s) {
@@ -326,15 +363,27 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_purchased_car_limit=" + str(@"car_limit"));
   a.push_back("--nfsmw_remove_old_bridge_barrier=" + b(On(s, @"old_bridge")));
   a.push_back(std::string("--nfsmw_sim_rate=") + (On(s, @"sim_120") ? "120" : "60"));
-  a.push_back("--ios_retina=" + str(@"retina"));
+  // The render scale: the native renderer's own (fractions, or the screen's
+  // "native"); the emulated renderer only has whole steps (1x or 2x).
+  NSString* scale = Value(s, @"scale");
+  const double scale_value = [scale isEqualToString:@"native"] ? ScreenPixels().height / 720.0 : scale.doubleValue;
+  // Whole steps for the emulated renderer: 1.5x and below are 1x.
+  const int whole_scale = std::clamp(int(scale_value + 0.25), 1, 2);
+  // The final image: every screen pixel once the game is drawn above 1x; else
+  // the old automatic choice (points on large screens). Not shown any more;
+  // ios_retina still works from extra_args.txt.
+  a.push_back(std::string("--ios_retina=") + (scale_value > 1.0 ? "true" : "auto"));
   a.push_back("--ios_fps_cap=" + str(@"fps_cap"));
-  if (![Value(s, @"aspect") isEqualToString:@"16:9"]) {
-    a.push_back("--resolution=" + str(@"aspect"));
-    a.push_back("--nfsmw_sd_scene_720=" + b(On(s, @"sd_720")));
+  NSString* const aspect = ResolvedAspect(s);
+  // 4:3: the game's HD 4:3 mode, its scene drawn at 960x720 (not 640x480).
+  if ([aspect isEqualToString:@"4:3"]) {
+    a.push_back("--resolution=1024x768");
+    a.push_back("--nfsmw_sd_scene_720=true");
   }
   // Wider than 16:9: the scene is one wide strip, which needs the single pass.
-  const bool wide = [Value(s, @"aspect") isEqualToString:@"1560x720"];
+  const bool wide = [aspect isEqualToString:@"wide"];
   if (wide) {
+    a.push_back("--resolution=1560x720");
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
   a.push_back("--present_letterbox=" + b(!On(s, @"stretch")));
@@ -359,7 +408,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
   } else {
-    a.push_back("--resolution_scale=" + str(@"scale"));
+    a.push_back("--resolution_scale=" + std::to_string(whole_scale));
   }
   a.push_back("--ios_thread_qos=" + b(On(s, @"thread_qos")));
   a.push_back("--ios_async_submits=" + b(On(s, @"async_submits")));
@@ -763,19 +812,13 @@ static constexpr NSInteger kFixedSections = 2;
       UISwitch* sw = [[UISwitch alloc] init];
       // Settings another one decides, shown greyed out:
       //  - the single pass: always on at 19.5:9 (the wide scene is one strip),
-      //    otherwise off with MSAA (it does not exist with it);
-      //  - the sharper 4:3 scene: only does something at 4:3.
-      NSString* aspect = Value(_settings, @"aspect");
-      const bool wide = [aspect isEqualToString:@"1560x720"];
-      const bool four_three = [aspect isEqualToString:@"1024x768"] ||
-                              [aspect isEqualToString:@"640x480"];
+      //    otherwise off with MSAA (it does not exist with it).
+      const bool wide = [ResolvedAspect(_settings) isEqualToString:@"wide"];
       bool locked = false;
       bool on = [value isEqualToString:@"true"];
       if ([key isEqualToString:@"one_pass"] && (wide || Msaa(_settings))) {
         locked = true;
         on = wide;
-      } else if ([key isEqualToString:@"sd_720"] && !four_three) {
-        locked = true;
       }
       sw.on = on;
       sw.enabled = !locked;
