@@ -716,6 +716,7 @@ struct Frame {
   std::vector<std::shared_ptr<const Texture>> textures;
   std::unordered_map<FetchKey, int, FetchKeyHash> texture_index;
   uint32_t skipped_inline = 0, skipped_shader = 0, skipped_other = 0;
+  uint32_t movie_draws = 0;  // the video player's picture (no library for its shaders)
   uint32_t from_arguments = 0;  // DrawVertices rebuilt from their arguments
   std::set<uint32_t> unsupported_formats;
   std::set<uint32_t> resolved_so_far;  // resolve destinations recorded so far
@@ -1556,6 +1557,23 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   }
   if (!d.vs || !d.ps) {
     ++frame.skipped_shader;
+    // The video player's picture (the EA logo, the intro, the story movies):
+    // its shaders are the XMV player's, built into the executable, not the
+    // game's. The emulated renderer draws those frames (NativeSwap).
+    if (in.vs_key == 0xacc15ef6157ec934ull || in.ps_key == 0x2d2462de73d283deull) {
+      ++frame.movie_draws;
+    }
+    {  // Which shaders the renderer has no library for (once each): e.g. the
+       // movie player's, built into the executable, not the game's files.
+      static std::set<std::pair<uint64_t, uint64_t>> said;
+      if (said.size() < 40 && said.insert({in.vs_key, in.ps_key}).second) {
+        REXLOG_INFO("[native] no shader library: vs {:016x}{} ps {:016x}{}, prim {}, {} indices, target {:x} "
+                    "(frame {} draw {})",
+                    in.vs_key, d.vs ? "" : " (missing)", in.ps_key, d.ps ? "" : " (missing)", in.initiator & 0x3F,
+                    in.initiator >> 16, regs[kRbSurfaceInfo] & 0x3FFF, dump_number + 1,
+                    frame.draws.size() + frame.skipped_shader + frame.skipped_other);
+      }
+    }
     return;
   }
   if ((regs[kRbSurfaceInfo] & 0x3FFF) < 16) {  // no real render target
@@ -4107,6 +4125,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     } else {
       frames_without_output = 0;
     }
+    if (!dump) {  // The frame's notes (texture formats not decoded...), each new one once.
+      static std::set<std::string> said;
+      for (const auto& [draw, note] : frame->notes) {
+        if (said.size() < 60 && said.insert(note).second) {
+          REXLOG_INFO("[native] frame {} draw {}: {}", number, draw, note);
+        }
+      }
+    }
     if (!dump) {
       if (number % 300 == 1) {
         uint64_t target_bytes = 0;
@@ -4137,13 +4163,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const int64_t now = NowMs();
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
-        REXLOG_INFO("[native] frame {}: {} of {} draws, {} resolves, {} textures ({} cached on the GPU), "
+        REXLOG_INFO("[native] frame {}: {} of {} draws ({} without a shader library), {} resolves, {} textures ({} cached on the GPU), "
                     "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample)",
-                    number, drawn, frame->draws.size(), resolves_done, frame->textures.size(),
+                    number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
@@ -4441,7 +4467,17 @@ bool NativeSwap() {
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);
-    if (frame->draws.empty()) {
+    if (frame->movie_draws) {
+      // A movie frame: not drawn here. After three, the emulated renderer
+      // draws again and its image shows (below); the first native frame
+      // without the movie takes over again.
+      static bool said = false;
+      if (!said) {
+        said = true;
+        REXLOG_INFO("[native] a movie is playing: its frames go to the emulated renderer");
+      }
+      ++frames_without_output;
+    } else if (frame->draws.empty()) {
       if (recording_dumps) next_dump_ms = 0;  // nothing drawn: try the next frame
     } else {
       ++in_flight;
