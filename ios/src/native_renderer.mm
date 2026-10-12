@@ -108,6 +108,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_cube_swizzle, true, "GPU",
 // console's resolve does.
 REXCVAR_DEFINE_BOOL(nfsmw_native_exp_bias, true, "GPU",
                     "Native renderer: apply the resolves' exponent bias (colour * 2^bias)");
+// Tuning shop car colour test: the car paint shaders without their
+// environment cube (black), or with a neutral grey 3D texture.
+REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
+                    "Native renderer test: car paint without its environment cube");
+REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
+                    "Native renderer test: car paint with a neutral grey 3D texture");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -657,6 +663,8 @@ struct Texture {
   bool cube = false;           // six faces in data, one after another
   uint32_t depth = 1;          // 3D textures: depth slices in data, one after another
   bool volume = false;
+  uint32_t guest_format = 0;   // the fetch constant's format (diagnostics)
+  bool guest_signed = false;   // any component signed (diagnostics)
 };
 
 // A resolve: a rectangle of the current render target copied into a texture
@@ -1459,6 +1467,9 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   tex.exp_adjust = int32_t(t.exp_adjust);
   tex.address = uint32_t(t.base_address) << 12;
   tex.format = info.format;
+  tex.guest_format = uint32_t(t.format);
+  tex.guest_signed = t.sign_x != xenos::TextureSign::kUnsigned || t.sign_y != xenos::TextureSign::kUnsigned ||
+                     t.sign_z != xenos::TextureSign::kUnsigned || t.sign_w != xenos::TextureSign::kUnsigned;
   tex.width = width;
   tex.height = height;
   const uint32_t bw = (width + info.block - 1) / info.block, bh = (height + info.block - 1) / info.block;
@@ -2996,6 +3007,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     static id<MTLTexture> dummy_array = dummy(MTLTextureType2DArray);
     static id<MTLTexture> dummy_volume = dummy(MTLTextureType3D);
     static id<MTLTexture> dummy_cube = dummy(MTLTextureTypeCube);
+    static id<MTLTexture> grey_volume = [&] {  // the 3D texture test: mid grey
+      id<MTLTexture> t = dummy(MTLTextureType3D);
+      const uint32_t grey = 0xFF808080;
+      [t replaceRegion:MTLRegionMake3D(0, 0, 0, 1, 1, 1) mipmapLevel:0 slice:0 withBytes:&grey
+           bytesPerRow:4 bytesPerImage:4];
+      residency::Add(t);
+      return t;
+    }();
     static const bool dummies_resident = [] {
       residency::Add(dummy_array);
       residency::Add(dummy_volume);
@@ -3005,6 +3024,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     (void)dummies_resident;
     id<MTLBuffer> array_heap = heap(@[ dummy_array ], false);
     [volumes insertObject:dummy_volume atIndex:0];
+    [volumes addObject:grey_volume];  // last: the 3D texture test's index
+    const uint32_t grey_volume_index = uint32_t(volumes.count - 1);
     id<MTLBuffer> volume_heap = heap(volumes, false);
     [cubes insertObject:dummy_cube atIndex:0];
     id<MTLBuffer> cube_heap = heap(cubes, false);
@@ -4223,6 +4244,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           shared[32 + s] = volume_index[d.textures[s]];  // Texture3D index (byte 128)
+          // Tuning shop colour test: the car paint shaders' textures, logged
+          // once each; the cube or the 3D texture left out on request.
+          if (d.ps_key == 0x2442daf2d3a7097aull || d.ps_key == 0xd1f317fad0f46ac6ull) {
+            const Texture& ft = *frame->textures[d.textures[s]];
+            static std::set<std::tuple<uint64_t, int, uint32_t>> said;
+            if (said.size() < 64 && said.insert({d.ps_key, s, ft.address}).second) {
+              REXLOG_INFO("[car-paint] ps {:016x} slot {}: {:08x} {}x{}x{} guest format {}{} metal format {} {}{} "
+                          "fetch swizzle {:03x} exp_adjust {}",
+                          d.ps_key, s, ft.address, ft.width, ft.height, ft.depth, ft.guest_format,
+                          ft.guest_signed ? " signed" : "", int(ft.format),
+                          ft.cube ? "cube" : ft.volume ? "3D" : "2D",
+                          resolved_cube_index.count(ft.address) ? " (made from resolves)"
+                          : ft.format == MTLPixelFormatInvalid ? " (a resolve)" : "",
+                          ft.fetch_swizzle, ft.exp_adjust);
+            }
+            if (ft.cube && REXCVAR_GET(nfsmw_native_test_no_envcube)) shared[48 + s] = 0;
+            if (ft.volume && REXCVAR_GET(nfsmw_native_test_grey_volume)) shared[32 + s] = grey_volume_index;
+          }
         }
       }
       // Plus, for the car shaders, every draw whose first texture is 1024
