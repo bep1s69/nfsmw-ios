@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"frame_generation", @"motion_debug" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"frame_generation", @"mark_generated", @"motion_debug" ]];
   return [keys containsObject:key];
 }
 
@@ -529,6 +529,10 @@ const std::vector<Section>& Sections() {
             @"about two frames to Documents/captures, to open in Xcode on a Mac. Only for "
             @"measuring: captures are large.",
             @"false"},
+           {@"mark_generated", Type::kSwitch, @"Mark generated frames",
+            @"Native renderer, with frame generation: a magenta square in the top-left corner of "
+            @"each frame MetalFX made. It flickers while they are shown; steady or gone: none are.",
+            @"false"},
            {@"motion_debug", Type::kSwitch, @"Show motion vectors",
             @"Native renderer: the scene's motion instead of the picture. Grey: still; red: "
             @"moving right; green: moving down; darker: the other way.",
@@ -698,6 +702,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_frame_interpolation=" + b(On(s, @"frame_generation")));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
+    a.push_back("--nfsmw_native_mark_generated=" + b(On(s, @"mark_generated")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +

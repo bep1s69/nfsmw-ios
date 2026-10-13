@@ -239,6 +239,9 @@ bool MetalFxTemporal() {
 REXCVAR_DEFINE_BOOL(nfsmw_native_frame_interpolation, false, "GPU",
                     "Native renderer: with MetalFX, a frame made by MetalFX between each two of the game's "
                     "(the 60 cap shown at 120 on a 120 Hz screen, 30 at 60)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_mark_generated, false, "GPU",
+                    "Native renderer diagnostics: a magenta square in the top-left corner of each frame "
+                    "made by frame interpolation (it flickers when they are shown)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_motion_debug, false, "GPU",
                     "Native renderer diagnostics: the scene's motion vectors shown instead of the picture "
                     "(grey: still; red/green: moving right/down; dark: no motion written)");
@@ -3424,7 +3427,8 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
 // (log2 of drawn / shown, in eighths; 0 otherwise), as temporal upscalers
 // want: the textures as sharp as the picture it builds (render thread).
 int32_t temporal_lod_bias_eighths = 0;
-bool metalfx_failed = false;  // no temporal scaler for the last size asked: no jitter either
+bool metalfx_failed = false;
+std::atomic<uint32_t> made_frames_shown{0};  // frame interpolation: its frames on screen  // no temporal scaler for the last size asked: no jitter either
 
 id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp_x, uint32_t clamp_y,
                                bool volume_or_cube, uint32_t max_anisotropy = 1,
@@ -5700,7 +5704,39 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               REXLOG_INFO("[native] MetalFX frame interpolation: no camera from the game's shaders; a default one");
             }
           }
-          // Without MetalFX temporal: the picture as drawn (its own size only).
+          // Without MetalFX temporal: the picture as drawn, its rectangle
+          // copied out when its texture is larger (the resolve's height
+          // 736 for 720 lines).
+          if (!temporal_done && motion_ready && REXCVAR_GET(nfsmw_native_frame_interpolation) &&
+              (std::fabs(crop[0] - 1.0f) >= 0.002f || std::fabs(crop[1] - 1.0f) >= 0.002f)) {
+            static id<MTLTexture> picture;
+            const NSUInteger pw = NSUInteger(sw), ph = NSUInteger(sh);
+            if (!(picture && picture.width == pw && picture.height == ph &&
+                  picture.pixelFormat == shown_texture.pixelFormat)) {
+              MTLTextureDescriptor* pd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:shown_texture.pixelFormat
+                                                                                            width:pw
+                                                                                           height:ph
+                                                                                        mipmapped:NO];
+              pd.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
+              pd.storageMode = MTLStorageModePrivate;
+              picture = [device newTextureWithDescriptor:pd];
+            }
+            if (picture && pw <= shown_texture.width && ph <= shown_texture.height) {
+              id<MTLBlitCommandEncoder> copy = [cb blitCommandEncoder];
+              [copy copyFromTexture:shown_texture
+                        sourceSlice:0
+                        sourceLevel:0
+                       sourceOrigin:MTLOriginMake(0, 0, 0)
+                         sourceSize:MTLSizeMake(pw, ph, 1)
+                          toTexture:picture
+                   destinationSlice:0
+                   destinationLevel:0
+                  destinationOrigin:MTLOriginMake(0, 0, 0)];
+              [copy endEncoding];
+              shown_texture = picture;
+              crop[0] = crop[1] = 1.0f;
+            }
+          }
           if (!temporal_done && motion_ready) {
             temporal_in_w = std::min({shown_texture.width, motion_texture.width, motion_depth.width});
             temporal_in_h = std::min({shown_texture.height, motion_texture.height, motion_depth.height});
@@ -5708,6 +5744,18 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             temporal_reversed = f == 4 || f == 6;
           }
           const bool fits = temporal_done || (std::fabs(crop[0] - 1.0f) < 0.002f && std::fabs(crop[1] - 1.0f) < 0.002f);
+          if (REXCVAR_GET(nfsmw_native_frame_interpolation) && motion_ready && !motion_debug) {
+            const char* why = !fits ? "the picture's texture is larger than the picture"
+                              : !camera ? "no camera"
+                              : !(game_cap > 0 && 2.0 * game_cap <= screen_hz + 1.0) ? "the cap is over half the screen's rate"
+                                                                                      : nullptr;
+            static const char* said_why = "";
+            if (why && std::strcmp(why, said_why) != 0) {
+              said_why = why;
+              REXLOG_INFO("[native] MetalFX frame interpolation: off for now: {} (cap {}, screen {:.0f} Hz)", why,
+                          game_cap, screen_hz);
+            }
+          }
           if (REXCVAR_GET(nfsmw_native_frame_interpolation) && fits && camera && game_cap > 0 &&
               2.0 * game_cap <= screen_hz + 1.0) {
             const NSUInteger ow = shown_texture.width, oh = shown_texture.height;
@@ -5780,6 +5828,35 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                   bp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
                   bp.colorAttachments[0].storeAction = MTLStoreActionStore;
                   present_pass(bp, between.texture, made);
+                  if (REXCVAR_GET(nfsmw_native_mark_generated)) {  // a magenta corner on made frames
+                    static id<MTLTexture> magenta;
+                    if (!magenta) {
+                      MTLTextureDescriptor* md = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                                    width:1
+                                                                                                   height:1
+                                                                                                mipmapped:NO];
+                      magenta = [device newTextureWithDescriptor:md];
+                      const uint8_t px[4] = {255, 0, 255, 255};
+                      [magenta replaceRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0 withBytes:px bytesPerRow:4];
+                    }
+                    MTLRenderPassDescriptor* mp = [MTLRenderPassDescriptor renderPassDescriptor];
+                    mp.colorAttachments[0].texture = between.texture;
+                    mp.colorAttachments[0].loadAction = MTLLoadActionLoad;
+                    mp.colorAttachments[0].storeAction = MTLStoreActionStore;
+                    id<MTLRenderCommandEncoder> me = [cb renderCommandEncoderWithDescriptor:mp];
+                    const NSUInteger side = std::min<NSUInteger>(between.texture.height / 8, 160);
+                    [me setScissorRect:(MTLScissorRect){between.texture.width / 20, side / 2, side, side}];
+                    const float one[4] = {1, 1, 0, 0};
+                    [me setRenderPipelineState:present_pso];
+                    [me setVertexBytes:fit length:sizeof(fit) atIndex:0];
+                    [me setFragmentBytes:one length:sizeof(one) atIndex:0];
+                    [me setFragmentTexture:magenta atIndex:0];
+                    [me drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                    [me endEncoding];
+                  }
+                  [between addPresentedHandler:^(id<MTLDrawable> shown) {
+                    if (shown.presentedTime > 0) ++made_frames_shown;
+                  }];
                 }
               }
               id<MTLBlitCommandEncoder> copy = [cb blitCommandEncoder];
@@ -5834,6 +5911,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){}",
                         off_grid.exchange(0), interval * 1000.0, worst_ms.exchange(0.0),
                         paced ? ", paced" : "");
+            const uint32_t made_shown = made_frames_shown.exchange(0);
+            if (REXCVAR_GET(nfsmw_native_frame_interpolation)) {
+              REXLOG_INFO("[native] frame interpolation: {} made frames shown with the last 300", made_shown);
+            }
           }
         }];
         static double last_target = 0;
