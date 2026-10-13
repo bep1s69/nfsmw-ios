@@ -48,7 +48,7 @@ GRACE_CVAR_ANCHOR = CVAR_NEW
 GRACE_CVAR_NEW = CVAR_NEW + '''// LOCAL PATCH - iOS (tools/ios/patch_ios_xma_starve_switch.py): the reset
 // only once the game has stopped reading for this long; while it still reads,
 // the decoded output plays out (0: at once, as Xenia Canary).
-REXCVAR_DEFINE_INT32(ios_xma_starve_grace_ms, 60, "Audio",
+REXCVAR_DEFINE_INT32(ios_xma_starve_grace_ms, 0, "Audio",
                      "iOS: starved of input, reset a stream only after the game has not read "
                      "its output for this many ms (0: at once)");
 '''
