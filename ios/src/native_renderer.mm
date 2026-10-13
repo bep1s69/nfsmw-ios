@@ -114,6 +114,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
                     "Native renderer test: car paint without its environment cube");
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
+// The movies (XMV player) drawn by the native renderer's own shaders.
+REXCVAR_DEFINE_BOOL(nfsmw_native_movies, true, "GPU",
+                    "Native renderer: draw the movies itself (off: the emulated renderer draws them)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -472,7 +475,30 @@ struct ShaderStore {
         "vertex Out vs_matrix(InPos in [[stage_in]], constant float4& xf [[buffer(30)]], constant Push& pc [[buffer(8)]]) { "
         "Out o; float4 v = 0.0; " + all + "device float4* c = reinterpret_cast<device float4*>(pc.vs); "
         "float4 p = float4(in.a0.xyz, 1.0); "
-        "o.pos = toClip(float4(dot(p, c[0]), dot(p, c[1]), dot(p, c[2]), dot(p, c[3])), xf); return o; }\n";
+        "o.pos = toClip(float4(dot(p, c[0]), dot(p, c[1]), dot(p, c[2]), dot(p, c[3])), xf); return o; }\n"
+        // The XMV movie player's shaders (built into the executable, not the
+        // game's files; from their microcode, logged with ios_log_shader_disasm).
+        // acc15ef6157ec934: oPos = (xyz, 1) (32_32_32 at vfetch 3), o0 = uv
+        // (mini 32_32 at +12, vfetch 4).
+        "vertex Out vs_xyz_uv(InPosUv in [[stage_in]], constant float4& xf [[buffer(30)]]) { Out o; "
+        "float4 v = float4(in.a13.xy, 0.0, 1.0); " + all + "o.pos = toClip(float4(in.a0.xyz, 1.0), xf); return o; }\n"
+        // 2d2462de73d283de: Y, U, V from tf0-2 (each read as x) at t0.xy; with
+        // its literal constants c254 (Y offset, chroma offset, Y scale) and c255
+        // (chroma weights): R = s(Y-o) + V c255.y, G = s(Y-o) + U c255.z + V c255.x,
+        // B = s(Y-o) + U c255.w.
+        "struct Tex2D { texture2d<float> tex; };\n"
+        "struct Samp { sampler samp; };\n"
+        "struct InXmv { float4 pos [[position]]; float4 t0 [[user(TEXCOORD0)]]; };\n"
+        "fragment float4 ps_xmv(InXmv in [[stage_in]], constant Tex2D* tex [[buffer(0)]], "
+        "constant Samp* samp [[buffer(4)]], constant Push& pc [[buffer(8)]]) {\n"
+        "  device uint* shared_ = reinterpret_cast<device uint*>(pc.shared_);\n"
+        "  device float4* c = reinterpret_cast<device float4*>(pc.ps);\n"
+        "  float y = tex[shared_[0]].tex.sample(samp[shared_[64]].samp, in.t0.xy).x;\n"
+        "  float u = tex[shared_[1]].tex.sample(samp[shared_[65]].samp, in.t0.xy).x + c[254].y;\n"
+        "  float v = tex[shared_[2]].tex.sample(samp[shared_[66]].samp, in.t0.xy).x + c[254].y;\n"
+        "  float l = c[254].z * (y - c[254].x);\n"
+        "  float3 rgb = float3(l + v * c[255].y, l + u * c[255].z + v * c[255].x, l + u * c[255].w);\n"
+        "  return float4(rgb, 1.0); }\n";
     NSError* error = nil;
     MTLCompileOptions* options = [MTLCompileOptions new];
     options.languageVersion = MTLLanguageVersion3_0;  // GPU addresses as pointers
@@ -492,6 +518,14 @@ struct ShaderStore {
     functions["vs_ea96a7e9f897dae6"] = [library newFunctionWithName:@"vs_xy"];
     functions["vs_c4d5a3612b92f170"] = [library newFunctionWithName:@"vs_xyzw_uv"];
     functions["vs_e69ff45e5d083e23"] = [library newFunctionWithName:@"vs_xyz_rgba"];
+    // The movie player's (see above): movie frames drawn here, not by the
+    // emulated renderer, unless nfsmw_native_movies is off.
+    if (REXCVAR_GET(nfsmw_native_movies)) {
+      internal_keys.insert(0xacc15ef6157ec934ull);
+      functions["vs_acc15ef6157ec934"] = [library newFunctionWithName:@"vs_xyz_uv"];
+      functions["ps_2d2462de73d283de"] = [library newFunctionWithName:@"ps_xmv"];
+      inputs[0xacc15ef6157ec934ull] = {{3, 0, 0}, {4, 5, 13}};
+    }
     inputs[0xea96a7e9f897dae6ull] = {{2, 0, 0}};
     inputs[0xc4d5a3612b92f170ull] = {{3, 0, 0}, {4, 5, 13}};
     inputs[0xe69ff45e5d083e23ull] = {{3, 0, 0}, {4, 5, 13}};
