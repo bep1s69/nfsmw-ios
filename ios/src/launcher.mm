@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"frame_generation", @"motion_debug" ]];
   return [keys containsObject:key];
 }
 
@@ -386,6 +386,11 @@ const std::vector<Section>& Sections() {
             @"off",
             {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
              {@"Anti-aliasing only", @"drawn"}}},
+           {@"frame_generation", Type::kSwitch, @"Frame generation (experimental)",
+            @"Native renderer, with MetalFX on: MetalFX makes a frame between each two of the "
+            @"game's, for twice the frames on screen (the 60 cap shown at 120 on a 120 Hz "
+            @"screen, 30 at 60). Adds half a frame of delay; the HUD can wobble in the made frames.",
+            @"false"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
             @"they run the console's screen refresh at 120 Hz, which the game was not made "
@@ -691,6 +696,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
+    a.push_back("--nfsmw_native_frame_interpolation=" + b(On(s, @"frame_generation")));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");

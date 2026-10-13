@@ -76,8 +76,33 @@ def ranges(text, kind):
     return min(regs), max(regs) + 1
 
 
+CAMERA = re.compile(r"^\s*#define\s+(WorldViewProj|WorldView)\(INDEX\)\s+(.*)$")
+
+
+def camera(text):
+    """The registers of WorldViewProj and WorldView (4 rows each), or None."""
+    found = {}
+    for line in text.splitlines():
+        m = CAMERA.match(line)
+        if m:
+            a = ARRAY.search(m.group(2))
+            if a and a.group(1) == "Vertex" and int(a.group(3)) >= 3:
+                found[m.group(1)] = int(a.group(2))
+    if "WorldViewProj" in found and "WorldView" in found:
+        return found["WorldViewProj"], found["WorldView"]
+    return None
+
+
 def main():
     src, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+    # The vertex shaders with both matrices: the game's camera (projection =
+    # WorldViewProj x WorldView^-1), for MetalFX frame interpolation.
+    cameras = []
+    for path in sorted(src.glob("vs_*.hlsl")):
+        c = camera(path.read_text(errors="replace"))
+        if c:
+            cameras.append(f"{path.stem} {c[0]} {c[1]}")
+    (out.parent / "camera_constants.txt").write_text("\n".join(cameras) + "\n")
     lines = []
     for path in sorted(src.glob("*.hlsl")):
         kind = "Vertex" if path.stem.startswith("vs_") else "Pixel"
