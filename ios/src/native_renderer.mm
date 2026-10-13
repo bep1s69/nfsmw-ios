@@ -4876,16 +4876,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // What the screen shows: a gap between two frames on it (a stutter
         // the player sees, whatever its cause), logged with the frame's number.
         // Frame pacing: below the display's rate (the 30, 40 and 60 caps on a
-        // 120 Hz screen, 30 on 60 Hz) each frame stays on screen at least one
-        // cap interval (less half a refresh, so that 33.3 ms is 4 refreshes
-        // and not 5) after the one before it: shown as soon as ready, a frame
-        // a hair late stayed one refresh more and the next one less
-        // (microstutter at 30). Target times on a grid of our own did the
-        // same: the screen rounded them to the nearest refresh, either way.
+        // 120 Hz screen, 30 on 60 Hz) each frame is presented at a target time
+        // one cap interval after the one before it: shown as soon as ready, a
+        // frame a hair late stayed one refresh more and the next one less
+        // (microstutter at 30). The grid is in step with the screen's own
+        // refreshes: it starts from the last time a frame was really shown
+        // (a grid of our own fell between refreshes and the screen rounded
+        // either way), and each target is 2 ms early so that it rounds to its
+        // refresh. (presentDrawable:afterMinimumDuration: added a refresh to
+        // every frame: 30 became 26.7.)
         const int32_t cap = rex::cvar::Query<int32_t>("ios_fps_cap");
         const double interval = cap > 0 ? 1.0 / double(cap) : 0.0;
         const double display_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
-        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 &&
+        static std::atomic<double> shown_at{0};  // the last frame really shown (presentedTime)
+        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 && shown_at.load() > 0 &&
                            double(cap) < display_hz - 1.0;
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
           static std::atomic<double> last_shown{0};
@@ -4893,6 +4897,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const double at = shown.presentedTime;
           if (at <= 0) return;  // dropped, not shown
           const double before = last_shown.exchange(at);
+          shown_at = at;
           const double gap_ms = (at - before) * 1000.0;
           if (before > 0 && gap_ms > 50.0 && gap_lines.fetch_sub(1) > 0) {
             REXLOG_INFO("[native] screen gap: {:.0f} ms before frame {} was shown", gap_ms, number);
@@ -4913,8 +4918,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                         paced ? ", paced" : "");
           }
         }];
+        static double last_target = 0;
         if (paced) {
-          [cb presentDrawable:drawable afterMinimumDuration:interval - 0.5 / display_hz];
+          // The first refresh of the grid from now on, and never the same
+          // refresh as the frame before (which may not be shown yet).
+          const double now = CACurrentMediaTime(), base = shown_at.load();
+          double target = base + std::ceil((now - base) / interval) * interval;
+          if (last_target + interval > target && last_target + interval < now + 2.0 * interval) {
+            target = last_target + interval;
+          }
+          last_target = target;
+          [cb presentDrawable:drawable atTime:target - 0.002];
         } else {
           [cb presentDrawable:drawable];
         }
