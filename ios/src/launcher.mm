@@ -368,6 +368,11 @@ const std::vector<Section>& Sections() {
             @"still play through the emulated renderer. Off: the emulated renderer for everything. "
             @"Needs the native shaders in this build (without them the emulated one is used).",
             @"true"},
+           {@"no_vulkan", Type::kSwitch, @"No emulated renderer (no Vulkan)",
+            @"With the native Metal renderer on: Vulkan and MoltenVK are not started at all "
+            @"(less memory, faster start). The native renderer draws everything, movies "
+            @"included. Off: Vulkan runs alongside, as before.",
+            @"true"},
            {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
             @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
             @"background and that object is missing for a few frames, instead of a hitch of up to "
@@ -565,6 +570,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
+  // No Vulkan at all when the native renderer draws everything
+  // (tools/ios/patch_ios_native_backend.py).
+  if (On(s, @"native_renderer") && On(s, @"no_vulkan")) {
+    a.push_back("--gpu_backend=native");
+  }
   a.push_back("--nfsmw_skip_movies=" + b(On(s, @"skip_movies")));
   a.push_back("--nfsmw_native_async_pipelines=" + b(On(s, @"async_pipelines")));
   a.push_back(std::string("--log_level=") +
