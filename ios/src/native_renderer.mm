@@ -119,6 +119,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_movies, true, "GPU",
                     "Native renderer: draw the movies itself (off: the emulated renderer draws them)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_movie_16_9, true, "GPU",
                     "Native renderer: movies keep 16:9 on wider screens (black bars at the sides)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_from_boot, true, "GPU",
+                    "Native renderer: the emulated renderer draws nothing from the first frame on "
+                    "(its memory is never filled)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -4992,7 +4995,24 @@ uint64_t ShaderKey(const uint32_t* ucode, uint32_t n, bool vertex) {
   return h;
 }
 
+// From the very first draw, the emulated renderer draws nothing while the
+// native one is on (nfsmw_native_from_boot): its boot frames (the EA logo's
+// loading) uploaded guest memory into Vulkan's 512 MB shared-memory buffer,
+// which then stayed resident (~650 MiB of graphics memory before the native
+// renderer's first frame), for nothing.
+void ArmNativeOnlyFromBoot() {
+  static bool armed = false;
+  if (armed) return;
+  armed = true;
+  if (REXCVAR_GET(nfsmw_native_cp) && REXCVAR_GET(nfsmw_native_present) && REXCVAR_GET(nfsmw_native_exclusive) &&
+      REXCVAR_GET(nfsmw_native_from_boot)) {
+    rex_native_draws_only.store(true, std::memory_order_relaxed);
+    REXLOG_INFO("[native] the emulated renderer draws nothing from the first draw on");
+  }
+}
+
 void CpDraw(const RexNativeDraw* in) {
+  ArmNativeOnlyFromBoot();
   if (!REXCVAR_GET(nfsmw_native_cp) || !recording || !in->vs_ucode || !in->ps_ucode) {
     return;
   }
@@ -5016,6 +5036,7 @@ void CpDraw(const RexNativeDraw* in) {
 }
 
 void CpResolve(const uint32_t* regs) {
+  ArmNativeOnlyFromBoot();
   if (REXCVAR_GET(nfsmw_native_cp)) NativeResolve(regs);
 }
 
