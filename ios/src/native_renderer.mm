@@ -3088,10 +3088,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // indices of those types are 0).
     // Filled with black: a texture that is missing must not show garbage.
     auto dummy = [&](MTLTextureType type) {
-      MTLTextureDescriptor* desc = [MTLTextureDescriptor new];
-      desc.textureType = type;
-      desc.pixelFormat = MTLPixelFormatRGBA8Unorm;
-      desc.width = desc.height = desc.depth = 1;
+      // Built the canonical way for each type (a cube from its own factory):
+      // the A16 (iPhone 14 Pro Max) aborted in MTLTextureDescriptor
+      // validation on the hand-filled 1x1 cube descriptor.
+      MTLTextureDescriptor* desc = nil;
+      if (type == MTLTextureTypeCube) {
+        desc = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                     size:1
+                                                                mipmapped:NO];
+      } else {
+        desc = [MTLTextureDescriptor new];
+        desc.textureType = type;
+        desc.pixelFormat = MTLPixelFormatRGBA8Unorm;
+        desc.width = desc.height = 1;
+        desc.depth = 1;
+        desc.arrayLength = 1;
+      }
+      desc.usage = MTLTextureUsageShaderRead;
+      desc.storageMode = MTLStorageModeShared;
       id<MTLTexture> tex = [device newTextureWithDescriptor:desc];
       const uint32_t black = 0xFF000000;
       const NSUInteger slices = type == MTLTextureTypeCube ? 6 : 1;
