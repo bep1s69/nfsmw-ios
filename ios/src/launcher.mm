@@ -33,6 +33,9 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "touch_controls.h"
+#include <dlfcn.h>
+#include <mach-o/loader.h>
 
 namespace fs = std::filesystem;
 
@@ -61,7 +64,51 @@ struct Section {
   NSString* title;
   NSString* footer;
   std::vector<Option> options;
+  int tab = 0;  // Tabs(): which tab shows it
 };
+
+// The launcher's tabs (a segmented control at the top).
+enum Tab { kTabGame, kTabGraphics, kTabControls, kTabAudio, kTabAdvanced, kTabCount };
+NSArray<NSString*>* TabTitles() {
+  return @[ @"Game", @"Graphics", @"Controls", @"Audio", @"Advanced" ];
+}
+
+// Settings only the emulated (Vulkan) renderer uses: greyed out while the
+// native Metal renderer draws the game. And the reverse.
+// "NFSMW Recompiled 0.2.0 · build 1A2B3C4D": the app's version and its
+// executable's UUID (the same one the log names), for tester reports.
+NSString* AboutText() {
+  NSString* version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+  NSString* build = @"?";
+  // This executable's header (under LiveContainer, image 0 is LiveContainer).
+  Dl_info info = {};
+  dladdr(reinterpret_cast<const void*>(&AboutText), &info);
+  const auto* header = reinterpret_cast<const mach_header_64*>(info.dli_fbase);
+  if (header) {
+    const auto* cmd = reinterpret_cast<const load_command*>(header + 1);
+    for (uint32_t i = 0; i < header->ncmds; ++i) {
+      if (cmd->cmd == LC_UUID) {
+        const uint8_t* u = reinterpret_cast<const uuid_command*>(cmd)->uuid;
+        build = [NSString stringWithFormat:@"%02X%02X%02X%02X", u[0], u[1], u[2], u[3]];
+        break;
+      }
+      cmd = reinterpret_cast<const load_command*>(reinterpret_cast<const uint8_t*>(cmd) + cmd->cmdsize);
+    }
+  }
+  return [NSString stringWithFormat:@"NFSMW Recompiled %@ · build %@", version, build];
+}
+
+bool EmulatorOnly(NSString* key) {
+  static NSSet* keys = [NSSet setWithArray:@[
+    @"scaling", @"async_submits", @"one_pass", @"edram_fsi", @"widen_kb", @"occlusion", @"exposure",
+    @"memexport", @"pages", @"mvk_profiling"
+  ]];
+  return [keys containsObject:key];
+}
+bool NativeOnly(NSString* key) {
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines" ]];
+  return [keys containsObject:key];
+}
 
 // What the game uses when an option has never been changed: the iOS port's
 // current defaults (ios_main.mm), which are Android's except where noted.
@@ -216,9 +263,8 @@ const std::vector<Section>& Sections() {
             @"The Black Edition extras that exist in the Xbox 360 game, like the Porsche 911 "
             @"GT2 and the Corvette C6.R.",
             @"true"},
-       }},
-      {@"Extra Options",
-       @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
+       }, kTabGame},
+      {@"Extra Options", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
        {
            {@"marker_count", Type::kChoice, @"Markers after beating a rival",
@@ -243,7 +289,26 @@ const std::vector<Section>& Sections() {
            {@"old_bridge", Type::kSwitch, @"Open the road to the Old Bridge",
             @"Removes the barrier that closes the road to the Old Bridge.",
             @"false"},
-       }},
+       }, kTabGame},
+      {@"Renderer", nil,
+       {
+           {@"native_renderer", Type::kSwitch, @"Native Metal renderer",
+            @"Draws the game with its own shaders translated to Metal, instead of emulating the "
+            @"Xbox 360's GPU: much faster, sharper settings possible (Render resolution). Movies "
+            @"included. Off: the emulated renderer for everything. "
+            @"Needs the native shaders in this build (without them the emulated one is used).",
+            @"true"},
+           {@"no_vulkan", Type::kSwitch, @"No emulated renderer (no Vulkan)",
+            @"With the native Metal renderer on: Vulkan and MoltenVK are not started at all "
+            @"(less memory, faster start). The native renderer draws everything, movies "
+            @"included. Off: Vulkan runs alongside, as before.",
+            @"true"},
+           {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
+            @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
+            @"background and that object is missing for a few frames, instead of a hitch of up to "
+            @"~70 ms. Pipelines from earlier sessions are compiled at startup either way.",
+            @"true"},
+       }, kTabGraphics},
       {@"Display", nil,
        {
            {@"aspect", Type::kChoice, @"Screen shape",
@@ -272,26 +337,7 @@ const std::vector<Section>& Sections() {
             @"false"},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
-       }},
-      {@"Touch controls", nil,
-       {
-           {@"touch_controls", Type::kSwitch, @"Touch controls",
-            @"On-screen gamepad. It hides itself while a physical controller is connected; "
-            @"a tap brings it back.",
-            @"true"},
-       }},
-      {@"Keyboard", nil,
-       {
-           {@"keyboard", Type::kSwitch, @"Keyboard controls",
-            @"Play with a hardware keyboard (Magic Keyboard, Bluetooth or USB): its keys act as "
-            @"the controller, together with the touch controls and any gamepad.",
-            @"true"},
-           {@"keyboard_bindings", Type::kLink, @"Customize keyboard controls",
-            @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
-            @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
-            @"Esc to pause.",
-            @""},
-       }},
+       }, kTabGraphics},
       {@"Graphics", nil,
        {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
@@ -304,33 +350,75 @@ const std::vector<Section>& Sections() {
              {@"MSAA 4x", @"msaa4"},
              {@"FXAA", @"fxaa"},
              {@"FXAA high", @"fxaa_high"}}},
+           {@"anisotropic", Type::kChoice, @"Anisotropic filtering",
+            @"Sharper textures seen at an angle, like the road in the distance.", @"3",
+            {{@"Off", @"0"}, {@"2x", @"2"}, {@"4x", @"3"}, {@"16x", @"5"}}},
+           {@"shadow_size", Type::kChoice, @"Shadow quality",
+            @"Size of the shadow map, drawn and copied every frame. Lower: more fps where the GPU "
+            @"is the limit, softer shadow edges. The Xbox 360's is High.",
+            @"1600",
+            {{@"High (1600, Xbox 360)", @"1600"}, {@"Medium (1280)", @"1280"},
+             {@"Low (1024)", @"1024"}, {@"Very low (768)", @"768"}}},
+           {@"postprocessing", Type::kSwitch, @"Post-processing",
+            @"The original game's color filter and blur. Off: less GPU work, but it no longer "
+            @"looks like the original.",
+            @"true"},
            {@"scaling", Type::kChoice, @"Scaling to the screen",
             @"How the game image is taken to the screen size. FSR: sharper upscaling. CAS: "
             @"sharpening only.",
             @"bilinear",
             {{@"Bilinear", @"bilinear"}, {@"AMD FSR 1.0", @"fsr"}, {@"AMD CAS", @"cas"}}},
-           {@"postprocessing", Type::kSwitch, @"Post-processing",
-            @"The original game's color filter and blur. Off: less GPU work, but it no longer "
-            @"looks like the original.",
+       }, kTabGraphics},
+      {@"Touch controls", nil,
+       {
+           {@"touch_controls", Type::kSwitch, @"Touch controls",
+            @"On-screen gamepad. It hides itself while a physical controller is connected; "
+            @"a tap brings it back.",
             @"true"},
-           {@"anisotropic", Type::kChoice, @"Anisotropic filtering",
-            @"Sharper textures seen at an angle, like the road in the distance.", @"3",
-            {{@"Off", @"0"}, {@"2x", @"2"}, {@"4x", @"3"}, {@"16x", @"5"}}},
-       }},
-      {@"Performance", nil,
+           {@"touch_layout", Type::kLink, @"Customize touch controls",
+            @"Move and resize the on-screen buttons and sticks (both the Pad and the Drive "
+            @"layouts), and set their size and opacity.",
+            @""},
+       }, kTabControls},
+      {@"Keyboard", nil,
+       {
+           {@"keyboard", Type::kSwitch, @"Keyboard controls",
+            @"Play with a hardware keyboard (Magic Keyboard, Bluetooth or USB): its keys act as "
+            @"the controller, together with the touch controls and any gamepad.",
+            @"true"},
+           {@"keyboard_bindings", Type::kLink, @"Customize keyboard controls",
+            @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
+            @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
+            @"Esc to pause.",
+            @""},
+       }, kTabControls},
+      {@"Audio", nil,
+       {
+           {@"audio_starve_reset", Type::kSwitch, @"Audio stream reset",
+            @"When a sound stream runs out of data, drop what it had decoded but not yet played "
+            @"(Xenia Canary's fix for stale sounds in NFS). Leave it on: off, music cuts out. "
+            @"Only for testing.",
+            @"true"},
+       }, kTabAudio},
+      {@"Performance", @"To test what each thing costs on your device. The defaults are the recommended ones.",
        {
            {@"thread_qos", Type::kSwitch, @"Top thread priority",
             @"Runs the game's main thread and the GPU command thread at the highest priority, "
             @"on the performance cores.",
             @"true"},
+           {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
+            @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
+            @"memory. Used automatically when mapping fails (devices with less address space); "
+            @"on, it is used always, for testing.",
+            @"false"},
+       }, kTabAdvanced},
+      {@"Emulated renderer", @"Only for the emulated (Vulkan) renderer: greyed out while the native Metal renderer "
+       @"draws the game.",
+       {
            {@"async_submits", Type::kSwitch, @"Asynchronous GPU submission",
             @"MoltenVK encodes the GPU work on its own thread, so the game does not wait for "
             @"it. Off made menus and races several fps slower.",
             @"true"},
-       }},
-      {@"Advanced",
-       @"To test what each thing costs on your device. The defaults are the recommended ones.",
-       {
            {@"one_pass", Type::kSwitch, @"Single-pass scene",
             @"Draws the scene once instead of in three strips: ~30 % fewer draws and about "
             @"+25-45 % fps in races. Not available with MSAA.",
@@ -339,12 +427,6 @@ const std::vector<Section>& Sections() {
             @"Another way to emulate the Xbox 360's EDRAM. Ignored if the GPU does not support "
             @"it.",
             @"false"},
-           {@"shadow_size", Type::kChoice, @"Shadow quality",
-            @"Size of the shadow map, drawn and copied every frame. Lower: more fps where the GPU "
-            @"is the limit, softer shadow edges. The Xbox 360's is High.",
-            @"1600",
-            {{@"High (1600, Xbox 360)", @"1600"}, {@"Medium (1280)", @"1280"},
-             {@"Low (1024)", @"1024"}, {@"Very low (768)", @"768"}}},
            {@"widen_kb", Type::kChoice, @"CPU write invalidation (experimental)",
             @"How much memory around a CPU write is refreshed for the GPU. Smaller: less copying, "
             @"more faults on the game's threads. For measuring.",
@@ -362,32 +444,12 @@ const std::vector<Section>& Sections() {
             @"Memory coherence for what the shaders write. May cost performance.", @"true"},
            {@"pages", Type::kSwitch, @"Refresh GPU-written pages",
             @"Memory coherence. May cost performance.", @"true"},
-           {@"native_renderer", Type::kSwitch, @"Native Metal renderer",
-            @"Draws the game with its own shaders translated to Metal, instead of emulating the "
-            @"Xbox 360's GPU: much faster, sharper settings possible (Render resolution). Movies "
-            @"still play through the emulated renderer. Off: the emulated renderer for everything. "
-            @"Needs the native shaders in this build (without them the emulated one is used).",
-            @"true"},
-           {@"no_vulkan", Type::kSwitch, @"No emulated renderer (no Vulkan)",
-            @"With the native Metal renderer on: Vulkan and MoltenVK are not started at all "
-            @"(less memory, faster start). The native renderer draws everything, movies "
-            @"included. Off: Vulkan runs alongside, as before.",
-            @"true"},
-           {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
-            @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
-            @"background and that object is missing for a few frames, instead of a hitch of up to "
-            @"~70 ms. Pipelines from earlier sessions are compiled at startup either way.",
-            @"true"},
-           {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
-            @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
-            @"memory. Used automatically when mapping fails (devices with less address space); "
-            @"on, it is used always, for testing.",
+           {@"mvk_profiling", Type::kSwitch, @"MoltenVK profiling",
+            @"MoltenVK's own timings, in the log every 300 frames. Only for measuring.",
             @"false"},
-           {@"audio_starve_reset", Type::kSwitch, @"Audio stream reset",
-            @"When a sound stream runs out of data, drop what it had decoded but not yet played "
-            @"(Xenia Canary's fix for stale sounds in NFS). Off if speech such as the police "
-            @"radio cuts out. For testing.",
-            @"true"},
+       }, kTabAdvanced},
+      {@"Diagnostics", nil,
+       {
            {@"logging", Type::kSwitch, @"Logging",
             @"Writes Documents/logs/nfsmw.log and boot.txt. Off when just playing; on (and "
             @"send the log) when testing something.",
@@ -399,10 +461,7 @@ const std::vector<Section>& Sections() {
             @"about two frames to Documents/captures, to open in Xcode on a Mac. Only for "
             @"measuring: captures are large.",
             @"false"},
-           {@"mvk_profiling", Type::kSwitch, @"MoltenVK profiling",
-            @"MoltenVK's own timings, in the log every 300 frames. Only for measuring.",
-            @"false"},
-       }},
+       }, kTabAdvanced},
   };
   return sections;
 }
@@ -992,6 +1051,8 @@ NSString* AchievementSummary(const Achievements& a) {
   NSMutableDictionary<NSString*, NSString*>* _settings;
   std::vector<fs::path> _isos;
   NSString* _isoName;  // the chosen one's file name
+  NSInteger _tab;      // Tab
+  std::vector<size_t> _visible;  // the Sections() shown on this tab
 }
 
 - (instancetype)initWithDocuments:(fs::path)docs done:(std::function<void(fs::path)>)done {
@@ -1017,6 +1078,35 @@ NSString* AchievementSummary(const Achievements& a) {
                                       target:self
                                       action:@selector(confirmReset)];
   self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+  // The tabs.
+  UISegmentedControl* tabs = [[UISegmentedControl alloc] initWithItems:TabTitles()];
+  _tab = [NSUserDefaults.standardUserDefaults integerForKey:@"nfsmw.launcher.tab"];
+  if (_tab < 0 || _tab >= kTabCount) _tab = kTabGame;
+  tabs.selectedSegmentIndex = _tab;
+  [tabs addAction:[UIAction actionWithHandler:^(UIAction*) {
+          self->_tab = tabs.selectedSegmentIndex;
+          [NSUserDefaults.standardUserDefaults setInteger:self->_tab forKey:@"nfsmw.launcher.tab"];
+          [self reloadTab];
+        }]
+      forControlEvents:UIControlEventValueChanged];
+  UIView* header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 52)];
+  tabs.translatesAutoresizingMaskIntoConstraints = NO;
+  [header addSubview:tabs];
+  [NSLayoutConstraint activateConstraints:@[
+    [tabs.leadingAnchor constraintEqualToAnchor:header.layoutMarginsGuide.leadingAnchor],
+    [tabs.trailingAnchor constraintEqualToAnchor:header.layoutMarginsGuide.trailingAnchor],
+    [tabs.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+  ]];
+  self.tableView.tableHeaderView = header;
+  // About: version and build, so a report names the exact build.
+  UILabel* about = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 320, 56)];
+  about.text = AboutText();
+  about.numberOfLines = 0;
+  about.textAlignment = NSTextAlignmentCenter;
+  about.font = [UIFont systemFontOfSize:12];
+  about.textColor = UIColor.tertiaryLabelColor;
+  self.tableView.tableFooterView = about;
+  [self reloadTab];
   [self rescan];
   // Back from the Files app (an ISO copied in): look again.
   [NSNotificationCenter.defaultCenter addObserver:self
@@ -1027,6 +1117,23 @@ NSString* AchievementSummary(const Achievements& a) {
 
 - (void)dealloc {
   [NSNotificationCenter.defaultCenter removeObserver:self];
+}
+
+- (void)reloadTab {
+  _visible.clear();
+  for (size_t i = 0; i < Sections().size(); ++i) {
+    if (Sections()[i].tab == _tab) _visible.push_back(i);
+  }
+  [self.tableView reloadData];
+}
+
+// The first sections of the Game tab are the ISO and the achievements.
+- (NSInteger)fixedSections {
+  return _tab == kTabGame ? 2 : 0;
+}
+
+- (const Section&)sectionAt:(NSInteger)section {
+  return Sections()[_visible[size_t(section - [self fixedSections])]];
 }
 
 - (void)rescan {
@@ -1081,47 +1188,49 @@ NSString* AchievementSummary(const Achievements& a) {
   [self presentViewController:alert animated:YES completion:nil];
 }
 
-// Section 0 is the ISO, 1 the achievements; the rest are Sections().
-static constexpr NSInteger kFixedSections = 2;
-
+// On the Game tab, section 0 is the ISO, 1 the achievements; the rest are
+// this tab's Sections().
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
-  return NSInteger(Sections().size()) + kFixedSections;
+  return NSInteger(_visible.size()) + [self fixedSections];
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
-  if (section == 0) {
+  const NSInteger fixed = [self fixedSections];
+  if (fixed && section == 0) {
     return std::max<NSInteger>(1, NSInteger(_isos.size()));
   }
-  if (section == 1) {
+  if (fixed && section == 1) {
     return 1;
   }
-  return NSInteger(Sections()[size_t(section - kFixedSections)].options.size());
+  return NSInteger([self sectionAt:section].options.size());
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
-  return section == 0   ? @"ISO"
-         : section == 1 ? @"Achievements"
-                        : Sections()[size_t(section - kFixedSections)].title;
+  const NSInteger fixed = [self fixedSections];
+  return fixed && section == 0   ? @"ISO"
+         : fixed && section == 1 ? @"Achievements"
+                                 : [self sectionAt:section].title;
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
-  if (section == 0) {
+  const NSInteger fixed = [self fixedSections];
+  if (fixed && section == 0) {
     return _isos.empty()
                ? @"Copy your USA ISO into this app's folder (Files app › On My iPhone/iPad › "
                  @"NFSMW, or LiveContainer's folder for it). This screen looks again when you "
                  @"come back."
                : (_isos.size() > 1 ? @"Tap the one to play." : nil);
   }
-  if (section == 1) {
+  if (fixed && section == 1) {
     return nil;
   }
-  if (section == NSInteger(Sections().size()) + kFixedSections - 1) {
-    NSString* f = Sections().back().footer;
+  if (_tab == kTabAdvanced && section == NSInteger(_visible.size()) - 1) {
+    NSString* f = [self sectionAt:section].footer ?: @"";
     return [f stringByAppendingString:
-                  @"\n\nDocuments/extra_args.txt, if present, is applied after these settings "
+                  @"Documents/extra_args.txt, if present, is applied after these settings "
                   @"and wins."];
   }
-  return Sections()[size_t(section - kFixedSections)].footer;
+  return [self sectionAt:section].footer;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
@@ -1132,7 +1241,8 @@ static constexpr NSInteger kFixedSections = 2;
   c.secondaryTextProperties.numberOfLines = 0;
   c.textToSecondaryTextVerticalPadding = 4;
 
-  if (ip.section == 0) {
+  const NSInteger fixed = [self fixedSections];
+  if (fixed && ip.section == 0) {
     if (_isos.empty()) {
       c.text = @"No ISO found";
       c.textProperties.color = UIColor.systemOrangeColor;
@@ -1149,7 +1259,7 @@ static constexpr NSInteger kFixedSections = 2;
     return cell;
   }
 
-  if (ip.section == 1) {
+  if (fixed && ip.section == 1) {
     const Achievements a = LoadAchievements(_docs);
     c.image = [UIImage systemImageNamed:@"trophy.fill"];
     c.imageProperties.tintColor = UIColor.systemYellowColor;
@@ -1165,7 +1275,11 @@ static constexpr NSInteger kFixedSections = 2;
     return cell;
   }
 
-  const Option& o = Sections()[size_t(ip.section - kFixedSections)].options[size_t(ip.row)];
+  const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+  // Greyed out: what only the emulated renderer uses while the native one
+  // draws, and the native renderer's own settings while it is off.
+  const bool native = On(_settings, @"native_renderer");
+  const bool inactive = (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key));
   c.text = o.title;
   c.secondaryText = o.summary;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -1185,11 +1299,14 @@ static constexpr NSInteger kFixedSections = 2;
         locked = true;
         on = wide;
       }
+      locked = locked || inactive;
       sw.on = on;
       sw.enabled = !locked;
       cell.contentView.alpha = locked ? 0.45 : 1.0;
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
+            // The native renderer greys other settings out (or back in).
+            if ([key isEqualToString:@"native_renderer"]) [self.tableView reloadData];
           }]
           forControlEvents:UIControlEventValueChanged];
       cell.accessoryView = sw;
@@ -1218,6 +1335,8 @@ static constexpr NSInteger kFixedSections = 2;
       button.showsMenuAsPrimaryAction = YES;
       button.changesSelectionAsPrimaryAction = YES;
       [button sizeToFit];
+      button.enabled = !inactive;
+      cell.contentView.alpha = inactive ? 0.45 : 1.0;
       cell.accessoryView = button;
       break;
     }
@@ -1261,7 +1380,8 @@ static constexpr NSInteger kFixedSections = 2;
 
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)ip {
   [tableView deselectRowAtIndexPath:ip animated:YES];
-  if (ip.section == 1) {
+  const NSInteger fixed = [self fixedSections];
+  if (fixed && ip.section == 1) {
     Achievements a = LoadAchievements(_docs);
     if (a.loaded) {
       [self.navigationController
@@ -1270,8 +1390,12 @@ static constexpr NSInteger kFixedSections = 2;
     }
     return;
   }
-  if (ip.section >= kFixedSections) {
-    const Option& o = Sections()[size_t(ip.section - kFixedSections)].options[size_t(ip.row)];
+  if (ip.section >= fixed) {
+    const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+    if (o.type == Type::kLink && [o.key isEqualToString:@"touch_layout"]) {
+      [self presentViewController:nfsmw::touch::MakeLayoutEditor() animated:YES completion:nil];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"keyboard_bindings"]) {
       NFSKeyBindsController* editor =
           [[NFSKeyBindsController alloc] initWithSettings:_settings
@@ -1282,7 +1406,7 @@ static constexpr NSInteger kFixedSections = 2;
     }
     return;
   }
-  if (ip.section == 0 && size_t(ip.row) < _isos.size()) {
+  if (fixed && ip.section == 0 && size_t(ip.row) < _isos.size()) {
     _isoName = [NSString stringWithUTF8String:_isos[size_t(ip.row)].filename().c_str()];
     [self set:@"iso" to:_isoName];
     [tableView reloadSections:[NSIndexSet indexSetWithIndex:0]

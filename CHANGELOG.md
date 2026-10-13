@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0
+
+- **Native Metal renderer, on by default.** The game is drawn by its own
+  shaders translated to Metal instead of an emulated Xbox 360 GPU: much faster,
+  with a render resolution setting (1x to 2x, or the screen's own).
+- **No Vulkan when the native renderer is on.** MoltenVK is not started at all:
+  about 700 MB less memory in a race, faster start. The movies are drawn
+  natively too.
+- Older GPUs: runs on A16 iPhones (iPhone 14 Pro / Pro Max) and M1 iPads, which
+  have no DXT texture support in Metal (expanded on the GPU) and showed a black
+  3D scene before.
+- Audio: clean menu sounds, low latency, and no more cut-outs in police chases.
+- Keyboard controls (Magic Keyboard or any hardware keyboard), customizable.
+- Customizable touch controls: move and resize every control, overall size
+  and opacity, for both the Pad and the Drive layouts.
+- New launcher with tabs (Game, Graphics, Controls, Audio, Advanced); settings
+  only the emulated renderer uses are greyed out while the native one draws;
+  the version and build are shown at the bottom.
+- Graphics fixes: tuning shop car reflections, mirror, shadows, reflections,
+  movies kept at 16:9 on wide screens; anisotropic filtering, MSAA and a shadow
+  quality setting.
+- Extra Options: Skip movies.
+- Display Zoom (iPad "More Space") no longer flickers.
+
 ## 0.1.0 (first release)
 
 The first public release of the iOS port. Built from the USA Xbox 360 edition.

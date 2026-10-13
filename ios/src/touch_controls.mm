@@ -181,6 +181,32 @@ struct Control {
   BOOL _driving;
   BOOL _controlsVisible;
   UIImpactFeedbackGenerator* _haptic;
+  // The layout editor (launcher: Customize touch controls): touches move
+  // controls instead of pressing them.
+  BOOL _editing;
+  int _selected;
+  CGPoint _grab;  // the finger's offset from the selected control's centre
+}
+
+// The player's layout (NSUserDefaults, set in the editor): per control
+// (layout.name) its centre as fractions of the view and a size factor; and
+// the size of all controls and their opacity.
+static NSString* const kLayoutKey = @"nfsmw.touch.layout";
+
+static NSString* ControlIdent(BOOL driving, const Control& c) {
+  NSString* name = c.label.length ? [c.label stringByReplacingOccurrencesOfString:@"\n" withString:@" "]
+                                  : (c.kind == Kind::kDpad ? @"DPAD" : @"STEER");
+  return [NSString stringWithFormat:@"%@.%@", driving ? @"drive" : @"pad", name];
+}
+
+static CGFloat TouchSize() {
+  const double v = [NSUserDefaults.standardUserDefaults doubleForKey:@"nfsmw.touch.size"];
+  return v > 0 ? CGFloat(v) : 1.0;
+}
+
+static CGFloat TouchOpacity() {
+  NSNumber* v = [NSUserDefaults.standardUserDefaults objectForKey:@"nfsmw.touch.opacity"];
+  return v ? CGFloat(std::clamp(v.doubleValue, 0.15, 1.0)) : 1.0;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -195,6 +221,8 @@ struct Control {
     _controlsVisible = !GCController.current && !(KeyboardControlsOn() && GCKeyboard.coalescedKeyboard);
     _driving = [NSUserDefaults.standardUserDefaults boolForKey:@"nfsmw.touch.driving"];
     _haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+    _selected = -1;
+    self.alpha = TouchOpacity();
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
            selector:@selector(controllerConnected:)
@@ -288,7 +316,61 @@ struct Control {
   rect(Kind::kRectButton, @"START", P(.55, .79), CGSizeMake(unit * .92, unit * .45), kStart, -1);
   round(@"L3", P(.07, .48), button * .82, kL3);
   round(@"R3", P(.73, .48), button * .82, kR3);
+  [self applyCustomLayout];
   [self releaseAll];
+}
+
+// The player's sizes and positions over the default layout.
+- (void)applyCustomLayout {
+  const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+  if (w <= 0 || h <= 0) return;
+  NSDictionary* layout = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey];
+  const CGFloat all = TouchSize();
+  for (Control& c : _controls) {
+    CGFloat scale = all;
+    NSArray* v = layout[ControlIdent(_driving, c)];
+    if (v.count == 3) {
+      c.center = CGPointMake(w * [v[0] doubleValue], h * [v[1] doubleValue]);
+      scale *= CGFloat([v[2] doubleValue]);
+    }
+    c.radius *= scale;
+    c.size = CGSizeMake(c.size.width * scale, c.size.height * scale);
+  }
+  self.alpha = _editing ? 1.0 : TouchOpacity();
+}
+
+- (void)saveControl:(const Control&)c scale:(CGFloat)scale {
+  const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+  NSMutableDictionary* layout =
+      [[NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey] mutableCopy] ?: [NSMutableDictionary dictionary];
+  layout[ControlIdent(_driving, c)] = @[ @(c.center.x / w), @(c.center.y / h), @(scale) ];
+  [NSUserDefaults.standardUserDefaults setObject:layout forKey:kLayoutKey];
+}
+
+// Editor: the selected control's own size factor (1 = default).
+- (CGFloat)scaleOf:(const Control&)c {
+  NSArray* v = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][ControlIdent(_driving, c)];
+  return v.count == 3 ? CGFloat([v[2] doubleValue]) : 1.0;
+}
+
+- (void)setEditing:(BOOL)editing driving:(BOOL)driving {
+  _editing = editing;
+  _driving = driving;
+  _controlsVisible = YES;
+  _selected = -1;
+  [self setNeedsLayout];
+}
+
+- (void)resizeSelected:(CGFloat)factor {
+  if (_selected < 0 || size_t(_selected) >= _controls.size()) return;
+  const Control& c = _controls[size_t(_selected)];
+  const CGFloat scale = std::clamp([self scaleOf:c] * factor, 0.5, 2.0);
+  [self saveControl:c scale:scale];
+  const int keep = _selected;
+  [self setNeedsLayout];
+  [self layoutIfNeeded];
+  _selected = keep;
+  [self setNeedsDisplay];
 }
 
 // The DRIVE layout (positions as fractions of the view, from the sketch).
@@ -323,10 +405,14 @@ struct Control {
   round(@"CAM", P(.455, .17), unit * .36, kDriveCamera);
   round(@"PAUSE", P(.545, .17), unit * .36, kDrivePause);
   round(@"RESET", P(.5, .86), unit * .36, kDriveReset);
+  [self applyCustomLayout];
 }
 
 // Touches go to the game's own view where there is nothing of ours.
 - (UIView*)hitTest:(CGPoint)p withEvent:(UIEvent*)event {
+  if (_editing) {
+    return [super hitTest:p withEvent:event] ? self : nil;
+  }
   if (!_controlsVisible) {
     return self;  // any tap brings the controls back
   }
@@ -383,6 +469,17 @@ struct Control {
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  if (_editing) {
+    const CGPoint p = [touches.anyObject locationInView:self];
+    _selected = [self controlAt:p];
+    if (_selected >= 0) {
+      const Control& c = _controls[size_t(_selected)];
+      _grab = CGPointMake(p.x - c.center.x, p.y - c.center.y);
+      [_haptic impactOccurred];
+    }
+    [self setNeedsDisplay];
+    return;
+  }
   if (!_controlsVisible) {
     [self setControlsVisible:YES];
     return;
@@ -418,6 +515,16 @@ struct Control {
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  if (_editing) {
+    if (_selected >= 0) {
+      Control& c = _controls[size_t(_selected)];
+      const CGPoint p = [touches.anyObject locationInView:self];
+      const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+      c.center = CGPointMake(std::clamp(p.x - _grab.x, 0.0, w), std::clamp(p.y - _grab.y, 0.0, h));
+      [self setNeedsDisplay];
+    }
+    return;
+  }
   for (UITouch* t in touches) {
     NSNumber* owner = [_owners objectForKey:t];
     if (owner) {
@@ -452,6 +559,13 @@ struct Control {
 }
 
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  if (_editing) {
+    if (_selected >= 0) {
+      const Control& c = _controls[size_t(_selected)];
+      [self saveControl:c scale:[self scaleOf:c]];
+    }
+    return;
+  }
   [self endTouches:touches];
 }
 
@@ -494,7 +608,9 @@ struct Control {
         break;
     }
   }
-  SetPadState(buttons, axes[0], axes[1], axes[2], axes[3], triggers[0], triggers[1]);
+  if (!_editing) {
+    SetPadState(buttons, axes[0], axes[1], axes[2], axes[3], triggers[0], triggers[1]);
+  }
   // Redraw only the controls whose look changed (a moving finger used to
   // redraw the whole screen-sized overlay at every move: ~0.1 of a core).
   if (_drawnLook.size() != _controls.size()) {
@@ -557,6 +673,16 @@ struct Control {
   UIColor* pressed = [UIColor colorWithRed:0.44 green:0.45 blue:0.20 alpha:0.75];
   UIColor* stroke = [UIColor colorWithWhite:1 alpha:0.55];
 
+  if (_editing) {
+    // The editor: the selected control outlined.
+    if (_selected >= 0 && size_t(_selected) < _controls.size()) {
+      UIBezierPath* sel = [UIBezierPath bezierPathWithRoundedRect:_controls[size_t(_selected)].Bounds()
+                                                    cornerRadius:10];
+      [[UIColor systemYellowColor] setStroke];
+      sel.lineWidth = 3;
+      [sel stroke];
+    }
+  } else {
   // The HIDE/TOUCH pill.
   UIBezierPath* pill = [UIBezierPath bezierPathWithRoundedRect:_toggle
                                                   cornerRadius:_toggle.size.height / 2];
@@ -583,6 +709,7 @@ struct Control {
   [self drawLabel:(_driving ? @"PAD" : @"DRIVE")
                at:CGPointMake(CGRectGetMidX(_modeToggle), CGRectGetMidY(_modeToggle))
              size:_modeToggle.size.height * 0.42];
+  }
 
   for (const Control& c : _controls) {
     if (!CGRectIntersectsRect(c.Bounds(), dirty)) continue;  // not in the part being redrawn
@@ -759,7 +886,151 @@ UIWindow* GameWindow() {
 
 }  // namespace
 
+// ---------------------------------------------------------------------------
+//  The layout editor (launcher › Controls › Customize touch controls)
+// ---------------------------------------------------------------------------
+@interface NFSTouchView (Editing)
+- (void)setEditing:(BOOL)editing driving:(BOOL)driving;
+- (void)resizeSelected:(CGFloat)factor;
+@end
+
+@interface NFSTouchLayoutEditor : UIViewController
+@end
+
+@implementation NFSTouchLayoutEditor {
+  NFSTouchView* _touch;
+  UISegmentedControl* _mode;
+  BOOL _driving;
+}
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+  return UIInterfaceOrientationMaskLandscape;
+}
+
+- (BOOL)prefersStatusBarHidden {
+  return YES;
+}
+
+- (UIButton*)button:(NSString*)title action:(SEL)action {
+  UIButtonConfiguration* c = UIButtonConfiguration.filledButtonConfiguration;
+  c.title = title;
+  c.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+  c.contentInsets = NSDirectionalEdgeInsetsMake(6, 12, 6, 12);
+  UIButton* b = [UIButton buttonWithConfiguration:c primaryAction:nil];
+  [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+  return b;
+}
+
+- (UIStackView*)slider:(NSString*)title value:(float)value min:(float)min max:(float)max action:(SEL)action {
+  UILabel* label = [[UILabel alloc] init];
+  label.text = title;
+  label.textColor = UIColor.whiteColor;
+  label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+  UISlider* slider = [[UISlider alloc] init];
+  slider.minimumValue = min;
+  slider.maximumValue = max;
+  slider.value = value;
+  [slider addTarget:self action:action forControlEvents:UIControlEventValueChanged];
+  [slider.widthAnchor constraintEqualToConstant:130].active = YES;
+  UIStackView* row = [[UIStackView alloc] initWithArrangedSubviews:@[ label, slider ]];
+  row.spacing = 8;
+  row.alignment = UIStackViewAlignmentCenter;
+  return row;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.view.backgroundColor = [UIColor colorWithRed:0.12 green:0.13 blue:0.16 alpha:1];
+  UILabel* hint = [[UILabel alloc] init];
+  hint.text = @"Drag a control to move it. Tap one, then use Smaller / Bigger to resize it.";
+  hint.textColor = [UIColor colorWithWhite:1 alpha:0.6];
+  hint.font = [UIFont systemFontOfSize:13];
+  hint.textAlignment = NSTextAlignmentCenter;
+  hint.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:hint];
+
+  _touch = [[NFSTouchView alloc] initWithFrame:self.view.bounds];
+  _touch.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  [self.view addSubview:_touch];
+  _driving = [NSUserDefaults.standardUserDefaults boolForKey:@"nfsmw.touch.driving"];
+  [_touch setEditing:YES driving:_driving];
+
+  _mode = [[UISegmentedControl alloc] initWithItems:@[ @"Pad", @"Drive" ]];
+  _mode.selectedSegmentIndex = _driving ? 1 : 0;
+  [_mode addTarget:self action:@selector(modeChanged) forControlEvents:UIControlEventValueChanged];
+  UIStackView* bar = [[UIStackView alloc] initWithArrangedSubviews:@[
+    _mode, [self button:@"Smaller" action:@selector(smaller)], [self button:@"Bigger" action:@selector(bigger)],
+    [self slider:@"Size" value:float(TouchSize()) min:0.6f max:1.6f action:@selector(sizeChanged:)],
+    [self slider:@"Opacity" value:float(TouchOpacity()) min:0.15f max:1.0f action:@selector(opacityChanged:)],
+    [self button:@"Reset" action:@selector(confirmReset)], [self button:@"Done" action:@selector(done)]
+  ]];
+  bar.spacing = 10;
+  bar.alignment = UIStackViewAlignmentCenter;
+  bar.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:bar];
+  UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
+  [NSLayoutConstraint activateConstraints:@[
+    [bar.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+    [bar.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+    [hint.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+    [hint.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:6],
+  ]];
+}
+
+- (void)modeChanged {
+  _driving = _mode.selectedSegmentIndex == 1;
+  [_touch setEditing:YES driving:_driving];
+}
+
+- (void)smaller {
+  [_touch resizeSelected:1.0 / 1.1];
+}
+
+- (void)bigger {
+  [_touch resizeSelected:1.1];
+}
+
+- (void)sizeChanged:(UISlider*)slider {
+  [NSUserDefaults.standardUserDefaults setDouble:slider.value forKey:@"nfsmw.touch.size"];
+  [_touch setNeedsLayout];
+}
+
+- (void)opacityChanged:(UISlider*)slider {
+  [NSUserDefaults.standardUserDefaults setDouble:slider.value forKey:@"nfsmw.touch.opacity"];
+  _touch.alpha = 1.0;  // shown in full while editing; the game uses the setting
+}
+
+- (void)confirmReset {
+  UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Reset the touch controls?"
+                                                                 message:@"Positions, sizes and opacity go back to "
+                                                                         @"the defaults, for both layouts."
+                                                          preferredStyle:UIAlertControllerStyleAlert];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Reset"
+                                            style:UIAlertActionStyleDestructive
+                                          handler:^(UIAlertAction*) {
+                                            NSUserDefaults* d = NSUserDefaults.standardUserDefaults;
+                                            [d removeObjectForKey:kLayoutKey];
+                                            [d removeObjectForKey:@"nfsmw.touch.size"];
+                                            [d removeObjectForKey:@"nfsmw.touch.opacity"];
+                                            [self dismissViewControllerAnimated:YES completion:nil];
+                                          }]];
+  [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)done {
+  [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+@end
+
 namespace nfsmw::touch {
+
+UIViewController* MakeLayoutEditor() {
+  NFSTouchLayoutEditor* editor = [[NFSTouchLayoutEditor alloc] init];
+  editor.modalPresentationStyle = UIModalPresentationFullScreen;
+  return editor;
+}
 
 void InstallFpsCounter() {
   static bool installed = false;
