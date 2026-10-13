@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal", @"motion_debug" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug" ]];
   return [keys containsObject:key];
 }
 
@@ -377,16 +377,15 @@ const std::vector<Section>& Sections() {
             @"1",
             {{@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
-           {@"metalfx", Type::kSwitch, @"MetalFX upscaling",
-            @"Native renderer: the picture is enlarged to the screen by Apple's MetalFX upscaler "
-            @"(sharper edges and detail) instead of a plain stretch. Best with a low render "
-            @"resolution, e.g. 1x upscaled to this screen, cheaper than drawing at 1.5x or native.",
-            @"false"},
-           {@"metalfx_temporal", Type::kSwitch, @"MetalFX temporal (experimental)",
-            @"Native renderer: MetalFX builds each frame from several, with the game's motion: "
-            @"finer detail than the upscaling above (thin, distant things stay whole) and "
-            @"anti-aliasing of its own, also at full resolution. New: moving things may smear.",
-            @"false"},
+           {@"metalfx_mode", Type::kChoice, @"MetalFX",
+            @"Native renderer: Apple's MetalFX builds each frame from several, with the game's "
+            @"motion: finer detail (thin, distant things stay whole) and anti-aliasing of its "
+            @"own. To the screen: the sharpest, the most GPU time. Lighter: to three quarters of "
+            @"the screen's size, the rest stretched. Anti-aliasing only: at the render "
+            @"resolution, the cheapest. Best with a low render resolution, e.g. 1x.",
+            @"off",
+            {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
+             {@"Anti-aliasing only", @"drawn"}}},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
             @"they run the console's screen refresh at 120 Hz, which the game was not made "
@@ -406,8 +405,8 @@ const std::vector<Section>& Sections() {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
             @"Smooths jagged edges. MSAA is the finest and the most expensive (with the native "
             @"renderer at every screen shape; without it, the game's own, not at 19.5:9). FXAA is "
-            @"a filter over the final image: much cheaper, but a little softer. With MetalFX "
-            @"upscaling it is never off: Off is FXAA.",
+            @"a filter over the final image: much cheaper, but a little softer. MetalFX does "
+            @"its own: FXAA is then left out.",
             @"off",
             {{@"Off", @"off"},
              {@"MSAA 2x", @"msaa2"},
@@ -618,11 +617,6 @@ NSString* ResolvedAspect(NSDictionary<NSString*, NSString*>* s) {
   return [aspect isEqualToString:@"auto"] ? AutoAspect() : aspect;
 }
 
-// MetalFX upscaling (native renderer) sharpens jagged edges: with it the
-// anti-aliasing is never off (Off shows, and works, as FXAA).
-bool MetalFxNeedsAa(NSDictionary<NSString*, NSString*>* s) {
-  return On(s, @"native_renderer") && On(s, @"metalfx") && [Value(s, @"antialiasing") isEqualToString:@"off"];
-}
 
 bool Msaa(NSDictionary<NSString*, NSString*>* s) {
   return [Value(s, @"antialiasing") hasPrefix:@"msaa"];
@@ -696,14 +690,12 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   if (On(s, @"native_renderer")) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
-    a.push_back("--nfsmw_native_metalfx=" + b(On(s, @"metalfx")));
-    a.push_back("--nfsmw_native_metalfx_temporal=" + b(On(s, @"metalfx_temporal")));
+    a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +
-                (MetalFxNeedsAa(s)                          ? "normal"
-                 : [aa_mode isEqualToString:@"fxaa"]      ? "normal"
+                ([aa_mode isEqualToString:@"fxaa"]        ? "normal"
                  : [aa_mode isEqualToString:@"fxaa_high"] ? "high"
                                                           : "off"));
     // MSAA in the native renderer also where the game draws without (19.5:9).
@@ -1430,9 +1422,8 @@ NSString* AchievementSummary(const Achievements& a) {
       cell.contentView.alpha = locked ? 0.45 : 1.0;
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
-            // The native renderer greys other settings out (or back in);
-            // MetalFX locks the anti-aliasing to FXAA.
-            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"metalfx"]) {
+            // The native renderer greys other settings out (or back in).
+            if ([key isEqualToString:@"native_renderer"]) {
               [self.tableView reloadData];
             }
           }]
@@ -1441,8 +1432,6 @@ NSString* AchievementSummary(const Achievements& a) {
       break;
     }
     case Type::kChoice: {
-      // Anti-aliasing with MetalFX: never off (Off is FXAA).
-      if ([key isEqualToString:@"antialiasing"] && MetalFxNeedsAa(_settings)) value = @"fxaa";
       NSMutableArray<UIMenuElement*>* items = [NSMutableArray array];
       for (const Choice& ch : o.choices) {
         NSString* v = ch.value;

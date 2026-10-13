@@ -218,17 +218,23 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
 REXCVAR_DEFINE_STRING(nfsmw_native_fxaa, "off", "GPU",
-                      "Native renderer: FXAA over the final picture (off, normal, high); the launcher "
-                      "turns it on with MetalFX upscaling without MSAA (it sharpens jagged edges)");
+                      "Native renderer: FXAA over the final picture (off, normal, high); left out under "
+                      "MetalFX, which anti-aliases itself");
 REXCVAR_DEFINE_INT32(nfsmw_native_force_msaa, 0, "GPU",
                      "Native renderer: MSAA (2 or 4) for the scene where the game draws it without "
                      "(at 19.5:9 the console's 10 MB EDRAM had no room for it); 0 = the game's own");
-REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx, false, "GPU",
-                    "Native renderer: the picture upscaled to the screen by MetalFX (spatial) instead of "
-                    "the plain bilinear stretch, when it is drawn at fewer pixels than it is shown");
-REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx_temporal, false, "GPU",
-                    "Native renderer: MetalFX temporal upscaling (with motion vectors and a jittered scene) "
-                    "instead of spatial; also anti-aliasing, at any resolution");
+REXCVAR_DEFINE_STRING(nfsmw_native_metalfx, "off", "GPU",
+                      "Native renderer: MetalFX temporal (motion vectors, a jittered scene) to the picture's "
+                      "size on screen (screen), to three quarters of it (lower), or at the size drawn, as "
+                      "anti-aliasing (drawn); off");
+// MetalFX temporal on (any size).
+bool MetalFxTemporal() {
+  static const bool on = [] {
+    const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
+    return mode == "screen" || mode == "lower" || mode == "drawn";
+  }();
+  return on;
+}
 REXCVAR_DEFINE_BOOL(nfsmw_native_motion_debug, false, "GPU",
                     "Native renderer diagnostics: the scene's motion vectors shown instead of the picture "
                     "(grey: still; red/green: moving right/down; dark: no motion written)");
@@ -953,7 +959,7 @@ std::unique_ptr<Frame> recording;
 // The last frame's Frame::motion_constants (game thread).
 std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> previous_motion_constants;
 bool MotionVectorsWanted() {
-  return REXCVAR_GET(nfsmw_native_metalfx_temporal) || REXCVAR_GET(nfsmw_native_motion_debug);
+  return MetalFxTemporal() || REXCVAR_GET(nfsmw_native_motion_debug);
 }
 inline uint64_t MotionMix(uint64_t h, uint64_t v) { return (h ^ (v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2))) * 0x100000001B3ull; }
 int64_t next_dump_ms = 0;
@@ -4008,7 +4014,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // have a fifth colour target with each pixel's motion, drawn by the
     // shaders' motion entry points; after that draw the scene's depth is
     // copied for MetalFX (later passes on the target do not keep it).
-    const bool temporal = REXCVAR_GET(nfsmw_native_metalfx_temporal);
+    const bool temporal = MetalFxTemporal();
     const bool motion_debug = REXCVAR_GET(nfsmw_native_motion_debug);
     std::string motion_key;
     size_t last_motion_draw = 0;
@@ -5401,8 +5407,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // 1:1 by the pass below. Only when it is drawn smaller than shown.
         id<MTLTexture> shown_texture = final_texture;
         // MetalFX temporal: the picture with the scene's depth and motion
-        // (this frame's), upscaled to its size on screen or, drawn as large as
-        // shown, anti-aliased at it. No FXAA before it.
+        // (this frame's), to its size on screen, three quarters of it
+        // (lower: the present pass stretches the rest) or its own size
+        // (drawn: anti-aliasing only). No FXAA before it.
         const NSUInteger shown_w = NSUInteger(std::lround(dw * fit[0]));
         const NSUInteger shown_h = NSUInteger(std::lround(dh * fit[1]));
         bool temporal_done = false;
@@ -5415,7 +5422,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static NSUInteger in_w = 0, in_h = 0;
           static MTLPixelFormat in_format = MTLPixelFormatInvalid;
           static bool said_unsupported = false;
-          const NSUInteger out_w = std::max(shown_w, NSUInteger(sw)), out_h = std::max(shown_h, NSUInteger(sh));
+          const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
+          const double part = mode == "lower" ? 0.75 : mode == "drawn" ? 0.0 : 1.0;
+          const NSUInteger out_w = std::max(NSUInteger(std::lround(shown_w * part)), NSUInteger(sw));
+          const NSUInteger out_h = std::max(NSUInteger(std::lround(shown_h * part)), NSUInteger(sh));
           const NSUInteger iw = std::min({final_texture.width, motion_texture.width, motion_depth.width});
           const NSUInteger ih = std::min({final_texture.height, motion_texture.height, motion_depth.height});
           bool reset = false;
@@ -5427,10 +5437,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             reset = true;
             const float factor = std::max(float(out_w) / sw, float(out_h) / sh);
             if (![MTLFXTemporalScalerDescriptor supportsDevice:device] ||
-                factor > [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] + 0.01f) {
+                factor > [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] + 0.01f ||
+                factor < [MTLFXTemporalScalerDescriptor supportedInputContentMinScaleForDevice:device] - 0.01f) {
               if (!said_unsupported) {
                 said_unsupported = true;
-                REXLOG_WARN("[native] MetalFX temporal: not on this GPU for {}x{} -> {}x{}; spatial instead",
+                REXLOG_WARN("[native] MetalFX temporal: not on this GPU for {}x{} -> {}x{}; plain stretch",
                             int(sw), int(sh), out_w, out_h);
               }
             } else {
@@ -5501,11 +5512,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         temporal_last_shown = temporal_shown;
         if (!temporal_done) temporal_lod_bias_eighths = 0;
-        // FXAA first (with MetalFX always: it sharpens what it is given).
+        // FXAA, without MetalFX.
         id<MTLTexture> source = final_texture;
         if (!temporal_done) {
           const std::string mode = REXCVAR_GET(nfsmw_native_fxaa);
-          const bool metalfx = REXCVAR_GET(nfsmw_native_metalfx);
           const bool high = mode == "high";
           static id<MTLTexture> smoothed;
           static std::string said_mode;
@@ -5544,71 +5554,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               const std::string now = high ? "high" : "normal";
               if (said_mode != now) {
                 said_mode = now;
-                REXLOG_INFO("[native] FXAA ({}) over the {}x{} picture{}", now, w, h,
-                            metalfx ? ", before MetalFX" : "");
+                REXLOG_INFO("[native] FXAA ({}) over the {}x{} picture", now, w, h);
               }
             }
-          }
-        }
-        {
-          const NSUInteger out_w = NSUInteger(std::lround(dw * fit[0]));
-          const NSUInteger out_h = NSUInteger(std::lround(dh * fit[1]));
-          static id<MTLFXSpatialScaler> scaler;
-          static id<MTLTexture> upscaled;
-          static NSUInteger in_w = 0, in_h = 0;
-          static MTLPixelFormat in_format = MTLPixelFormatInvalid;
-          static bool said_unsupported = false;
-          const bool want = !temporal_done && (REXCVAR_GET(nfsmw_native_metalfx) || temporal) &&
-                            out_w > NSUInteger(sw) + 8 && out_h > NSUInteger(sh) + 8;
-          if (want && !(scaler && in_w == source.width && in_h == source.height &&
-                        in_format == source.pixelFormat && upscaled.width == out_w &&
-                        upscaled.height == out_h)) {
-            scaler = nil;
-            upscaled = nil;
-            if (![MTLFXSpatialScalerDescriptor supportsDevice:device]) {
-              if (!said_unsupported) {
-                said_unsupported = true;
-                REXLOG_WARN("[native] MetalFX: this GPU has no spatial scaler; plain stretch");
-              }
-            } else {
-              MTLFXSpatialScalerDescriptor* sd = [MTLFXSpatialScalerDescriptor new];
-              sd.inputWidth = source.width;
-              sd.inputHeight = source.height;
-              sd.outputWidth = out_w;
-              sd.outputHeight = out_h;
-              sd.colorTextureFormat = source.pixelFormat;
-              sd.outputTextureFormat = source.pixelFormat;
-              const bool is_float = source.pixelFormat == MTLPixelFormatRGBA16Float;
-              sd.colorProcessingMode = is_float ? MTLFXSpatialScalerColorProcessingModeHDR
-                                                : MTLFXSpatialScalerColorProcessingModePerceptual;
-              scaler = [sd newSpatialScalerWithDevice:device];
-              if (scaler) {
-                MTLTextureDescriptor* od =
-                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:source.pixelFormat
-                                                                       width:out_w
-                                                                      height:out_h
-                                                                   mipmapped:NO];
-                od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
-                od.storageMode = MTLStorageModePrivate;
-                upscaled = [device newTextureWithDescriptor:od];
-                in_w = source.width;
-                in_h = source.height;
-                in_format = source.pixelFormat;
-                REXLOG_INFO("[native] MetalFX: {}x{} upscaled to {}x{}", int(sw), int(sh), out_w, out_h);
-              } else {
-                REXLOG_WARN("[native] MetalFX: no scaler for {}x{} -> {}x{}; plain stretch", int(sw),
-                            int(sh), out_w, out_h);
-              }
-            }
-          }
-          if (want && scaler && upscaled) {
-            scaler.colorTexture = source;
-            scaler.inputContentWidth = NSUInteger(sw);
-            scaler.inputContentHeight = NSUInteger(sh);
-            scaler.outputTexture = upscaled;
-            [scaler encodeToCommandBuffer:cb];
-            shown_texture = upscaled;
-            crop[0] = crop[1] = 1.0f;
           }
         }
         id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
