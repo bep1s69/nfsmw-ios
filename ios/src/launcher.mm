@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal", @"motion_debug" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal", @"motion_debug", @"jitter_flip" ]];
   return [keys containsObject:key];
 }
 
@@ -525,6 +525,10 @@ const std::vector<Section>& Sections() {
             @"about two frames to Documents/captures, to open in Xcode on a Mac. Only for "
             @"measuring: captures are large.",
             @"false"},
+           {@"jitter_flip", Type::kSwitch, @"MetalFX temporal: flip jitter",
+            @"Native renderer: tells MetalFX temporal the opposite sub-pixel offset of each frame. "
+            @"For testing which way is right: the right one is steady and sharp, the wrong one shakes.",
+            @"false"},
            {@"motion_debug", Type::kSwitch, @"Show motion vectors",
             @"Native renderer: the scene's motion instead of the picture. Grey: still; red: "
             @"moving right; green: moving down; darker: the other way.",
@@ -699,6 +703,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_metalfx=" + b(On(s, @"metalfx")));
     a.push_back("--nfsmw_native_metalfx_temporal=" + b(On(s, @"metalfx_temporal")));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
+    a.push_back("--nfsmw_native_jitter_flip=" + b(On(s, @"jitter_flip")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +
