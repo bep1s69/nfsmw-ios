@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal", @"motion_debug" ]];
   return [keys containsObject:key];
 }
 
@@ -525,6 +525,10 @@ const std::vector<Section>& Sections() {
             @"about two frames to Documents/captures, to open in Xcode on a Mac. Only for "
             @"measuring: captures are large.",
             @"false"},
+           {@"motion_debug", Type::kSwitch, @"Show motion vectors",
+            @"Native renderer: the scene's motion instead of the picture. Grey: still; red: "
+            @"moving right; green: moving down; darker: the other way.",
+            @"false"},
        }, kTabAdvanced},
   };
   return sections;
@@ -694,6 +698,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
     a.push_back("--nfsmw_native_metalfx=" + b(On(s, @"metalfx")));
     a.push_back("--nfsmw_native_metalfx_temporal=" + b(On(s, @"metalfx_temporal")));
+    a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +
