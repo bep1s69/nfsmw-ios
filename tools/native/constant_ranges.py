@@ -52,6 +52,9 @@ def ranges(text, kind):
             continue
         if DECL.match(line) or line.lstrip().startswith(("float4 ", "\tfloat4 ")) and "packoffset" in line:
             continue
+        # The motion entry point's frame-before constants: the same registers.
+        if "PreviousVertexShaderConstants" in line:
+            continue
         if ACCESS.search(line):
             return 0, 256  # read directly, not through a macro
         body.append(line)

@@ -90,6 +90,9 @@ struct PushConstants
     ulong VertexShaderConstants;
     ulong PixelShaderConstants;
     ulong SharedConstants;
+    // The same draw's vertex shader constants in the frame before (motion
+    // vectors: shaderMainMotion runs the vertex shader with both).
+    ulong PreviousVertexShaderConstants;
 };
 
 #ifdef GTA4_RECOMP

@@ -226,6 +226,14 @@ REXCVAR_DEFINE_INT32(nfsmw_native_force_msaa, 0, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx, false, "GPU",
                     "Native renderer: the picture upscaled to the screen by MetalFX (spatial) instead of "
                     "the plain bilinear stretch, when it is drawn at fewer pixels than it is shown");
+REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx_temporal, false, "GPU",
+                    "Native renderer: MetalFX temporal upscaling (with motion vectors and a jittered scene) "
+                    "instead of spatial; also anti-aliasing, at any resolution");
+REXCVAR_DEFINE_BOOL(nfsmw_native_motion_debug, false, "GPU",
+                    "Native renderer diagnostics: the scene's motion vectors shown instead of the picture "
+                    "(grey: still; red/green: moving right/down; dark: no motion written)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_jitter_flip, false, "GPU",
+                    "Native renderer diagnostics: MetalFX temporal told the opposite jitter offset");
 REXCVAR_DEFINE_STRING(nfsmw_native_resolution_scale, "1", "GPU",
                       "Native renderer: internal resolution scale (1 = the console's 720p; fractions such as 1.5 "
                       "work; \"native\" = the screen's own pixels)");
@@ -379,6 +387,7 @@ struct ShaderStore {
   std::map<std::string, id<MTLFunction>> functions;
   std::map<std::string, id<MTLLibrary>> libraries;       // for specialized variants
   std::map<std::pair<uint64_t, uint32_t>, id<MTLFunction>> ps_variants;
+  std::map<std::pair<uint64_t, uint32_t>, id<MTLFunction>> motion_variants;  // (key ^ pixel << 63, spec)
   std::unordered_map<uint64_t, std::vector<VertexInput>> inputs;  // by VS key
   std::set<uint64_t> internal_keys;  // D3D's run-time vertex shaders (written here)
   // The float constant registers each shader reads, FIRST..END-1
@@ -592,6 +601,29 @@ struct ShaderStore {
       f = [lib->second newFunctionWithName:@"shaderMain" constantValues:values error:nil];
     }
     ps_variants[{key, spec}] = f;
+    return f;
+  }
+
+  // Motion vectors: the shader's shaderMainMotion entry point (the vertex
+  // shader run with this frame's and the frame before's constants; the pixel
+  // shader writing the motion to colour target 4), alpha test as PixelVariant.
+  id<MTLFunction> MotionVariant(bool pixel, uint64_t key, uint32_t spec) {
+    auto found = motion_variants.find({key ^ (pixel ? 1ull : 0ull) << 63, spec});
+    if (found != motion_variants.end()) {
+      return found->second;
+    }
+    char name[32];
+    snprintf(name, sizeof(name), "%s_%016llx", pixel ? "ps" : "vs", static_cast<unsigned long long>(key));
+    auto lib = libraries.find(name);
+    id<MTLFunction> f = nil;
+    if (lib != libraries.end()) {
+      MTLFunctionConstantValues* values = [MTLFunctionConstantValues new];
+      [values setConstantValue:&spec type:MTLDataTypeUInt atIndex:0];
+      const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
+      [values setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
+      f = [lib->second newFunctionWithName:@"shaderMainMotion" constantValues:values error:nil];
+    }
+    motion_variants[{key ^ (pixel ? 1ull : 0ull) << 63, spec}] = f;
     return f;
   }
 
@@ -825,6 +857,10 @@ struct Draw {
   uint32_t vertex_count = 0;
   // 1024 dwords each; shared with the draw before while unchanged (most are).
   std::shared_ptr<const ConstantBank> vs_constants, ps_constants;
+  // Motion vectors: the same draw's vertex shader constants in the frame
+  // before (the same shader, vertices and indices, the same how-many-th of
+  // those in the frame), or null: not matched, or not a draw that writes depth.
+  std::shared_ptr<const ConstantBank> previous_vs_constants;
   // The registers its shaders read of them (FIRST..END-1): compared, uploaded.
   std::pair<uint16_t, uint16_t> vs_range{0, 256}, ps_range{0, 256};
   uint32_t booleans = 0;
@@ -887,6 +923,10 @@ struct Frame {
   int slot_texture[16] = {};
   bool slot_valid[16] = {};
   std::shared_ptr<const ConstantBank> last_vs_constants, last_ps_constants;
+  // Motion vectors: the vertex shader constants of each draw writing depth,
+  // by its identity (see Record), for the next frame's matching draw.
+  std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> motion_constants;
+  std::unordered_map<uint64_t, uint32_t> motion_seen;  // draws of each identity so far
   std::vector<ResolveEvent> resolves;
   // Occlusion queries begun in the frame (their sample count addresses), and
   // the one open now (its draws are counted).
@@ -910,6 +950,12 @@ struct Frame {
 };
 
 std::unique_ptr<Frame> recording;
+// The last frame's Frame::motion_constants (game thread).
+std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> previous_motion_constants;
+bool MotionVectorsWanted() {
+  return REXCVAR_GET(nfsmw_native_metalfx_temporal) || REXCVAR_GET(nfsmw_native_motion_debug);
+}
+inline uint64_t MotionMix(uint64_t h, uint64_t v) { return (h ^ (v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2))) * 0x100000001B3ull; }
 int64_t next_dump_ms = 0;
 uint32_t dump_number = 0;
 std::atomic<bool> rendering{false};
@@ -2073,6 +2119,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   const uint8_t* region_fp_base = nullptr;  // the fingerprint of this draw's vertex region, per stream
   size_t region_fp_start = 0, region_fp_size = 0;
   uint64_t region_fp = 0;
+  uint64_t geometry = MotionMix(in.vs_key, ikey.base ^ uint64_t(ikey.count) << 32);  // motion: the draw's identity
+  geometry = MotionMix(geometry, ikey.offset ^ uint64_t(ikey.flags) << 32);
   auto inputs_it = store.inputs.find(in.vs_key);
   if (inputs_it != store.inputs.end()) {
     for (const VertexInput& input : inputs_it->second) {
@@ -2146,6 +2194,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
                               lo, d.vertex_count,
                               remapped ? uint32_t(remap[0] | remap[1] << 3 | remap[2] << 6 | remap[3] << 9) : 0u};
       const size_t first = (size_t(lo) * f.stride + f.offset) * 4;
+      geometry = MotionMix(geometry, uint64_t(uintptr_t(base) + first) ^ uint64_t(f.stride) << 48);
       const size_t range = size_t(d.vertex_count) * f.stride * 4 + 16;
       CacheEntry<FloatArray>& acached = attribute_cache[akey];
       acached.last_used = frame_counter;
@@ -2336,6 +2385,13 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.ps_range = store.ConstantRange(true, d.ps_key);
   d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
   d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range);
+  // Motion vectors: matched with the frame before's draw of the same identity.
+  if ((regs[kRbDepthControl] & 6) == 6 && MotionVectorsWanted()) {
+    const uint64_t id = MotionMix(geometry, frame.motion_seen[geometry]++);
+    frame.motion_constants[id] = d.vs_constants;
+    auto previous = previous_motion_constants.find(id);
+    if (previous != previous_motion_constants.end()) d.previous_vs_constants = previous->second;
+  }
   // The car's shadow casters: D3D's position-only vertex shader (2f583d7c,
   // no texture coordinate) with the shadow-map pixel shader (4fbaecfb). That
   // one cuts out see-through casters (g_bShadowMapAlphaEnabled, c1) by the
@@ -2492,10 +2548,13 @@ struct PipelineKey {
   uint64_t vs, ps;
   uint32_t blend, blend1, mask, format, format1, alpha_spec, sample_count;
   bool alpha_to_coverage;
+  // Motion vectors (colour target 4): 0 none in the pass; 1 in the pass, not
+  // written (D3D's own shaders); 2 the motion shaders, not written; 3 written.
+  uint32_t motion = 0;
   bool operator==(const PipelineKey& o) const {
     return vs == o.vs && ps == o.ps && blend == o.blend && blend1 == o.blend1 && mask == o.mask &&
            format == o.format && format1 == o.format1 && alpha_spec == o.alpha_spec &&
-           sample_count == o.sample_count && alpha_to_coverage == o.alpha_to_coverage;
+           sample_count == o.sample_count && alpha_to_coverage == o.alpha_to_coverage && motion == o.motion;
   }
 };
 struct PipelineKeyHash {
@@ -2503,12 +2562,16 @@ struct PipelineKeyHash {
     uint64_t h = k.vs * 0x9E3779B97F4A7C15ull ^ k.ps;
     for (uint64_t v : {uint64_t(k.blend), uint64_t(k.blend1), uint64_t(k.mask), uint64_t(k.format),
                        uint64_t(k.format1), uint64_t(k.alpha_spec), uint64_t(k.sample_count),
-                       uint64_t(k.alpha_to_coverage)}) {
+                       uint64_t(k.alpha_to_coverage), uint64_t(k.motion)}) {
       h = (h ^ v) * 0x100000001B3ull;
     }
     return size_t(h ^ (h >> 31));
   }
 };
+
+// Motion vectors (in the viewport's 0-1 coordinates, y down: where the pixel
+// was in the frame before minus where it is).
+constexpr MTLPixelFormat kMotionFormat = MTLPixelFormatRG16Float;
 
 // The descriptor of a key's pipeline (format: the Xenos colour format of
 // target 0; format1: target 1's + 1, 0 without one; mask: RB_COLOR_MASK bits
@@ -2522,6 +2585,12 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
   desc.fragmentFunction = k.alpha_spec ? store.PixelVariant(k.ps, k.alpha_spec) : ps;
   if (!desc.fragmentFunction) {
     desc.fragmentFunction = ps;
+  }
+  if (k.motion >= 2) {  // nil (no such entry point): the pipeline fails, its draws are left out
+    desc.vertexFunction = store.MotionVariant(false, k.vs, 0);
+    desc.fragmentFunction = store.MotionVariant(true, k.ps, k.alpha_spec);
+    if (!desc.vertexFunction || !desc.fragmentFunction) return nil;
+    desc.label = [desc.label stringByAppendingString:@" motion"];
   }
   MTLVertexDescriptor* vd = [MTLVertexDescriptor vertexDescriptor];
   const std::vector<NSUInteger>& active = ActiveAttributes(vs);
@@ -2560,6 +2629,11 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
   if (k.format1) {
     attachment(1, ColorFormat(k.format1 - 1), k.blend1, (k.mask >> 4) & 0xF);
   }
+  if (k.motion) {
+    desc.colorAttachments[4].pixelFormat = kMotionFormat;
+    desc.colorAttachments[4].writeMask = k.motion == 3 ? MTLColorWriteMaskRed | MTLColorWriteMaskGreen
+                                                       : MTLColorWriteMaskNone;
+  }
   desc.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
   desc.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
   return desc;
@@ -2582,15 +2656,21 @@ class PipelineCache {
       *failed = true;
       return nil;
     }
+    MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps);
+    if (!desc) {
+      Finish(k, nil, false, "no motion entry point");
+      *failed = true;
+      return nil;
+    }
     if (async) {
       ++draws_waiting_;
-      if (demanded_.insert(k).second) Start(device, k, PipelineDescriptor(k, vs, ps), false);
+      if (demanded_.insert(k).second) Start(device, k, desc, false);
       return nil;
     }
     NSError* error = nil;
     id<MTLRenderPipelineState> pso = nil;
     @try {
-      pso = pipeline_archive.Make(device, PipelineDescriptor(k, vs, ps), &error);
+      pso = pipeline_archive.Make(device, desc, &error);
     } @catch (NSException* e) {
       pso = nil;
     }
@@ -2629,11 +2709,14 @@ class PipelineCache {
     for (size_t i = 0; i < n; ++i) {
       const PipelineKey k{saved[i].vs,     saved[i].ps,         saved[i].blend,       saved[i].blend1,
                           saved[i].mask,   saved[i].format,     saved[i].format1,     saved[i].alpha_spec,
-                          saved[i].sample_count, saved[i].alpha_to_coverage != 0};
+                          saved[i].sample_count, (saved[i].alpha_to_coverage & 1) != 0,
+                          saved[i].alpha_to_coverage >> 8};
       id<MTLFunction> vs = store.Find("vs", k.vs), ps = store.Find("ps", k.ps);
       if (!vs || !ps || !known_.insert(k).second) continue;  // shaders no longer in this build
+      MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps);
+      if (!desc) continue;
       ++warm_total_;
-      Start(device, k, PipelineDescriptor(k, vs, ps), true);
+      Start(device, k, desc, true);
     }
     warm_left_ = warm_total_;
     REXLOG_INFO("[native] pipelines: {} known from earlier sessions, compiling them in the background",
@@ -2653,7 +2736,7 @@ class PipelineCache {
     for (const PipelineKey& k : known_) {
       const SavedKey s{k.vs,      k.ps,         k.blend,        k.blend1,
                        k.mask,    k.format,     k.format1,      k.alpha_spec,
-                       k.sample_count, uint32_t(k.alpha_to_coverage)};
+                       k.sample_count, uint32_t(k.alpha_to_coverage) | k.motion << 8};
       [data appendBytes:&s length:sizeof(s)];
     }
     if (![data writeToURL:KeysUrl() atomically:YES]) {
@@ -2664,7 +2747,7 @@ class PipelineCache {
  private:
   struct SavedKey {  // the file's records (no padding)
     uint64_t vs, ps;
-    uint32_t blend, blend1, mask, format, format1, alpha_spec, sample_count, alpha_to_coverage;
+    uint32_t blend, blend1, mask, format, format1, alpha_spec, sample_count, alpha_to_coverage;  // | motion << 8
   };
   static_assert(sizeof(SavedKey) == 48, "SavedKey layout");
   struct Done {
@@ -2769,6 +2852,42 @@ id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
   desc.colorAttachments[0].pixelFormat = MTLPixelFormatR32Float;
   pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
   return pso;
+}
+
+// Motion vectors: the scene's depth (the target's, depth and stencil) copied
+// into a depth-only texture for MetalFX, and the motion shown as a picture
+// (nfsmw_native_motion_debug: grey still, red/green moving right/down).
+id<MTLRenderPipelineState> MotionPipeline(id<MTLDevice> device, bool debug, MTLPixelFormat format) {
+  static std::map<std::pair<bool, MTLPixelFormat>, id<MTLRenderPipelineState>> made;
+  auto it = made.find({debug, format});
+  if (it != made.end()) return it->second;
+  NSString* source = @"#include <metal_stdlib>\n"
+                      "using namespace metal;\n"
+                      "struct V { float4 p [[position]]; };\n"
+                      "vertex V vs(uint id [[vertex_id]]) {\n"
+                      "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                      "  V v; v.p = float4(uv * 2.0 - 1.0, 0.0, 1.0); return v; }\n"
+                      "struct D { float d [[depth(any)]]; };\n"
+                      "fragment D depth_ps(V in [[stage_in]], depth2d<float> d [[texture(0)]]) {\n"
+                      "  D o; o.d = d.read(uint2(in.p.xy)); return o; }\n"
+                      "fragment float4 debug_ps(V in [[stage_in]], texture2d<float> m [[texture(0)]]) {\n"
+                      "  float2 v = m.read(uint2(in.p.xy)).xy * 40.0;\n"
+                      "  return float4(saturate(0.5 - v.x), saturate(0.5 - v.y), 0.5, 1.0); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  if (!library) {
+    REXLOG_WARN("[native] motion shaders: {}", error.localizedDescription.UTF8String);
+    return made[{debug, format}] = nil;
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:debug ? @"debug_ps" : @"depth_ps"];
+  if (debug) {
+    desc.colorAttachments[0].pixelFormat = format;
+  } else {
+    desc.depthAttachmentPixelFormat = format;
+  }
+  return made[{debug, format}] = [device newRenderPipelineStateWithDescriptor:desc error:&error];
 }
 
 // Colour resolves with an exponent bias (RB_COPY_DEST_INFO bits 16-21: the
@@ -3627,11 +3746,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     };
     size_t total = 0;
     {
-      UploadedConstants vs, ps;
+      UploadedConstants vs, ps, previous_vs;
       for (const Draw& d : frame->draws) {
         if (!vs.Covers(d.vs_constants.get(), d.vs_range)) {
           total += (d.vs_range.second - d.vs_range.first) * 16 + 256;
           vs = {d.vs_constants.get(), d.vs_range};
+        }
+        if (d.previous_vs_constants && !previous_vs.Covers(d.previous_vs_constants.get(), d.vs_range)) {
+          total += (d.vs_range.second - d.vs_range.first) * 16 + 256;
+          previous_vs = {d.previous_vs_constants.get(), d.vs_range};
         }
         if (!ps.Covers(d.ps_constants.get(), d.ps_range)) {
           total += (d.ps_range.second - d.ps_range.first) * 16 + 256;
@@ -3649,7 +3772,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared, false);
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
-    UploadedConstants uploaded_vs, uploaded_ps;
+    UploadedConstants uploaded_vs, uploaded_ps, uploaded_previous_vs;
     // What the current encoder already has set: a draw sets only what differs
     // from the draw before (each set costs the driver; most draws in a pass
     // share their pipeline, depth state, viewport and vertex buffers, and the
@@ -3662,7 +3785,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       bool viewport_set = false, scissor_set = false, push_set = false;
       MTLViewport viewport{};
       MTLScissorRect scissor{};
-      uint64_t push[3] = {};
+      uint64_t push[4] = {};
       __unsafe_unretained id<MTLBuffer> vb[31] = {};
       NSUInteger vb_offset[31] = {};
       void For(id<MTLRenderCommandEncoder> e) {
@@ -3870,6 +3993,92 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (t.multisample_color != t.color) residency::Add(t.multisample_color);
       if (t.multisample_depth != t.depth) residency::Add(t.multisample_depth);
     }
+
+    // Motion vectors (MetalFX temporal, or their debug view): on the scene's
+    // target (640+ pixels wide, not a shadow map, the most draws that write
+    // colour and depth), up to its last such draw. Its passes until then
+    // have a fifth colour target with each pixel's motion, drawn by the
+    // shaders' motion entry points; after that draw the scene's depth is
+    // copied for MetalFX (later passes on the target do not keep it).
+    const bool temporal = REXCVAR_GET(nfsmw_native_metalfx_temporal);
+    const bool motion_debug = REXCVAR_GET(nfsmw_native_motion_debug);
+    std::string motion_key;
+    size_t last_motion_draw = 0;
+    static id<MTLTexture> motion_texture, motion_multisample, motion_depth;
+    bool motion_ready = false;  // this frame's motion and depth are in those
+    if (temporal || motion_debug) {
+      std::map<std::string, uint32_t> scene_draws;
+      auto writes_motion = [&](const Draw& d) {
+        return (d.depth_control & 6) == 6 && (d.color_mask & 0xF) && !store.internal_keys.count(d.vs_key);
+      };
+      for (const Draw& d : frame->draws) {
+        if (writes_motion(d)) ++scene_draws[target_key(d)];
+      }
+      uint32_t most = 0;
+      for (const auto& [key, n] : scene_draws) {
+        if (n <= most || sizes[key].first < 640 || second_of.count(key) || depth_only_draws[key] * 2 > targets[key].draws) {
+          continue;
+        }
+        most = n;
+        motion_key = key;
+      }
+      for (size_t i = 0; i < frame->draws.size() && !motion_key.empty(); ++i) {
+        if (writes_motion(frame->draws[i]) && target_key(frame->draws[i]) == motion_key) last_motion_draw = i;
+      }
+      if (!motion_key.empty()) {
+        const Target& t = targets[motion_key];
+        if (!(motion_texture && motion_texture.width == t.pitch && motion_texture.height == t.height &&
+              (t.sample_count > 1 ? motion_multisample && motion_multisample.sampleCount == t.sample_count
+                                  : motion_multisample == motion_texture))) {
+          for (id<MTLTexture> old : {motion_texture, motion_depth}) residency::Remove(old);
+          if (motion_multisample != motion_texture) residency::Remove(motion_multisample);
+          MTLTextureDescriptor* md = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:kMotionFormat
+                                                                                         width:t.pitch
+                                                                                        height:t.height
+                                                                                     mipmapped:NO];
+          md.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+          md.storageMode = MTLStorageModePrivate;
+          motion_texture = NewTexture(device, md, "motion");
+          motion_multisample = motion_texture;
+          if (t.sample_count > 1) {
+            md.textureType = MTLTextureType2DMultisample;
+            md.sampleCount = t.sample_count;
+            md.usage = MTLTextureUsageRenderTarget;
+            motion_multisample = NewTexture(device, md, "motion msaa");
+          }
+          MTLTextureDescriptor* zd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                                                         width:t.pitch
+                                                                                        height:t.height
+                                                                                     mipmapped:NO];
+          zd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+          zd.storageMode = MTLStorageModePrivate;
+          motion_depth = NewTexture(device, zd, "motion depth");
+          for (id<MTLTexture> made : {motion_texture, motion_depth}) residency::Add(made);
+          if (motion_multisample != motion_texture) residency::Add(motion_multisample);
+          REXLOG_INFO("[native] motion vectors: {} at {}x{}, {}x MSAA", motion_key, t.pitch, t.height, t.sample_count);
+        }
+        if (!motion_texture || !motion_multisample || !motion_depth) motion_key.clear();
+      }
+    }
+    // The jitter of a temporal frame (Halton 2, 3: 8 positions), in the
+    // scene's pixels; each scene draw's position moved by it (MetalFX takes
+    // the samples of several frames as the finer picture's).
+    float jitter[2] = {0, 0};
+    if (temporal && !motion_key.empty()) {
+      auto halton = [](uint32_t i, uint32_t b) {
+        float f = 1, r = 0;
+        for (; i; i /= b) {
+          f /= float(b);
+          r += f * float(i % b);
+        }
+        return r;
+      };
+      const uint32_t phase = number % 8 + 1;
+      jitter[0] = halton(phase, 2) - 0.5f;
+      jitter[1] = halton(phase, 3) - 0.5f;
+    }
+    bool motion_pass = false;  // the current pass draws motion
+    bool motion_cleared = false;
 
     // A target starts the frame as the game's resolves clear it (they clear
     // for the next frame): the clear values of the last clearing resolve of
@@ -4112,6 +4321,35 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       [e endEncoding];
       return true;
     };
+    // After the scene's last motion pass (its encoder ended, the next draw
+    // NEXT): its depth copied for MetalFX.
+    auto finish_motion = [&](size_t next) {
+      if (!motion_pass) return;
+      motion_pass = false;
+      if (next <= last_motion_draw || motion_ready) return;
+      id<MTLRenderPipelineState> copy = MotionPipeline(device, false, MTLPixelFormatDepth32Float);
+      const Target& t = targets[motion_key];
+      if (!copy || !t.depth) return;
+      MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
+      rp.depthAttachment.texture = motion_depth;
+      rp.depthAttachment.loadAction = MTLLoadActionDontCare;
+      rp.depthAttachment.storeAction = MTLStoreActionStore;
+      profile_pass(rp, "motion: scene depth");
+      id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+      static id<MTLDepthStencilState> always;
+      if (!always) {
+        MTLDepthStencilDescriptor* dsd = [MTLDepthStencilDescriptor new];
+        dsd.depthCompareFunction = MTLCompareFunctionAlways;
+        dsd.depthWriteEnabled = YES;
+        always = [device newDepthStencilStateWithDescriptor:dsd];
+      }
+      [e setRenderPipelineState:copy];
+      [e setDepthStencilState:always];
+      [e setFragmentTexture:t.depth atIndex:0];
+      [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+      [e endEncoding];
+      motion_ready = true;
+    };
     auto writebacks = std::make_shared<std::vector<WriteBack>>();
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
       // The source: the EDRAM layout in the resolve's own registers (a
@@ -4131,6 +4369,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       [enc endEncoding];
       enc = nil;
       current.clear();
+      finish_motion(ev.after_draws);
       const float scale = src.scale;
       NSUInteger dw = Px(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1)), scale);
       NSUInteger dh = Px(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1)), scale);
@@ -4453,8 +4692,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                           d.depth_control, 2 * std::fabs(d.viewport[2] == 0 ? 0.f : d.viewport[0]),
                                           2 * std::fabs(d.viewport[2]), d.viewport[1], d.viewport[3]));
         [enc endEncoding];
+        finish_motion(di);
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
+        if (!motion_key.empty() && tk == motion_key && di <= last_motion_draw) {
+          motion_pass = true;
+          rp.colorAttachments[4].texture = motion_multisample;
+          rp.colorAttachments[4].loadAction = motion_cleared ? MTLLoadActionLoad : MTLLoadActionClear;
+          rp.colorAttachments[4].clearColor = MTLClearColorMake(0, 0, 0, 0);
+          if (motion_multisample != motion_texture) {
+            rp.colorAttachments[4].resolveTexture = motion_texture;
+            rp.colorAttachments[4].storeAction = MTLStoreActionStoreAndMultisampleResolve;
+          } else {
+            rp.colorAttachments[4].storeAction = MTLStoreActionStore;
+          }
+          motion_cleared = true;
+        }
         rp.colorAttachments[0].texture = t.multisample_color;
         rp.colorAttachments[0].loadAction = clear_color ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.colorAttachments[0].clearColor = t.clear_color ? t.clear_color_value : MTLClearColorMake(0, 0, 0, 0);
@@ -4557,10 +4810,25 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const uint32_t alpha_spec = (d.color_control & 8) ? (2u | ((d.color_control & 7) << 8))
                                   : alpha_to_coverage && t.sample_count == 1 ? (2u | (6u << 8))
                                                                             : 0u;
+      // Motion: every draw of a motion pass through the motion shaders (the
+      // same positions as each other: depth-equal passes match), written by
+      // the opaque ones that write depth.
+      // (Shaders built before motion entry points: drawn without motion.)
+      static std::unordered_map<uint64_t, bool> has_motion;
+      auto [motion_it, motion_new] = has_motion.try_emplace(d.vs_key ^ d.ps_key * 31, false);
+      if (motion_new) {
+        motion_it->second = !store.internal_keys.count(d.vs_key) && store.MotionVariant(false, d.vs_key, 0) &&
+                            store.MotionVariant(true, d.ps_key, 0);
+      }
+      const bool translated_vs = motion_it->second;
+      const uint32_t motion = !motion_pass ? 0u
+                              : !translated_vs ? 1u
+                              : (d.depth_control & 6) == 6 && (d.blend_control & 0x1FFF1FFF) == 0x00010001 ? 3u
+                                                                                                          : 2u;
       const PipelineKey pk{d.vs_key, d.ps_key, d.blend_control, t1 ? d.blend_control1 : 0u,
                            t1 ? (d.color_mask & 0xFF) : (d.color_mask & 0xF), t.format,
                            t1 ? t1->format + 1 : 0u, alpha_spec, t.sample_count,
-                           alpha_to_coverage && t.sample_count > 1};
+                           alpha_to_coverage && t.sample_count > 1, motion};
       bool pipeline_failed = false;
       id<MTLRenderPipelineState> pso = pipeline_cache.Get(device, pk, d.vs, d.ps, async_pipelines, &pipeline_failed);
       if (!pso) {
@@ -4728,7 +4996,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       };
       const uint64_t vs_address = upload(uploaded_vs, *d.vs_constants, d.vs_range);
       const uint64_t ps_address = upload(uploaded_ps, *d.ps_constants, d.ps_range);
+      // Motion: the frame before's constants (this frame's when not matched: no motion).
+      const uint64_t previous_vs_address = motion >= 2 && d.previous_vs_constants
+                                               ? upload(uploaded_previous_vs, *d.previous_vs_constants, d.vs_range)
+                                               : vs_address;
       uint32_t shared[256] = {};
+      if (motion_pass && (jitter[0] != 0 || jitter[1] != 0) && vp.width >= 1 && vp.height >= 1) {
+        // g_HalfPixelOffset (byte 344): added to the clip-space position (x w).
+        const float offset[2] = {2.0f * jitter[0] / float(vp.width), -2.0f * jitter[1] / float(vp.height)};
+        std::memcpy(&shared[86], offset, sizeof(offset));
+      }
       for (int s = 0; s < 16; ++s) {
         int index = d.textures[s] < 0 ? 0 : d.textures[s] + 1;
         if (d.textures[s] >= 0) {
@@ -4985,8 +5262,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
       const size_t shared_at = last_shared_at;
       struct {
-        uint64_t vs, ps, shared;
-      } push = {vs_address, ps_address, data.gpuAddress + shared_at};
+        uint64_t vs, ps, shared, previous_vs;
+      } push = {vs_address, ps_address, data.gpuAddress + shared_at, previous_vs_address};
       if (!state.push_set || std::memcmp(&push, state.push, sizeof(push)) != 0) {
         [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
         [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
@@ -5038,6 +5315,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       ++next_resolve;
     }
     [enc endEncoding];
+    finish_motion(frame->draws.size());
 
     // On screen: the frame's last colour resolve, fitted to the layer.
     CAMetalLayer* layer = present_layer;
@@ -5066,6 +5344,33 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
+        // Motion debug view: the scene's motion instead of the picture.
+        if (motion_debug && motion_ready) {
+          static id<MTLTexture> view;
+          id<MTLRenderPipelineState> show = MotionPipeline(device, true, final_texture.pixelFormat);
+          if (!(view && view.width == motion_texture.width && view.height == motion_texture.height &&
+                view.pixelFormat == final_texture.pixelFormat)) {
+            MTLTextureDescriptor* vd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
+                                                                                          width:motion_texture.width
+                                                                                         height:motion_texture.height
+                                                                                      mipmapped:NO];
+            vd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+            vd.storageMode = MTLStorageModePrivate;
+            view = [device newTextureWithDescriptor:vd];
+          }
+          if (show && view) {
+            MTLRenderPassDescriptor* vp = [MTLRenderPassDescriptor renderPassDescriptor];
+            vp.colorAttachments[0].texture = view;
+            vp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+            vp.colorAttachments[0].storeAction = MTLStoreActionStore;
+            id<MTLRenderCommandEncoder> ve = [cb renderCommandEncoderWithDescriptor:vp];
+            [ve setRenderPipelineState:show];
+            [ve setFragmentTexture:motion_texture atIndex:0];
+            [ve drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+            [ve endEncoding];
+            final_texture = view;
+          }
+        }
         const float sw = float(final_rect.size.width), sh = float(final_rect.size.height);
         const float dw = float(drawable.texture.width), dh = float(drawable.texture.height);
         const float src = sw / sh, dst = dw / dh;
@@ -5076,9 +5381,100 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // game has no motion vectors for the temporal scaler), then shown
         // 1:1 by the pass below. Only when it is drawn smaller than shown.
         id<MTLTexture> shown_texture = final_texture;
+        // MetalFX temporal: the picture with the scene's depth and motion
+        // (this frame's), upscaled to its size on screen or, drawn as large as
+        // shown, anti-aliased at it. No FXAA before it.
+        const NSUInteger shown_w = NSUInteger(std::lround(dw * fit[0]));
+        const NSUInteger shown_h = NSUInteger(std::lround(dh * fit[1]));
+        bool temporal_done = false;
+        if (temporal && motion_ready && !motion_debug && final_rect.origin.x == 0 && final_rect.origin.y == 0 &&
+            shown_w + 8 >= NSUInteger(sw) && shown_h + 8 >= NSUInteger(sh)) {
+          static id<MTLFXTemporalScaler> scaler;
+          static id<MTLTexture> upscaled;
+          static NSUInteger in_w = 0, in_h = 0;
+          static MTLPixelFormat in_format = MTLPixelFormatInvalid;
+          static bool said_unsupported = false;
+          const NSUInteger out_w = std::max(shown_w, NSUInteger(sw)), out_h = std::max(shown_h, NSUInteger(sh));
+          const NSUInteger iw = std::min({final_texture.width, motion_texture.width, motion_depth.width});
+          const NSUInteger ih = std::min({final_texture.height, motion_texture.height, motion_depth.height});
+          bool reset = false;
+          if (iw >= NSUInteger(sw) && ih >= NSUInteger(sh) &&
+              !(scaler && in_w == iw && in_h == ih && in_format == final_texture.pixelFormat &&
+                upscaled.width == out_w && upscaled.height == out_h)) {
+            scaler = nil;
+            upscaled = nil;
+            reset = true;
+            const float factor = std::max(float(out_w) / sw, float(out_h) / sh);
+            if (![MTLFXTemporalScalerDescriptor supportsDevice:device] ||
+                factor > [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] + 0.01f) {
+              if (!said_unsupported) {
+                said_unsupported = true;
+                REXLOG_WARN("[native] MetalFX temporal: not on this GPU for {}x{} -> {}x{}; spatial instead",
+                            int(sw), int(sh), out_w, out_h);
+              }
+            } else {
+              MTLFXTemporalScalerDescriptor* td = [MTLFXTemporalScalerDescriptor new];
+              td.inputWidth = iw;
+              td.inputHeight = ih;
+              td.outputWidth = out_w;
+              td.outputHeight = out_h;
+              td.colorTextureFormat = final_texture.pixelFormat;
+              td.depthTextureFormat = MTLPixelFormatDepth32Float;
+              td.motionTextureFormat = kMotionFormat;
+              td.outputTextureFormat = final_texture.pixelFormat;
+              td.autoExposureEnabled = NO;
+              scaler = [td newTemporalScalerWithDevice:device];
+              if (scaler) {
+                MTLTextureDescriptor* od =
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
+                                                                       width:out_w
+                                                                      height:out_h
+                                                                   mipmapped:NO];
+                od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
+                od.storageMode = MTLStorageModePrivate;
+                upscaled = [device newTextureWithDescriptor:od];
+                in_w = iw;
+                in_h = ih;
+                in_format = final_texture.pixelFormat;
+                REXLOG_INFO("[native] MetalFX temporal: {}x{} to {}x{}", int(sw), int(sh), out_w, out_h);
+              } else {
+                REXLOG_WARN("[native] MetalFX temporal: no scaler for {}x{} -> {}x{}", int(sw), int(sh), out_w,
+                            out_h);
+              }
+            }
+          }
+          if (scaler && upscaled) {
+            // The scene's depth function: GREATER (4) or GEQUAL (6) is reversed depth.
+            const uint32_t depth_function = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
+            const bool reversed = depth_function == 4 || depth_function == 6;
+            // History from a frame shown just before only (not across menus).
+            static uint32_t last_number = 0;
+            reset = reset || number != last_number + 1;
+            last_number = number;
+            const float flip = REXCVAR_GET(nfsmw_native_jitter_flip) ? -1.0f : 1.0f;
+            scaler.colorTexture = final_texture;
+            scaler.depthTexture = motion_depth;
+            scaler.motionTexture = motion_texture;
+            scaler.outputTexture = upscaled;
+            scaler.inputContentWidth = NSUInteger(sw);
+            scaler.inputContentHeight = NSUInteger(sh);
+            // The jitter moved the scene by +jitter pixels: MetalFX's offset
+            // is the one back to the pixel's centre.
+            scaler.jitterOffsetX = -jitter[0] * flip;
+            scaler.jitterOffsetY = -jitter[1] * flip;
+            scaler.motionVectorScaleX = sw;
+            scaler.motionVectorScaleY = sh;
+            scaler.depthReversed = reversed;
+            scaler.reset = reset;
+            [scaler encodeToCommandBuffer:cb];
+            shown_texture = upscaled;
+            crop[0] = crop[1] = 1.0f;
+            temporal_done = true;
+          }
+        }
         // FXAA first (with MetalFX always: it sharpens what it is given).
         id<MTLTexture> source = final_texture;
-        {
+        if (!temporal_done) {
           const std::string mode = REXCVAR_GET(nfsmw_native_fxaa);
           const bool metalfx = REXCVAR_GET(nfsmw_native_metalfx);
           const bool high = mode == "high";
@@ -5133,8 +5529,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static NSUInteger in_w = 0, in_h = 0;
           static MTLPixelFormat in_format = MTLPixelFormatInvalid;
           static bool said_unsupported = false;
-          const bool want = REXCVAR_GET(nfsmw_native_metalfx) && out_w > NSUInteger(sw) + 8 &&
-                            out_h > NSUInteger(sh) + 8;
+          const bool want = !temporal_done && (REXCVAR_GET(nfsmw_native_metalfx) || temporal) &&
+                            out_w > NSUInteger(sw) + 8 && out_h > NSUInteger(sh) + 8;
           if (want && !(scaler && in_w == source.width && in_h == source.height &&
                         in_format == source.pixelFormat && upscaled.width == out_w &&
                         upscaled.height == out_h)) {
@@ -5799,6 +6195,8 @@ bool NativeSwap() {
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);
+    previous_motion_constants.swap(frame->motion_constants);
+    frame->motion_constants.clear();
     if (frame->movie_draws) {
       // A movie frame: not drawn here. After three, the emulated renderer
       // draws again and its image shows (below); the first native frame

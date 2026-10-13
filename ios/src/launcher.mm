@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx", @"metalfx_temporal" ]];
   return [keys containsObject:key];
 }
 
@@ -381,6 +381,11 @@ const std::vector<Section>& Sections() {
             @"Native renderer: the picture is enlarged to the screen by Apple's MetalFX upscaler "
             @"(sharper edges and detail) instead of a plain stretch. Best with a low render "
             @"resolution, e.g. 1x upscaled to this screen, cheaper than drawing at 1.5x or native.",
+            @"false"},
+           {@"metalfx_temporal", Type::kSwitch, @"MetalFX temporal (experimental)",
+            @"Native renderer: MetalFX builds each frame from several, with the game's motion: "
+            @"finer detail than the upscaling above (thin, distant things stay whole) and "
+            @"anti-aliasing of its own, also at full resolution. New: moving things may smear.",
             @"false"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
@@ -688,6 +693,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
     a.push_back("--nfsmw_native_metalfx=" + b(On(s, @"metalfx")));
+    a.push_back("--nfsmw_native_metalfx_temporal=" + b(On(s, @"metalfx_temporal")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +

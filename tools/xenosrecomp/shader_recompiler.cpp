@@ -2044,19 +2044,24 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     out += "};\n";
 
-    out += "#ifdef __air__\n";
-
+    // Metal: the shader's body is a function of its own (shaderBody), and
+    // the entry points come after it: shaderMain, and shaderMainMotion for
+    // motion vectors (the vertex shader run with this frame's constants and
+    // the frame before's; the pixel shader also writes the motion).
+    std::string metalEntryAttributes;
     if (isPixelShader)
     {
-        out += "[[fragment]]\n";
+        metalEntryAttributes = "[[fragment]]\n";
 
         auto pixelShader = reinterpret_cast<const PixelShader*>(shader);
         if (useEarlyFragmentTests && !(pixelShader->outputs & PIXEL_SHADER_OUTPUT_DEPTH))
-            out += "[[early_fragment_tests]]\n";
+            metalEntryAttributes += "[[early_fragment_tests]]\n";
     }
     else
-        out += "[[vertex]]\n";
+        metalEntryAttributes = "[[vertex]]\n";
 
+    out += "#ifdef __air__\n";
+    out += "static inline\n";
     out += "#else\n";
 
     out += "#if !defined(__spirv__)\n";
@@ -2077,24 +2082,38 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     out += "#endif\n";
 
+    out += "#ifdef __air__\n";
+    println("{} shaderBody(", isPixelShader ? "PixelShaderOutput" : "Interpolators");
+    out += "#else\n";
     println("{} shaderMain(", isPixelShader ? "PixelShaderOutput" : "Interpolators");
+    out += "#endif\n";
+
+    // The Metal entry points' resources, and the body's (no attributes).
+    const std::string metalResources =
+        "\tconstant Texture2DDescriptorHeap* g_Texture2DDescriptorHeap [[buffer(0)]],\n"
+        "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap [[buffer(1)]],\n"
+        "\tconstant Texture3DDescriptorHeap* g_Texture3DDescriptorHeap [[buffer(2)]],\n"
+        "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap [[buffer(3)]],\n"
+        "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap [[buffer(4)]],\n"
+        "\tconstant PushConstants& g_PushConstants [[buffer(8)]]";
+    const std::string metalBodyResources =
+        "\tconstant Texture2DDescriptorHeap* g_Texture2DDescriptorHeap,\n"
+        "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap,\n"
+        "\tconstant Texture3DDescriptorHeap* g_Texture3DDescriptorHeap,\n"
+        "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap,\n"
+        "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap,\n"
+        "\tPushConstants g_PushConstants";
+    const std::string metalResourceNames =
+        "g_Texture2DDescriptorHeap, g_Texture2DArrayDescriptorHeap, g_Texture3DDescriptorHeap, "
+        "g_TextureCubeDescriptorHeap, g_SamplerDescriptorHeap";
 
     if (isPixelShader)
     {
         out += "#ifdef __air__\n";
 
-        out += "\tInterpolators input [[stage_in]],\n";
-        out += "\tbool iFace [[front_facing]],\n";
-
-        out += "\tconstant Texture2DDescriptorHeap* g_Texture2DDescriptorHeap [[buffer(0)]],\n";
-        out += "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap [[buffer(1)]],\n";
-        out += "\tconstant Texture3DDescriptorHeap* g_Texture3DDescriptorHeap [[buffer(2)]],\n";
-        out += "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap [[buffer(3)]],\n";
-        out += "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap [[buffer(4)]],\n";
-#ifdef MARATHON_RECOMP
-        out += "\tdevice AtomicUintBuffer* g_ConditionalSurveyBuffer [[buffer(5)]],\n";
-#endif
-        out += "\tconstant PushConstants& g_PushConstants [[buffer(8)]]\n";
+        out += "\tInterpolators input,\n";
+        out += "\tbool iFace,\n";
+        out += metalBodyResources + "\n";
 
         out += "#else\n";
 
@@ -2115,16 +2134,8 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         // for skinning, projected shadow lookups, etc. Pass the same four
         // descriptor heap buffers that the pixel-shader signature does so
         // tfetch emission resolves regardless of shader stage.
-        out += "\tconstant Texture2DDescriptorHeap* g_Texture2DDescriptorHeap [[buffer(0)]],\n";
-        out += "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap [[buffer(1)]],\n";
-        out += "\tconstant Texture3DDescriptorHeap* g_Texture3DDescriptorHeap [[buffer(2)]],\n";
-        out += "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap [[buffer(3)]],\n";
-        out += "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap [[buffer(4)]],\n";
-#ifdef MARATHON_RECOMP
-        out += "\tdevice AtomicUintBuffer* g_ConditionalSurveyBuffer [[buffer(5)]],\n";
-#endif
-        out += "\tconstant PushConstants& g_PushConstants [[buffer(8)]],\n";
-        out += "\tVertexShaderInput input [[stage_in]]\n";
+        out += metalBodyResources + ",\n";
+        out += "\tVertexShaderInput input\n";
         out += "#else\n";
         out += "\tVertexShaderInput input\n";
         out += "#endif\n";
@@ -2789,5 +2800,48 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\treturn output;\n";
 #endif
 
-    out += "}";
+    out += "}\n";
+
+    out += "#ifdef __air__\n";
+    if (isPixelShader)
+    {
+        // Motion: where this pixel was in the frame before minus where it is,
+        // in the viewport's (0-1, y down) coordinates; on colour target 4.
+        out += "struct MotionInterpolators\n{\n\tInterpolators base;\n";
+        out += "\tfloat4 iMotionCurrent [[user(MOTION0)]];\n\tfloat4 iMotionPrevious [[user(MOTION1)]];\n};\n";
+        out += "struct MotionPixelShaderOutput\n{\n\tPixelShaderOutput base;\n\tfloat4 oMotion [[color(4)]];\n};\n";
+        out += metalEntryAttributes;
+        out += "PixelShaderOutput shaderMain(\n\tInterpolators input [[stage_in]],\n\tbool iFace [[front_facing]],\n";
+        out += metalResources + ")\n{\n";
+        out += "\treturn shaderBody(input, iFace, " + metalResourceNames + ", g_PushConstants);\n}\n";
+        out += metalEntryAttributes;
+        out += "MotionPixelShaderOutput shaderMainMotion(\n\tMotionInterpolators input [[stage_in]],\n\tbool iFace [[front_facing]],\n";
+        out += metalResources + ")\n{\n";
+        out += "\tMotionPixelShaderOutput output;\n";
+        out += "\toutput.base = shaderBody(input.base, iFace, " + metalResourceNames + ", g_PushConstants);\n";
+        out += "\tfloat2 current = input.iMotionCurrent.xy / input.iMotionCurrent.w;\n";
+        out += "\tfloat2 previous = input.iMotionPrevious.xy / input.iMotionPrevious.w;\n";
+        out += "\toutput.oMotion = float4((previous - current) * float2(0.5, -0.5), 0.0, 0.0);\n";
+        out += "\treturn output;\n}\n";
+    }
+    else
+    {
+        // Motion: the position with this frame's constants and with the
+        // frame before's (the same draw's), for the pixel shader.
+        out += "struct MotionInterpolators\n{\n\tInterpolators base;\n";
+        out += "\tfloat4 oMotionCurrent [[user(MOTION0)]];\n\tfloat4 oMotionPrevious [[user(MOTION1)]];\n};\n";
+        out += metalEntryAttributes;
+        out += "Interpolators shaderMain(\n" + metalResources + ",\n\tVertexShaderInput input [[stage_in]])\n{\n";
+        out += "\treturn shaderBody(" + metalResourceNames + ", g_PushConstants, input);\n}\n";
+        out += metalEntryAttributes;
+        out += "MotionInterpolators shaderMainMotion(\n" + metalResources + ",\n\tVertexShaderInput input [[stage_in]])\n{\n";
+        out += "\tMotionInterpolators output;\n";
+        out += "\toutput.base = shaderBody(" + metalResourceNames + ", g_PushConstants, input);\n";
+        out += "\tPushConstants previous = g_PushConstants;\n";
+        out += "\tprevious.VertexShaderConstants = g_PushConstants.PreviousVertexShaderConstants;\n";
+        out += "\toutput.oMotionCurrent = output.base.oPos;\n";
+        out += "\toutput.oMotionPrevious = shaderBody(" + metalResourceNames + ", previous, input).oPos;\n";
+        out += "\treturn output;\n}\n";
+    }
+    out += "#endif\n";
 }
