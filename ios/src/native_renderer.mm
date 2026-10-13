@@ -5482,10 +5482,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             scaler.outputTexture = upscaled;
             scaler.inputContentWidth = NSUInteger(sw);
             scaler.inputContentHeight = NSUInteger(sh);
-            // The jitter moved the scene by +jitter pixels: MetalFX's offset
-            // is the one back to the pixel's centre.
-            scaler.jitterOffsetX = -jitter[0] * flip;
-            scaler.jitterOffsetY = -jitter[1] * flip;
+            // The jitter moved the scene by +jitter pixels (y down): MetalFX
+            // takes that same offset (the opposite one shakes, tested).
+            scaler.jitterOffsetX = jitter[0] * flip;
+            scaler.jitterOffsetY = jitter[1] * flip;
             scaler.motionVectorScaleX = sw;
             scaler.motionVectorScaleY = sh;
             scaler.depthReversed = reversed;
