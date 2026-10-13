@@ -66,6 +66,10 @@ INC_NEW = '''#include <rex/logging.h>
 // The native renderer's occlusion hook (patch_ios_native_occlusion.py), in
 // the runtime.
 extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
+// The on-screen FPS counter's values (defined in the Vulkan command processor).
+extern "C" std::atomic<float> nfsmw_fps_invitado, nfsmw_ms_invitado, nfsmw_ms_peor_invitado;
+#include <algorithm>
+#include <chrono>
 
 namespace rex::graphics::native_backend {
 
@@ -111,7 +115,32 @@ class NativeCommandProcessor : public CommandProcessor {
  protected:
   bool SetupContext() override { return true; }
   void ShutdownContext() override { shaders_.clear(); }
-  void IssueSwap(uint32_t, uint32_t, uint32_t) override {}
+  // The guest's frame rate for the on-screen counter (nfsmw_fps_invitado /
+  // nfsmw_ms_invitado, published by the Vulkan backend's swap otherwise).
+  void IssueSwap(uint32_t, uint32_t, uint32_t) override {
+    const auto now = std::chrono::steady_clock::now();
+    if (fps_since_ == std::chrono::steady_clock::time_point{}) {
+      fps_since_ = now;
+      return;
+    }
+    ++fps_frames_;
+    if (fps_last_ != std::chrono::steady_clock::time_point{}) {
+      fps_worst_ms_ = std::max(fps_worst_ms_, std::chrono::duration<double, std::milli>(now - fps_last_).count());
+    }
+    fps_last_ = now;
+    const double seconds = std::chrono::duration<double>(now - fps_since_).count();
+    if (seconds >= 0.5) {
+      nfsmw_fps_invitado.store(float(fps_frames_ / seconds), std::memory_order_relaxed);
+      nfsmw_ms_invitado.store(float(seconds * 1000.0 / fps_frames_), std::memory_order_relaxed);
+      nfsmw_ms_peor_invitado.store(float(fps_worst_ms_), std::memory_order_relaxed);
+      fps_frames_ = 0;
+      fps_worst_ms_ = 0.0;
+      fps_since_ = now;
+    }
+  }
+  std::chrono::steady_clock::time_point fps_since_{}, fps_last_{};
+  uint32_t fps_frames_ = 0;
+  double fps_worst_ms_ = 0.0;
 
   // Microcode only: the native renderer translates nothing at run time (its
   // shaders are prebuilt Metal libraries keyed by microcode).
