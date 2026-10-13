@@ -25,7 +25,7 @@
 // is written to Documents/native/pass_NN_<pitch>x<height>.png.
 //
 // Not yet: inline-vertex draws, alpha test, stencil, cube and 3D textures,
-// mip levels, culling, the console's gamma. Resolution scaling and MSAA use
+// culling, the console's gamma. Resolution scaling and MSAA use
 // the native renderer's target allocation and pipeline settings below.
 
 #import <CoreImage/CoreImage.h>
@@ -59,6 +59,7 @@
 #include <vector>
 
 #include <rex/cvar.h>
+#include <rex/graphics/pipeline/texture/util.h>
 #include <rex/graphics/xenos.h>
 #include <rex/logging.h>
 #include <rex/system/kernel_state.h>
@@ -183,6 +184,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_present, false, "GPU",
                     "and shown on screen, over the emulated one");
 
 namespace xenos = rex::graphics::xenos;
+namespace texture_util = rex::graphics::texture_util;
 
 // The native renderer's own scale: the launcher sets the emulated renderer's
 // resolution_scale to 1 while this one shows the game.
@@ -716,8 +718,15 @@ struct GpuCopy {
 struct Texture {
   MTLPixelFormat format = MTLPixelFormatInvalid;
   uint32_t width = 0, height = 0;
-  uint32_t row_bytes = 0;
-  // Level 0, linear. Freed by the renderer once uploaded (gpu): a second
+  uint32_t row_bytes = 0;      // level 0's
+  uint32_t block = 1, block_bytes = 4;  // of format: texels across a block, bytes in one
+  // The game's mip levels (2D and cube): level 0's layers, then level 1's,
+  // and so on, each level max(size >> level, 1) and tightly packed. Without
+  // them the distant road and the grass sparkled (every far pixel read from
+  // the full-size level).
+  uint32_t levels = 1;
+  MTLSamplerMipFilter mip_filter = MTLSamplerMipFilterNotMipmapped;
+  // Levels 0.., linear. Freed by the renderer once uploaded (gpu): a second
   // copy of every texture in CPU memory took the iPhone over its memory
   // limit in races.
   // Default-initialized: the decode writes every byte (zeroing it first was
@@ -742,6 +751,34 @@ struct Texture {
   bool guest_tiled = false;    // (diagnostics)
   bool guest_signed = false;   // any component signed (diagnostics)
 };
+
+// Where one mip level is in a texture's data (Texture::levels).
+struct LevelSpan {
+  size_t offset = 0;       // of its first layer
+  size_t layer_bytes = 0;  // one layer of it
+  uint32_t width = 0, height = 0, bw = 0, bh = 0, row_bytes = 0;
+};
+
+LevelSpan SpanOf(uint32_t width, uint32_t height, uint32_t layers, uint32_t block, uint32_t block_bytes,
+                 uint32_t level) {
+  LevelSpan s;
+  for (uint32_t l = 0;; ++l) {
+    s.width = std::max(width >> l, 1u);
+    s.height = std::max(height >> l, 1u);
+    s.bw = (s.width + block - 1) / block;
+    s.bh = (s.height + block - 1) / block;
+    s.row_bytes = s.bw * block_bytes;
+    s.layer_bytes = size_t(s.row_bytes) * s.bh;
+    if (l == level) return s;
+    s.offset += s.layer_bytes * layers;
+  }
+}
+
+inline uint32_t LayersOf(const Texture& t) { return t.volume ? t.depth : t.cube ? 6 : 1; }
+
+LevelSpan SpanOf(const Texture& t, uint32_t level) {
+  return SpanOf(t.width, t.height, LayersOf(t), t.block, t.block_bytes, level);
+}
 
 // A resolve: a rectangle of the current render target copied into a texture
 // at the same coordinates (rexglue draw_util GetResolveInfo).
@@ -1436,18 +1473,20 @@ void DecodeBC1Block(const uint8_t* b, uint8_t out[16][4], bool three_colour_alph
 }
 
 // BC1-3 blocks (tex.data, bw x bh blocks per layer) into RGBA8 texels.
-void DecodeBCToRGBA8(Texture& tex, uint32_t layers, uint32_t bw, uint32_t bh) {
+void DecodeBCToRGBA8(Texture& tex) {
   const bool bc1 = tex.format == MTLPixelFormatBC1_RGBA, bc2 = tex.format == MTLPixelFormatBC2_RGBA;
   const size_t block_bytes = bc1 ? 8 : 16;
-  const size_t in_face = size_t(bw) * bh * block_bytes;
-  const uint32_t w = tex.width, h = tex.height;
-  const size_t out_row = size_t(w) * 4, out_face = out_row * h;
-  decltype(tex.data) out(out_face * layers);
+  const uint32_t layers = LayersOf(tex);
+  decltype(tex.data) out(SpanOf(tex.width, tex.height, layers, 1, 4, tex.levels).offset);
   uint8_t px[16][4];
+  for (uint32_t level = 0; level < tex.levels; ++level) {
+  const LevelSpan in = SpanOf(tex, level), to = SpanOf(tex.width, tex.height, layers, 1, 4, level);
+  const uint32_t bw = in.bw, bh = in.bh, w = in.width, h = in.height;
+  const size_t in_face = in.layer_bytes, out_row = to.row_bytes, out_face = to.layer_bytes;
   for (uint32_t layer = 0; layer < layers; ++layer) {
     for (uint32_t by = 0; by < bh; ++by) {
       for (uint32_t bx = 0; bx < bw; ++bx) {
-        const uint8_t* b = tex.data.data() + layer * in_face + (size_t(by) * bw + bx) * block_bytes;
+        const uint8_t* b = tex.data.data() + in.offset + layer * in_face + (size_t(by) * bw + bx) * block_bytes;
         if (bc1) {
           DecodeBC1Block(b, px, true);
         } else {
@@ -1470,14 +1509,17 @@ void DecodeBCToRGBA8(Texture& tex, uint32_t layers, uint32_t bw, uint32_t bh) {
         }
         for (int i = 0; i < 16; ++i) {
           const uint32_t x = bx * 4 + (i & 3), y = by * 4 + (i >> 2);
-          if (x < w && y < h) std::memcpy(out.data() + layer * out_face + y * out_row + x * 4, px[i], 4);
+          if (x < w && y < h) std::memcpy(out.data() + to.offset + layer * out_face + y * out_row + x * 4, px[i], 4);
         }
       }
     }
   }
+  }
   tex.data.swap(out);
   tex.format = MTLPixelFormatRGBA8Unorm;
-  tex.row_bytes = uint32_t(out_row);
+  tex.row_bytes = tex.width * 4;
+  tex.block = 1;
+  tex.block_bytes = 4;
   tex.bytes = tex.data.size();
 }
 
@@ -1644,11 +1686,31 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   tex.height = height;
   const uint32_t bw = (width + info.block - 1) / info.block, bh = (height + info.block - 1) / info.block;
   tex.row_bytes = bw * info.bytes;
+  tex.block = info.block;
+  tex.block_bytes = info.bytes;
   tex.cube = cube;
   tex.volume = volume;
   tex.depth = depth;
   const size_t face_bytes = size_t(tex.row_bytes) * bh;
   const uint32_t layers = cube ? 6u : depth;
+  // The mips (2D and cube), where the game keeps them: rexglue's guest
+  // layout, as its Vulkan renderer loads them (levels 1.. under mip_address,
+  // the small ones packed into one tail).
+  uint32_t mip_page = 0, mip_max = 0;
+  texture_util::GetSubresourcesFromFetchConstant(t, nullptr, nullptr, nullptr, nullptr, &mip_page, nullptr,
+                                                 &mip_max);
+  if (volume || t.mip_filter == xenos::TextureFilter::kBaseMap) mip_max = 0;
+  texture_util::TextureGuestLayout mip_layout = {};
+  if (mip_max) {
+    mip_layout = texture_util::GetGuestTextureLayout(t.dimension, uint32_t(t.pitch), width, height, layers,
+                                                     bool(t.tiled), xenos::TextureFormat(t.format),
+                                                     bool(t.packed_mips), true, mip_max);
+    if (!mip_layout.mips_total_extent_bytes) mip_max = 0;
+  }
+  tex.levels = mip_max + 1;
+  const uint32_t mip_address = mip_page << 12;
+  const size_t mip_span = mip_max ? mip_layout.mips_total_extent_bytes : 0;
+  const uint8_t* mip_base = mip_max ? Physical(mip_address) : nullptr;
   const uint8_t* texture_base = Physical(uint32_t(t.base_address) << 12);
   const uint32_t log2 = __builtin_ctz(info.bytes);
   const auto endian = xenos::Endian(uint32_t(t.endianness));
@@ -1672,11 +1734,16 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   cached.last_used = frame_counter;
   // Watched and not written since: no need to read the memory (WriteWatch).
   const bool watch = REXCVAR_GET(nfsmw_native_write_watch);
-  bool hit = watch && cached.value && cached.watched && write_watch::Clean(texture_address, span);
+  bool hit = watch && cached.value && cached.watched && write_watch::Clean(texture_address, span) &&
+             (!mip_span || write_watch::Clean(mip_address, mip_span));
   uint64_t fingerprint = 0;
   if (!hit) {
-    if (watch && !cached.dynamic) write_watch::Arm(texture_address, span);
+    if (watch && !cached.dynamic) {
+      write_watch::Arm(texture_address, span);
+      if (mip_span) write_watch::Arm(mip_address, mip_span);
+    }
     fingerprint = Fingerprint(texture_base, span);
+    if (mip_span) fingerprint = (fingerprint ^ Fingerprint(mip_base, mip_span)) * 0x100000001B3ull;
     hit = cached.value && cached.fingerprint == fingerprint;
     if (hit) {
       // Its pages were written but not it (they hold data the CPU writes
@@ -1701,16 +1768,19 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   const auto decode_start = std::chrono::steady_clock::now();
   // Allocated only now, for a real decode (it was allocated, and zeroed,
   // before the cache check: for every lookup, then thrown away on a hit).
-  tex.data.resize(face_bytes * layers);
+  tex.data.resize(SpanOf(tex, tex.levels).offset);
   tex.bytes = tex.data.size();
-  for (uint32_t face = 0; face < layers; ++face) {
-  const uint8_t* base = texture_base + (volume ? (t.tiled ? 0 : face * linear_slice) : size_t(face) * face_stride);
+  // bw x bh blocks from (xo, yo) of an image at src (tiled: pitch in blocks;
+  // linear: row in bytes), byte-swapped, to dst rows of dst_row bytes.
+  auto copy_blocks = [&](const uint8_t* src_base, uint32_t pitch, uint32_t row, uint32_t z, uint32_t z_rows,
+                         uint32_t xo, uint32_t yo, uint32_t bw, uint32_t bh, uint8_t* dst_base, size_t dst_row) {
   for (uint32_t by = 0; by < bh; ++by) {
     for (uint32_t bx = 0; bx < bw; ++bx) {
-      const uint8_t* src = base + (t.tiled ? uint32_t(volume ? TiledOffset3D(int32_t(bx), int32_t(by), int32_t(face), pitch_blocks, bh, log2)
-                                                             : TiledOffset2D(int32_t(bx), int32_t(by), pitch_blocks, log2))
-                                           : by * linear_row + bx * info.bytes);
-      uint8_t* dst = tex.data.data() + face * face_bytes + size_t(by) * tex.row_bytes + size_t(bx) * info.bytes;
+      const int32_t x = int32_t(bx + xo), y = int32_t(by + yo);
+      const uint8_t* src = src_base + (t.tiled ? uint32_t(volume ? TiledOffset3D(x, y, int32_t(z), pitch, z_rows, log2)
+                                                                 : TiledOffset2D(x, y, pitch, log2))
+                                               : uint32_t(y) * row + uint32_t(x) * info.bytes);
+      uint8_t* dst = dst_base + size_t(by) * dst_row + size_t(bx) * info.bytes;
       if (info.bytes == 1) {
         *dst = *src;
         continue;
@@ -1731,6 +1801,25 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
       }
     }
   }
+  };
+  for (uint32_t face = 0; face < layers; ++face) {
+    const uint8_t* base = texture_base + (volume ? (t.tiled ? 0 : face * linear_slice) : size_t(face) * face_stride);
+    copy_blocks(base, pitch_blocks, linear_row, face, bh, 0, 0, bw, bh,
+                tex.data.data() + face * face_bytes, tex.row_bytes);
+  }
+  for (uint32_t level = 1; level <= mip_max; ++level) {
+    const uint32_t stored = std::min(level, mip_layout.packed_level);
+    const auto& guest = mip_layout.mips[stored];
+    uint32_t xo = 0, yo = 0, zo = 0;
+    if (level >= mip_layout.packed_level) {
+      texture_util::GetPackedMipOffset(width, height, 1, xenos::TextureFormat(t.format), level, xo, yo, zo);
+    }
+    const LevelSpan to = SpanOf(tex, level);
+    for (uint32_t face = 0; face < layers; ++face) {
+      copy_blocks(mip_base + mip_layout.mip_offsets_bytes[stored] + size_t(face) * guest.array_slice_stride_bytes,
+                  guest.row_pitch_bytes / info.bytes, guest.row_pitch_bytes, 0, 0, xo, yo, to.bw, to.bh,
+                  tex.data.data() + to.offset + face * to.layer_bytes, to.row_bytes);
+    }
   }
   ++frame.textures_decoded;
   frame.texture_decode_bytes += tex.data.size();
@@ -1758,7 +1847,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     // Expanded on the GPU at upload (BcDecodeOnGpu): the blocks upload small
     // and the CPU does nothing; 3D textures (rare) on the CPU.
     if (tex.volume || !REXCVAR_GET(nfsmw_native_bc_gpu_decode)) {
-      DecodeBCToRGBA8(tex, layers, bw, bh);
+      DecodeBCToRGBA8(tex);
     } else {
       tex.bc_on_gpu = true;
     }
@@ -1777,6 +1866,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     tex.data.swap(out);
     tex.format = MTLPixelFormatRGBA8Unorm;
     tex.row_bytes *= 2;
+    tex.block_bytes = 4;
     tex.bytes = tex.data.size();
   }
   // The fetch swizzle over what the console's fetch returns for formats with
@@ -1814,6 +1904,10 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   tex.clamp_y = uint32_t(t.clamp_y);
   tex.linear_filter = uint32_t(t.min_filter) != 0;
   tex.aniso_filter = t.aniso_filter;
+  if (tex.levels > 1) {
+    tex.mip_filter = t.mip_filter == xenos::TextureFilter::kPoint ? MTLSamplerMipFilterNearest
+                                                                  : MTLSamplerMipFilterLinear;
+  }
   cached.value = std::make_shared<Texture>(std::move(tex));
   cached.fingerprint = fingerprint;
   frame.textures.push_back(cached.value);
@@ -3006,6 +3100,7 @@ id<MTLTexture> BcDecodeOnGpu(id<MTLDevice> device, const Texture& t) {
   desc.pixelFormat = MTLPixelFormatRGBA8Unorm;
   desc.width = t.width;
   desc.height = t.height;
+  desc.mipmapLevelCount = t.levels;
   if (t.cube) desc.textureType = MTLTextureTypeCube;
   desc.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsagePixelFormatView;
   desc.storageMode = MTLStorageModePrivate;
@@ -3018,21 +3113,29 @@ id<MTLTexture> BcDecodeOnGpu(id<MTLDevice> device, const Texture& t) {
     bc_cb.label = @"BC decode";
     bc_enc = [bc_cb computeCommandEncoder];
   }
-  const uint32_t bw = (t.width + 3) / 4, bh = (t.height + 3) / 4;
   const uint32_t kind = t.format == MTLPixelFormatBC1_RGBA ? 1 : t.format == MTLPixelFormatBC2_RGBA ? 2 : 3;
-  struct { uint32_t bw, bh, w, h, kind, layer_bytes; } params = {
-      bw, bh, t.width, t.height, kind, uint32_t(t.data.size() / (t.cube ? 6 : 1))};
   [bc_enc setComputePipelineState:pso];
-  [bc_enc setBuffer:blocks offset:0 atIndex:0];
-  [bc_enc setBytes:&params length:sizeof(params) atIndex:1];
-  [bc_enc setTexture:base atIndex:0];
-  [bc_enc dispatchThreads:MTLSizeMake(bw, bh, t.cube ? 6 : 1) threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+  for (uint32_t level = 0; level < t.levels; ++level) {
+    const LevelSpan span = SpanOf(t, level);
+    struct { uint32_t bw, bh, w, h, kind, layer_bytes; } params = {
+        span.bw, span.bh, span.width, span.height, kind, uint32_t(span.layer_bytes)};
+    // Each level through a view of its own (the kernel writes level 0).
+    id<MTLTexture> target = level == 0 ? base
+                                       : [base newTextureViewWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                 textureType:base.textureType
+                                                                      levels:NSMakeRange(level, 1)
+                                                                      slices:NSMakeRange(0, t.cube ? 6 : 1)];
+    [bc_enc setBuffer:blocks offset:span.offset atIndex:0];
+    [bc_enc setBytes:&params length:sizeof(params) atIndex:1];
+    [bc_enc setTexture:target atIndex:0];
+    [bc_enc dispatchThreads:MTLSizeMake(span.bw, span.bh, t.cube ? 6 : 1) threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+  }
   // The fetch swizzle on a view: a texture the kernel writes carries none.
   const MTLTextureSwizzleChannels identity = MTLTextureSwizzleChannelsDefault;
   if (std::memcmp(&t.swizzle, &identity, sizeof(identity)) == 0) return base;
   return [base newTextureViewWithPixelFormat:MTLPixelFormatRGBA8Unorm
                                  textureType:base.textureType
-                                      levels:NSMakeRange(0, 1)
+                                      levels:NSMakeRange(0, t.levels)
                                       slices:NSMakeRange(0, t.cube ? 6 : 1)
                                      swizzle:t.swizzle];
 }
@@ -3078,6 +3181,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   desc.pixelFormat = t.format;
   desc.width = t.width;
   desc.height = t.height;
+  desc.mipmapLevelCount = t.levels;
   desc.swizzle = t.swizzle;
   if (t.volume) {
     desc.textureType = MTLTextureType3D;
@@ -3086,8 +3190,8 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
     desc.textureType = MTLTextureTypeCube;
   }
   id<MTLTexture> tex = NewTexture(device, desc, "desc@3");
-  const size_t layers = t.volume ? t.depth : t.cube ? 6 : 1;
-  const size_t layer_bytes = t.data.size() / layers;
+  const size_t layers = LayersOf(t);
+  const size_t layer_bytes = SpanOf(t, 0).layer_bytes;
   if (t.volume) {
     [tex replaceRegion:MTLRegionMake3D(0, 0, 0, t.width, t.height, t.depth)
            mipmapLevel:0
@@ -3096,13 +3200,16 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
            bytesPerRow:t.row_bytes
          bytesPerImage:layer_bytes];
   } else {
-    for (NSUInteger layer = 0; layer < layers; ++layer) {
-      [tex replaceRegion:MTLRegionMake2D(0, 0, t.width, t.height)
-             mipmapLevel:0
-                   slice:layer
-               withBytes:t.data.data() + layer * layer_bytes
-             bytesPerRow:t.row_bytes
-           bytesPerImage:layer_bytes];
+    for (uint32_t level = 0; level < t.levels; ++level) {
+      const LevelSpan span = SpanOf(t, level);
+      for (NSUInteger layer = 0; layer < layers; ++layer) {
+        [tex replaceRegion:MTLRegionMake2D(0, 0, span.width, span.height)
+               mipmapLevel:level
+                     slice:layer
+                 withBytes:t.data.data() + span.offset + layer * span.layer_bytes
+               bytesPerRow:span.row_bytes
+             bytesPerImage:span.layer_bytes];
+      }
     }
   }
   t.gpu.texture = tex;
@@ -3119,10 +3226,11 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
 }
 
 id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp_x, uint32_t clamp_y,
-                               bool volume_or_cube, uint32_t max_anisotropy = 1) {
+                               bool volume_or_cube, uint32_t max_anisotropy = 1,
+                               MTLSamplerMipFilter mip_filter = MTLSamplerMipFilterNotMipmapped) {
   max_anisotropy = std::clamp(max_anisotropy, 1u, 16u);
   const uint32_t key = (linear ? 1u : 0u) | (clamp_x << 1) | (clamp_y << 4) |
-                       (volume_or_cube ? 1u << 7 : 0u) | (max_anisotropy << 8);
+                       (volume_or_cube ? 1u << 7 : 0u) | (max_anisotropy << 8) | (uint32_t(mip_filter) << 13);
   auto found = gpu_samplers.find(key);
   if (found != gpu_samplers.end()) {
     return found->second;
@@ -3131,6 +3239,7 @@ id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp
   {
     MTLSamplerDescriptor* sd = [MTLSamplerDescriptor new];
     sd.minFilter = sd.magFilter = linear ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+    sd.mipFilter = mip_filter;
     sd.sAddressMode = volume_or_cube ? MTLSamplerAddressModeClampToEdge : AddressMode(clamp_x);
     sd.tAddressMode = volume_or_cube ? MTLSamplerAddressModeClampToEdge : AddressMode(clamp_y);
     sd.rAddressMode = MTLSamplerAddressModeClampToEdge;
@@ -3412,7 +3521,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
       }
       [samplers addObject:SamplerFor(device, t.linear_filter || t.cube || t.volume, t.clamp_x, t.clamp_y,
-                                     t.cube || t.volume, anisotropy)];
+                                     t.cube || t.volume, anisotropy, t.mip_filter)];
     }
     [samplers insertObject:SamplerFor(device, true, 2, 2, false) atIndex:0];
     BcFlush();  // the frame's BC decodes run before the frame
