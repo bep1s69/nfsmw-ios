@@ -3344,12 +3344,19 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   return tex;
 }
 
+// MetalFX temporal: mip levels chosen for the shown size, not the drawn one
+// (log2 of drawn / shown, in eighths; 0 otherwise), as temporal upscalers
+// want: the textures as sharp as the picture it builds (render thread).
+int32_t temporal_lod_bias_eighths = 0;
+
 id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp_x, uint32_t clamp_y,
                                bool volume_or_cube, uint32_t max_anisotropy = 1,
                                MTLSamplerMipFilter mip_filter = MTLSamplerMipFilterNotMipmapped) {
   max_anisotropy = std::clamp(max_anisotropy, 1u, 16u);
+  const int32_t bias = mip_filter == MTLSamplerMipFilterNotMipmapped ? 0 : temporal_lod_bias_eighths;
   const uint32_t key = (linear ? 1u : 0u) | (clamp_x << 1) | (clamp_y << 4) |
-                       (volume_or_cube ? 1u << 7 : 0u) | (max_anisotropy << 8) | (uint32_t(mip_filter) << 13);
+                       (volume_or_cube ? 1u << 7 : 0u) | (max_anisotropy << 8) | (uint32_t(mip_filter) << 13) |
+                       uint32_t(-bias) << 16;
   auto found = gpu_samplers.find(key);
   if (found != gpu_samplers.end()) {
     return found->second;
@@ -3363,6 +3370,7 @@ id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp
     sd.tAddressMode = volume_or_cube ? MTLSamplerAddressModeClampToEdge : AddressMode(clamp_y);
     sd.rAddressMode = MTLSamplerAddressModeClampToEdge;
     sd.maxAnisotropy = max_anisotropy;
+    if (@available(iOS 26.0, *)) sd.lodBias = float(bias) / 8.0f;
     sd.supportArgumentBuffers = YES;
     s = [device newSamplerStateWithDescriptor:sd];
   }
@@ -4011,8 +4019,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       auto writes_motion = [&](const Draw& d) {
         return (d.depth_control & 6) == 6 && (d.color_mask & 0xF) && !store.internal_keys.count(d.vs_key);
       };
+      // Draws in a row mostly share their target: its key made once.
+      const Draw* keyed = nullptr;
+      std::string keyed_key;
+      auto key_of = [&](const Draw& d) -> const std::string& {
+        if (!keyed || keyed->surface_info != d.surface_info || keyed->color_info != d.color_info ||
+            keyed->depth_info != d.depth_info) {
+          keyed_key = target_key(d);
+        }
+        keyed = &d;
+        return keyed_key;
+      };
       for (const Draw& d : frame->draws) {
-        if (writes_motion(d)) ++scene_draws[target_key(d)];
+        if (writes_motion(d)) ++scene_draws[key_of(d)];
       }
       uint32_t most = 0;
       for (const auto& [key, n] : scene_draws) {
@@ -4023,7 +4042,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         motion_key = key;
       }
       for (size_t i = 0; i < frame->draws.size() && !motion_key.empty(); ++i) {
-        if (writes_motion(frame->draws[i]) && target_key(frame->draws[i]) == motion_key) last_motion_draw = i;
+        if (writes_motion(frame->draws[i]) && key_of(frame->draws[i]) == motion_key) last_motion_draw = i;
       }
       if (!motion_key.empty()) {
         const Target& t = targets[motion_key];
@@ -5387,6 +5406,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const NSUInteger shown_w = NSUInteger(std::lround(dw * fit[0]));
         const NSUInteger shown_h = NSUInteger(std::lround(dh * fit[1]));
         bool temporal_done = false;
+        bool temporal_shown = false;  // this frame: the last one shown, for the history's reset
+        static bool temporal_last_shown = false;
         if (temporal && motion_ready && !motion_debug && final_rect.origin.x == 0 && final_rect.origin.y == 0 &&
             shown_w + 8 >= NSUInteger(sw) && shown_h + 8 >= NSUInteger(sh)) {
           static id<MTLFXTemporalScaler> scaler;
@@ -5447,10 +5468,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             // The scene's depth function: GREATER (4) or GEQUAL (6) is reversed depth.
             const uint32_t depth_function = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
             const bool reversed = depth_function == 4 || depth_function == 6;
-            // History from a frame shown just before only (not across menus).
-            static uint32_t last_number = 0;
-            reset = reset || number != last_number + 1;
-            last_number = number;
+            // History kept unless the last frame shown was not a temporal one
+            // (a menu without a scene, a movie) or is long gone.
+            static auto last_time = std::chrono::steady_clock::now();
+            const auto now = std::chrono::steady_clock::now();
+            reset = reset || !temporal_last_shown || now - last_time > std::chrono::milliseconds(250);
+            last_time = now;
+            temporal_shown = true;
             const float flip = REXCVAR_GET(nfsmw_native_jitter_flip) ? -1.0f : 1.0f;
             scaler.colorTexture = final_texture;
             scaler.depthTexture = motion_depth;
@@ -5470,8 +5494,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             shown_texture = upscaled;
             crop[0] = crop[1] = 1.0f;
             temporal_done = true;
+            // The next frames' textures: mip levels for the shown size.
+            temporal_lod_bias_eighths =
+                std::clamp(int32_t(std::lround(8.0 * std::log2(double(sw) / double(out_w)))), -16, 0);
           }
         }
+        temporal_last_shown = temporal_shown;
+        if (!temporal_done) temporal_lod_bias_eighths = 0;
         // FXAA first (with MetalFX always: it sharpens what it is given).
         id<MTLTexture> source = final_texture;
         if (!temporal_done) {
