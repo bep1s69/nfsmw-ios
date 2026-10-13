@@ -216,8 +216,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
 REXCVAR_DEFINE_STRING(nfsmw_native_fxaa, "off", "GPU",
-                      "Native renderer: FXAA over the final picture (off, normal, high); always on "
-                      "with MetalFX upscaling, which sharpens jagged edges");
+                      "Native renderer: FXAA over the final picture (off, normal, high); the launcher "
+                      "turns it on with MetalFX upscaling without MSAA (it sharpens jagged edges)");
+REXCVAR_DEFINE_INT32(nfsmw_native_force_msaa, 0, "GPU",
+                     "Native renderer: MSAA (2 or 4) for the scene where the game draws it without "
+                     "(at 19.5:9 the console's 10 MB EDRAM had no room for it); 0 = the game's own");
 REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx, false, "GPU",
                     "Native renderer: the picture upscaled to the screen by MetalFX (spatial) instead of "
                     "the plain bilinear stretch, when it is drawn at fewer pixels than it is shown");
@@ -3602,12 +3605,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const bool msaa_disabled = rex::cvar::Query<bool>("gpu_sin_msaa");
     const int32_t configured_maximum = rex::cvar::Query<int32_t>("gpu_msaa_muestras");
     const uint32_t maximum_samples = configured_maximum >= 4 ? 4u : configured_maximum >= 2 ? 2u : 1u;
+    const int32_t forced_setting = REXCVAR_GET(nfsmw_native_force_msaa);
+    const uint32_t forced_samples = msaa_disabled ? 1u : forced_setting >= 4 ? 4u : forced_setting >= 2 ? 2u : 1u;
     static bool settings_logged = false;
     if (!settings_logged) {
       settings_logged = true;
       REXLOG_INFO("[native] internal resolution {:.3f}x (setting {}), MSAA {} (up to {}x)", resolution_scale,
                   REXCVAR_GET(nfsmw_native_resolution_scale),
                   msaa_disabled ? "off" : "from game targets", maximum_samples);
+      if (forced_samples > 1) {
+        REXLOG_INFO("[native] MSAA {}x forced on the scene where the game draws without", forced_samples);
+      }
     }
     // A target per pass: each time the render target registers change, a
     // fresh image (the shadow map and the final UI pass share colour base,
@@ -3660,6 +3668,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         sample_counts[key1] = sample_counts[key];
         second_of[key1] = key;
       }
+    }
+    // Forced MSAA: on the targets the game draws at 1x that are a scene (640
+    // or more pixels wide, mostly drawn with colour: not a shadow map), and
+    // their second targets. Small targets (reflections, the bloom chain) and
+    // shadow maps keep the game's.
+    if (forced_samples > 1) {
+      for (auto& [key, size] : sizes) {
+        if (second_of.count(key) || sample_counts[key] > 1 || size.first < 640) continue;
+        if (depth_only_draws[key] * 2 > targets[key].draws) continue;
+        uint32_t samples = forced_samples;
+        while (samples > 1 && ![device supportsTextureSampleCount:samples]) samples >>= 1;
+        sample_counts[key] = samples;
+      }
+      for (auto& [key1, key] : second_of) sample_counts[key1] = sample_counts[key];
     }
     const bool scale_shadows = REXCVAR_GET(nfsmw_native_scale_shadows);
     auto scale_of = [&](const std::string& key) -> float {
@@ -4953,7 +4975,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const bool high = mode == "high";
           static id<MTLTexture> smoothed;
           static std::string said_mode;
-          if ((metalfx || high || mode == "normal") && sw >= 1 && sh >= 1) {
+          if ((high || mode == "normal") && sw >= 1 && sh >= 1) {
             id<MTLRenderPipelineState> fxaa = FxaaPipeline(device, final_texture.pixelFormat);
             const NSUInteger w = NSUInteger(sw), h = NSUInteger(sh);
             if (fxaa && !(smoothed && smoothed.width == w && smoothed.height == h &&

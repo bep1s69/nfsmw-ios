@@ -399,9 +399,10 @@ const std::vector<Section>& Sections() {
       {@"Graphics", nil,
        {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
-            @"Smooths jagged edges. MSAA is the game's own: the finest and the most expensive "
-            @"(it also turns off the single-pass scene). FXAA is a filter over the final "
-            @"image: much cheaper, but a little softer.",
+            @"Smooths jagged edges. MSAA is the finest and the most expensive (with the native "
+            @"renderer at every screen shape; without it, the game's own, not at 19.5:9). FXAA is "
+            @"a filter over the final image: much cheaper, but a little softer. With MetalFX "
+            @"upscaling it is never off: Off is FXAA.",
             @"off",
             {{@"Off", @"off"},
              {@"MSAA 2x", @"msaa2"},
@@ -608,14 +609,13 @@ NSString* ResolvedAspect(NSDictionary<NSString*, NSString*>* s) {
   return [aspect isEqualToString:@"auto"] ? AutoAspect() : aspect;
 }
 
-// MetalFX upscaling (native renderer) takes FXAA: the anti-aliasing setting
-// is shown as FXAA and locked while it is on.
-bool MetalFxLocksAa(NSDictionary<NSString*, NSString*>* s) {
-  return On(s, @"native_renderer") && On(s, @"metalfx");
+// MetalFX upscaling (native renderer) sharpens jagged edges: with it the
+// anti-aliasing is never off (Off shows, and works, as FXAA).
+bool MetalFxNeedsAa(NSDictionary<NSString*, NSString*>* s) {
+  return On(s, @"native_renderer") && On(s, @"metalfx") && [Value(s, @"antialiasing") isEqualToString:@"off"];
 }
 
 bool Msaa(NSDictionary<NSString*, NSString*>* s) {
-  if (MetalFxLocksAa(s)) return false;
   return [Value(s, @"antialiasing") hasPrefix:@"msaa"];
 }
 
@@ -691,10 +691,13 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +
-                (MetalFxLocksAa(s)                          ? "normal"
+                (MetalFxNeedsAa(s)                          ? "normal"
                  : [aa_mode isEqualToString:@"fxaa"]      ? "normal"
                  : [aa_mode isEqualToString:@"fxaa_high"] ? "high"
                                                           : "off"));
+    // MSAA in the native renderer also where the game draws without (19.5:9).
+    a.push_back(std::string("--nfsmw_native_force_msaa=") +
+                ([aa_mode isEqualToString:@"msaa4"] ? "4" : [aa_mode isEqualToString:@"msaa2"] ? "2" : "0"));
   } else {
     a.push_back("--resolution_scale=" + std::to_string(whole_scale));
   }
@@ -1427,9 +1430,8 @@ NSString* AchievementSummary(const Achievements& a) {
       break;
     }
     case Type::kChoice: {
-      // Anti-aliasing with MetalFX: FXAA, locked.
-      const bool aa_locked = [key isEqualToString:@"antialiasing"] && MetalFxLocksAa(_settings);
-      if (aa_locked) value = @"fxaa";
+      // Anti-aliasing with MetalFX: never off (Off is FXAA).
+      if ([key isEqualToString:@"antialiasing"] && MetalFxNeedsAa(_settings)) value = @"fxaa";
       NSMutableArray<UIMenuElement*>* items = [NSMutableArray array];
       for (const Choice& ch : o.choices) {
         NSString* v = ch.value;
@@ -1452,8 +1454,8 @@ NSString* AchievementSummary(const Achievements& a) {
       button.showsMenuAsPrimaryAction = YES;
       button.changesSelectionAsPrimaryAction = YES;
       [button sizeToFit];
-      button.enabled = !inactive && !aa_locked;
-      cell.contentView.alpha = inactive || aa_locked ? 0.45 : 1.0;
+      button.enabled = !inactive;
+      cell.contentView.alpha = inactive ? 0.45 : 1.0;
       cell.accessoryView = button;
       break;
     }
