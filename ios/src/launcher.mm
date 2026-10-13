@@ -387,7 +387,7 @@ const std::vector<Section>& Sections() {
             {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
              {@"Anti-aliasing only", @"drawn"}}},
            {@"frame_generation", Type::kSwitch, @"Frame generation (experimental)",
-            @"Native renderer, with MetalFX on: MetalFX makes a frame between each two of the "
+            @"Native renderer: Apple's MetalFX makes a frame between each two of the "
             @"game's, for twice the frames on screen (the 60 cap shown at 120 on a 120 Hz "
             @"screen, 30 at 60). Adds half a frame of delay; the HUD can wobble in the made frames.",
             @"false"},

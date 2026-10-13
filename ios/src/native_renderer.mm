@@ -984,7 +984,8 @@ std::unique_ptr<Frame> recording;
 // The last frame's Frame::motion_constants (game thread).
 std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> previous_motion_constants;
 bool MotionVectorsWanted() {
-  return MetalFxTemporal() || REXCVAR_GET(nfsmw_native_motion_debug);
+  return MetalFxTemporal() || REXCVAR_GET(nfsmw_native_motion_debug) ||
+         REXCVAR_GET(nfsmw_native_frame_interpolation);
 }
 inline uint64_t MotionMix(uint64_t h, uint64_t v) { return (h ^ (v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2))) * 0x100000001B3ull; }
 int64_t next_dump_ms = 0;
@@ -3413,6 +3414,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
 // (log2 of drawn / shown, in eighths; 0 otherwise), as temporal upscalers
 // want: the textures as sharp as the picture it builds (render thread).
 int32_t temporal_lod_bias_eighths = 0;
+bool metalfx_failed = false;  // no temporal scaler for the last size asked: no jitter either
 
 id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp_x, uint32_t clamp_y,
                                bool volume_or_cube, uint32_t max_anisotropy = 1,
@@ -4079,7 +4081,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t last_motion_draw = 0;
     static id<MTLTexture> motion_texture, motion_multisample, motion_depth;
     bool motion_ready = false;  // this frame's motion and depth are in those
-    if (temporal || motion_debug) {
+    if (temporal || motion_debug || REXCVAR_GET(nfsmw_native_frame_interpolation)) {
       std::map<std::string, uint32_t> scene_draws;
       auto writes_motion = [&](const Draw& d) {
         return (d.depth_control & 6) == 6 && (d.color_mask & 0xF) && !store.internal_keys.count(d.vs_key);
@@ -4148,7 +4150,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // scene's pixels; each scene draw's position moved by it (MetalFX takes
     // the samples of several frames as the finer picture's).
     float jitter[2] = {0, 0};
-    if (temporal && !motion_key.empty()) {
+    if (temporal && !motion_key.empty() && !metalfx_failed) {
       auto halton = [](uint32_t i, uint32_t b) {
         float f = 1, r = 0;
         for (; i; i /= b) {
@@ -5482,6 +5484,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static id<MTLTexture> upscaled;
           static NSUInteger in_w = 0, in_h = 0;
           static MTLPixelFormat in_format = MTLPixelFormatInvalid;
+          static NSUInteger asked_w = 0, asked_h = 0;  // the output asked for (made: maybe larger)
+          static bool failed = false;                  // no scaler for what was asked: not asked again
           static bool said_unsupported = false;
           const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
           const double part = mode == "lower" ? 0.75 : mode == "drawn" ? 0.0 : 1.0;
@@ -5490,27 +5494,34 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const NSUInteger iw = std::min({final_texture.width, motion_texture.width, motion_depth.width});
           const NSUInteger ih = std::min({final_texture.height, motion_texture.height, motion_depth.height});
           bool reset = false;
-          if (iw >= NSUInteger(sw) && ih >= NSUInteger(sh) &&
-              !(scaler && in_w == iw && in_h == ih && in_format == final_texture.pixelFormat &&
-                upscaled.width == out_w && upscaled.height == out_h)) {
+          const bool same_ask = in_w == iw && in_h == ih && in_format == final_texture.pixelFormat &&
+                                asked_w == out_w && asked_h == out_h;
+          if (iw >= NSUInteger(sw) && ih >= NSUInteger(sh) && !(same_ask && (scaler || failed))) {
             scaler = nil;
             upscaled = nil;
             reset = true;
-            const float factor = std::max(float(out_w) / sw, float(out_h) / sh);
-            if (![MTLFXTemporalScalerDescriptor supportsDevice:device] ||
-                factor > [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] + 0.01f ||
-                factor < [MTLFXTemporalScalerDescriptor supportedInputContentMinScaleForDevice:device] - 0.01f) {
-              if (!said_unsupported) {
-                said_unsupported = true;
-                REXLOG_WARN("[native] MetalFX temporal: not on this GPU for {}x{} -> {}x{}; plain stretch",
-                            int(sw), int(sh), out_w, out_h);
-              }
-            } else {
+            in_w = iw;
+            in_h = ih;
+            in_format = final_texture.pixelFormat;
+            asked_w = out_w;
+            asked_h = out_h;
+            failed = true;
+            // Anti-aliasing only (1:1): the GPU's smallest scale if 1:1 is
+            // not made (the present pass then shows it at the screen's size).
+            const float min_scale = [MTLFXTemporalScalerDescriptor supportedInputContentMinScaleForDevice:device];
+            const float max_scale = [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device];
+            std::vector<float> scales = {std::max(float(out_w) / sw, float(out_h) / sh)};
+            if (mode == "drawn") scales.insert(scales.end(), {std::max(min_scale, 1.0f), 1.25f, 1.5f});
+            if (![MTLFXTemporalScalerDescriptor supportsDevice:device]) scales.clear();
+            for (float factor : scales) {
+              if (scaler || factor > max_scale + 0.01f || factor < min_scale - 0.01f) continue;
+              const NSUInteger fw = std::max(NSUInteger(std::lround(sw * factor)), out_w);
+              const NSUInteger fh = std::max(NSUInteger(std::lround(sh * factor)), out_h);
               MTLFXTemporalScalerDescriptor* td = [MTLFXTemporalScalerDescriptor new];
               td.inputWidth = iw;
               td.inputHeight = ih;
-              td.outputWidth = out_w;
-              td.outputHeight = out_h;
+              td.outputWidth = factor == scales.front() ? out_w : fw;
+              td.outputHeight = factor == scales.front() ? out_h : fh;
               td.colorTextureFormat = final_texture.pixelFormat;
               td.depthTextureFormat = MTLPixelFormatDepth32Float;
               td.motionTextureFormat = kMotionFormat;
@@ -5520,22 +5531,27 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               if (scaler) {
                 MTLTextureDescriptor* od =
                     [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
-                                                                       width:out_w
-                                                                      height:out_h
+                                                                       width:td.outputWidth
+                                                                      height:td.outputHeight
                                                                    mipmapped:NO];
                 od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
                 od.storageMode = MTLStorageModePrivate;
                 upscaled = [device newTextureWithDescriptor:od];
-                in_w = iw;
-                in_h = ih;
-                in_format = final_texture.pixelFormat;
-                REXLOG_INFO("[native] MetalFX temporal: {}x{} to {}x{}", int(sw), int(sh), out_w, out_h);
+                failed = !upscaled;
+                REXLOG_INFO("[native] MetalFX temporal: {}x{} to {}x{} (scales {:.2f}-{:.2f})", int(sw), int(sh),
+                            td.outputWidth, td.outputHeight, min_scale, max_scale);
               } else {
-                REXLOG_WARN("[native] MetalFX temporal: no scaler for {}x{} -> {}x{}", int(sw), int(sh), out_w,
-                            out_h);
+                REXLOG_WARN("[native] MetalFX temporal: no scaler for {}x{} -> {}x{}", int(sw), int(sh),
+                            td.outputWidth, td.outputHeight);
               }
             }
+            if (failed && !said_unsupported) {
+              said_unsupported = true;
+              REXLOG_WARN("[native] MetalFX temporal: none for {}x{} -> {}x{} on this GPU (scales {:.2f}-{:.2f}); "
+                          "plain stretch, no jitter", int(sw), int(sh), out_w, out_h, min_scale, max_scale);
+            }
           }
+          metalfx_failed = failed;
           if (scaler && upscaled) {
             // The scene's depth function: GREATER (4) or GEQUAL (6) is reversed depth.
             const uint32_t depth_function = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
@@ -5658,12 +5674,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           bool kept = false;
           const double screen_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
           const Camera* camera = nullptr;
-          if (temporal_done) {
+          if (motion_ready && !motion_debug) {
             const Draw& scene = frame->draws[last_motion_draw];
             auto found = frame->cameras.find({scene.surface_info, scene.color_info, scene.depth_info});
             if (found != frame->cameras.end()) camera = &found->second;
           }
-          if (REXCVAR_GET(nfsmw_native_frame_interpolation) && temporal_done && camera && game_cap > 0 &&
+          // Without MetalFX temporal: the picture as drawn (its own size only).
+          if (!temporal_done && motion_ready) {
+            temporal_in_w = std::min({shown_texture.width, motion_texture.width, motion_depth.width});
+            temporal_in_h = std::min({shown_texture.height, motion_texture.height, motion_depth.height});
+            const uint32_t f = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
+            temporal_reversed = f == 4 || f == 6;
+          }
+          const bool fits = temporal_done || (std::fabs(crop[0] - 1.0f) < 0.002f && std::fabs(crop[1] - 1.0f) < 0.002f);
+          if (REXCVAR_GET(nfsmw_native_frame_interpolation) && fits && camera && game_cap > 0 &&
               2.0 * game_cap <= screen_hz + 1.0) {
             const NSUInteger ow = shown_texture.width, oh = shown_texture.height;
             if (!(interpolator && made && made.width == ow && made.height == oh &&
@@ -5721,7 +5745,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 interpolator.farPlane = camera->far_plane;
                 interpolator.fieldOfView = camera->fov_degrees;
                 interpolator.aspectRatio = camera->aspect;
-                interpolator.jitterOffsetX = 0;  // the picture is MetalFX's own (not jittered)
+                interpolator.jitterOffsetX = 0;  // MetalFX temporal's picture, or not jittered
                 interpolator.jitterOffsetY = 0;
                 interpolator.depthReversed = temporal_reversed;
                 interpolator.shouldResetHistory = NO;
