@@ -479,9 +479,9 @@ struct ShaderStore {
         // The XMV movie player's shaders (built into the executable, not the
         // game's files; from their microcode, logged with ios_log_shader_disasm).
         // acc15ef6157ec934: oPos = (xyz, 1) (32_32_32 at vfetch 3), o0 = uv
-        // (mini 32_32 at +12, vfetch 4).
+        // (mini 32_32 at +12, vfetch 4, bound as r0._xy_: uv lands in y and z).
         "vertex Out vs_xyz_uv(InPosUv in [[stage_in]], constant float4& xf [[buffer(30)]]) { Out o; "
-        "float4 v = float4(in.a13.xy, 0.0, 1.0); " + all + "o.pos = toClip(float4(in.a0.xyz, 1.0), xf); return o; }\n"
+        "float4 v = float4(in.a13.yz, 0.0, 1.0); " + all + "o.pos = toClip(float4(in.a0.xyz, 1.0), xf); return o; }\n"
         // 2d2462de73d283de: Y, U, V from tf0-2 (each read as x) at t0.xy; with
         // its literal constants c254 (Y offset, chroma offset, Y scale) and c255
         // (chroma weights): R = s(Y-o) + V c255.y, G = s(Y-o) + U c255.z + V c255.x,
