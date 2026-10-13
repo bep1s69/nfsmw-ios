@@ -34,6 +34,7 @@
 
 #include "launcher.h"
 #include "touch_controls.h"
+#include "save_manager.h"
 #include <dlfcn.h>
 #include <mach-o/loader.h>
 
@@ -263,6 +264,13 @@ const std::vector<Section>& Sections() {
             @"The Black Edition extras that exist in the Xbox 360 game, like the Porsche 911 "
             @"GT2 and the Corvette C6.R.",
             @"true"},
+       }, kTabGame},
+      {@"Saves", nil,
+       {
+           {@"saves", Type::kLink, @"Save manager",
+            @"Your careers with their progress; backups, restore, export and import; and a copy "
+            @"in an iCloud Drive folder, kept in sync between your devices.",
+            @""},
        }, kTabGame},
       {@"Extra Options", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
@@ -1052,6 +1060,7 @@ NSString* AchievementSummary(const Achievements& a) {
   std::vector<fs::path> _isos;
   NSString* _isoName;  // the chosen one's file name
   NSInteger _tab;      // Tab
+  int _savesAttention;  // saves newer in iCloud or changed on both sides
   std::vector<size_t> _visible;  // the Sections() shown on this tab
 }
 
@@ -1106,6 +1115,8 @@ NSString* AchievementSummary(const Achievements& a) {
   about.font = [UIFont systemFontOfSize:12];
   about.textColor = UIColor.tertiaryLabelColor;
   self.tableView.tableFooterView = about;
+  // Saves: a backup of what changed, and changes from this device to iCloud.
+  _savesAttention = nfsmw::saves::AutoSync(_docs);
   [self reloadTab];
   [self rescan];
   // Back from the Files app (an ISO copied in): look again.
@@ -1276,6 +1287,16 @@ NSString* AchievementSummary(const Achievements& a) {
   }
 
   const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+  if ([o.key isEqualToString:@"saves"] && _savesAttention) {
+    c.text = o.title;
+    c.secondaryText = [NSString stringWithFormat:@"%d save(s) newer in iCloud or changed on two devices: "
+                                                 @"open to choose which to keep.",
+                                                 _savesAttention];
+    c.secondaryTextProperties.color = UIColor.systemOrangeColor;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.contentConfiguration = c;
+    return cell;
+  }
   // Greyed out: what only the emulated renderer uses while the native one
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
@@ -1392,6 +1413,10 @@ NSString* AchievementSummary(const Achievements& a) {
   }
   if (ip.section >= fixed) {
     const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+    if (o.type == Type::kLink && [o.key isEqualToString:@"saves"]) {
+      [self.navigationController pushViewController:nfsmw::saves::MakeSaveManager(_docs) animated:YES];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"touch_layout"]) {
       [self presentViewController:nfsmw::touch::MakeLayoutEditor() animated:YES completion:nil];
       return;
