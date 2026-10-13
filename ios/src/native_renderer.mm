@@ -126,6 +126,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
                     "Native renderer: show Apple's Metal Performance HUD for the game picture");
 REXCVAR_DEFINE_BOOL(nfsmw_native_bc_gpu_decode, true, "GPU",
                     "Native renderer: on GPUs without BC (DXT) formats, expand them on the GPU (off: on the CPU)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time, true, "GPU",
+                    "Native renderer: below the display rate, present each frame at an even target time "
+                    "(frame pacing at the 30/40/60 caps)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -4860,6 +4863,27 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e endEncoding];
         // What the screen shows: a gap between two frames on it (a stutter
         // the player sees, whatever its cause), logged with the frame's number.
+        // Frame pacing: below the display's rate (the 30, 40 and 60 caps on a
+        // 120 Hz screen, 30 on 60 Hz) each frame gets a target time one cap
+        // interval after the previous one, so every frame stays on screen
+        // equally long (shown as soon as ready, a frame a hair late stayed for
+        // one refresh more and the next one less: microstutter at 30). The
+        // grid restarts from now when a frame is more than an interval late,
+        // and never runs more than a quarter interval ahead of now.
+        const int32_t cap = rex::cvar::Query<int32_t>("ios_fps_cap");
+        const double interval = cap > 0 ? 1.0 / double(cap) : 0.0;
+        const double display_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
+        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 &&
+                           double(cap) < display_hz - 1.0;
+        static double last_target = 0;
+        double target = 0;
+        if (paced) {
+          const double now = CACurrentMediaTime();
+          target = last_target + interval;
+          if (target < now - interval || target > now + interval * 1.25) target = now;
+          target = std::min(target, now + interval * 0.25);
+          last_target = target;
+        }
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
@@ -4870,8 +4894,27 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           if (before > 0 && gap_ms > 50.0 && gap_lines.fetch_sub(1) > 0) {
             REXLOG_INFO("[native] screen gap: {:.0f} ms before frame {} was shown", gap_ms, number);
           }
+          // Pacing: frames shown off the cap's grid (more than 4 ms from one
+          // interval after the one before), every 300 shown frames.
+          static std::atomic<uint32_t> shown_count{0}, off_grid{0};
+          static std::atomic<double> worst_ms{0};
+          if (before > 0 && interval > 0 && gap_ms < 200.0) {
+            const double off = std::fabs(gap_ms - interval * 1000.0);
+            if (off > 4.0) ++off_grid;
+            double w = worst_ms.load();
+            while (off > w && !worst_ms.compare_exchange_weak(w, off)) {}
+          }
+          if (++shown_count % 300 == 0) {
+            REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){}",
+                        off_grid.exchange(0), interval * 1000.0, worst_ms.exchange(0.0),
+                        paced ? ", presented at target times" : "");
+          }
         }];
-        [cb presentDrawable:drawable];
+        if (paced) {
+          [cb presentDrawable:drawable atTime:target];
+        } else {
+          [cb presentDrawable:drawable];
+        }
         ++presented;
       }
     }

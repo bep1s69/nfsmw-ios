@@ -140,6 +140,8 @@ IOS_PATCHES = [
     "patch_ios_shader_disasm_log",
     "patch_ios_small_shared_memory",
     "patch_ios_native_backend",
+    "patch_ios_timer_queue_block",
+    "patch_ios_cheap_sleep",
 ]
 
 

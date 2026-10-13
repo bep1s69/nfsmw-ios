@@ -223,6 +223,9 @@ static CGFloat TouchOpacity() {
     _haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     _selected = -1;
     self.alpha = TouchOpacity();
+    // The drawing is recorded here and rasterized on Core Animation's own
+    // thread, not on the main thread (~10 ms a second while driving).
+    self.layer.drawsAsynchronously = YES;
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
            selector:@selector(controllerConnected:)
