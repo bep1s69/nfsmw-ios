@@ -215,6 +215,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
+REXCVAR_DEFINE_STRING(nfsmw_native_fxaa, "off", "GPU",
+                      "Native renderer: FXAA over the final picture (off, normal, high); always on "
+                      "with MetalFX upscaling, which sharpens jagged edges");
 REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx, false, "GPU",
                     "Native renderer: the picture upscaled to the screen by MetalFX (spatial) instead of "
                     "the plain bilinear stretch, when it is drawn at fewer pixels than it is shown");
@@ -3233,6 +3236,86 @@ id<MTLRenderPipelineState> PresentPipeline(id<MTLDevice> device) {
   return pso;
 }
 
+// FXAA (Timothy Lottes' FXAA 3.11, quality version, as commonly written out)
+// over the final picture: the native renderer's own, as the emulated
+// renderer's swap_post_effect. Into a texture the size of the picture.
+// Vertex: crop = the picture's rectangle in its texture (uv scale). Fragment:
+// p.xy = 1 / texture size, p.zw = the last uv inside the picture; q.x = the
+// edge threshold, q.y = the sub-pixel amount.
+id<MTLRenderPipelineState> FxaaPipeline(id<MTLDevice> device, MTLPixelFormat format) {
+  static std::map<MTLPixelFormat, id<MTLRenderPipelineState>> psos;
+  if (auto it = psos.find(format); it != psos.end()) return it->second;
+  NSString* source =
+      @"#include <metal_stdlib>\n"
+       "using namespace metal;\n"
+       "struct V { float4 p [[position]]; float2 uv; };\n"
+       "vertex V vs(uint id [[vertex_id]], constant float4& crop [[buffer(0)]]) {\n"
+       "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+       "  V v; v.p = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0); v.uv = uv * crop.xy; return v; }\n"
+       "struct P { float4 p; float4 q; };\n"
+       "static float L(float3 c) { return dot(c, float3(0.299, 0.587, 0.114)); }\n"
+       "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]], constant P& k [[buffer(0)]]) {\n"
+       "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+       "  const float2 r = k.p.xy, hi = k.p.zw;\n"
+       "#define S(x) t.sample(s, clamp((x), float2(0.0), hi)).rgb\n"
+       "  float2 uv = in.uv;\n"
+       "  float3 cM = S(uv); float lM = L(cM);\n"
+       "  float lN = L(S(uv + float2(0, -r.y))), lS = L(S(uv + float2(0, r.y)));\n"
+       "  float lW = L(S(uv + float2(-r.x, 0))), lE = L(S(uv + float2(r.x, 0)));\n"
+       "  float lMin = min(lM, min(min(lN, lS), min(lW, lE))), lMax = max(lM, max(max(lN, lS), max(lW, lE)));\n"
+       "  float range = lMax - lMin;\n"
+       "  if (range < max(0.0312, lMax * k.q.x)) return float4(cM, 1.0);\n"
+       "  float lNW = L(S(uv + float2(-r.x, -r.y))), lNE = L(S(uv + float2(r.x, -r.y)));\n"
+       "  float lSW = L(S(uv + float2(-r.x, r.y))), lSE = L(S(uv + float2(r.x, r.y)));\n"
+       "  float lNS = lN + lS, lWE = lW + lE;\n"
+       "  float eH = abs(-2.0 * lW + lNW + lSW) + abs(-2.0 * lM + lNS) * 2.0 + abs(-2.0 * lE + lNE + lSE);\n"
+       "  float eV = abs(-2.0 * lN + lNW + lNE) + abs(-2.0 * lM + lWE) * 2.0 + abs(-2.0 * lS + lSW + lSE);\n"
+       "  bool horz = eH >= eV;\n"
+       "  float l1 = horz ? lN : lW, l2 = horz ? lS : lE;\n"
+       "  float g1 = l1 - lM, g2 = l2 - lM;\n"
+       "  bool steep1 = abs(g1) >= abs(g2);\n"
+       "  float gs = 0.25 * max(abs(g1), abs(g2));\n"
+       "  float step = horz ? r.y : r.x;\n"
+       "  float lLocal;\n"
+       "  if (steep1) { step = -step; lLocal = 0.5 * (l1 + lM); } else { lLocal = 0.5 * (l2 + lM); }\n"
+       "  float2 c = uv; if (horz) c.y += step * 0.5; else c.x += step * 0.5;\n"
+       "  float2 off = horz ? float2(r.x, 0) : float2(0, r.y);\n"
+       "  float2 u1 = c - off, u2 = c + off;\n"
+       "  float e1 = L(S(u1)) - lLocal, e2 = L(S(u2)) - lLocal;\n"
+       "  bool d1 = abs(e1) >= gs, d2 = abs(e2) >= gs;\n"
+       "  const float Q[10] = {1.0, 1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 4.0, 8.0};\n"
+       "  for (int i = 0; i < 10 && !(d1 && d2); ++i) {\n"
+       "    if (!d1) { u1 -= off * Q[i]; e1 = L(S(u1)) - lLocal; d1 = abs(e1) >= gs; }\n"
+       "    if (!d2) { u2 += off * Q[i]; e2 = L(S(u2)) - lLocal; d2 = abs(e2) >= gs; }\n"
+       "  }\n"
+       "  float dist1 = horz ? uv.x - u1.x : uv.y - u1.y, dist2 = horz ? u2.x - uv.x : u2.y - uv.y;\n"
+       "  bool dir1 = dist1 < dist2;\n"
+       "  float pix = -min(dist1, dist2) / (dist1 + dist2) + 0.5;\n"
+       "  bool correct = ((dir1 ? e1 : e2) < 0.0) != (lM < lLocal);\n"
+       "  float fo = correct ? pix : 0.0;\n"
+       "  float lAvg = (1.0 / 12.0) * (2.0 * (lNS + lWE) + lNW + lSW + lNE + lSE);\n"
+       "  float sp1 = clamp(abs(lAvg - lM) / range, 0.0, 1.0);\n"
+       "  float sp2 = (-2.0 * sp1 + 3.0) * sp1 * sp1;\n"
+       "  fo = max(fo, sp2 * sp2 * k.q.y);\n"
+       "  float2 f = uv; if (horz) f.y += fo * step; else f.x += fo * step;\n"
+       "  return float4(S(f), 1.0); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  id<MTLRenderPipelineState> pso = nil;
+  if (!library) {
+    REXLOG_WARN("[native] FXAA shader: {}", error.localizedDescription.UTF8String);
+  } else {
+    MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+    desc.vertexFunction = [library newFunctionWithName:@"vs"];
+    desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+    desc.colorAttachments[0].pixelFormat = format;
+    pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+    if (!pso) REXLOG_WARN("[native] FXAA pipeline: {}", error.localizedDescription.UTF8String);
+  }
+  psos[format] = pso;
+  return pso;
+}
+
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
   // RenderFrame is called on the renderer's serial dispatch queue. Accumulate
   // the game-thread capture diagnostics here so the hot draw path stays local.
@@ -4862,6 +4945,55 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // game has no motion vectors for the temporal scaler), then shown
         // 1:1 by the pass below. Only when it is drawn smaller than shown.
         id<MTLTexture> shown_texture = final_texture;
+        // FXAA first (with MetalFX always: it sharpens what it is given).
+        id<MTLTexture> source = final_texture;
+        {
+          const std::string mode = REXCVAR_GET(nfsmw_native_fxaa);
+          const bool metalfx = REXCVAR_GET(nfsmw_native_metalfx);
+          const bool high = mode == "high";
+          static id<MTLTexture> smoothed;
+          static std::string said_mode;
+          if ((metalfx || high || mode == "normal") && sw >= 1 && sh >= 1) {
+            id<MTLRenderPipelineState> fxaa = FxaaPipeline(device, final_texture.pixelFormat);
+            const NSUInteger w = NSUInteger(sw), h = NSUInteger(sh);
+            if (fxaa && !(smoothed && smoothed.width == w && smoothed.height == h &&
+                          smoothed.pixelFormat == final_texture.pixelFormat)) {
+              MTLTextureDescriptor* fd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
+                                                                                            width:w
+                                                                                           height:h
+                                                                                        mipmapped:NO];
+              fd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+              fd.storageMode = MTLStorageModePrivate;
+              smoothed = [device newTextureWithDescriptor:fd];
+            }
+            if (fxaa && smoothed) {
+              MTLRenderPassDescriptor* fp = [MTLRenderPassDescriptor renderPassDescriptor];
+              fp.colorAttachments[0].texture = smoothed;
+              fp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+              fp.colorAttachments[0].storeAction = MTLStoreActionStore;
+              id<MTLRenderCommandEncoder> fe = [cb renderCommandEncoderWithDescriptor:fp];
+              const float tw = float(final_texture.width), th = float(final_texture.height);
+              const float vcrop[4] = {crop[0], crop[1], 0, 0};
+              const float k[8] = {1.0f / tw, 1.0f / th, (sw - 0.5f) / tw, (sh - 0.5f) / th,
+                                  high ? 0.063f : 0.125f, high ? 1.0f : 0.75f, 0, 0};
+              [fe setRenderPipelineState:fxaa];
+              [fe setVertexBytes:vcrop length:sizeof(vcrop) atIndex:0];
+              [fe setFragmentBytes:k length:sizeof(k) atIndex:0];
+              [fe setFragmentTexture:final_texture atIndex:0];
+              [fe drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+              [fe endEncoding];
+              source = smoothed;
+              shown_texture = smoothed;
+              crop[0] = crop[1] = 1.0f;
+              const std::string now = high ? "high" : "normal";
+              if (said_mode != now) {
+                said_mode = now;
+                REXLOG_INFO("[native] FXAA ({}) over the {}x{} picture{}", now, w, h,
+                            metalfx ? ", before MetalFX" : "");
+              }
+            }
+          }
+        }
         {
           const NSUInteger out_w = NSUInteger(std::lround(dw * fit[0]));
           const NSUInteger out_h = NSUInteger(std::lround(dh * fit[1]));
@@ -4872,8 +5004,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static bool said_unsupported = false;
           const bool want = REXCVAR_GET(nfsmw_native_metalfx) && out_w > NSUInteger(sw) + 8 &&
                             out_h > NSUInteger(sh) + 8;
-          if (want && !(scaler && in_w == final_texture.width && in_h == final_texture.height &&
-                        in_format == final_texture.pixelFormat && upscaled.width == out_w &&
+          if (want && !(scaler && in_w == source.width && in_h == source.height &&
+                        in_format == source.pixelFormat && upscaled.width == out_w &&
                         upscaled.height == out_h)) {
             scaler = nil;
             upscaled = nil;
@@ -4884,28 +5016,28 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               }
             } else {
               MTLFXSpatialScalerDescriptor* sd = [MTLFXSpatialScalerDescriptor new];
-              sd.inputWidth = final_texture.width;
-              sd.inputHeight = final_texture.height;
+              sd.inputWidth = source.width;
+              sd.inputHeight = source.height;
               sd.outputWidth = out_w;
               sd.outputHeight = out_h;
-              sd.colorTextureFormat = final_texture.pixelFormat;
-              sd.outputTextureFormat = final_texture.pixelFormat;
-              const bool is_float = final_texture.pixelFormat == MTLPixelFormatRGBA16Float;
+              sd.colorTextureFormat = source.pixelFormat;
+              sd.outputTextureFormat = source.pixelFormat;
+              const bool is_float = source.pixelFormat == MTLPixelFormatRGBA16Float;
               sd.colorProcessingMode = is_float ? MTLFXSpatialScalerColorProcessingModeHDR
                                                 : MTLFXSpatialScalerColorProcessingModePerceptual;
               scaler = [sd newSpatialScalerWithDevice:device];
               if (scaler) {
                 MTLTextureDescriptor* od =
-                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:source.pixelFormat
                                                                        width:out_w
                                                                       height:out_h
                                                                    mipmapped:NO];
                 od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
                 od.storageMode = MTLStorageModePrivate;
                 upscaled = [device newTextureWithDescriptor:od];
-                in_w = final_texture.width;
-                in_h = final_texture.height;
-                in_format = final_texture.pixelFormat;
+                in_w = source.width;
+                in_h = source.height;
+                in_format = source.pixelFormat;
                 REXLOG_INFO("[native] MetalFX: {}x{} upscaled to {}x{}", int(sw), int(sh), out_w, out_h);
               } else {
                 REXLOG_WARN("[native] MetalFX: no scaler for {}x{} -> {}x{}; plain stretch", int(sw),
@@ -4914,7 +5046,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           if (want && scaler && upscaled) {
-            scaler.colorTexture = final_texture;
+            scaler.colorTexture = source;
             scaler.inputContentWidth = NSUInteger(sw);
             scaler.inputContentHeight = NSUInteger(sh);
             scaler.outputTexture = upscaled;
