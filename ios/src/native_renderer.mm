@@ -2435,6 +2435,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       const simd_float4x4 p = simd_mul(wvp, simd_inverse(wv));
       auto at = [&](int row, int col) { return p.columns[col][row]; };
       const float k = at(3, 2);  // clip w = k * view z
+      bool taken = false;
       if (std::fabs(k) > 0.5f && std::fabs(at(1, 1)) > 1e-4f && std::fabs(at(0, 0)) > 1e-4f) {
         const float a = at(2, 2) / k, b = at(2, 3);  // ndc z = a + b / (k * view z)
         const float n1 = -b / a, n2 = b / (1.0f - a);
@@ -2447,7 +2448,16 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
             c.far_plane > c.near_plane && c.fov_degrees > 5 && c.fov_degrees < 170 && c.aspect > 0.2f &&
             c.aspect < 5) {
           frame.cameras[where] = c;
+          taken = true;
         }
+      }
+      static int said = 0;
+      if (!taken && said < 6) {
+        ++said;
+        REXLOG_INFO("[native] camera not taken from vs {:016x}: projection rows ({:.3g} {:.3g} {:.3g} {:.3g}) "
+                    "({:.3g} {:.3g} {:.3g} {:.3g}) ({:.3g} {:.3g} {:.3g} {:.3g}) ({:.3g} {:.3g} {:.3g} {:.3g})",
+                    in.vs_key, at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 0), at(1, 1), at(1, 2), at(1, 3),
+                    at(2, 0), at(2, 1), at(2, 2), at(2, 3), at(3, 0), at(3, 1), at(3, 2), at(3, 3));
       }
     }
   }
@@ -5678,6 +5688,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             const Draw& scene = frame->draws[last_motion_draw];
             auto found = frame->cameras.find({scene.surface_info, scene.color_info, scene.depth_info});
             if (found != frame->cameras.end()) camera = &found->second;
+          }
+          // No camera found (logged above): a racing game's usual one.
+          static Camera fallback;
+          if (!camera && motion_ready && !motion_debug && REXCVAR_GET(nfsmw_native_frame_interpolation)) {
+            fallback = {0.5f, 5000.0f, 55.0f, sw / std::max(sh, 1.0f)};
+            camera = &fallback;
+            static bool said = false;
+            if (!said) {
+              said = true;
+              REXLOG_INFO("[native] MetalFX frame interpolation: no camera from the game's shaders; a default one");
+            }
           }
           // Without MetalFX temporal: the picture as drawn (its own size only).
           if (!temporal_done && motion_ready) {
