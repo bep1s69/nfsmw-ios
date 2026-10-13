@@ -3194,6 +3194,18 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     };
     id<MTLBuffer> texture_heap = heap(textures, false);
     id<MTLBuffer> sampler_heap = heap(samplers, true);
+    {
+      // The resolves (and their views) get heap indices past the frame's
+      // textures, and draws use the same index for the sampler: those sampler
+      // entries were left 0, no sampler. The A19 and M4 sample with defaults
+      // anyway; the A16 (iPhone 14 Pro Max) and the M1 read black: the whole
+      // scene, which reaches the screen through resolves, was black there.
+      // A linear, clamped sampler in every entry past the textures'.
+      id<MTLSamplerState> resolve_sampler = SamplerFor(device, true, 2, 2, false);
+      auto* ids = static_cast<MTLResourceID*>(sampler_heap.contents);
+      const NSUInteger capacity = sampler_heap.length / sizeof(MTLResourceID);
+      for (NSUInteger i = samplers.count; i < capacity; ++i) ids[i] = resolve_sampler.gpuResourceID;
+    }
     // Array, 3D and cube textures: not decoded yet; every index reads a 1x1
     // placeholder of the right type (a heap of one entry is enough: all the
     // indices of those types are 0).
@@ -3922,6 +3934,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           [blit endEncoding];  // nil when the scaled copy did it and nothing was written back: no-op
         }
         static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = dest.gpuResourceID;
+        // A depth copy (R32Float) where the GPU cannot filter 32-bit floats
+        // (A16, M1): sampled nearest, not linear (undefined there).
+        if (dest.pixelFormat == MTLPixelFormatR32Float && !device.supports32BitFloatFiltering) {
+          static_cast<MTLResourceID*>(sampler_heap.contents)[next_heap] =
+              SamplerFor(device, false, 2, 2, false).gpuResourceID;
+        }
         heap_object[next_heap] = dest;
         resolved[ev.dest_base] = next_heap++;
         resolved_texture[ev.dest_base] = dest;
