@@ -414,6 +414,21 @@ class NfsmwApp : public rex::ReXApp {
   // su final y su base (PCR +0x74 y +0x70): la primera version leia hasta
   // 0x70030000, la base de una pila sin usar, sin mapear, y el vigilante se
   // quedo atascado en el fallo. Como mucho 16 marcos.
+  // Guest memory as hex, 4 bytes per group (diagnostics).
+  static std::string BytesGuest(uint32_t address, uint32_t n) {
+    auto* kernel = rex::system::kernel_state();
+    auto* memoria = kernel ? kernel->memory() : nullptr;
+    if (!memoria || !address) return "-";
+    const auto* p = memoria->TranslateVirtual<const uint8_t*>(address);
+    if (!p) return "-";
+    std::string out;
+    for (uint32_t i = 0; i < n; ++i) {
+      out += fmt::format("{:02X}", p[i]);
+      if ((i & 3) == 3 && i + 1 < n) out += ' ';
+    }
+    return out;
+  }
+
   static std::string PilaGuest(uint32_t pcr, uint32_t sp) {
     auto* kernel = rex::system::kernel_state();
     auto* memoria = kernel ? kernel->memory() : nullptr;
@@ -458,6 +473,17 @@ class NfsmwApp : public rex::ReXApp {
                        h->thread_id(), cp->start_address, h->main_thread(), h->is_running(),
                        static_cast<uint32_t>(c.lr), c.r1.u32, c.r13.u32, c.r3.u32, c.ctr.u32,
                        c.last_indirect_target, DescribirEspera(c.r3.u32), PilaGuest(h->pcr_ptr(), c.r1.u32));
+          // Inside the main thread's job queue (the USA edition's job loop
+          // calls a job and returns to 823C82F8; its queue is at 82909650):
+          // the job and the queue, for the freeze/crash after leaving the
+          // safehouse. Written in decimal: USA addresses already, not ones for
+          // tools/ediciones to translate.
+          constexpr uint32_t kJobReturn = 2185003768u;   // 823C82F8, USA
+          constexpr uint32_t kJobQueue = 2190513744u;    // 82909650, USA
+          if (static_cast<uint32_t>(c.lr) == kJobReturn) {
+            REXLOG_ERROR("[vigilante]   job queue: job r30=0x{:08X} [{}] | queue [{}]", c.r30.u32,
+                         BytesGuest(c.r30.u32, 32), BytesGuest(kJobQueue, 32));
+          }
         } else {
           REXLOG_DEBUG("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "

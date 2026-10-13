@@ -350,10 +350,12 @@ NSString* DateText(std::time_t t) {
 }
 
 // The career's progress, read from the save (MC02, big-endian, the same
-// format as the PC game's). Located with a known career (BEPPY: cash 24,700,
-// bounty 50,900): cash a u32 at 0x4039, bounty a float at 0x13E. Shown only
-// when both look sane, so a save laid out differently shows nothing rather
-// than nonsense.
+// format as the PC game's). Found by comparing two saves of the same career:
+//  - cash: a u32 at 0x4039 (24,700, then 200 after buying a car);
+//  - bounty: a float in a list of keyed records whose order changes between
+//    saves, right after the key bytes 1C B2 90 8B E4 E2 55 47 33 00 31.
+// Shown only when the values look sane, so a save laid out differently shows
+// nothing rather than nonsense.
 NSString* Progress(const Save& s) {
   NSData* d = [NSData dataWithContentsOfFile:@((s.Dir() / s.name).c_str())];
   const auto* p = static_cast<const uint8_t*>(d.bytes);
@@ -361,15 +363,24 @@ NSString* Progress(const Save& s) {
   auto u32 = [&](size_t at) {
     return uint32_t(p[at]) << 24 | uint32_t(p[at + 1]) << 16 | uint32_t(p[at + 2]) << 8 | uint32_t(p[at + 3]);
   };
-  const uint32_t cash = u32(0x4039);
-  const uint32_t bounty_bits = u32(0x13E);
-  float bounty;
-  std::memcpy(&bounty, &bounty_bits, 4);
-  if (cash > 100000000u || !(bounty >= 0.0f && bounty < 1.0e8f)) return nil;
   NSNumberFormatter* f = [NSNumberFormatter new];
   f.numberStyle = NSNumberFormatterDecimalStyle;
-  return [NSString stringWithFormat:@"Cash $%@ · Bounty %@", [f stringFromNumber:@(cash)],
-                                    [f stringFromNumber:@(uint64_t(bounty))]];
+  NSMutableArray* parts = [NSMutableArray array];
+  const uint32_t cash = u32(0x4039);
+  if (cash <= 100000000u) [parts addObject:[NSString stringWithFormat:@"Cash $%@", [f stringFromNumber:@(cash)]]];
+  static const uint8_t kBountyKey[] = {0x1C, 0xB2, 0x90, 0x8B, 0xE4, 0xE2, 0x55, 0x47, 0x33, 0x00, 0x31};
+  const size_t search_end = std::min<size_t>(d.length, 0x1000);
+  for (size_t i = 0; i + sizeof(kBountyKey) + 4 <= search_end; ++i) {
+    if (std::memcmp(p + i, kBountyKey, sizeof(kBountyKey)) != 0) continue;
+    const uint32_t bits = u32(i + sizeof(kBountyKey));
+    float bounty;
+    std::memcpy(&bounty, &bits, 4);
+    if (bounty >= 0.0f && bounty < 1.0e8f) {
+      [parts addObject:[NSString stringWithFormat:@"Bounty %@", [f stringFromNumber:@(uint64_t(bounty))]]];
+    }
+    break;
+  }
+  return parts.count ? [parts componentsJoinedByString:@" · "] : nil;
 }
 
 }  // namespace

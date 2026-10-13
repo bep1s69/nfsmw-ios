@@ -267,6 +267,9 @@ int RunProbe(int argc, char* argv[], const fs::path& docs) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+  // The game is landscape only; the launcher before it also allows portrait
+  // (Info.plist lists both). SDL's own view controller follows this hint.
+  setenv("SDL_IOS_ORIENTATIONS", "LandscapeLeft LandscapeRight", 1);
   const fs::path docs = DocumentsFolder();
   std::error_code ec;
   fs::create_directories(docs / "logs", ec);

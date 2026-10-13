@@ -1049,6 +1049,21 @@ NSString* AchievementSummary(const Achievements& a) {
 
 @end
 
+// The launcher's navigation: portrait on iPhone, any orientation on iPad
+// (the game itself is landscape only: SDL_IOS_ORIENTATIONS in ios_main).
+@interface NFSLauncherNavigation : UINavigationController
+@end
+
+@implementation NFSLauncherNavigation
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+  if (self.presentedViewController && !self.presentedViewController.isBeingDismissed) {
+    return self.presentedViewController.supportedInterfaceOrientations;  // e.g. the touch editor: landscape
+  }
+  return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? UIInterfaceOrientationMaskAll
+                                                                              : UIInterfaceOrientationMaskPortrait;
+}
+@end
+
 @interface NFSLauncherController : UITableViewController <UITextFieldDelegate>
 - (instancetype)initWithDocuments:(fs::path)docs done:(std::function<void(fs::path)>)done;
 @end
@@ -1475,7 +1490,7 @@ fs::path Run(const fs::path& documents) {
                                                     chosen = iso;
                                                     finished = true;
                                                   }];
-  UINavigationController* nav = [[UINavigationController alloc] initWithRootViewController:root];
+  UINavigationController* nav = [[NFSLauncherNavigation alloc] initWithRootViewController:root];
   nav.navigationBar.prefersLargeTitles = YES;
 
   UIWindowScene* scene = nil;
