@@ -62,7 +62,7 @@ static std::atomic<uint64_t> ios_xma_codec_reopens{0};
 CVAR_NEW = '''// LOCAL PATCH - iOS (tools/ios/patch_ios_xma_reset_stats.py).
 static std::atomic<uint64_t> ios_xma_codec_reopens{0};
 // LOCAL PATCH - iOS (tools/ios/patch_ios_xma_direct_output.py).
-REXCVAR_DEFINE_BOOL(ios_xma_direct_output, false, "Audio",
+REXCVAR_DEFINE_BOOL(ios_xma_direct_output, true, "Audio",
                     "iOS: hand each decoded XMA frame to the game at once (Xenia Canary), without "
                     "the start-padding realignment");
 '''
