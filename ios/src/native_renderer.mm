@@ -1375,6 +1375,96 @@ MTLTextureSwizzle SwizzleOf(uint32_t s) {
   }
 }
 
+// Whether the GPU samples BC (DXT) textures: not the A16 and older iPhones.
+bool GpuHasBC() {
+  static const bool has = [] {
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    const bool b = device && device.supportsBCTextureCompression;
+    REXLOG_INFO("[native] BC (DXT) textures {} on this GPU", b ? "supported" : "NOT supported: decoded on the CPU");
+    return b;
+  }();
+  return has;
+}
+
+// A 565 colour to 8-bit RGB.
+inline void Unpack565(uint16_t c, uint8_t out[3]) {
+  out[0] = uint8_t(((c >> 11) & 31) * 255 / 31);
+  out[1] = uint8_t(((c >> 5) & 63) * 255 / 63);
+  out[2] = uint8_t((c & 31) * 255 / 31);
+}
+
+// One BC1 colour block (8 bytes) into 16 RGBA texels; alpha from the
+// 3-colour mode unless the caller's alpha replaces it (BC2/BC3).
+void DecodeBC1Block(const uint8_t* b, uint8_t out[16][4], bool three_colour_alpha) {
+  const uint16_t c0 = uint16_t(b[0] | (b[1] << 8)), c1 = uint16_t(b[2] | (b[3] << 8));
+  uint8_t p[4][4];
+  Unpack565(c0, p[0]);
+  Unpack565(c1, p[1]);
+  p[0][3] = p[1][3] = 255;
+  if (c0 > c1 || !three_colour_alpha) {
+    for (int k = 0; k < 3; ++k) {
+      p[2][k] = uint8_t((2 * p[0][k] + p[1][k]) / 3);
+      p[3][k] = uint8_t((p[0][k] + 2 * p[1][k]) / 3);
+    }
+    p[2][3] = p[3][3] = 255;
+  } else {
+    for (int k = 0; k < 3; ++k) {
+      p[2][k] = uint8_t((p[0][k] + p[1][k]) / 2);
+      p[3][k] = 0;
+    }
+    p[2][3] = 255;
+    p[3][3] = 0;
+  }
+  const uint32_t idx = uint32_t(b[4]) | (uint32_t(b[5]) << 8) | (uint32_t(b[6]) << 16) | (uint32_t(b[7]) << 24);
+  for (int i = 0; i < 16; ++i) std::memcpy(out[i], p[(idx >> (2 * i)) & 3], 4);
+}
+
+// BC1-3 blocks (tex.data, bw x bh blocks per layer) into RGBA8 texels.
+void DecodeBCToRGBA8(Texture& tex, uint32_t layers, uint32_t bw, uint32_t bh) {
+  const bool bc1 = tex.format == MTLPixelFormatBC1_RGBA, bc2 = tex.format == MTLPixelFormatBC2_RGBA;
+  const size_t block_bytes = bc1 ? 8 : 16;
+  const size_t in_face = size_t(bw) * bh * block_bytes;
+  const uint32_t w = tex.width, h = tex.height;
+  const size_t out_row = size_t(w) * 4, out_face = out_row * h;
+  decltype(tex.data) out(out_face * layers);
+  uint8_t px[16][4];
+  for (uint32_t layer = 0; layer < layers; ++layer) {
+    for (uint32_t by = 0; by < bh; ++by) {
+      for (uint32_t bx = 0; bx < bw; ++bx) {
+        const uint8_t* b = tex.data.data() + layer * in_face + (size_t(by) * bw + bx) * block_bytes;
+        if (bc1) {
+          DecodeBC1Block(b, px, true);
+        } else {
+          DecodeBC1Block(b + 8, px, false);
+          if (bc2) {
+            for (int i = 0; i < 16; ++i) px[i][3] = uint8_t(((b[i / 2] >> (4 * (i & 1))) & 15) * 17);
+          } else {
+            uint8_t a[8] = {b[0], b[1]};
+            if (a[0] > a[1]) {
+              for (int i = 1; i < 7; ++i) a[i + 1] = uint8_t(((7 - i) * a[0] + i * a[1]) / 7);
+            } else {
+              for (int i = 1; i < 5; ++i) a[i + 1] = uint8_t(((5 - i) * a[0] + i * a[1]) / 5);
+              a[6] = 0;
+              a[7] = 255;
+            }
+            uint64_t bits = 0;
+            for (int i = 0; i < 6; ++i) bits |= uint64_t(b[2 + i]) << (8 * i);
+            for (int i = 0; i < 16; ++i) px[i][3] = a[(bits >> (3 * i)) & 7];
+          }
+        }
+        for (int i = 0; i < 16; ++i) {
+          const uint32_t x = bx * 4 + (i & 3), y = by * 4 + (i >> 2);
+          if (x < w && y < h) std::memcpy(out.data() + layer * out_face + y * out_row + x * 4, px[i], 4);
+        }
+      }
+    }
+  }
+  tex.data.swap(out);
+  tex.format = MTLPixelFormatRGBA8Unorm;
+  tex.row_bytes = uint32_t(out_row);
+  tex.bytes = tex.data.size();
+}
+
 int32_t TiledOffset2D(int32_t x, int32_t y, uint32_t pitch, uint32_t bytes_per_block_log2) {
   // rexglue src/graphics/pipeline/texture/util.cpp GetTiledOffset2D (from UModel).
   pitch = (pitch + 31) & ~31u;
@@ -1645,6 +1735,12 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   frame.texture_decode_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
                                           std::chrono::steady_clock::now() - decode_start).count());
+  // DXT (BC1-3) to RGBA8 on the CPU where the GPU has no BC formats: the
+  // iPhone 14 Pro Max (A16) aborted making a BC1 texture (Metal validation).
+  if ((tex.format == MTLPixelFormatBC1_RGBA || tex.format == MTLPixelFormatBC2_RGBA ||
+       tex.format == MTLPixelFormatBC3_RGBA) && !GpuHasBC()) {
+    DecodeBCToRGBA8(tex, layers, bw, bh);
+  }
   // k_4_4_4_4 to RGBA8 on the CPU, exactly as rexglue's load shader
   // (texture_load_r4g4b4a4_rgba8): R in bits 0-3, G 4-7, B 8-11, A 12-15,
   // each nibble repeated into a byte. Metal's ABGR4 channel order did not
