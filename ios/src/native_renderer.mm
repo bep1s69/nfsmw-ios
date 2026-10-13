@@ -122,6 +122,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_movie_16_9, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_from_boot, true, "GPU",
                     "Native renderer: the emulated renderer draws nothing from the first frame on "
                     "(its memory is never filled)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
+                    "Native renderer: show Apple's Metal Performance HUD for the game picture");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -4923,6 +4925,14 @@ void EnsurePresentLayer() {
     layer.device = device;
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     layer.framebufferOnly = YES;
+    // Apple's Metal Performance HUD on this layer (the one showing the game),
+    // not on the emulated renderer's, which now hardly presents (the HUD
+    // shrank to a frame counter there).
+    if (REXCVAR_GET(nfsmw_native_metal_hud)) {
+      if (@available(iOS 16.0, *)) {
+        layer.developerHUDProperties = @{@"mode" : @"default", @"logging" : @"default"};
+      }
+    }
     UIView* game = window.rootViewController.view;
     if (game && game.superview == window) {
       [window insertSubview:view aboveSubview:game];
