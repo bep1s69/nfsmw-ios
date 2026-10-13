@@ -245,6 +245,21 @@ extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y;  // game_scene_size
 
 namespace {
 
+// Every texture the renderer makes, described in the system log first (NSLog,
+// public) for the first 60: Metal aborts on a descriptor it rejects, and its
+// own message is private ("validateWithDevice: ... error '<private>'"), as on
+// the iPhone 14 Pro Max (A16) at the first frame.
+id<MTLTexture> NewTexture(id<MTLDevice> device, MTLTextureDescriptor* d, const char* what) {
+  static std::atomic<int> left{60};
+  if (left.fetch_sub(1) > 0) {
+    NSLog(@"[nfsmw-native] texture %s: type %d format %d %dx%dx%d array %d mips %d samples %d storage %d usage 0x%x",
+          what, int(d.textureType), int(d.pixelFormat), int(d.width), int(d.height), int(d.depth),
+          int(d.arrayLength), int(d.mipmapLevelCount), int(d.sampleCount), int(d.storageMode), unsigned(d.usage));
+  }
+  return [device newTextureWithDescriptor:d];
+}
+
+
 // --- Registers ----------------------------------------------------------------
 
 constexpr uint32_t kRbSurfaceInfo = 0x2000, kRbColorInfo = 0x2001, kRbDepthInfo = 0x2002;
@@ -2772,7 +2787,7 @@ struct GpuPool {
                                                     options:MTLResourceOptions(d.storageMode) << MTLResourceStorageModeShift];
         t = [backing newTextureWithDescriptor:d offset:0 bytesPerRow:row];
       } else {
-        t = [device newTextureWithDescriptor:d];
+        t = NewTexture(device, d, "d@2");
       }
       if (!t) return nil;
       Add(t, key);
@@ -2819,7 +2834,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
   } else if (t.cube) {
     desc.textureType = MTLTextureTypeCube;
   }
-  id<MTLTexture> tex = [device newTextureWithDescriptor:desc];
+  id<MTLTexture> tex = NewTexture(device, desc, "desc@3");
   const size_t layers = t.volume ? t.depth : t.cube ? 6 : 1;
   const size_t layer_bytes = t.data.size() / layers;
   if (t.volume) {
@@ -3018,7 +3033,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                           width:1
                                                                                          height:1
                                                                                       mipmapped:NO];
-    static id<MTLTexture> white = [device newTextureWithDescriptor:white_desc];
+    static id<MTLTexture> white = NewTexture(device, white_desc, "white_desc@4");
     static bool white_filled = false;
     if (!white_filled) {
       const uint32_t white_pixel = 0xFFFFFFFF;
@@ -3106,7 +3121,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
       desc.usage = MTLTextureUsageShaderRead;
       desc.storageMode = MTLStorageModeShared;
-      id<MTLTexture> tex = [device newTextureWithDescriptor:desc];
+      id<MTLTexture> tex = NewTexture(device, desc, "desc@5");
       const uint32_t black = 0xFF000000;
       const NSUInteger slices = type == MTLTextureTypeCube ? 6 : 1;
       for (NSUInteger s = 0; s < slices; ++s) {
@@ -3336,14 +3351,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                    height:t.height
                                                                                 mipmapped:NO];
       cd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-      t.color = [device newTextureWithDescriptor:cd];
+      t.color = NewTexture(device, cd, "cd@6");
       MTLTextureDescriptor* dd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8
                                                                                     width:t.pitch
                                                                                    height:t.height
                                                                                 mipmapped:NO];
       dd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;  // depth resolves read it
       dd.storageMode = MTLStorageModePrivate;
-      t.depth = [device newTextureWithDescriptor:dd];
+      t.depth = NewTexture(device, dd, "dd@7");
       if (t.sample_count > 1) {
         MTLTextureDescriptor* cm = [MTLTextureDescriptor new];
         cm.textureType = MTLTextureType2DMultisample;
@@ -3362,8 +3377,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         dm.usage = MTLTextureUsageRenderTarget;
         dm.storageMode = MTLStorageModePrivate;
         @try {
-          t.multisample_color = [device newTextureWithDescriptor:cm];
-          t.multisample_depth = [device newTextureWithDescriptor:dm];
+          t.multisample_color = NewTexture(device, cm, "cm@8");
+          t.multisample_depth = NewTexture(device, dm, "dm@9");
         } @catch (NSException* e) {
           t.multisample_color = nil;
           t.multisample_depth = nil;
@@ -3837,7 +3852,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                       mipmapped:NO];
             cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
             cd.storageMode = MTLStorageModePrivate;
-            cube = [device newTextureWithDescriptor:cd];
+            cube = NewTexture(device, cd, "cd@10");
             residency::Add(cube);
             if (auto old = kept_cubes.find(ct.base); old != kept_cubes.end()) {
               // Frames in flight keep it alive (their command buffers retain it).
