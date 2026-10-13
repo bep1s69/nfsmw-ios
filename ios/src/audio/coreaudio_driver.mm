@@ -272,11 +272,16 @@ void CoreAudioDriver::SubmitFrame(uint32_t samples_ptr) {
     const uint32_t lowest = lowest_floats_.exchange(UINT32_MAX);
     REXLOG_INFO("[coreaudio] 5 s: {} blocks, {} gaps ({} frames of silence), {} permits refused, ring at least "
                 "{} blocks, longest wait between blocks {:.1f} ms | {} blocks dropped (ring full), {} trimmed "
-                "(over 12 queued) | limiter: {:.2f}% of samples turned down, deepest {:.1f} dB",
+                "(over 12 queued) | limiter: {:.2f}% of samples turned down, deepest {:.1f} dB | silent blocks from "
+                "the game {} (longest run {:.0f} ms), sudden drops {}",
                 submitted_, underruns_.exchange(0), silent_frames_.exchange(0), refused_permits_.exchange(0),
                 lowest == UINT32_MAX ? 0u : lowest / uint32_t(kFloatsPerBlock), worst_submit_gap_ns_ / 1e6,
                 dropped_full_, trimmed_, submitted_ ? 100.0 * limited_samples_ / (double(submitted_) * kSamplesPerChannel) : 0.0,
-                20.0 * std::log10(std::max(deepest_gain_, 1e-6f)));
+                20.0 * std::log10(std::max(deepest_gain_, 1e-6f)), silent_blocks_,
+                longest_silent_run_ * 1000.0 * kSamplesPerChannel / kSampleRate, sudden_drops_);
+    silent_blocks_ = 0;
+    longest_silent_run_ = 0;
+    sudden_drops_ = 0;
     submitted_ = 0;
     dropped_full_ = trimmed_ = 0;
     limited_samples_ = 0;
@@ -343,6 +348,31 @@ void CoreAudioDriver::SubmitFrame(uint32_t samples_ptr) {
     }
     dst[i * 2 + 0] = std::clamp(left * limiter_gain_, -1.0f, 1.0f);
     dst[i * 2 + 1] = std::clamp(right * limiter_gain_, -1.0f, 1.0f);
+  }
+
+  // Diagnostics: what the game mixed. A silent block (peak under -80 dB), the
+  // longest run of them, and sudden drops (a block 30 dB quieter than the
+  // block before while that one was clearly audible): the whole game audio
+  // cutting out in police chases.
+  {
+    float block_peak = 0.0f;
+    for (size_t i = 0; i < kSamplesPerChannel * 2; ++i) block_peak = std::max(block_peak, std::fabs(dst[i]));
+    if (block_peak < 1e-4f) {
+      ++silent_blocks_;
+      ++silent_run_;
+      longest_silent_run_ = std::max(longest_silent_run_, silent_run_);
+    } else {
+      silent_run_ = 0;
+    }
+    if (last_block_peak_ > 0.03f && block_peak < last_block_peak_ * 0.0316f) {
+      ++sudden_drops_;
+      static std::atomic<int> drop_lines{60};
+      if (drop_lines.fetch_sub(1) > 0) {
+        REXLOG_INFO("[coreaudio] sudden drop: block peak {:.1f} dB after {:.1f} dB",
+                    20.0 * std::log10(std::max(block_peak, 1e-7f)), 20.0 * std::log10(last_block_peak_));
+      }
+    }
+    last_block_peak_ = block_peak;
   }
 
   // Publish the block: the release makes the consumer see the samples before

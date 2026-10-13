@@ -100,6 +100,9 @@ class CoreAudioDriver final : public AudioDriver {
   uint32_t submitted_ = 0;                                                       // producer only
   // The output limiter (SubmitFrame, producer only): its gain, and for the log.
   float limiter_gain_ = 1.0f, deepest_gain_ = 1.0f;
+  // What the game mixed (diagnostics): silent blocks, their longest run, sudden drops.
+  uint32_t silent_blocks_ = 0, silent_run_ = 0, longest_silent_run_ = 0, sudden_drops_ = 0;
+  float last_block_peak_ = 0.0f;
   uint64_t limited_samples_ = 0;
 
   // The AVAudioSession interruption observer (an NSObject token, retained).
