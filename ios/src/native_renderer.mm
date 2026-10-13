@@ -124,6 +124,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_from_boot, true, "GPU",
                     "(its memory is never filled)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
                     "Native renderer: show Apple's Metal Performance HUD for the game picture");
+REXCVAR_DEFINE_BOOL(nfsmw_native_bc_gpu_decode, true, "GPU",
+                    "Native renderer: on GPUs without BC (DXT) formats, expand them on the GPU (off: on the CPU)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -721,6 +723,7 @@ struct Texture {
   bool cube = false;           // six faces in data, one after another
   uint32_t depth = 1;          // 3D textures: depth slices in data, one after another
   bool volume = false;
+  bool bc_on_gpu = false;      // BC blocks kept, expanded to RGBA8 by a GPU kernel (no BC on this GPU)
   uint32_t guest_format = 0;   // the fetch constant's format (diagnostics)
   uint32_t guest_endian = 0;   // the fetch constant's endianness (diagnostics)
   bool guest_tiled = false;    // (diagnostics)
@@ -1739,7 +1742,13 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   // iPhone 14 Pro Max (A16) aborted making a BC1 texture (Metal validation).
   if ((tex.format == MTLPixelFormatBC1_RGBA || tex.format == MTLPixelFormatBC2_RGBA ||
        tex.format == MTLPixelFormatBC3_RGBA) && !GpuHasBC()) {
-    DecodeBCToRGBA8(tex, layers, bw, bh);
+    // Expanded on the GPU at upload (BcDecodeOnGpu): the blocks upload small
+    // and the CPU does nothing; 3D textures (rare) on the CPU.
+    if (tex.volume || !REXCVAR_GET(nfsmw_native_bc_gpu_decode)) {
+      DecodeBCToRGBA8(tex, layers, bw, bh);
+    } else {
+      tex.bc_on_gpu = true;
+    }
   }
   // k_4_4_4_4 to RGBA8 on the CPU, exactly as rexglue's load shader
   // (texture_load_r4g4b4a4_rgba8): R in bits 0-3, G 4-7, B 8-11, A 12-15,
@@ -2907,6 +2916,123 @@ uint64_t ProcessPhysicalFootprint() {
 
 // The Metal texture for a decoded texture: made once, kept while the cache
 // keeps the decoded data (a new decode is a new object).
+// BC1-3 blocks expanded to RGBA8 by a compute kernel, for GPUs without BC
+// formats (A16 and older): the blocks upload as they are, 4-8x smaller than
+// texels, and the CPU decodes nothing (it did, at ~10 ms a frame on an
+// iPhone 14 Pro Max while a track streamed in). Encoded into one command
+// buffer per frame on the frame's queue, committed before the frame's own
+// (BcFlush), so it runs first.
+id<MTLCommandQueue> bc_queue;           // the frame's queue (render thread)
+id<MTLCommandBuffer> bc_cb;             // this frame's decodes, if any
+id<MTLComputeCommandEncoder> bc_enc;
+
+id<MTLComputePipelineState> BcPipeline(id<MTLDevice> device, bool cube) {
+  static id<MTLComputePipelineState> pso[2];
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    NSString* source = @"#include <metal_stdlib>\n"
+        "using namespace metal;\n"
+        "struct P { uint bw; uint bh; uint w; uint h; uint kind; uint layer_bytes; };\n"
+        "float3 c565(uint c) { return float3((c >> 11) & 31, (c >> 5) & 63, c & 31) / float3(31.0, 63.0, 31.0); }\n"
+        "float4 texel(device const uchar* b, uint kind, uint i) {\n"
+        "  device const uchar* c = kind == 1 ? b : b + 8;\n"
+        "  uint c0 = c[0] | (c[1] << 8), c1 = c[2] | (c[3] << 8);\n"
+        "  uint idx = (c[4 + i / 4] >> (2 * (i % 4))) & 3;\n"
+        "  float3 p0 = c565(c0), p1 = c565(c1);\n"
+        "  float4 col;\n"
+        "  if (kind != 1 || c0 > c1) {\n"
+        "    col = float4(idx == 0 ? p0 : idx == 1 ? p1 : idx == 2 ? (2.0 * p0 + p1) / 3.0 : (p0 + 2.0 * p1) / 3.0, 1.0);\n"
+        "  } else {\n"
+        "    col = idx == 0 ? float4(p0, 1) : idx == 1 ? float4(p1, 1) : idx == 2 ? float4((p0 + p1) * 0.5, 1) : float4(0);\n"
+        "  }\n"
+        "  if (kind == 2) { col.a = float((b[i / 2] >> (4 * (i % 2))) & 15) / 15.0; }\n"
+        "  if (kind == 3) {\n"
+        "    float a0 = b[0] / 255.0, a1 = b[1] / 255.0;\n"
+        "    uint bit = 3 * i; uint byte = 2 + bit / 8; uint shift = bit % 8;\n"
+        "    uint v = (b[byte] | (b[min(byte + 1, 7u)] << 8)) >> shift; uint ai = v & 7;\n"
+        "    float a;\n"
+        "    if (b[0] > b[1]) a = ai == 0 ? a0 : ai == 1 ? a1 : (float(8 - ai) * a0 + float(ai - 1) * a1) / 7.0;\n"
+        "    else a = ai == 0 ? a0 : ai == 1 ? a1 : ai == 6 ? 0.0 : ai == 7 ? 1.0 : (float(6 - ai) * a0 + float(ai - 1) * a1) / 5.0;\n"
+        "    col.a = a;\n"
+        "  }\n"
+        "  return col;\n"
+        "}\n"
+        "kernel void bc2d(device const uchar* data [[buffer(0)]], constant P& p [[buffer(1)]],\n"
+        "                 texture2d<float, access::write> out [[texture(0)]], uint2 g [[thread_position_in_grid]]) {\n"
+        "  if (g.x >= p.bw || g.y >= p.bh) return;\n"
+        "  device const uchar* b = data + (g.y * p.bw + g.x) * (p.kind == 1 ? 8 : 16);\n"
+        "  for (uint i = 0; i < 16; ++i) { uint2 xy = g * 4 + uint2(i % 4, i / 4);\n"
+        "    if (xy.x < p.w && xy.y < p.h) out.write(texel(b, p.kind, i), xy); }\n"
+        "}\n"
+        "kernel void bccube(device const uchar* data [[buffer(0)]], constant P& p [[buffer(1)]],\n"
+        "                   texturecube<float, access::write> out [[texture(0)]], uint3 g [[thread_position_in_grid]]) {\n"
+        "  if (g.x >= p.bw || g.y >= p.bh || g.z >= 6) return;\n"
+        "  device const uchar* b = data + g.z * p.layer_bytes + (g.y * p.bw + g.x) * (p.kind == 1 ? 8 : 16);\n"
+        "  for (uint i = 0; i < 16; ++i) { uint2 xy = g.xy * 4 + uint2(i % 4, i / 4);\n"
+        "    if (xy.x < p.w && xy.y < p.h) out.write(texel(b, p.kind, i), xy, g.z); }\n"
+        "}\n";
+    NSError* error = nil;
+    id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+    if (!library) {
+      REXLOG_WARN("[native] BC decode kernels: {}", error.localizedDescription.UTF8String);
+    } else {
+      pso[0] = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"bc2d"] error:&error];
+      pso[1] = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"bccube"] error:&error];
+    }
+  }
+  return pso[cube ? 1 : 0];
+}
+
+// The texture for BC blocks, expanded on the GPU; nil if the kernel is
+// unavailable (the caller then decodes on the CPU).
+id<MTLTexture> BcDecodeOnGpu(id<MTLDevice> device, const Texture& t) {
+  id<MTLComputePipelineState> pso = BcPipeline(device, t.cube);
+  if (!pso || !bc_queue) return nil;
+  MTLTextureDescriptor* desc = [MTLTextureDescriptor new];
+  desc.pixelFormat = MTLPixelFormatRGBA8Unorm;
+  desc.width = t.width;
+  desc.height = t.height;
+  if (t.cube) desc.textureType = MTLTextureTypeCube;
+  desc.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsagePixelFormatView;
+  desc.storageMode = MTLStorageModePrivate;
+  id<MTLTexture> base = NewTexture(device, desc, "bc-gpu");
+  if (!base) return nil;
+  id<MTLBuffer> blocks = [device newBufferWithBytes:t.data.data() length:t.data.size()
+                                            options:MTLResourceStorageModeShared];
+  if (!bc_cb) {
+    bc_cb = [bc_queue commandBuffer];
+    bc_cb.label = @"BC decode";
+    bc_enc = [bc_cb computeCommandEncoder];
+  }
+  const uint32_t bw = (t.width + 3) / 4, bh = (t.height + 3) / 4;
+  const uint32_t kind = t.format == MTLPixelFormatBC1_RGBA ? 1 : t.format == MTLPixelFormatBC2_RGBA ? 2 : 3;
+  struct { uint32_t bw, bh, w, h, kind, layer_bytes; } params = {
+      bw, bh, t.width, t.height, kind, uint32_t(t.data.size() / (t.cube ? 6 : 1))};
+  [bc_enc setComputePipelineState:pso];
+  [bc_enc setBuffer:blocks offset:0 atIndex:0];
+  [bc_enc setBytes:&params length:sizeof(params) atIndex:1];
+  [bc_enc setTexture:base atIndex:0];
+  [bc_enc dispatchThreads:MTLSizeMake(bw, bh, t.cube ? 6 : 1) threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+  // The fetch swizzle on a view: a texture the kernel writes carries none.
+  const MTLTextureSwizzleChannels identity = MTLTextureSwizzleChannelsDefault;
+  if (std::memcmp(&t.swizzle, &identity, sizeof(identity)) == 0) return base;
+  return [base newTextureViewWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                 textureType:base.textureType
+                                      levels:NSMakeRange(0, 1)
+                                      slices:NSMakeRange(0, t.cube ? 6 : 1)
+                                     swizzle:t.swizzle];
+}
+
+// This frame's decodes, committed ahead of the frame (same queue).
+void BcFlush() {
+  if (!bc_cb) return;
+  [bc_enc endEncoding];
+  [bc_cb commit];
+  bc_cb = nil;
+  bc_enc = nil;
+}
+
 id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const Texture>& tp) {
   const Texture& t = *tp;
   if (t.format == MTLPixelFormatInvalid) {
@@ -2919,6 +3045,22 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
     return nil;  // not expected: uploaded textures keep their Metal copy
   }
   const auto upload_start = std::chrono::steady_clock::now();
+  if (t.bc_on_gpu) {
+    if (id<MTLTexture> tex = BcDecodeOnGpu(device, t)) {
+      t.gpu.texture = tex;
+      t.gpu.bytes = tex.allocatedSize;
+      residency::Add(tex);
+      ++gpu_texture_count;
+      gpu_texture_bytes += int64_t(t.gpu.bytes);
+      ++frame_uploads;
+      frame_upload_bytes += t.data.size();
+      frame_upload_us += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                      std::chrono::steady_clock::now() - upload_start).count());
+      decltype(t.data)().swap(t.data);
+      return tex;
+    }
+    return nil;  // no kernel: drawn without it (logged once at its compile)
+  }
   MTLTextureDescriptor* desc = [MTLTextureDescriptor new];
   desc.pixelFormat = t.format;
   desc.width = t.width;
@@ -3119,6 +3261,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
   @autoreleasepool {
     id<MTLDevice> device = store.device;
     static id<MTLCommandQueue> queue = [device newCommandQueue];
+    bc_queue = queue;  // BC decodes go on the frame's queue (BcDecodeOnGpu)
     residency::Apply(device, queue);
     ++gpu_frame;
     SweepGpu();
@@ -3179,6 +3322,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                      t.cube || t.volume, anisotropy)];
     }
     [samplers insertObject:SamplerFor(device, true, 2, 2, false) atIndex:0];
+    BcFlush();  // the frame's BC decodes run before the frame
 
     auto heap = [&](NSArray* objects, bool are_samplers) {
       // Room for the textures resolves make while the frame is encoded.
