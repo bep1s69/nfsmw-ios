@@ -127,7 +127,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_bc_gpu_decode, true, "GPU",
                     "Native renderer: on GPUs without BC (DXT) formats, expand them on the GPU (off: on the CPU)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time, true, "GPU",
-                    "Native renderer: below the display rate, present each frame at an even target time "
+                    "Native renderer: below the display rate, keep each frame on screen at least one cap interval "
                     "(frame pacing at the 30/40/60 caps)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
@@ -4855,6 +4855,18 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const float fit[4] = {src > dst ? 1.0f : src / dst, src > dst ? dst / src : 1.0f, 0, 0};
         // The resolve's rectangle within its texture (it starts at 0, 0).
         const float crop[4] = {sw / float(final_texture.width), sh / float(final_texture.height), 0, 0};
+        // Only the picture's rectangle: the one triangle covering it reaches
+        // past its right and top edges (to 3x), where the sampler's clamp
+        // smeared the picture's edge over the black bar (the 4:3 picture on an
+        // 11" iPad: black on the left, the edge stretched on the right).
+        {
+          const double pw = std::round(dw * fit[0]), ph = std::round(dh * fit[1]);
+          const NSUInteger px = NSUInteger(std::max(0.0, std::floor((dw - pw) * 0.5)));
+          const NSUInteger py = NSUInteger(std::max(0.0, std::floor((dh - ph) * 0.5)));
+          [e setScissorRect:(MTLScissorRect){px, py,
+                                             std::min<NSUInteger>(NSUInteger(pw), drawable.texture.width - px),
+                                             std::min<NSUInteger>(NSUInteger(ph), drawable.texture.height - py)}];
+        }
         [e setRenderPipelineState:present_pso];
         [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
         [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
@@ -4864,26 +4876,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // What the screen shows: a gap between two frames on it (a stutter
         // the player sees, whatever its cause), logged with the frame's number.
         // Frame pacing: below the display's rate (the 30, 40 and 60 caps on a
-        // 120 Hz screen, 30 on 60 Hz) each frame gets a target time one cap
-        // interval after the previous one, so every frame stays on screen
-        // equally long (shown as soon as ready, a frame a hair late stayed for
-        // one refresh more and the next one less: microstutter at 30). The
-        // grid restarts from now when a frame is more than an interval late,
-        // and never runs more than a quarter interval ahead of now.
+        // 120 Hz screen, 30 on 60 Hz) each frame stays on screen at least one
+        // cap interval (less half a refresh, so that 33.3 ms is 4 refreshes
+        // and not 5) after the one before it: shown as soon as ready, a frame
+        // a hair late stayed one refresh more and the next one less
+        // (microstutter at 30). Target times on a grid of our own did the
+        // same: the screen rounded them to the nearest refresh, either way.
         const int32_t cap = rex::cvar::Query<int32_t>("ios_fps_cap");
         const double interval = cap > 0 ? 1.0 / double(cap) : 0.0;
         const double display_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
         const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 &&
                            double(cap) < display_hz - 1.0;
-        static double last_target = 0;
-        double target = 0;
-        if (paced) {
-          const double now = CACurrentMediaTime();
-          target = last_target + interval;
-          if (target < now - interval || target > now + interval * 1.25) target = now;
-          target = std::min(target, now + interval * 0.25);
-          last_target = target;
-        }
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
@@ -4907,11 +4910,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           if (++shown_count % 300 == 0) {
             REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){}",
                         off_grid.exchange(0), interval * 1000.0, worst_ms.exchange(0.0),
-                        paced ? ", presented at target times" : "");
+                        paced ? ", paced" : "");
           }
         }];
         if (paced) {
-          [cb presentDrawable:drawable atTime:target];
+          [cb presentDrawable:drawable afterMinimumDuration:interval - 0.5 / display_hz];
         } else {
           [cb presentDrawable:drawable];
         }
