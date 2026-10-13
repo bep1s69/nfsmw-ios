@@ -117,6 +117,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
 // The movies (XMV player) drawn by the native renderer's own shaders.
 REXCVAR_DEFINE_BOOL(nfsmw_native_movies, true, "GPU",
                     "Native renderer: draw the movies itself (off: the emulated renderer draws them)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_movie_16_9, true, "GPU",
+                    "Native renderer: movies keep 16:9 on wider screens (black bars at the sides)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -4128,9 +4130,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const bool pixels = !(d.vte & 1);
       if (internal) {
         // The positions are guest pixels: the target is t.scale times larger.
-        const float xf[4] = {pixels ? 2.0f * t.scale / float(t.pitch) : 1.0f,
-                             pixels ? -2.0f * t.scale / float(t.height) : 1.0f,
-                             pixels ? -1.0f : 0.0f, pixels ? 1.0f : 0.0f};
+        float xf[4] = {pixels ? 2.0f * t.scale / float(t.pitch) : 1.0f,
+                       pixels ? -2.0f * t.scale / float(t.height) : 1.0f,
+                       pixels ? -1.0f : 0.0f, pixels ? 1.0f : 0.0f};
+        // The movies keep their 16:9 on a wider screen (pillarboxed): the
+        // picture's clip-space x narrowed about the centre.
+        if (d.ps_key == 0x2d2462de73d283deull && REXCVAR_GET(nfsmw_native_movie_16_9) && t.pitch && t.height) {
+          const float aspect = float(t.color.width) / float(t.color.height);
+          if (aspect > 16.0f / 9.0f + 0.01f) {
+            const float f = (16.0f / 9.0f) / aspect;
+            xf[0] *= f;
+            xf[2] *= f;
+          }
+        }
         [enc setVertexBytes:xf length:sizeof(xf) atIndex:30];
       }
       if (pixels && !internal) {
