@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx" ]];
   return [keys containsObject:key];
 }
 
@@ -377,6 +377,11 @@ const std::vector<Section>& Sections() {
             @"1",
             {{@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
+           {@"metalfx", Type::kSwitch, @"MetalFX upscaling",
+            @"Native renderer: the picture is enlarged to the screen by Apple's MetalFX upscaler "
+            @"(sharper edges and detail) instead of a plain stretch. Best with a low render "
+            @"resolution, e.g. 1x upscaled to this screen, cheaper than drawing at 1.5x or native.",
+            @"false"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
             @"they run the console's screen refresh at 120 Hz, which the game was not made "
@@ -675,6 +680,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   if (On(s, @"native_renderer")) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
+    a.push_back("--nfsmw_native_metalfx=" + b(On(s, @"metalfx")));
   } else {
     a.push_back("--resolution_scale=" + std::to_string(whole_scale));
   }

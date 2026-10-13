@@ -33,6 +33,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#import <MetalFX/MetalFX.h>
 
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -214,6 +215,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx, false, "GPU",
+                    "Native renderer: the picture upscaled to the screen by MetalFX (spatial) instead of "
+                    "the plain bilinear stretch, when it is drawn at fewer pixels than it is shown");
 REXCVAR_DEFINE_STRING(nfsmw_native_resolution_scale, "1", "GPU",
                       "Native renderer: internal resolution scale (1 = the console's 720p; fractions such as 1.5 "
                       "work; \"native\" = the screen's own pixels)");
@@ -4834,7 +4838,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.colorAttachments[0].loadAction = MTLLoadActionClear;
         rp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-        id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
         // "native" scale: the displayed image as large as it is shown (it fits
         // the drawable by its height, or by its width when relatively wider).
         if (final_guest_width >= 320 && final_guest_height >= 240) {
@@ -4854,7 +4857,73 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const float src = sw / sh, dst = dw / dh;
         const float fit[4] = {src > dst ? 1.0f : src / dst, src > dst ? dst / src : 1.0f, 0, 0};
         // The resolve's rectangle within its texture (it starts at 0, 0).
-        const float crop[4] = {sw / float(final_texture.width), sh / float(final_texture.height), 0, 0};
+        float crop[4] = {sw / float(final_texture.width), sh / float(final_texture.height), 0, 0};
+        // MetalFX: the picture upscaled to its size on screen (spatial: the
+        // game has no motion vectors for the temporal scaler), then shown
+        // 1:1 by the pass below. Only when it is drawn smaller than shown.
+        id<MTLTexture> shown_texture = final_texture;
+        {
+          const NSUInteger out_w = NSUInteger(std::lround(dw * fit[0]));
+          const NSUInteger out_h = NSUInteger(std::lround(dh * fit[1]));
+          static id<MTLFXSpatialScaler> scaler;
+          static id<MTLTexture> upscaled;
+          static NSUInteger in_w = 0, in_h = 0;
+          static MTLPixelFormat in_format = MTLPixelFormatInvalid;
+          static bool said_unsupported = false;
+          const bool want = REXCVAR_GET(nfsmw_native_metalfx) && out_w > NSUInteger(sw) + 8 &&
+                            out_h > NSUInteger(sh) + 8;
+          if (want && !(scaler && in_w == final_texture.width && in_h == final_texture.height &&
+                        in_format == final_texture.pixelFormat && upscaled.width == out_w &&
+                        upscaled.height == out_h)) {
+            scaler = nil;
+            upscaled = nil;
+            if (![MTLFXSpatialScalerDescriptor supportsDevice:device]) {
+              if (!said_unsupported) {
+                said_unsupported = true;
+                REXLOG_WARN("[native] MetalFX: this GPU has no spatial scaler; plain stretch");
+              }
+            } else {
+              MTLFXSpatialScalerDescriptor* sd = [MTLFXSpatialScalerDescriptor new];
+              sd.inputWidth = final_texture.width;
+              sd.inputHeight = final_texture.height;
+              sd.outputWidth = out_w;
+              sd.outputHeight = out_h;
+              sd.colorTextureFormat = final_texture.pixelFormat;
+              sd.outputTextureFormat = final_texture.pixelFormat;
+              const bool is_float = final_texture.pixelFormat == MTLPixelFormatRGBA16Float;
+              sd.colorProcessingMode = is_float ? MTLFXSpatialScalerColorProcessingModeHDR
+                                                : MTLFXSpatialScalerColorProcessingModePerceptual;
+              scaler = [sd newSpatialScalerWithDevice:device];
+              if (scaler) {
+                MTLTextureDescriptor* od =
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:final_texture.pixelFormat
+                                                                       width:out_w
+                                                                      height:out_h
+                                                                   mipmapped:NO];
+                od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
+                od.storageMode = MTLStorageModePrivate;
+                upscaled = [device newTextureWithDescriptor:od];
+                in_w = final_texture.width;
+                in_h = final_texture.height;
+                in_format = final_texture.pixelFormat;
+                REXLOG_INFO("[native] MetalFX: {}x{} upscaled to {}x{}", int(sw), int(sh), out_w, out_h);
+              } else {
+                REXLOG_WARN("[native] MetalFX: no scaler for {}x{} -> {}x{}; plain stretch", int(sw),
+                            int(sh), out_w, out_h);
+              }
+            }
+          }
+          if (want && scaler && upscaled) {
+            scaler.colorTexture = final_texture;
+            scaler.inputContentWidth = NSUInteger(sw);
+            scaler.inputContentHeight = NSUInteger(sh);
+            scaler.outputTexture = upscaled;
+            [scaler encodeToCommandBuffer:cb];
+            shown_texture = upscaled;
+            crop[0] = crop[1] = 1.0f;
+          }
+        }
+        id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
         // Only the picture's rectangle: the one triangle covering it reaches
         // past its right and top edges (to 3x), where the sampler's clamp
         // smeared the picture's edge over the black bar (the 4:3 picture on an
@@ -4870,7 +4939,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setRenderPipelineState:present_pso];
         [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
         [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
-        [e setFragmentTexture:final_texture atIndex:0];
+        [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
         [e endEncoding];
         // What the screen shows: a gap between two frames on it (a stutter

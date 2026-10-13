@@ -169,7 +169,7 @@ set_target_properties(nfsmw PROPERTIES
 target_compile_options(nfsmw PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include")
 target_link_libraries(nfsmw PRIVATE rex::runtime nfsmw_headers
-    "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework QuartzCore" "-framework CoreImage"
+    "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework MetalFX" "-framework QuartzCore" "-framework CoreImage"
     "-framework UniformTypeIdentifiers")
 # The Xbox 360 language and country of the edition. With the game, from
 # ios/generated/edicion.json (tools/ios/generate_code.py); without it, USA's,
