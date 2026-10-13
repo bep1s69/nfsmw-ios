@@ -22,6 +22,12 @@ keeps a second run from touching anything.
   car-limit  sub_82564B88: cmpwi cr6,r3,10 (x1)      nfsmw_purchased_car_limit()
   skip-movies sub_82282F18, sub_822BBA98, sub_824792D8:
              lwz r11,-12772(r11) (x1 each)           | nfsmw_skip_movies()
+  laps       sub_82561430: cmpwi cr6,r9,1 / li r9,1  nfsmw_laps_min()
+                           li r9,8 / cmpwi cr6,r9,8  nfsmw_laps_max()
+  opponents  sub_82560C78: cmpwi cr6,r10,1 / li r10,1 nfsmw_opponents_min()
+                           subfic rD,r8,4 (x2)       nfsmw_opponents_max() + 1
+  traffic    sub_822C4FB8: li r8,10 / li r9,30 / li r10,50
+                                                     nfsmw_traffic_density(1/2/3)
 """
 
 import argparse
@@ -40,6 +46,16 @@ extern "C" int32_t nfsmw_markers_to_pick();
 extern "C" int32_t nfsmw_purchased_car_limit();
 extern "C" int32_t nfsmw_shadow_map_size();
 extern "C" int32_t nfsmw_skip_movies();
+"""
+# Declarations added later: their own block, so that files patched before
+# (with only DECLS) get them too.
+DECLS2_MARK = "nfsmw-extra-options-2"
+DECLS2 = f"""// LOCAL PATCH - iOS ({DECLS2_MARK}): more Extra Options features.
+extern "C" int32_t nfsmw_laps_min();
+extern "C" int32_t nfsmw_laps_max();
+extern "C" int32_t nfsmw_opponents_min();
+extern "C" int32_t nfsmw_opponents_max();
+extern "C" int32_t nfsmw_traffic_density(int32_t level);
 """
 
 
@@ -72,6 +88,15 @@ def li_edit(value, call, mark):
         new = [f"\tctx.{rd}.s64 = {call};  // {mark}"]
         return old, new
     return re.compile(rf"\t// li (r\d+),{value}$"), edit
+
+
+def li_reg_edit(reg, value, call, mark):
+    """'li <reg>,<value>' -> <reg> = <call> (only that register)."""
+    def edit(match, _):
+        old = [f"\tctx.{reg}.s64 = {value};"]
+        new = [f"\tctx.{reg}.s64 = {call};  // {mark}"]
+        return old, new
+    return re.compile(rf"\t// li {reg},{value}$"), edit
 
 
 def load_or_edit(reg, base, offset, call, mark):
@@ -107,9 +132,33 @@ FEATURES = {
         (fn, load_or_edit("r11", "r11", -12772, "nfsmw_skip_movies()", "nfsmw-skip-movies"), 1)
         for fn in ("sub_82282F18", "sub_822BBA98", "sub_824792D8")
     ],
+    # Quick Race's lap count (Extra Options' LapControllers): the options
+    # screen's lap cycler (sub_82561430) wraps below 1 to 8 and above 8 to 1.
+    "laps": [
+        ("sub_82561430", compare_edit("r9", 1, "nfsmw_laps_min()", "nfsmw-laps"), 1),
+        ("sub_82561430", li_reg_edit("r9", 1, "nfsmw_laps_min()", "nfsmw-laps"), 1),
+        ("sub_82561430", li_reg_edit("r9", 8, "nfsmw_laps_max()", "nfsmw-laps"), 1),
+        ("sub_82561430", compare_edit("r9", 8, "nfsmw_laps_max()", "nfsmw-laps"), 1),
+    ],
+    # Quick Race's opponents (OpponentControllers): the cycler (sub_82560C78)
+    # wraps between 1 and 4 - players (the byte at the options' +0).
+    "opponents": [
+        ("sub_82560C78", compare_edit("r10", 1, "nfsmw_opponents_min()", "nfsmw-opponents"), 1),
+        ("sub_82560C78", li_reg_edit("r10", 1, "nfsmw_opponents_min()", "nfsmw-opponents"), 1),
+        ("sub_82560C78", subfic_edit(4, "(nfsmw_opponents_max() + 1)", "nfsmw-opponents"), 2),
+    ],
+    # Traffic density (TrafficControllers): the race's traffic level 1-3
+    # (Low, Medium, High) becomes 10, 30 or 50 in sub_822C4FB8.
+    "traffic": [
+        ("sub_822C4FB8", li_reg_edit("r8", 10, "nfsmw_traffic_density(1)", "nfsmw-traffic"), 1),
+        ("sub_822C4FB8", li_reg_edit("r9", 30, "nfsmw_traffic_density(2)", "nfsmw-traffic"), 1),
+        ("sub_822C4FB8", li_reg_edit("r10", 50, "nfsmw_traffic_density(3)", "nfsmw-traffic"), 1),
+    ],
 }
 MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
-         "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3)}
+         "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3),
+         "laps": ("nfsmw-laps", 4), "opponents": ("nfsmw-opponents", 6),
+         "traffic": ("nfsmw-traffic", 3)}
 
 
 def fail(msg):
@@ -137,7 +186,7 @@ def main():
         return 0
 
     wanted = {fn for edits in FEATURES.values() for fn, _, _ in edits}
-    found = {(f, fn): 0 for f, edits in FEATURES.items() for fn, _, _ in edits}
+    found = {(f, k): 0 for f, edits in FEATURES.items() for k in range(len(edits))}
     pending = {}
     for path in sorted(gen.glob("*.cpp")):
         text = path.read_text(encoding="utf-8")
@@ -151,7 +200,7 @@ def main():
             if m:
                 fn = m.group(1)
             for feature, edits in FEATURES.items():
-                for efn, (pattern, edit), _ in edits:
+                for k, (efn, (pattern, edit), _) in enumerate(edits):
                     if fn != efn:
                         continue
                     mm = pattern.match(lines[i])
@@ -165,20 +214,23 @@ def main():
                     elif span != new:
                         fail(f"{fn}: unexpected C++ after '{lines[i].strip()}': "
                              f"{span[0].strip() if span else '(end)'}")
-                    found[(feature, efn)] += 1
+                    found[(feature, k)] += 1
         if changed:
-            if "nfsmw_skip_movies();" not in "\n".join(lines[:80]):
-                inc = next((k for k, l in enumerate(lines)
-                            if l.startswith('#include "nfsmw_funcs.')), None)
-                if inc is None:
-                    fail(f"{path.name}: no #include \"nfsmw_funcs.*.h\" for the declarations")
+            inc = next((k for k, l in enumerate(lines)
+                        if l.startswith('#include "nfsmw_funcs.')), None)
+            if inc is None:
+                fail(f"{path.name}: no #include \"nfsmw_funcs.*.h\" for the declarations")
+            head = "\n".join(lines[:120])
+            if DECLS2_MARK not in head:
+                lines.insert(inc + 1, "\n" + DECLS2.rstrip("\n"))
+            if "nfsmw_skip_movies();" not in head:
                 lines.insert(inc + 1, "\n" + DECLS.rstrip("\n"))
             pending[path] = "\n".join(lines)
 
     for feature, edits in FEATURES.items():
-        for fn, _, expected in edits:
-            if found[(feature, fn)] != expected:
-                fail(f"{feature}: {fn}: found {found[(feature, fn)]} place(s), expected "
+        for k, (fn, _, expected) in enumerate(edits):
+            if found[(feature, k)] != expected:
+                fail(f"{feature}: {fn}: found {found[(feature, k)]} place(s), expected "
                      f"{expected}. Is this the USA edition?")
     for path, text in pending.items():
         path.write_text(text, encoding="utf-8")

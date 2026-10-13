@@ -69,9 +69,19 @@ struct Section {
 };
 
 // The launcher's tabs (a segmented control at the top).
-enum Tab { kTabGame, kTabGraphics, kTabControls, kTabAudio, kTabAdvanced, kTabCount };
+enum Tab { kTabGame, kTabExtras, kTabGraphics, kTabControls, kTabAudio, kTabAdvanced, kTabCount };
 NSArray<NSString*>* TabTitles() {
-  return @[ @"Game", @"Graphics", @"Controls", @"Audio", @"Advanced" ];
+  return @[ @"Game", @"Extras", @"Graphics", @"Controls", @"Audio", @"Advanced" ];
+}
+
+// The choices 0, 10, ... 100 (traffic density).
+std::vector<Choice> Percent(NSString* game) {
+  std::vector<Choice> c;
+  for (int i = 0; i <= 100; i += 10) {
+    NSString* v = [NSString stringWithFormat:@"%d", i];
+    c.push_back({[v isEqualToString:game] ? [v stringByAppendingString:@" (game)"] : v, v});
+  }
+  return c;
 }
 
 // Settings only the emulated (Vulkan) renderer uses: greyed out while the
@@ -264,6 +274,10 @@ const std::vector<Section>& Sections() {
             @"The Black Edition extras that exist in the Xbox 360 game, like the Porsche 911 "
             @"GT2 and the Corvette C6.R.",
             @"true"},
+           {@"sim_120", Type::kSwitch, @"120 Hz simulation (experimental)",
+            @"The game moves its world 60 times a second at any frame rate. On, 120 times: for "
+            @"the 120 fps cap. Under test; turn it off if the game runs too fast or too slow.",
+            @"false"},
        }, kTabGame},
       {@"Saves", nil,
        {
@@ -272,7 +286,7 @@ const std::vector<Section>& Sections() {
             @"in an iCloud Drive folder, kept in sync between your devices.",
             @""},
        }, kTabGame},
-      {@"Extra Options", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
+      {@"Career", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
        {
            {@"marker_count", Type::kChoice, @"Markers after beating a rival",
@@ -286,10 +300,6 @@ const std::vector<Section>& Sections() {
             @"10",
             {{@"10", @"10"}, {@"12", @"12"}, {@"15", @"15"}, {@"18", @"18"}, {@"20", @"20"},
              {@"25", @"25"}}},
-           {@"sim_120", Type::kSwitch, @"120 Hz simulation (experimental)",
-            @"The game moves its world 60 times a second at any frame rate. On, 120 times: for "
-            @"the 120 fps cap. Under test; turn it off if the game runs too fast or too slow.",
-            @"false"},
            {@"skip_movies", Type::kSwitch, @"Skip movies",
             @"Skips the game's movies, as Extra Options' SkipMovies: the EA logo and intro go "
             @"straight to \"press start\". The story movies of the career are skipped too.",
@@ -297,7 +307,42 @@ const std::vector<Section>& Sections() {
            {@"old_bridge", Type::kSwitch, @"Open the road to the Old Bridge",
             @"Removes the barrier that closes the road to the Old Bridge.",
             @"false"},
-       }, kTabGame},
+       }, kTabExtras},
+      {@"Quick Race", nil,
+       {
+           {@"laps_max", Type::kChoice, @"Most laps",
+            @"The most laps you can pick for a circuit, lap knockout or tollbooth race. The game's "
+            @"is 8.",
+            @"8",
+            {{@"8 (game)", @"8"}, {@"10", @"10"}, {@"15", @"15"}, {@"20", @"20"}, {@"30", @"30"},
+             {@"50", @"50"}, {@"99", @"99"}}},
+           {@"opponents_max", Type::kChoice, @"Most opponents (experimental)",
+            @"The most opponents you can pick. The game's is 3. On PC the 4th and later can get "
+            @"odd cars; more cars on the road also cost speed and memory.",
+            @"3",
+            {{@"3 (game)", @"3"}, {@"4", @"4"}, {@"5", @"5"}, {@"6", @"6"}}},
+           {@"traffic_low", Type::kChoice, @"Traffic at Low", @"How much traffic the Low setting means.",
+            @"10", Percent(@"10")},
+           {@"traffic_medium", Type::kChoice, @"Traffic at Medium",
+            @"How much traffic the Medium setting means.", @"30", Percent(@"30")},
+           {@"traffic_high", Type::kChoice, @"Traffic at High",
+            @"How much traffic the High setting means. 100 is bumper to bumper.", @"50", Percent(@"50")},
+       }, kTabExtras},
+      {@"Weather", nil,
+       {
+           {@"always_rain", Type::kSwitch, @"Always rain",
+            @"Rain everywhere, all the time (the game rains only in a few places).",
+            @"false"},
+           {@"rain_amount", Type::kChoice, @"Rain amount", @"How much rain falls.", @"1",
+            {{@"0.5x", @"0.5"}, {@"1x (game)", @"1"}, {@"1.5x", @"1.5"}, {@"2x", @"2"}, {@"3x", @"3"}}},
+           {@"rain_intensity", Type::kChoice, @"Rain intensity", @"How heavy the rain looks.", @"0.45",
+            {{@"Light", @"0.25"}, {@"Game", @"0.45"}, {@"Heavy", @"0.7"}, {@"Storm", @"1"}}},
+           {@"rain_drop_size", Type::kChoice, @"Drop size", @"The size of the falling drops.", @"0.01",
+            {{@"Small", @"0.005"}, {@"Game", @"0.01"}, {@"Large", @"0.02"}}},
+           {@"road_reflection", Type::kChoice, @"Wet road reflection",
+            @"How much the road reflects in the rain.", @"1",
+            {{@"Off", @"0"}, {@"0.5x", @"0.5"}, {@"1x (game)", @"1"}, {@"1.5x", @"1.5"}, {@"2x", @"2"}}},
+       }, kTabExtras},
       {@"Renderer", nil,
        {
            {@"native_renderer", Type::kSwitch, @"Native Metal renderer",
@@ -571,6 +616,16 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_marker_count=" + str(@"marker_count"));
   a.push_back("--nfsmw_purchased_car_limit=" + str(@"car_limit"));
   a.push_back("--nfsmw_remove_old_bridge_barrier=" + b(On(s, @"old_bridge")));
+  a.push_back("--nfsmw_laps_max=" + str(@"laps_max"));
+  a.push_back("--nfsmw_opponents_max=" + str(@"opponents_max"));
+  a.push_back("--nfsmw_traffic_low=" + str(@"traffic_low"));
+  a.push_back("--nfsmw_traffic_medium=" + str(@"traffic_medium"));
+  a.push_back("--nfsmw_traffic_high=" + str(@"traffic_high"));
+  a.push_back("--nfsmw_always_rain=" + b(On(s, @"always_rain")));
+  a.push_back("--nfsmw_rain_amount=" + str(@"rain_amount"));
+  a.push_back("--nfsmw_rain_intensity=" + str(@"rain_intensity"));
+  a.push_back("--nfsmw_rain_drop_size=" + str(@"rain_drop_size"));
+  a.push_back("--nfsmw_road_reflection=" + str(@"road_reflection"));
   a.push_back(std::string("--nfsmw_sim_rate=") + (On(s, @"sim_120") ? "120" : "60"));
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).

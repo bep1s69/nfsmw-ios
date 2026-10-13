@@ -59,6 +59,43 @@
 // variable (0x926144). Here its three readers see it set while the setting is
 // on (the variable itself is left as it is).
 //
+// QUICK RACE LAPS AND OPPONENTS (Extra Options: LapControllers,
+// OpponentControllers)
+//
+// The PC mod rewrites the limits of the Quick Race options screen's lap and
+// opponent selectors. On the 360 each is one function of the options screen
+// (the ones that take the left/right button hashes 0x9120409E and
+// 0xB5971BF1):
+//
+//   sub_82561430  laps: below 1 -> 8, above 8 -> 1 (the byte at +32 of the
+//                 race type's 24-byte options, in the options at 0x82A2C684)
+//   sub_82560C78  opponents: below 1 -> 4 - players, above it -> 1 (+35)
+//
+// Their limits read nfsmw_laps_min/max() and nfsmw_opponents_min/max(). The
+// race itself takes the count as it is (sub_822C4FB8 hands it to the race's
+// attributes; no clamp after it was found). More than 3 opponents: on PC the
+// 4th and later get odd cars; experimental.
+//
+// TRAFFIC DENSITY (Extra Options: TrafficControllers)
+//
+// sub_822C4FB8 turns the race's traffic level (1-3, the options' byte +10)
+// into the density the race attribute gets: 10, 30, 50 (the PC mod's three
+// bytes at 0x56DD96-0x56DD9E are the same table). They read
+// nfsmw_traffic_density(level).
+//
+// RAIN (Extra Options: Weather)
+//
+// The rain's tunables are a table of floats in .data, in the PC layout (the
+// mod's 0x904A14..0x904B38 are 0x828F9D20..0x828F9E44 here, found by their
+// default values 0.02, 0.03, 0.35 in a row): amount (1.0), crossing (0.02),
+// fall speed (0.03), gravity (0.35), drop size (0.01), intensity (0.45),
+// road reflection (1.0). Written at boot.
+//
+// Always rain: the PC mod sets a flag the 360 build does not have where it
+// was. Here the rain intensity at a point (sub_824FB818: the scripted
+// override at 0x82A2D6A0 if set, SetChanceOfRain's, else the weather
+// regions') is 1 while the setting is on.
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -69,6 +106,8 @@
 #include <rex/logging.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
+
+#include "nfsmw_pch.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_marker_count, 2, "Game",
                      "Markers you pick after beating a Blacklist rival (1-6; the game's is 2)");
@@ -82,6 +121,19 @@ REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 60, "Game",
 REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
                     "Skip the game's movies (EA logo, intro, attract and story movies), as Extra Options' "
                     "SkipMovies");
+REXCVAR_DEFINE_INT32(nfsmw_laps_max, 8, "Game",
+                     "Most laps you can pick for a Quick Race (1-127; the game's is 8)");
+REXCVAR_DEFINE_INT32(nfsmw_opponents_max, 3, "Game",
+                     "Most opponents you can pick for a Quick Race (1-6; the game's is 3)");
+REXCVAR_DEFINE_INT32(nfsmw_traffic_low, 10, "Game", "Traffic density at Low (0-100; the game's is 10)");
+REXCVAR_DEFINE_INT32(nfsmw_traffic_medium, 30, "Game", "Traffic density at Medium (0-100; the game's is 30)");
+REXCVAR_DEFINE_INT32(nfsmw_traffic_high, 50, "Game", "Traffic density at High (0-100; the game's is 50)");
+REXCVAR_DEFINE_BOOL(nfsmw_always_rain, false, "Game", "Rain everywhere, all the time");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_amount, 1.0, "Game", "How much rain falls (the game's is 1)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_intensity, 0.45, "Game", "Rain intensity (the game's is 0.45)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_drop_size, 0.01, "Game", "Size of the falling drops (the game's is 0.01)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_road_reflection, 1.0, "Game",
+                      "How much the wet road reflects (the game's is 1)");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -177,12 +229,89 @@ extern "C" void nfsmw_extra_options_apply() {
     if (std::string_view(name, 18) != "SCENERY_GROUP_DOOR") {
       REXLOG_WARN("[extra-options] old bridge barrier: 0x{:08X} is not SCENERY_GROUP_DOOR; "
                   "not touched", kSceneryGroupDoor);
-      return;
+    } else {
+      const uint8_t first = 'T', eighth = ' ';
+      const bool ok = PatchGuestBytes(kSceneryGroupDoor, &first, 1) &&
+                      PatchGuestBytes(kSceneryGroupDoor + 7, &eighth, 1);
+      REXLOG_INFO("[extra-options] old bridge barrier: {}", ok ? "removed" : "COULD NOT PATCH");
     }
-    const uint8_t first = 'T', eighth = ' ';
-    const bool ok = PatchGuestBytes(kSceneryGroupDoor, &first, 1) &&
-                    PatchGuestBytes(kSceneryGroupDoor + 7, &eighth, 1);
-    REXLOG_INFO("[extra-options] old bridge barrier: {}", ok ? "removed" : "COULD NOT PATCH");
+  }
+  // The rain's tunables (see RAIN above): only when they still hold the
+  // game's defaults (the right table in this build).
+  {
+    struct Tunable {
+      uint32_t address;
+      float game;
+      double value;
+      const char* name;
+    };
+    const Tunable rain[] = {
+        {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
+        {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
+        {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
+        {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
+    };
+    auto* memory = rex::system::kernel_state()->memory();
+    auto bits_of = [](float v) {
+      uint32_t b;
+      std::memcpy(&b, &v, 4);
+      return b;
+    };
+    auto guest_bits = [&](uint32_t address) {
+      const auto* p = memory->TranslateVirtual<const uint8_t*>(address);
+      return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | uint32_t(p[3]);
+    };
+    bool table_ok = true;
+    for (const Tunable& t : rain) {
+      table_ok &= guest_bits(t.address) == bits_of(t.game);
+    }
+    if (!table_ok) {
+      REXLOG_WARN("[extra-options] rain: the tunables are not where expected; not touched");
+    } else {
+      for (const Tunable& t : rain) {
+        const float v = float(t.value);
+        if (v == t.game) continue;
+        const uint32_t b = bits_of(v);
+        const uint8_t be[4] = {uint8_t(b >> 24), uint8_t(b >> 16), uint8_t(b >> 8), uint8_t(b)};
+        const bool ok = PatchGuestBytes(t.address, be, 4);
+        REXLOG_INFO("[extra-options] rain {}: {:.3f}{}", t.name, v, ok ? "" : " (COULD NOT PATCH)");
+      }
+    }
+    if (REXCVAR_GET(nfsmw_always_rain)) {
+      REXLOG_INFO("[extra-options] always rain: on");
+    }
+  }
+}
+
+extern "C" int32_t nfsmw_laps_min() { return 1; }
+
+extern "C" int32_t nfsmw_laps_max() {
+  static std::atomic<bool> logged{false};
+  return Setting(REXCVAR_GET(nfsmw_laps_max), 1, 127, "most Quick Race laps", logged);
+}
+
+extern "C" int32_t nfsmw_opponents_min() { return 1; }
+
+extern "C" int32_t nfsmw_opponents_max() {
+  static std::atomic<bool> logged{false};
+  return Setting(REXCVAR_GET(nfsmw_opponents_max), 1, 6, "most Quick Race opponents", logged);
+}
+
+extern "C" int32_t nfsmw_traffic_density(int32_t level) {
+  static std::atomic<bool> logged[3];
+  switch (level) {
+    case 1: return Setting(REXCVAR_GET(nfsmw_traffic_low), 0, 100, "traffic at Low", logged[0]);
+    case 2: return Setting(REXCVAR_GET(nfsmw_traffic_medium), 0, 100, "traffic at Medium", logged[1]);
+    default: return Setting(REXCVAR_GET(nfsmw_traffic_high), 0, 100, "traffic at High", logged[2]);
+  }
+}
+
+// The rain intensity at a point (see RAIN above).
+extern "C" void __imp__sub_824FB818(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_824FB818) {
+  __imp__sub_824FB818(ctx, base);
+  if (REXCVAR_GET(nfsmw_always_rain)) {
+    ctx.f1.f64 = 1.0;
   }
 }
 
