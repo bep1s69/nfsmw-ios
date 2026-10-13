@@ -22,6 +22,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #include <algorithm>
+#include <cstring>
 #include <chrono>
 #include <ctime>
 #include <string>
@@ -348,9 +349,28 @@ NSString* DateText(std::time_t t) {
                                         timeStyle:NSDateFormatterShortStyle];
 }
 
-// The career's progress, read from the save (MC02). Empty until its layout is
-// decoded.
-NSString* Progress(const Save&) { return nil; }
+// The career's progress, read from the save (MC02, big-endian, the same
+// format as the PC game's). Located with a known career (BEPPY: cash 24,700,
+// bounty 50,900): cash a u32 at 0x4039, bounty a float at 0x13E. Shown only
+// when both look sane, so a save laid out differently shows nothing rather
+// than nonsense.
+NSString* Progress(const Save& s) {
+  NSData* d = [NSData dataWithContentsOfFile:@((s.Dir() / s.name).c_str())];
+  const auto* p = static_cast<const uint8_t*>(d.bytes);
+  if (d.length < 0x4040 || std::memcmp(p, "MC02", 4) != 0) return nil;
+  auto u32 = [&](size_t at) {
+    return uint32_t(p[at]) << 24 | uint32_t(p[at + 1]) << 16 | uint32_t(p[at + 2]) << 8 | uint32_t(p[at + 3]);
+  };
+  const uint32_t cash = u32(0x4039);
+  const uint32_t bounty_bits = u32(0x13E);
+  float bounty;
+  std::memcpy(&bounty, &bounty_bits, 4);
+  if (cash > 100000000u || !(bounty >= 0.0f && bounty < 1.0e8f)) return nil;
+  NSNumberFormatter* f = [NSNumberFormatter new];
+  f.numberStyle = NSNumberFormatterDecimalStyle;
+  return [NSString stringWithFormat:@"Cash $%@ · Bounty %@", [f stringFromNumber:@(cash)],
+                                    [f stringFromNumber:@(uint64_t(bounty))]];
+}
 
 }  // namespace
 
