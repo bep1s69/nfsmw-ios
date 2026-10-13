@@ -27,6 +27,7 @@
 
 #import <Foundation/Foundation.h>
 
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_messagebox.h>
 
@@ -270,6 +271,7 @@ int main(int argc, char* argv[]) {
   // The game is landscape only; the launcher before it also allows portrait
   // (Info.plist lists both). SDL's own view controller follows this hint.
   setenv("SDL_IOS_ORIENTATIONS", "LandscapeLeft LandscapeRight", 1);
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
   const fs::path docs = DocumentsFolder();
   std::error_code ec;
   fs::create_directories(docs / "logs", ec);

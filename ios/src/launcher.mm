@@ -1516,6 +1516,16 @@ fs::path Run(const fs::path& documents) {
   window.hidden = YES;
   window.rootViewController = nil;
   window = nil;
+  // Back to landscape for the game: the launcher may have left the scene in
+  // portrait, and iOS only re-evaluates orientations when asked.
+  if (scene) {
+    for (UIWindow* w in scene.windows) {
+      [w.rootViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+    }
+    UIWindowSceneGeometryPreferencesIOS* prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
+        initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
+    [scene requestGeometryUpdateWithPreferences:prefs errorHandler:nil];
+  }
   return chosen;
 }
 
