@@ -16,6 +16,10 @@ const char* ThermalState();
 // since the last one, and the battery level.
 void ReportCpu();
 
+// Battery mode: at the 60 cap, 30 fps while Low Power Mode is on or the
+// phone is warm (cvar nfsmw_battery_auto_cap), checked every 2 s.
+void StartBatteryAutoCap();
+
 // A Report and a ReportCpu every `seconds` from a thread of its own, whatever
 // the renderer.
 void StartPeriodicReports(int seconds);

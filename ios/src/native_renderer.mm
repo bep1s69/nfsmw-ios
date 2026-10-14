@@ -196,6 +196,11 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 }
 @end
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
+                    "Native renderer (battery): half the environment cube's faces drawn each frame, the "
+                    "others kept from the frame before");
+REXCVAR_DEFINE_DOUBLE(nfsmw_native_shadow_scale, 1.0, "GPU",
+                    "Native renderer (battery): the shadow map's size, times the game's (0.5: half)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_scale_shadows, false, "GPU",
                     "Native renderer: the resolution scale also applies to the shadow map (depth-only targets)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_present, false, "GPU",
@@ -3960,7 +3965,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
-      return shadow && !scale_shadows ? 1.0f : resolution_scale;
+      if (!shadow) return resolution_scale;
+      const float shadow_scale = std::clamp(float(REXCVAR_GET(nfsmw_native_shadow_scale)), 0.25f, 1.0f);
+      return (scale_shadows ? resolution_scale : 1.0f) * shadow_scale;
     };
     for (auto& [key, size] : sizes) {
       Target& t = targets[key];
@@ -4403,7 +4410,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       motion_ready = true;
     };
     auto writebacks = std::make_shared<std::vector<WriteBack>>();
+    std::vector<char> skip_draw, skip_resolve;  // battery: cube faces kept from the frame before (below)
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
+      if (!skip_resolve.empty() && skip_resolve[&ev - frame->resolves.data()]) {
+        ++resolves_skipped;
+        return;
+      }
       // The source: the EDRAM layout in the resolve's own registers (a
       // thumbnail drawn in another layout may come between the scene and
       // its resolve); the last draw's target if that layout was not drawn.
@@ -4723,6 +4735,38 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         last_depth_read[own ? own_key : draw_keys[before]] = ev.after_draws;
       }
     }
+    // Battery: the environment cube's faces drawn half each frame (even
+    // faces, then odd), the others kept from the frame before in the cube
+    // the renderer keeps. Only once a kept cube exists for that address.
+    if (REXCVAR_GET(nfsmw_native_half_rate_reflections) && !dump && !cube_targets.empty()) {
+      skip_draw.assign(frame->draws.size(), 0);
+      skip_resolve.assign(frame->resolves.size(), 0);
+      size_t from = 0;  // the first draw after the resolve before
+      for (size_t r = 0; r < frame->resolves.size(); ++r) {
+        const ResolveEvent& ev = frame->resolves[r];
+        const size_t upto = std::min<size_t>(ev.after_draws, frame->draws.size());
+        bool skip = false;
+        if (!ev.depth && !ev.array && upto > 0) {
+          for (const CubeTarget& ct : cube_targets) {
+            if (ev.dest_base < ct.base || (ev.dest_base - ct.base) % ct.face_stride != 0) continue;
+            const uint32_t face = (ev.dest_base - ct.base) / ct.face_stride;
+            skip = face < 6 && kept_cubes.count(ct.base) && ((face + number) & 1);
+            break;
+          }
+        }
+        if (skip) {
+          skip_resolve[r] = 1;
+          const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+          auto found = targets.find(own_key);
+          const std::string source = found != targets.end() && found->second.color ? own_key
+                                                                                    : target_key(frame->draws[upto - 1]);
+          for (size_t i = from; i < upto; ++i) {
+            if (target_key(frame->draws[i]) == source) skip_draw[i] = 1;
+          }
+        }
+        from = std::max(from, upto);
+      }
+    }
     for (size_t di = 0; di < frame->draws.size(); ++di) {
       const Draw& d = frame->draws[di];
       while (next_resolve < frame->resolves.size() && frame->resolves[next_resolve].after_draws <= di) {
@@ -4731,6 +4775,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         ++next_resolve;
       }
+      if (!skip_draw.empty() && skip_draw[di]) continue;  // a cube face kept from the frame before
       const std::string tk = target_key(d);
       if (dump) {
         // Snapshots: each pass's draws grouped (shaders, viewport, depth,

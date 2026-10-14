@@ -246,6 +246,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   const bool initialized = app->OnInitialize();
   nfsmw::memory::Report("runtime, GPU and XEX loaded");
   nfsmw::memory::StartPeriodicReports(10);
+  nfsmw::memory::StartBatteryAutoCap();
   boot::Trace(initialized ? "game: OnInitialize done, entering the main loop"
                           : "game: OnInitialize FAILED (reason in nfsmw.log)");
   rex::FlushLogging();
