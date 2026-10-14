@@ -206,6 +206,7 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 // keeps showing the game with its controls. Its own layer, sized to that
 // screen's pixels.
 @interface NFSExternalView : UIView
+@property(nonatomic, weak) UIScreen* target;  // the external display
 @end
 @implementation NFSExternalView
 + (Class)layerClass {
@@ -214,10 +215,12 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 - (void)layoutSubviews {
   [super layoutSubviews];
   CAMetalLayer* layer = (CAMetalLayer*)self.layer;
-  UIScreen* screen = self.window.screen;
-  const CGFloat scale = screen ? (screen.nativeScale ?: screen.scale) : 1.0;
-  layer.contentsScale = scale;
-  layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+  // That display's own pixels (its screen, not the window's, which can be
+  // the phone's for a moment while the window moves).
+  UIScreen* screen = self.target ?: self.window.screen;
+  const CGSize pixels = screen.nativeBounds.size;
+  layer.contentsScale = screen.nativeScale ?: 1.0;
+  layer.drawableSize = CGSizeMake(std::max(pixels.width, pixels.height), std::min(pixels.width, pixels.height));
 }
 @end
 
@@ -6337,6 +6340,7 @@ void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
   window.frame = screen.bounds;
   UIViewController* controller = [UIViewController new];
   NFSExternalView* view = [[NFSExternalView alloc] initWithFrame:screen.bounds];
+  view.target = screen;
   view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   view.backgroundColor = UIColor.blackColor;
   CAMetalLayer* layer = (CAMetalLayer*)view.layer;
@@ -6358,12 +6362,23 @@ void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
 // The first external screen, now and whenever one connects or goes.
 void WatchExternalScreens(id<MTLDevice> device) {
   auto pick = [device] {
+    // An external display: a screen besides the phone's, or the screen of
+    // an external display's scene (AirPlay mirroring lists it only there).
     UIScreen* external = nil;
     for (UIScreen* screen in UIScreen.screens) {
       if (screen != UIScreen.mainScreen) {
         external = screen;
         break;
       }
+    }
+    for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+      if (!external && [scene isKindOfClass:UIWindowScene.class] &&
+          ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+        external = ((UIWindowScene*)scene).screen;
+      }
+    }
+    if (external && external_window && ((NFSExternalView*)external_window.rootViewController.view).target == external) {
+      return;  // already there
     }
     if (external || external_window) {
       if (!external) REXLOG_INFO("[native] external display gone");
