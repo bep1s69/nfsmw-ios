@@ -6323,8 +6323,18 @@ void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
   if (!screen || !REXCVAR_GET(nfsmw_native_external_display)) {
     return;
   }
-  UIWindow* window = [[UIWindow alloc] initWithFrame:screen.bounds];
-  window.screen = screen;
+  // An external display's own scene when iOS gives the app one (the way
+  // since iOS 13); else the older way, the window put on that screen.
+  UIWindowScene* external_scene = nil;
+  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+    if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)scene).screen == screen) {
+      external_scene = (UIWindowScene*)scene;
+    }
+  }
+  UIWindow* window = external_scene ? [[UIWindow alloc] initWithWindowScene:external_scene]
+                                    : [[UIWindow alloc] initWithFrame:screen.bounds];
+  if (!external_scene) window.screen = screen;
+  window.frame = screen.bounds;
   UIViewController* controller = [UIViewController new];
   NFSExternalView* view = [[NFSExternalView alloc] initWithFrame:screen.bounds];
   view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -6366,6 +6376,11 @@ void WatchExternalScreens(id<MTLDevice> device) {
                   usingBlock:^(NSNotification*) { pick(); }];
   [center addObserverForName:UIScreenDidDisconnectNotification object:nil queue:NSOperationQueue.mainQueue
                   usingBlock:^(NSNotification*) { pick(); }];
+  [center addObserverForName:UISceneDidActivateNotification object:nil queue:NSOperationQueue.mainQueue
+                  usingBlock:^(NSNotification* note) {
+                    UIScene* scene = note.object;
+                    if (![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) pick();
+                  }];
 }
 
 void EnsurePresentLayer() {
@@ -6377,7 +6392,10 @@ void EnsurePresentLayer() {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow* window = nil;
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-      if ([scene isKindOfClass:UIWindowScene.class]) {
+      // The phone's own scene: an external display's (AirPlay, HDMI) has its
+      // own window, made below.
+      if ([scene isKindOfClass:UIWindowScene.class] &&
+          [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
         for (UIWindow* w in ((UIWindowScene*)scene).windows) {
           if (w.isKeyWindow || !window) window = w;
         }

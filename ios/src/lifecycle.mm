@@ -113,7 +113,8 @@ void KeepMetalViewWindowSized() {
   if (!view || !view.window) {
     view = nil;
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-      if (![scene isKindOfClass:UIWindowScene.class]) {
+      if (![scene isKindOfClass:UIWindowScene.class] ||
+          ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
         continue;
       }
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
