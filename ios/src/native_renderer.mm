@@ -473,12 +473,20 @@ struct ShaderStore {
     [constants setConstantValue:&spec type:MTLDataTypeUInt atIndex:0];
     const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
     [constants setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
+    uint32_t unloadable = 0;
     for (NSString* name in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
       if (![name.pathExtension isEqualToString:@"metallib"]) {
         continue;
       }
       NSURL* url = [NSURL fileURLWithPath:[dir stringByAppendingPathComponent:name]];
-      id<MTLLibrary> library = [device newLibraryWithURL:url error:nil];
+      NSError* error = nil;
+      id<MTLLibrary> library = [device newLibraryWithURL:url error:&error];
+      // E.g. built for a newer iOS than this one (iOS 26 with libraries for
+      // 27): nothing but the movies draws. Said once, with the count below.
+      if (!library && unloadable++ == 0) {
+        REXLOG_WARN("[native] shader library {} not loaded: {}", name.UTF8String,
+                    error ? error.localizedDescription.UTF8String : "?");
+      }
       id<MTLFunction> f = [library newFunctionWithName:@"shaderMain" constantValues:constants error:nil];
       if (f) {
         f.label = name.stringByDeletingPathExtension;  // e.g. ps_<key>, named in GPU traces
@@ -511,6 +519,10 @@ struct ShaderStore {
       }
     }
     LoadD3DInternalShaders(constants);
+    if (unloadable) {
+      REXLOG_WARN("[native] {} shader libraries could not be loaded on iOS {}", unloadable,
+                  UIDevice.currentDevice.systemVersion.UTF8String);
+    }
     REXLOG_INFO("[native] renderer built {} {}: {} shaders, vertex inputs of {} vertex shaders, constant ranges of {}",
                 __DATE__, __TIME__, functions.size(), inputs.size(), constant_ranges.size());
   }

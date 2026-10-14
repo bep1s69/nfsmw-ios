@@ -17,12 +17,18 @@
 #
 # Output (default ~/Library/Caches/nfsmw-ios/shaders): containers/, msl/,
 # air/, lib/. Nothing derived from the game goes into the repository.
+#
+# The libraries are built for the app's oldest iOS (IOS_MIN, default 26.0, as
+# CMAKE_OSX_DEPLOYMENT_TARGET in ios/CMakePresets.json). Without it the metal
+# compiler targets its SDK's own iOS (Xcode 27: iOS 27), and iOS 26 cannot load
+# them: the movies (shaders compiled on the device) played, then nothing drew.
 set -eu
 iso=${1:?usage: build_shaders.sh GAME.iso [OUT_DIR]}
 out=${2:-"$HOME/Library/Caches/nfsmw-ios/shaders"}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 sdk=${REXGLUE_SDK:-"$repo/../rexglue-sdk-ios"}
 tool="$out/bin/xenosrecomp"
+ios_min=${IOS_MIN:-26.0}
 
 mkdir -p "$out/bin" "$out/msl" "$out/air" "$out/lib"
 clang++ -std=c++20 -O2 -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions \
@@ -46,8 +52,8 @@ for container in "$out"/containers/*.bin; do
   python3 "$repo/tools/native/rewrite_shadow_filter.py" "$out/msl/$name.hlsl" | grep -v " 0 blocks" || true
   cp "$out/msl/$name.hlsl" "$out/air/$name.metal"
   if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ \
-       -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
-     xcrun -sdk iphoneos metal "$out/air/$name.air" -o "$out/lib/$name.metallib"; then
+       -mios-version-min="$ios_min" -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
+     xcrun -sdk iphoneos metal -mios-version-min="$ios_min" "$out/air/$name.air" -o "$out/lib/$name.metallib"; then
     compiled=$((compiled + 1))
   else
     failed="$failed $name(metal)"
