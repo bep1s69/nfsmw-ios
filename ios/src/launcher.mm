@@ -394,9 +394,9 @@ const std::vector<Section>& Sections() {
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
-            @"Native renderer: less work for a cooler phone and longer play. The render resolution "
-            @"at most 0.85x, no forced MSAA, half-size shadows, the car reflections half updated each "
-            @"frame, and at the 60 cap 30 fps while Low Power Mode is on or the phone is warm.",
+            @"Native renderer: less work for a cooler phone and longer play. No forced MSAA, "
+            @"half-size shadows, the car reflections half updated each frame, and at the 60 cap "
+            @"30 fps while Low Power Mode is on or the phone is warm.",
             @"false"},
            {@"stretch", Type::kSwitch, @"Stretch to full screen",
             @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
@@ -697,8 +697,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   if (On(s, @"native_renderer")) {
     a.push_back("--resolution_scale=1");
     const bool battery = On(s, @"battery_mode");
-    a.push_back("--nfsmw_native_resolution_scale=" +
-                (battery && scale_value > 0.85 ? std::string("0.85") : str(@"scale")));
+    a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
     a.push_back("--nfsmw_native_half_rate_reflections=" + b(battery));
     a.push_back(std::string("--nfsmw_native_shadow_scale=") + (battery ? "0.5" : "1"));
     a.push_back("--nfsmw_battery_auto_cap=" + b(battery));
