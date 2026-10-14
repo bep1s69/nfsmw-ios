@@ -227,6 +227,9 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 REXCVAR_DEFINE_BOOL(nfsmw_native_external_display, true, "GPU",
                     "Native renderer: the picture on an external display (HDMI, AirPlay) by itself, "
                     "instead of a mirror of the phone's screen");
+REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
+                    "Native renderer: with an external display, the phone shows only the touch "
+                    "controls, over black (off: the picture on both)");
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
                     "Native renderer (battery): half the environment cube's faces drawn each frame, the "
@@ -6322,6 +6325,7 @@ void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
     external_layer = nil;
     external_window.hidden = YES;
     external_window = nil;
+    if (present_view) present_view.alpha = 1.0;  // the picture back on the phone
   }
   if (!screen || !REXCVAR_GET(nfsmw_native_external_display)) {
     return;
@@ -6355,6 +6359,8 @@ void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
   external_in_flight = 0;
   external_window = window;
   external_layer = layer;
+  // The phone as the controller: only the touch controls, over black.
+  if (present_view && REXCVAR_GET(nfsmw_native_external_controls_only)) present_view.alpha = 0.0;
   REXLOG_INFO("[native] external display: {}x{} pixels, the picture shown there by itself",
               int(layer.drawableSize.width), int(layer.drawableSize.height));
 }
