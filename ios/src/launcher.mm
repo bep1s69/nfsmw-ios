@@ -527,11 +527,6 @@ const std::vector<Section>& Sections() {
             @"true"},
            {@"detailed_log", Type::kSwitch, @"Detailed log",
             @"log_level=debug. It tanks the fps: only for diagnosing problems.", @"false"},
-           {@"gpu_capture", Type::kSwitch, @"GPU frame capture button",
-            @"Emulated renderer only (the native one shows black with it). A CAPTURE button in the "
-            @"top-right corner of the game. A tap saves the GPU work of about two frames to "
-            @"Documents/captures, to open in Xcode on a Mac. Only for measuring: captures are large.",
-            @"false"},
            {@"cost_probe", Type::kSwitch, @"GPU cost per shader",
             @"Native renderer: once a second, one of the most used pixel shaders is left out of a "
             @"frame (it may flicker) and the log says how much GPU time that saved.",
@@ -766,7 +761,6 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back(std::string("--log_level=") +
               (!On(s, @"logging") ? "off" : On(s, @"detailed_log") ? "debug" : "info"));
   a.push_back("--ios_mvk_performance=" + b(On(s, @"mvk_profiling")));
-  a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   return a;
 }
 
