@@ -50,7 +50,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(nfsmw_draw_census, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_draw_census, false, "GPU",
                     "Native renderer bring-up: log the game's D3D draw calls every 5 s");
 REXCVAR_DEFINE_BOOL(nfsmw_draw_capture, true, "GPU",
                     "Native renderer bring-up: every 30 s, log the state of every draw of one "
