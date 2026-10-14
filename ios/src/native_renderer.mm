@@ -34,7 +34,6 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <MetalFX/MetalFX.h>
-#include <simd/simd.h>
 
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -236,12 +235,6 @@ bool MetalFxTemporal() {
   }();
   return on;
 }
-REXCVAR_DEFINE_BOOL(nfsmw_native_frame_interpolation, false, "GPU",
-                    "Native renderer: with MetalFX, a frame made by MetalFX between each two of the game's "
-                    "(the 60 cap shown at 120 on a 120 Hz screen, 30 at 60)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_mark_generated, false, "GPU",
-                    "Native renderer diagnostics: a magenta square in the top-left corner of each frame "
-                    "made by frame interpolation (it flickers when they are shown)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_motion_debug, false, "GPU",
                     "Native renderer diagnostics: the scene's motion vectors shown instead of the picture "
                     "(grey: still; red/green: moving right/down; dark: no motion written)");
@@ -406,9 +399,6 @@ struct ShaderStore {
   // The float constant registers each shader reads, FIRST..END-1
   // (constant_ranges.txt, tools/native/constant_ranges.py); not listed: all.
   std::unordered_map<uint64_t, std::pair<uint16_t, uint16_t>> constant_ranges;  // by "vs"/"ps" key ^ kind
-  // Vertex shaders with WorldViewProj and WorldView: their first registers
-  // (camera_constants.txt, tools/native/constant_ranges.py).
-  std::unordered_map<uint64_t, std::pair<uint16_t, uint16_t>> camera_constants;
   std::pair<uint16_t, uint16_t> ConstantRange(bool pixel, uint64_t key) const {
     if (!REXCVAR_GET(nfsmw_native_constant_ranges)) return {0, 256};
     auto it = constant_ranges.find(key ^ (pixel ? 1ull : 0ull) << 63);
@@ -486,16 +476,6 @@ struct ShaderStore {
       unsigned first = 0, end = 0;
       if (sscanf(line.UTF8String, "%2s_%llx %u %u", kind, &key, &first, &end) == 4 && first <= end && end <= 256) {
         constant_ranges[key ^ (kind[0] == 'p' ? 1ull : 0ull) << 63] = {uint16_t(first), uint16_t(end)};
-      }
-    }
-    NSString* cameras = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:@"camera_constants.txt"]
-                                                  encoding:NSUTF8StringEncoding
-                                                     error:nil];
-    for (NSString* line in [cameras componentsSeparatedByString:@"\n"]) {
-      unsigned long long key = 0;
-      unsigned wvp = 0, wv = 0;
-      if (sscanf(line.UTF8String, "vs_%llx %u %u", &key, &wvp, &wv) == 3 && wvp <= 252 && wv <= 252) {
-        camera_constants[key] = {uint16_t(wvp), uint16_t(wv)};
       }
     }
     LoadD3DInternalShaders(constants);
@@ -941,16 +921,8 @@ struct VertexDiagnostics {
   }
 };
 
-// The game's camera for a target (MetalFX frame interpolation): from the first
-// draw there whose shader has both WorldViewProj and WorldView (projection =
-// WorldViewProj x WorldView^-1).
-struct Camera {
-  float near_plane = 0, far_plane = 0, fov_degrees = 0, aspect = 0;
-};
-
 struct Frame {
   std::vector<Draw> draws;
-  std::map<std::tuple<uint32_t, uint32_t, uint32_t>, Camera> cameras;  // by surface, colour, depth info
   // The texture of each fetch slot at the last draw (cleared by a resolve:
   // its address may then stand for the renderer's copy).
   uint32_t slot_fetch[16][6] = {};
@@ -987,8 +959,7 @@ std::unique_ptr<Frame> recording;
 // The last frame's Frame::motion_constants (game thread).
 std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> previous_motion_constants;
 bool MotionVectorsWanted() {
-  return MetalFxTemporal() || REXCVAR_GET(nfsmw_native_motion_debug) ||
-         REXCVAR_GET(nfsmw_native_frame_interpolation);
+  return MetalFxTemporal() || REXCVAR_GET(nfsmw_native_motion_debug);
 }
 inline uint64_t MotionMix(uint64_t h, uint64_t v) { return (h ^ (v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2))) * 0x100000001B3ull; }
 int64_t next_dump_ms = 0;
@@ -2420,50 +2391,6 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.ps_range = store.ConstantRange(true, d.ps_key);
   d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
   d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range);
-  // The camera of this target (frame interpolation), from its first draw that has one.
-  if ((regs[kRbDepthControl] & 6) == 6 && REXCVAR_GET(nfsmw_native_frame_interpolation)) {
-    const std::tuple<uint32_t, uint32_t, uint32_t> where{regs[kRbSurfaceInfo], regs[kRbColorInfo], regs[kRbDepthInfo]};
-    auto known = store.camera_constants.find(in.vs_key);
-    if (known != store.camera_constants.end() && !frame.cameras.count(where)) {
-      auto matrix = [&](uint32_t first) {
-        simd_float4 rows[4];
-        for (int r = 0; r < 4; ++r) {
-          float v[4];
-          std::memcpy(v, regs + kAluBase + (first + r) * 4, 16);
-          rows[r] = simd_make_float4(v[0], v[1], v[2], v[3]);
-        }
-        return simd_matrix_from_rows(rows[0], rows[1], rows[2], rows[3]);
-      };
-      const simd_float4x4 wvp = matrix(known->second.first), wv = matrix(known->second.second);
-      const simd_float4x4 p = simd_mul(wvp, simd_inverse(wv));
-      auto at = [&](int row, int col) { return p.columns[col][row]; };
-      const float k = at(3, 2);  // clip w = k * view z
-      bool taken = false;
-      if (std::fabs(k) > 0.5f && std::fabs(at(1, 1)) > 1e-4f && std::fabs(at(0, 0)) > 1e-4f) {
-        const float a = at(2, 2) / k, b = at(2, 3);  // ndc z = a + b / (k * view z)
-        const float n1 = -b / a, n2 = b / (1.0f - a);
-        Camera c;
-        c.near_plane = std::min(n1, n2);
-        c.far_plane = std::max(n1, n2);
-        c.fov_degrees = 2.0f * std::atan(std::fabs(k / at(1, 1))) * 180.0f / float(M_PI);
-        c.aspect = std::fabs(at(1, 1) / at(0, 0));
-        if (std::isfinite(c.near_plane) && std::isfinite(c.far_plane) && c.near_plane > 0 &&
-            c.far_plane > c.near_plane && c.fov_degrees > 5 && c.fov_degrees < 170 && c.aspect > 0.2f &&
-            c.aspect < 5) {
-          frame.cameras[where] = c;
-          taken = true;
-        }
-      }
-      static int said = 0;
-      if (!taken && said < 6) {
-        ++said;
-        REXLOG_INFO("[native] camera not taken from vs {:016x}: projection rows ({:.3g} {:.3g} {:.3g} {:.3g}) "
-                    "({:.3g} {:.3g} {:.3g} {:.3g}) ({:.3g} {:.3g} {:.3g} {:.3g}) ({:.3g} {:.3g} {:.3g} {:.3g})",
-                    in.vs_key, at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 0), at(1, 1), at(1, 2), at(1, 3),
-                    at(2, 0), at(2, 1), at(2, 2), at(2, 3), at(3, 0), at(3, 1), at(3, 2), at(3, 3));
-      }
-    }
-  }
   // Motion vectors: matched with the frame before's draw of the same identity.
   if ((regs[kRbDepthControl] & 6) == 6 && MotionVectorsWanted()) {
     const uint64_t id = MotionMix(geometry, frame.motion_seen[geometry]++);
@@ -3427,8 +3354,7 @@ id<MTLTexture> GpuTextureFor(id<MTLDevice> device, const std::shared_ptr<const T
 // (log2 of drawn / shown, in eighths; 0 otherwise), as temporal upscalers
 // want: the textures as sharp as the picture it builds (render thread).
 int32_t temporal_lod_bias_eighths = 0;
-bool metalfx_failed = false;
-std::atomic<uint32_t> made_frames_shown{0};  // frame interpolation: its frames on screen  // no temporal scaler for the last size asked: no jitter either
+bool metalfx_failed = false;  // no temporal scaler for the last size asked: no jitter either
 
 id<MTLSamplerState> SamplerFor(id<MTLDevice> device, bool linear, uint32_t clamp_x, uint32_t clamp_y,
                                bool volume_or_cube, uint32_t max_anisotropy = 1,
@@ -4095,7 +4021,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t last_motion_draw = 0;
     static id<MTLTexture> motion_texture, motion_multisample, motion_depth;
     bool motion_ready = false;  // this frame's motion and depth are in those
-    if (temporal || motion_debug || REXCVAR_GET(nfsmw_native_frame_interpolation)) {
+    if (temporal || motion_debug) {
       std::map<std::string, uint32_t> scene_draws;
       auto writes_motion = [&](const Draw& d) {
         return (d.depth_control & 6) == 6 && (d.color_mask & 0xF) && !store.internal_keys.count(d.vs_key);
@@ -5488,8 +5414,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const NSUInteger shown_w = NSUInteger(std::lround(dw * fit[0]));
         const NSUInteger shown_h = NSUInteger(std::lround(dh * fit[1]));
         bool temporal_done = false;
-        NSUInteger temporal_in_w = 0, temporal_in_h = 0;  // its depth and motion size
-        bool temporal_reversed = false, temporal_reset = false;
         bool temporal_shown = false;  // this frame: the last one shown, for the history's reset
         static bool temporal_last_shown = false;
         if (temporal && motion_ready && !motion_debug && final_rect.origin.x == 0 && final_rect.origin.y == 0 &&
@@ -5592,10 +5516,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             scaler.motionVectorScaleY = sh;
             scaler.depthReversed = reversed;
             scaler.reset = reset;
-            temporal_in_w = iw;
-            temporal_in_h = ih;
-            temporal_reversed = reversed;
-            temporal_reset = reset;
             [scaler encodeToCommandBuffer:cb];
             shown_texture = upscaled;
             crop[0] = crop[1] = 1.0f;
@@ -5654,220 +5574,25 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
-        auto present_pass = [&](MTLRenderPassDescriptor* pass, id<MTLTexture> into, id<MTLTexture> picture) {
-          id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:pass];
-          // Only the picture's rectangle: the one triangle covering it reaches
-          // past its right and top edges (to 3x), where the sampler's clamp
-          // smeared the picture's edge over the black bar (the 4:3 picture on an
-          // 11" iPad: black on the left, the edge stretched on the right).
-          {
-            const double pw = std::round(dw * fit[0]), ph = std::round(dh * fit[1]);
-            const NSUInteger px = NSUInteger(std::max(0.0, std::floor((dw - pw) * 0.5)));
-            const NSUInteger py = NSUInteger(std::max(0.0, std::floor((dh - ph) * 0.5)));
-            [e setScissorRect:(MTLScissorRect){px, py, std::min<NSUInteger>(NSUInteger(pw), into.width - px),
-                                               std::min<NSUInteger>(NSUInteger(ph), into.height - py)}];
-          }
-          [e setRenderPipelineState:present_pso];
-          [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
-          [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
-          [e setFragmentTexture:picture atIndex:0];
-          [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-          [e endEncoding];
-        };
-        // MetalFX frame interpolation: a frame between the one shown before
-        // and this one (from both, this frame's depth and motion, and the
-        // camera), shown half an interval before this one. The HUD is in the
-        // pictures: it moves with what is under it in the made frame.
-        id<CAMetalDrawable> between = nil;
-        const int32_t game_cap = rex::cvar::Query<int32_t>("ios_fps_cap");
+        id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+        // Only the picture's rectangle: the one triangle covering it reaches
+        // past its right and top edges (to 3x), where the sampler's clamp
+        // smeared the picture's edge over the black bar (the 4:3 picture on an
+        // 11" iPad: black on the left, the edge stretched on the right).
         {
-          static id<MTLFXFrameInterpolator> interpolator;
-          static id<MTLTexture> made, previous;  // the made frame; this frame's picture for the next one
-          static bool previous_valid = false;
-          static bool said_unsupported = false;
-          bool kept = false;
-          const double screen_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
-          const Camera* camera = nullptr;
-          if (motion_ready && !motion_debug) {
-            const Draw& scene = frame->draws[last_motion_draw];
-            auto found = frame->cameras.find({scene.surface_info, scene.color_info, scene.depth_info});
-            if (found != frame->cameras.end()) camera = &found->second;
-          }
-          // No camera found (logged above): a racing game's usual one.
-          static Camera fallback;
-          if (!camera && motion_ready && !motion_debug && REXCVAR_GET(nfsmw_native_frame_interpolation)) {
-            fallback = {0.5f, 5000.0f, 55.0f, sw / std::max(sh, 1.0f)};
-            camera = &fallback;
-            static bool said = false;
-            if (!said) {
-              said = true;
-              REXLOG_INFO("[native] MetalFX frame interpolation: no camera from the game's shaders; a default one");
-            }
-          }
-          // Without MetalFX temporal: the picture as drawn, its rectangle
-          // copied out when its texture is larger (the resolve's height
-          // 736 for 720 lines).
-          if (!temporal_done && motion_ready && REXCVAR_GET(nfsmw_native_frame_interpolation) &&
-              (std::fabs(crop[0] - 1.0f) >= 0.002f || std::fabs(crop[1] - 1.0f) >= 0.002f)) {
-            static id<MTLTexture> picture;
-            const NSUInteger pw = NSUInteger(sw), ph = NSUInteger(sh);
-            if (!(picture && picture.width == pw && picture.height == ph &&
-                  picture.pixelFormat == shown_texture.pixelFormat)) {
-              MTLTextureDescriptor* pd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:shown_texture.pixelFormat
-                                                                                            width:pw
-                                                                                           height:ph
-                                                                                        mipmapped:NO];
-              pd.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
-              pd.storageMode = MTLStorageModePrivate;
-              picture = [device newTextureWithDescriptor:pd];
-            }
-            if (picture && pw <= shown_texture.width && ph <= shown_texture.height) {
-              id<MTLBlitCommandEncoder> copy = [cb blitCommandEncoder];
-              [copy copyFromTexture:shown_texture
-                        sourceSlice:0
-                        sourceLevel:0
-                       sourceOrigin:MTLOriginMake(0, 0, 0)
-                         sourceSize:MTLSizeMake(pw, ph, 1)
-                          toTexture:picture
-                   destinationSlice:0
-                   destinationLevel:0
-                  destinationOrigin:MTLOriginMake(0, 0, 0)];
-              [copy endEncoding];
-              shown_texture = picture;
-              crop[0] = crop[1] = 1.0f;
-            }
-          }
-          if (!temporal_done && motion_ready) {
-            temporal_in_w = std::min({shown_texture.width, motion_texture.width, motion_depth.width});
-            temporal_in_h = std::min({shown_texture.height, motion_texture.height, motion_depth.height});
-            const uint32_t f = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
-            temporal_reversed = f == 4 || f == 6;
-          }
-          const bool fits = temporal_done || (std::fabs(crop[0] - 1.0f) < 0.002f && std::fabs(crop[1] - 1.0f) < 0.002f);
-          if (REXCVAR_GET(nfsmw_native_frame_interpolation) && motion_ready && !motion_debug) {
-            const char* why = !fits ? "the picture's texture is larger than the picture"
-                              : !camera ? "no camera"
-                              : !(game_cap > 0 && 2.0 * game_cap <= screen_hz + 1.0) ? "the cap is over half the screen's rate"
-                                                                                      : nullptr;
-            static const char* said_why = "";
-            if (why && std::strcmp(why, said_why) != 0) {
-              said_why = why;
-              REXLOG_INFO("[native] MetalFX frame interpolation: off for now: {} (cap {}, screen {:.0f} Hz)", why,
-                          game_cap, screen_hz);
-            }
-          }
-          if (REXCVAR_GET(nfsmw_native_frame_interpolation) && fits && camera && game_cap > 0 &&
-              2.0 * game_cap <= screen_hz + 1.0) {
-            const NSUInteger ow = shown_texture.width, oh = shown_texture.height;
-            if (!(interpolator && made && made.width == ow && made.height == oh &&
-                  interpolator.inputWidth == temporal_in_w && interpolator.inputHeight == temporal_in_h &&
-                  made.pixelFormat == shown_texture.pixelFormat)) {
-              interpolator = nil;
-              made = previous = nil;
-              previous_valid = false;
-              if (![MTLFXFrameInterpolatorDescriptor supportsDevice:device]) {
-                if (!said_unsupported) {
-                  said_unsupported = true;
-                  REXLOG_WARN("[native] MetalFX frame interpolation: not on this GPU");
-                }
-              } else {
-                MTLFXFrameInterpolatorDescriptor* fd = [MTLFXFrameInterpolatorDescriptor new];
-                fd.colorTextureFormat = shown_texture.pixelFormat;
-                fd.outputTextureFormat = shown_texture.pixelFormat;
-                fd.depthTextureFormat = MTLPixelFormatDepth32Float;
-                fd.motionTextureFormat = kMotionFormat;
-                fd.inputWidth = temporal_in_w;
-                fd.inputHeight = temporal_in_h;
-                fd.outputWidth = ow;
-                fd.outputHeight = oh;
-                interpolator = [fd newFrameInterpolatorWithDevice:device];
-                if (interpolator) {
-                  MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:shown_texture.pixelFormat
-                                                                                                width:ow
-                                                                                               height:oh
-                                                                                            mipmapped:NO];
-                  td.storageMode = MTLStorageModePrivate;
-                  td.usage = interpolator.outputTextureUsage | MTLTextureUsageShaderRead;
-                  made = [device newTextureWithDescriptor:td];
-                  td.usage = interpolator.colorTextureUsage | MTLTextureUsageShaderRead;
-                  previous = [device newTextureWithDescriptor:td];
-                  REXLOG_INFO("[native] MetalFX frame interpolation: {}x{} (motion {}x{}), camera near {:.3g} far "
-                              "{:.3g} fov {:.1f} aspect {:.3f}",
-                              ow, oh, temporal_in_w, temporal_in_h, camera->near_plane, camera->far_plane,
-                              camera->fov_degrees, camera->aspect);
-                } else {
-                  REXLOG_WARN("[native] MetalFX frame interpolation: no interpolator for {}x{}", ow, oh);
-                }
-              }
-            }
-            if (interpolator && made && previous) {
-              kept = true;
-              if (previous_valid && !temporal_reset) {
-                interpolator.colorTexture = shown_texture;
-                interpolator.prevColorTexture = previous;
-                interpolator.depthTexture = motion_depth;
-                interpolator.motionTexture = motion_texture;
-                interpolator.motionVectorScaleX = sw;
-                interpolator.motionVectorScaleY = sh;
-                interpolator.deltaTime = float(1.0 / double(game_cap));
-                interpolator.nearPlane = camera->near_plane;
-                interpolator.farPlane = camera->far_plane;
-                interpolator.fieldOfView = camera->fov_degrees;
-                interpolator.aspectRatio = camera->aspect;
-                interpolator.jitterOffsetX = 0;  // MetalFX temporal's picture, or not jittered
-                interpolator.jitterOffsetY = 0;
-                interpolator.depthReversed = temporal_reversed;
-                interpolator.shouldResetHistory = NO;
-                interpolator.outputTexture = made;
-                [interpolator encodeToCommandBuffer:cb];
-                between = [layer nextDrawable];
-                if (between) {
-                  MTLRenderPassDescriptor* bp = [MTLRenderPassDescriptor renderPassDescriptor];
-                  bp.colorAttachments[0].texture = between.texture;
-                  bp.colorAttachments[0].loadAction = MTLLoadActionClear;
-                  bp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
-                  bp.colorAttachments[0].storeAction = MTLStoreActionStore;
-                  present_pass(bp, between.texture, made);
-                  if (REXCVAR_GET(nfsmw_native_mark_generated)) {  // a magenta corner on made frames
-                    static id<MTLTexture> magenta;
-                    if (!magenta) {
-                      MTLTextureDescriptor* md = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                                                                                    width:1
-                                                                                                   height:1
-                                                                                                mipmapped:NO];
-                      magenta = [device newTextureWithDescriptor:md];
-                      const uint8_t px[4] = {255, 0, 255, 255};
-                      [magenta replaceRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0 withBytes:px bytesPerRow:4];
-                    }
-                    MTLRenderPassDescriptor* mp = [MTLRenderPassDescriptor renderPassDescriptor];
-                    mp.colorAttachments[0].texture = between.texture;
-                    mp.colorAttachments[0].loadAction = MTLLoadActionLoad;
-                    mp.colorAttachments[0].storeAction = MTLStoreActionStore;
-                    id<MTLRenderCommandEncoder> me = [cb renderCommandEncoderWithDescriptor:mp];
-                    const NSUInteger side = std::min<NSUInteger>(between.texture.height / 8, 160);
-                    [me setScissorRect:(MTLScissorRect){between.texture.width / 20, side / 2, side, side}];
-                    const float one[4] = {1, 1, 0, 0};
-                    [me setRenderPipelineState:present_pso];
-                    [me setVertexBytes:fit length:sizeof(fit) atIndex:0];
-                    [me setFragmentBytes:one length:sizeof(one) atIndex:0];
-                    [me setFragmentTexture:magenta atIndex:0];
-                    [me drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-                    [me endEncoding];
-                  }
-                  [between addPresentedHandler:^(id<MTLDrawable> shown) {
-                    if (shown.presentedTime > 0) ++made_frames_shown;
-                  }];
-                }
-              }
-              id<MTLBlitCommandEncoder> copy = [cb blitCommandEncoder];
-              [copy copyFromTexture:shown_texture toTexture:previous];
-              [copy endEncoding];
-              previous_valid = true;
-            }
-          }
-          if (!kept) previous_valid = false;
+          const double pw = std::round(dw * fit[0]), ph = std::round(dh * fit[1]);
+          const NSUInteger px = NSUInteger(std::max(0.0, std::floor((dw - pw) * 0.5)));
+          const NSUInteger py = NSUInteger(std::max(0.0, std::floor((dh - ph) * 0.5)));
+          [e setScissorRect:(MTLScissorRect){px, py,
+                                             std::min<NSUInteger>(NSUInteger(pw), drawable.texture.width - px),
+                                             std::min<NSUInteger>(NSUInteger(ph), drawable.texture.height - py)}];
         }
-        present_pass(rp, drawable.texture, shown_texture);
+        [e setRenderPipelineState:present_pso];
+        [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
+        [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
+        [e setFragmentTexture:shown_texture atIndex:0];
+        [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        [e endEncoding];
         // What the screen shows: a gap between two frames on it (a stutter
         // the player sees, whatever its cause), logged with the frame's number.
         // Frame pacing: below the display's rate (the 30, 40 and 60 caps on a
@@ -5911,10 +5636,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){}",
                         off_grid.exchange(0), interval * 1000.0, worst_ms.exchange(0.0),
                         paced ? ", paced" : "");
-            const uint32_t made_shown = made_frames_shown.exchange(0);
-            if (REXCVAR_GET(nfsmw_native_frame_interpolation)) {
-              REXLOG_INFO("[native] frame interpolation: {} made frames shown with the last 300", made_shown);
-            }
           }
         }];
         static double last_target = 0;
@@ -5927,13 +5648,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             target = last_target + interval;
           }
           last_target = target;
-          if (between) [cb presentDrawable:between atTime:target - 0.5 * interval - 0.002];
           [cb presentDrawable:drawable atTime:target - 0.002];
-        } else if (between && interval > 0) {
-          [cb presentDrawable:between];
-          [cb presentDrawable:drawable afterMinimumDuration:0.5 * interval];
         } else {
-          if (between) [cb presentDrawable:between];
           [cb presentDrawable:drawable];
         }
         ++presented;
