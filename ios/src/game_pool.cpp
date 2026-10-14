@@ -28,9 +28,29 @@
 //     reset (sub_822CB9F0) and the "room for one more?" check (sub_82584050).
 //     Each runs the original first, so the first 75 behave exactly as before,
 //     and only then looks at the overflow.
+//
+// SAVES
+//
+// The game saves the table as it is in memory (36040 bytes at the profile's
+// +1052, verbatim in the save file), so the overflow was never saved: a career
+// saved with Black Edition on came back with the records whose entries were in
+// it pointing at empty ones, and those cars drew as nothing (career only: a
+// quick race builds its records afresh). Now, when the game creates a save
+// (tools/ios/patch_ios_save_hook.py tells us), each table's slots and overflow
+// go to Documents/save_extras/<save>.pool; when it opens one, that file is kept
+// aside, and the first time the overflow of a table whose slots are exactly the
+// saved ones is used (the save's data has been loaded into it), the saved
+// overflow is put back.
 
+#include <sys/stat.h>
+
+#include <atomic>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "nfsmw_pch.h"
@@ -45,6 +65,8 @@ extern "C" void __imp__sub_822C9570(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822CB9F0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82584050(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_822CAE48(PPCContext& __restrict ctx, uint8_t* base);
+// The SDK's save hook (tools/ios/patch_ios_save_hook.py).
+extern "C" void (*rex_ios_save_event)(const char* name, bool created);
 
 namespace {
 
@@ -118,6 +140,135 @@ bool OverflowHasFree(uint8_t* base, uint32_t entries) {
   return false;
 }
 
+// --- The overflow in the saves -------------------------------------------
+
+constexpr uint32_t kSlotBytes = kSlots * kSlotSize;
+constexpr uint32_t kExtraBytes = kPoolExtra * kEntrySize;
+constexpr char kMagic[8] = {'N', 'F', 'S', 'P', 'O', 'O', 'L', '1'};
+
+struct Saved {
+  std::vector<uint8_t> slots, extra;  // guest bytes as they were
+};
+
+std::mutex g_saves_mutex;
+std::vector<Saved> g_pending;  // from the save opened last, not yet put back
+std::string g_pending_name;
+std::atomic<bool> g_have_pending{false};
+
+uint8_t* Guest(uint32_t address) {
+  return rex::system::kernel_state()->memory()->TranslateVirtual<uint8_t*>(address);
+}
+
+std::string SidecarPath(const char* name) {
+  const char* home = getenv("HOME");
+  std::string dir = std::string(home ? home : ".") + "/Documents/save_extras";
+  mkdir(dir.c_str(), 0755);
+  std::string file = name;
+  for (char& c : file) {
+    if (c == '/' || c == '\\') c = '_';
+  }
+  return dir + "/" + file + ".pool";
+}
+
+// The game created a save (to write it): every table's slots and overflow.
+// Opened one (to read it): its file kept aside until its data is loaded.
+void OnSaveEvent(const char* name, bool created) {
+  if (!name || !*name) {
+    return;
+  }
+  const std::string path = SidecarPath(name);
+  if (created) {
+    std::vector<Overflow> overflows;
+    {
+      std::lock_guard<std::mutex> lock(g_mutex);
+      overflows = g_overflows;
+    }
+    if (overflows.empty()) {
+      remove(path.c_str());  // nothing outside the game's own data
+      return;
+    }
+    FILE* f = fopen((path + ".tmp").c_str(), "wb");
+    if (!f) {
+      REXLOG_WARN("[pool] cannot write {}", path);
+      return;
+    }
+    const uint32_t count = uint32_t(overflows.size());
+    bool ok = fwrite(kMagic, 1, sizeof(kMagic), f) == sizeof(kMagic) && fwrite(&count, 4, 1, f) == 1;
+    for (const Overflow& o : overflows) {
+      ok = ok && fwrite(Guest(o.table), 1, kSlotBytes, f) == kSlotBytes &&
+           fwrite(Guest(o.entries), 1, kExtraBytes, f) == kExtraBytes;
+    }
+    ok = fclose(f) == 0 && ok;
+    if (ok && rename((path + ".tmp").c_str(), path.c_str()) == 0) {
+      REXLOG_INFO("[pool] save '{}': {} extra entries of {} table(s) kept beside it", name, kPoolExtra, count);
+    } else {
+      REXLOG_WARN("[pool] save '{}': the extra entries could not be written", name);
+    }
+    return;
+  }
+  FILE* f = fopen(path.c_str(), "rb");
+  if (!f) {
+    return;  // saved before this, or with nothing outside
+  }
+  char magic[sizeof(kMagic)] = {};
+  uint32_t count = 0;
+  std::vector<Saved> saved;
+  if (fread(magic, 1, sizeof(magic), f) == sizeof(magic) && !memcmp(magic, kMagic, sizeof(kMagic)) &&
+      fread(&count, 4, 1, f) == 1 && count < 16) {
+    for (uint32_t i = 0; i < count; ++i) {
+      Saved s{std::vector<uint8_t>(kSlotBytes), std::vector<uint8_t>(kExtraBytes)};
+      if (fread(s.slots.data(), 1, kSlotBytes, f) != kSlotBytes ||
+          fread(s.extra.data(), 1, kExtraBytes, f) != kExtraBytes) {
+        saved.clear();
+        break;
+      }
+      saved.push_back(std::move(s));
+    }
+  }
+  fclose(f);
+  std::lock_guard<std::mutex> lock(g_saves_mutex);
+  g_pending = std::move(saved);
+  g_pending_name = name;
+  g_have_pending = !g_pending.empty();
+  if (!g_pending.empty()) {
+    REXLOG_INFO("[pool] save '{}': its extra entries wait for its data to be loaded", name);
+  }
+}
+
+// The overflow of `table` from the save opened last, once its slots are the
+// saved ones (the save's data is in it). Before any use of the overflow.
+void RestoreIfLoaded(uint32_t table) {
+  if (!g_have_pending.load(std::memory_order_acquire)) {
+    return;
+  }
+  std::vector<uint8_t> extra;
+  std::string name;
+  {
+    std::lock_guard<std::mutex> lock(g_saves_mutex);
+    for (size_t i = 0; i < g_pending.size(); ++i) {
+      if (!memcmp(Guest(table), g_pending[i].slots.data(), kSlotBytes)) {
+        extra = std::move(g_pending[i].extra);
+        g_pending.erase(g_pending.begin() + i);
+        name = g_pending_name;
+        break;
+      }
+    }
+    g_have_pending = !g_pending.empty();
+  }
+  if (extra.empty()) {
+    return;
+  }
+  uint8_t* base = rex::system::kernel_state()->memory()->virtual_membase();
+  if (const uint32_t entries = OverflowFor(base, table)) {
+    memcpy(Guest(entries), extra.data(), kExtraBytes);
+    REXLOG_INFO("[pool] save '{}': extra entries of table {:08X} put back", name, table);
+  }
+}
+
+struct HookSaves {
+  HookSaves() { rex_ios_save_event = &OnSaveEvent; }
+} g_hook_saves;
+
 }  // namespace
 
 // The patched sites: the address of entry `index` of `table`.
@@ -125,6 +276,7 @@ extern "C" uint32_t nfsmw_pool_entry(uint8_t* base, uint32_t table, uint32_t ind
   if (index < kPoolOriginal || index >= kPoolTotal) {
     return table + kPoolOffset + index * kEntrySize;  // what the game did
   }
+  RestoreIfLoaded(table);
   const uint32_t entries = OverflowFor(base, table);
   return entries ? ExtraEntry(entries, index) : 0;
 }
@@ -161,6 +313,7 @@ extern "C" REX_FUNC(sub_822C9538) {
   const uint32_t table = ctx.r3.u32;
   __imp__sub_822C9538(ctx, base);
   if (ctx.r3.u32 == 0) {
+    RestoreIfLoaded(table);
     const uint32_t entries = OverflowFor(base, table);
     ctx.r3.u64 = (entries && OverflowHasFree(base, entries)) ? 1 : 0;
   }
@@ -174,6 +327,7 @@ extern "C" REX_FUNC(sub_822C9570) {
   if (ctx.r3.u32 != 0) {
     return;
   }
+  RestoreIfLoaded(table);
   const uint32_t entries = OverflowFor(base, table);
   for (uint32_t i = kPoolOriginal; entries && i < kPoolTotal; ++i) {
     const uint32_t entry = ExtraEntry(entries, i);
