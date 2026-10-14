@@ -4722,6 +4722,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::vector<std::string> draw_keys, draw_pass_keys;
     std::unordered_map<std::string, size_t> last_use;  // target -> its last draw
     std::unordered_map<std::string, size_t> last_depth_read;  // target -> after_draws of its last depth resolve
+    std::unordered_map<std::string, size_t> last_color_read;  // target -> after_draws of its last colour resolve
     if (discard_unread) {
       draw_keys.reserve(frame->draws.size());
       draw_pass_keys.reserve(frame->draws.size());
@@ -4738,12 +4739,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
       }
       for (const ResolveEvent& ev : frame->resolves) {
-        if (!ev.depth || ev.after_draws == 0) continue;
+        if (ev.after_draws == 0) continue;
         const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
         auto found = targets.find(own_key);
         const bool own = found != targets.end() && found->second.color;
         const size_t before = std::min<size_t>(ev.after_draws, frame->draws.size()) - 1;
-        last_depth_read[own ? own_key : draw_keys[before]] = ev.after_draws;
+        if (ev.depth) {
+          last_depth_read[own ? own_key : draw_keys[before]] = ev.after_draws;
+        } else {
+          // Both candidates: the resolve's own layout and the last draw's
+          // target (a second render target's resolve names its own).
+          last_color_read[own_key] = ev.after_draws;
+          last_color_read[draw_keys[before]] = ev.after_draws;
+        }
       }
     }
     // Battery: the environment cube's faces drawn half each frame (even
@@ -4839,7 +4847,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
         // The target's last pass this frame: nothing loads it again.
-        bool last_pass = false, depth_read_later = true;
+        bool last_pass = false, depth_read_later = true, color_read_later = true;
         if (discard_unread && !(split_after && t.scale > 1.0f) && tk != motion_key) {
           size_t end = di + 1;
           const size_t next_event = next_resolve < frame->resolves.size() ? frame->resolves[next_resolve].after_draws
@@ -4848,6 +4856,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           last_pass = last_use[tk] < end;
           auto read = last_depth_read.find(tk);
           depth_read_later = read != last_depth_read.end() && read->second > di;
+          auto color_read = last_color_read.find(tk);
+          color_read_later = color_read != last_color_read.end() && color_read->second > di;
         }
         if (!motion_key.empty() && tk == motion_key && di <= last_motion_draw) {
           motion_pass = true;
@@ -4865,7 +4875,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.colorAttachments[0].texture = t.multisample_color;
         rp.colorAttachments[0].loadAction = clear_color ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.colorAttachments[0].clearColor = t.clear_color ? t.clear_color_value : MTLClearColorMake(0, 0, 0, 0);
-        if (t.sample_count > 1) {
+        if (last_pass && !color_read_later && !t1) {
+          // No resolve reads its colour (a shadow map's: only its depth).
+          rp.colorAttachments[0].storeAction = MTLStoreActionDontCare;
+        } else if (t.sample_count > 1) {
           rp.colorAttachments[0].resolveTexture = t.color;
           rp.colorAttachments[0].storeAction =
               last_pass ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
