@@ -36,6 +36,7 @@
 #import <MetalFX/MetalFX.h>
 
 #include <mach/mach.h>
+#include <os/os_sync_wait_on_address.h>
 #include <mach/mach_time.h>
 #include <objc/runtime.h>
 #include <pthread.h>
@@ -966,6 +967,12 @@ int64_t next_dump_ms = 0;
 uint32_t dump_number = 0;
 std::atomic<bool> rendering{false};
 std::atomic<int> in_flight{0};               // frames recorded or rendering, not yet done
+std::atomic<uint32_t> frames_left{0};        // bumped as each leaves in_flight (the game thread sleeps on it)
+void FrameLeft() {
+  --in_flight;
+  frames_left.fetch_add(1, std::memory_order_release);
+  os_sync_wake_by_address_all(&frames_left, sizeof(uint32_t), OS_SYNC_WAKE_BY_ADDRESS_NONE);
+}
 std::atomic<int> frames_without_output{0};   // e.g. FMVs: the emulated output shows through
 
 void Note(Frame& f, std::string text) {
@@ -5626,6 +5633,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // interval after the one before), every 300 shown frames.
           static std::atomic<uint32_t> shown_count{0}, off_grid{0};
           static std::atomic<double> worst_ms{0};
+          // The gaps in 120 Hz refreshes (1-6, 7: longer): odd counts at the
+          // 30 or 60 cap mean the screen ran at 120 Hz.
+          static std::atomic<uint32_t> gaps[8];
+          if (before > 0 && gap_ms < 200.0) {
+            ++gaps[std::clamp(int(std::lround(gap_ms * 0.12)), 1, 7)];
+          }
           if (before > 0 && interval > 0 && gap_ms < 200.0) {
             const double off = std::fabs(gap_ms - interval * 1000.0);
             if (off > 4.0) ++off_grid;
@@ -5633,9 +5646,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             while (off > w && !worst_ms.compare_exchange_weak(w, off)) {}
           }
           if (++shown_count % 300 == 0) {
-            REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){}",
+            std::string refreshes;
+            for (int i = 1; i < 8; ++i) {
+              const uint32_t n = gaps[i].exchange(0);
+              if (n) refreshes += fmt::format(" {}{}:{}", i, i == 7 ? "+" : "", n);
+            }
+            REXLOG_INFO("[native] pacing: {} of 300 frames off the {:.1f} ms grid (worst {:.1f} ms off){} | gaps "
+                        "in 120 Hz refreshes:{}",
                         off_grid.exchange(0), interval * 1000.0, worst_ms.exchange(0.0),
-                        paced ? ", paced" : "");
+                        paced ? ", paced" : "", refreshes);
           }
         }];
         static double last_target = 0;
@@ -5751,7 +5770,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
         }
         FrameDoneOnGpu(number);
-        --in_flight;
+        FrameLeft();
       }];
     }
     if (visibility && !visibility_slots.empty()) {
@@ -5860,7 +5879,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     [cb waitUntilCompleted];
     ApplyWriteBacks(*writebacks);
     FrameDoneOnGpu(number);
-    --in_flight;
+    FrameLeft();
 
     // Every target as a PNG, in order of first use.
     NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -6217,9 +6236,15 @@ bool NativeSwap() {
   // shown, evenly, instead of the renderer dropping every other one at
   // irregular times. Not paced: this frame is skipped.
   if (in_flight >= 2 && REXCVAR_GET(nfsmw_native_present) && REXCVAR_GET(nfsmw_native_pace)) {
+    // Asleep until a frame is done (FrameLeft wakes it), not polling.
     const auto give_up = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
-    while (in_flight >= 2 && std::chrono::steady_clock::now() < give_up) {
-      std::this_thread::sleep_for(std::chrono::microseconds(250));
+    for (;;) {
+      const uint32_t before = frames_left.load(std::memory_order_acquire);
+      const auto left = give_up - std::chrono::steady_clock::now();
+      if (in_flight < 2 || left <= std::chrono::nanoseconds(0)) break;
+      os_sync_wait_on_address_with_timeout(
+          &frames_left, before, sizeof(uint32_t), OS_SYNC_WAIT_ON_ADDRESS_NONE, OS_CLOCK_MACH_ABSOLUTE_TIME,
+          uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(left).count()));
     }
   }
   last_swap = std::chrono::steady_clock::now();
