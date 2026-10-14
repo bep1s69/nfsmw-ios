@@ -15,9 +15,12 @@
 //     top and reset at the bottom. Which pad button each action presses is in
 //     the kDrive* table below.
 //
-// Not here yet, and on Android: the layout editor (with size/opacity), tilt
-// steering and switching layouts by itself with the part of the game (that
-// needs the game's state; on Android only the native engine could tell).
+// The layout also switches by itself (cvar ios_touch_auto_layout): to DRIVE
+// when driving starts, to PAD when a menu or a pause screen comes up
+// (game_state.cpp tells; battery::InMenu), checked 5 times a second. The pill
+// still switches by hand until the next change.
+//
+// Not here yet, and on Android: tilt steering.
 //
 // Also here: the FPS counter (InstallFpsCounter), Android's GameActivity one.
 //
@@ -46,7 +49,12 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "battery.h"
 #include "touch_controls.h"
+
+REXCVAR_DEFINE_BOOL(ios_touch_auto_layout, true, "Input",
+                    "Touch controls: the DRIVE layout while driving, the PAD layout in menus and pause "
+                    "screens, switched by themselves");
 
 namespace {
 
@@ -170,6 +178,7 @@ struct Control {
 }  // namespace
 
 @interface NFSTouchView : UIView
+- (void)followGame;
 @end
 
 @implementation NFSTouchView {
@@ -247,6 +256,34 @@ static CGFloat TouchOpacity() {
     }
   }
   return self;
+}
+
+// The layout to the game's state, when it changes (ios_touch_auto_layout).
+- (void)followGame {
+  __weak NFSTouchView* weak = self;
+  [NSTimer scheduledTimerWithTimeInterval:0.2
+                                  repeats:YES
+                                    block:^(NSTimer* timer) {
+                                      NFSTouchView* view = weak;
+                                      if (!view) {
+                                        [timer invalidate];
+                                        return;
+                                      }
+                                      [view gameStateTick];
+                                    }];
+}
+
+- (void)gameStateTick {
+  static int last = -1;
+  const int in_menu = nfsmw::battery::InMenu();
+  if (in_menu == last || in_menu < 0 || _editing) return;
+  last = in_menu;
+  const BOOL driving = in_menu == 0;
+  if (driving == _driving) return;
+  [self releaseAll];  // nothing stays pressed from the other layout
+  _driving = driving;
+  [self setNeedsLayout];
+  REXLOG_INFO("[touch] {} layout", driving ? "DRIVE" : "PAD");
 }
 
 - (void)controllerConnected:(NSNotification*)note {
@@ -1060,6 +1097,9 @@ void Install() {
   }
   NFSTouchView* view = [[NFSTouchView alloc] initWithFrame:window.bounds];
   [window addSubview:view];
+  if (REXCVAR_GET(ios_touch_auto_layout)) {
+    [view followGame];
+  }
   installed = true;
   REXLOG_INFO("[touch] touch controls on screen ({} x {} points)",
               int(window.bounds.size.width), int(window.bounds.size.height));

@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate", @"heat_scale", @"heat_scale_test" ]];
   return [keys containsObject:key];
 }
 
@@ -397,11 +397,20 @@ const std::vector<Section>& Sections() {
             @"At the 60 cap: 30 fps while Low Power Mode is on or the phone is warm, back to 60 "
             @"once it is off and cool again.",
             @"false"},
+           {@"menu_cap", Type::kSwitch, @"30 fps in menus and pause",
+            @"At the 60 cap: 30 fps in menus, pause screens and loading, which redraw much the "
+            @"same picture; 60 again as soon as driving starts.",
+            @"false"},
+           {@"heat_scale", Type::kSwitch, @"0.75x when hot",
+            @"Native renderer: the render resolution drops to 0.75x while the phone is hot (iOS "
+            @"thermal state \"serious\") and goes back to the one chosen once it has cooled down.",
+            @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
             @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
-            @"reflections half updated each frame, 30 fps when warm or on Low Power). Each can "
-            @"also be chosen on its own with Battery mode off.",
+            @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
+            @"menus and pause, 0.75x when hot). Each can also be chosen on its own with Battery "
+            @"mode off.",
             @"false"},
            {@"stretch", Type::kSwitch, @"Stretch to full screen",
             @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
@@ -463,6 +472,10 @@ const std::vector<Section>& Sections() {
             @"Move and resize the on-screen buttons and sticks (both the Pad and the Drive "
             @"layouts), and set their size and opacity.",
             @""},
+           {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
+            @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
+            @"DRIVE/PAD button still switches by hand.",
+            @"true"},
        }, kTabControls},
       {@"Keyboard", nil,
        {
@@ -550,6 +563,10 @@ const std::vector<Section>& Sections() {
             @"Native renderer: the scene's motion instead of the picture. Grey: still; red: "
             @"moving right; green: moving down; darker: the other way.",
             @"false"},
+           {@"heat_scale_test", Type::kSwitch, @"Test 0.75x when hot",
+            @"Native renderer, with \"0.75x when hot\" on (or Battery mode): acts as if the phone "
+            @"were hot for 30 s of every minute, to see the resolution switch. The log says when.",
+            @"false"},
        }, kTabAdvanced},
   };
   return sections;
@@ -624,6 +641,8 @@ NSString* BatteryValue(NSString* key) {
     @"shadow_scale" : @"0.5",
     @"reflection_rate" : @"half",
     @"auto_cap" : @"true",
+    @"menu_cap" : @"true",
+    @"heat_scale" : @"true",
   };
   return values[key];
 }
@@ -695,6 +714,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back(std::string("--ios_retina=") + (scale_value > 1.0 ? "true" : "auto"));
   a.push_back("--ios_fps_cap=" + str(@"fps_cap"));
   a.push_back("--nfsmw_battery_auto_cap=" + b(On(s, @"auto_cap")));
+  a.push_back("--nfsmw_menu_cap=" + b(On(s, @"menu_cap")));
   NSString* const aspect = ResolvedAspect(s);
   // 4:3: the game's HD 4:3 mode, its scene drawn at 960x720 (not 640x480).
   if ([aspect isEqualToString:@"4:3"]) {
@@ -710,6 +730,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--present_letterbox=" + b(!On(s, @"stretch")));
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
+  a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
@@ -737,6 +758,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));
+    a.push_back("--nfsmw_heat_scale=" + b(On(s, @"heat_scale")));
+    a.push_back("--nfsmw_heat_scale_test=" + b(On(s, @"heat_scale_test")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +

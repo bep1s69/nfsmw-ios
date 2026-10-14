@@ -66,6 +66,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "battery.h"
 #include "native_renderer.h"
 #include "memory_report.h"
 
@@ -277,14 +278,18 @@ REXCVAR_DEFINE_STRING(nfsmw_native_resolution_scale, "1", "GPU",
 std::atomic<float> native_screen_scale{0.0f};
 
 // The internal resolution scale: a target of W x H guest pixels is drawn at
-// round(W * scale) x round(H * scale).
+// round(W * scale) x round(H * scale). While the phone is hot, at most
+// battery::HeatScale() (battery.mm): the targets are made again at the new
+// size on the next frame.
 float NativeResolutionScale() {
   static const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
   static const bool native = setting == "native";
   static const float fixed = std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, 4.0f);
-  if (!native) return std::isfinite(fixed) && fixed > 0 ? fixed : 1.0f;
   const float s = native_screen_scale.load();
-  return s > 0 ? s : 1.0f;  // until the first frame has been shown
+  const float chosen = !native ? (std::isfinite(fixed) && fixed > 0 ? fixed : 1.0f)
+                               : s > 0 ? s : 1.0f;  // until the first frame has been shown
+  const float hot = nfsmw::battery::HeatScale();
+  return hot > 0 ? std::min(chosen, hot) : chosen;
 }
 
 // Guest pixels at a scale: rounded, so that neighbouring rectangles meet.
@@ -3897,6 +3902,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (forced_samples > 1) {
         REXLOG_INFO("[native] MSAA {}x forced on the scene where the game draws without", forced_samples);
       }
+    }
+    // A new scale while playing (hot phone, battery.mm): the targets below are
+    // made again at its size.
+    static float last_scale = resolution_scale;
+    if (resolution_scale != last_scale) {
+      REXLOG_INFO("[native] internal resolution now {:.3f}x (was {:.3f}x)", resolution_scale, last_scale);
+      last_scale = resolution_scale;
     }
     // A target per pass: each time the render target registers change, a
     // fresh image (the shadow map and the final UI pass share colour base,

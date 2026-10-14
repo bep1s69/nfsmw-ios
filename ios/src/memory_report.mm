@@ -31,10 +31,6 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
-REXCVAR_DEFINE_BOOL(nfsmw_battery_auto_cap, false, "Battery",
-                    "At the 60 fps cap: 30 while Low Power Mode is on or the phone is warm (thermal state "
-                    "fair or above), 60 again once it is off and cool");
-
 namespace nfsmw::memory {
 
 const char* ThermalState() {
@@ -116,29 +112,6 @@ void ReportCpu() {
   REXLOG_INFO("[cpu] {:.0f}% of a core over {:.0f} s ({} threads) | {} | battery {}", 100.0 * total_us / wall_us,
               wall_us / 1e6, thread_count, top,
               battery >= 0 ? fmt::format("{:.0f}%", battery * 100.0f) : std::string("unknown"));
-}
-
-void StartBatteryAutoCap() {
-  if (!REXCVAR_GET(nfsmw_battery_auto_cap) || rex::cvar::GetFlagByName("ios_fps_cap") != "60") return;
-  std::thread([] {
-    pthread_setname_np("nfsmw auto cap");
-    int cap = 60;
-    for (;;) {
-      std::this_thread::sleep_for(std::chrono::seconds(2));
-      NSProcessInfo* info = [NSProcessInfo processInfo];
-      const bool low_power = info.lowPowerModeEnabled;
-      const NSProcessInfoThermalState thermal = info.thermalState;
-      // Back to 60 only once it is cool again (fair keeps 30): no flapping.
-      const int want = low_power || thermal >= NSProcessInfoThermalStateFair ? 30
-                       : thermal == NSProcessInfoThermalStateNominal     ? 60
-                                                                          : cap;
-      if (want == cap) continue;
-      cap = want;
-      rex::cvar::SetFlagByName("ios_fps_cap", std::to_string(cap));
-      REXLOG_INFO("[battery] cap {} fps (Low Power Mode {}, thermal state {})", cap, low_power ? "on" : "off",
-                  ThermalState());
-    }
-  }).detach();
 }
 
 void StartPeriodicReports(int seconds) {

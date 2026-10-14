@@ -44,6 +44,7 @@
 #include <rex/logging.h>
 
 #include "audio/coreaudio_driver.h"
+#include "battery.h"
 #include "boot_trace.h"
 #include "launcher.h"
 #include "memory_report.h"
@@ -246,7 +247,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   const bool initialized = app->OnInitialize();
   nfsmw::memory::Report("runtime, GPU and XEX loaded");
   nfsmw::memory::StartPeriodicReports(10);
-  nfsmw::memory::StartBatteryAutoCap();
+  nfsmw::battery::Start();
   boot::Trace(initialized ? "game: OnInitialize done, entering the main loop"
                           : "game: OnInitialize FAILED (reason in nfsmw.log)");
   rex::FlushLogging();
