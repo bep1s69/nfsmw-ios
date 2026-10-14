@@ -157,6 +157,20 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_debug, false, "GPU",
                     "Native renderer bring-up: show the wet road's shadow terms");
 REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_debug, false, "GPU",
                     "Native renderer bring-up: show what the alpha-tested shaders compute");
+REXCVAR_DEFINE_BOOL(nfsmw_native_discard_unread, true, "GPU",
+                    "Native renderer: a target's depth, stencil and multisample samples are not written out "
+                    "after its last pass of the frame, unless a resolve or MetalFX reads them");
+REXCVAR_DEFINE_BOOL(nfsmw_native_compact_drawable, true, "GPU",
+                    "Native renderer: when the picture is smaller than the screen, the drawable is the "
+                    "picture's size and the compositor stretches it (same bilinear filter, no full-screen pass)");
+
+// The layer's drawable: the panel's pixels, or (compact) as many as the
+// picture has, the compositor stretching it to the layer like the present
+// pass did. The view's size in panel pixels is kept for the "native" scale
+// and MetalFX, which want the screen's.
+std::atomic<uint32_t> screen_pixels_w{0}, screen_pixels_h{0};
+std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's pixels
+
 // The native renderer's own layer, over the game's view (touch controls stay
 // above it): a CAMetalLayer that follows the view's size.
 @interface NFSNativeView : UIView
@@ -174,7 +188,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_debug, false, "GPU",
   UIScreen* screen = self.window.screen ?: UIScreen.mainScreen;
   const CGFloat scale = screen.nativeScale ?: screen.scale;
   layer.contentsScale = scale;
-  layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+  const CGSize full = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+  screen_pixels_w = uint32_t(std::lround(full.width));
+  screen_pixels_h = uint32_t(std::lround(full.height));
+  const uint32_t ww = drawable_want_w.load(), wh = drawable_want_h.load();
+  layer.drawableSize = ww && wh ? CGSizeMake(ww, wh) : full;
 }
 @end
 
@@ -4263,6 +4281,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
     uint32_t pass_splits = 0;
+    uint32_t stores_discarded = 0;  // passes that wrote out nothing unread
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
     std::map<std::string, std::pair<size_t, size_t>> groups;  // snapshot: draw groups of the pass (first draw, count)
@@ -4669,6 +4688,41 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         probe_draws = pick.first;
       }
     }
+    // What is read after a target's last pass of the frame: every target
+    // starts the next frame cleared (used = false above), so its depth,
+    // stencil and multisample samples are only kept for a later pass, a
+    // depth resolve or the motion copy; else not written out at all
+    // (bandwidth only, the picture is the same). Pass keys here may be
+    // longer than the loop's (a second target it leaves out): that only
+    // ends a pass sooner, which keeps more.
+    const bool discard_unread = REXCVAR_GET(nfsmw_native_discard_unread) && !dump;
+    std::vector<std::string> draw_keys, draw_pass_keys;
+    std::unordered_map<std::string, size_t> last_use;  // target -> its last draw
+    std::unordered_map<std::string, size_t> last_depth_read;  // target -> after_draws of its last depth resolve
+    if (discard_unread) {
+      draw_keys.reserve(frame->draws.size());
+      draw_pass_keys.reserve(frame->draws.size());
+      for (size_t i = 0; i < frame->draws.size(); ++i) {
+        const Draw& d = frame->draws[i];
+        draw_keys.push_back(target_key(d));
+        last_use[draw_keys.back()] = i;
+        if (d.second_target) {
+          const std::string k1 = EdramKey(d.surface_info, d.color1_info, d.depth_info);
+          last_use[k1] = i;
+          draw_pass_keys.push_back(draw_keys.back() + "+" + k1);
+        } else {
+          draw_pass_keys.push_back(draw_keys.back());
+        }
+      }
+      for (const ResolveEvent& ev : frame->resolves) {
+        if (!ev.depth || ev.after_draws == 0) continue;
+        const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        auto found = targets.find(own_key);
+        const bool own = found != targets.end() && found->second.color;
+        const size_t before = std::min<size_t>(ev.after_draws, frame->draws.size()) - 1;
+        last_depth_read[own ? own_key : draw_keys[before]] = ev.after_draws;
+      }
+    }
     for (size_t di = 0; di < frame->draws.size(); ++di) {
       const Draw& d = frame->draws[di];
       while (next_resolve < frame->resolves.size() && frame->resolves[next_resolve].after_draws <= di) {
@@ -4728,6 +4782,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         finish_motion(di);
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
+        // The target's last pass this frame: nothing loads it again.
+        bool last_pass = false, depth_read_later = true;
+        if (discard_unread && !(split_after && t.scale > 1.0f) && tk != motion_key) {
+          size_t end = di + 1;
+          const size_t next_event = next_resolve < frame->resolves.size() ? frame->resolves[next_resolve].after_draws
+                                                                         : frame->draws.size();
+          while (end < frame->draws.size() && end < next_event && draw_pass_keys[end] == draw_pass_keys[di]) ++end;
+          last_pass = last_use[tk] < end;
+          auto read = last_depth_read.find(tk);
+          depth_read_later = read != last_depth_read.end() && read->second > di;
+        }
         if (!motion_key.empty() && tk == motion_key && di <= last_motion_draw) {
           motion_pass = true;
           rp.colorAttachments[4].texture = motion_multisample;
@@ -4746,7 +4811,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.colorAttachments[0].clearColor = t.clear_color ? t.clear_color_value : MTLClearColorMake(0, 0, 0, 0);
         if (t.sample_count > 1) {
           rp.colorAttachments[0].resolveTexture = t.color;
-          rp.colorAttachments[0].storeAction = MTLStoreActionStoreAndMultisampleResolve;
+          rp.colorAttachments[0].storeAction =
+              last_pass ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
         } else {
           rp.colorAttachments[0].storeAction = MTLStoreActionStore;
         }
@@ -4773,18 +4839,23 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (t.sample_count > 1) {
           rp.depthAttachment.resolveTexture = t.depth;
           rp.depthAttachment.depthResolveFilter = MTLMultisampleDepthResolveFilterMin;
-          rp.depthAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+          rp.depthAttachment.storeAction = !last_pass         ? MTLStoreActionStoreAndMultisampleResolve
+                                           : depth_read_later ? MTLStoreActionMultisampleResolve
+                                                              : MTLStoreActionDontCare;
         } else {
-          rp.depthAttachment.storeAction = MTLStoreActionStore;
+          rp.depthAttachment.storeAction = last_pass && !depth_read_later ? MTLStoreActionDontCare : MTLStoreActionStore;
         }
         rp.stencilAttachment.texture = t.multisample_depth;
         rp.stencilAttachment.loadAction = clear_depth ? MTLLoadActionClear : MTLLoadActionLoad;
-        if (t.sample_count > 1) {
+        if (last_pass) {
+          rp.stencilAttachment.storeAction = MTLStoreActionDontCare;  // no resolve reads stencil
+        } else if (t.sample_count > 1) {
           rp.stencilAttachment.resolveTexture = t.depth;
           rp.stencilAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
         } else {
           rp.stencilAttachment.storeAction = MTLStoreActionStore;
         }
+        stores_discarded += last_pass;
         if (!t.used) {
           order.push_back(tk);
         }
@@ -5366,14 +5437,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // "native" scale: the displayed image as large as it is shown (it fits
         // the drawable by its height, or by its width when relatively wider).
         if (final_guest_width >= 320 && final_guest_height >= 240) {
-          const float want = std::min(float(drawable.texture.width) / float(final_guest_width),
-                                      float(drawable.texture.height) / float(final_guest_height));
+          const float screen_w = float(screen_pixels_w.load() ?: uint32_t(drawable.texture.width));
+          const float screen_h = float(screen_pixels_h.load() ?: uint32_t(drawable.texture.height));
+          const float want = std::min(screen_w / float(final_guest_width), screen_h / float(final_guest_height));
           const float rounded = std::round(want * 1000.0f) / 1000.0f;
           if (std::fabs(native_screen_scale.load() - rounded) > 0.0005f) {
             native_screen_scale = rounded;
             if (REXCVAR_GET(nfsmw_native_resolution_scale) == "native") {
               REXLOG_INFO("[native] native resolution: {}x{} shown in {}x{}: scale {:.3f}", final_guest_width,
-                          final_guest_height, drawable.texture.width, drawable.texture.height, rounded);
+                          final_guest_height, int(screen_w), int(screen_h), rounded);
             }
           }
         }
@@ -5408,6 +5480,32 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const float dw = float(drawable.texture.width), dh = float(drawable.texture.height);
         const float src = sw / sh, dst = dw / dh;
         const float fit[4] = {src > dst ? 1.0f : src / dst, src > dst ? dst / src : 1.0f, 0, 0};
+        // Compact drawable: the picture's own pixels (with the screen's shape,
+        // bars included), for the next frames' drawables. Not with MetalFX
+        // temporal (its output is the screen's size, or wants it) or a picture
+        // as large as the screen.
+        {
+          const uint32_t full_w = screen_pixels_w.load(), full_h = screen_pixels_h.load();
+          uint32_t want_w = 0, want_h = 0;
+          if (REXCVAR_GET(nfsmw_native_compact_drawable) && !MetalFxTemporal() && full_w && full_h) {
+            const float fdst = float(full_w) / float(full_h);
+            const float k = src > fdst ? sw / float(full_w) : sh / float(full_h);  // picture pixels per screen pixel
+            if (k < 0.95f) {
+              want_w = uint32_t(std::lround(full_w * k));
+              want_h = uint32_t(std::lround(full_h * k));
+            }
+          }
+          if (want_w != drawable_want_w.load() || want_h != drawable_want_h.load()) {
+            drawable_want_w = want_w;
+            drawable_want_h = want_h;
+            REXLOG_INFO("[native] drawable {}", want_w ? fmt::format("{}x{}, stretched to {}x{} by the compositor",
+                                                                     want_w, want_h, full_w, full_h)
+                                                        : std::string("at the screen's pixels"));
+            dispatch_async(dispatch_get_main_queue(), ^{
+              [present_view setNeedsLayout];
+            });
+          }
+        }
         // The resolve's rectangle within its texture (it starts at 0, 0).
         float crop[4] = {sw / float(final_texture.width), sh / float(final_texture.height), 0, 0};
         // MetalFX: the picture upscaled to its size on screen (spatial: the
@@ -5847,14 +5945,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
         REXLOG_INFO("[native] frame {}: {} of {} draws ({} without a shader library), {} resolves, {} textures ({} cached on the GPU), "
-                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split | {:.1f} frames/s on screen, recording "
+                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split, {} last passes storing only what is read | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample) | "
                     "textures decoded {} ({} MiB)",
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
-                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits,
+                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
                     record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
