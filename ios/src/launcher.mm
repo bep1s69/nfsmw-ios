@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe" ]];
   return [keys containsObject:key];
 }
 
@@ -528,9 +528,13 @@ const std::vector<Section>& Sections() {
            {@"detailed_log", Type::kSwitch, @"Detailed log",
             @"log_level=debug. It tanks the fps: only for diagnosing problems.", @"false"},
            {@"gpu_capture", Type::kSwitch, @"GPU frame capture button",
-            @"A CAPTURE button in the top-right corner of the game. A tap saves the GPU work of "
-            @"about two frames to Documents/captures, to open in Xcode on a Mac. Only for "
-            @"measuring: captures are large.",
+            @"Emulated renderer only (the native one shows black with it). A CAPTURE button in the "
+            @"top-right corner of the game. A tap saves the GPU work of about two frames to "
+            @"Documents/captures, to open in Xcode on a Mac. Only for measuring: captures are large.",
+            @"false"},
+           {@"cost_probe", Type::kSwitch, @"GPU cost per shader",
+            @"Native renderer: once a second, one of the most used pixel shaders is left out of a "
+            @"frame (it may flicker) and the log says how much GPU time that saved.",
             @"false"},
            {@"motion_debug", Type::kSwitch, @"Show motion vectors",
             @"Native renderer: the scene's motion instead of the picture. Grey: still; red: "
@@ -720,6 +724,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_battery_auto_cap=" + b(battery));
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
+    a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));
     // FXAA in the native renderer (the emulated one's is swap_post_effect).
     NSString* aa_mode = Value(s, @"antialiasing");
     a.push_back(std::string("--nfsmw_native_fxaa=") +

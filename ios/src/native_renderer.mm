@@ -4691,6 +4691,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // The cost probe (nfsmw_native_cost_probe): this frame's left-out shader.
     uint64_t probe_ps = 0;
     size_t probe_draws = 0;
+    if (REXCVAR_GET(nfsmw_native_cost_probe)) {
+      static bool said = false;
+      if (!said) {
+        said = true;
+        REXLOG_INFO("[cost-probe] on: one pixel shader left out every 60th frame of over 1000 draws");
+      }
+    }
     if (!dump && REXCVAR_GET(nfsmw_native_cost_probe) && number % 60 == 30 && frame->draws.size() > 1000) {
       std::unordered_map<uint64_t, size_t> counts;
       for (const Draw& d : frame->draws) ++counts[d.ps_key];
