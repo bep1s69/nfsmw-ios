@@ -366,9 +366,9 @@ const std::vector<Section>& Sections() {
        {
            {@"aspect", Type::kChoice, @"Screen shape",
             @"The shape of the game's picture. Fit this screen: 19.5:9 on iPhone, 4:3 on iPad, "
-            @"16:9 elsewhere. 16:9 is the Xbox 360's own; on other screens it has black bars "
-            @"(or see Stretch). 4:3 is the game's own mode for 4:3 TVs, with its own field of "
-            @"view and HUD.",
+            @"16:9 elsewhere. 16:9 is the Xbox 360's own; on other screens it has black bars. "
+            @"4:3 is the game's own mode for 4:3 TVs, with its own field of view and HUD; on an "
+            @"11\" iPad it fills the screen, stretched by 7%.",
             @"auto",
             {{@"Fit this screen", @"auto"}, {@"16:9 (Xbox 360)", @"16:9"}, {@"4:3", @"4:3"},
              {@"19.5:9", @"wide"}}},
@@ -411,10 +411,6 @@ const std::vector<Section>& Sections() {
             @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
             @"menus and pause, 0.75x when hot). Each can also be chosen on its own with Battery "
             @"mode off.",
-            @"false"},
-           {@"stretch", Type::kSwitch, @"Stretch to full screen",
-            @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
-            @"distorts the image.",
             @"false"},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
@@ -727,7 +723,6 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--resolution=1560x720");
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
-  a.push_back("--present_letterbox=" + b(!On(s, @"stretch")));
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
