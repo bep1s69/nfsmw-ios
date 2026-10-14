@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate" ]];
   return [keys containsObject:key];
 }
 
@@ -393,11 +393,15 @@ const std::vector<Section>& Sections() {
             @"60",
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
+           {@"auto_cap", Type::kSwitch, @"30 fps when warm or on Low Power",
+            @"At the 60 cap: 30 fps while Low Power Mode is on or the phone is warm, back to 60 "
+            @"once it is off and cool again.",
+            @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
-            @"Native renderer: less work for a cooler phone and longer play. Sets the graphics "
-            @"settings (0.85x, no MetalFX, FXAA), draws half-size shadows and half the car "
-            @"reflections each frame, and at the 60 cap runs 30 fps while Low Power Mode is on or "
-            @"the phone is warm.",
+            @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
+            @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
+            @"reflections half updated each frame, 30 fps when warm or on Low Power). Each can "
+            @"also be chosen on its own with Battery mode off.",
             @"false"},
            {@"stretch", Type::kSwitch, @"Stretch to full screen",
             @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
@@ -428,6 +432,17 @@ const std::vector<Section>& Sections() {
             @"1600",
             {{@"High (1600, Xbox 360)", @"1600"}, {@"Medium (1280)", @"1280"},
              {@"Low (1024)", @"1024"}, {@"Very low (768)", @"768"}}},
+           {@"shadow_scale", Type::kChoice, @"Shadow map drawing size",
+            @"Native renderer: the shadow map drawn at the size above or at half of it. Half: "
+            @"less GPU work, softer and blockier shadows.",
+            @"1",
+            {{@"Full", @"1"}, {@"Half", @"0.5"}}},
+           {@"reflection_rate", Type::kChoice, @"Car reflections",
+            @"Native renderer: the environment reflected on the cars redrawn whole every frame, "
+            @"or half of it each frame (the other half a frame old). Half: ~1 ms less GPU work "
+            @"a frame in races, hard to notice.",
+            @"full",
+            {{@"Every frame", @"full"}, {@"Half each frame", @"half"}}},
            {@"postprocessing", Type::kSwitch, @"Post-processing",
             @"The original game's color filter and blur. Off: less GPU work, but it no longer "
             @"looks like the original.",
@@ -606,6 +621,9 @@ NSString* BatteryValue(NSString* key) {
     @"shadow_size" : @"1600",
     @"postprocessing" : @"true",
     @"scaling" : @"bilinear",
+    @"shadow_scale" : @"0.5",
+    @"reflection_rate" : @"half",
+    @"auto_cap" : @"true",
   };
   return values[key];
 }
@@ -676,6 +694,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // ios_retina still works from extra_args.txt.
   a.push_back(std::string("--ios_retina=") + (scale_value > 1.0 ? "true" : "auto"));
   a.push_back("--ios_fps_cap=" + str(@"fps_cap"));
+  a.push_back("--nfsmw_battery_auto_cap=" + b(On(s, @"auto_cap")));
   NSString* const aspect = ResolvedAspect(s);
   // 4:3: the game's HD 4:3 mode, its scene drawn at 960x720 (not 640x480).
   if ([aspect isEqualToString:@"4:3"]) {
@@ -712,11 +731,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // no sparse buffers), 2 GB at 2x that nothing used.
   if (On(s, @"native_renderer")) {
     a.push_back("--resolution_scale=1");
-    const bool battery = On(s, @"battery_mode");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
-    a.push_back("--nfsmw_native_half_rate_reflections=" + b(battery));
-    a.push_back(std::string("--nfsmw_native_shadow_scale=") + (battery ? "0.5" : "1"));
-    a.push_back("--nfsmw_battery_auto_cap=" + b(battery));
+    a.push_back("--nfsmw_native_half_rate_reflections=" + b([Value(s, @"reflection_rate") isEqualToString:@"half"]));
+    a.push_back("--nfsmw_native_shadow_scale=" + str(@"shadow_scale"));
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));
