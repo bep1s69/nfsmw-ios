@@ -24,7 +24,7 @@
 // Here the same question is asked for the packages below, which stop the
 // driving (pause, its sub-screens, the post-race screens, dialogs, the map).
 // Short overlays that come while driving (SMS messages, fades, the race's
-// title) are not in it.
+// title, EA_Trax.fng: the song's name at the start of a race) are not in it.
 //
 // WHEN
 //
@@ -63,7 +63,7 @@ const char* const kMenuPackages[] = {
     "PostRace_MilestoneRewards.fng", "PostBusted.fng",       "GameOver.fng",
     "GameWon.fng",             "WorldMapMain.fng",           "EngageEventDialog.fng",
     "ControllerUnplugged.fng", "Loading.fng",                "WS_Loading.fng",
-    "SixDaysLater.fng",        "EA_Trax.fng",
+    "SixDaysLater.fng",
 };
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 

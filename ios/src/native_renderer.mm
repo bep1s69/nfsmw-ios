@@ -5632,7 +5632,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const float sw = float(final_rect.size.width), sh = float(final_rect.size.height);
         const float dw = float(drawable.texture.width), dh = float(drawable.texture.height);
         const float src = sw / sh, dst = dw / dh;
-        const float fit[4] = {src > dst ? 1.0f : src / dst, src > dst ? dst / src : 1.0f, 0, 0};
+        // Within 1% of the screen's shape (1560x720 on a 2868x1320 iPhone:
+        // 0.3%), the whole screen: no bars a few pixels wide at the sides.
+        const bool nearly = std::fabs(src / dst - 1.0f) < 0.01f;
+        const float fit[4] = {src > dst || nearly ? 1.0f : src / dst, src > dst && !nearly ? dst / src : 1.0f, 0, 0};
         // Compact drawable: the picture's own pixels (with the screen's shape,
         // bars included), for the next frames' drawables. Not with MetalFX
         // temporal (its output is the screen's size, or wants it) or a picture

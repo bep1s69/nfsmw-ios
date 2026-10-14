@@ -10,7 +10,8 @@
 // choice is remembered):
 //   - PAD: the full gamepad above, for menus and anything else;
 //   - DRIVE: a layout for driving, from a sketch by the player: a horizontal
-//     steering circle, shift buttons, nitrous and look back on the left; speedbreaker,
+//     steering circle, shift buttons, nitrous, look back and a small D-pad
+//     on the left; speedbreaker,
 //     handbrake and tall brake/accelerate pads on the right; camera at the
 //     top and reset at the bottom. Which pad button each action presses is in
 //     the kDrive* table below.
@@ -445,6 +446,10 @@ static CGFloat TouchOpacity() {
   round(@"CAM", P(.455, .17), unit * .36, kDriveCamera);
   round(@"PAUSE", P(.545, .17), unit * .36, kDrivePause);
   round(@"RESET", P(.5, .86), unit * .36, kDriveReset);
+  // The D-pad, for what free roam puts on it (shops and safehouses, the
+  // Blacklist, the map, messages) and for menus.
+  Control dpad{Kind::kDpad, @"", P(.11, .27), unit * .72};
+  _controls.push_back(dpad);
   [self applyCustomLayout];
 }
 
