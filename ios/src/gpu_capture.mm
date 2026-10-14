@@ -124,7 +124,7 @@ void InstallButton() {
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
     if ([scene isKindOfClass:UIWindowScene.class] &&
-        [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+        ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
         if (w.isKeyWindow || !window) {
           window = w;

@@ -1648,7 +1648,7 @@ fs::path Run(const fs::path& documents) {
   UIWindowScene* scene = nil;
   for (UIScene* s in UIApplication.sharedApplication.connectedScenes) {
     // The phone's own scene, not an external display's (AirPlay, HDMI).
-    if ([s isKindOfClass:UIWindowScene.class] && [s.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+    if ([s isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)s).screen == UIScreen.mainScreen) {
       scene = (UIWindowScene*)s;
       break;
     }

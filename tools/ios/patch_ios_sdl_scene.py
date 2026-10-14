@@ -11,8 +11,8 @@ Touches thirdparty/sdl3/src/video/uikit/SDL_uikitvideo.m.
 With AirPlay mirroring (or HDMI) the app has a second window scene, the
 external display's. UIKit_GetActiveWindowScene took the first foreground one
 it found, so SDL's window could land on the TV: the TV showed the game, the
-phone kept the launcher. Scenes whose session role is not Application are
-now skipped (the external display gets its own window from the native
+phone kept the launcher. Scenes on another screen than the phone's are now
+skipped (their session role is not enough: under LiveContainer, mirroring) (the external display gets its own window from the native
 renderer).
 """
 
@@ -32,7 +32,7 @@ NEW = '''        // LOCAL PATCH - iOS: only the phone's own scenes, never an ext
         // display's (tools/ios/patch_ios_sdl_scene.py).
         NSMutableSet<UIScene *> *connectedScenes = [NSMutableSet set];
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && ((UIWindowScene *)scene).screen == [UIScreen mainScreen]) {
                 [connectedScenes addObject:scene];
             }
         }

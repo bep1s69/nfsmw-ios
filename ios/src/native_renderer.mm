@@ -6373,7 +6373,7 @@ void WatchExternalScreens(id<MTLDevice> device) {
     }
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
       if (!external && [scene isKindOfClass:UIWindowScene.class] &&
-          ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+          ((UIWindowScene*)scene).screen != UIScreen.mainScreen) {
         external = ((UIWindowScene*)scene).screen;
       }
     }
@@ -6394,7 +6394,7 @@ void WatchExternalScreens(id<MTLDevice> device) {
   [center addObserverForName:UISceneDidActivateNotification object:nil queue:NSOperationQueue.mainQueue
                   usingBlock:^(NSNotification* note) {
                     UIScene* scene = note.object;
-                    if (![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) pick();
+                    if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)scene).screen != UIScreen.mainScreen) pick();
                   }];
 }
 
@@ -6410,10 +6410,23 @@ void EnsurePresentLayer() {
       // The phone's own scene: an external display's (AirPlay, HDMI) has its
       // own window, made below.
       if ([scene isKindOfClass:UIWindowScene.class] &&
-          [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+          ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
         for (UIWindow* w in ((UIWindowScene*)scene).windows) {
           if (w.isKeyWindow || !window) window = w;
         }
+      }
+    }
+    // Every scene and window, for external display reports (AirPlay, HDMI).
+    for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+      if (![scene isKindOfClass:UIWindowScene.class]) continue;
+      UIWindowScene* ws = (UIWindowScene*)scene;
+      REXLOG_INFO("[native] scene {:x} ({}, state {}, {}): {} windows", uintptr_t((__bridge void*)ws),
+                  ws.session.role.UTF8String, int(ws.activationState),
+                  ws.screen == UIScreen.mainScreen ? "the phone's screen" : "another screen", size_t(ws.windows.count));
+      for (UIWindow* w in ws.windows) {
+        REXLOG_INFO("[native]   window {:x}{}{} level {} root {}", uintptr_t((__bridge void*)w), w.isKeyWindow ? " key" : "",
+                    w.hidden ? " hidden" : "", double(w.windowLevel),
+                    w.rootViewController ? NSStringFromClass(w.rootViewController.class).UTF8String : "none");
       }
     }
     if (!window) {
