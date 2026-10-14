@@ -1669,6 +1669,20 @@ fs::path Run(const fs::path& documents) {
   window.hidden = YES;
   window.rootViewController = nil;
   window = nil;
+  // With AirPlay mirroring on, a second window still holding the launcher
+  // stayed visible over the game on the phone (nfsmw_airplay4.log): every
+  // window with the launcher goes, and SDL's becomes the key one again.
+  for (UIScene* s in UIApplication.sharedApplication.connectedScenes) {
+    if (![s isKindOfClass:UIWindowScene.class]) continue;
+    for (UIWindow* w in ((UIWindowScene*)s).windows) {
+      if ([w.rootViewController isKindOfClass:NFSLauncherNavigation.class]) {
+        w.hidden = YES;
+        w.rootViewController = nil;
+      } else if ([NSStringFromClass(w.rootViewController.class) hasPrefix:@"SDL"]) {
+        [w makeKeyAndVisible];
+      }
+    }
+  }
   // Back to landscape for the game: the launcher may have left the scene in
   // portrait, and iOS only re-evaluates orientations when asked.
   if (scene) {
