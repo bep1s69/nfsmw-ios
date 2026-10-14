@@ -465,10 +465,12 @@ const std::vector<Section>& Sections() {
        }, kTabAudio},
       {@"Performance", @"To test what each thing costs on your device. The defaults are the recommended ones.",
        {
-           {@"thread_qos", Type::kSwitch, @"Top thread priority",
+           {@"thread_qos_mode", Type::kChoice, @"Top thread priority",
             @"Runs the game's main thread and the GPU command thread at the highest priority, "
-            @"on the performance cores.",
-            @"true"},
+            @"on the performance cores at full speed. Above 40 fps: not at the 30 and 40 caps, "
+            @"where the frame has time to spare and slower cores use less battery.",
+            @"auto",
+            {{@"Above 40 fps", @"auto"}, {@"Always", @"true"}, {@"Never", @"false"}}},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
             @"memory. Used automatically when mapping fails (devices with less address space); "
@@ -704,7 +706,12 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   } else {
     a.push_back("--resolution_scale=" + std::to_string(whole_scale));
   }
-  a.push_back("--ios_thread_qos=" + b(On(s, @"thread_qos")));
+  {
+    NSString* qos = Value(s, @"thread_qos_mode");
+    const int cap = Value(s, @"fps_cap").intValue;
+    const bool top = [qos isEqualToString:@"auto"] ? cap > 40 : [qos isEqualToString:@"true"];
+    a.push_back("--ios_thread_qos=" + b(top));
+  }
   a.push_back("--ios_async_submits=" + b(On(s, @"async_submits")));
   // The single pass is the game's mode without anti-aliasing: not with MSAA.
   a.push_back("--nfsmw_render_sin_mosaico=" + b(wide || (On(s, @"one_pass") && !msaa)));
