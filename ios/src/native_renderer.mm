@@ -157,6 +157,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_debug, false, "GPU",
                     "Native renderer bring-up: show the wet road's shadow terms");
 REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_debug, false, "GPU",
                     "Native renderer bring-up: show what the alpha-tested shaders compute");
+REXCVAR_DEFINE_BOOL(nfsmw_native_sky_last, true, "GPU",
+                    "Native renderer: the sky drawn after the solid geometry that follows it, only where that "
+                    "left pixels untouched (the same picture, less shading)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_discard_unread, true, "GPU",
                     "Native renderer: a target's depth, stencil and multisample samples are not written out "
                     "after its last pass of the frame, unless a resolve or MetalFX reads them");
@@ -3828,6 +3831,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       __unsafe_unretained id<MTLRenderPipelineState> pso = nil;
       __unsafe_unretained id<MTLDepthStencilState> ds = nil;
       bool viewport_set = false, scissor_set = false, push_set = false;
+      uint32_t stencil_ref = 0;  // a new encoder's
       MTLViewport viewport{};
       MTLScissorRect scissor{};
       uint64_t push[4] = {};
@@ -4289,6 +4293,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
     uint32_t pass_splits = 0;
     uint32_t stores_discarded = 0;  // passes that wrote out nothing unread
+    uint32_t sky_deferred = 0, sky_covered_draws = 0;  // the sky drawn last: times, solid draws before it
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
     std::map<std::string, std::pair<size_t, size_t>> groups;  // snapshot: draw groups of the pass (first draw, count)
@@ -4786,7 +4791,60 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         from = std::max(from, upto);
       }
     }
-    for (size_t di = 0; di < frame->draws.size(); ++di) {
+    // The sky drawn after the solid geometry that follows it, only where
+    // that left the pixels untouched. The game draws it near the start of a
+    // pass without writing depth, so its 5-texture shader ran on nearly the
+    // whole target, then was mostly painted over. The draws after it, while
+    // they are opaque (no blending, every channel, depth written, no stencil
+    // or alpha to coverage), mark the pixels they write in the stencil
+    // (unused otherwise); the sky then draws where none was marked. There the
+    // depth buffer is what it was at the sky's own place, and the opaque
+    // draws replaced every pixel they wrote: the same picture.
+    std::vector<size_t> draw_order;          // empty: as recorded
+    std::vector<uint8_t> stencil_mode;       // 1: marks, 2: drawn where unmarked
+    std::vector<uint8_t> stencil_ref_of;
+    if (REXCVAR_GET(nfsmw_native_sky_last) && !dump) {
+      constexpr uint64_t kSky = 0xfe510d2d256c173bull;
+      const size_t n = frame->draws.size();
+      auto opaque = [&](const Draw& e) {
+        const bool a2c = !(e.color_control & 8) && (e.color_control & 0x10);
+        return (e.depth_control & 7) == 6 && (e.blend_control & 0x1FFF1FFF) == 0x00010001 &&
+               (e.color_mask & 0xF) == 0xF && !e.second_target && !a2c;
+      };
+      uint8_t next_ref = 0;
+      size_t r = 0;  // resolves before the draw looked at
+      for (size_t i = 0; i < n && next_ref < 255; ++i) {
+        const Draw& sky = frame->draws[i];
+        while (r < frame->resolves.size() && frame->resolves[r].after_draws <= i) ++r;
+        if (sky.ps_key != kSky || (sky.depth_control & 7) != 2 || sky.second_target || sky.query >= 0) continue;
+        const size_t next_event = r < frame->resolves.size() ? frame->resolves[r].after_draws : n;
+        const std::string key = target_key(sky);
+        size_t j = i + 1;
+        while (j < n && j < next_event && opaque(frame->draws[j]) && target_key(frame->draws[j]) == key) ++j;
+        if (j - i < 2) continue;  // nothing solid after it
+        if (draw_order.empty()) {
+          draw_order.resize(n);
+          for (size_t k = 0; k < n; ++k) draw_order[k] = k;
+          stencil_mode.assign(n, 0);
+          stencil_ref_of.assign(n, 0);
+        }
+        const uint8_t ref = ++next_ref;
+        // Positions i..j-1 of the order: the opaque draws, then the sky.
+        for (size_t k = i; k + 1 < j; ++k) {
+          draw_order[k] = k + 1;
+          stencil_mode[k + 1] = 1;
+          stencil_ref_of[k + 1] = ref;
+        }
+        draw_order[j - 1] = i;
+        stencil_mode[i] = 2;
+        stencil_ref_of[i] = ref;
+        sky_deferred += 1;
+        sky_covered_draws += uint32_t(j - i - 1);
+        i = j - 1;
+      }
+    }
+    for (size_t position = 0; position < frame->draws.size(); ++position) {
+      const size_t di = draw_order.empty() ? position : draw_order[position];
       const Draw& d = frame->draws[di];
       while (next_resolve < frame->resolves.size() && frame->resolves[next_resolve].after_draws <= di) {
         if (di > 0) {
@@ -5046,7 +5104,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
 
       // Depth: RB_DEPTHCONTROL z enable (bit 1), write (2), function (4-6).
       const uint32_t dc = d.depth_control & 0x76;
-      id<MTLDepthStencilState> ds = depth_states[dc];
+      const uint32_t smode = stencil_mode.empty() ? 0u : stencil_mode[di];
+      id<MTLDepthStencilState> ds = depth_states[dc | smode << 8];
       if (!ds) {
         MTLDepthStencilDescriptor* dsd = [MTLDepthStencilDescriptor new];
         if (dc & 2) {
@@ -5057,11 +5116,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           dsd.depthCompareFunction = kFuncs[(dc >> 4) & 7];
           dsd.depthWriteEnabled = (dc & 4) != 0;
         }
-        ds = depth_states[dc] = [device newDepthStencilStateWithDescriptor:dsd];
+        if (smode) {  // the sky drawn last (above)
+          MTLStencilDescriptor* sd = [MTLStencilDescriptor new];
+          sd.stencilCompareFunction = smode == 1 ? MTLCompareFunctionAlways : MTLCompareFunctionNotEqual;
+          sd.depthStencilPassOperation = smode == 1 ? MTLStencilOperationReplace : MTLStencilOperationKeep;
+          sd.readMask = 0xFF;
+          sd.writeMask = smode == 1 ? 0xFF : 0;
+          dsd.frontFaceStencil = sd;
+          dsd.backFaceStencil = sd;
+        }
+        ds = depth_states[dc | smode << 8] = [device newDepthStencilStateWithDescriptor:dsd];
       }
       if (state.ds != ds) {
         [enc setDepthStencilState:ds];
         state.ds = ds;
+      }
+      if (smode && state.stencil_ref != stencil_ref_of[di]) {
+        [enc setStencilReferenceValue:stencil_ref_of[di]];
+        state.stencil_ref = stencil_ref_of[di];
       }
       // (Culling is off by default on a new encoder.)
 
@@ -6014,14 +6086,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
         REXLOG_INFO("[native] frame {}: {} of {} draws ({} without a shader library), {} resolves, {} textures ({} cached on the GPU), "
-                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split, {} last passes storing only what is read | {:.1f} frames/s on screen, recording "
+                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split, {} last passes storing only what is read, sky drawn last {} times after {} solid draws | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample) | "
                     "textures decoded {} ({} MiB)",
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
-                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded,
+                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded, sky_deferred, sky_covered_draws,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
                     record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
