@@ -157,9 +157,6 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_debug, false, "GPU",
                     "Native renderer bring-up: show the wet road's shadow terms");
 REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_debug, false, "GPU",
                     "Native renderer bring-up: show what the alpha-tested shaders compute");
-REXCVAR_DEFINE_BOOL(nfsmw_native_alpha_from_texture, true, "GPU",
-                    "Native renderer: world surfaces whose texture's alpha decides their alpha test drawn "
-                    "without it (solid), or not at all (the blended pass that would discard everything)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_sky_last, true, "GPU",
                     "Native renderer: the sky drawn after the solid geometry that follows it, only where that "
                     "left pixels untouched (the same picture, less shading)");
@@ -814,10 +811,6 @@ struct Texture {
   uint32_t depth = 1;          // 3D textures: depth slices in data, one after another
   bool volume = false;
   bool bc_on_gpu = false;      // BC blocks kept, expanded to RGBA8 by a GPU kernel (no BC on this GPU)
-  // The lowest and highest alpha a sample can return (0-255, the fetch
-  // swizzle applied; every level's texels, padding included), when known.
-  bool alpha_known = false;
-  uint8_t alpha_min = 0, alpha_max = 255;
   uint32_t guest_format = 0;   // the fetch constant's format (diagnostics)
   uint32_t guest_endian = 0;   // the fetch constant's endianness (diagnostics)
   bool guest_tiled = false;    // (diagnostics)
@@ -1509,78 +1502,6 @@ bool TextureFormatInfo(uint32_t f, TexFormat& out) {
   }
 }
 
-// The alpha range a texture's samples can have (Texture::alpha_min/max), for
-// draws whose alpha test it decides on its own. `select`: the fetch
-// swizzle's alpha (0-3 a component of the data, 4 zero, 5 one).
-void ScanAlpha(Texture& tex, uint32_t select, bool scaled) {
-  tex.alpha_known = false;
-  if (scaled || tex.bc_on_gpu || tex.data.empty()) return;
-  if (select == 4 || select == 5) {
-    tex.alpha_min = tex.alpha_max = select == 5 ? 255 : 0;
-    tex.alpha_known = true;
-    return;
-  }
-  if (select != 3) return;
-  const uint8_t* p = tex.data.data();
-  const size_t n = tex.data.size();
-  uint8_t lo = 255, hi = 0;
-  switch (tex.format) {
-    case MTLPixelFormatRGBA8Unorm:
-      for (size_t i = 3; i < n; i += 4) {
-        lo = std::min(lo, p[i]);
-        hi = std::max(hi, p[i]);
-      }
-      break;
-    case MTLPixelFormatBC1_RGBA:  // opaque, unless a block in 3-colour mode uses index 3
-      hi = 255;
-      lo = 255;
-      for (size_t b = 0; b + 8 <= n && lo; b += 8) {
-        const uint16_t c0 = uint16_t(p[b] | p[b + 1] << 8), c1 = uint16_t(p[b + 2] | p[b + 3] << 8);
-        if (c0 > c1) continue;
-        for (int k = 4; k < 8; ++k) {
-          const uint8_t v = p[b + k];
-          if ((v & 3) == 3 || (v >> 2 & 3) == 3 || (v >> 4 & 3) == 3 || (v >> 6) == 3) lo = 0;
-        }
-      }
-      break;
-    case MTLPixelFormatBC2_RGBA:  // 4-bit alphas
-      for (size_t b = 0; b + 16 <= n; b += 16) {
-        for (int k = 0; k < 8; ++k) {
-          const uint8_t v = p[b + k];
-          const uint8_t a = uint8_t((v & 15) * 17), c = uint8_t((v >> 4) * 17);
-          lo = std::min({lo, a, c});
-          hi = std::max({hi, a, c});
-        }
-      }
-      break;
-    case MTLPixelFormatBC3_RGBA:  // interpolated alphas: the palette entries used
-      for (size_t b = 0; b + 16 <= n; b += 16) {
-        const uint32_t a0 = p[b], a1 = p[b + 1];
-        uint32_t pal[8] = {a0, a1};
-        if (a0 > a1) {
-          for (uint32_t k = 1; k <= 6; ++k) pal[k + 1] = ((7 - k) * a0 + k * a1) / 7;
-        } else {
-          for (uint32_t k = 1; k <= 4; ++k) pal[k + 1] = ((5 - k) * a0 + k * a1) / 5;
-          pal[6] = 0;
-          pal[7] = 255;
-        }
-        uint64_t bits = 0;
-        for (int k = 0; k < 6; ++k) bits |= uint64_t(p[b + 2 + k]) << (8 * k);
-        for (int k = 0; k < 16; ++k) {
-          const uint32_t a = pal[(bits >> (3 * k)) & 7];
-          lo = std::min<uint8_t>(lo, uint8_t(a));
-          hi = std::max<uint8_t>(hi, uint8_t(a));
-        }
-      }
-      break;
-    default:
-      return;
-  }
-  tex.alpha_min = lo;
-  tex.alpha_max = hi;
-  tex.alpha_known = true;
-}
-
 MTLTextureSwizzle SwizzleOf(uint32_t s) {
   switch (s & 7) {
     case 0: return MTLTextureSwizzleRed;
@@ -2064,7 +1985,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   tex.swizzle = MTLTextureSwizzleChannelsMake(SwizzleOf(sw), SwizzleOf(sw >> 3), SwizzleOf(sw >> 6),
                                               SwizzleOf(sw >> 9));
-  ScanAlpha(tex, (sw >> 9) & 7, t.exp_adjust != 0);
   tex.clamp_x = uint32_t(t.clamp_x);
   tex.clamp_y = uint32_t(t.clamp_y);
   tex.linear_filter = uint32_t(t.min_filter) != 0;
@@ -4373,8 +4293,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
     uint32_t pass_splits = 0;
     uint32_t stores_discarded = 0;  // passes that wrote out nothing unread
-    uint32_t alpha_tests_dropped = 0, alpha_draws_skipped = 0;  // world surfaces' alpha test, by texture
-    const bool alpha_from_texture = REXCVAR_GET(nfsmw_native_alpha_from_texture);
     uint32_t sky_deferred = 0, sky_covered_draws = 0;  // the sky drawn last: times, solid draws before it
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
@@ -5120,37 +5038,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // covers the pixel (an alpha test, threshold set where the constants
       // are written).
       const bool alpha_to_coverage = !(d.color_control & 8) && (d.color_control & 0x10);
-      // World surfaces (ps 27d82ea0, alpha = its DIFFUSEMAP's, slot 0), drawn
-      // twice by the game: solid where alpha >= ref, then blended where
-      // alpha < ref. A texture whose alpha range decides the test on its own
-      // (solid textures: most walls and roads): the first draw without the
-      // test (a shader that can discard keeps the GPU from skipping hidden
-      // pixels), the second not drawn at all (it would discard everything).
-      int alpha_verdict = 0;  // 1: never discards, 2: always discards
-      if (alpha_from_texture && d.ps_key == 0x27d82ea0faa380a8ull && (d.color_control & 8) && d.textures[0] >= 0) {
-        const Texture& ft = *frame->textures[d.textures[0]];
-        if (ft.alpha_known && ft.format != MTLPixelFormatInvalid && !ft.persistent && ft.clamp_x < 6 &&
-            ft.clamp_y < 6 && !resolved.count(ft.address)) {
-          // A margin of 1.5/255 for the hardware's own interpolation.
-          const float lo = (ft.alpha_min - 1.5f) / 255.0f, hi = (ft.alpha_max + 1.5f) / 255.0f, ref = d.alpha_ref;
-          switch (d.color_control & 7) {
-            case 0: alpha_verdict = 2; break;
-            case 1: alpha_verdict = hi < ref ? 1 : lo >= ref ? 2 : 0; break;   // passes below ref
-            case 3: alpha_verdict = hi <= ref ? 1 : lo > ref ? 2 : 0; break;
-            case 4: alpha_verdict = lo > ref ? 1 : hi <= ref ? 2 : 0; break;   // passes above ref
-            case 6: alpha_verdict = lo >= ref ? 1 : hi < ref ? 2 : 0; break;
-            case 7: alpha_verdict = 1; break;
-            default: break;
-          }
-        }
-      }
-      if (alpha_verdict == 2) {
-        ++alpha_draws_skipped;
-        continue;
-      }
-      alpha_tests_dropped += alpha_verdict == 1;
-      const uint32_t alpha_spec = alpha_verdict == 1           ? 0u
-                                  : (d.color_control & 8)      ? (2u | ((d.color_control & 7) << 8))
+      const uint32_t alpha_spec = (d.color_control & 8) ? (2u | ((d.color_control & 7) << 8))
                                   : alpha_to_coverage && t.sample_count == 1 ? (2u | (6u << 8))
                                                                             : 0u;
       // Motion: every draw of a motion pass through the motion shaders (the
@@ -6198,14 +6086,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
         REXLOG_INFO("[native] frame {}: {} of {} draws ({} without a shader library), {} resolves, {} textures ({} cached on the GPU), "
-                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split, {} last passes storing only what is read, sky drawn last {} times after {} solid draws, alpha test decided by the texture: {} dropped, {} draws skipped | {:.1f} frames/s on screen, recording "
+                    "{} vertex buffers cached, {} pipelines, {} resolves from earlier frames, {} passes split, {} last passes storing only what is read, sky drawn last {} times after {} solid draws | {:.1f} frames/s on screen, recording "
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
                     "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample) | "
                     "textures decoded {} ({} MiB)",
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
-                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded, sky_deferred, sky_covered_draws, alpha_tests_dropped, alpha_draws_skipped,
+                    gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded, sky_deferred, sky_covered_draws,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
                     record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
                     record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
