@@ -375,7 +375,7 @@ const std::vector<Section>& Sections() {
            {@"scale", Type::kChoice, @"Render resolution",
             ScaleSummary(),
             @"1",
-            {{@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
+            {{@"0.85x · 612p", @"0.85"}, {@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
            {@"metalfx_mode", Type::kChoice, @"MetalFX",
             @"Native renderer: Apple's MetalFX builds each frame from several, with the game's "
@@ -395,7 +395,7 @@ const std::vector<Section>& Sections() {
              {@"120 (experimental)", @"120"}}},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the graphics "
-            @"settings (1x, no MetalFX, FXAA), draws half-size shadows and half the car "
+            @"settings (0.85x, no MetalFX, FXAA), draws half-size shadows and half the car "
             @"reflections each frame, and at the 60 cap runs 30 fps while Low Power Mode is on or "
             @"the phone is warm.",
             @"false"},
@@ -600,7 +600,7 @@ bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 // its values; the ones chosen stay saved for when it is off again.
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
-    @"scale" : @"1",
+    @"scale" : @"0.85",
     @"metalfx_mode" : @"off",
     @"antialiasing" : @"fxaa",
     @"anisotropic" : @"3",
