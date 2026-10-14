@@ -624,12 +624,9 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   if (v) {
     return v;
   }
-  // The render resolution's default: 1.5x with the native renderer (almost as
-  // sharp as the screen on a phone, at about half the GPU work of 2x), 1x
-  // without it.
-  if ([key isEqualToString:@"scale"]) {
-    return On(s, @"native_renderer") ? @"1.5" : @"1";
-  }
+  // The render resolution's default: 1x (the Xbox 360's 720p) with either
+  // renderer: on a phone screen it is hard to tell from 1.5x, at about half
+  // the GPU work.
   const Option* o = FindOption(key);
   return o ? o->default_value : @"";
 }
