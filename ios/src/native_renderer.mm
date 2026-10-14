@@ -4504,7 +4504,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // Linear (slow for the GPU to write: a 1600 x 1600 shadow map copy took
         // 2.5 ms) only when the resolve does not fill its pitch, i.e. when
         // draws may sample it at a smaller size than the texture.
-        const bool may_crop = NSUInteger(std::max(ev.x1 - ev.x0, 0)) < dw || NSUInteger(std::max(ev.y1 - ev.y0, 0)) < dh;
+        // (In the texture's pixels: the guest rectangle times the scale. In
+        // guest pixels, below 1x a rectangle short of the pitch looked as wide
+        // as the scaled texture: no crop, and the game's coordinates for its
+        // own size read past the picture, a dark bar on the right.)
+        const bool may_crop = Px(std::max(ev.x1 - ev.x0, 0), scale) < dw || Px(std::max(ev.y1 - ev.y0, 0), scale) < dh;
         if (may_crop) {
           // Linear, in a buffer, so draws sampling it at a smaller size get a
           // texture over the same memory (see the binding). Depth too: its
