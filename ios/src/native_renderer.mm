@@ -200,6 +200,31 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 }
 @end
 
+// HDMI and AirPlay: a second display (an adapter, or AirPlay chosen as a
+// separate display rather than mirroring) gets the picture alone, full size
+// and letterboxed to its own shape, without the touch controls; the phone
+// keeps showing the game with its controls. Its own layer, sized to that
+// screen's pixels.
+@interface NFSExternalView : UIView
+@end
+@implementation NFSExternalView
++ (Class)layerClass {
+  return CAMetalLayer.class;
+}
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  CAMetalLayer* layer = (CAMetalLayer*)self.layer;
+  UIScreen* screen = self.window.screen;
+  const CGFloat scale = screen ? (screen.nativeScale ?: screen.scale) : 1.0;
+  layer.contentsScale = scale;
+  layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+}
+@end
+
+REXCVAR_DEFINE_BOOL(nfsmw_native_external_display, true, "GPU",
+                    "Native renderer: the picture on an external display (HDMI, AirPlay) by itself, "
+                    "instead of a mirror of the phone's screen");
+
 REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
                     "Native renderer (battery): half the environment cube's faces drawn each frame, the "
                     "others kept from the frame before");
@@ -3490,6 +3515,10 @@ void SweepGpu() {
 // The on-screen layer (made on the main thread) and its pipeline.
 CAMetalLayer* present_layer = nil;
 UIView* present_view = nil;
+// The external display's (HDMI, AirPlay), while one is connected.
+CAMetalLayer* external_layer = nil;
+UIWindow* external_window = nil;
+std::atomic<int> external_in_flight{0};
 std::atomic<bool> layer_visible{true};
 
 // Shows or hides the native layer (on the main thread), only on a change.
@@ -5868,6 +5897,37 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
         [e endEncoding];
+        // The same picture on the external display, fitted to its shape.
+        // Skipped while two of its frames are still waiting to be shown (a
+        // 60 Hz TV behind a 120 Hz phone must not hold the game back).
+        if (CAMetalLayer* ext = external_layer; ext && external_in_flight.load() < 2) {
+          if (id<CAMetalDrawable> xd = [ext nextDrawable]) {
+            const float xw = float(xd.texture.width), xh = float(xd.texture.height), xdst = xw / xh;
+            const float xfit[4] = {src > xdst ? 1.0f : src / xdst, src > xdst ? xdst / src : 1.0f, 0, 0};
+            MTLRenderPassDescriptor* xrp = [MTLRenderPassDescriptor renderPassDescriptor];
+            xrp.colorAttachments[0].texture = xd.texture;
+            xrp.colorAttachments[0].loadAction = MTLLoadActionClear;
+            xrp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+            xrp.colorAttachments[0].storeAction = MTLStoreActionStore;
+            id<MTLRenderCommandEncoder> xe = [cb renderCommandEncoderWithDescriptor:xrp];
+            const double pw = std::round(xw * xfit[0]), ph = std::round(xh * xfit[1]);
+            const NSUInteger px = NSUInteger(std::max(0.0, std::floor((xw - pw) * 0.5)));
+            const NSUInteger py = NSUInteger(std::max(0.0, std::floor((xh - ph) * 0.5)));
+            [xe setScissorRect:(MTLScissorRect){px, py, std::min<NSUInteger>(NSUInteger(pw), xd.texture.width - px),
+                                                std::min<NSUInteger>(NSUInteger(ph), xd.texture.height - py)}];
+            [xe setRenderPipelineState:present_pso];
+            [xe setVertexBytes:xfit length:sizeof(xfit) atIndex:0];
+            [xe setFragmentBytes:crop length:sizeof(crop) atIndex:0];
+            [xe setFragmentTexture:shown_texture atIndex:0];
+            [xe drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+            [xe endEncoding];
+            ++external_in_flight;
+            [xd addPresentedHandler:^(id<MTLDrawable>) {
+              --external_in_flight;
+            }];
+            [cb presentDrawable:xd];
+          }
+        }
         // What the screen shows: a gap between two frames on it (a stutter
         // the player sees, whatever its cause), logged with the frame's number.
         // Frame pacing: below the display's rate (the 30, 40 and 60 caps on a
@@ -6253,6 +6313,61 @@ namespace {
 bool recording_dumps = false;  // the frame being recorded also saves PNGs
 
 // The layer, once, on the main thread.
+// On the main thread: the external display's window and layer, or none.
+void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
+  if (external_window) {
+    external_layer = nil;
+    external_window.hidden = YES;
+    external_window = nil;
+  }
+  if (!screen || !REXCVAR_GET(nfsmw_native_external_display)) {
+    return;
+  }
+  UIWindow* window = [[UIWindow alloc] initWithFrame:screen.bounds];
+  window.screen = screen;
+  UIViewController* controller = [UIViewController new];
+  NFSExternalView* view = [[NFSExternalView alloc] initWithFrame:screen.bounds];
+  view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  view.backgroundColor = UIColor.blackColor;
+  CAMetalLayer* layer = (CAMetalLayer*)view.layer;
+  layer.device = device;
+  layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+  layer.framebufferOnly = YES;
+  controller.view = view;
+  window.rootViewController = controller;
+  window.hidden = NO;
+  [view setNeedsLayout];
+  [view layoutIfNeeded];
+  external_in_flight = 0;
+  external_window = window;
+  external_layer = layer;
+  REXLOG_INFO("[native] external display: {}x{} pixels, the picture shown there by itself",
+              int(layer.drawableSize.width), int(layer.drawableSize.height));
+}
+
+// The first external screen, now and whenever one connects or goes.
+void WatchExternalScreens(id<MTLDevice> device) {
+  auto pick = [device] {
+    UIScreen* external = nil;
+    for (UIScreen* screen in UIScreen.screens) {
+      if (screen != UIScreen.mainScreen) {
+        external = screen;
+        break;
+      }
+    }
+    if (external || external_window) {
+      if (!external) REXLOG_INFO("[native] external display gone");
+      AttachExternalScreen(device, external);
+    }
+  };
+  pick();
+  NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
+  [center addObserverForName:UIScreenDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
+                  usingBlock:^(NSNotification*) { pick(); }];
+  [center addObserverForName:UIScreenDidDisconnectNotification object:nil queue:NSOperationQueue.mainQueue
+                  usingBlock:^(NSNotification*) { pick(); }];
+}
+
 void EnsurePresentLayer() {
   static std::atomic<bool> requested{false};
   if (requested.exchange(true)) {
@@ -6299,6 +6414,7 @@ void EnsurePresentLayer() {
     [view layoutIfNeeded];
     present_layer = layer;
     present_view = view;
+    WatchExternalScreens(device);
     REXLOG_INFO("[native] on screen ({} x {} points)", int(view.bounds.size.width),
                 int(view.bounds.size.height));
   });
