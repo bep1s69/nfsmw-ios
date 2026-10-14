@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.0
+
+- **Fixes for freezes.** The freeze after leaving the safehouse (and in some
+  tollbooth races): the picture stopped while music and controls went on. And
+  a rare black-screen hang at boot.
+- **iOS 26 works with the native renderer.** It froze on the last movie frame
+  or showed a black screen with only sound and controls: the game's shaders
+  were built for iOS 27 only.
+- **Invisible cars in career with Black Edition on.** Black Edition needs more
+  car records than the game's table holds, and the extra ones were not saved
+  with the career. They are now kept beside the save (from this version on:
+  careers already affected keep their invisible cars).
+- **HDMI and AirPlay.** An external display shows the game by itself, full
+  size, while the phone keeps the touch controls.
+- **MetalFX** (native renderer): temporal upscaling with the game's motion,
+  to the screen, lighter, or anti-aliasing only. FXAA, MSAA where the game draws
+  without it, and the game's own mip levels.
+- **Battery and heat.** Battery mode (lower resolution, half-size shadows, car
+  reflections updated less often), 30 fps in menus and pause, 30 fps when warm
+  or on Low Power, 0.75x when hot, each also on its own. Less CPU spent waiting,
+  no idle 120 Hz screen refresh, steadier frame pacing.
+- **Touch controls switch by themselves** between the Pad layout in menus and
+  the Drive layout while driving (with a small D-pad for free roam).
+- **11" iPads**: 4:3 fills the screen. "Stretch to full screen" is gone.
+- Extra Options: Quick Race laps, opponents, traffic and weather.
+- Save manager: saves, backups, export and import, iCloud Drive sync, cash and
+  bounty per save.
+
+### Known issues
+
+- Skipping a movie can turn its last frame red for a moment.
+
 ## 0.2.0
 
 - **Native Metal renderer, on by default.** The game is drawn by its own
