@@ -12,7 +12,12 @@ void Report(const char* stage);
 // The device's thermal state ("nominal", "fair", "serious", "critical").
 const char* ThermalState();
 
-// A Report every `seconds` from a thread of its own, whatever the renderer.
+// One "[cpu]" log line: the share of a core each of the busiest threads used
+// since the last one, and the battery level.
+void ReportCpu();
+
+// A Report and a ReportCpu every `seconds` from a thread of its own, whatever
+// the renderer.
 void StartPeriodicReports(int seconds);
 
 }  // namespace nfsmw::memory
