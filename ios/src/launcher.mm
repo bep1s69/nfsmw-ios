@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode" ]];
   return [keys containsObject:key];
 }
 
@@ -394,9 +394,10 @@ const std::vector<Section>& Sections() {
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
-            @"Native renderer: less work for a cooler phone and longer play. No forced MSAA, "
-            @"half-size shadows, the car reflections half updated each frame, and at the 60 cap "
-            @"30 fps while Low Power Mode is on or the phone is warm.",
+            @"Native renderer: less work for a cooler phone and longer play. Sets the graphics "
+            @"settings (1x, no MetalFX, FXAA), draws half-size shadows and half the car "
+            @"reflections each frame, and at the 60 cap runs 30 fps while Low Power Mode is on or "
+            @"the phone is warm.",
             @"false"},
            {@"stretch", Type::kSwitch, @"Stretch to full screen",
             @"Off: the Xbox 360's 16:9 image, with black bars. On: fills the screen, but "
@@ -595,7 +596,26 @@ void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s) {
 
 bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 
+// Battery mode (native renderer) sets these itself: shown greyed out with
+// its values; the ones chosen stay saved for when it is off again.
+NSString* BatteryValue(NSString* key) {
+  static NSDictionary<NSString*, NSString*>* values = @{
+    @"scale" : @"1",
+    @"metalfx_mode" : @"off",
+    @"antialiasing" : @"fxaa",
+    @"anisotropic" : @"3",
+    @"shadow_size" : @"1600",
+    @"postprocessing" : @"true",
+    @"scaling" : @"bilinear",
+  };
+  return values[key];
+}
+
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
+  if (NSString* forced = BatteryValue(key);
+      forced && [s[@"battery_mode"] isEqualToString:@"true"] && On(s, @"native_renderer")) {
+    return forced;
+  }
   NSString* v = s[key];
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
     if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
@@ -711,10 +731,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
                                                           : "off"));
     // MSAA in the native renderer also where the game draws without (19.5:9).
     a.push_back(std::string("--nfsmw_native_force_msaa=") +
-                (battery                            ? "0"
-                 : [aa_mode isEqualToString:@"msaa4"] ? "4"
-                 : [aa_mode isEqualToString:@"msaa2"] ? "2"
-                                                      : "0"));
+                ([aa_mode isEqualToString:@"msaa4"] ? "4" : [aa_mode isEqualToString:@"msaa2"] ? "2" : "0"));
   } else {
     a.push_back("--resolution_scale=" + std::to_string(whole_scale));
   }
@@ -1415,9 +1432,11 @@ NSString* AchievementSummary(const Achievements& a) {
   // Greyed out: what only the emulated renderer uses while the native one
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
-  const bool inactive = (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key));
+  const bool battery_locked = native && On(_settings, @"battery_mode") && BatteryValue(o.key);
+  const bool inactive =
+      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked;
   c.text = o.title;
-  c.secondaryText = o.summary;
+  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary] : o.summary;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   NSString* key = o.key;
   NSString* value = Value(_settings, key);
@@ -1442,7 +1461,7 @@ NSString* AchievementSummary(const Achievements& a) {
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
             // The native renderer greys other settings out (or back in).
-            if ([key isEqualToString:@"native_renderer"]) {
+            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"]) {
               [self.tableView reloadData];
             }
           }]
