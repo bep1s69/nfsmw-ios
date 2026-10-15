@@ -26,6 +26,7 @@ struct NfsmwNativeDraw {
   // DrawPrimitiveUP (sub_825930E0): where its vertices are (guest virtual,
   // its return value); its fetch constant update goes to the other buffer.
   uint32_t up_vertices;
+  uint64_t vs_microcode_hash = 0;  // full SDK hash, including fetches (0: uncached legacy capture)
 };
 
 // At each Swap: finishes the frame being recorded (if any) and says whether

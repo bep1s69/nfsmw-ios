@@ -91,6 +91,8 @@ extern std::atomic<void (*)()> rex_native_swap_hook;
 // address, query end, count out) -> handled.
 extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, true, "GPU",
+                    "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -967,6 +969,7 @@ struct Draw {
 };
 
 struct VertexDiagnostics {
+  uint64_t fetch_layout_hits = 0, fetch_layout_misses = 0, fetch_layout_bypasses = 0;
   uint64_t watched_cache_hits = 0;
   uint64_t fingerprint_cache_hits = 0;
   uint64_t cache_misses = 0;
@@ -981,6 +984,9 @@ struct VertexDiagnostics {
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
+    fetch_layout_hits += other.fetch_layout_hits;
+    fetch_layout_misses += other.fetch_layout_misses;
+    fetch_layout_bypasses += other.fetch_layout_bypasses;
     watched_cache_hits += other.watched_cache_hits;
     fingerprint_cache_hits += other.fingerprint_cache_hits;
     cache_misses += other.cache_misses;
@@ -2056,6 +2062,75 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
 
 // --- Recording a draw -----------------------------------------------------------
 
+// The normalized Metal shader key omits fetch instructions. Layouts must use
+// the SDK's full microcode hash as well: stride, slot, swizzle and mini-fetch
+// inheritance can differ between shaders with the same Metal library.
+bool ResolveVertexFetch(const uint32_t* code, uint32_t dwords, const std::vector<VertexInput>& inputs,
+                        const VertexInput& input, VFetch& out) {
+  auto written = [](uint32_t swizzle) {
+    uint32_t mask = 0;
+    for (int i = 0; i < 4; ++i) mask |= (((swizzle >> (3 * i)) & 7) != 7) << i;
+    return mask;
+  };
+  uint32_t address = input.address;
+  if (input.dst >= 0) {
+    int fallback = -1;
+    bool found = false;
+    for (const VertexInput& other : inputs) {
+      const uint32_t at = other.address * 3;
+      if (at + 3 > dwords || (code[at] & 0x1F) != 0 ||
+          int32_t((code[at] >> 12) & 0x3F) != input.dst) {
+        continue;
+      }
+      if (written(code[at + 1] & 0xFFF) == written(input.swizzle)) {
+        address = other.address;
+        found = true;
+        break;
+      }
+      if (fallback < 0) fallback = int(other.address);
+    }
+    if (!found && fallback >= 0) address = uint32_t(fallback);
+  }
+  return ParseVFetch(code, dwords, address, out);
+}
+
+struct CachedVertexFetch {
+  VFetch fetch{};
+  bool valid = false;
+};
+struct CachedFetchLayout {
+  uint32_t dwords = 0;
+  std::vector<CachedVertexFetch> inputs;
+};
+// Recording-thread only. Shader objects own immutable microcode in the SDK.
+// A legacy capture without its full hash takes the original uncached path.
+std::map<std::pair<uint64_t, uint64_t>, CachedFetchLayout> fetch_layout_cache;
+constexpr size_t kFetchLayoutCacheLimit = 256;
+
+const CachedFetchLayout* FetchLayoutFor(const NfsmwNativeDraw& in, const std::vector<VertexInput>& inputs,
+                                       VertexDiagnostics& diagnostics) {
+  if (!REXCVAR_GET(nfsmw_native_vfetch_cache) || !in.vs_microcode_hash) {
+    ++diagnostics.fetch_layout_bypasses;
+    return nullptr;
+  }
+  const auto key = std::make_pair(in.vs_key, in.vs_microcode_hash);
+  auto found = fetch_layout_cache.find(key);
+  if (found != fetch_layout_cache.end() && found->second.dwords == in.vs_dwords) {
+    ++diagnostics.fetch_layout_hits;
+    return &found->second;
+  }
+  ++diagnostics.fetch_layout_misses;
+  if (fetch_layout_cache.size() >= kFetchLayoutCacheLimit) fetch_layout_cache.clear();
+  CachedFetchLayout& layout = fetch_layout_cache[key];
+  layout.dwords = in.vs_dwords;
+  layout.inputs.resize(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    layout.inputs[i].valid = ResolveVertexFetch(in.vs_microcode, in.vs_dwords, inputs, inputs[i],
+                                               layout.inputs[i].fetch);
+  }
+  return &layout;
+}
+
 void Record(Frame& frame, const NfsmwNativeDraw& in) {
   const uint32_t* regs = in.regs;
   // Inline draws (DRAW_INDX_2: D3D's draws from user memory, e.g. the bloom
@@ -2215,38 +2290,18 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   geometry = MotionMix(geometry, ikey.offset ^ uint64_t(ikey.flags) << 32);
   auto inputs_it = store.inputs.find(in.vs_key);
   if (inputs_it != store.inputs.end()) {
-    for (const VertexInput& input : inputs_it->second) {
-      // The run-time shader may fetch its inputs in another order than the
-      // file (the key ignores vfetches): its vfetch for this input is the
-      // one writing the same register, among the file's vfetch addresses.
-      // Two inputs can share a register (r1.xy and r1.zw): the components
-      // written (selectors other than 7) tell them apart.
-      auto written = [](uint32_t swizzle) {
-        uint32_t mask = 0;
-        for (int i = 0; i < 4; ++i) mask |= (((swizzle >> (3 * i)) & 7) != 7) << i;
-        return mask;
-      };
-      uint32_t address = input.address;
-      if (input.dst >= 0) {
-        int fallback = -1;
-        bool found = false;
-        for (const VertexInput& other : inputs_it->second) {
-          const uint32_t at = other.address * 3;
-          if (at + 3 > in.vs_dwords || (in.vs_microcode[at] & 0x1F) != 0 ||
-              int32_t((in.vs_microcode[at] >> 12) & 0x3F) != input.dst) {
-            continue;
-          }
-          if (written(in.vs_microcode[at + 1] & 0xFFF) == written(input.swizzle)) {
-            address = other.address;
-            found = true;
-            break;
-          }
-          if (fallback < 0) fallback = int(other.address);
-        }
-        if (!found && fallback >= 0) address = uint32_t(fallback);
+    const CachedFetchLayout* layout = FetchLayoutFor(in, inputs_it->second, frame.vertex_diagnostics);
+    for (size_t input_index = 0; input_index < inputs_it->second.size(); ++input_index) {
+      const VertexInput& input = inputs_it->second[input_index];
+      VFetch f{};
+      bool valid_fetch;
+      if (layout) {
+        f = layout->inputs[input_index].fetch;
+        valid_fetch = layout->inputs[input_index].valid;
+      } else {
+        valid_fetch = ResolveVertexFetch(in.vs_microcode, in.vs_dwords, inputs_it->second, input, f);
       }
-      VFetch f;
-      if (!ParseVFetch(in.vs_microcode, in.vs_dwords, address, f)) {
+      if (!valid_fetch) {
         Note(frame, fmt::format("vs {:016x}: no vfetch at {}", in.vs_key, input.address));
         continue;
       }
@@ -6236,6 +6291,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     vertex_diagnostics.dynamic_decoded_bytes / kMiB / frames,
                     geometry_upload_bytes / kMiB / frames, double(geometry_upload_arrays) / frames,
                     buffer_arena.LiveBytes() / kMiB, buffer_arena.Bytes() / kMiB);
+        REXLOG_INFO("[native] fetch layouts: cache {}; {} hits, {} misses, {} bypasses since last summary",
+                    REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
+                    vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
+                    vertex_diagnostics.fetch_layout_bypasses);
         geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
@@ -6592,6 +6651,7 @@ void CpDraw(const RexNativeDraw* in) {
   d.regs = in->regs;
   d.vs_microcode = in->vs_ucode;
   d.vs_dwords = in->vs_dwords;
+  d.vs_microcode_hash = in->vs_hash;
   d.vs_key = key(vs_keys, in->vs_hash, in->vs_ucode, in->vs_dwords, true);
   d.ps_key = key(ps_keys, in->ps_hash, in->ps_ucode, in->ps_dwords, false);
   d.initiator = in->regs[0x21FC];  // VGT_DRAW_INITIATOR
