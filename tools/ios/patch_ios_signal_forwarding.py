@@ -52,6 +52,45 @@ static void ForwardUnhandledSignal(int number, siginfo_t* info, void* context) {
 #endif
 
 '''
+LEGACY_FORWARD = FORWARD
+REPORT = '''// Opened outside signal context; only write() and stack formatting on fault.
+static int signal_report_fd = -1;
+static void ReportUnhandledSignal(int number, siginfo_t* info, void* context) {
+  if (signal_report_fd < 0) return;
+  char text[2048];
+  size_t used = 0;
+  auto field = [&](const char* name, uint64_t value) {
+    while (*name) text[used++] = *name++;
+    text[used++] = '='; text[used++] = '0'; text[used++] = 'x';
+    for (int shift = 60; shift >= 0; shift -= 4) text[used++] = "0123456789abcdef"[(value >> shift) & 15];
+    text[used++] = '\\n';
+  };
+  field("signal", number);
+  field("code", info->si_code);
+  field("fault_address", reinterpret_cast<uintptr_t>(info->si_addr));
+#if REX_ARCH_ARM64
+  auto mc = reinterpret_cast<ucontext_t*>(context)->uc_mcontext;
+#if __DARWIN_OPAQUE_ARM_THREAD_STATE64
+  field("pc", reinterpret_cast<uintptr_t>(mc->__ss.__opaque_pc));
+  field("lr", reinterpret_cast<uintptr_t>(mc->__ss.__opaque_lr));
+  field("sp", reinterpret_cast<uintptr_t>(mc->__ss.__opaque_sp));
+#else
+  field("pc", mc->__ss.__pc); field("lr", mc->__ss.__lr); field("sp", mc->__ss.__sp);
+#endif
+  field("esr", mc->__es.__esr);
+  for (int i = 0; i < 29; ++i) {
+    char name[] = {'x', char('0' + i / 10), char('0' + i % 10), 0};
+    field(name, mc->__ss.__x[i]);
+  }
+#endif
+  text[used++] = '\\n';
+  (void)write(signal_report_fd, text, used);
+}
+
+'''
+FORWARD = FORWARD.replace("// Guest MMIO", REPORT + "// Guest MMIO").replace(
+    "  const struct sigaction action = *previous;",
+    "  ReportUnhandledSignal(number, info, context);\n  const struct sigaction action = *previous;")
 TAIL = '''      return;
     }
   }
@@ -70,9 +109,27 @@ TAIL_NEW = '''      return;
 void ExceptionHandler::Install(Handler fn, void* data) {
 '''
 BLOCKS = [
+    (FILE, "signal report system headers", "#include <signal.h>\n",
+     "#include <signal.h>\n#include <fcntl.h>\n#include <unistd.h>\n#include <cstdlib>\n"),
     (FILE, "Darwin unhandled signal forwarding", ANCHOR, FORWARD + ANCHOR),
     (FILE, "forward only faults unclaimed by guest handlers", TAIL, TAIL_NEW),
+    (FILE, "open optional fault report outside signal context",
+     "  if (!signal_handlers_installed_) {\n    struct sigaction signal_handler;",
+     '''  if (!signal_handlers_installed_) {
+#if REX_PLATFORM_MAC
+    if (const char* path = std::getenv("NFSMW_SIGNAL_REPORT")) {
+      signal_report_fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    }
+#endif
+    struct sigaction signal_handler;'''),
 ]
 
 if __name__ == "__main__":
+    # Upgrade SDKs with the first version of this patch already applied.
+    if "--status" not in sys.argv and "--revert" not in sys.argv:
+        from patch_engine import find_sdk, read, write
+        target = find_sdk(FILE) / FILE
+        text, eol = read(target)
+        if LEGACY_FORWARD + ANCHOR in text:
+            write(target, text.replace(LEGACY_FORWARD + ANCHOR, FORWARD + ANCHOR), eol)
     sys.exit(run("ios_signal_forwarding", BLOCKS))

@@ -222,6 +222,12 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               REXCVAR_GET(ios_async_submits) ? "asynchronous" : "synchronous",
               REXCVAR_GET(ios_mvk_performance) ? "on" : "off");
   nfsmw::memory::Report("log open");
+  if (REXCVAR_GET(ios_gpu_capture)) {
+    setenv("NFSMW_SIGNAL_REPORT", (docs / "logs" / "native_fault.txt").c_str(), 1);
+    REXLOG_INFO("[gpu-capture] unhandled fault report: logs/native_fault.txt");
+  } else {
+    unsetenv("NFSMW_SIGNAL_REPORT");
+  }
   boot::Trace("game: initializing the SDL context");
 
   rex::ui::SDLWindowedAppContext context;
