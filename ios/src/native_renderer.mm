@@ -2970,6 +2970,8 @@ struct Target {
   uint32_t sample_count = 1;
   uint32_t requested_sample_count = 1;
   uint32_t draws = 0;
+  uint64_t depth_generation = 0;  // sampled audit only: possible writes or clears this frame
+  bool depth_audit_defined = false;  // contents preserved after the last sampled pass
   bool used = false;
   // A resolve with clear flags: the next pass on this target starts cleared.
   bool clear_color = false, clear_depth = false;
@@ -3973,6 +3975,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLBuffer> data = pooled_buffer(std::max<size_t>(total, 256), MTLResourceStorageModeShared, false);
     uint8_t* cursor = static_cast<uint8_t*>(data.contents);
     size_t used = 0;
+    enum UploadKind { kConstantUpload, kSharedUpload, kVertexUpload, kIndexUpload, kUploadKinds };
+    uint64_t upload_bytes[kUploadKinds] = {}, upload_padding = 0;
     UploadedConstants uploaded_vs, uploaded_ps, uploaded_previous_vs;
     // What the current encoder already has set: a draw sets only what differs
     // from the draw before (each set costs the driver; most draws in a pass
@@ -4011,8 +4015,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     uint32_t last_shared[256];
     size_t last_shared_at = 0;
     bool have_last_shared = false;
-    auto put = [&](const void* bytes, size_t size) {
-      used = (used + 255) & ~size_t(255);
+    auto put = [&](const void* bytes, size_t size, UploadKind kind) {
+      const size_t aligned = (used + 255) & ~size_t(255);
+      upload_padding += aligned - used;
+      upload_bytes[kind] += size;
+      used = aligned;
       std::memcpy(cursor + used, bytes, size);
       const size_t at = used;
       used += size;
@@ -4027,6 +4034,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       t.used = false;
       t.clear_color = t.clear_depth = false;
       t.draws = 0;
+      t.depth_generation = 0;
+      t.depth_audit_defined = false;
     }
     std::map<std::string, std::pair<uint32_t, uint32_t>> sizes;  // this frame's pitch, height (guest pixels)
     std::map<std::string, uint32_t> sample_counts;
@@ -4575,6 +4584,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       [e endEncoding];
       motion_ready = true;
     };
+    // Inspect one frame in 300 without changing any copies. A generation
+    // advances on clears and potentially depth-writing draws. MSAA snapshots
+    // are reported but excluded from reuse candidates for now.
+    const bool depth_audit = !dump && number % 300 == 150;
+    using DepthSnapshot = std::tuple<uintptr_t, uint64_t, NSUInteger, NSUInteger, NSUInteger, NSUInteger,
+                                     NSUInteger, NSUInteger, uint32_t>;
+    std::set<DepthSnapshot> depth_snapshots;
+    uint32_t depth_audit_copies = 0, depth_audit_candidates = 0;
     auto writebacks = std::make_shared<std::vector<WriteBack>>();
     std::vector<char> skip_draw, skip_resolve;  // battery: cube faces kept from the frame before (below)
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
@@ -4698,7 +4715,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           rp.colorAttachments[0].loadAction = MTLLoadActionClear;
           rp.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1);
           rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-          profile_pass(rp, "depth copy");
+          profile_pass(rp, depth_audit
+                               ? fmt::format("depth copy: {} rect {},{} {}x{} -> {}x{}", own ? own_key : target_key(last),
+                                             x0, y0, w, h, dw, dh)
+                               : "depth copy");
           id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
           if (copy) {
             [e setRenderPipelineState:copy];
@@ -4712,6 +4732,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 scale = std::ldexp(1.0f, tp->exp_adjust);
                 break;
               }
+            }
+            if (depth_audit) {
+              uint32_t scale_bits;
+              std::memcpy(&scale_bits, &scale, sizeof(scale_bits));
+              const DepthSnapshot snapshot{uintptr_t((__bridge void*)src.depth), src.depth_generation,
+                                           dw, dh, x0, y0, w, h, scale_bits};
+              const bool identical = src.sample_count == 1 && src.depth_audit_defined &&
+                                     !depth_snapshots.insert(snapshot).second;
+              ++depth_audit_copies;
+              depth_audit_candidates += identical;
+              REXLOG_INFO("[native] depth audit: frame {} source {} generation {} samples {} -> {:08x}, "
+                          "rect {},{} {}x{}, output {}x{}, value scale {}, linear {}, unchanged snapshot {}",
+                          number, own ? own_key : target_key(last), src.depth_generation, src.sample_count,
+                          ev.dest_base, x0, y0, w, h, dw, dh, scale, dest.buffer != nil, identical ? "yes" : "no");
             }
             [e setFragmentBytes:&scale length:sizeof(scale) atIndex:0];
             [e setScissorRect:(MTLScissorRect){x0, y0, w, h}];
@@ -5121,6 +5155,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           t1->used = true;
         }
         rp.depthAttachment.texture = t.multisample_depth;
+        if (depth_audit && clear_depth) ++t.depth_generation;
         rp.depthAttachment.loadAction = clear_depth ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.depthAttachment.clearDepth = t.clear_depth ? t.clear_depth_value : 1.0;
         rp.visibilityResultBuffer = visibility;
@@ -5133,6 +5168,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                               : MTLStoreActionDontCare;
         } else {
           rp.depthAttachment.storeAction = last_pass && !depth_read_later ? MTLStoreActionDontCare : MTLStoreActionStore;
+        }
+        if (depth_audit) {
+          t.depth_audit_defined = rp.depthAttachment.storeAction != MTLStoreActionDontCare &&
+                                  (clear_depth || t.depth_audit_defined);
         }
         rp.stencilAttachment.texture = t.multisample_depth;
         rp.stencilAttachment.loadAction = clear_depth ? MTLLoadActionClear : MTLLoadActionLoad;
@@ -5397,7 +5436,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // upload starts at the range's first register.
       auto upload = [&](UploadedConstants& u, const ConstantBank& set, std::pair<uint16_t, uint16_t> r) {
         if (!u.Covers(&set, r)) {
-          u = {&set, r, put(set.data() + size_t(r.first) * 4, size_t(r.second - r.first) * 16)};
+          u = {&set, r, put(set.data() + size_t(r.first) * 4, size_t(r.second - r.first) * 16, kConstantUpload)};
         }
         return data.gpuAddress + u.at - size_t(u.range.first) * 16;
       };
@@ -5663,7 +5702,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
       // The same as the draw before's (most are): its copy again.
       if (!have_last_shared || std::memcmp(last_shared, shared, sizeof(shared)) != 0) {
-        last_shared_at = put(shared, sizeof(shared));
+        last_shared_at = put(shared, sizeof(shared), kSharedUpload);
         std::memcpy(last_shared, shared, sizeof(shared));
         have_last_shared = true;
       }
@@ -5688,7 +5727,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         if (found && found->values && !found->values->empty() && found->fresh) {
           // Changed this frame: with the frame's data, no buffer of its own.
-          state.VertexBuffer(data, put(found->values->data(), found->values->size() * 4), 9 + k);
+          state.VertexBuffer(data, put(found->values->data(), found->values->size() * 4, kVertexUpload), 9 + k);
         } else if (found && found->values && !found->values->empty()) {
           size_t vb_offset = 0;
           id<MTLBuffer> vb = GpuBufferFor(device, found->values, vb_offset);
@@ -5702,10 +5741,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         size_t index_at = 0;
         id<MTLBuffer> ib = data;
         if (d.indices_fresh) {
-          index_at = put(d.indices->data(), d.index_count() * 4);
+          index_at = put(d.indices->data(), d.index_count() * 4, kIndexUpload);
         } else if (!(ib = GpuBufferFor(device, d.indices, index_at))) {
           continue;
         }
+        if (depth_audit && (d.depth_control & 4)) ++t.depth_generation;
         [enc drawIndexedPrimitives:d.primitive
                         indexCount:d.index_count()
                          indexType:MTLIndexTypeUInt32
@@ -5723,6 +5763,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     [enc endEncoding];
     finish_motion(frame->draws.size());
+
+    if (depth_audit) {
+      REXLOG_INFO("[native] depth audit: frame {} copied {} snapshots, {} unchanged single-sample candidates "
+                  "(diagnostic only; every copy still executed)", number, depth_audit_copies, depth_audit_candidates);
+    }
 
     // On screen: the frame's last colour resolve, fitted to the layer.
     CAMetalLayer* layer = present_layer;
@@ -6259,6 +6304,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
     }
     if (!dump) {
+      static uint64_t upload_window[kUploadKinds] = {}, upload_window_frames = 0;
+      static uint64_t upload_window_padding = 0, upload_window_span = 0, upload_window_capacity = 0;
+      ++upload_window_frames;
+      for (size_t kind = 0; kind < kUploadKinds; ++kind) upload_window[kind] += upload_bytes[kind];
+      upload_window_padding += upload_padding;
+      upload_window_span += used;
+      upload_window_capacity += data.length;
       // Counts cover the same reporting window, independent of GPU timestamps.
       static uint64_t cube_stats_frames = 0, cube_stats_bindings = 0, cube_stats_removed = 0, cube_stats_copies = 0;
       ++cube_stats_frames;
@@ -6290,6 +6342,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         buffer_bytes = buffer_arena.Bytes();
         nfsmw::memory::Report("native renderer");
         constexpr double kMiB = 1024.0 * 1024.0;
+        const double upload_divisor = kMiB * double(upload_window_frames);
+        REXLOG_INFO("[native] CPU buffer copies: over {} frames, fresh vertices {:.3f}, fresh indices {:.3f}, "
+                    "constants {:.3f}, shared data {:.3f} MiB/frame | per-frame buffer span {:.3f}, "
+                    "alignment gaps {:.3f}, capacity {:.3f} MiB/frame (logical sizes, not DRAM traffic)",
+                    upload_window_frames, upload_window[kVertexUpload] / upload_divisor,
+                    upload_window[kIndexUpload] / upload_divisor, upload_window[kConstantUpload] / upload_divisor,
+                    upload_window[kSharedUpload] / upload_divisor, upload_window_span / upload_divisor,
+                    upload_window_padding / upload_divisor, upload_window_capacity / upload_divisor);
+        for (auto& bytes : upload_window) bytes = 0;
+        upload_window_frames = upload_window_padding = upload_window_span = upload_window_capacity = 0;
         REXLOG_INFO("[native] memory: process {:.0f} MiB; retained targets {} / {:.0f} MiB, resolves {} / {:.0f} MiB, "
                     "textures {} / {:.0f} MiB (GPU), vertex buffers {} / {:.0f} MiB | frame buffers and resolves: "
                     "{} made, {} reused since the last line",
@@ -6325,7 +6387,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                         : 0.0,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
         REXLOG_INFO("[native] energy baseline: scale {:.3f}, MetalFX {}, FXAA {}, forced MSAA {}, cap {} | "
-                    "geometry decoded {:.2f} MiB/frame ({:.2f} dynamic), uploaded {:.2f} MiB/frame "
+                    "geometry decoded {:.2f} MiB/frame ({:.2f} classified dynamic), persistent arena uploads {:.2f} MiB/frame "
                     "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "
                     "recording estimated from 1/8 draws; encoding includes drawable waits; "
                     "MetalFX GPU work not individually timed",
