@@ -86,6 +86,7 @@ MOLTENVK_URL = (f"https://github.com/KhronosGroup/MoltenVK/releases/download/"
 # Order matters, as on Android: each one anchors on what the earlier ones left.
 IOS_PATCHES = [
     "patch_ios_platform",
+    "patch_ios_signal_forwarding",
     "patch_ios_cmake",
     "patch_ios_paths",
     "patch_ios_memory",
