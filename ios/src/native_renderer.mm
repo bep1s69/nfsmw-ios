@@ -91,7 +91,7 @@ extern std::atomic<void (*)()> rex_native_swap_hook;
 // address, query end, count out) -> handled.
 extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
