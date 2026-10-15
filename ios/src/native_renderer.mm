@@ -69,6 +69,7 @@
 #include "battery.h"
 #include "native_renderer.h"
 #include "memory_report.h"
+#include "gpu_capture.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -3787,6 +3788,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     static id<MTLCommandQueue> queue = [device newCommandQueue];
     bc_queue = queue;  // BC decodes go on the frame's queue (BcDecodeOnGpu)
     residency::Apply(device, queue);
+    struct FrameCapture {
+      bool active;
+      void Finish() {
+        if (active) {
+          active = false;
+          nfsmw::gpu_capture::EndNativeFrame();
+        }
+      }
+      ~FrameCapture() { Finish(); }
+    } capture{nfsmw::gpu_capture::BeginNativeFrame(queue)};
     ++gpu_frame;
     SweepGpu();
 
@@ -4495,7 +4506,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     id<MTLCounterSampleBuffer> profile_buffer = profile_buffers[number % kProfileBuffers];
     const bool profile_report = number % 300 == 150;
-    const bool profile = profile_buffer && !dump && (profile_report || hitch_lines_left.load() > 0);
+    const bool profile = profile_buffer && !dump && !capture.active && (profile_report || hitch_lines_left.load() > 0);
     auto profile_labels = std::make_shared<std::vector<std::string>>();
     auto profile_pass = [&](MTLRenderPassDescriptor* rp, std::string label) {
       if (!profile || profile_labels->size() >= 255) return;
@@ -6282,6 +6293,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }];
     }
     [cb commit];
+    capture.Finish();
     {
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
       if (!dump && ms > 30.0 && hitch_lines_left.fetch_sub(1) > 0) {

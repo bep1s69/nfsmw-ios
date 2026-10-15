@@ -6,25 +6,32 @@
 // created (MTL_CAPTURE_ENABLED=1; LiveContainer's own Info.plist decides the
 // MetalCaptureEnabled key, so the environment is what works there).
 //
-// The capture scope is the GPU device: every command buffer MoltenVK commits
-// while it runs goes in, whichever queue or thread. It runs for kCaptureMs,
-// about two race frames (~20-25 ms each), starting on the next run of the main
-// loop after the tap.
+// Native captures start on the renderer queue before encoding and end after
+// submitting one frame, including BC uploads and presentation. The emulated
+// renderer retains its timed device capture.
 
 #import <Metal/Metal.h>
 #import <UIKit/UIKit.h>
 
 #include <rex/logging.h>
+#include <rex/cvar.h>
+#include <atomic>
 
 #include "gpu_capture.h"
 #include "launcher.h"
 
 namespace {
 constexpr int64_t kCaptureMs = 50;
+std::atomic<bool> native_requested{false};
 }
 
 @interface NFSCaptureButton : UIButton
+- (void)captureFinished:(NSString*)label;
 @end
+
+namespace {
+__weak NFSCaptureButton* capture_button;
+}
 
 @implementation NFSCaptureButton {
   BOOL _busy;
@@ -65,6 +72,12 @@ constexpr int64_t kCaptureMs = 50;
 
 - (void)capture {
   if (_busy) {
+    return;
+  }
+  if (rex::cvar::Query<bool>("nfsmw_native_cp") && rex::cvar::Query<bool>("nfsmw_native_present")) {
+    _busy = YES;
+    [self setLabel:@"NEXT FRAME…"];
+    native_requested.store(true, std::memory_order_release);
     return;
   }
   MTLCaptureManager* manager = MTLCaptureManager.sharedCaptureManager;
@@ -112,9 +125,60 @@ constexpr int64_t kCaptureMs = 50;
                  });
 }
 
+- (void)captureFinished:(NSString*)label {
+  [self setLabel:label];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    self->_busy = NO;
+    [self setLabel:@"CAPTURE"];
+  });
+}
+
 @end
 
 namespace nfsmw::gpu_capture {
+
+bool BeginNativeFrame(id<MTLCommandQueue> queue) {
+  if (!native_requested.exchange(false, std::memory_order_acq_rel)) return false;
+  MTLCaptureManager* manager = MTLCaptureManager.sharedCaptureManager;
+  auto failed = [] {
+    dispatch_async(dispatch_get_main_queue(), ^{ [capture_button captureFinished:@"FAILED"]; });
+  };
+  if (manager.isCapturing || ![manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
+    REXLOG_ERROR("[gpu-capture] native capture unavailable (another capture active, or capture layer disabled)");
+    failed();
+    return false;
+  }
+  NSString* dir = @((nfsmw::launcher::Documents() / "captures").c_str());
+  NSError* error = nil;
+  if (![NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES
+                                              attributes:nil error:&error]) {
+    REXLOG_ERROR("[gpu-capture] cannot create capture directory: {}", error.localizedDescription.UTF8String);
+    failed();
+    return false;
+  }
+  NSDateFormatter* formatter = [[NSDateFormatter alloc] init];
+  formatter.dateFormat = @"yyyy-MM-dd_HH-mm-ss-SSS";
+  NSString* path = [dir stringByAppendingPathComponent:
+      [[formatter stringFromDate:NSDate.date] stringByAppendingString:@".gputrace"]];
+  MTLCaptureDescriptor* descriptor = [[MTLCaptureDescriptor alloc] init];
+  descriptor.captureObject = queue;
+  descriptor.destination = MTLCaptureDestinationGPUTraceDocument;
+  descriptor.outputURL = [NSURL fileURLWithPath:path];
+  if (![manager startCaptureWithDescriptor:descriptor error:&error]) {
+    REXLOG_ERROR("[gpu-capture] native capture could not start: {}", error.localizedDescription.UTF8String);
+    failed();
+    return false;
+  }
+  REXLOG_INFO("[gpu-capture] native frame started -> {}", path.UTF8String);
+  dispatch_async(dispatch_get_main_queue(), ^{ [capture_button setLabel:@"CAPTURING…"]; });
+  return true;
+}
+
+void EndNativeFrame() {
+  [MTLCaptureManager.sharedCaptureManager stopCapture];
+  REXLOG_INFO("[gpu-capture] native frame capture stopped after command-buffer submission");
+  dispatch_async(dispatch_get_main_queue(), ^{ [capture_button captureFinished:@"SAVED"]; });
+}
 
 void InstallButton() {
   static bool installed = false;
@@ -136,6 +200,7 @@ void InstallButton() {
     return;
   }
   NFSCaptureButton* button = [[NFSCaptureButton alloc] init];
+  capture_button = button;
   [window addSubview:button];
   [button layoutInSuperview];
   installed = true;

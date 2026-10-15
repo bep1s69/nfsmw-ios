@@ -551,6 +551,10 @@ const std::vector<Section>& Sections() {
             @"true"},
            {@"detailed_log", Type::kSwitch, @"Detailed log",
             @"log_level=debug. It tanks the fps: only for diagnosing problems.", @"false"},
+           {@"gpu_capture", Type::kSwitch, @"GPU frame capture (experimental)",
+            @"Adds a red CAPTURE button. Saves a native frame to Documents/captures for Xcode. "
+            @"Capture support slows rendering and may cause graphics problems; turn off and restart "
+            @"the app after testing.", @"false"},
            {@"cost_probe", Type::kSwitch, @"GPU cost per shader",
             @"Native renderer: once a second, one of the most used pixel shaders is left out of a "
             @"frame (it may flicker) and the log says how much GPU time that saved.",
@@ -724,6 +728,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
+  a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
