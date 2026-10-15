@@ -93,6 +93,8 @@ extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hoo
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
+REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
+                    "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -3718,6 +3720,34 @@ id<MTLRenderPipelineState> FxaaPipeline(id<MTLDevice> device, MTLPixelFormat for
   return pso;
 }
 
+struct CubeTarget {
+  uint32_t base, width, height, face_stride;
+};
+
+// Binding descriptors can differ in filtering or swizzle while naming the
+// same cube storage. Keep those bindings, but assemble that storage once.
+// If a base has conflicting layouts, preserve every entry and its order.
+size_t ConsolidateCubeTargets(std::vector<CubeTarget>& targets) {
+  std::vector<CubeTarget> unique;
+  unique.reserve(targets.size());
+  for (const CubeTarget& target : targets) {
+    const auto same_layout = [&](const CubeTarget& other) {
+      return target.width == other.width && target.height == other.height &&
+             target.face_stride == other.face_stride;
+    };
+    const bool conflict = std::any_of(targets.begin(), targets.end(), [&](const CubeTarget& other) {
+      return other.base == target.base && !same_layout(other);
+    });
+    const bool duplicate = !conflict && std::any_of(unique.begin(), unique.end(), [&](const CubeTarget& other) {
+      return other.base == target.base && same_layout(other);
+    });
+    if (!duplicate) unique.push_back(target);
+  }
+  const size_t removed = targets.size() - unique.size();
+  targets.swap(unique);
+  return removed;
+}
+
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
   // RenderFrame is called on the renderer's serial dispatch queue. Accumulate
   // the game-thread capture diagnostics here so the hot draw path stays local.
@@ -4313,18 +4343,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // Cubes the frame samples at addresses it resolves to (placeholders):
     // each face resolved to base + face * face size (the race's environment
     // map: six 256x256 resolves 0x40000 apart).
-    struct CubeTarget {
-      uint32_t base, width, face_stride;
-    };
     std::vector<CubeTarget> cube_targets;
     NSMutableArray<id<MTLTexture>>* assembled_cubes = [NSMutableArray array];  // made resident
     for (const auto& tp : frame->textures) {
       if (tp->cube && tp->format == MTLPixelFormatInvalid && tp->width) {
         const uint32_t w32 = (tp->width + 31) & ~31u;
         const uint32_t stride = (w32 * 4 * ((tp->height + 31) & ~31u) + 4095) & ~4095u;
-        cube_targets.push_back({tp->address, tp->width, stride});
+        cube_targets.push_back({tp->address, tp->width, tp->height, stride});
       }
     }
+    const size_t cube_binding_count = cube_targets.size();
+    const bool deduplicate_cubes = REXCVAR_GET(nfsmw_native_deduplicate_cubes) && !dump;
+    const size_t cube_duplicates_removed = deduplicate_cubes ? ConsolidateCubeTargets(cube_targets) : 0;
+    uint32_t cube_assembly_copies = 0;
     // Resolved cubes (faces resolved one by one) by address -> cube heap index.
     std::map<uint32_t, id<MTLTexture>> resolved_cubes;
     std::map<uint32_t, uint32_t> resolved_cube_index;
@@ -4787,6 +4818,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
           if (cube && cube.pixelFormat == dest.pixelFormat) {
             resolved_cube_swap[ct.base] = kept_cube_swaps[ct.base] = ev.swap;
+            ++cube_assembly_copies;
             id<MTLBlitCommandEncoder> blit = new_blit("blit: cube assembly");
             [blit copyFromTexture:dest
                       sourceSlice:0
@@ -6227,7 +6259,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
     }
     if (!dump) {
+      // Counts cover the same reporting window, independent of GPU timestamps.
+      static uint64_t cube_stats_frames = 0, cube_stats_bindings = 0, cube_stats_removed = 0, cube_stats_copies = 0;
+      ++cube_stats_frames;
+      cube_stats_bindings += cube_binding_count;
+      cube_stats_removed += cube_duplicates_removed;
+      cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        REXLOG_INFO("[native] cube assembly: deduplication {}; over {} frames, {:.2f} bindings/frame, "
+                    "{:.2f} duplicate destinations removed/frame, {:.2f} copies/frame",
+                    deduplicate_cubes ? "on" : "off", cube_stats_frames,
+                    double(cube_stats_bindings) / cube_stats_frames, double(cube_stats_removed) / cube_stats_frames,
+                    double(cube_stats_copies) / cube_stats_frames);
+        cube_stats_frames = cube_stats_bindings = cube_stats_removed = cube_stats_copies = 0;
         uint64_t target_bytes = 0;
         for (const auto& [key, t] : targets) {
           (void)key;
