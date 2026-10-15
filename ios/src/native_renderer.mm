@@ -975,6 +975,7 @@ struct VertexDiagnostics {
   uint64_t fingerprint_sample_ns = 0;
   uint64_t fingerprint_shared = 0;  // inputs that reused their draw's region fingerprint
   uint64_t decoded_vertex_elements = 0;
+  uint64_t decoded_bytes = 0, dynamic_decoded_bytes = 0;
   uint64_t expanded_input_indices = 0;
   uint64_t expanded_output_indices = 0;
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
@@ -988,6 +989,8 @@ struct VertexDiagnostics {
     fingerprint_sample_ns += other.fingerprint_sample_ns;
     fingerprint_shared += other.fingerprint_shared;
     decoded_vertex_elements += other.decoded_vertex_elements;
+    decoded_bytes += other.decoded_bytes;
+    dynamic_decoded_bytes += other.dynamic_decoded_bytes;
     expanded_input_indices += other.expanded_input_indices;
     expanded_output_indices += other.expanded_output_indices;
     index_cache_hits += other.index_cache_hits;
@@ -1025,7 +1028,7 @@ struct Frame {
   std::vector<std::pair<size_t, std::string>> notes;  // first problems
   VertexDiagnostics vertex_diagnostics;
   // For the hitch log: the recording's time and the textures decoded in it.
-  uint64_t record_us = 0;
+  uint64_t record_ns = 0;
   uint32_t textures_decoded = 0;
   uint64_t texture_decode_bytes = 0, texture_decode_us = 0;
 };
@@ -1067,7 +1070,7 @@ void Note(Frame& f, std::string text) {
 uint64_t frame_counter = 0;
 
 // Timing, logged every 300 native frames.
-std::atomic<uint64_t> record_us{0}, render_us{0}, presented{0};
+std::atomic<uint64_t> record_ns{0}, render_us{0}, presented{0};
 // For the hitch log (the renderer's queue only): this frame's texture uploads.
 uint32_t frame_uploads = 0, frame_new_buffers = 0;
 uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
@@ -1075,10 +1078,12 @@ uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
 std::atomic<int> hitch_lines_left{300};
 // Parts of the recording (game thread): vertex inputs, then constants and
 // textures.
-std::atomic<uint64_t> record_vertex_us{0}, record_texture_us{0};
+std::atomic<uint64_t> record_vertex_ns{0}, record_texture_ns{0};
 // Textures decoded from guest memory since the last stats line (cache misses).
 std::atomic<uint64_t> textures_decoded_total{0}, texture_decode_bytes_total{0};
 bool timed_draw = false;  // this draw's recording is timed (one in eight; command processor thread)
+// Renderer queue totals since the last summary; uploads include cached and dynamic arrays.
+uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
 
@@ -2337,6 +2342,9 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       if (acached.value && frame_counter - acached.last_changed <= 2) acached.dynamic = true;
       acached.last_changed = frame_counter;
       acached.watched = watchable && !acached.dynamic;
+      const uint64_t decoded_bytes = uint64_t(d.vertex_count) * 4 * sizeof(float);
+      frame.vertex_diagnostics.decoded_bytes += decoded_bytes;
+      if (acached.dynamic) frame.vertex_diagnostics.dynamic_decoded_bytes += decoded_bytes;
       a.values = std::make_shared<FloatArray>(size_t(d.vertex_count) * 4);
       a.fresh = true;
       FloatArray& values = *a.values;
@@ -2466,7 +2474,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   };
   const auto texture_start = timed_draw ? FastClock::now() : FastClock::time_point{};
   if (timed_draw) {
-    record_vertex_us += 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(texture_start - vertex_start).count());
+    record_vertex_ns += 8 * uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(texture_start - vertex_start).count());
   }
   d.vs_range = store.ConstantRange(false, d.vs_key);
   d.ps_range = store.ConstantRange(true, d.ps_key);
@@ -2512,7 +2520,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     frame.slot_valid[s] = true;
   }
   if (timed_draw) {
-    record_texture_us += 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+    record_texture_ns += 8 * uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
                                           FastClock::now() - texture_start).count());
   }
 
@@ -3059,6 +3067,12 @@ struct BufferArena {
     if (c.live == 0 && chunk != current) c.used = 0;  // empty: reusable
   }
 
+  size_t LiveBytes() const {
+    size_t n = 0;
+    for (const Chunk& c : chunks) n += c.live;
+    return n;
+  }
+
   size_t Bytes() const {
     size_t n = 0;
     for (const Chunk& c : chunks) n += c.buffer.length;
@@ -3494,6 +3508,8 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
       return nil;
     }
     ++frame_new_buffers;
+    ++geometry_upload_arrays;
+    geometry_upload_bytes += values->size() * sizeof(values->front());
     g.keep = values;
     g.size = size;
     std::memcpy(static_cast<uint8_t*>(g.buffer.contents) + g.offset, values->data(),
@@ -5862,6 +5878,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               fp.colorAttachments[0].texture = smoothed;
               fp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
               fp.colorAttachments[0].storeAction = MTLStoreActionStore;
+              profile_pass(fp, "post: FXAA");
               id<MTLRenderCommandEncoder> fe = [cb renderCommandEncoderWithDescriptor:fp];
               const float tw = float(final_texture.width), th = float(final_texture.height);
               const float vcrop[4] = {crop[0], crop[1], 0, 0};
@@ -5884,6 +5901,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
+        profile_pass(rp, "present: main display");
         id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
         // Only the picture's rectangle: the one triangle covering it reaches
         // past its right and top edges (to 3x), where the sampler's clamp
@@ -5915,6 +5933,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             xrp.colorAttachments[0].loadAction = MTLLoadActionClear;
             xrp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
             xrp.colorAttachments[0].storeAction = MTLStoreActionStore;
+            profile_pass(xrp, "present: external display");
             id<MTLRenderCommandEncoder> xe = [cb renderCommandEncoderWithDescriptor:xrp];
             const double pw = std::round(xw * xfit[0]), ph = std::round(xh * xfit[1]);
             const NSUInteger px = NSUInteger(std::max(0.0, std::floor((xw - pw) * 0.5)));
@@ -6090,9 +6109,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
             std::sort(grouped.rbegin(), grouped.rend());
             REXLOG_INFO("[native] GPU profile{}: {} passes and blits, {:.2f} ms of incremental cost (first start to "
-                        "last end {:.2f} ms), frame {:.2f} ms on the GPU",
+                        "last end {:.2f} ms), frame {:.2f} ms on the GPU, unattributed {:.2f} ms "
+                        "(includes uninstrumented work and gaps; not a MetalFX measurement)",
                         slow ? " of the slow frame" : "", n, sum, latest - std::max(first, 0.0),
-                        (done.GPUEndTime - done.GPUStartTime) * 1000.0);
+                        (done.GPUEndTime - done.GPUStartTime) * 1000.0,
+                        std::max(0.0, (done.GPUEndTime - done.GPUStartTime) * 1000.0 - sum));
             for (size_t i = 0; i < grouped.size() && i < (slow ? 8 : 14); ++i) {
               REXLOG_INFO("[native]   {:6.2f} ms  {}", grouped[i].first, grouped[i].second);
             }
@@ -6190,8 +6211,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded, sky_deferred, sky_covered_draws,
                     seconds > 0 ? presented.exchange(0) / seconds : 0.0,
-                    record_us.exchange(0) / 1000.0 / frames, record_vertex_us.exchange(0) / 1000.0 / frames,
-                    record_texture_us.exchange(0) / 1000.0 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
+                    record_ns.exchange(0) / 1e6 / frames, record_vertex_ns.exchange(0) / 1e6 / frames,
+                    record_texture_ns.exchange(0) / 1e6 / frames, nfsmw_capture_ns.exchange(0) / 1e6 / frames,
                     render_us.exchange(0) / 1000.0 / frames,
                     gpu_us.exchange(0) / 1000.0 / frames, gpu_slow_frames.exchange(0),
                     vertex_diagnostics.watched_cache_hits, vertex_diagnostics.fingerprint_cache_hits,
@@ -6204,6 +6225,18 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                               double(vertex_diagnostics.fingerprint_sample_count) / 1000.0
                         : 0.0,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
+        REXLOG_INFO("[native] energy baseline: scale {:.3f}, MetalFX {}, FXAA {}, forced MSAA {}, cap {} | "
+                    "geometry decoded {:.2f} MiB/frame ({:.2f} dynamic), uploaded {:.2f} MiB/frame "
+                    "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "
+                    "recording estimated from 1/8 draws; encoding includes drawable waits; "
+                    "MetalFX GPU work not individually timed",
+                    resolution_scale, REXCVAR_GET(nfsmw_native_metalfx), REXCVAR_GET(nfsmw_native_fxaa),
+                    REXCVAR_GET(nfsmw_native_force_msaa), rex::cvar::Query<int32_t>("ios_fps_cap"),
+                    vertex_diagnostics.decoded_bytes / kMiB / frames,
+                    vertex_diagnostics.dynamic_decoded_bytes / kMiB / frames,
+                    geometry_upload_bytes / kMiB / frames, double(geometry_upload_arrays) / frames,
+                    buffer_arena.LiveBytes() / kMiB, buffer_arena.Bytes() / kMiB);
+        geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
         pipeline_cache.Report();
@@ -6626,12 +6659,12 @@ bool NativeSwap() {
   struct {
     bool valid = false;
     size_t draws = 0;
-    uint64_t record_us = 0, vertex_misses = 0, vertex_elements = 0;
+    uint64_t record_ns = 0, vertex_misses = 0, vertex_elements = 0;
     uint32_t textures_decoded = 0;
     uint64_t texture_bytes = 0, texture_us = 0;
   } hitch;
   if (recording) {
-    hitch = {true, recording->draws.size(), recording->record_us, recording->vertex_diagnostics.cache_misses,
+    hitch = {true, recording->draws.size(), recording->record_ns, recording->vertex_diagnostics.cache_misses,
              recording->vertex_diagnostics.decoded_vertex_elements, recording->textures_decoded,
              recording->texture_decode_bytes, recording->texture_decode_us};
   }
@@ -6685,7 +6718,7 @@ bool NativeSwap() {
   }
   last_swap = std::chrono::steady_clock::now();
   if (hitch.valid && swap_interval_ms > 40.0 && hitch_lines_left.fetch_sub(1) > 0) {
-    const double record_ms = hitch.record_us / 1000.0;
+    const double record_ms = hitch.record_ns / 1e6;
     REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms between swaps ({} draws): recording {:.1f} ms "
                 "({} textures decoded, {} KiB, {:.1f} ms; {} vertex cache misses, {} elements), "
                 "outside the recording {:.1f} ms, then waiting for the renderer {:.1f} ms",
@@ -6734,10 +6767,10 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
     bool on;
     ~Timer() {
       if (!on) return;
-      const uint64_t us = 8 * uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+      const uint64_t ns = 8 * uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
                                            FastClock::now() - t0).count());
-      record_us += us;
-      if (recording) recording->record_us += us;
+      record_ns += ns;
+      if (recording) recording->record_ns += ns;
     }
   } timer{timed_draw ? FastClock::now() : FastClock::time_point{}, timed_draw};
   // Without the native renderer on screen, PNG frames are menu frames only
