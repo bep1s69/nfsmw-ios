@@ -39,7 +39,8 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from patch_engine import run  # noqa: E402
+from patch_engine import find_sdk, run  # noqa: E402
+from patch_ios_native_constants import augment_native_backend  # noqa: E402
 
 FILE = "src/graphics/plugin_main.cpp"
 
@@ -219,10 +220,23 @@ SEL_NEW = '''  std::string_view backend = info->backend ? info->backend : "any";
   }
 '''
 
+# Keep the fast path in fresh SDK preparation as well as existing patched trees.
+LEGACY_INC_NEW = INC_NEW
+INC_NEW = augment_native_backend(INC_NEW)
+
 BLOCKS = [
     (FILE, "the native backend", INC_ANCHOR, INC_NEW),
     (FILE, "gpu_backend native", SEL_ANCHOR, SEL_NEW),
 ]
 
 if __name__ == "__main__":
-    sys.exit(run("ios_native_backend", BLOCKS))
+    blocks = BLOCKS
+    text = (find_sdk(FILE) / FILE).read_text(encoding="utf-8")
+    if LEGACY_INC_NEW in text and INC_NEW not in text and "--status" not in sys.argv:
+        # Upgrade the backend already installed by 0.3.0 without duplicating it.
+        # Revert still means removing that backend, rather than adding a fast path.
+        backend_block = ((FILE, "the native backend", INC_ANCHOR, LEGACY_INC_NEW)
+                         if "--revert" in sys.argv else
+                         (FILE, "upgrade native constant writes", LEGACY_INC_NEW, INC_NEW))
+        blocks = [backend_block, BLOCKS[1]]
+    sys.exit(run("ios_native_backend", blocks))
