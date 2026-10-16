@@ -753,3 +753,25 @@ ordinary frame timing and hitches as well as average FPS. Run 11 is the current
 optimized baseline; a new off-arm run is useful only if conditions changed or
 the power difference is too close to separate from run variation. Roll back
 this experiment with false and restart. Device validation is pending.
+
+First attempted device check: `nfsmw_run_12_ipad.log` and
+`power_profiler_2_ipad.trace`. This is another baseline run, **not a Utility
+QoS result**. The trace's NFSMW binary UUID is
+`5C92B5DD-A428-369E-B28B-1ECB654857CB`, matching draw-arena IPA 14 and run 11;
+the new Utility IPA 15 contains `083A8A88-7DEF-3614-A916-CB4666564E9A`.
+The log likewise reports the old renderer build (October 16, 15:27:36), with
+neither the new render-queue startup line nor the frame-entry QoS summaries.
+Why LiveContainer loaded the previous executable is not established. The
+Utility switch's effect, core placement and performance remain untested.
+
+The trace runs 23:44:32.357..23:54:33.457 (601.10 seconds). Brightness is again
+39% and thermal state nominal. Driving transitions are at 00:28.231 and
+02:52.682, consistent with the user's approximately 02:55 pursuit start.
+With guarded race selection 00:33.231..02:36.388 and pursuit selection
+02:57.682..09:56.100, weighted system rates are 31.54%/hr and 33.03%/hr;
+CPU/GPU impact scores are 11.83/2.44 and 13.38/3.01. The whole trace's
+available system intervals average 31.94%/hr, versus 31.93%/hr in run 11.
+These are repeated baseline observations under similar conditions, not an
+energy gain or an estimate of the comparison's statistical error. Do not
+attribute any difference to the unexecuted scheduling change. Verify a short
+startup log from IPA 15 with Utility requested on before another long trace.
