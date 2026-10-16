@@ -845,3 +845,66 @@ energy result exists yet. The next recommended implementation remains removal
 of measured attribute-cache lookup work, pending user approval, before lowering
 another frame-critical thread's QoS. No renderer code or new IPA changed while
 analyzing run 13.
+
+### Optional decoded-attribute entry lookup cache
+
+The next approved isolated experiment is
+`--nfsmw_native_attribute_lookup=true` (false by default, restart required).
+It is independent of the previous optimization switches, including Utility
+scheduling and the five-option master. Record still builds the identical
+AttributeKey, then looks up the live CacheEntry through an 8,192-slot,
+two-way cache in front of the original unordered_map. A cheap set selector
+uses address, stride, offset, lowest vertex and vertex count; every hit
+compares all nine identity fields, including format, endian, integer and
+component remapping. Selector collisions are allowed and do not share data.
+Each set replaces its least recently hit slot; a miss uses the original map.
+The fixed table occupies 416 KiB on the arm64 host (4,096 sets of 104 bytes).
+
+Retained pointers refer to unordered_map entries, whose addresses survive
+rehashing. SweepAttributeCache clears the entire lookup table before the
+existing periodic sweep can erase any entries. Both operate on the recording
+thread, with no new synchronization. In-flight draws and GPU caches continue
+owning their decoded arrays independently through the existing shared_ptrs.
+This cache owns no decoded payload and adds no Metal resource operation.
+
+Only entry lookup is bypassed on a hit. The existing last-used update,
+write-watch checks, fingerprints, cache mutation/decode behavior, and fresh
+attribute handling still execute. The Record source body from the last-used
+update through attribute decoding was checked byte-for-byte against its
+pre-change version. In particular, the cache never assumes that guest vertex
+bytes remain unchanged within a frame. Off takes the original map lookup,
+with the new bypass counter and switch check; it is not a byte-identical copy
+of the older executable. Logs add `[native] attribute lookup` hit, miss and
+bypass counts through the existing per-frame diagnostics and 300-frame summary,
+without per-draw atomics or log writes.
+
+`python3 tools/native/test_attribute_lookup.py` extracts production key,
+hash, lookup, fingerprint, CacheEntry and sweep code into a standalone C++
+harness and runs each launch-switch arm under ASan/UBSan. It checks all key
+fields, deliberately colliding formats, original-map identity, node stability
+through rehash, live-entry changes after source mutation, survivor/erased node
+handling at actual sweep boundaries, reinsertion and retained array ownership.
+Another 90,000 changing-key operations with immediate reuse and periodic
+sweeps execute 180,000 accesses per arm; all checks passed. The enabled run
+recorded 110,719 hits and 69,281 misses; the disabled run recorded 180,000
+bypasses. Source mutation checks use the actual fingerprint and entry, not the
+complete GPU/Record path, which still requires device validation.
+
+The optional `--benchmark` harness mode runs a fixed 4,096-key host workload
+with 3,686,400 timed accesses. One Release run took 68.66 ms off and 64.57 ms
+on, with identical checksums. Including warm-up, the enabled fixture recorded
+2,615,400 hits and 1,075,096 misses. These are synthetic host observations,
+not an estimate of game CPU or battery improvement. Device key locality and
+the miss overhead can differ; inspect the new hit counters before deciding
+whether the table is useful. Expected benefit is confined to part of the
+previously measured 2.2..2.4% lookup region, not all draw preparation.
+
+The Release iOS build passed with the existing SDK/UIKit warnings. Test IPA:
+`ios/build/NFSMW-battery-attribute-lookup-16.ipa`. Keep
+`--nfsmw_native_render_utility=true` alongside the new lookup flag at iPad
+1.5x / 60 FPS, so run 13 remains the scheduling baseline. First request the
+usual two-lap race and game log for hit coverage, pacing and visual/stability
+validation; defer another long power trace until more changes are stacked.
+The lookup experiment can be disabled independently with false and a restart.
+No graphics settings, shaders, command ordering or scheduling policy changed
+in this experiment. Device validation is pending.

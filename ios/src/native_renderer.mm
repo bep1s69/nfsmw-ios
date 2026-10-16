@@ -109,6 +109,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
+                    "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -1000,6 +1002,7 @@ struct Draw {
 };
 
 struct VertexDiagnostics {
+  uint64_t attribute_lookup_hits = 0, attribute_lookup_misses = 0, attribute_lookup_bypasses = 0;
   uint64_t draw_arena_frames = 0, draw_attribute_lists = 0;
   uint64_t draw_attribute_heap_calls = 0, draw_attribute_heap_bytes = 0;
   uint64_t draw_attribute_peak_bytes = 0;
@@ -1020,6 +1023,9 @@ struct VertexDiagnostics {
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
+    attribute_lookup_hits += other.attribute_lookup_hits;
+    attribute_lookup_misses += other.attribute_lookup_misses;
+    attribute_lookup_bypasses += other.attribute_lookup_bypasses;
     draw_arena_frames += other.draw_arena_frames;
     draw_attribute_lists += other.draw_attribute_lists;
     draw_attribute_heap_calls += other.draw_attribute_heap_calls;
@@ -1428,6 +1434,75 @@ struct AttributeKeyHash {
   }
 };
 std::unordered_map<AttributeKey, CacheEntry<FloatArray>, AttributeKeyHash> attribute_cache;
+
+// Recording-thread-only entry lookup. This does not cache validation results:
+// every hit still checks the current guest bytes/write watch below in Record.
+// unordered_map nodes survive rehash, but Clear must precede any erasure.
+struct AttributeLookupCache {
+  static constexpr size_t kSets = 4096;
+  struct Slot {
+    AttributeKey key{};
+    CacheEntry<FloatArray>* entry = nullptr;
+  };
+  struct Set {
+    Slot slots[2];
+    uint8_t replace = 0;
+  };
+  Set sets[kSets]{};
+
+  static size_t SetIndex(const AttributeKey& key) {
+    // A cheap selector only. Every identity field is compared on a hit, so
+    // different formats/endian/remaps may share a set without sharing data.
+    uint64_t h = uint64_t(key.base >> 4) ^ (uint64_t(key.lo) << 32) ^
+                 (uint64_t(key.count) << 16) ^ (uint64_t(key.stride) << 8) ^ key.offset;
+    h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9ull;
+    return size_t(h ^ (h >> 27)) & (kSets - 1);
+  }
+
+  CacheEntry<FloatArray>& Find(const AttributeKey& key, VertexDiagnostics& diagnostics) {
+    Set& set = sets[SetIndex(key)];
+    for (size_t i = 0; i < 2; ++i) {
+      Slot& slot = set.slots[i];
+      if (slot.entry && slot.key == key) {
+        set.replace = uint8_t(i ^ 1);
+        ++diagnostics.attribute_lookup_hits;
+        return *slot.entry;
+      }
+    }
+    ++diagnostics.attribute_lookup_misses;
+    auto& entry = attribute_cache[key];
+    Slot& slot = set.slots[set.replace];
+    slot.key = key;
+    slot.entry = &entry;
+    set.replace ^= 1;
+    return entry;
+  }
+
+  void Clear() {
+    for (Set& set : sets) {
+      set.slots[0].entry = set.slots[1].entry = nullptr;
+      set.replace = 0;
+    }
+  }
+};
+AttributeLookupCache attribute_lookup;
+
+bool AttributeLookupEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_attribute_lookup);
+  return enabled;
+}
+
+CacheEntry<FloatArray>& AttributeEntryFor(const AttributeKey& key, VertexDiagnostics& diagnostics) {
+  if (AttributeLookupEnabled()) return attribute_lookup.Find(key, diagnostics);
+  ++diagnostics.attribute_lookup_bypasses;
+  return attribute_cache[key];
+}
+
+void SweepAttributeCache() {
+  if ((frame_counter & 255) == 0) attribute_lookup.Clear();
+  Sweep(attribute_cache);
+}
+
 // A draw's indices as the renderer draws them (read, byte-swapped, offset,
 // rebased to the lowest vertex, fans and quads made triangles), by where and
 // how they were read, checked against their memory like the attributes: most
@@ -2400,7 +2475,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       const size_t first = (size_t(lo) * f.stride + f.offset) * 4;
       geometry = MotionMix(geometry, uint64_t(uintptr_t(base) + first) ^ uint64_t(f.stride) << 48);
       const size_t range = size_t(d.vertex_count) * f.stride * 4 + 16;
-      CacheEntry<FloatArray>& acached = attribute_cache[akey];
+      CacheEntry<FloatArray>& acached = AttributeEntryFor(akey, frame.vertex_diagnostics);
       acached.last_used = frame_counter;
       const bool watchable = REXCVAR_GET(nfsmw_native_write_watch) && buffer && !in.up_vertices && !acached.dynamic;
       if (acached.value && acached.watched && write_watch::Clean(buffer + uint32_t(first), range)) {
@@ -6576,6 +6651,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
+        REXLOG_INFO("[native] attribute lookup: cache {}; {} hits, {} misses, {} bypasses since last summary "
+                    "(content validation unchanged)",
+                    AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
+                    vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses);
         REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
                     "{} unknown-shader draws retained all slots (diagnostics also retain all)",
                     REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",
@@ -7039,7 +7118,7 @@ bool NativeSwap() {
   }
   ++frame_counter;
   SweepTextureCache();
-  Sweep(attribute_cache);
+  SweepAttributeCache();
   Sweep(index_cache);
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
