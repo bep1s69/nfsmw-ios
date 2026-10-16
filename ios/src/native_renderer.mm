@@ -72,6 +72,7 @@
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
 #include "native_texture_masks.h"
+#include "native_draw_arena.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -104,6 +105,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
+                    "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -949,10 +952,15 @@ struct ConstantBank {
 };
 
 struct Draw {
+  explicit Draw(std::pmr::memory_resource* attributes_resource) : attributes(attributes_resource) {}
+  Draw(const Draw&) = delete;
+  Draw& operator=(const Draw&) = delete;
+  Draw(Draw&&) noexcept = default;
+  Draw& operator=(Draw&&) = delete;
   id<MTLFunction> vs, ps;
   uint64_t vs_key, ps_key;
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
-  std::vector<Attribute> attributes;
+  std::pmr::vector<Attribute> attributes;
   // Rebased to the decoded vertices; shared with the index cache (and the
   // renderer's Metal buffer for them) unless made this frame (indices_fresh).
   std::shared_ptr<const std::vector<uint32_t>> indices;
@@ -990,6 +998,9 @@ struct Draw {
 };
 
 struct VertexDiagnostics {
+  uint64_t draw_arena_frames = 0, draw_attribute_lists = 0;
+  uint64_t draw_attribute_heap_calls = 0, draw_attribute_heap_bytes = 0;
+  uint64_t draw_attribute_peak_bytes = 0;
   uint64_t texture_slots_considered = 0, texture_slots_skipped = 0;
   uint64_t texture_mask_unknown_draws = 0;
   uint64_t fetch_layout_hits = 0, fetch_layout_misses = 0, fetch_layout_bypasses = 0;
@@ -1007,6 +1018,11 @@ struct VertexDiagnostics {
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
+    draw_arena_frames += other.draw_arena_frames;
+    draw_attribute_lists += other.draw_attribute_lists;
+    draw_attribute_heap_calls += other.draw_attribute_heap_calls;
+    draw_attribute_heap_bytes += other.draw_attribute_heap_bytes;
+    draw_attribute_peak_bytes = std::max(draw_attribute_peak_bytes, other.draw_attribute_peak_bytes);
     texture_slots_considered += other.texture_slots_considered;
     texture_slots_skipped += other.texture_slots_skipped;
     texture_mask_unknown_draws += other.texture_mask_unknown_draws;
@@ -1032,7 +1048,15 @@ struct VertexDiagnostics {
 };
 
 struct Frame {
+  // Declared first, destroyed last: every draw releases its attribute objects
+  // and shared references before the arena's blocks are returned to the heap.
+  nfsmw::DrawArena attribute_arena;
   std::vector<Draw> draws;
+  size_t attribute_lists = 0, attribute_hint_bytes = 0;
+  Frame(bool pooled, size_t previous_attribute_bytes, size_t previous_draws)
+      : attribute_arena(pooled, previous_attribute_bytes) {
+    if (pooled) draws.reserve(std::min(previous_draws, nfsmw::DrawArena::kMaxDrawHint));
+  }
   // The texture of each fetch slot at the last draw (cleared by a resolve:
   // its address may then stand for the renderer's copy).
   uint32_t slot_fetch[16][6] = {};
@@ -2169,7 +2193,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   if (in.from_arguments) {
     ++frame.from_arguments;
   }
-  Draw d;
+  Draw d(frame.attribute_arena.Resource());
   d.vs_key = in.vs_key;
   d.ps_key = in.ps_key;
   {  // by key, without building the name (the store is loaded before any recording)
@@ -2316,6 +2340,11 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   geometry = MotionMix(geometry, ikey.offset ^ uint64_t(ikey.flags) << 32);
   auto inputs_it = store.inputs.find(in.vs_key);
   if (inputs_it != store.inputs.end()) {
+    if (!inputs_it->second.empty()) {
+      ++frame.attribute_lists;
+      frame.attribute_hint_bytes += inputs_it->second.size() * sizeof(Attribute);
+      if (frame.attribute_arena.Enabled()) d.attributes.reserve(inputs_it->second.size());
+    }
     const CachedFetchLayout* layout = FetchLayoutFor(in, inputs_it->second, frame.vertex_diagnostics);
     for (size_t input_index = 0; input_index < inputs_it->second.size(); ++input_index) {
       const VertexInput& input = inputs_it->second[input_index];
@@ -6524,6 +6553,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",
                     vertex_diagnostics.texture_slots_skipped, vertex_diagnostics.texture_slots_considered,
                     vertex_diagnostics.texture_mask_unknown_draws);
+        const double arena_frames = double(std::max<uint64_t>(vertex_diagnostics.draw_arena_frames, 1));
+        REXLOG_INFO("[native] CPU draw arena: pooling {}; {:.1f} attribute lists/frame, "
+                    "{:.2f} upstream heap allocations/frame, {:.3f} MiB requested/frame; "
+                    "peak attribute storage {:.3f} MiB in this window",
+                    frame->attribute_arena.Enabled() ? "on" : "off",
+                    double(vertex_diagnostics.draw_attribute_lists) / arena_frames,
+                    double(vertex_diagnostics.draw_attribute_heap_calls) / arena_frames,
+                    double(vertex_diagnostics.draw_attribute_heap_bytes) / kMiB / arena_frames,
+                    double(vertex_diagnostics.draw_attribute_peak_bytes) / kMiB);
         REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
                     compressible_resolves ? "enabled" : "legacy view usage");
         REXLOG_INFO("[native] geometry arena: range reuse {}; {} empty chunks released since launch",
@@ -6947,6 +6985,7 @@ bool NativeSwap() {
   // Hitch log: the time since the last swap on this (the command processor's)
   // thread, and what the frame's recording spent it on.
   static auto last_swap = std::chrono::steady_clock::now();
+  static size_t previous_draws = 0, previous_attribute_bytes = 0;
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   struct {
@@ -6957,6 +6996,15 @@ bool NativeSwap() {
     uint64_t texture_bytes = 0, texture_us = 0;
   } hitch;
   if (recording) {
+    previous_draws = recording->draws.size();
+    previous_attribute_bytes = recording->attribute_hint_bytes;
+    const auto allocations = recording->attribute_arena.Stats();
+    auto& diagnostics = recording->vertex_diagnostics;
+    diagnostics.draw_arena_frames = 1;
+    diagnostics.draw_attribute_lists = recording->attribute_lists;
+    diagnostics.draw_attribute_heap_calls = allocations.allocations;
+    diagnostics.draw_attribute_heap_bytes = allocations.allocated_bytes;
+    diagnostics.draw_attribute_peak_bytes = allocations.peak_bytes;
     hitch = {true, recording->draws.size(), recording->record_ns, recording->vertex_diagnostics.cache_misses,
              recording->vertex_diagnostics.decoded_vertex_elements, recording->textures_decoded,
              recording->texture_decode_bytes, recording->texture_decode_us};
@@ -7043,7 +7091,7 @@ bool NativeSwap() {
     next_dump_ms = NowMs() + std::max(500, REXCVAR_GET(nfsmw_native_dump_interval_ms));
   }
   recording_dumps = dump_due;
-  recording = std::make_unique<Frame>();
+  recording = std::make_unique<Frame>(REXCVAR_GET(nfsmw_native_draw_arena), previous_attribute_bytes, previous_draws);
   return true;
 }
 

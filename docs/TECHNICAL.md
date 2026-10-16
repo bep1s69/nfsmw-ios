@@ -478,3 +478,48 @@ was lower (5.73 versus 6.535 ms) but its mean was higher (7.259 versus 6.986 ms)
 No isolated CPU, GPU or battery improvement is inferred from these differences.
 Keep enabled following the visual/stability check and measured slot elimination;
 include it in a later complete-batch energy/performance comparison.
+
+### CPU draw-attribute arena experiment
+
+`--nfsmw_native_draw_arena=true` (on in the test build) gives each recorded Frame
+a CPU `std::pmr::monotonic_buffer_resource` for its small attribute lists. Each
+list reserves its known shader input count once. The frame's draw vector also
+reserves the previous frame's draw count. It is independent of the five-option
+master, native constant copies and texture masks. Set it false and restart to
+restore individual attribute heap allocations, geometric list growth and no
+draw-vector preallocation. Both arms use `std::pmr::vector<Attribute>`; the off
+arm changes its resource to the ordinary heap and preserves the old growth
+policy, rather than being a byte-identical copy of the older executable.
+
+The arena is declared before Frame::draws and is destroyed after every draw.
+Draws move without copying their attribute lists; copying or move-assigning
+draws is prohibited to prevent accidental transfer between frame resources.
+The frame itself remains at a stable address and passes to the serial renderer
+queue through the existing unique_ptr handoff. No pool is recycled across
+in-flight frames. Attribute objects still release all shared references, and
+the separately allocated FloatArray data and its cache/GPU-buffer owners are
+unchanged. This is CPU storage, separate from the earlier Metal geometry arena.
+
+Previous-frame sizing is an initial hint only: attribute block hints are clamped
+to 4 KiB..4 MiB and draw reserve hints to 8,192 draws. Actual storage can grow
+beyond either hint without skipping data. Blocks, including abandoned draw
+storage, are released when the frame is destroyed. A transition to a much smaller
+frame may overreserve once; no permanent high-water reservation is kept.
+
+`[native] CPU draw arena` logs attribute lists and upstream heap allocation
+calls/bytes per submitted frame, plus the window's peak per-frame attribute
+storage. Heap counters are local to each frame, with a snapshot before handoff;
+there are no per-draw atomics or log writes. These counters cover attribute-list
+backing storage, not decoded arrays, constant banks or draw-vector allocations.
+The off arm also counts heap requests, adding a small instrumentation cost.
+
+Validation: `python3 tools/native/test_draw_arena.py` extracts the production
+allocator, Attribute, Draw, diagnostics and Frame declarations into an ARC-enabled
+Objective-C++ test under AddressSanitizer/UndefinedBehaviorSanitizer. Three
+3,500-draw cases compare data and ownership for individual allocations, a cold
+pool and a pool sized from the previous frame. It checks vector relocation,
+abandoned draws, cached payloads, Metal-object retention, render-thread destruction,
+independent frames, over-alignment, block overflow and bad_alloc cleanup. In this
+fixture, attribute upstream allocations were 13,121 / 7 / 1 respectively. Those
+are fixture counts, not device CPU or battery measurements. The iOS IPA built
+successfully; device visual/stability validation remains pending.
