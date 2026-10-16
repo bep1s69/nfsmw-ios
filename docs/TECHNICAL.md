@@ -523,3 +523,33 @@ independent frames, over-alignment, block overflow and bad_alloc cleanup. In thi
 fixture, attribute upstream allocations were 13,121 / 7 / 1 respectively. Those
 are fixture counts, not device CPU or battery measurements. The iOS IPA built
 successfully; device visual/stability validation remains pending.
+
+First device check: `nfsmw_run_9_ipad.log` (October 16), iPad 1.5x / 60 FPS,
+all previous optimizations on. The user reported no visual bugs. Across driving
+summaries, the median 2,425.4 attribute lists/frame used 1.00 upstream heap
+allocations/frame (mean 1.0003, maximum reported window average 1.01). Median
+heap bytes requested were 0.489 MiB/frame; the largest per-frame attribute
+storage high-water mark was 0.881 MiB. These are device allocation counters,
+confirming that thousands of individual list allocations are avoided. There
+is no measured off-arm device allocation count for this run.
+
+Driving held median 60 FPS with nominal thermal state, 21 of 9,300 reported
+frames off the pacing grid, and no GPU command failures. The Metal geometry
+arena stayed at 32 MiB reserved (19 MiB live at the final summary). Relative
+to run 8, median recording was 1.74 versus 1.86 ms/frame and aggregate CPU
+70% versus 70.5% of a core. Reported draw counts and geometry decoding were
+higher, and GPU duration increased to median 8.46 ms (run 8: 5.73 ms). Driving
+duration was about 155 versus 137 seconds. No isolated CPU or energy gain is
+inferred from these uncontrolled timing comparisons. Keep the pool enabled
+following the allocation and visual checks; include it in the batch comparison.
+
+One watchdog dump occurred during driving at 15:32:49.609 (in addition to the
+usual startup dump), then reported movement again one second later. Its claimed
+five-second game stall conflicts with frames 5,701..6,001 advancing in exactly
+five seconds and zero pacing misses in that interval. The watchdog in
+`common/src/nfsmw_app.h` samples LR/SP/r3 once per second; unchanged samples do
+not establish lack of frame progress. A false alarm is the current inference,
+not a confirmed hang or a pool failure. No semaphore-recovery pushes were logged.
+The 531 in-race error-level lines are this single watchdog/semaphore trace dump,
+not 531 separate faults. A future diagnostic improvement should consult actual
+frame progress before declaring a stall; no watchdog code changed here.
