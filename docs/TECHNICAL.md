@@ -908,3 +908,47 @@ validation; defer another long power trace until more changes are stacked.
 The lookup experiment can be disabled independently with false and a restart.
 No graphics settings, shaders, command ordering or scheduling policy changed
 in this experiment. Device validation is pending.
+
+First device check: `nfsmw_run_14_ipad.log`, October 17 00:19..00:22. The user
+reported no bugs. Renderer build is 00:16:30; lookup reports on with zero
+bypasses and Utility scheduling remains on. The previous eight options and
+1.5x / 60 FPS, MetalFX/FXAA off, forced MSAA 0 remain as in run 13.
+The test race runs 00:20:12.391..00:22:32.022 (139.631 seconds). For steady
+comparison, exclude five seconds at either end, as in earlier analyses.
+
+The guarded driving summaries record 54,117,077 front-cache hits and 6,404,571
+map fallbacks: 89.418% of lookups bypass the map. Across all driving summaries,
+the counts are 57,179,059 hits / 6,845,653 misses (89.308%). These are reductions
+in attribute-entry map lookups, not percentages of CPU or energy saved. The
+device cache locality is better than the synthetic host benchmark's fixture.
+Existing fingerprints, source validation and decoding remain active.
+
+| Guarded race measurement | Run 13, lookup off | Run 14, lookup on |
+|---|---:|---:|
+| Median recording, ms/frame | 1.475 | 1.360 |
+| Mean recording, ms/frame | 1.486 | 1.392 |
+| Median logged CPU, complete 10-second windows | 82.5% of a core | 80.5% of a core |
+| Median CPU encoding, ms/frame | 4.780 | 4.675 |
+| Median GPU duration, ms/frame | 4.085 | 4.085 |
+| Median draws in reported frames | 2,219.5 | 2,353.5 |
+| Mean decoded attribute elements/reporting interval | 3,167,426 | 3,317,293 |
+| Reported average FPS, median and mean | 60 / 60 | 60 / 60 |
+| Frames off pacing grid | 4 / 7,800 | 39 / 7,800 |
+
+The recording/CPU observations are encouraging, but the race workload differs:
+reported draw counts and mean decoded elements are higher in run 14, while
+median decoded elements are lower. Do not claim an isolated 7.8% recording
+gain or an energy improvement from this single uncontrolled comparison.
+Pacing is somewhat less uniform than run 13 (0.50% versus 0.05% off-grid in
+the guarded selections) while average FPS remains 60; no visible stutter was
+reported, and the log does not establish that the lookup cache caused this.
+
+There are no error-level entries during driving and no GPU command failures.
+The only watchdog/semaphore dump is during startup. All 54 logged thermal
+reports are nominal. All guarded frame-entry QoS samples remain Utility;
+attribute allocations are 1.00/frame, shader-mask fallbacks are zero, and
+geometry reservation stays 32 MiB (at most 25 MiB live across driving reports).
+Retain the lookup switch enabled for subsequent stacked tests following the
+correctness check and measured lookup elimination. Its default remains false
+pending broader validation. A long power trace is deferred to the next batch
+comparison; no additional code or IPA changed while analyzing this log.
