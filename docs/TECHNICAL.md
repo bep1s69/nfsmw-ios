@@ -1321,3 +1321,53 @@ map entries, using local render-queue counters summarized at the existing
 unchanged until the miss distribution is known. This instrumentation has not
 been implemented; await approval. No new source patch/build was made for this
 log analysis.
+
+### GPU-buffer lookup counters (IPA 19)
+
+After approval, added diagnostic-only instrumentation to
+`ios/src/native_renderer.mm`. `--nfsmw_native_gpu_lookup_stats=true` enables
+it at startup; default false, independent of the five-option battery group
+and every optimization switch. The cache policy remains the same 4,096-slot
+pointer-bits-4..15 selector and full-pointer match with unordered_map fallback.
+No SDK or generated game source changes.
+
+The existing normal-frame summary interval now reports:
+- Frames covered, with snapshot frames counted separately if present.
+- Front-cache full-pointer hits, empty-slot misses and occupied-slot misses
+  (labelled collisions). Each lookup belongs to exactly one category.
+- Misses returning an existing map node versus inserting a new map node,
+  determined by map size before/after the same existing operator[] call.
+- Current occupied front slots and total backing-map entries. Occupancy is
+  scanned once per summary, not maintained in the hot lookup path.
+
+Counters use render-queue-local uint64_t fields, no atomics, clocks, per-call
+logging or diagnostic allocation. They reset after each summary; cache state
+is preserved. Misses should equal existing plus new map fallbacks. New map
+entries are not counts of Metal allocations, arena uploads or new chunks;
+failed arena allocation can leave an existing node for a later retry. The
+counters cover vertex and index GpuBufferFor calls together; fresh geometry
+uploaded into the per-frame data buffer bypasses this function. An occupied
+slot miss proves front-cache displacement, not an unordered_map bucket
+collision. This first measurement does not separately distinguish working-set
+capacity pressure from poor slot distribution; further policy measurements
+may be needed after its coverage is known.
+
+A standalone host check extracted the actual front-cache/statistics code and
+ran both switch arms under ASan/UBSan. A controlled full-pointer sequence,
+including two pointers 64 KiB apart, produced the expected 2 hits / 2 empty
+misses / 2 collisions, with 3 new and 1 existing map fallback. Disabling
+statistics leaves counts zero. Summary reset preserves node identity and
+front-cache contents. Source comparison confirms the remainder of GpuBufferFor
+(upload, ownership, last-use/submission updates) and SweepGpu are byte-for-byte
+unchanged. Instrumented CPU timings must not be treated as a saving from this
+measurement build.
+
+The iOS build, ZIP CRC and strict deep codesign verification passed; all 104
+Metal libraries match IPA18. `ios/build/NFSMW-battery-gpu-lookup-stats-19.ipa`:
+UUID `F5A35C35-FD08-3DC9-B43D-84ECAABE656F`, SHA256
+`a851e8933477d2d2cfd913bbc40d477d8839ba7d93e5e964fffbede15ae62ba6`.
+Device data pending: retain all prior arguments/settings, add
+`--nfsmw_native_gpu_lookup_stats=true`, and run the usual two-lap iPad race
+at 1.5x / 60 FPS. The game log contains all required counters; no Instruments
+capture or long power A/B is needed for this measurement. Await that log
+before choosing or implementing a cache replacement.

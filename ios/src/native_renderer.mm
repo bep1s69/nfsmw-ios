@@ -111,6 +111,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
+                    "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, false, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
@@ -3757,12 +3759,38 @@ struct GpuBufferSlot {
 };
 GpuBufferSlot gpu_buffer_slots[4096];
 
+// Render-queue-only diagnostics. A collision means a different full pointer
+// occupied this direct-cache slot; it is not a backing-map bucket collision.
+struct GpuBufferLookupStats {
+  uint64_t frames = 0, snapshot_frames = 0;
+  uint64_t hits = 0, empty_misses = 0, collisions = 0;
+  uint64_t existing_entries = 0, new_entries = 0;
+};
+GpuBufferLookupStats gpu_buffer_lookup_stats;
+
+bool GpuBufferLookupStatsEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_gpu_lookup_stats);
+  return enabled;
+}
+
 template <typename T>
 id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
   GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(values.get()) >> 4) & 4095];
+  const bool lookup_stats = GpuBufferLookupStatsEnabled();
   if (slot.key != values.get()) {
+    if (lookup_stats) {
+      if (slot.key) ++gpu_buffer_lookup_stats.collisions;
+      else ++gpu_buffer_lookup_stats.empty_misses;
+    }
     slot.key = values.get();
+    const size_t entries_before = lookup_stats ? gpu_buffers.size() : 0;
     slot.entry = &gpu_buffers[values.get()];
+    if (lookup_stats) {
+      if (gpu_buffers.size() == entries_before) ++gpu_buffer_lookup_stats.existing_entries;
+      else ++gpu_buffer_lookup_stats.new_entries;
+    }
+  } else if (lookup_stats) {
+    ++gpu_buffer_lookup_stats.hits;
   }
   GpuBuffer& g = *slot.entry;
   g.last_used = gpu_frame;
@@ -4034,6 +4062,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       ~FrameCapture() { Finish(); }
     } capture{nfsmw::gpu_capture::BeginNativeFrame(queue)};
     ++gpu_frame;
+    if (GpuBufferLookupStatsEnabled()) {
+      ++gpu_buffer_lookup_stats.frames;
+      if (dump) ++gpu_buffer_lookup_stats.snapshot_frames;
+    }
     gpu_submission_frame = number;
     SweepGpu();
 
@@ -6588,6 +6620,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        if (GpuBufferLookupStatsEnabled()) {
+          // Scanning 4,096 slots once per summary avoids an occupancy update
+          // on every lookup. No resource owns or depends on these counters.
+          size_t occupied = 0;
+          for (const GpuBufferSlot& slot : gpu_buffer_slots) occupied += slot.key != nullptr;
+          const auto& lookup = gpu_buffer_lookup_stats;
+          REXLOG_INFO("[native] GPU buffer lookup: stats on; over {} frames ({} snapshot), "
+                      "{} hits, {} empty-slot misses, {} occupied-slot collisions; "
+                      "map fallbacks {} existing / {} new entries; {} of 4096 slots occupied, {} map entries "
+                      "(vertex and index lookups; new entries are not Metal allocation counts)",
+                      lookup.frames, lookup.snapshot_frames, lookup.hits, lookup.empty_misses,
+                      lookup.collisions, lookup.existing_entries, lookup.new_entries, occupied, gpu_buffers.size());
+          gpu_buffer_lookup_stats = {};
+        } else {
+          REXLOG_INFO("[native] GPU buffer lookup: stats off (nfsmw_native_gpu_lookup_stats, restart required)");
+        }
         REXLOG_INFO("[native] lazy diagnostics: {}; snapshot-only preparation {} on ordinary frames",
                     lazy_diagnostics ? "on" : "off", prepare_snapshots ? "active" : "skipped");
         REXLOG_INFO("[native] render scheduling: utility requested {}; frame-entry QoS samples "
