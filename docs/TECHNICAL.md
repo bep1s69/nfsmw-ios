@@ -1444,3 +1444,75 @@ profiles put the backing-map leaf at roughly 1–2% of app CPU samples, so any
 whole-app gain is expected to be incremental. Approval is required before
 implementing this selector change. No source patch or new IPA was made for
 this log analysis.
+
+### Higher-bit GPU-buffer slot selector (IPA 20)
+
+After approval, added `--nfsmw_native_gpu_lookup_hash=true`, default false,
+restart-required and separate from every other option. Production changes are
+limited to `ios/src/native_renderer.mm`. The same 4,096-slot table, slot
+structure, replacement policy, full-pointer hit comparison and backing map
+remain in use. A shared GpuBufferSlotIndex helper is used by both lookup and
+SweepGpu invalidation. A periodic selector log identifies the chosen path.
+
+The enabled selector takes pointer >> 4 as before, folds the higher region
+bits into 12-bit groups, multiplies that regional salt by 0x9E37, XORs it into
+the key, then masks to 4,096 slots. Within an aligned 64 KiB region the salt
+is constant, so distinct legacy slots within that region stay distinct. The
+salt varies between regions; the multiply spreads small regional differences
+across the selected bits. It is only a slot selector, never a resource identity
+or content-validity check. The disabled arm uses the legacy low-bit selector;
+the new switch check means it is not byte-identical old machine code.
+
+Uploads, shared ownership, last-used/last-submission refreshes, GPU completion
+checks, expiry rules and geometry reclamation are unchanged. Source comparison
+confirmed the upload/sweep body matches the previous source except the shared
+selector expression used during erasure. The existing counters remain
+independent and unchanged, enabling comparison against run 17's 57.214% hits,
+42.786% fallbacks and 1,360–1,364 occupied slots.
+
+`python3 tools/native/test_gpu_buffer_lookup.py` passed all four selector /
+counter switch combinations under real Objective-C ARC plus ASan/UBSan. It
+extracts the production GpuBuffer, slot/statistics definitions, complete
+GpuBufferFor and SweepGpu. Host-memory buffer/arena fixtures allow checking:
+- All 4,096 distinct legacy slots within one region remain distinct; output
+  bounds also hold for individual pointer bits through bit 63.
+- Forced full-pointer collisions return the correct uploaded array and
+  original offset, without duplicate upload on an existing node.
+- Map rehash keeps cached node pointers valid.
+- Expired entries remain until their GPU submission completes; removing an
+  older colliding entry does not invalidate its newer slot occupant.
+- Erasing the slot occupant clears its cached pointer before node destruction.
+- Guest decoded-array ownership survives pending submissions and ends on
+  completed eviction. Allocation failure/retry and reuse of exactly the same
+  object address cause correct fresh upload rather than a dangling hit.
+These fixtures submit no actual GPU work; device rendering/lifetime validation
+remains necessary.
+
+The -O3 `--benchmark` passed the same correctness checks with counters on and
+timed the extracted front lookup / actual backing-map type. Controlled pointer
+layouts (48-byte steps in 64 KiB regions, fixed cyclic order) gave:
+
+| Synthetic layout | Legacy | Higher-bit mix |
+|---|---|---|
+| 1 region, 1,024 keys | 2.20–2.35 ns, 100% hits, 1,024 slots | 2.17–2.20 ns, 100% hits, 1,024 slots |
+| 4 regions, 4,096 keys | 10.38–14.80 ns, 0% hits, 1,024 slots | 5.90–6.53 ns, 43.70% hits, 2,844 slots |
+| 16 regions, 4,096 keys | 8.64–8.93 ns, 0% hits, 256 slots | 5.94–6.09 ns, 39.14% hits, 2,700 slots |
+
+These are host synthetic microbenchmarks, not a replay of actual device
+addresses, an isolated universal hashing-cost estimate, or device/energy gains.
+A plain XOR-only fold was also considered locally; it left the 16-region
+synthetic case clustered, motivating the regional salt multiply in the final
+implementation. Device counters must determine whether the game benefits.
+
+The iOS build, ZIP CRC and strict deep codesign verification passed. All 104
+Metal libraries are byte-identical to IPA19.
+`ios/build/NFSMW-battery-gpu-lookup-hash-20.ipa`:
+UUID `2CD6D542-84B7-3379-BB26-DAE64A642F64`, SHA256
+`311ddbcc7ae6c75c23f3bb57f63e152f0c52757aeb78203d84a9a4c3e6161648`.
+Device validation pending: retain all previous arguments, especially
+`--nfsmw_native_gpu_lookup_stats=true`, add
+`--nfsmw_native_gpu_lookup_hash=true`, and run the usual two-lap iPad race
+at 1.5x / 60 FPS. Compare hits/fallbacks and occupancy against run 17, plus
+resource churn, timing/pacing and visual/stability observations. No repeated
+OFF race or long individual power A/B requested. Await the device log before
+stacking another implementation change or enabling this selector by default.

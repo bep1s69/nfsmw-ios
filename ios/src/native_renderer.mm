@@ -111,6 +111,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, false, "GPU",
+                    "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, false, "GPU",
@@ -3759,6 +3761,27 @@ struct GpuBufferSlot {
 };
 GpuBufferSlot gpu_buffer_slots[4096];
 
+bool GpuBufferLookupHashEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_gpu_lookup_hash);
+  return enabled;
+}
+
+size_t GpuBufferSlotIndex(const void* pointer) {
+  uint64_t key = uint64_t(uintptr_t(pointer)) >> 4;
+  if (GpuBufferLookupHashEnabled()) {
+    // Mix the region's higher 12-bit groups, then use its salt as a fixed
+    // XOR within that 64 KiB region. Preserve that region's unique slots
+    // while avoiding identical placement for nearby regions. The multiply
+    // spreads small region differences across the slot bits; it is not a
+    // resource identity check. Every hit still compares the full pointer.
+    uint64_t region = key >> 12;
+    region ^= region >> 12;
+    region ^= region >> 24;
+    key ^= region * 0x9E37u;
+  }
+  return size_t(key & 4095);
+}
+
 // Render-queue-only diagnostics. A collision means a different full pointer
 // occupied this direct-cache slot; it is not a backing-map bucket collision.
 struct GpuBufferLookupStats {
@@ -3775,7 +3798,7 @@ bool GpuBufferLookupStatsEnabled() {
 
 template <typename T>
 id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
-  GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(values.get()) >> 4) & 4095];
+  GpuBufferSlot& slot = gpu_buffer_slots[GpuBufferSlotIndex(values.get())];
   const bool lookup_stats = GpuBufferLookupStatsEnabled();
   if (slot.key != values.get()) {
     if (lookup_stats) {
@@ -3820,7 +3843,7 @@ void SweepGpu() {
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
     if (gpu_frame - it->second.last_used > 600 && it->second.last_submission <= completed) {
       if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.offset, it->second.size);
-      GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(it->first) >> 4) & 4095];
+      GpuBufferSlot& slot = gpu_buffer_slots[GpuBufferSlotIndex(it->first)];
       if (slot.key == it->first) slot = GpuBufferSlot{};  // only this entry's slot
       it = gpu_buffers.erase(it);
     } else {
@@ -6620,6 +6643,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        REXLOG_INFO("[native] GPU buffer selector: {}; 4096 direct-mapped slots (restart required)",
+                    GpuBufferLookupHashEnabled() ? "higher-bit mix" : "legacy low bits");
         if (GpuBufferLookupStatsEnabled()) {
           // Scanning 4,096 slots once per summary avoids an occupancy update
           // on every lookup. No resource owns or depends on these counters.
