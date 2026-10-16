@@ -70,6 +70,7 @@
 #include "native_renderer.h"
 #include "memory_report.h"
 #include "gpu_capture.h"
+#include "native_arena_ranges.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -94,6 +95,8 @@ extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hoo
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
+REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
+                    "Native renderer: reuse completed geometry ranges and release surplus empty chunks");
 REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, false, "GPU",
                     "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
@@ -3090,14 +3093,15 @@ struct GpuBuffer {
   uint32_t chunk = 0;
   std::shared_ptr<const void> keep;
   uint64_t last_used = 0;
+  uint32_t last_submission = 0;
 };
 
 // The cached vertex and index arrays' GPU copies, packed into large shared
 // buffers: one Metal allocation (and one residency set change) per 32 MB
 // instead of one per array. Thousands of small buffers made as a race starts
 // meant thousands of allocations, each wired and added to the residency set.
-// A chunk is reused once nothing in it is alive (arrays leave the cache after
-// 600 frames unused, long after the GPU last read them).
+// Completed, expired arrays return their ranges for reuse. Surplus empty
+// chunks leave the residency set; the legacy bump allocator is a control.
 struct BufferArena {
   static constexpr size_t kChunk = 32u << 20;
   struct Chunk {
@@ -3106,10 +3110,27 @@ struct BufferArena {
   };
   std::vector<Chunk> chunks;
   uint32_t current = UINT32_MAX;
+  nfsmw::ArenaRanges ranges;
+  bool reuse_ranges = false, configured = false;
+  uint64_t chunks_released = 0;
 
   // Room for `size` bytes: its chunk, buffer and offset.
   bool Allocate(id<MTLDevice> device, size_t size, uint32_t& chunk, __strong id<MTLBuffer>& buffer, size_t& offset) {
     size = (size + 255) & ~size_t(255);
+    if (!configured) {
+      reuse_ranges = REXCVAR_GET(nfsmw_native_reclaim_geometry);
+      configured = true;  // allocation policy is fixed for this app launch
+    }
+    if (reuse_ranges) {
+      if (!ranges.Allocate(size, chunk, offset)) {
+        if (!Fresh(device, std::max(size, kChunk))) return false;
+        if (!ranges.Allocate(size, chunk, offset)) return false;
+      }
+      Chunk& c = chunks[chunk];
+      c.live += size;
+      buffer = c.buffer;
+      return true;
+    }
     if (current == UINT32_MAX || chunks[current].buffer.length - chunks[current].used < size) {
       if (!Fresh(device, std::max(size, kChunk))) return false;  // larger than a chunk: one of its size
     }
@@ -3122,11 +3143,30 @@ struct BufferArena {
     return true;
   }
 
-  void Release(uint32_t chunk, size_t size) {
+  void Release(uint32_t chunk, size_t offset, size_t size) {
     size = (size + 255) & ~size_t(255);
     Chunk& c = chunks[chunk];
     c.live -= std::min(c.live, size);
-    if (c.live == 0 && chunk != current) c.used = 0;  // empty: reusable
+    if (reuse_ranges) ranges.Release(chunk, offset, size);
+    else if (c.live == 0 && chunk != current) c.used = 0;
+  }
+
+  void Trim() {
+    if (!reuse_ranges) return;
+    bool kept_spare = false;
+    for (uint32_t i = 0; i < chunks.size(); ++i) {
+      Chunk& c = chunks[i];
+      if (!c.buffer || c.live) continue;
+      if (!kept_spare && c.buffer.length == kChunk) {
+        kept_spare = true;  // avoid allocation churn during streaming
+        continue;
+      }
+      ranges.RemoveEmptyChunk(i, c.buffer.length);
+      residency::Remove(c.buffer);
+      c.buffer = nil;
+      c.used = 0;
+      ++chunks_released;
+    }
   }
 
   size_t LiveBytes() const {
@@ -3145,7 +3185,7 @@ struct BufferArena {
   bool Fresh(id<MTLDevice> device, size_t size) {
     // An empty chunk big enough, else a new one.
     for (uint32_t i = 0; i < chunks.size(); ++i) {
-      if (i != current && chunks[i].used == 0 && chunks[i].buffer.length >= size) {
+      if (!reuse_ranges && i != current && chunks[i].used == 0 && chunks[i].buffer.length >= size) {
         current = i;
         return true;
       }
@@ -3153,8 +3193,18 @@ struct BufferArena {
     id<MTLBuffer> b = [device newBufferWithLength:size options:MTLResourceStorageModeShared];
     if (!b) return false;
     residency::Add(b);
+    if (reuse_ranges) {
+      for (uint32_t i = 0; i < chunks.size(); ++i) {
+        if (chunks[i].buffer) continue;
+        chunks[i] = {b, 0, 0};
+        current = i;
+        ranges.AddChunk(i, size);
+        return true;
+      }
+    }
     chunks.push_back({b, 0, 0});
     current = uint32_t(chunks.size() - 1);
+    if (reuse_ranges) ranges.AddChunk(current, size);
     return true;
   }
 };
@@ -3293,6 +3343,7 @@ GpuPool gpu_pool;
 std::unordered_map<const void*, GpuBuffer> gpu_buffers;
 std::map<uint32_t, id<MTLSamplerState>> gpu_samplers;
 uint64_t gpu_frame = 0;
+uint32_t gpu_submission_frame = 0;
 
 uint64_t ProcessPhysicalFootprint() {
   task_vm_info_data_t info = {};
@@ -3563,6 +3614,7 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
   }
   GpuBuffer& g = *slot.entry;
   g.last_used = gpu_frame;
+  g.last_submission = gpu_submission_frame;
   if (!g.buffer) {
     const size_t size = std::max<size_t>(values->size() * sizeof(values->front()), 16);
     if (!buffer_arena.Allocate(device, size, g.chunk, g.buffer, g.offset)) {
@@ -3584,9 +3636,10 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
 void SweepGpu() {
   if ((gpu_frame & 63) != 0) return;
 
+  const uint32_t completed = gpu_frames_done.load(std::memory_order_acquire);
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
-    if (gpu_frame - it->second.last_used > 600) {
-      if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.size);
+    if (gpu_frame - it->second.last_used > 600 && it->second.last_submission <= completed) {
+      if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.offset, it->second.size);
       GpuBufferSlot& slot = gpu_buffer_slots[(uintptr_t(it->first) >> 4) & 4095];
       if (slot.key == it->first) slot = GpuBufferSlot{};  // only this entry's slot
       it = gpu_buffers.erase(it);
@@ -3594,6 +3647,7 @@ void SweepGpu() {
       ++it;
     }
   }
+  buffer_arena.Trim();
 }
 
 // The on-screen layer (made on the main thread) and its pipeline.
@@ -3806,6 +3860,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       ~FrameCapture() { Finish(); }
     } capture{nfsmw::gpu_capture::BeginNativeFrame(queue)};
     ++gpu_frame;
+    gpu_submission_frame = number;
     SweepGpu();
 
     // Textures and samplers, and the shaders' descriptor heaps (argument
@@ -6422,6 +6477,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     vertex_diagnostics.fetch_layout_bypasses);
         REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
                     compressible_resolves ? "enabled" : "legacy view usage");
+        REXLOG_INFO("[native] geometry arena: range reuse {}; {} empty chunks released since launch",
+                    buffer_arena.reuse_ranges ? "on" : "off", buffer_arena.chunks_released);
         geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
