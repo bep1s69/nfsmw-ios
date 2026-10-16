@@ -192,6 +192,11 @@ def main():
             "patch_game_constant_copies.py")), "--dir", str(out)])
         if copies.returncode:
             fail("patch_game_constant_copies.py failed. See its output above.")
+        print("\n== Native transform copies")
+        transforms = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
+            "patch_game_transform_copies.py")), "--dir", str(out)])
+        if transforms.returncode:
+            fail("patch_game_transform_copies.py failed. See its output above.")
 
     # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
     # language and country, and whether the hooks need translating).

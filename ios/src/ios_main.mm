@@ -94,6 +94,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_battery_optimizations, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_constant_copies, true, "CPU",
                     "Native float-constant copy loops in the USA game graphics front end (restart required)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_transform_copies, false, "CPU",
+                    "Avoid float mode round-trips in two USA transform transfers (restart required)");
+
 namespace {
 
 fs::path DocumentsFolder() {
@@ -259,6 +262,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
   REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_constant_copies) ? "on" : "off");
+  REXLOG_INFO("[transform-copies] native scalar transfers {}; separate from the five-option battery group",
+              REXCVAR_GET(nfsmw_native_transform_copies) ? "on" : "off");
   if (REXCVAR_GET(ios_gpu_capture)) {
     setenv("NFSMW_SIGNAL_REPORT", (docs / "logs" / "native_fault.txt").c_str(), 1);
     REXLOG_INFO("[gpu-capture] unhandled fault report: logs/native_fault.txt");

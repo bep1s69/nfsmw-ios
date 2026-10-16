@@ -1025,3 +1025,70 @@ CPU shares are work performed, not proof of waste. Changing core scheduling
 does not remove these instructions. No renderer/game patch or new IPA was
 made during this investigation; await approval for the focused transform
 transfer experiment.
+
+### Guarded transform scalar transfers (IPA 17)
+
+After approval, implemented the two-region experiment above, limited to USA
+sub_82453768. `ios/src/game_transform_copies.h` handles the one-float and
+three-float transfers. For finite normal binary32 values and signed zero it
+constructs the exact binary64 guest FPR bits using integer operations, then
+stores the original binary32 bits. This avoids two FPCR round-trips (four
+writes) on the supported path; the function's initial vector-mode enable and
+all matrix arithmetic remain generated code. This is not fast-math.
+
+Subnormals, infinities and NaNs keep the original scalar conversions with
+flush mode disabled. Ordinary, aligned guest source/destination spans are
+required; MMIO, physical aliases, boundary-crossing or unaligned spans retain
+the untouched inline generated sequence. Overlapping ordinary spans are
+supported: each source is loaded once, in original order, before any scalar
+destination store. The helper reuses those words for exceptional conversions,
+so falling back for a value does not reread memory. In the three-float helper,
+loads precede FPR conversion; those local FPR updates have no intervening
+observer/call in this region. This relies on the runtime's existing disabled
+FP-exception policy. It preserves exception status flags, guest FPRs, temporary
+register bits, rounding/control state, final flush mode and memory outputs.
+The first region's interleaved GPR changes and vector stores are unchanged.
+
+`tools/ios/patch_game_transform_copies.py` checks the complete original
+function SHA256 before adding guards and conditional vector-mode restores.
+It provides apply/status/revert, rejects duplicate definitions and partial or
+modified patches, and validates everything before writing. Codegen integration
+is in `tools/ios/generate_code.py`; `ios/CMakeLists.txt` requires the validated
+patch for USA builds. Generated sources remain ignored. No SDK source change.
+`ios/src/ios_main.mm` defines/logs the independent, restart-required switch
+`--nfsmw_native_transform_copies=true`, default false, separate from the
+five-option group. No per-transfer logging or counters were added.
+
+Validation using `python3 tools/native/test_transform_copies.py`:
+- 122,112 differential region cases under ASan/UBSan, both enabled and disabled
+  arms, using the real SDK context and extracted actual generated regions.
+- Compared every guest register, temp/ea, all fixture memory, ordered scalar
+  read/write addresses and values, hardware FPCR and FPSR. Included the first
+  region's interleaved operations and the next vector arithmetic instruction.
+- All four rounding modes, default-NaN on/off, preexisting exception flags,
+  signed zero, all normal exponents and mantissa boundaries, subnormals,
+  infinities, quiet/signaling NaNs, random bit patterns and source/destination
+  overlap. Rejected address cases leave state and memory untouched.
+- Real patch CLI apply/idempotence/status/revert and failure atomicity passed.
+
+The -O3 `--benchmark` run also passed the differential cases. With alternating
+measurement order, the actual original one-float region plus its interleaved
+operations took 33.95–36.51 ns, candidate 5.92–7.37 ns; the three-float region
+plus its following vector instruction took 38.15–43.02 ns, candidate
+5.04–6.07 ns on the host Mac. This fixture includes address/representation
+guards and temporary/register updates. These are local microbenchmarks of
+normal-input regions, not whole-function, device or energy improvements.
+Unsupported-value paths and real hit coverage have no performance claim.
+The linked iOS executable was inspected: the switch/guards and exceptional
+mode-write paths remain; the compiler outlines the three-float helper.
+
+Build `cmake --build --preset ios --target ipa -j 6` passed. IPA ZIP CRC and
+strict deep codesign verification passed; all 104 Metal libraries match IPA16.
+`ios/build/NFSMW-battery-transform-copies-17.ipa`:
+UUID `1B58A18F-1922-3760-8D2A-3555A8134162`, SHA256
+`d7ee984fd8951271585f65529fa4bf88de4e0b93539d7dadf62d6e78f07500cb`.
+Device validation pending: retain the previous tested settings/switches,
+add `--nfsmw_native_transform_copies=true`, run the usual two-lap iPad race
+at 1.5x / 60 FPS and send the game log plus any visual/stability issues.
+No separate long power A/B is requested for this small addition. Keep it
+experimental until device validation; do not stack another code change first.

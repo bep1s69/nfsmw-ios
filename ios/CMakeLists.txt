@@ -290,6 +290,17 @@ if(NFSMW_WITH_GAME)
         endif()
         message(STATUS "NFSMW: ${_copies}")
         target_sources(nfsmw_recomp PRIVATE src/game_constant_copies.h)
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_transform_copies.py"
+                    --status
+            RESULT_VARIABLE _transforms_result
+            OUTPUT_VARIABLE _transforms OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT _transforms_result EQUAL 0 OR NOT _transforms MATCHES "^\\[transform-copies\\] applied")
+            message(FATAL_ERROR "NFSMW: generated code lacks native transform copy edits. "
+                "Run: python3 tools/ios/patch_game_transform_copies.py")
+        endif()
+        message(STATUS "NFSMW: ${_transforms}")
+        target_sources(nfsmw_recomp PRIVATE src/game_transform_copies.h)
     else()
         message(WARNING "NFSMW: no larger record pool for this edition; with Black "
             "Edition on (--black_edition), starting the career may freeze")
