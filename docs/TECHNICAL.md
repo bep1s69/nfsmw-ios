@@ -1268,3 +1268,56 @@ Device correctness pending: keep prior arguments/settings, add
 1.5x/60 FPS, and send its log plus any visual/stability observations. No long
 individual power A/B requested. Await device validation before another code
 change or any decision to enable by default.
+
+### Lazy diagnostics device log (run 16)
+
+`nfsmw_run_16_ipad.log` confirms renderer build October 17 00:49:53 (IPA18)
+and 33 summaries reporting lazy diagnostics on / snapshot-only preparation
+skipped. The older 00:36:25 startup build string belongs to unchanged
+`ios_main.mm`; it does not identify this incremental renderer build as IPA17.
+The transform path, attribute lookup, Utility queue and previous battery
+options remain enabled. Scale is 1.5x, cap 60, MetalFX/FXAA off, game MSAA.
+
+Driving spans 01:08:37.588–01:10:53.469 (135.881 s). As for run 15, exclude
+five seconds at each end and include only summaries whose complete approximate
+interval is inside the guarded window: 24 renderer and 12 CPU summaries.
+
+| Metric | Run 15 (lazy diagnostics off) | Run 16 (on) |
+|---|---:|---:|
+| CPU mean, % of one core | 83.55 | 82.17 |
+| CPU median | 82 | 80.5 |
+| Recording median, ms/frame | 1.45 | 1.405 |
+| Encoding median, ms/frame | 4.76 | 4.51 |
+| GPU median, ms/frame | 4.11 | 4.055 |
+| Draws/frame mean | 2,261 | 2,339 |
+| Decoded attribute elements/summary mean | 3,014,712 | 2,948,652 |
+| Reported FPS min/median/max | 60/60/60 | 60/60/60 |
+| Frames off the pacing grid | 0/6,900 | 28/7,200 |
+| Worst off-grid deviation | 0 ms | 8.3 ms |
+| Attribute lookup hit rate | 89.71% | 89.65% |
+
+All 53 thermal observations are nominal. No GPU errors or driving error-level
+lines were found. The watchdog/semaphore dump is confined to frontend startup.
+The 75 ms screen gap occurs immediately as driving starts, during initial
+texture decoding, outside the guarded window; the 67 ms gap occurs after the
+return to the frontend. The guarded pacing deviations are mostly paired
+one/three-refresh intervals rather than long stalls. The log still has file
+probe warnings; no separate visual/stability observation accompanied this run.
+GPU pass profiling remains operational (32 reports, including the expected
+47-pass driving reports). The draw pool remains one upstream allocation/frame;
+geometry reserves 64 MiB by the end, within the existing 32 MiB chunk policy.
+
+Retain lazy diagnostics for accumulated tests. The CPU/encoding changes are
+encouraging, but workload and route differences, lower decoded work and a
+single pair of runs prevent attributing an isolated percentage gain or battery
+saving. This log establishes that the intended metadata preparation is skipped
+and no major steady-race performance fault is visible. It does not validate
+on-device snapshot PNG output or prove identical rendered pixels.
+
+Next proposed measurement remains GPU-buffer front-cache coverage: separate
+full-pointer hits, occupied-slot collisions, empty-slot misses and actual new
+map entries, using local render-queue counters summarized at the existing
+300-frame interval. Keep lookup policy, uploads, GPU completion and ownership
+unchanged until the miss distribution is known. This instrumentation has not
+been implemented; await approval. No new source patch/build was made for this
+log analysis.
