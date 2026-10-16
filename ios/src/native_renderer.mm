@@ -94,6 +94,8 @@ extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hoo
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
+REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, true, "GPU",
+                    "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
@@ -3788,6 +3790,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     static id<MTLCommandQueue> queue = [device newCommandQueue];
     bc_queue = queue;  // BC decodes go on the frame's queue (BcDecodeOnGpu)
     residency::Apply(device, queue);
+    const bool compressible_resolves = REXCVAR_GET(nfsmw_native_compressible_resolves);
+    // Same-format swizzles do not require PixelFormatView. That usage would
+    // prohibit lossless compression, even on otherwise eligible textures.
+    const MTLTextureUsage resolve_view_usage = compressible_resolves ? MTLTextureUsageUnknown
+                                                                    : MTLTextureUsagePixelFormatView;
     struct FrameCapture {
       bool active;
       void Finish() {
@@ -4649,7 +4656,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:src.color.pixelFormat
                                                                                          size:std::max(w, h)
                                                                                     mipmapped:NO];
-          cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView | MTLTextureUsageRenderTarget;
+          cd.usage = MTLTextureUsageShaderRead | resolve_view_usage | MTLTextureUsageRenderTarget;
           cube = gpu_pool.Texture(device, cd);
           frame_resources.objects.push_back(cube);
           resolved_cubes[ev.dest_base] = cube;
@@ -4690,7 +4697,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                         height:dh
                                      mipmapped:NO];
         rd.usage = ev.depth ? (MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget)
-                            : (MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView);
+                            : (MTLTextureUsageShaderRead | resolve_view_usage);
         if (!ev.depth && ev.exp_bias && REXCVAR_GET(nfsmw_native_exp_bias)) {
           rd.usage |= MTLTextureUsageRenderTarget;  // the scaled copy draws into it
         }
@@ -4847,7 +4854,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:dest.pixelFormat
                                                                                            size:Px(ct.width, scale)
                                                                                       mipmapped:NO];
-            cd.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
+            cd.usage = MTLTextureUsageShaderRead | resolve_view_usage;
             cd.storageMode = MTLStorageModePrivate;
             cube = NewTexture(device, cd, "cd@10");
             residency::Add(cube);
@@ -6413,6 +6420,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
+        REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
+                    compressible_resolves ? "enabled" : "legacy view usage");
         geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
