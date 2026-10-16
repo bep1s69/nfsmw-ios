@@ -147,6 +147,7 @@ IOS_PATCHES = [
     "patch_ios_stack_top",
     "patch_ios_save_hook",
     "patch_ios_sdl_scene",
+    "patch_ios_retire_qos",
 ]
 
 

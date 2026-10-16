@@ -111,4 +111,13 @@ BLOCKS = [
 ]
 
 if __name__ == "__main__":
+    # A prepared SDK may already contain the later retirement patch. Do not
+    # reintroduce the obsolete hooks when prepare_sdk runs again.
+    if "--revert" not in sys.argv:
+        from patch_engine import find_sdk
+        from patch_ios_retire_qos import BLOCKS as retired
+        sdk = find_sdk(XT)
+        if all(after in (sdk / path).read_text() for path, _, _, after in retired):
+            print("[ok] ios_qos: superseded by ios_retire_qos")
+            sys.exit(0)
     sys.exit(run("ios_qos", BLOCKS))
