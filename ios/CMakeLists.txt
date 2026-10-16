@@ -279,6 +279,17 @@ if(NFSMW_WITH_GAME)
             src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/native_draw_census.cpp
             src/native_metal_probe.mm src/native_renderer.mm)
         message(STATUS "NFSMW: ${_extra}")
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_constant_copies.py"
+                    --status
+            RESULT_VARIABLE _copies_result
+            OUTPUT_VARIABLE _copies OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT _copies_result EQUAL 0 OR NOT _copies MATCHES "^\\[constant-copies\\] applied")
+            message(FATAL_ERROR "NFSMW: generated code lacks native constant copy edits. "
+                "Run: python3 tools/ios/patch_game_constant_copies.py")
+        endif()
+        message(STATUS "NFSMW: ${_copies}")
+        target_sources(nfsmw_recomp PRIVATE src/game_constant_copies.h)
     else()
         message(WARNING "NFSMW: no larger record pool for this edition; with Black "
             "Edition on (--black_edition), starting the career may freeze")

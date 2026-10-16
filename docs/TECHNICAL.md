@@ -341,3 +341,41 @@ state. These are timing and allocation observations, not a measured energy
 reduction: GPU clocks were not controlled and several passes became faster.
 The user reported 78% to 72% battery across the pair and accepted the combined
 default. The off switch remains available for regression comparisons.
+
+### Native game constant-copy experiment (USA edition)
+
+`--nfsmw_native_constant_copies=true` enables two guarded float-constant copy
+loops in `sub_82699100`, before the game submits its Xbox graphics commands.
+It is on in the test build and independent of the five-option battery group.
+Use `--nfsmw_native_constant_copies=false` and restart to compare against the
+original loops while keeping the five accepted optimizations active.
+
+The generated loops copy one to four 16-byte vectors. Their compiled ARM64
+retained guest-stack counter and pointer reloads and inverse SIMD byte shuffles.
+The helper copies raw vectors in the same forward order, applies the final
+shuffle for the visible PPC vector register, and restores the final GPR,
+condition-register, effective-address and stack-counter results. The surrounding
+dirty-mask updates and integer conversions are unchanged. Physical/MMIO ranges,
+wrapping ranges, stack aliases, descriptor destinations and inconsistent entry
+counters take the original loops. Source/destination overlap keeps the original
+vector-by-vector behavior. Constant inputs and the guest stack are owned by the
+calling game thread; no synchronization operation is removed.
+
+`tools/ios/patch_game_constant_copies.py` checks exact hashes for both original
+loop bodies before writing; it supports status, idempotent application and revert.
+Code generation applies it for USA, and CMake requires it for that edition.
+The helper is included relative to the generated source directory, avoiding a
+change to every generated translation unit's include path.
+
+Validation: `python3 tools/ios/test_game_constant_copies.py` extracts the original
+loops and compares them with the helper using the actual SDK PPC context under
+AddressSanitizer and UndefinedBehaviorSanitizer. It covers all one-to-four-vector
+counts and entry indices, unaligned base addresses, forward/backward overlap,
+arbitrary vector bits, complete context/memory output and unchanged fallback
+state (24,000 differential cases and 58 rejection cases). It also checks patch
+apply/status/revert/idempotence and atomic rejection of changed or partial code.
+`--benchmark` runs a local optimized ARM64 microbenchmark; two-to-four-vector
+copies were faster, but one-vector copies were slightly slower. This does not
+establish a device CPU or battery benefit. The earlier matching CPU trace placed
+the whole function's self time at approximately 2.8% of samples, bounding the
+scope of this experiment; the two loops account for only part of that time.

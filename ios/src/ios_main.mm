@@ -91,6 +91,8 @@ REXCVAR_DEFINE_BOOL(ios_gpu_capture, false, "GPU",
                     "Documents/captures (open it in Xcode)");
 REXCVAR_DEFINE_BOOL(nfsmw_battery_optimizations, true, "GPU",
                     "Combined battery experiment: force all five optimizations on or off (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_constant_copies, true, "CPU",
+                    "Native float-constant copy loops in the USA game graphics front end (restart required)");
 
 namespace {
 
@@ -255,6 +257,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
+  REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
+              REXCVAR_GET(nfsmw_native_constant_copies) ? "on" : "off");
   if (REXCVAR_GET(ios_gpu_capture)) {
     setenv("NFSMW_SIGNAL_REPORT", (docs / "logs" / "native_fault.txt").c_str(), 1);
     REXLOG_INFO("[gpu-capture] unhandled fault report: logs/native_fault.txt");
