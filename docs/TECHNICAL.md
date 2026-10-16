@@ -1092,3 +1092,50 @@ add `--nfsmw_native_transform_copies=true`, run the usual two-lap iPad race
 at 1.5x / 60 FPS and send the game log plus any visual/stability issues.
 No separate long power A/B is requested for this small addition. Keep it
 experimental until device validation; do not stack another code change first.
+
+### Transform transfer device validation (run 15)
+
+`nfsmw_run_15_ipad.log` (October 17, renderer build 00:36:25, IPA17) confirms
+`[transform-copies] native scalar transfers on`. The previous five-option
+group, constant copies, texture masks, draw pool, Utility rendering and
+attribute lookup remain enabled. The user reports no issues so far. Settings
+are still 1.5x, 60 FPS, MetalFX/FXAA off, game MSAA.
+
+Driving spans 00:39:36.603–00:41:50.904 (134.301 s). Removing five seconds at
+each end and using only summaries whose complete approximate interval lies
+within that window gives 23 five-second renderer summaries and 11 ten-second
+CPU summaries. Run 14 was recomputed with this same full-interval rule (25
+renderer summaries, 12 CPU summaries); its previous documented renderer
+figures included the first partially overlapping summary, explaining the
+small difference from those earlier figures.
+
+| Metric | Run 14 (transform path off) | Run 15 (on) |
+|---|---:|---:|
+| CPU mean, % of one core | 83.58 | 83.55 |
+| CPU median | 80.5 | 82 |
+| Main guest-thread mean, % of one core | 14.17 | 13.64 |
+| Recording median, ms/frame | 1.35 | 1.45 |
+| Encoding median, ms/frame | 4.66 | 4.76 |
+| GPU median, ms/frame | 4.07 | 4.11 |
+| Draws/frame mean | 2,357 | 2,261 |
+| Decoded attribute elements/summary mean | 3,193,785 | 3,014,712 |
+| Reported FPS, min/median/max | 60/60/60 | 60/60/60 |
+| Frames off the pacing grid | 39/7,500 | 0/6,900 |
+| Attribute lookup hit rate | 89.53% | 89.71% |
+
+All 52 thermal observations in run 15 are nominal. No driving error lines or
+GPU command failures were found; the watchdog/semaphore dump is confined to
+startup before the race, consistent with prior runs. The user saw no visual
+issues. Better pacing in this single run is not attributed to this patch.
+
+This passes the initial device correctness check, but whole-app CPU use is
+essentially unchanged and the workloads/routes differ. The recording metric
+measures the renderer rather than this guest transform function, so its small
+increase does not separately time the new code. Neither a device CPU win nor
+a battery saving has been established. Keep the transform switch enabled for
+subsequent stacked tests, with its default still false. Local differential
+and microbenchmark results remain the evidence for equivalence and potential
+savings; there are no on-device fast/fallback coverage counters. A later
+matched Time Profiler comparison can inspect sub_82453768 and the outlined
+helper, while a cumulative power comparison tests actual energy benefit.
+No new source change or IPA was made for this log analysis.
