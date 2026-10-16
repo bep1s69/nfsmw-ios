@@ -455,3 +455,26 @@ bindings against the original all-slot path across 20,000 draws with changing
 bindings, later reuse, resolve invalidation and empty/full masks. C++ checks run
 under AddressSanitizer and UndefinedBehaviorSanitizer. Device visual/stability
 validation is still required before claiming the experiment is established.
+
+First device check: `nfsmw_run_8_ipad.log` (October 16), iPad 1.5x / 60 FPS,
+all previous optimizations on. The user reported no visual issues in the same
+test race. All 101 exported shader interfaces loaded. Driving summaries skipped
+271,996,013 of 307,678,736 texture-slot visits (88.403%), averaging 1.856 processed
+slots per draw, with zero unknown-shader fallbacks. This is a reduction in slot
+bookkeeping, not an 88% reduction in renderer work or energy consumption.
+
+Driving median FPS was 60, thermal state remained nominal, and no driving error
+entries or GPU command failures were logged. Three of 8,400 reported frames
+were off the pacing grid. Geometry reservation stayed at 32 MiB (18 MiB live
+at the final summary). The initial driving transition had a 42 ms hitch; the
+earlier startup watchdog report and frontend transitions also remain present,
+as in prior builds.
+
+Compared with run 7, median recording time was 1.86 versus 2.055 ms/frame and
+aggregate CPU 70.5% versus 76% of a core. However, reported-frame draw counts
+were lower (median 2,301 versus 2,453.5), interval geometry decoding was lower,
+and driving duration was about 137 versus 168 seconds. GPU duration's median
+was lower (5.73 versus 6.535 ms) but its mean was higher (7.259 versus 6.986 ms).
+No isolated CPU, GPU or battery improvement is inferred from these differences.
+Keep enabled following the visual/stability check and measured slot elimination;
+include it in a later complete-batch energy/performance comparison.
