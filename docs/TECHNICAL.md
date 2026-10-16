@@ -952,3 +952,76 @@ Retain the lookup switch enabled for subsequent stacked tests following the
 correctness check and measured lookup elimination. Its default remains false
 pending broader validation. A long power trace is deferred to the next batch
 comparison; no additional code or IPA changed while analyzing this log.
+
+### Next CPU targets after attribute lookup validation
+
+Read-only source/instruction investigation on October 17 found a game-code
+lead distinct from the previously optimized constant copies. In the original
+P-core power trace, sub_82453768 has 1.635% race self time (1.573% weighted
+over the guarded race and pursuit together). Its generated function in
+`ios/generated/default/nfsmw_recomp.109.cpp` contains transform/matrix work,
+647 source lines, and calls later routines to update/upload game state.
+Its arithmetic already compiles to ARM NEON instructions; replacing SIMD
+syntax alone is not evidence of a useful optimization.
+
+The UUID-matched baseline executable's function has five FPCR writes. Four
+correspond to two disableFlushModeUnconditional / enableFlushModeUnconditional
+pairs surrounding scalar lfs/stfs sequences, between vector operations. The
+first scalar region loads one float, converts it to double in the guest FPR,
+then converts/stores it as float to the guest stack. The second does that for
+three floats. Those source regions are at function-relative lines 313..350
+and 393..413. The generator's required scalar/vector floating-point behavior
+must be preserved; globally deleting mode switches or enabling fast-math is
+not proposed.
+
+Across the guarded race/pursuit, the function has 6,942 ms of self sample
+weight. Five hot leaf PCs immediately after FPCR writes account for 4,649 ms
+of it (~67%): linked addresses 0x101fdfde4, 0x101fdff88, 0x101fe0178,
+0x101fe0274 and 0x101fe0920. This implicates floating-point mode transitions
+as a useful hypothesis, but statistical PC attribution does not separately
+time FPCR writes, prove pipeline-stall causality or establish the recoverable
+cost. The entire function's self share bounds the direct opportunity here.
+
+Recommended next experiment, not implemented: investigate guarded native
+scalar-transfer paths in just these two regions, seeking to avoid mode
+round-trips where the loaded values can be proven unaffected. Preserve guest
+FPR values, memory access order, final control state and exact outputs, with
+the original generated sequence retained for unsupported values, address
+ranges or aliases. NaNs, subnormals, rounding modes and exceptional cases
+require differential validation; they are not implicitly safe. Benchmark the
+actual original block and candidate locally before producing another device
+build. This is a focused generated-code patch, not a rewrite of the whole
+transform function or a claim that most guest CPU time can be eliminated.
+
+Proposed implementation files, subject to approval: new
+`ios/src/game_transform_copies.h`, `tools/ios/patch_game_transform_copies.py`
+and a standalone differential test under `tools/native/`; integrate the
+idempotent codegen patch in `tools/ios/generate_code.py`, validate/register it
+in `ios/CMakeLists.txt`, and expose an independent switch in
+`ios/src/ios_main.mm`. Exact patch boundaries must be validated against the
+known generated code. No generated source has been modified in this audit.
+
+Other ranked directions:
+- Renderer resource/state bookkeeping: gpu_buffers operator[] still takes
+  1.12% of baseline race samples, or 1.55% in the Utility run, despite an
+  existing 4,096-entry direct cache. Measure that cache's hit/collision coverage
+  before changing it. Per-draw shared constants, active-input lookup, ARC and
+  shared ownership also remain visible; their combined shares are not all
+  known to be avoidable. CPU encoding duration includes drawable waits.
+- Further constant/state-building fast paths: sub_82699100 is the largest
+  individual guest leaf (~2.96% baseline race self), but the two short copy
+  loops are already patched. Current hot instructions include descriptor/
+  safety validation and dirty-state updates. Expanding small-copy patches
+  without measuring their guard and fallback cost is not justified.
+- Larger architecture: bypass selected Xbox draw/state packet construction
+  and the corresponding command decoding, delivering equivalent native draw
+  snapshots. This has a potentially broader ceiling but unmeasured savings
+  and substantially higher state-ordering, query/fence/writeback risk. The
+  existing native_cp=false bring-up path does not itself eliminate packet
+  construction; it also parses the guest ring. Do not present that flag as a
+  shortcut to a native game loop.
+
+CPU shares are work performed, not proof of waste. Changing core scheduling
+does not remove these instructions. No renderer/game patch or new IPA was
+made during this investigation; await approval for the focused transform
+transfer experiment.
