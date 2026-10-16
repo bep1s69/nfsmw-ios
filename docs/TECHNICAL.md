@@ -587,3 +587,121 @@ only). Target the LiveContainer process hosting the game; the previous CPU
 trace identified that host. Record Power Profiler plus CPU Profiler with fixed
 brightness, scale/cap and optimization settings, and separate menu/gameplay and
 background intervals. Source: [Apple Power Profiler documentation](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler).
+
+### First iPad power trace: CPU is the leading app subsystem
+
+`power_profiler_1_ipad.trace` and `nfsmw_run_11_ipad.log` (October 16) were
+recorded on the 13-inch M4 iPad Pro, iPadOS 27.0.1, targeting LiveContainer
+PID 1259. The trace runs 23:17:05.336..23:27:42.107 (636.77 seconds).
+All eight optimization switches were on; scale 1.5x, cap 60, MetalFX/FXAA off,
+forced MSAA 0. Brightness was constant at 39%, thermal state nominal throughout.
+System-power data is populated over 636.01 seconds, with no charging intervals.
+
+The log marks the test race at trace time 00:44.414..03:00.198 and the
+challenge-series chase at 03:12.602..10:35.044, matching the user's transition
+at approximately 03:15. For steady-section comparisons, exclude five seconds
+at each boundary: race 00:49.414..02:55.198, chase 03:17.602..10:30.044.
+Means below weight each exported interval by its overlap with that selection;
+sentinel/missing subsystem values are excluded, not treated as zero.
+
+| Measurement | Steady race | Steady chase |
+|---|---:|---:|
+| Whole-device battery energy per hour | 31.52%/hr | 33.14%/hr |
+| LiveContainer CPU power impact | 11.98 | 13.45 |
+| LiveContainer GPU power impact | 2.41 | 2.88 |
+| LiveContainer display power impact | 6.00 | 5.97 |
+| LiveContainer networking power impact | 0.00 | 0.00 |
+| CPU execution time / elapsed time, from QoS intervals | 0.699 cores | 0.843 cores |
+| Median logged CPU, complete 10-second windows | 69% of a core | 85% of a core |
+| Median logged draw recording | 1.62 ms/frame | 2.13 ms/frame |
+| Median logged CPU render encoding | 1.95 ms/frame | 2.38 ms/frame |
+| Median logged GPU duration | 5.87 ms/frame | 8.73 ms/frame |
+
+The whole trace's weighted system mean is 31.93%/hr, integrating to about
+5.64 battery percentage points over the covered intervals. This is a measured
+system rate during profiling, not a prediction for every session or a measure
+of game-only energy. The log's coarser battery readings were 90% then 85%.
+Subsystem impact values are comparative scores, not watts or percentages of
+total battery drain; do not add them into a percentage breakdown. Apple
+explicitly permits comparing subsystems within the same device. Here CPU
+impact is about 4.7..5.0 times GPU impact, with display also above GPU. This
+supports prioritizing CPU work on this device/configuration; it does not
+establish the same ranking on the iPhone or at higher render scales.
+
+Time Profiler contains 85,818 ms of running sample weight in the guarded race
+and 355,407 ms in the chase. The local executable UUID matches the trace
+(`5C92B5DD-A428-369E-B28B-1ECB654857CB`). Useful CPU shares:
+
+| Sampled work | Race | Chase |
+|---|---:|---:|
+| Recompiled guest functions, self time only | 34.96% | 36.81% |
+| NativeDraw including its callees | 13.55% | 14.65% |
+| Record including its callees | 11.60% | 12.34% |
+| Record self time | 8.28% | 8.92% |
+| RenderFrame including its callees | 15.01% | 15.16% |
+| Entire dispatched NativeSwap render block | 18.38% | 18.61% |
+
+Rows overlap: Record is under NativeDraw; RenderFrame is under the render
+block. They must not be summed. Guest self excludes called native/runtime
+functions, so it is not the guest thread's entire cost. Several guest threads,
+the command processor and render workers all contribute. Approximately 99%
+of running sample weight is on performance cores, despite baseline top QoS
+being off; most QoS execution is Default. This is an observation, not evidence
+that forcing background QoS or adding parallelism would save power while
+preserving frame deadlines. The existing priority-off change does not force
+efficiency-core scheduling.
+
+The largest Record leaf PCs map into its inlined attribute_cache lookup.
+In the UUID-matched ARM64 executable, linked addresses
+`0x1000b48c4..0x1000b4b14` build the nine-field AttributeKey hash, select a
+bucket, compare the full key and traverse nodes (including division for
+non-power-of-two bucket counts). This range accounts for 1,926 ms / 2.24%
+of race sample weight and 8,578 ms / 2.41% of chase sample weight. These are
+statistical instruction-region samples, not separately timed lookup calls or
+proof of a particular collision count. The source lookup is
+`attribute_cache[akey]` in Record. Separately, the renderer's gpu_buffers
+operator[] remains about 1.12% / 1.49% inclusive despite its existing 4,096-slot
+front cache; its collision rate has not been measured. Index fingerprints and
+the sampled Fingerprint function also remain visible; the current trace does
+not justify weakening content validation.
+
+Proposed next isolated experiment, not implemented: add a bounded front cache
+for decoded attribute entries, with a cheap slot selector and comparison of
+every AttributeKey field. Misses/collisions retain the original map lookup.
+Map nodes remain stable across rehashes, but all retained pointers must be
+invalidated before Sweep erases entries. Cached entry lookup must still run
+the existing write-watch/fingerprint checks and last-used updates on every
+access; never assume guest vertex data stays unchanged for a whole frame.
+Keep an independent restart-required switch and aggregate hit/miss counters.
+Expected benefit is limited to part of the measured lookup cost, not all
+Record time, and no numerical battery saving is promised.
+
+Proposed files: `ios/src/native_renderer.mm` for lookup/invalidation/switch and
+counters; new `tools/native/test_attribute_lookup.py` for extracted production
+code checks against the original map, collision cases, key changes, source
+mutations, rehash and eviction under ASan/UBSan; this document for results.
+Seek user approval before implementation. Validate correctness and cache hit
+coverage first, then include the experiment in the next batch power comparison.
+Broader CPU work should continue into native draw-state recording and measured
+guest draw/constant-building functions; a bypass of Xbox command construction
+and decoding could have a larger ceiling but has higher ordering/state risk.
+
+Steady race log summaries all reported 60 FPS and zero pacing misses in 7,500
+frames. Chase summaries all reported 60 FPS, with 416/26,100 frames off the
+pacing grid (1.59%); a 60 FPS average does not imply every interval is uniform.
+Pooling remained at 1.00 upstream attribute allocations/frame, unknown shader
+mask fallbacks were zero, geometry reservation reached 64 MiB, and no GPU
+command failures were logged. The three watchdog dumps were two in startup
+and one at 23:28:45 after the trace and after entering the pause menu; none
+occurred during the recorded race or chase. Menu auto-cap was disabled in this
+configuration, so the menus also ran at 60; the existing optional 30 FPS menu
+cap remains relevant to normal play but cannot explain active-race drain.
+
+Tooling note: the bundled Power Profiler template's Network Connections
+analyzer crashed Instruments on the Mac three times in
+`NetworkConnectionStatsModeling.receive(row:writer:context:)`. Removing Network
+Connections, Metal Performance Overview and Location Energy Model left Power
+Profiler, Thermal State and Time Profiler; the user then successfully recorded
+this trace. Instruments' wireless discovery also disagreed with Device Hub;
+connecting by cable, selecting the device, then unplugging allowed recording.
+This is a profiling-tool workaround, not a game change. No new IPA was built.
