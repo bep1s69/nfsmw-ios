@@ -318,7 +318,7 @@ game's code and is only for your own devices.
 
 ### Combined battery experiment (battery-optimization branch)
 
-`--nfsmw_battery_optimizations=true` (default in the experiment build) forces
+`--nfsmw_battery_optimizations=true` (accepted working default on this branch) forces
 cube destination deduplication, native bulk constant writes, geometry arena
 range reuse, vertex-fetch layout caching, and compression-eligible resolve
 usage on. The last two experiments remain individually inconclusive.
@@ -331,3 +331,13 @@ resolution, cap, graphics settings, diagnostics and correctness fixes remain the
 same in both arms. Check `[battery-group]` at startup and individual summaries
 before attributing results. This is a combined experiment, not proof of an
 energy saving or a way to identify which component caused a difference.
+
+The October 16 iPad three-lap comparison (`nfsmw_run_6_ipad.log`, off then on)
+confirmed all five switches in each arm at 1.5x / 60 FPS. Across the driving
+samples, median recorded GPU duration fell from 6.81 to 5.65 ms, while median
+draw recording stayed at 1.87 ms. Final geometry arena reservation was 192 MiB
+off versus 32 MiB on. Both held approximately 60 FPS with nominal thermal
+state. These are timing and allocation observations, not a measured energy
+reduction: GPU clocks were not controlled and several passes became faster.
+The user reported 78% to 72% battery across the pair and accepted the combined
+default. The off switch remains available for regression comparisons.
