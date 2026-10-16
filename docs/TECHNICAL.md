@@ -379,3 +379,33 @@ copies were faster, but one-vector copies were slightly slower. This does not
 establish a device CPU or battery benefit. The earlier matching CPU trace placed
 the whole function's self time at approximately 2.8% of samples, bounding the
 scope of this experiment; the two loops account for only part of that time.
+
+The first device run (`nfsmw_run_7_ipad.log`, October 16) confirmed native float
+copies and the five accepted optimizations on, at 1.5x / 60 FPS. Driving held
+approximately 60 FPS with nominal thermal state, no driving error entries or
+GPU command failures, and 32 of 10,200 reported frames off the pacing grid.
+Final geometry reservation remained 32 MiB. Relative to the on arm of run 6,
+median aggregate CPU was 76% versus 73% of a core, recording 2.055 versus
+1.87 ms/frame, and GPU duration 6.535 versus 5.65 ms/frame. Work was different:
+the median draw count in reported frames was 2,453.5 versus 2,270, and interval
+attribute-decode counts were higher. Driving duration was about 168 versus
+197 seconds. These observations establish neither a saving nor a regression
+from the copy helper. It remains enabled provisionally; its path coverage and
+CPU benefit have not been measured on device. No visual assessment is inferred
+from the log.
+
+### Battery test cadence
+
+Per the user's October 16 testing preference, small isolated changes receive
+correctness tests and device stability/visual checks without requiring a fresh
+race A/B for every increment. Plausible changes with inconclusive performance
+results may remain enabled provisionally, with separate rollback switches and
+local commits. Inconclusive is not recorded as a demonstrated energy saving.
+
+Use combined A/B comparisons at meaningful milestones, with matched settings
+and longer or repeated runs when practical. Opponent/traffic variation, route,
+GPU clocks and different race lengths limit single-run comparisons. A batch
+improvement cannot identify each member's contribution; a clear regression
+still warrants isolating changes. The current master controls only the original
+five changes: a future complete-batch comparison must also explicitly toggle
+native constant copies (and any later experiments), or extend the master first.
