@@ -775,3 +775,73 @@ These are repeated baseline observations under similar conditions, not an
 energy gain or an estimate of the comparison's statistical error. Do not
 attribute any difference to the unexecuted scheduling change. Verify a short
 startup log from IPA 15 with Utility requested on before another long trace.
+
+Confirmed Utility device check: `nfsmw_run_13_ipad.log` and
+`power_profiler_3_ipad.trace`, October 16 23:57 through October 17 00:09.
+The trace runs 23:57:59.469..00:08:27.943 (628.47 seconds), targeting
+LiveContainer PID 1284. NFSMW UUID is the expected
+`083A8A88-7DEF-3614-A916-CB4666564E9A`, renderer build 23:41:43. Queue startup
+reports Utility. All 40,201 frame-entry QoS samples across the entire game log
+report Utility, with none in the other classes. Prior eight options remain on;
+1.5x / 60 FPS, MetalFX/FXAA off, forced MSAA 0, brightness fixed at 39%,
+thermal state nominal, and no charging intervals in the trace.
+
+The race starts at trace 00:23.528 and exits at 02:42.472; the pursuit starts
+at 02:52.498, agreeing with the user's approximately 02:55. Guarded selections
+are race 00:28.528..02:37.472 and pursuit 02:57.498..10:23.474. System and
+subsystem means use duration-weighted interval overlap as in run 11.
+
+| Measurement | Baseline run 11 | Baseline run 12 | Utility run 13 |
+|---|---:|---:|---:|
+| Race system energy rate, % battery/hr | 31.52 | 31.54 | 31.85 |
+| Pursuit system energy rate, % battery/hr | 33.14 | 33.03 | 32.66 |
+| Entire trace system energy rate, % battery/hr | 31.93 | 31.94 | 31.90 |
+| Race CPU power impact | 11.98 | 11.83 | 10.44 |
+| Pursuit CPU power impact | 13.45 | 13.38 | 11.95 |
+| Race GPU power impact | 2.41 | 2.44 | 2.77 |
+| Pursuit GPU power impact | 2.88 | 3.01 | 2.41 |
+| Race CPU execution / elapsed, core equivalents | 0.699 | 0.696 | 0.842 |
+| Pursuit CPU execution / elapsed, core equivalents | 0.843 | 0.848 | 1.049 |
+| Race median logged CPU encoding, ms/frame | 1.95 | 1.90 | 4.78 |
+| Pursuit median logged CPU encoding, ms/frame | 2.38 | 2.47 | 5.82 |
+
+Time Profiler directly confirms core migration: 99.967% of the dispatched
+NativeSwap render block's running sample weight is on E cores during the race,
+99.973% during the pursuit. In run 11 it was predominantly on P cores (only
+0.478% on E cores during the pursuit). The game main thread and NativeDraw
+recording remain almost entirely on P cores in run 13. Across the entire app,
+E-core sample shares rise from 0.67% / 0.98% in run 11's race/pursuit to
+36.42% / 36.21% in run 13. Those are shares of sampled CPU execution time,
+not percentages of original work or battery energy. CPU time grows when the
+same work executes more slowly. The render block's sampled CPU time per second
+increases from approximately 125/153 ms in run 11 to 306/379 ms in run 13.
+
+The scheduling request therefore achieves its immediate purpose. Its energy
+benefit is not established: CPU impact is about 12% lower in the race and 11%
+lower in the pursuit relative to the mean of the two baseline selections, but
+whole-device power is about 1.0% higher in the race, 1.3% lower in the pursuit,
+and nearly unchanged over the full recordings. Impact scores are not additive
+watts, and workload differences remain. Median reported draw counts are
+2,423/2,376/2,219.5 for the races and 2,668/2,751/2,700 for the pursuits.
+Longer E-core execution can offset lower instantaneous power, but this trace
+does not establish the cause of the nearly unchanged system energy rate.
+Do not call it an 11..12% battery improvement or infer GPU energy savings from
+the shorter recorded GPU durations (race/pursuit medians 4.085/4.27 ms).
+
+Race summaries report 60 FPS, with 4/7,800 frames off the pacing grid. Pursuit
+summaries have median 60 FPS, mean 59.999, minimum 59.9, and 49/26,700 off-grid
+frames (0.18%). This run sustains approximately 60 FPS despite the encoding
+slowdown. Better pacing than these baseline runs is observed, not isolated
+proof that Utility improves pacing. The log has no GPU command failures;
+attribute allocations stay at 1.00/frame, unknown shader-mask fallbacks are
+zero, and geometry reservation reaches 64 MiB. Three watchdog dumps during
+the recorded gameplay again conflict with 300 rendered frames advancing in
+five seconds at surrounding summaries; they do not establish a stall.
+
+Keep Utility as an optional, provisional 60 FPS experiment; it remains false
+by default. No 120 FPS conclusion follows from this test, since the encoding
+slowdown consumes much more of an 8.33 ms frame budget. No iPhone or 30 FPS
+energy result exists yet. The next recommended implementation remains removal
+of measured attribute-cache lookup work, pending user approval, before lowering
+another frame-critical thread's QoS. No renderer code or new IPA changed while
+analyzing run 13.
