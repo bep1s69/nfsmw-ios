@@ -1139,3 +1139,79 @@ savings; there are no on-device fast/fallback coverage counters. A later
 matched Time Profiler comparison can inspect sub_82453768 and the outlined
 helper, while a cumulative power comparison tests actual energy benefit.
 No new source change or IPA was made for this log analysis.
+
+### Renderer bookkeeping audit after run 15 (read-only)
+
+The next audit found avoidable diagnostic preparation in RenderFrame, distinct
+from logging itself. This does not contradict the earlier observation that
+normal log volume is small. No renderer source or generated code was changed.
+
+Concrete source findings in `ios/src/native_renderer.mm`:
+- Around 4852, do_resolve unconditionally formats and appends a detailed
+  resolve description to `diagnostics`. Its consumer at the end of the
+  function is snapshot-only, after the non-dump return around 6682.
+- `resolve_names` / `resolve_rects` are filled for kept resolves, assembled
+  cubes, copied resolves, views and crops (roughly 4666, 4891, 5119, 5765).
+  Their consumers around 6721–6746 save snapshot PNGs after that same return.
+  The resolve-name formatting and metadata allocations have no normal-frame
+  output. The actual resolve textures and copies remain required.
+- `heap_object` around 4639 is a strong-reference vector sized to heap capacity
+  and populated with the frame's textures and subsequent resolve/view objects.
+  Its only readers are inside the dump-only watched-texture block around 5926.
+  This is additional snapshot ownership/bookkeeping. `textures`,
+  `resolved_textures`, `assembled_cubes`, `volumes`, `cubes` and the actual GPU
+  completion/resource lifetimes must remain intact. In particular,
+  `resolved_textures` is also enumerated for useResources and must NOT be
+  treated as snapshot-only merely because its name parallels resolve_names.
+- The `skin` predicate around 5879 updates `watched_seen[d.ps_key ^ 1]` on
+  qualifying ordinary draws, although its consumer is dump-only around 5926.
+  Guarding it with dump preserves all snapshot behavior while avoiding normal
+  texture inspection and map updates/allocations.
+- The formatted main-pass label around 5434 is evaluated before profile_pass
+  checks `profile` / label capacity around 4743. Constructing that label only
+  when a timestamp sample will be recorded preserves profiler functionality.
+  Do not remove the Metal pass itself or its required state/resource calls.
+
+Existing profiles still support GPU buffer lookup as a separate measured
+lead. Recomputed self shares for gpu_buffers operator[]: baseline race 1.122%,
+chase 1.487%; Utility race 1.543%, chase 1.950%. ActiveAttributes is only
+0.023–0.062%, a lower priority. These are different CPU-time denominators,
+not energy percentages, and the profiles predate the last two small patches.
+
+Instruction inspection used the UUID-matched baseline binary. Within
+operator[] at linked 0x1000a212c, race/chase samples total 963/5,284 ms.
+0x1000a220c accounts for 720/4,143 ms, and 0x1000a21ec for 107/562 ms.
+These PCs are in bucket-chain hash/key checking, before the node-creation
+block at 0x1000a2254. This strengthens the lookup hypothesis; sample skid and
+child-function allocation cost prevent treating it as exact lookup/creation
+accounting or a per-call hit/miss ratio. The linked libc++ pointer hash mixes
+pointer bits; do not assume std::hash<void*> is the identity operation.
+
+GpuBufferFor already has a 4,096-slot direct cache using pointer bits 4..15.
+Keys 64 KiB apart map to the same slot regardless of higher address bits.
+That proves the alias pattern, not its frequency on device. It currently has
+no hit/miss counters. Full pointer equality, stable map nodes, g.keep,
+last_submission updates, GPU completion checks and SweepGpu invalidation are
+correctness requirements for any replacement. Two-way/full-pointer-mixed
+lookup caching is a candidate, not yet a justified winning policy.
+
+A third source lead is residency-list assembly around 5440: every new render
+encoder rebuilds a flattened list by enumerating five Objective-C arrays,
+then appends dummy_array/data and calls useResources. Base texture/volume/cube
+arrays stop growing before the draw loop; resolved_textures and
+assembled_cubes only grow during it. Reusing a flattened list when collection
+counts are unchanged could remove rebuilding while preserving the required
+useResources call on every encoder. Its CPU cost is not isolated in the
+current profile; do not skip resource declarations across encoders.
+
+Recommended next approved scope: restrict snapshot-only metadata preparation
+and pass-label construction to frames that consume them. One renderer source
+file; optional independent restart-required switch if retaining a direct
+comparison arm. Validate snapshot-on behavior and actual ARC ownership, then
+run the usual short correctness race before another source change. This
+removes proven unnecessary work, with an unmeasured and likely modest total
+CPU/power benefit. It is not a claim that diagnostic scaffolding dominates
+the game's battery drain. Separately, lightweight GPU-buffer front-cache
+hit/collision/missing-entry counters would resolve the next cache-policy
+question; instrumentation needs approval before implementation. No new build
+or source modifications were made for this audit.
