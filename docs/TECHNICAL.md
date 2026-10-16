@@ -705,3 +705,51 @@ Profiler, Thermal State and Time Profiler; the user then successfully recorded
 this trace. Instruments' wireless discovery also disagreed with Device Hub;
 connecting by cable, selecting the device, then unplugging allowed recording.
 This is a profiling-tool workaround, not a game change. No new IPA was built.
+
+### Optional Utility QoS for native CPU rendering
+
+Following the power trace, the user approved a separate scheduling experiment
+before the proposed attribute-cache change. `--nfsmw_native_render_utility=true`
+assigns QOS_CLASS_UTILITY to the existing serial `nfsmw.native` Dispatch queue
+when it is created. The switch defaults false, is independent of the previous
+eight options and the five-option master, and requires a full game restart.
+False preserves the original unspecified queue attributes and ordinary QoS
+inheritance. There is no automatic frame-cap or thermal policy in this switch;
+initial device testing is at 60 FPS, not 120.
+
+Only the queue executing RenderFrame and its normal cleanup changes priority.
+The guest main thread, Xbox command processor, audio and pipeline-compilation
+queues are unchanged. Shader work still executes on the GPU. The same unique_ptr
+handoff, serial ordering, in-flight limit, GPU resource lifetimes and pacing
+waits remain. No visual settings or rendering commands change. This requests a
+scheduling class, not efficiency-core affinity, and does not guarantee an
+energy saving or that frame deadlines will still be met.
+
+The installed iOS SDK's `dispatch/block.h` specifies that ordinary asynchronous
+blocks use an explicitly specified queue QoS before their normally inherited
+submitter QoS. The existing dispatch_async block therefore needs no extra
+wrapper or priority manipulation. System promotion can still occur for
+dependencies. A new startup line reports the requested queue mode, and
+`[native] render scheduling` reports counts of observed worker QoS classes at
+non-dump frame entry, in the existing 300-frame summary. The counters are local
+to the serial render queue; qos_class_self is read once per frame in both arms,
+not per draw. Entry samples are not whole-frame QoS or core-residency metrics.
+
+Validation: an ARC-enabled macOS harness extracted the production queue
+initializer and frame-handoff block, submitting from User Initiated QoS.
+Under ASan/UBSan, each arm processed 2,000 frames in serial order with frame
+owners released. The legacy queue reported unspecified configured QoS and
+2,000 User Initiated entries; the experiment reported configured Utility and
+2,000 Utility entries. This verifies Dispatch QoS selection and the handoff on
+the host, not on-device core placement or performance. The Release iOS IPA
+built successfully with the existing SDK/UIKit warnings.
+
+Test IPA: `ios/build/NFSMW-battery-render-utility-15.ipa`. Enable the switch
+alongside the previous eight options, at iPad 1.5x / 60 FPS and fixed brightness.
+First check gameplay/pacing and effective entry QoS. Use the working minimal
+Power Profiler setup and the run-11 race/chase pattern to compare CPU/GPU/display
+impact, system energy rate and Time Profiler P/E-core residency. Compare
+ordinary frame timing and hitches as well as average FPS. Run 11 is the current
+optimized baseline; a new off-arm run is useful only if conditions changed or
+the power difference is too close to separate from run variation. Roll back
+this experiment with false and restart. Device validation is pending.

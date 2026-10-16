@@ -107,6 +107,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
+                    "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -3880,11 +3882,31 @@ size_t ConsolidateCubeTargets(std::vector<CubeTarget>& targets) {
   return removed;
 }
 
+bool NativeRenderUtility() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_render_utility);
+  return enabled;
+}
+
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
   // RenderFrame is called on the renderer's serial dispatch queue. Accumulate
   // the game-thread capture diagnostics here so the hot draw path stays local.
   static VertexDiagnostics vertex_diagnostics;
   if (!dump) vertex_diagnostics += frame->vertex_diagnostics;
+  // Entry samples describe the executing worker, not core affinity or QoS
+  // throughout the frame. The OS can still promote work to resolve dependencies.
+  static uint64_t render_qos_entries[6] = {};
+  if (!dump) {
+    size_t slot = 5;
+    switch (qos_class_self()) {
+      case QOS_CLASS_UTILITY: slot = 0; break;
+      case QOS_CLASS_DEFAULT: slot = 1; break;
+      case QOS_CLASS_USER_INITIATED: slot = 2; break;
+      case QOS_CLASS_USER_INTERACTIVE: slot = 3; break;
+      case QOS_CLASS_BACKGROUND: slot = 4; break;
+      default: break;
+    }
+    ++render_qos_entries[slot];
+  }
   const auto render_start = std::chrono::steady_clock::now();
   struct RenderTimer {
     std::chrono::steady_clock::time_point t0;
@@ -6465,6 +6487,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        REXLOG_INFO("[native] render scheduling: utility requested {}; frame-entry QoS samples "
+                    "utility {}, default {}, user-initiated {}, user-interactive {}, background {}, other {} "
+                    "(not core placement)",
+                    NativeRenderUtility() ? "on" : "off", render_qos_entries[0], render_qos_entries[1],
+                    render_qos_entries[2], render_qos_entries[3], render_qos_entries[4], render_qos_entries[5]);
+        for (auto& count : render_qos_entries) count = 0;
         REXLOG_INFO("[native] cube assembly: deduplication {}; over {} frames, {:.2f} bindings/frame, "
                     "{:.2f} duplicate destinations removed/frame, {:.2f} copies/frame",
                     deduplicate_cubes ? "on" : "off", cube_stats_frames,
@@ -7034,7 +7062,19 @@ bool NativeSwap() {
       ++in_flight;
       const uint32_t number = ++dump_number;
       const bool dump = recording_dumps;
-      static dispatch_queue_t queue = dispatch_queue_create("nfsmw.native", DISPATCH_QUEUE_SERIAL);
+      static dispatch_queue_t queue = [] {
+        const bool utility = NativeRenderUtility();
+        // An explicit queue QoS takes precedence over the normal submitting
+        // thread's inherited QoS for dispatch_async. Keep the legacy attributes
+        // exactly when the experiment is off; no thread priorities are changed.
+        dispatch_queue_attr_t attributes = utility
+            ? dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0)
+            : DISPATCH_QUEUE_SERIAL;
+        dispatch_queue_t created = dispatch_queue_create("nfsmw.native", attributes);
+        REXLOG_INFO("[native] render queue: {} QoS; serial frame ordering unchanged (restart to change)",
+                    utility ? "utility" : "legacy unspecified");
+        return created;
+      }();
       __block Frame* raw = frame.release();
       dispatch_async(queue, ^{
         RenderFrame(std::unique_ptr<Frame>(raw), number, present, dump);
