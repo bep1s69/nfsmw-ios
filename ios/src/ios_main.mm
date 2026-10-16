@@ -89,6 +89,8 @@ REXCVAR_DEFINE_BOOL(ios_mvk_performance, false, "GPU",
 REXCVAR_DEFINE_BOOL(ios_gpu_capture, false, "GPU",
                     "iOS: a CAPTURE button that saves a Metal GPU frame capture to "
                     "Documents/captures (open it in Xcode)");
+REXCVAR_DEFINE_BOOL(nfsmw_battery_optimizations, true, "GPU",
+                    "Combined battery experiment: force all five optimizations on or off (restart required)");
 
 namespace {
 
@@ -146,6 +148,29 @@ void SetArgument(std::vector<std::string>& args, const std::string& arg) {
   args.push_back(arg);
 }
 
+// Expand before parsing so late-loaded GPU plugin flags receive the same
+// command-line overrides. The group wins over stale individual overrides.
+void ApplyBatteryExperiment(std::vector<std::string>& args) {
+  bool enabled = true;
+  bool low_cap = false;
+  for (const auto& arg : args) {
+    const std::string name = OptionName(arg);
+    const size_t equals = arg.find('=');
+    const std::string value = equals == std::string::npos ? "true" : arg.substr(equals + 1);
+    if (name == "--nfsmw_battery_optimizations") {
+      enabled = value != "false" && value != "0" && value != "off" && value != "no";
+    }
+    if (name == "--ios_fps_cap") low_cap = value == "30" || value == "40";
+  }
+  const std::string value = enabled ? "true" : "false";
+  for (const char* flag : {"nfsmw_native_deduplicate_cubes", "ios_native_bulk_constants",
+                           "nfsmw_native_reclaim_geometry", "nfsmw_native_vfetch_cache",
+                           "nfsmw_native_compressible_resolves"}) {
+    SetArgument(args, std::string("--") + flag + "=" + value);
+  }
+  SetArgument(args, std::string("--ios_battery_baseline_qos=") + (!enabled && !low_cap ? "true" : "false"));
+}
+
 // Documents/extra_args.txt: one argument per line; blank lines and lines
 // starting with '#' are ignored. Each replaces any argument with the same
 // option name already in `args`.
@@ -199,7 +224,12 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   // (coreaudio_driver.mm: setActive can block).
   rex::audio::ios::PrepareAudioSession();
   boot::Trace("game: parsing the arguments");
-  auto leftovers = rex::cvar::Init(argc, argv);
+  std::vector<std::string> experiment_args(argv, argv + argc);
+  ApplyBatteryExperiment(experiment_args);
+  std::vector<char*> experiment_argv;
+  for (auto& arg : experiment_args) experiment_argv.push_back(arg.data());
+  experiment_argv.push_back(nullptr);
+  auto leftovers = rex::cvar::Init(int(experiment_args.size()), experiment_argv.data());
   rex::cvar::ApplyEnvironment();
   rex::InitLoggingEarly();
   // Before OnInitialize, which loads MoltenVK: it reads its settings from the
@@ -222,6 +252,9 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               REXCVAR_GET(ios_async_submits) ? "asynchronous" : "synchronous",
               REXCVAR_GET(ios_mvk_performance) ? "on" : "off");
   nfsmw::memory::Report("log open");
+  REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
+              REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
+              rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
   if (REXCVAR_GET(ios_gpu_capture)) {
     setenv("NFSMW_SIGNAL_REPORT", (docs / "logs" / "native_fault.txt").c_str(), 1);
     REXLOG_INFO("[gpu-capture] unhandled fault report: logs/native_fault.txt");

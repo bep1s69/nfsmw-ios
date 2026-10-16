@@ -116,8 +116,10 @@ if __name__ == "__main__":
     if "--revert" not in sys.argv:
         from patch_engine import find_sdk
         from patch_ios_retire_qos import BLOCKS as retired
+        from patch_ios_battery_group import BLOCKS as grouped
         sdk = find_sdk(XT)
-        if all(after in (sdk / path).read_text() for path, _, _, after in retired):
+        if (all(after in (sdk / path).read_text() for path, _, _, after in retired) or
+                all(after in (sdk / path).read_text() for path, _, _, after in grouped)):
             print("[ok] ios_qos: superseded by ios_retire_qos")
             sys.exit(0)
     sys.exit(run("ios_qos", BLOCKS))

@@ -315,3 +315,19 @@ and driver at once.
 See [Legal in the README](../README.md#legal). The app built without generated
 code (probe only) contains nothing from the game; built with it, it contains the
 game's code and is only for your own devices.
+
+### Combined battery experiment (battery-optimization branch)
+
+`--nfsmw_battery_optimizations=true` (default in the experiment build) forces
+cube destination deduplication, native bulk constant writes, geometry arena
+range reuse, vertex-fetch layout caching, and compression-eligible resolve
+usage on. The last two experiments remain individually inconclusive.
+`--nfsmw_battery_optimizations=false` forces those five off and restores the
+historical explicit main/command-thread priority above 40 FPS. At 30/40 FPS
+both arms use ordinary scheduling. The launcher priority setting stays removed.
+
+Restart between arms. The group overrides individual switches in extra_args.txt;
+resolution, cap, graphics settings, diagnostics and correctness fixes remain the
+same in both arms. Check `[battery-group]` at startup and individual summaries
+before attributing results. This is a combined experiment, not proof of an
+energy saving or a way to identify which component caused a difference.

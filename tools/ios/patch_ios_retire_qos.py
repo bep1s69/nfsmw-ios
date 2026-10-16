@@ -16,4 +16,11 @@ BLOCKS = [
 ]
 
 if __name__ == "__main__":
+    if "--revert" not in sys.argv:
+        from patch_engine import find_sdk
+        from patch_ios_battery_group import BLOCKS as grouped
+        sdk = find_sdk(BLOCKS[0][0])
+        if all(after in (sdk / path).read_text() for path, _, _, after in grouped):
+            print("[ok] ios_retire_qos: superseded by battery experiment control")
+            sys.exit(0)
     sys.exit(run("ios_retire_qos", BLOCKS))
