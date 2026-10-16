@@ -111,6 +111,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, false, "GPU",
+                    "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -4014,6 +4016,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     static id<MTLCommandQueue> queue = [device newCommandQueue];
     bc_queue = queue;  // BC decodes go on the frame's queue (BcDecodeOnGpu)
     residency::Apply(device, queue);
+    static const bool lazy_diagnostics = REXCVAR_GET(nfsmw_native_lazy_diagnostics);
+    const bool prepare_snapshots = dump || !lazy_diagnostics;
     const bool compressible_resolves = REXCVAR_GET(nfsmw_native_compressible_resolves);
     // Same-format swizzles do not require PixelFormatView. That usage would
     // prohibit lossless compression, even on otherwise eligible textures.
@@ -4636,8 +4640,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const NSUInteger heap_capacity = textures.count + frame->resolves.size() * 4 + frame->textures.size() * 2;
 
     // What each 2D heap index holds (for the snapshot of watched draws' inputs).
-    std::vector<id<MTLTexture>> heap_object(heap_capacity + 1);
-    for (NSUInteger i = 0; i < textures.count; ++i) heap_object[i] = textures[i];
+    // Diagnostic-only extra ownership. The actual texture lists and resource
+    // declarations below remain required on ordinary frames.
+    std::vector<id<MTLTexture>> heap_object;
+    if (prepare_snapshots) {
+      heap_object.resize(heap_capacity + 1);
+      for (NSUInteger i = 0; i < textures.count; ++i) heap_object[i] = textures[i];
+    }
     // Watched draws (snapshot frames only): the first draws of these pixel
     // shaders save every 2D texture they are given, as Metal sees it.
     // The wet road, and the car body's two shaders.
@@ -4657,14 +4666,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       auto kept = kept_resolves.find(tp->address);
       if (kept == kept_resolves.end() || next_heap >= heap_capacity || kept->second.texture.textureType != MTLTextureType2D) continue;
       static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = kept->second.texture.gpuResourceID;
-      heap_object[next_heap] = kept->second.texture;
+      if (prepare_snapshots) heap_object[next_heap] = kept->second.texture;
       resolved[tp->address] = next_heap++;
       resolved_texture[tp->address] = kept->second.texture;
       resolved_swap[tp->address] = kept->second.swap;
       resolved_scale[tp->address] = kept->second.scale;
       [resolved_textures addObject:kept->second.texture];
-      resolve_names.push_back("kept");
-      resolve_rects.push_back(CGRectZero);
+      if (prepare_snapshots) {
+        resolve_names.push_back("kept");
+        resolve_rects.push_back(CGRectZero);
+      }
       ++kept_used;
     }
     id<MTLTexture> final_texture = nil;
@@ -4783,7 +4794,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       rp.colorAttachments[0].slice = slice;
       rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
       rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-      profile_pass(rp, label);
+      if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+        profile_pass(rp, label);
       id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
       [e setRenderPipelineState:copy];
       [e setFragmentTexture:from atIndex:0];
@@ -4811,7 +4823,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       rp.depthAttachment.texture = motion_depth;
       rp.depthAttachment.loadAction = MTLLoadActionDontCare;
       rp.depthAttachment.storeAction = MTLStoreActionStore;
-      profile_pass(rp, "motion: scene depth");
+      if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+        profile_pass(rp, "motion: scene depth");
       id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
       static id<MTLDepthStencilState> always;
       if (!always) {
@@ -4849,7 +4862,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       auto found = targets.find(own_key);
       const bool own = found != targets.end() && found->second.color;
       Target& src = own ? found->second : targets[target_key(last)];
-      diagnostics.push_back(fmt::format(
+      if (prepare_snapshots) diagnostics.push_back(fmt::format(
           "resolve {} after draw {}: ctrl {:08x} ({} rt{}, clear {}{}), reads {} ({}), last draw {}, "
           "rect {},{}-{},{} -> {:08x} {}x{} swap {} exp {}",
           resolves_done + resolves_skipped, ev.after_draws, ev.control, ev.depth ? "depth" : "color",
@@ -4888,8 +4901,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static_cast<MTLResourceID*>(cube_heap.contents)[next_cube] = cube.gpuResourceID;
           resolved_cube_index[ev.dest_base] = next_cube++;
           [resolved_textures addObject:cube];
-          resolve_names.push_back(fmt::format("resolve_{:02}_cube_{}x{}_to_{:08x}", resolves_done, w, h, ev.dest_base));
-          resolve_rects.push_back(CGRectMake(0, 0, w, h));
+          if (prepare_snapshots) {
+            resolve_names.push_back(fmt::format("resolve_{:02}_cube_{}x{}_to_{:08x}", resolves_done, w, h, ev.dest_base));
+            resolve_rects.push_back(CGRectMake(0, 0, w, h));
+          }
         }
         if (cube && ev.slice < 6) {
           resolved_cube_swap[ev.dest_base] = ev.swap;
@@ -4958,7 +4973,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           rp.colorAttachments[0].loadAction = MTLLoadActionClear;
           rp.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1);
           rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-          profile_pass(rp, depth_audit
+          if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+            profile_pass(rp, depth_audit
                                ? fmt::format("depth copy: {} rect {},{} {}x{} -> {}x{}", own ? own_key : target_key(last),
                                              x0, y0, w, h, dw, dh)
                                : "depth copy");
@@ -5055,7 +5071,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           static_cast<MTLResourceID*>(sampler_heap.contents)[next_heap] =
               SamplerFor(device, false, 2, 2, false).gpuResourceID;
         }
-        heap_object[next_heap] = dest;
+        if (prepare_snapshots) heap_object[next_heap] = dest;
         resolved[ev.dest_base] = next_heap++;
         resolved_texture[ev.dest_base] = dest;
         resolved_swap[ev.dest_base] = !ev.depth && ev.swap;
@@ -5116,9 +5132,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           final_guest_width = std::max(ev.x1 - ev.x0, 0);
           final_guest_height = std::max(ev.y1 - ev.y0, 0);
         }
-        resolve_names.push_back(fmt::format("resolve_{:02}_{}_{}x{}_to_{:08x}", resolves_done,
-                                            ev.depth ? "depth" : "color", w, h, ev.dest_base));
-        resolve_rects.push_back(CGRectMake(x0, y0, w, h));
+        if (prepare_snapshots) {
+          resolve_names.push_back(fmt::format("resolve_{:02}_{}_{}x{}_to_{:08x}", resolves_done,
+                                              ev.depth ? "depth" : "color", w, h, ev.dest_base));
+          resolve_rects.push_back(CGRectMake(x0, y0, w, h));
+        }
         ++resolves_done;
       }
       if (ev.clear_color) {
@@ -5431,7 +5449,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           order.push_back(tk);
         }
         t.used = true;
-        profile_pass(rp, fmt::format("pass {} from draw {} ({}x{})", pass_key, di, t.color.width, t.color.height));
+        if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+          profile_pass(rp, fmt::format("pass {} from draw {} ({}x{})", pass_key, di, t.color.width, t.color.height));
         enc = [cb renderCommandEncoderWithDescriptor:rp];
         clip_mode_encoder = nil;  // a new encoder starts clipping
         clip_mode_clamp = false;
@@ -5760,16 +5779,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                            channel(sw >> 6), channel(sw >> 9))];
                 if (v) {
                   static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = v.gpuResourceID;
-                  heap_object[next_heap] = v;
+                  if (prepare_snapshots) heap_object[next_heap] = v;
                   [resolved_textures addObject:v];
-                  resolve_names.push_back("view");
-                  resolve_rects.push_back(CGRectZero);
+                  if (prepare_snapshots) {
+                    resolve_names.push_back("view");
+                    resolve_rects.push_back(CGRectZero);
+                  }
                   [enc useResource:v usage:MTLResourceUsageRead stages:MTLRenderStageVertex | MTLRenderStageFragment];
                   if (source != base) {  // the crop: named too (the snapshot pairs names and textures by position)
                     [enc useResource:source usage:MTLResourceUsageRead stages:MTLRenderStageVertex | MTLRenderStageFragment];
                     [resolved_textures addObject:source];
-                    resolve_names.push_back("crop");
-                    resolve_rects.push_back(CGRectZero);
+                    if (prepare_snapshots) {
+                      resolve_names.push_back("crop");
+                      resolve_rects.push_back(CGRectZero);
+                    }
                   }
                   resolved_views[view_key] = next_heap;
                   index = int(next_heap++);
@@ -5876,7 +5899,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
       // Plus, for the car shaders, every draw whose first texture is 1024
       // wide or more (the car's skin, with its livery).
-      const bool skin = d.textures[0] >= 0 && frame->textures[d.textures[0]]->width >= 1024 &&
+      const bool skin = prepare_snapshots && d.textures[0] >= 0 && frame->textures[d.textures[0]]->width >= 1024 &&
                         d.ps_key != 0xaf393d4c46af230cull && watched_seen[d.ps_key ^ 1]++ < 4;
       // Snapshots: the shadow receivers' shadow constants (pixel c0-c8: the
       // "enabled" switch and bias; vertex c17, c19, c40: the shadow map
@@ -6253,7 +6276,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               fp.colorAttachments[0].texture = smoothed;
               fp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
               fp.colorAttachments[0].storeAction = MTLStoreActionStore;
-              profile_pass(fp, "post: FXAA");
+              if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+                profile_pass(fp, "post: FXAA");
               id<MTLRenderCommandEncoder> fe = [cb renderCommandEncoderWithDescriptor:fp];
               const float tw = float(final_texture.width), th = float(final_texture.height);
               const float vcrop[4] = {crop[0], crop[1], 0, 0};
@@ -6276,7 +6300,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
-        profile_pass(rp, "present: main display");
+        if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+          profile_pass(rp, "present: main display");
         id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
         // Only the picture's rectangle: the one triangle covering it reaches
         // past its right and top edges (to 3x), where the sampler's clamp
@@ -6308,7 +6333,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             xrp.colorAttachments[0].loadAction = MTLLoadActionClear;
             xrp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
             xrp.colorAttachments[0].storeAction = MTLStoreActionStore;
-            profile_pass(xrp, "present: external display");
+            if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+              profile_pass(xrp, "present: external display");
             id<MTLRenderCommandEncoder> xe = [cb renderCommandEncoderWithDescriptor:xrp];
             const double pw = std::round(xw * xfit[0]), ph = std::round(xh * xfit[1]);
             const NSUInteger px = NSUInteger(std::max(0.0, std::floor((xw - pw) * 0.5)));
@@ -6562,6 +6588,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        REXLOG_INFO("[native] lazy diagnostics: {}; snapshot-only preparation {} on ordinary frames",
+                    lazy_diagnostics ? "on" : "off", prepare_snapshots ? "active" : "skipped");
         REXLOG_INFO("[native] render scheduling: utility requested {}; frame-entry QoS samples "
                     "utility {}, default {}, user-initiated {}, user-interactive {}, background {}, other {} "
                     "(not core placement)",

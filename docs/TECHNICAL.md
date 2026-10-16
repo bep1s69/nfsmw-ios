@@ -1215,3 +1215,56 @@ the game's battery drain. Separately, lightweight GPU-buffer front-cache
 hit/collision/missing-entry counters would resolve the next cache-policy
 question; instrumentation needs approval before implementation. No new build
 or source modifications were made for this audit.
+
+### Lazy snapshot diagnostics (IPA 18)
+
+After approval, implemented the audit's diagnostic cleanup in
+`ios/src/native_renderer.mm`. Independent restart-required switch
+`--nfsmw_native_lazy_diagnostics=true`, default false, outside the original
+five-option group. `prepare_snapshots = dump || !lazy_diagnostics` preserves
+the old preparation when disabled and always prepares metadata on actual
+snapshot frames. The normal-frame summary logs whether preparation is active
+or skipped. No GPU-buffer cache policy/instrumentation change was included.
+
+When enabled on ordinary frames:
+- Do not allocate/populate the diagnostic heap_object strong-reference table.
+- Do not format/store unused resolve descriptions, resolve PNG names or rects.
+- Short-circuit the snapshot skin/watched_seen predicate before texture
+  inspection or counter-map insertion.
+- At all seven profile_pass call sites, only construct labels if profiling is
+  active and its 255-label capacity has space. Keep all profiling timestamps
+  and label ordering on sampled frames. new_blit and profile_labels lifetime
+  management remain unchanged.
+
+Actual Metal texture creation, copies, heaps, binding indices, required
+textures/resolved_textures/assembled_cubes/volume/cube ownership arrays,
+useResource/useResources calls, GPU completion handlers, pooling, reclamation
+and submission remain unchanged. The extra diagnostic references previously
+ended at RenderFrame return, so removing them does not shorten a GPU-completion
+retention period. This eliminates proven unused preparation; its whole-app
+CPU and energy benefit has not been measured.
+
+`python3 tools/native/test_lazy_diagnostics.py` passed under Objective-C ARC,
+ASan and UBSan, comparing extracted production bookkeeping against pre-change
+commit de599a6. It checks all five resolve metadata variants, resolve
+description, heap lookup writes and skin-counter state. Snapshot-on metadata
+matches with either switch setting; the disabled ordinary arm matches the
+old path; enabled ordinary frames leave this metadata empty. Real NSObject
+weak-reference/deallocation checks show all fixture textures remain alive
+without diagnostic references until the original frame-local ownership lists
+are released, then deallocate. Sampled main-pass labels match with profiling
+on/off and initial counts 0/254/255/256. Required texture ownership,
+residency and submission statement sequences also match the old source.
+This host fixture submits no GPU work and does not exercise the full iOS
+PNG-writing or GPU-retention path; device PNG output has not been tested.
+
+The iOS IPA build, ZIP CRC and strict deep codesign checks passed. All 104
+Metal shader libraries are byte-identical to IPA17.
+`ios/build/NFSMW-battery-lazy-diagnostics-18.ipa`:
+UUID `27AD258B-5C3B-3A9A-B4B1-632AF439C10C`, SHA256
+`eb8f8b0912567d6e3d9d504faf5d62306bef7f4722fe17ddd63b41ba12b64e65`.
+Device correctness pending: keep prior arguments/settings, add
+`--nfsmw_native_lazy_diagnostics=true`, run the usual two-lap iPad race at
+1.5x/60 FPS, and send its log plus any visual/stability observations. No long
+individual power A/B requested. Await device validation before another code
+change or any decision to enable by default.
