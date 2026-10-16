@@ -27,6 +27,8 @@ int main(int argc, char** argv) {
         compiler.preserveParallelAluSources = argc == 4;
         compiler.recompile(reinterpret_cast<const uint8_t*>(input.data()), common);
         std::ofstream output(argv[2], std::ios::binary);
+        // Build metadata only; a comment cannot change the shader program.
+        output << "// NFSMW_TEXTURE_MASK_V1 " << std::hex << compiler.usedTextureMask << '\n';
         output << compiler.out;
         return output ? 0 : 4;
     } catch (const std::exception& e) {

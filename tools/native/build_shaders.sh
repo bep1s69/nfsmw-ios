@@ -14,6 +14,7 @@
 # 4. xcrun metal: one .metallib per shader, named vs_/ps_<microcode hash>.
 # 5. tools/native/constant_ranges.py: the float constants each shader reads
 #    (lib/constant_ranges.txt), so the renderer handles only those.
+# 6. tools/native/texture_masks.py: conservative texture-slot metadata.
 #
 # Output (default ~/Library/Caches/nfsmw-ios/shaders): containers/, msl/,
 # air/, lib/. Nothing derived from the game goes into the repository.
@@ -61,6 +62,7 @@ for container in "$out"/containers/*.bin; do
 done
 cp "$out/containers/vertex_inputs.txt" "$out/lib/"
 python3 "$repo/tools/native/constant_ranges.py" "$out/msl" "$out/lib/constant_ranges.txt"
+python3 "$repo/tools/native/texture_masks.py" "$out/msl" "$out/lib/texture_masks.txt"
 echo "$translated translated, $compiled Metal libraries in $out/lib"
 if [ -n "$failed" ]; then
   echo "failed:$failed"

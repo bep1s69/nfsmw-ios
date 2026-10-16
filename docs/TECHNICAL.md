@@ -409,3 +409,49 @@ improvement cannot identify each member's contribution; a clear regression
 still warrants isolating changes. The current master controls only the original
 five changes: a future complete-batch comparison must also explicitly toggle
 native constant copies (and any later experiments), or extend the master first.
+
+### Shader texture-slot experiment
+
+`--nfsmw_native_texture_masks=true` (on in the test build) processes only texture
+slots declared or referenced by the current vertex/pixel shader pair. It is
+independent of the five-option master and native constant copies. Set it false
+and restart to restore the original all-16-slot behavior. No new quality setting
+or reduced-resolution resource is introduced.
+
+The shader translator exports its existing texture-instruction mask as a versioned
+source comment. `tools/native/texture_masks.py` conservatively unions that with
+all sampler declarations in every resource dimension and writes
+`NativeShaders/texture_masks.txt`. Build packaging already copies that directory.
+Missing/unsupported source metadata keeps all slots. Runtime metadata parsing
+rejects malformed, duplicate or unsupported entries as a whole. Either unknown
+shader stage keeps all 16 slots; an explicitly known zero mask is distinguished
+from missing metadata. Hand-written vertex shaders use zero, and the hand-written
+XMV pixel shader uses its three Y/U/V slots. Shadow/alpha/motion diagnostics,
+native dumps, texture replacement tests, cost probes and Metal capture retain
+the original all-slot behavior.
+
+Record skips fetch comparisons and TextureOf for unused slots and marks those
+draw bindings absent. It leaves the slot cache untouched until a shader needs
+that slot again; the existing comparison then validates its current binding.
+Resolves still invalidate every slot. The later renderer consequently avoids
+handling those unused texture bindings, and resources referenced only through
+unused slots need not be decoded or uploaded. Required texture sampling and
+rendering passes are unchanged. Actual allocation/upload/energy benefits remain
+unmeasured; removing slot work is not equivalent to removing a texture resource
+that another draw still needs.
+
+The existing 300-frame summary reports `[native] texture slots`: skipped and
+considered slots, and unknown-shader draws that retained all slots. Metadata
+coverage is logged at startup. Counters stay on the recording thread and are
+aggregated through the existing diagnostics; no per-draw atomics or log writes.
+
+Validation: all 101 rebuilt shader sources matched their prior source hashes
+after removing only the new metadata comment, and all 101 interfaces covered
+the translator's referenced slots. `python3 tools/native/test_texture_masks.py
+--shaders ~/Library/Caches/nfsmw-ios/shaders/msl` checks conservative extraction,
+10,000 stage-mask unions, malformed metadata and cache invalidation. It also
+extracts and compiles the actual renderer slot loop and compares required texture
+bindings against the original all-slot path across 20,000 draws with changing
+bindings, later reuse, resolve invalidation and empty/full masks. C++ checks run
+under AddressSanitizer and UndefinedBehaviorSanitizer. Device visual/stability
+validation is still required before claiming the experiment is established.

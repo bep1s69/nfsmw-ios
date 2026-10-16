@@ -71,6 +71,7 @@
 #include "memory_report.h"
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
+#include "native_texture_masks.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -101,6 +102,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, false, "GPU",
                     "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
+REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
+                    "Native renderer: process only shader-referenced texture slots (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -469,6 +472,7 @@ struct ShaderStore {
   std::map<std::pair<uint64_t, uint32_t>, id<MTLFunction>> motion_variants;  // (key ^ pixel << 63, spec)
   std::unordered_map<uint64_t, std::vector<VertexInput>> inputs;  // by VS key
   std::set<uint64_t> internal_keys;  // D3D's run-time vertex shaders (written here)
+  nfsmw::TextureMasks texture_masks;
   // The float constant registers each shader reads, FIRST..END-1
   // (constant_ranges.txt, tools/native/constant_ranges.py); not listed: all.
   std::unordered_map<uint64_t, std::pair<uint16_t, uint16_t>> constant_ranges;  // by "vs"/"ps" key ^ kind
@@ -559,6 +563,11 @@ struct ShaderStore {
         constant_ranges[key ^ (kind[0] == 'p' ? 1ull : 0ull) << 63] = {uint16_t(first), uint16_t(end)};
       }
     }
+    NSString* masks = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:@"texture_masks.txt"]
+                                               encoding:NSUTF8StringEncoding error:nil];
+    const bool masks_valid = masks && masks.UTF8String && texture_masks.Load(masks.UTF8String);
+    REXLOG_INFO("[native] texture slot metadata: {} shader interfaces; {}",
+                texture_masks.Size(), masks_valid ? "loaded" : "unavailable; retaining all slots for unknown shaders");
     LoadD3DInternalShaders(constants);
     if (unloadable) {
       REXLOG_WARN("[native] {} shader libraries could not be loaded on iOS {}", unloadable,
@@ -668,6 +677,10 @@ struct ShaderStore {
     inputs[0xea96a7e9f897dae6ull] = {{2, 0, 0}};
     inputs[0xc4d5a3612b92f170ull] = {{3, 0, 0}, {4, 5, 13}};
     inputs[0xe69ff45e5d083e23ull] = {{3, 0, 0}, {4, 5, 13}};
+    // The hand-written vertex functions above do not sample textures. The
+    // movie pixel shader samples exactly Y/U/V at slots 0/1/2.
+    for (uint64_t key : internal_keys) texture_masks.SetInternal(false, key, 0);
+    if (REXCVAR_GET(nfsmw_native_movies)) texture_masks.SetInternal(true, 0x2d2462de73d283deull, 7);
   }
 
   // A pixel shader specialized for an alpha test (G_SPEC_CONSTANTS: bit 1 on,
@@ -977,6 +990,8 @@ struct Draw {
 };
 
 struct VertexDiagnostics {
+  uint64_t texture_slots_considered = 0, texture_slots_skipped = 0;
+  uint64_t texture_mask_unknown_draws = 0;
   uint64_t fetch_layout_hits = 0, fetch_layout_misses = 0, fetch_layout_bypasses = 0;
   uint64_t watched_cache_hits = 0;
   uint64_t fingerprint_cache_hits = 0;
@@ -992,6 +1007,9 @@ struct VertexDiagnostics {
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
+    texture_slots_considered += other.texture_slots_considered;
+    texture_slots_skipped += other.texture_slots_skipped;
+    texture_mask_unknown_draws += other.texture_mask_unknown_draws;
     fetch_layout_hits += other.fetch_layout_hits;
     fetch_layout_misses += other.fetch_layout_misses;
     fetch_layout_bypasses += other.fetch_layout_bypasses;
@@ -2569,9 +2587,35 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // Booleans: VS 0-15 in bits 0-15, PS 128-143 in bits 16-31.
   d.booleans = (regs[kBoolBase] & 0xFFFF) | ((regs[kBoolBase + 4] & 0xFFFF) << 16);
 
+  // Keep all bound textures for bring-up snapshots and diagnostic variants.
+  // The switch and diagnostic settings are launch options, as are the shader
+  // interfaces. No per-draw registry queries or atomics are needed here.
+  static const bool prune_texture_slots = [] {
+    const char* capture = getenv("MTL_CAPTURE_ENABLED");
+    return !(capture && strcmp(capture, "1") == 0) && REXCVAR_GET(nfsmw_native_texture_masks) &&
+      !REXCVAR_GET(nfsmw_native_dump) && !REXCVAR_GET(nfsmw_native_shadow_debug) &&
+      !REXCVAR_GET(nfsmw_native_alpha_debug) && !REXCVAR_GET(nfsmw_native_cost_probe) &&
+      !REXCVAR_GET(nfsmw_native_motion_debug) && !REXCVAR_GET(nfsmw_native_test_no_envcube) &&
+      !REXCVAR_GET(nfsmw_native_test_grey_volume);
+  }();
+  uint16_t texture_mask = 0xFFFF;
+  if (prune_texture_slots) {
+    const auto mask = store.texture_masks.ForDraw(d.vs_key, d.ps_key);
+    if (mask) texture_mask = *mask;
+    else ++frame.vertex_diagnostics.texture_mask_unknown_draws;
+  }
+  frame.vertex_diagnostics.texture_slots_considered += 16;
+  frame.vertex_diagnostics.texture_slots_skipped += 16 - __builtin_popcount(uint32_t(texture_mask));
   // A slot whose fetch constant is the same as at the draw before: the same
   // texture (most are; skips building the slot's key).
   for (int s = 0; s < 16; ++s) {
+    if ((texture_mask & (1u << s)) == 0) {
+      d.textures[s] = -1;
+      // Do not update slot_fetch/slot_valid. If a later shader reads this
+      // slot, it must validate its current binding; resolves still invalidate
+      // all slots through the existing path.
+      continue;
+    }
     const uint32_t* fetch = regs + kFetchBase + s * 6;
     if (frame.slot_valid[s] && std::memcmp(frame.slot_fetch[s], fetch, 24) == 0) {
       d.textures[s] = frame.slot_texture[s];
@@ -6475,6 +6519,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
+        REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
+                    "{} unknown-shader draws retained all slots (diagnostics also retain all)",
+                    REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",
+                    vertex_diagnostics.texture_slots_skipped, vertex_diagnostics.texture_slots_considered,
+                    vertex_diagnostics.texture_mask_unknown_draws);
         REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
                     compressible_resolves ? "enabled" : "legacy view usage");
         REXLOG_INFO("[native] geometry arena: range reuse {}; {} empty chunks released since launch",
