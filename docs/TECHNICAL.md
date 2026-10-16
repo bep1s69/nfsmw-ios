@@ -1371,3 +1371,76 @@ Device data pending: retain all prior arguments/settings, add
 at 1.5x / 60 FPS. The game log contains all required counters; no Instruments
 capture or long power A/B is needed for this measurement. Await that log
 before choosing or implementing a cache replacement.
+
+### GPU-buffer lookup results and next proposal (run 17)
+
+`nfsmw_run_17_ipad.log` confirms IPA19 renderer build October 17 01:15:40,
+lookup statistics on, and the previously tested options still enabled.
+Settings remain 1.5x / 60 FPS, MetalFX/FXAA off. Driving spans
+01:19:37.003–01:22:00.927 (143.924 s). The same five-second guards and complete
+summary interval rule yield 26 renderer windows covering 7,800 frames.
+All 36 lookup summaries in the complete log satisfy
+empty_misses + collisions == existing_entries + new_entries.
+
+Guarded race totals:
+
+| Counter | Value |
+|---|---:|
+| GPU buffer lookups | 76,002,892 |
+| Front-cache hits | 43,484,291 (57.214%) |
+| Empty-slot misses | 12 |
+| Occupied-slot collisions | 32,518,589 |
+| Total fallbacks | 32,518,601 (42.786%) |
+| Fallback to existing map entry | 32,416,621 (99.686% of fallbacks) |
+| New map entry | 101,980 (0.314% of fallbacks) |
+| Lookups / frame | 9,743.96 |
+| Fallbacks / frame | 4,169.05 |
+| Occupied front slots at summaries | 1,360–1,364 / 4,096 |
+| Backing-map entries at summaries | 9,353–18,244 |
+| Snapshot frames | 0 |
+
+Thus most fallbacks repeat a lookup for an existing buffer. This is not
+mostly new-resource insertion. The full nominal cache is also poorly used:
+only roughly one third of the slots are occupied despite many more backing
+entries, and essentially every miss replaces an occupied slot. The current
+selector ignores higher pointer bits and repeats every 64 KiB. These data
+support an address-distribution/conflict hypothesis, but they do not record
+pointer streams, identify a precise allocator cause or determine the active
+working-set size. The backing map retains unused entries for hundreds of
+frames, so its entry count is not the instantaneous hot-set size. A better
+selector may help; its recoverable misses and added hashing cost must be tested.
+
+Guarded performance: all FPS summaries 60; CPU mean 80.33%, median 78% of a
+core; recording median 1.37 ms, encoding 4.42 ms, GPU 4.045 ms. Run 16 had
+CPU mean 82.17%, encoding 4.51 ms, but run 17's draw mean was lower
+(2,270 vs 2,339), as was decoded work (2.66M vs 2.95M elements/summary).
+Instrumentation did not implement an optimization; do not attribute a saving
+to this comparison. All 56 thermal observations are nominal and no GPU error
+is logged. Pacing has 41/7,800 off-grid intervals (0.526%), worst 8.3 ms.
+The in-race watchdog dump at 01:20:45.915 conflicts with uninterrupted
+frame 5401 -> 5701 progression in 5 s and 60 FPS, consistent with the existing
+watchdog false positives, rather than evidence of a measured five-second
+freeze. A second dump is after the frontend return; large screen gaps are
+also around that transition. No visual/stability report accompanied this log.
+
+Recommended next isolated experiment, not implemented: keep the existing
+4,096 slots and replacement policy, but optionally mix higher pointer bits
+into the selector. Share one selector helper between GpuBufferFor and
+SweepGpu so eviction invalidates the correct slot. Preserve full-pointer
+identity checks, map fallback, uploads, g.keep, last-use/submission updates,
+GPU completion checks and arena reclamation. Use an independent default-off
+restart-required switch (proposed name nfsmw_native_gpu_lookup_hash), retain
+the current counters, and benchmark the extra selector cost before building.
+Do not simultaneously enlarge the table or add associativity: first measure
+whether using its existing slots better is enough.
+
+Production change would be confined to `ios/src/native_renderer.mm`, with
+focused host validation of full-pointer matches, forced collisions, map
+rehash, erasure/invalidation, allocation retry and resource lifetime paths.
+Then run the usual short ON device race; its log can show whether occupancy
+and existing-entry fallbacks improve. This is a CPU bookkeeping opportunity:
+42.8% lookup misses do not imply 42.8% CPU or battery savings. Previous
+profiles put the backing-map leaf at roughly 1–2% of app CPU samples, so any
+whole-app gain is expected to be incremental. Approval is required before
+implementing this selector change. No source patch or new IPA was made for
+this log analysis.
