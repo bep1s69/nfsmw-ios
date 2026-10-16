@@ -553,3 +553,37 @@ not a confirmed hang or a pool failure. No semaphore-recovery pushes were logged
 The 531 in-race error-level lines are this single watchdog/semaphore trace dump,
 not 531 separate faults. A future diagnostic improvement should consult actual
 frame progress before declaring a stall; no watchdog code changed here.
+
+Longer session check: `nfsmw_run_10_ipad.log` (October 16, 22:18..22:37),
+all eight options on, iPad 1.5x / 60 FPS. Across 163 driving summaries, median
+FPS was 60 (mean 59.991), recording 2.03 ms/frame, aggregate CPU 84% of a core,
+and recorded GPU duration 8.70 ms/frame. Driving workloads averaged about
+2,761 draws in reported frames, so these timings are not an A/B against the
+shorter races. Pacing reported 293 off-grid frames out of 48,900 (0.60%). All
+thermal reports were nominal and no GPU command failures were found.
+
+Attribute pooling stayed on with median 1.00 upstream heap allocations/frame
+(maximum reporting-window average 1.01); peak per-frame attribute storage was
+1.038 MiB. Texture-slot work skipped 88.079% of considered driving slots with
+zero unknown-shader fallbacks. The geometry arena reached at most 64 MiB
+reserved and ended with 6 MiB live / 64 MiB reserved. Process footprint reached
+about 1.6 GiB and later fell to 1,455 MiB: no runaway memory growth was observed
+over this session. Logged battery levels were only 100% then 95%; the coarse
+readings and 100% starting point cannot establish an energy improvement.
+
+Watchdog/semaphore dumps recur. The two largest inter-swap gaps (21.3 and
+50.3 seconds) occurred after logged scene-inactive/background transitions and
+outside active driving; their recording time was about 0.2 ms and renderer
+wait 0..0.7 ms. Treat those regions as lifecycle/profiling interruptions when
+analyzing active gameplay; the log alone cannot establish their exact cause.
+No watchdog recovery semaphore pushes were logged.
+
+The next measurement is Power Profiler on the optimized build before another
+batch A/B. Installed Instruments templates include Power Profiler and CPU
+Profiler. Apple's current setup guidance requires wireless debugging on battery
+power for overall system power usage (charging reports zero), and a specific
+process target for per-app subsystem lanes (All Processes records system power
+only). Target the LiveContainer process hosting the game; the previous CPU
+trace identified that host. Record Power Profiler plus CPU Profiler with fixed
+brightness, scale/cap and optimization settings, and separate menu/gameplay and
+background intervals. Source: [Apple Power Profiler documentation](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler).
