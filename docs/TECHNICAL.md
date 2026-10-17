@@ -1516,3 +1516,83 @@ at 1.5x / 60 FPS. Compare hits/fallbacks and occupancy against run 17, plus
 resource churn, timing/pacing and visual/stability observations. No repeated
 OFF race or long individual power A/B requested. Await the device log before
 stacking another implementation change or enabling this selector by default.
+
+### IPA20 iPad result and iPhone loading freeze (October 17)
+
+The user supplied `/Users/bep1s/Desktop/debug/17 October 2026/nfsmw_run_1_ipad.log`
+and reported no visual glitches. Renderer build is 01:30:55, higher-bit mix
+and lookup statistics enabled, previous tested options enabled. Driving spans
+18:07:49.176–18:10:07.889 as recorded in the log. With the existing five-second
+guards and complete-interval rule, there are 25 summaries / 7,500 frames.
+
+| Metric | Run 17 / legacy selector | October 17 iPad run 1 / mix |
+|---|---:|---:|
+| Front-cache hit rate | 57.214% | 73.987% |
+| Hits | 43,484,291 | 54,313,200 |
+| Empty misses | 12 | 4,271 |
+| Occupied-slot misses | 32,518,589 | 19,091,921 |
+| Existing-entry fallbacks | 32,416,621 | 19,004,467 |
+| New map entries | 101,980 | 91,725 |
+| Fallbacks/frame | 4,169.05 | 2,546.16 |
+| Occupied slots | 1,360–1,364 | 3,646–4,036 |
+| Backing-map entries | 9,353–18,244 | 9,384–17,012 |
+| CPU mean, % of one core | 80.33 | 91.18 |
+| Recording median, ms | 1.37 | 1.49 |
+| Encoding median, ms | 4.42 | 5.73 |
+| GPU median, ms | 4.045 | 4.10 |
+| Draws/frame mean | 2,270 | 2,323 |
+| Decoded elements/summary mean | 2.66M | 2.84M |
+| Reported FPS min/median/max | 60/60/60 | 60/60/60 |
+| Pacing off-grid intervals | 41/7,800 | 2/7,500 |
+
+All 54 thermal observations are nominal, and no driving error-level lines or
+GPU command errors were found. The selector demonstrably uses more slots and
+has fewer repeated map lookups. Total CPU and encoding time were higher,
+including drawable waiting in the latter metric. Workloads differ, but that
+does not establish the reason for the increase or exclude a performance cost.
+Do not claim a CPU/energy win or enable the selector by default based on this
+run. Further optimization implementation is paused for the iPhone issue.
+
+The user also reports that recent builds reach the iPhone frontend but freeze
+on event loading (career/quick race/challenge), while touch controls remain
+responsive. They tried individually disabling recent options. They confirm
+stable 0.3.0 worked; the last working experimental IPA is unknown. They say
+the supplied `nfsmw_iphone crash.log` was probably saved before those OFF tests.
+
+That file is appended history, not a single crash session:
+- October 16 12:47, renderer 12:43:25: older code successfully enters driving.
+- October 17 01:40, 06:31 and 06:32: renderer 01:30:55 (IPA20). All three
+  sessions report the recent switches ON, including Utility, attribute lookup,
+  pooled attributes, transform copies, lazy diagnostics and higher-bit mix.
+  Thus this log does not verify behavior with the changes disabled.
+- The final session stops producing render summaries after frame 301 at
+  06:33:06.122, never reports transition beyond frontend state 3, and continues
+  CPU/memory/watchdog reporting. At 06:33:14 CPU is 16% of a core, footprint
+  1,130 MiB (peak 1,238), nominal thermal state, roughly 5 GiB memory headroom.
+  No GPU error or native fatal exception is recorded. This supports a guest
+  progress stall, not evidence of a memory-pressure termination.
+- The 06:33:20 watchdog shows guest thread 7 at sub_821BD920's request-completion
+  polling loop via 821BD96C / 821BD774 / 821B9F74 / 823B5234 / 823B41A0.
+  Source reads a request ID at *(r31+256)+52, calls sub_825D79F0, and loops on
+  sub_825D7BB8 with a 1 ms sleep until the ID is no longer pending in a linked
+  request list. Main thread 6 waits in the usual frame-dispatch path. This
+  locates an outstanding guest request; it does not identify why it remains
+  pending, prove a file-I/O or GPU cause, or establish a fix. The existing
+  sub_8261D610 lost-job-wakeup hook handles a different wait and is not a
+  justified patch target from this stack alone.
+
+Next controlled diagnostic uses the same IPA20 with all recent experiment
+switches false together, keeping unrelated settings unchanged. A real cold
+launch (force-quit LiveContainer before reopening) is required for cached
+restart-only choices. The five-option master must be false: it overwrites its
+five individual options after parsing, so independently disabling one of
+those while leaving the master true does not disable it. Include false for
+constant copies, texture masks, draw arena, Utility, attribute lookup,
+transform copies, lazy diagnostics, GPU hash and GPU statistics as well.
+The group OFF setting also restores its historical baseline QoS policy above
+40 FPS. This is a functional OFF path, not the exact 0.3.0 binary: e.g. the
+heap-backed PMR draw representation remains compiled in. If it still freezes,
+that does not rule out unconditional binary changes or an exposed timing bug.
+Only one attempt to enter Quick Race and its latest log is needed; avoid more
+battery testing until the freeze is isolated. No speculative fix, source
+patch or new IPA has been made for this investigation.
