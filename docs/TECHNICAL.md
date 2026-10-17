@@ -1622,3 +1622,38 @@ brightness, content, resolution/fidelity and duration. No immediate repeat
 flight-length session or retroactive log is required. The iPhone full-OFF
 loading check remains the next pending diagnostic; no code was changed for
 this battery observation.
+
+### iPhone full-OFF loading success (October 17, run 1)
+
+The user reports that the requested full-OFF cold launch worked, supplying
+`/Users/bep1s/Desktop/debug/17 October 2026/nfsmw_run_1_iphone.log`.
+The renderer build is still IPA20 / October 17 01:30:55. Startup/runtime lines
+verify the master group off, constant and transform copies off, legacy
+unspecified render QoS, legacy GPU selector, lookup counters off, lazy
+diagnostics off, attribute lookup off and draw pooling off. Bulk-constant
+reports show bulk off; group-managed options use their OFF control paths.
+
+The log transitions through frontend -> loading region at 22:00:03.022 ->
+loading track at 22:00:05.074 -> in-world/driving at 22:00:10.194. The last
+renderer summary at 22:00:11.176 reports 30 FPS. Thus this log verifies event
+loading, not a complete long driving session. No GPU error is logged.
+
+Settings remain game Battery mode / 0.85x, FXAA normal, MetalFX off, cap 30,
+matching the two failed 06:31/06:32 sessions in the prior appended log.
+Importantly baseline QoS is OFF even with the group disabled, because the
+30 FPS cap suppresses its historical elevated-priority control path. Do not
+attribute this successful loading to restored top guest/CP thread priority.
+A cold restart and simultaneous option changes still prevent identifying a
+single cause. The latest binary can load on this iPhone in this configuration;
+there is no basis yet for a speculative synchronization or resource fix.
+
+Proposed first focused isolation uses the verified OFF block unchanged except
+`--nfsmw_native_render_utility=true`, retaining the same Battery-mode and cap
+settings and a real force-quit/relaunch of LiveContainer. Utility modifies
+render-queue scheduling and had previously been validated on iPad; it is a
+reasonable candidate to test individually on the phone, not an identified
+culprit. One attempt to load the same Quick Race and a new log is sufficient.
+Failure would show Utility alone is sufficient under these conditions;
+success would not rule out interactions with other options. Keep the other
+options OFF and inspect the new log before changing the next set. No new
+code, build or default setting was changed for this step.
