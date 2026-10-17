@@ -1596,3 +1596,29 @@ that does not rule out unconditional binary changes or an exposed timing bug.
 Only one attempt to enter Quick Race and its latest log is needed; avoid more
 battery testing until the freeze is isolated. No speculative fix, source
 patch or new IPA has been made for this investigation.
+
+### User-reported sustained iPad battery result (October 17)
+
+The user reports an uninterrupted 1 h 35 min iPad session during a flight,
+battery 75% -> 55%, using the game's Battery mode with a 30 FPS cap plus
+system Low Power Mode. They report that the 30 FPS cap held without a single
+observed drop. Logging was disabled, so there is no trace or game log for
+this session. Exact build/experiment arguments, resolution/upscaling,
+brightness, thermal conditions, connectivity and mix of gameplay were not
+recorded here; do not infer those from earlier test runs.
+
+The reported change corresponds to approximately 12.6 battery percentage
+points per hour over 95 minutes. This is a useful sustained real-world result
+and a practical configuration worth retaining for future tests, not a
+controlled comparison with the shorter race or Instruments runs. Game Battery
+mode bundles graphical/workload changes; system Low Power Mode and the 30 FPS
+cap were also active. Their individual contributions, and any contribution
+from this branch's optimizations, cannot be separated from this observation.
+It does not establish equivalent efficiency at default fidelity or 60 FPS.
+
+Preserve this report when planning later power measurements. Once the iPhone
+loading regression is isolated, test these factors separately with comparable
+brightness, content, resolution/fidelity and duration. No immediate repeat
+flight-length session or retroactive log is required. The iPhone full-OFF
+loading check remains the next pending diagnostic; no code was changed for
+this battery observation.
