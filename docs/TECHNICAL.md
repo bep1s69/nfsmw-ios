@@ -2083,3 +2083,87 @@ default change, build or push was made while analyzing this log. The iPhone
 loading issue remains parked. Temporary detailed analysis and summary are
 /tmp/nfsmw_upload21_run2_analysis.py and /tmp/nfsmw_upload21_run2_summary.json;
 the material evidence is preserved here and in DEVELOPMENT_PROGRESS.md.
+
+### Next-target audit after IPA21 device validation (October 18)
+
+Read-only review reused the IPA20 Low Power Mode trace's active-gameplay CPU
+samples, because the cache and Record code is unchanged by IPA21's sizing
+experiment. This does not substitute for a current full-fidelity power trace.
+There is no new production implementation or build in this audit.
+
+Three candidates were checked before recommending the next source change:
+
+1. Record computes two initial geometry MotionMix hashes and one per vertex
+   input even when their sole consumer, temporal/debug motion-vector matching,
+   is inactive. Source around 2424/2484/2679 and the compiled arithmetic agree.
+   Initial hash region 0x1000b5a08..0x1000b5a5c has 37 / 19 ms of active self
+   samples, and per-input mixing 0x1000b65f4..0x1000b6630 has 371 / 204 ms,
+   ON/OFF respectively. Combined roughly 0.086% / 0.076% app CPU. This is real
+   unnecessary work, but lower priority. Sampling skid limits exact attribution.
+2. The frame upload buffer's GPU address is queried repeatedly for VS/PS and
+   shared data, despite a fixed buffer for the frame. objc_msgSend$gpuAddress
+   plus IOGPUMetalResource's getter have roughly 0.112% / 0.091% self shares.
+   Caching that address is another small candidate, not the next priority.
+3. Attribute front-cache lookup remains material despite its demonstrated
+   benefit. The selector/slot-test region 0x1000b6640..0x1000b6830 has
+   5,525 / 3,226 ms, 1.165% / 1.095% of app CPU. Hot PCs include
+   0x1000b66d8 (1,770 / 1,022 ms), 0x1000b6740 (1,532 / 924), and
+   0x1000b6758 (503 / 270). ARM64 compares the base and eight integer fields
+   with a sequence of loads and conditional branches in each candidate slot.
+   Selector and miss work are included; the full region is not recoverable.
+
+The current AttributeKey is exactly 40 bytes on this target: uintptr_t base
+and eight uint32_t fields. A temporary host prototype used the existing
+tools/native/test_attribute_lookup.py harness and extracted production
+Fingerprint/cache/sweep definitions, replacing ONLY
+`slot.entry && slot.key == key` with a complete
+`std::memcmp(&slot.key, &key, sizeof(AttributeKey)) == 0` check after testing
+slot.entry. Backing-map equality, hashing, replacement and cache contents
+were unchanged. Separate compilation confirmed sizeof==40, trivially-copyable
+and unique-object-representations properties. A production implementation
+must retain equivalent representation guards if the struct later changes.
+
+Both original and candidate passed the extracted front-cache fixture under
+ASan/UBSan: each identity field differs independently; forced two-way collisions;
+map fallback/rehash; same-frame guest-memory mutation rejection; live entry
+updates; production sweep invalidation; erasure/reinsertion and retained
+ownership; 90,000 changing-key accesses with immediate reuse. Both produced
+110,719 hits / 69,281 misses / zero bypasses for that randomized phase.
+This validates the prototype's lookup behavior, not actual GPU rendering.
+
+Seven alternating -O3 benchmark trials used the existing fixture's 4,096
+synthetic keys, 300 frames and three passes, 3,686,400 timed lookups per trial:
+
+| Front-key comparison | Median | Min–max |
+|---|---:|---:|
+| Original field comparisons | 66.64 ms | 64.46–98.44 ms |
+| Complete 40-byte comparison | 32.78 ms | 30.45–65.35 ms |
+
+All timed runs have identical checksum 551116800 and counters
+2,615,400 hits / 1,075,096 misses / zero bypasses, including warm population.
+The median is about 50.8% lower for this fixture only. It is not a device
+address replay, instruction/energy accounting, or evidence that Record or
+the whole game becomes 50% faster. The real cache already has different
+coverage, and bulk comparison may load more bytes on early mismatches.
+
+Recommended next isolated experiment, pending approval:
+- Production file ios/src/native_renderer.mm: independent default-false
+  bulk-comparison switch affecting only the attribute front-cache's exact
+  equality test. Retain the scalar control and all fields, mutation checks,
+  cache capacity/selection, lifetime and sweep behavior. Log the active mode.
+- Extend tools/native/test_attribute_lookup.py for both comparison paths,
+  representation guards, each-field differences and miss/hit-heavy layouts.
+  Benchmark the actual switch path and inspect optimized ARM64 so optional
+  control or helper outlining does not consume the anticipated benefit.
+- Preserve textures/shaders/draws and ordinary GPU resource operations; then
+  request one short iPad test before stacking another implementation change.
+  Expected total saving is modest and not yet quantified. No new power trace
+  or repeated IPA21 correctness run is needed before this proposal.
+
+The probe, captured output and source are currently
+/tmp/nfsmw_probe_key_compare.py, /tmp/nfsmw_key_compare_probe.txt and
+/tmp/nfsmw-key-compare-probe/{original,memcmp}.cpp. Record PC extraction and
+disassembly are /tmp/nfsmw_oct18_record_pcs.py/.json and
+/tmp/nfsmw_record20_disassembly.txt. This entry retains the material findings
+if those temporary files disappear. Guest sub_82699100's two short copy loops
+are already optimized; no repeat of that earlier experiment is proposed.
