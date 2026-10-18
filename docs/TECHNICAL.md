@@ -1657,3 +1657,37 @@ Failure would show Utility alone is sufficient under these conditions;
 success would not rule out interactions with other options. Keep the other
 options OFF and inspect the new log before changing the next set. No new
 code, build or default setting was changed for this step.
+
+### iPhone Utility-only and default-settings loading checks (October 18)
+
+`/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_1_iphone.log`
+verifies the requested Utility-only test: the five-option master group,
+constant copies, transform copies, texture pruning, draw pooling, attribute
+lookup, lazy diagnostics, mixed GPU selector and lookup counters are OFF;
+the render queue and its entry samples report Utility QoS. IPA20 reaches
+in-world/driving at 17:16:24.245. Utility alone therefore did not reproduce
+the reported freeze on this attempt; interactions and intermittent failure
+remain possible.
+
+The user then cleared Extra Args and reported successful loading in
+`/Users/bep1s/Desktop/debug/18 October 2026/nfsmw-run_2_iphone.log`.
+This is an appended log containing the previous launch and a second launch
+starting at 17:17:37.590. Analyze the second launch separately: it verifies
+the five-option group ON, constant copies ON, texture pruning ON and draw
+pooling ON. Utility scheduling, attribute lookup, transform copies, lazy
+diagnostics, mixed GPU lookup and lookup counters remain OFF, matching the
+compiled defaults. This is not an all-experiments-ON test.
+
+The same IPA20 renderer (October 17 01:30:55), 0.85x resolution, normal FXAA,
+MetalFX OFF and 30 FPS cap reach region loading, track loading, then driving
+at 17:18:02.473. The last renderer summary at 17:18:08.593 reports 30 FPS;
+the log ends at 17:18:09.350. Neither supplied October 18 log contains an
+error outside the existing watchdog/semaphore dumps; the successful event
+transitions do not establish sustained stability or a battery improvement.
+
+These results supersede the proposed sequence from the full-OFF baseline.
+Next proposed check: retain the now-working default configuration and add
+only `--nfsmw_native_gpu_lookup_hash=true`, force-quit/relaunch LiveContainer,
+then load the same event once. This tests the newest optional cache selector
+against the verified default baseline without stacking other experiments.
+No source code, build or default was changed for these loading checks.
