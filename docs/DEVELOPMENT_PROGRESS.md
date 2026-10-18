@@ -157,8 +157,8 @@ IPA22: `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
 UUID `3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640`; SHA256
 `88dd71bf9d4e379e682ea6ac168211c6d3f90b06285ca32efe90030a392ee7c7`.
 The final implementation uses a base-address rejection followed by a 32-byte
-comparison, not the superseded full-40-byte prototype. Source commit is recorded
-in the final work-log entry below.
+comparison, not the superseded full-40-byte prototype. Implementation, fixture
+and validation record: local commit `7b848b1`.
 
 IPA21: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
 UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
@@ -316,3 +316,6 @@ The prior fused sizing implementation remains intact and independently gated.
   the app. An earlier full-40-byte build was superseded before named delivery.
 - Device validation is pending with the settings/arguments above. Keep the new
   default false until results; no additional source optimization is approved.
+- Implementation, expanded fixture and validation documentation committed locally
+  as `7b848b1` on `battery-optimization`; no push. HANDOFF_CHATGPT.md remains
+  untouched/untracked. Device validation is the next action.
