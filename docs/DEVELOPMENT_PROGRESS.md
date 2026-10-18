@@ -28,8 +28,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. IPA23 target lookup reuse is approved and implemented;
-  initial device validation is pending. No other new source change is approved.
+  user's approval. IPA23 target lookup reuse is implemented and its initial
+  iPad check passed. No subsequent source change is approved yet.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -85,13 +85,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   insertion via try_emplace. Host OFF/ON correctness under ASan/UBSan and -O3,
   final iOS build, optimized ARM64, ZIP CRC, strict deep codesign and unchanged
   104 shader libraries / bundled dylibs passed. New flag defaults false.
-- **Pending: one short iPad correctness run on IPA23.** Keep all existing
-  accumulated Extra Args, including fused sizing and bulk attribute comparison;
-  add only `--nfsmw_native_target_lookup=true`. Cold force-quit LiveContainer.
-  Usual 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF. Send game
-  log and visual/stability report; no long A/B or new power trace requested.
-  No isolated device energy benefit is established; validate before stacking
-  another source implementation.
+- **IPA23 initial iPad correctness check passed**: October 18
+  `nfsmw_run_5_ipad.log`, user reports "still looks jsut fine". Renderer build
+  19:48:54; target lookup mode confirms frame-local last target, earlier flags
+  retained. Scale 1.5 / cap 60, MetalFX/FXAA OFF, no LPM suffix. All 12 guarded
+  summaries report 60 FPS; pacing 0/3,600, all 33 thermal observations Nominal;
+  no error-level/GPU-failure messages. Detailed sample/limits below.
+- Keep `--nfsmw_native_target_lookup=true` with the accumulated Extra Args,
+  including fused sizing and bulk attribute comparison. Compiled default stays
+  false. No repeat short run, new build or tiny-change power A/B needed for
+  this result. Sustained stability and energy benefit remain unproven. Next
+  source proposal requires approval; iPhone loading issue remains parked.
 - **IPA22 initial iPad correctness check passed**: October 18
   `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
   19:11:46, base + bulk 32 comparison/front cache ON, fused sizing and prior
@@ -178,7 +182,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
-| `nfsmw_native_target_lookup` | false | IPA23: exact last-target reuse per traversal; host differential/benchmark and build checks passed; initial device check pending; miss-heavy cost documented |
+| `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -509,3 +513,33 @@ all-miss cache overhead must remain part of the evaluation.
 - IPA23 source, fixture and evidence committed locally as `5e612c8` on
   `battery-optimization`. No push; original HANDOFF_CHATGPT.md remains
   untouched/untracked. Initial iPad device check is the next action.
+
+### October 18 — first IPA23 iPad validation passes
+
+- Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_5_ipad.log`
+  (1,544 lines), user reports "still looks jsut fine". Renderer build Oct 18
+  19:48:54; periodic mode confirms frame-local last-target lookup. Previous
+  fused sizing, bulk attribute comparison/front cache, mixed GPU selector and
+  counters, Utility queue, lazy diagnostics, copy patches, masks, arena and
+  master group retained. No production changes or new IPA in this analysis.
+- Settings logged: scale 1.500 / cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0.
+  Requested Battery mode and system Low Power Mode OFF; no LPM suffix appears.
+  No brightness/power trace accompanies this short correctness run.
+- Driving 20:01:56.374 to background 20:03:10.142 (73.768 s). Five-second guards
+  with complete five-second summary windows give 12 summaries / 3,600 frames,
+  all 60 FPS. Pacing 0/3,600 off-grid, worst 0.0 ms; all 33 thermal samples Nominal.
+  No error/critical lines or GPU failures. Six file-probe warnings occur in
+  guarded gameplay; no associated visual/stability problem reported.
+- Median recording 1.455 ms, encoding 7.51 ms (includes drawable waits), GPU 4.12 ms.
+  Five wholly eligible 10 s CPU intervals 82/78/80/96/90%, mean 85.2% of one core,
+  median 82%. Mean last-frame draws 2,376.5 (not mean of every frame). Different
+  scenes/samples from IPA22 prevent isolated speed or energy attribution.
+- Loading hitch 41.7 ms just after entering driving contains 241 texture decodes,
+  61,673 KiB / 31.9 ms; outside guard. After backgrounding, encoding 282.9 ms includes
+  275.3 ms drawable wait; exclude transition. Battery reports 55% then 50% in a
+  single coarse step; this short, uncontrolled integer reading is not evidence
+  of an optimization gain or regression. Do not extrapolate its delta/hour.
+- Initial visual/correctness check passes. Keep new flag ON for accumulated
+  testing, default false. No repeated check/build/new power trace requested.
+  Sustained stability and energy gain unproven; no next implementation approved.
+  All findings saved here and in TECHNICAL.md. No push or release.

@@ -2663,3 +2663,60 @@ Temporary outputs /tmp/nfsmw_target_lookup23_tests.txt (initial),
 
 Implementation, extracted fixture and validation record saved in local commit
 `5e612c8` on `battery-optimization`. Device validation remains pending.
+
+
+### October 18, 2026 — IPA23 first iPad correctness result
+
+Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_5_ipad.log`
+(1,544 lines), user reports "still looks jsut fine". Renderer built Oct 18
+19:48:54, consistent with IPA23. Mode line confirms:
+
+```
+[native] target lookup: frame-local last target (exact key, live target, restart required)
+```
+
+Fused upload sizing and base + bulk32 attribute comparison/front cache remain
+ON, along with earlier master group, native copies, mixed GPU selector and
+lookup statistics, Utility rendering, lazy diagnostics, texture masks and draw
+arena. Graphics remain scale 1.500 / cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0.
+Requested Battery mode OFF / system Low Power Mode OFF; no LPM suffix appears.
+No brightness or power recording provided; this is an initial correctness run.
+
+Driving 20:01:56.374–20:03:10.142 (73.768 s), ending at scene resigns active.
+As before, exclude five seconds at each transition and accept only complete
+five-second renderer/pacing windows, complete ten-second CPU windows within
+20:02:01.374–20:03:05.142.
+
+| Guarded metric | Result |
+|---|---:|
+| Renderer summaries / reported frames |12 /3,600|
+| FPS in every summary |60.0|
+| Off-grid pacing / frames |0 /3,600|
+| Worst grid deviation |0.0 ms|
+| Median sampled recording |1.455 ms|
+| Median encoding, including drawable waits |7.51 ms|
+| Median GPU |4.12 ms|
+| Five CPU intervals |82 /78 /80 /96 /90% of one core|
+| Mean / median CPU |85.2% /82%|
+| Mean last-frame draw count |2,376.5|
+
+All 33 thermal observations in the file are Nominal. No error/critical-level
+or GPU-failure messages. Six guarded gameplay NtCreateFile warnings are asset
+probes; user reports no visual issue. Do not attribute changes in the CPU or
+recording/encoding summaries to target lookup reuse from differing short scenes;
+this is not an isolated speed or energy comparison. Recording is sampled,
+encoding includes waits and draw counts describe the last frame per summary.
+
+Loading hitch 20:01:56.448 (41.7 ms swap interval) includes 241 texture decodes,
+61,673 KiB / 31.9 ms, outside guarded gameplay. Post-background encode hitch at
+20:03:10.446 is 282.9 ms, of which 275.3 ms waits for a drawable; exclude it. Raw
+battery log moves 55% to 50% in one coarse step in this brief run. No controlled
+power recording or starting-state evidence supports extrapolating that delta
+into a drain rate, optimization gain or regression.
+
+Outcome: initial IPA23 visual/correctness check passes. Preserve
+`--nfsmw_native_target_lookup=true` alongside the previous accumulated flags;
+compiled default remains false. No repeat short test, new IPA or tiny-change
+power A/B requested. Sustained stability and device energy gain remain unproven.
+Only Markdown updated; no new implementation authorized by this log submission.
+iPhone loading and other parked diagnostics remain parked. No push/release.
