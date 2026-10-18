@@ -79,11 +79,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 - Latest build: **IPA21**, `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
   Host differential checks, final iOS build, ARM64 inspection, ZIP CRC and
-  strict deep codesign checks passed. The device correctness run is pending.
-  Add only `--nfsmw_native_fused_upload_sizing=true` to the existing tested
-  iPad arguments; keep settings fixed, cold-relaunch LiveContainer, do one
-  short correctness event and supply its log. Do not stack another source
-  change until that result is reviewed. New switch defaults false.
+  strict deep codesign checks passed. The initial device correctness run also
+  passed: October 18 `nfsmw_run_2_ipad.log`, 1.5x / 60 FPS, user reports visuals
+  fine. Keep `--nfsmw_native_fused_upload_sizing=true` for accumulated testing;
+  its compiled default stays false. No isolated device CPU/energy improvement
+  is established. No further implementation has been approved yet.
 - Latest completed measurement: the two runs in
   `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_1_ipad.trace`, paired
   with `nfsmw_run_1_ipad.log` in the same folder. Both arms have been analyzed;
@@ -132,14 +132,14 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_lazy_diagnostics` | false | Skips unused normal-frame metadata/labels, preserves snapshots and residency; iPad check passed |
 | `nfsmw_native_gpu_lookup_hash` | false | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
-| `nfsmw_native_fused_upload_sizing` | false | IPA21: exact host budget/bounds checks and build passed; synthetic sizing speedup; device check pending |
+| `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
 Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
-## Build references and pending device test
+## Build references and experiment
 
 IPA21: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
 UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
@@ -203,3 +203,28 @@ No shaders, rendering settings, synchronization or SDK source changes.
 - Device validation remains pending. Intended next step is one short iPad
   correctness run with the new flag ON, same existing settings/arguments.
   Do not request another long Low Power Mode A/B for this small change.
+
+### October 18 — first IPA21 device result
+
+- After the user asked to return to their usual graphics, the correctness test
+  was explicitly changed to Battery mode OFF, 1.5x, 60 FPS, system Low Power
+  Mode OFF. This was not intended as a power comparison with the 30 FPS traces.
+- Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_2_ipad.log`.
+  User reports "everything looks fine". Renderer build is Oct 18 18:16:30;
+  mode line confirms fused single traversal. All prior experimental controls,
+  including lookup statistics and Utility rendering, remain enabled.
+- Gameplay spans 18:52:15.356–18:53:32.567 (77.211 seconds), ending when the
+  app resigns active. Five-second transition guards and complete-window rules
+  yield 13 summaries / 3,900 frames, each reporting 60 FPS. All 34 thermal
+  observations are Nominal; memory reports have no Low Power Mode ON suffix.
+- Median recording 1.45 ms, render encoding 13.90 ms (includes drawable waits),
+  GPU 10.03 ms; six eligible CPU intervals average 87.33% of one core. These
+  metrics do not isolate the sizing calculation or prove an optimization gain.
+- Pacing: 16/3,900 off-grid intervals, worst deviation 4.2 ms. A 41.6 ms swap
+  hitch immediately after entering driving included 235 texture decodes /
+  about 60 MiB and is outside the guarded sample. No GPU failure or gameplay
+  error-level lines. Watchdog/semaphore diagnostics appear only before driving.
+- Initial correctness/visual check passed. Keep the flag ON for subsequent
+  stacked tests, default false. No long A/B, another build or repeat short run
+  is needed for this result. Sustained stability and device energy benefit
+  remain unproven. The iPhone issue remains parked; no new source change.
