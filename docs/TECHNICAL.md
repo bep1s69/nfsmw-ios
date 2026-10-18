@@ -2918,3 +2918,51 @@ No push, release, author configuration change or attribution added.
 
 Implementation, fixture and evidence saved in local commit `9474672` on
 `battery-optimization`; initial IPA24 device validation remains pending.
+
+
+### October 18, 2026 — IPA24 first iPad validation passes
+
+Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_6_ipad.log`;
+user reports "everything is fine". Renderer built Oct 18 20:14:16, consistent
+with final IPA24. All 23 pipeline mode lines confirm last-ready-entry reuse;
+fused sizing, bulk attribute comparison/front cache, target reuse and earlier
+stack remain ON. Settings scale 1.500/cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0;
+no LPM suffix. Requested normal Battery mode OFF / system Low Power Mode OFF.
+The file has 2,742 lines; final partial timestamp is excluded from parsing.
+
+Driving 20:21:32.432–20:22:51.576, 79.144 s, ends with scene resigns active.
+Five-second transition guards and complete-window rules leave 13 summaries /
+3,900 frames: every summary 60.0 FPS; pacing 0/3,900 off-grid, worst 0.0 ms. All 39
+logged thermal observations Nominal. Median sampled recording 1.49 ms,
+encoding 8.64 ms including waits, GPU 4.12 ms. Six complete CPU intervals
+81/80/92/96/100/81%, mean 88.33%, median 86.5% of one core. Mean last-frame draw
+count 2,396.62, not average over every frame. No isolated shortcut speed or
+energy conclusion follows from comparison with other short scenes.
+
+No gameplay error-level lines or GPU failure messages. Existing watchdog/
+semaphore groups occur 20:21:09.460 and 20:21:26.508, before driving. They do not
+justify reopening the parked iPhone issue. Loading hitch 20:21:32.500, 41.2 ms
+swap interval, includes 243 texture decodes / 61,871 KiB taking 32.3 ms, outside
+guarded sample. Battery reports 50% throughout. No power trace; cannot infer
+energy savings from this check. Initial visual/correctness pass, sustained
+stability and energy benefit unproven. Default stays false, keep switch ON
+with accumulated args; no repeat short run or new build required.
+
+Next recommendation is a matched same-build power comparison of the recent
+four independent controls (fused_upload_sizing, attribute_bulk_compare,
+target_lookup, pipeline_lookup), OFF then ON. Detailed protocol and exact
+arguments are saved in DEVELOPMENT_PROGRESS.md. Keep all older experiments
+including attribute lookup/master group, normal 1.5x/60, LPM/Battery mode OFF,
+manual brightness and comparable thermals/connectivity fixed. Restart the same
+Challenge Series pursuit for each 8–10 minute recording, start capture during
+gameplay, save paired logs/working Power Profiler + Time Profiler + Thermal State
+traces. Fully force-quit LiveContainer before both arms; replace the four
+existing entries, do not append contradictory duplicates or clear other args.
+This isolates the recent batch, not the entire branch; it remains proposed,
+not already measured. Gameplay variability/order limit conclusions. Review
+batch evidence before additional cache implementations; no next source change
+approved. No production changes or push/release in this analysis.
+
+User replied "continue" following the validation update. Provide the batch
+comparison instructions above; next input is the two paired logs/traces.
+No batch result or new implementation is implied by that reply.
