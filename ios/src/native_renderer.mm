@@ -117,6 +117,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, false, "GPU",
                     "Experiment: compare complete attribute front-cache keys in bulk (requires attribute lookup; restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_target_lookup, false, "GPU",
                     "Experiment: reuse the last exact target lookup within frame setup and encoding (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_pipeline_lookup, false, "GPU",
+                    "Experiment: reuse the last successful ready-pipeline lookup on an exact key match (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, false, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
@@ -2918,6 +2920,28 @@ struct PipelineKeyHash {
   }
 };
 
+// Renderer queue only. Successful ready entries are never erased/replaced,
+// and unordered_map rehash preserves their addresses. Borrow the owning node:
+// no extra PSO reference, failed result or pending compilation is cached.
+template <typename Value>
+struct PipelineLookupCache {
+  using Map = std::unordered_map<PipelineKey, Value, PipelineKeyHash>;
+  typename Map::value_type* entry = nullptr;
+
+  __attribute__((always_inline)) typename Map::value_type* Find(Map& ready, const PipelineKey& key, bool enabled) {
+    if (enabled && entry && entry->first == key) return entry;
+    auto it = ready.find(key);
+    if (it == ready.end()) return nullptr;
+    if (enabled) entry = &*it;
+    return &*it;
+  }
+};
+
+bool PipelineLookupEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_pipeline_lookup);
+  return enabled;
+}
+
 // Motion vectors (in the viewport's 0-1 coordinates, y down: where the pixel
 // was in the frame before minus where it is).
 constexpr MTLPixelFormat kMotionFormat = MTLPixelFormatRG16Float;
@@ -2999,8 +3023,8 @@ class PipelineCache {
  public:
   // The key's pipeline, or nil: failed (*failed), or still compiling.
   id<MTLRenderPipelineState> Get(id<MTLDevice> device, const PipelineKey& k, id<MTLFunction> vs,
-                                 id<MTLFunction> ps, bool async, bool* failed) {
-    if (auto it = ready_.find(k); it != ready_.end()) return it->second;
+                                 id<MTLFunction> ps, bool async, bool* failed, bool reuse_ready_lookup) {
+    if (auto* entry = ready_lookup_.Find(ready_, k, reuse_ready_lookup)) return entry->second;
     if (failed_.count(k)) {
       *failed = true;
       return nil;
@@ -3148,6 +3172,7 @@ class PipelineCache {
   }
 
   std::unordered_map<PipelineKey, id<MTLRenderPipelineState>, PipelineKeyHash> ready_;
+  PipelineLookupCache<id<MTLRenderPipelineState>> ready_lookup_;
   std::unordered_set<PipelineKey, PipelineKeyHash> failed_, demanded_, known_;
   std::mutex mutex_;
   std::vector<Done> done_;  // guarded by mutex_
@@ -4467,6 +4492,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       return EdramKey(d.surface_info, d.color_info, d.depth_info);
     };
     const bool reuse_target_lookup = TargetLookupEnabled();
+    const bool reuse_pipeline_lookup = PipelineLookupEnabled();
     TargetLookupCache setup_target_lookup;
     for (const Draw& d : frame->draws) {
       const std::string key = target_key(d);
@@ -5653,7 +5679,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                            t1 ? t1->format + 1 : 0u, alpha_spec, t.sample_count,
                            alpha_to_coverage && t.sample_count > 1, motion};
       bool pipeline_failed = false;
-      id<MTLRenderPipelineState> pso = pipeline_cache.Get(device, pk, d.vs, d.ps, async_pipelines, &pipeline_failed);
+      id<MTLRenderPipelineState> pso = pipeline_cache.Get(device, pk, d.vs, d.ps, async_pipelines, &pipeline_failed,
+                                                       reuse_pipeline_lookup);
       if (!pso) {
         pipeline_failures += pipeline_failed;
         continue;  // failed, or compiling in the background (left out until ready)
@@ -6837,6 +6864,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     AttributeLookupEnabled() ? "on" : "off");
         REXLOG_INFO("[native] target lookup: {} (exact key, live target, restart required)",
                     reuse_target_lookup ? "frame-local last target" : "original map");
+        REXLOG_INFO("[native] pipeline lookup: {} (exact key, ready results only, restart required)",
+                    reuse_pipeline_lookup ? "last ready entry" : "original map");
         REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
                     "{} unknown-shader draws retained all slots (diagnostics also retain all)",
                     REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",

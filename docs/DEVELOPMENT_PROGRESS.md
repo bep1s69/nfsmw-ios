@@ -28,8 +28,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. IPA23 target lookup reuse is implemented and its initial
-  iPad check passed. No subsequent source change is approved yet.
+  user's approval. IPA24 ready-pipeline lookup reuse is approved and implemented;
+  host/build checks passed, initial iPad check pending. No next change approved.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -78,13 +78,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 18, 2026
 
-- Latest build: **IPA23**, `ios/build/NFSMW-battery-target-lookup-23.ipa`.
-  Approved optional last-target reuse in frame setup and encoding. Two local
-  caches borrow the map-owned full key and live Target; no resource copies.
-  Original map lookup remains when OFF; ON miss has equivalent default
-  insertion via try_emplace. Host OFF/ON correctness under ASan/UBSan and -O3,
-  final iOS build, optimized ARM64, ZIP CRC, strict deep codesign and unchanged
-  104 shader libraries / bundled dylibs passed. New flag defaults false.
+- Latest build: **IPA24**, `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
+  Optional exact last-ready pipeline lookup, borrowing the existing owning map
+  node. No nil/pending/failed result cache; full original field equality and
+  miss path retained. Actual Get/Finish differential tests, ASan/UBSan and -O3,
+  iOS build, ARM64 inspection, ZIP CRC, strict deep codesign, unchanged 104 Metal
+  libraries and 2 SDK dylibs passed. New flag defaults false.
+- **Pending: one short iPad correctness run on IPA24.** Keep all accumulated
+  Extra Args, especially fused sizing, bulk attribute comparison and target
+  lookup ON; add only `--nfsmw_native_pipeline_lookup=true`. Cold force-quit
+  LiveContainer. Usual 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF.
+  Send log and visual/stability report. No new power trace until this check;
+  no isolated device performance/energy gain established. Do not stack code.
 - **IPA23 initial iPad correctness check passed**: October 18
   `nfsmw_run_5_ipad.log`, user reports "still looks jsut fine". Renderer build
   19:48:54; target lookup mode confirms frame-local last target, earlier flags
@@ -95,17 +100,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   including fused sizing and bulk attribute comparison. Compiled default stays
   false. No repeat short run, new build or tiny-change power A/B needed for
   this result. Sustained stability and energy benefit remain unproven.
-- Next proposed experiment: reuse the last successfully resolved ready pipeline
-  on an exact full PipelineKey match, ahead of ready_.find. Existing profile
-  attributes 0.6935% app CPU self to that hash/find block (not all recoverable).
-  Borrow the existing map node; cache no nil/failed/pending results. Preserve
-  async compilation, collection, failure semantics, PSO ownership and all draw
-  state. Use field equality, not raw memcmp: PipelineKey contains bool/padding.
-  Independent default-false switch, original fallback, targeted differential
-  tests/miss-heavy benchmarks and ARM64 inspection before a gated build.
-  **Await approval; no source change/new build/test recording yet.** After its
-  correctness check, recommend measuring the accumulated IPA21–24 batch with
-  matched settings before adding more small caches. iPhone issue stays parked.
+- IPA24's source target is ~0.6935% app CPU self in the existing IPA22 chase
+  profile, not all recoverable. Host repeated-key Get fixtures improve 12–18%;
+  synthetic late-field all-miss case regresses 18.6%. No universal/device gain
+  claim. Detailed fixture failure/correction, tests and timings recorded below.
+  After the short check, recommend matched power A/B of the accumulated
+  **IPA21–24 four-change batch**, retaining all earlier experiments/settings in
+  both arms. Toggle only fused_upload_sizing, attribute_bulk_compare,
+  target_lookup and pipeline_lookup, fully cold restart each arm. The master
+  battery flag does NOT control these; don't change it for this batch test.
+  No next source optimization approved; iPhone issue stays parked.
 - **IPA22 initial iPad correctness check passed**: October 18
   `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
   19:11:46, base + bulk 32 comparison/front cache ON, fused sizing and prior
@@ -193,6 +197,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
+| `nfsmw_native_pipeline_lookup` | false | IPA24: exact successful-ready-entry shortcut; actual Get/Finish differential and build checks passed; device check pending; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -200,6 +205,11 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA24: `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
+UUID `6E360E6A-9918-3D39-B4FE-70B755E02D30`; SHA256
+`7adc3d1885b29f7921e72b2f80a4b6bed50e55deffc2fe48a3bfb5365af367a9`.
+Source and fixture commit recorded in final work log below.
 
 IPA23: `ios/build/NFSMW-battery-target-lookup-23.ipa`.
 UUID `18262CD0-8C95-3E09-B2C1-26931A50BED2`; SHA256
@@ -228,18 +238,14 @@ UUID `2CD6D542-84B7-3379-BB26-DAE64A642F64`; SHA256
 Its source change was committed as `da5617b`; later commits through `03da344`
 are documentation. See TECHNICAL.md for previous IPA IDs and tests.
 
-Current approved implementation: reuse the last exact primary target lookup
-independently in the frame-setup and encoding traversals. Production source:
-`ios/src/native_renderer.mm`; fixture: `tools/native/test_target_lookup.py`.
-The extracted helper retains full string equality, returns the live map-owned
-Target and relies on no erasure during a traversal (true of current renderer).
-Two cache instances never carry state across frames. No map replacement,
-resource snapshots, shader/guest/SDK edits, rendering policy or default changes.
-
-This is an incremental CPU optimization. The sampled target operator[] region
-is ~1.04% of app CPU in the confirmed chase, not a promised energy saving.
-Previous independent experiments are intact. Test repeated and changing targets;
-all-miss cache overhead must remain part of the evaluation.
+Current approved implementation: exact last-successful ready-pipeline lookup.
+Production: `ios/src/native_renderer.mm`; fixture:
+`tools/native/test_pipeline_lookup.py`, comparing actual extracted Get/Finish
+with Git reference 8623510 plus immutable miss/Collect source guards. Cache
+stores one borrowed ready-map node, no extra PSO owner; fields compared by the
+original equality operator, with original failure/pending/async behavior. Mode
+selected once per RenderFrame; earlier experiments and shader/resource policies
+intact. New default false. This is incremental CPU work, not a proven energy win.
 
 ### October 18 — approved sizing experiment work log
 
@@ -584,3 +590,59 @@ all-miss cache overhead must remain part of the evaluation.
   matched accumulated-batch power comparison after this step rather than
   continuing an unlimited chain of micro-optimizations. Await implementation
   approval. Archive persistence and capture remain separate parked work.
+
+### October 18 — approved IPA24 ready-pipeline experiment in progress
+
+- User approved last successful ready-entry reuse. Added independent default-
+  false `nfsmw_native_pipeline_lookup`, selected once/frame and passed to Get.
+  Templated pointer-only cache borrows the existing owning ready-map node;
+  exact existing field equality, no padded-object byte comparison. Successful
+  ready-map results alone populate it; pending/failure paths unchanged.
+- Added tools/native/test_pipeline_lookup.py. It extracts actual production
+  key/helper/Get/Finish and compares to Get from Git 8623510, with Foundation
+  stand-ins for Metal compilation. Source guards enforce unchanged entire
+  miss suffix, Finish and Collect, plus sole caller/frame-mode integration.
+- Initial fixture had two bugs: a stand-in class reused Metal's runtime class
+  name, and randomized rehash doubled without a bound. Stopped the owned test
+  PID 57211, renamed descriptor stand-in and bounded rehash 256–1280. Stopping
+  required sandbox escalation; it succeeded. This is a fixture failure, not
+  an application run/crash. Preserve this result; reran corrected validation.
+- Corrected OFF/ON tests passed at -O1 ASan/UBSan and again at -O3, 60,456
+  differential checks/configuration. Tests include all 11 key fields, collisions,
+  rehash, incoming failed-output preservation, actual sync success/failure/
+  exception, missing descriptor, async demand/warm/publish/duplicate completion,
+  failed-to-ready precedence, 500 frames/60,000 randomized requests and weak-
+  reference proof of no second cached PSO owner.
+- Seven alternating host trials /4.8 million timed requests each, original /
+  OFF /ON medians ms: one102.234/103.070/88.889; runs108.969/110.001/90.274;
+  short-runs121.873/124.658/109.204; alternating136.693/139.533/139.544;
+  many138.065/140.929/141.491; late-mismatch125.129/127.886/151.610.
+  Matching checksums/ready counts/zero compiles. About 12–18% faster versus OFF
+  in repeated-key fixtures, negligible change on two early-mismatch layouts,
+  ~18.6% slower when late fields differ every request. No universal/app/device
+  speed or energy claim. Retain default false; iOS build now underway.
+
+### October 18 — IPA24 final validation and delivery
+
+- Corrected fixture completed successfully: actual Get/Finish OFF/ON at -O1
+  ASan/UBSan and -O3, 60,456 differential checks per configuration. Method
+  suffix/Finish/Collect unchanged against 8623510; helper field equality and
+  shared map-owner semantics retained. Foundation stand-ins test ARC and
+  control transitions, not actual Metal compilation or GPU rendering.
+- Optimized iOS shows helper/Get fully inline in RenderFrame. Flag is loaded
+  once/frame; chain compares all 11 fields, including bool as one byte, and
+  matching entry jumps past hash/find. No custom helper/Get call per draw.
+  Original ready-map search remains for OFF and mismatches. Cache hit returns
+  same owned PSO; no extra reference stored. No source edit after passing tests.
+- Build passed with 13 existing FPSCR/UIKit warnings. ZIP CRC and strict deep
+  codesign passed; packaged executable matches signed cache app; all 104 Metal
+  libraries and both SDK dylibs byte-identical to IPA23. UUID/SHA256 above.
+  Source scope native_renderer.mm only; SDK, guest, shaders/defaults untouched.
+- Log `[native] pipeline lookup: last ready entry` ON, `original map` OFF,
+  exact-key/ready-only/restart wording. Device check pending: one short normal
+  iPad event with new flag ON and all old flags kept. No push/release.
+- After correctness, use accumulated four-change comparison, not another
+  isolated tiny A/B or new cache proposal. Keep 1.5x / 60 FPS, brightness,
+  system LPM OFF, Battery mode OFF, old experimental stack and comparable
+  gameplay fixed. Four independent restart-only flags all ON versus all OFF;
+  master battery group unchanged. Energy improvement remains unproven.
