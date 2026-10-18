@@ -94,8 +94,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - Keep `--nfsmw_native_target_lookup=true` with the accumulated Extra Args,
   including fused sizing and bulk attribute comparison. Compiled default stays
   false. No repeat short run, new build or tiny-change power A/B needed for
-  this result. Sustained stability and energy benefit remain unproven. Next
-  source proposal requires approval; iPhone loading issue remains parked.
+  this result. Sustained stability and energy benefit remain unproven.
+- Next proposed experiment: reuse the last successfully resolved ready pipeline
+  on an exact full PipelineKey match, ahead of ready_.find. Existing profile
+  attributes 0.6935% app CPU self to that hash/find block (not all recoverable).
+  Borrow the existing map node; cache no nil/failed/pending results. Preserve
+  async compilation, collection, failure semantics, PSO ownership and all draw
+  state. Use field equality, not raw memcmp: PipelineKey contains bool/padding.
+  Independent default-false switch, original fallback, targeted differential
+  tests/miss-heavy benchmarks and ARM64 inspection before a gated build.
+  **Await approval; no source change/new build/test recording yet.** After its
+  correctness check, recommend measuring the accumulated IPA21–24 batch with
+  matched settings before adding more small caches. iPhone issue stays parked.
 - **IPA22 initial iPad correctness check passed**: October 18
   `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
   19:11:46, base + bulk 32 comparison/front cache ON, fused sizing and prior
@@ -543,3 +553,34 @@ all-miss cache overhead must remain part of the evaluation.
   testing, default false. No repeated check/build/new power trace requested.
   Sustained stability and energy gain unproven; no next implementation approved.
   All findings saved here and in TECHNICAL.md. No push or release.
+
+### October 18 — next proposal after IPA23 validation
+
+- User asks "next?". Rechecked unchanged PipelineCache ready lookup in current
+  source against UUID-matched IPA22 profile: confirmed-chase hash/find region
+  0x10007b998..0x10007bc00 (exclusive) is 1,850 ms / 266,762 ms = 0.6935% app CPU self.
+  This excludes ARC/callees and other pipeline work; not wholly recoverable.
+- Get hashes/searches ready_ before the later encoder-state check suppresses
+  redundant setRenderPipelineState calls. A previous-ready-entry fast path can
+  avoid the search on consecutive exact keys without removing any draw/state
+  operation. Current ready_ inserts successful non-nil PSOs, never erases them,
+  and preserves existing entries on duplicate compilation. Node addresses
+  survive rehash; only the serial renderer updates ready_ via Get/Collect.
+- Proposed independent default-false pipeline-lookup switch, read once per
+  RenderFrame and passed into Get. Compare all PipelineKey fields using its
+  existing operator==; do not reuse raw 40-byte attribute-key comparison,
+  because PipelineKey has bool/padding. Borrow ready map node, not another
+  strong PSO copy. Update fast path only after a successful ready-map lookup;
+  no caching nil, failures or compilation-pending returns. Original miss path,
+  failed out-parameter behavior, warmup/collection and ownership preserved.
+- Production scope: native_renderer.mm only; add
+  tools/native/test_pipeline_lookup.py plus documentation. Validate full keys,
+  hits/misses, failed/pending-to-ready transitions, duplicate completion,
+  rehash/stable live entries and original fallback. Benchmark repeated and
+  all-miss workloads including switch overhead, inspect ARM64, retain default
+  false and get short device check if evidence supports a build.
+- No new source, IPA or device measurement made/requested. This is another
+  modest CPU opportunity, not a large battery reduction claim. Recommend one
+  matched accumulated-batch power comparison after this step rather than
+  continuing an unlimited chain of micro-optimizations. Await implementation
+  approval. Archive persistence and capture remain separate parked work.

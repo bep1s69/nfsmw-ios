@@ -2720,3 +2720,62 @@ compiled default remains false. No repeat short test, new IPA or tiny-change
 power A/B requested. Sustained stability and device energy gain remain unproven.
 Only Markdown updated; no new implementation authorized by this log submission.
 iPhone loading and other parked diagnostics remain parked. No push/release.
+
+
+### October 18, 2026 — next proposal: reuse last ready pipeline lookup
+
+After IPA23's initial check, user asks what comes next. Read-only source/profile
+review confirms another small CPU candidate in PipelineCache::Get. Its first
+operation searches ready_ using the full PipelineKey hash; later encoder state
+caching suppresses redundant pipeline binding but does not avoid this search.
+The existing UUID-matched IPA22 confirmed-chase profile attributes 1,850 ms /
+266,762 ms = 0.6935% app CPU self to ready hash/find main block
+0x10007b998..0x10007bc00 (exclusive). This includes cache lookup work and excludes
+ARC callees/other pipeline operations; do not promise recovery of the whole
+region or translate the CPU fraction to energy. IPA23 changed target lookup,
+not this pipeline source path; no new profile is needed to propose a candidate.
+
+Current lifecycle: only successful non-nil pipeline states enter ready_; Finish
+keeps the first successful entry when demand and warm compilation duplicate it.
+No ready_ erasure/clear exists. Get and Collect run on the renderer's serial
+queue; background compilation only appends Done records under the mutex.
+A borrowed ready-map node remains valid across insertions/rehash. A small last-
+successful-entry check can therefore return the same strongly map-owned PSO on
+full key equality without extra cached PSO ownership. PipelineKey contains a
+bool and possible padding, so use its existing field operator==; the attribute
+key's representation guards/raw comparison do not apply here.
+
+Proposed production scope, **pending approval**, ios/src/native_renderer.mm:
+- Independent default-false restart-only pipeline lookup switch. Select once
+  per RenderFrame and pass the mode into the sole pipeline_cache.Get call;
+  avoid introducing a cached-flag guard/function call per draw.
+- Before ready_.find, optionally compare the last ready entry's full key. Only
+  a successful ready-map lookup updates that reference; cache no nil/failed/
+  still-compiling responses. On mismatch use the original Get path, with
+  unchanged failed out-parameter semantics, descriptor generation, async
+  demand/warm scheduling, Collect, duplicate completion and archive behavior.
+- Retain every PipelineKey field, actual pipeline binding/state filtering,
+  draw order, render-target formats/sample counts, shader variants and all
+  GPU resource/PSO lifetimes. No shader, guest, SDK, graphics-default edits.
+
+Add tools/native/test_pipeline_lookup.py for extracted lookup/control behavior:
+exact identity for every field, collision/miss behavior, ready insertion/rehash,
+failed and pending requests becoming ready, duplicate results and owner lifetime.
+Include original disabled path, actual switch overhead, repeated-key and
+all-miss host benchmarks, then optimized iOS ARM64 inspection. Host fixtures
+alone do not establish rendering or device energy; if favorable, make a gated
+build and request one short correctness run under the existing normal settings.
+A simpler last-entry cache has miss overhead too; preserve negative findings.
+
+Following a successful device check, recommend a matched accumulated-batch power
+comparison for IPA21 fused sizing, IPA22 bulk attribute keys, IPA23 targets and
+this proposed pipeline step before adding further small caches. Both arms must
+hold graphics/FPS, brightness, LPM state, gameplay type and prior stack fixed;
+old mixed-setting recordings cannot serve as that control. This future proposal
+is not a request for another recording now or authorization for code/default
+changes. CPU work still warrants priority, but this is an incremental target;
+a broader guest/PM4 bypass needs separate evidence/ordering analysis.
+
+No app or SDK source, flags, IPA, archive persistence or capture changed in this
+review. Checkpoint and proposal saved in Markdown; implementation approval is
+pending. No push/release.
