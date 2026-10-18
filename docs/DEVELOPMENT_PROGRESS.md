@@ -28,8 +28,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. IPA22's approved comparison experiment is implemented and
-  initially device-validated; no subsequent source change is approved yet.
+  user's approval. IPA23 target lookup reuse is approved and implemented;
+  initial device validation is pending. No other new source change is approved.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -78,13 +78,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 18, 2026
 
-- Latest build: **IPA22**, `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
-  Approved and implemented exact attribute-key comparison: reject a different
-  base address, then compare the remaining 32 bytes in bulk. Original scalar
-  control remains; front-cache content validation and rendered inputs unchanged.
-  All four lookup/comparison switch configurations passed host correctness
-  checks at ASan/UBSan and -O3. Final iOS build, ARM64 inspection, ZIP CRC,
-  strict deep codesign and 104 unchanged Metal libraries passed.
+- Latest build: **IPA23**, `ios/build/NFSMW-battery-target-lookup-23.ipa`.
+  Approved optional last-target reuse in frame setup and encoding. Two local
+  caches borrow the map-owned full key and live Target; no resource copies.
+  Original map lookup remains when OFF; ON miss has equivalent default
+  insertion via try_emplace. Host OFF/ON correctness under ASan/UBSan and -O3,
+  final iOS build, optimized ARM64, ZIP CRC, strict deep codesign and unchanged
+  104 shader libraries / bundled dylibs passed. New flag defaults false.
+- **Pending: one short iPad correctness run on IPA23.** Keep all existing
+  accumulated Extra Args, including fused sizing and bulk attribute comparison;
+  add only `--nfsmw_native_target_lookup=true`. Cold force-quit LiveContainer.
+  Usual 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF. Send game
+  log and visual/stability report; no long A/B or new power trace requested.
+  No isolated device energy benefit is established; validate before stacking
+  another source implementation.
 - **IPA22 initial iPad correctness check passed**: October 18
   `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
   19:11:46, base + bulk 32 comparison/front cache ON, fused sizing and prior
@@ -108,16 +115,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - CPU priority remains justified. Render task 35.77% inclusive CPU, already
   99.97% on E cores; guest functions 26.52% self, Record 5.37% self. Fractions
   overlap and are CPU samples, not energy savings. See TECHNICAL.md for detail.
-- Next proposed isolated change: frame-local reuse of the last exact target
-  lookup in frame setup and encoding, retaining the existing string-keyed map,
-  mutable live Target values, ordering, resize and resource lifetimes. These
-  two call sites account for 98.6% of target-map self work (~1.04% app CPU in
-  total). Expected benefit modest; full recovery is not assumed. Production
-  scope native_renderer.mm plus a targeted differential/benchmark fixture and
-  Markdown records. Independent default-false switch, original fallback.
-  **Await approval before implementation. No new recording/build requested.**
+- IPA23 targets two primary map lookup sites accounting for 98.6% of target-
+  map self work (~1.04% app CPU total) in that profile. Host repeated-target
+  timings improve, but all-miss layouts still regress; no universal speedup
+  or full recovery of the sampled region is claimed. Current implementation
+  uses borrowed node identity after the owned-key prototype's miss penalty.
+  Exact tests/results and negative findings are in the work log and TECHNICAL.md.
   Pipeline lookup (~0.69% main hash/find self) is secondary; broader guest/PM4
-  bypass requires more evidence and ordering analysis. iPhone issue stays parked.
+  bypass needs evidence and ordering analysis. iPhone issue remains parked.
 - IPA21's initial iPad correctness check passed (`nfsmw_run_2_ipad.log` on
   October 18). Keep fused sizing ON for accumulated tests; its compiled default
   remains false. IPA22's new comparison also defaults false and requires
@@ -173,6 +178,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
+| `nfsmw_native_target_lookup` | false | IPA23: exact last-target reuse per traversal; host differential/benchmark and build checks passed; initial device check pending; miss-heavy cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -180,6 +186,12 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA23: `ios/build/NFSMW-battery-target-lookup-23.ipa`.
+UUID `18262CD0-8C95-3E09-B2C1-26931A50BED2`; SHA256
+`dd300305e12bc45adf890a505e2a2978fd3ed350b833859e7500d7c8f564b644`.
+Final version borrows the existing map node; the owned-key prototype was not
+issued. Local source commit is recorded after implementation below.
 
 IPA22: `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
 UUID `3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640`; SHA256
@@ -202,17 +214,18 @@ UUID `2CD6D542-84B7-3379-BB26-DAE64A642F64`; SHA256
 Its source change was committed as `da5617b`; later commits through `03da344`
 are documentation. See TECHNICAL.md for previous IPA IDs and tests.
 
-Current approved implementation: exact bulk comparison of attribute front-cache keys.
-Production source: `ios/src/native_renderer.mm`; regression/benchmark fixture:
-`tools/native/test_attribute_lookup.py`. The fixture extracts production key,
-lookup and sweep code. Comparison is base8 + remaining32 bytes with static
-representation guards; map equality, content fingerprints, two-way selection,
-replacement, ownership, sweep, shaders and GPU resource operations are preserved.
+Current approved implementation: reuse the last exact primary target lookup
+independently in the frame-setup and encoding traversals. Production source:
+`ios/src/native_renderer.mm`; fixture: `tools/native/test_target_lookup.py`.
+The extracted helper retains full string equality, returns the live map-owned
+Target and relies on no erasure during a traversal (true of current renderer).
+Two cache instances never carry state across frames. No map replacement,
+resource snapshots, shader/guest/SDK edits, rendering policy or default changes.
 
-The profile's selector/key-check region accounts for ~1.17% / 1.09% of active
-sampled app CPU; this includes other work and is not fully recoverable. This is
-an incremental CPU optimization, not evidence of a large total energy saving.
-The prior fused sizing implementation remains intact and independently gated.
+This is an incremental CPU optimization. The sampled target operator[] region
+is ~1.04% of app CPU in the confirmed chase, not a promised energy saving.
+Previous independent experiments are intact. Test repeated and changing targets;
+all-miss cache overhead must remain part of the evaluation.
 
 ### October 18 — approved sizing experiment work log
 
@@ -434,3 +447,62 @@ The prior fused sizing implementation remains intact and independently gated.
   calls, target identity/resizing and ordering remain required. Full source
   scope and validation plan in TECHNICAL.md; no implementation yet. Await
   approval. No additional trace requested; preserve all current args meanwhile.
+
+### October 18 — approved IPA23 target lookup work in progress
+
+- User approved target-reference reuse. Added independent default-false
+  `nfsmw_native_target_lookup` and separate frame-local caches for setup and
+  encoding, only at the two identified primary-target call sites. MRT lookup,
+  map order/identity, resize, resolves, resource operations and shaders unchanged.
+- First implementation held an owned key string plus a pointer to the live
+  Target, with original operator[] fallback. Extracted helper passed both OFF
+  and ON under ASan/UBSan and -O3, 720,102 checks per arm: exact keys, temporary
+  inputs, map insertion, mutations, resource rebinding/ownership, MRT aliases,
+  separate traversals and 2,000 randomized frames.
+- Seven alternating host trials, 4.8 million timed lookups in each workload:
+  original/OFF/ON medians ms: one-target40.654/40.540/14.345;
+  runs43.237/43.224/17.934; short-runs46.811/45.751/23.562;
+  alternating42.623/42.576/51.428; many-targets95.818/101.683/116.694;
+  long-keys58.420/58.601/31.241. Matching checksums/draw updates/map sizes.
+  Miss-heavy regression is real in this fixture; no universal speedup claim.
+- Refined the cache to borrow the map node's full key and live value together.
+  ON miss uses try_emplace(requested) with no mapped arguments, equivalent to
+  the default insertion of operator[], and avoids copying a second key. OFF
+  still calls original operator[]. Map owns all objects; pointers remain valid
+  across insertions; caches never cross traversal/frame boundaries. This is
+  within the approved exact-lookup reuse scope, not a new identity policy.
+- Also moved randomized fixture map-clears to the beginning of each frame,
+  after previous caches are destroyed, to model the stated lifecycle precisely.
+  Final extracted tests/benchmarks running; iOS build and device check pending.
+
+### October 18 — IPA23 final host/build validation
+
+- Refined borrowed-node helper passed `python3 tools/native/test_target_lookup.py
+  --benchmark`: OFF and ON under ASan/UBSan (-O1) and again at -O3, 720,102 checks
+  per configuration, two traversals over 2,000 randomized frames. Actual helper
+  extracted from renderer; the fixture uses CPU stand-ins for mutable Target
+  fields/resources and checks intended integration sites. It does not test
+  actual Metal resizing/rendering; that requires the pending device run.
+- Seven alternating trials / 4.8 million timed calls each; original/OFF/ON
+  median ms: one-target40.652/41.035/13.901; runs43.246/43.117/17.504;
+  short-runs45.591/45.946/23.986; alternating43.467/43.470/49.813;
+  many-targets103.638/95.403/106.385; long-keys57.507/57.495/30.348.
+  All checksums, draw updates and entry counts match. ON gains ~47–66% versus
+  current OFF in repeated-target fixtures, but costs ~15% on alternating /12%
+  on many-targets fixtures. Control timing varies; this is not a device-address
+  replay, app-wide gain or energy result. Retain default false pending device.
+- Final iOS build passed with 13 existing FPSCR/UIKit warnings. ARM64 retains
+  inline helper logic at both sites: full length/byte equality; hit returns
+  existing node's live Target and branches around tree lookup. String equality
+  uses a byte-compare call; don't claim the entire hit is call-free. OFF and
+  ON-miss reach the same default-insertion tree routine. No outlined custom
+  TargetLookupCache or flag helper call per draw; flag selected once/frame.
+- ZIP CRC, strict deep codesign, packaged executable equality to signed app,
+  all 104 .metallib payloads and bundled dylibs identical to IPA22 passed.
+  UUID/SHA256 above. Only native_renderer.mm changes production behavior;
+  SDK, guest and shaders unchanged. No provisional named IPA23 was delivered.
+- Log identifies `[native] target lookup: frame-local last target` when ON,
+  `original map` OFF, with exact-key/live-target/restart wording. Keep prior
+  flags and add only `--nfsmw_native_target_lookup=true` for one short normal
+  settings iPad check. No stacked next implementation, repeat power recording,
+  push or release. Device visual/stability and energy validation pending.
