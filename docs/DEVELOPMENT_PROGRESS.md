@@ -28,8 +28,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. IPA24 ready-pipeline lookup reuse is approved and implemented;
-  host/build checks passed, initial iPad check pending. No next change approved.
+  user's approval. IPA24 ready-pipeline lookup reuse is implemented and its
+  initial iPad check passed. No next source change is approved.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -84,12 +84,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   miss path retained. Actual Get/Finish differential tests, ASan/UBSan and -O3,
   iOS build, ARM64 inspection, ZIP CRC, strict deep codesign, unchanged 104 Metal
   libraries and 2 SDK dylibs passed. New flag defaults false.
-- **Pending: one short iPad correctness run on IPA24.** Keep all accumulated
-  Extra Args, especially fused sizing, bulk attribute comparison and target
-  lookup ON; add only `--nfsmw_native_pipeline_lookup=true`. Cold force-quit
-  LiveContainer. Usual 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF.
-  Send log and visual/stability report. No new power trace until this check;
-  no isolated device performance/energy gain established. Do not stack code.
+- **IPA24 initial iPad correctness check passed**: October 18
+  `nfsmw_run_6_ipad.log`, user reports "everything is fine". Renderer build
+  20:14:16; last-ready-entry shortcut and preceding changes ON. Scale 1.5/cap 60,
+  MetalFX/FXAA OFF, no LPM suffix. All 13 guarded summaries 60 FPS; pacing 0/3,900,
+  all 39 thermal observations Nominal. No gameplay errors or GPU failures;
+  two startup/menu watchdog groups precede driving. Final partial log line
+  ignored. No repeat short check or new build needed.
+- Keep pipeline lookup ON with the previous stack for now; compiled defaults
+  remain unchanged. No device energy gain is established. **Next recommended
+  measurement: matched IPA21–24 four-change power comparison on IPA24**, after
+  this correctness pass; protocol below. No next source implementation before
+  reviewing the batch. iPhone and other parked diagnostics stay parked.
 - **IPA23 initial iPad correctness check passed**: October 18
   `nfsmw_run_5_ipad.log`, user reports "still looks jsut fine". Renderer build
   19:48:54; target lookup mode confirms frame-local last target, earlier flags
@@ -104,7 +110,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   profile, not all recoverable. Host repeated-key Get fixtures improve 12–18%;
   synthetic late-field all-miss case regresses 18.6%. No universal/device gain
   claim. Detailed fixture failure/correction, tests and timings recorded below.
-  After the short check, recommend matched power A/B of the accumulated
+  Now correctness passed, recommend matched power A/B of the accumulated
   **IPA21–24 four-change batch**, retaining all earlier experiments/settings in
   both arms. Toggle only fused_upload_sizing, attribute_bulk_compare,
   target_lookup and pipeline_lookup, fully cold restart each arm. The master
@@ -197,7 +203,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
-| `nfsmw_native_pipeline_lookup` | false | IPA24: exact successful-ready-entry shortcut; actual Get/Finish differential and build checks passed; device check pending; late-mismatch cost documented |
+| `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -649,3 +655,61 @@ intact. New default false. This is incremental CPU work, not a proven energy win
 - Source, extracted Objective-C++ fixture and validation record committed locally
   as `9474672` on `battery-optimization`. No push; HANDOFF_CHATGPT.md remains
   untouched/untracked. Initial IPA24 device check is next.
+
+### October 18 — IPA24 first device validation and batch measurement protocol
+
+- Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_6_ipad.log`;
+  user reports "everything is fine". 2,742 lines, last timestamp line partial;
+  use 2,741 complete timestamp lines. Renderer built Oct 18 20:14:16, consistent
+  with IPA24. All 23 pipeline-mode observations identify last ready entry.
+  Target reuse, bulk comparison/front cache, fused sizing and prior stack ON.
+- Driving 20:21:32.432 to background 20:22:51.576 (79.144 s). Five-second guards
+  give 20:21:37.432–20:22:46.576; accept complete five-second metric/pacing
+  windows and ten-second CPU intervals inside them. 13 summaries/3,900 frames,
+  all 60 FPS, pacing 0/3,900, worst 0.0 ms. All 39 thermal observations Nominal.
+- Median sampled recording 1.49 ms, encoding 8.64 ms (includes drawable waits),
+  GPU 4.12 ms. Six CPU windows 81/80/92/96/100/81%, mean 88.33%, median 86.5% of
+  one core. Mean last-frame draws 2,396.62. Differences from prior short scenes
+  cannot isolate the shortcut or establish regression/gain.
+- No error-level messages during driving or GPU failures anywhere. Two
+  watchdog/semaphore groups at 20:21:09.460 and 20:21:26.508 are before driving;
+  don't call the whole file error-free or reopen parked phone isolation.
+  Loading hitch 41.2 ms at 20:21:32.500 includes 243 texture decodes / 61,871 KiB /
+  32.3 ms and lies outside guarded gameplay. Battery logs stay 50%, no power
+  trace supplied; this is correctness, not an energy measurement.
+- Initial visual/correctness check passes. No source/build changes or repeated
+  short test needed. All four recent flags remain default false and test ON.
+
+Recommended next test, same IPA24 in both arms (not performed yet):
+1. Preserve all earlier Extra Args and settings. Replace only the four existing
+   entries below with false, avoiding duplicate true/false entries. Keep master
+   battery group, attribute lookup and other prior experiments unchanged.
+2. Fixed 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF, same manual
+   brightness, connectivity and starting thermal state; unplugged via working
+   wireless recording. Same Challenge Series pursuit from its beginning.
+3. Record 8–10 minutes of chase using the working Power Profiler + Time Profiler
+   + Thermal State template, starting the recording once gameplay begins. Save
+   game log too. Avoid mixed events/menus so most time is comparable gameplay.
+4. Change the same four entries to true, fully force-quit LiveContainer and
+   repeat the same pursuit/conditions and recording. Cold restart both arms.
+   Let the device return to a comparable thermal state before the second run.
+
+```
+--nfsmw_native_fused_upload_sizing=false
+--nfsmw_native_attribute_bulk_compare=false
+--nfsmw_native_target_lookup=false
+--nfsmw_native_pipeline_lookup=false
+```
+
+This measures the recent four-change batch, not the entire battery branch.
+Do not change nfsmw_battery_optimizations or clear Extra Args. Full independent
+switch names matter; the master does not control these. Compare model power,
+CPU instruction/running work, FPS/pacing and thermal/brightness coverage. Chase
+variation and run order still limit inference; one inconclusive pair does not
+justify discarding individually correct changes. No new recording requested
+for just one tiny change, no push/release or next source approval.
+
+- User then said "continue" after the validation update. Next action is to
+  carry out the documented same-build batch comparison; provide OFF/ON
+  instructions and await paired logs/traces. No arm has been recorded/analyzed
+  yet, and no additional source implementation was requested.
