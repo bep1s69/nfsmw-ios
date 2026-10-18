@@ -1811,3 +1811,131 @@ Apple's [iPad Low Power Mode documentation](https://support.apple.com/en-gb/guid
 confirms the ProMotion display limit of 60 FPS; it does not quantify this
 game's CPU/GPU or whole-device savings. Source and instrumentation must
 establish the actual behavior in LiveContainer.
+
+### Matched iPad Low Power Mode recording (October 18)
+
+Inputs supplied by the user:
+- `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_1_ipad.log`
+- `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_1_ipad.trace`
+
+The trace contains both comparison arms, not just its first run:
+- Run 1, "Low Power Mode": 17:35:20.151–17:45:20.552, 600.401 seconds.
+- Run 2, "No Low Power Mode": 17:45:53.439–17:55:53.666, 600.226 seconds.
+
+Times are the trace's recorded Europe/Madrid local times (+02:00). Both
+attach to LiveContainer PID 2404 on the 13-inch M4 iPad. The appended game
+log first contains an earlier 1.5x/60 FPS launch, which is outside these
+recordings. The profiled launch starts at 17:34:52.680 and uses IPA20,
+renderer October 17 01:30:55, UUID 2CD6D542-84B7-3379-BB26-DAE64A642F64.
+
+For both recorded arms the five-option group, constant copies, texture
+pruning, draw pooling, Utility render queue, attribute lookup, transform
+copies, lazy diagnostics, mixed GPU selector and lookup counters are ON.
+The effective scale is consistently 0.85x, FXAA normal, MetalFX OFF and
+explicit cap 30. System Low Power Mode is logged ON before run 1 and OFF
+at 17:45:47.651, between the recordings. There is no intervening game restart.
+All trace thermal intervals are Nominal; brightness is exactly 34% in both.
+The charging-state tables contain no rows, so they do not independently
+verify cable state. Nonzero system power estimates are available throughout.
+
+The user recalls all events being Challenge Series pursuits. Do not label
+the first event a race from its post-event menu names. One pursuit starts
+at 17:39:29.460 and continues into the second recording until 17:51:57.073,
+with short pause intervals. Another event begins at 17:52:18.672. Scenes,
+traffic and pursuit intensity are not an exact replay.
+
+The exported power rows are duration-weighted, including clipped intervals.
+Active-gameplay analysis excludes five seconds around driving/menu state
+transitions; log summaries are included only if their entire ten-second
+window lies inside an eligible interval. Subsystem impact values are the
+profiler's own modeled scales, not watts or additive shares of system power.
+
+| Metric | Low Power Mode ON | OFF |
+|---|---:|---:|
+| Whole-run system drain estimate, battery percentage points/hour | 13.612 | 24.540 |
+| Guarded active-gameplay drain estimate | 13.856 | 24.879 |
+| Continuing-pursuit drain estimate, pauses excluded | 13.646 | 24.670 |
+| Whole-run CPU power impact | 3.242 | 8.359 |
+| Whole-run GPU power impact | 0.919 | 0.945 |
+| Whole-run display power impact | 4.506 | 4.306 |
+| Whole-run networking power impact | 0 | 0 |
+| Brightness | 34% | 34% |
+| Thermal state | Nominal | Nominal |
+| Active QoS-accounted CPU time, % of one core | 91.40 | 59.17 |
+| Active retired instructions/second, profiler estimate | 6.049 billion | 6.404 billion |
+| Active log FPS, min/median/max | 30/30/30 | 30/30/30 |
+| Active median CPU recording time, ms/frame | 3.41 | 2.20 |
+| Active median render encoding time including waits, ms/frame | 6.315 | 7.89 |
+| Active median GPU time, ms/frame | 5.39 | 4.78 |
+| Active mean draws/frame | 2,700 | 2,729 |
+| Active pacing off-grid intervals | 32/15,600 | 0/14,100 |
+
+Whole-run estimated drain is 44.53% lower with Low Power Mode; the guarded
+comparison gives 44.31%, and the continuing pursuit gives 44.68%. Each
+two-minute bin is 13.20–14.32 points/hour ON versus 23.50–25.50 OFF.
+CPU power impact is about 61% lower in the whole-run comparison. GPU impact
+is close between arms, and display impact is slightly higher ON. This is
+strong evidence of an important CPU/system power-policy effect in this
+configuration, with no detected frame-cap or render-scale explanation.
+It corroborates the approximate 12.6 points/hour flight observation without
+establishing a universal 45% saving, attributing it to this branch's code,
+or proving equivalent results at normal fidelity/60 FPS. Run order, evolving
+pursuits, profiler overhead and unmeasured system activity remain limitations.
+
+CPU-time utilization alone gives the wrong direction for energy here: the
+ON arm spends more CPU time executing broadly similar instruction volume
+while its modeled power cost is much lower. Running-sample core weights are
+76.39% P / 23.61% E ON versus 69.58% P / 30.42% E OFF during guarded gameplay.
+The NativeSwap render block remains largely on E cores (99.96% ON, 94.96%
+OFF). There is no evidence here of wholesale migration of guest work onto
+E cores. A more economical CPU operating point is the leading explanation;
+CPU clock/voltage changes were not directly established by these exports.
+Do not treat Utility QoS or core affinity as equivalent to system Low Power
+Mode, or infer that more CPU-time percentage necessarily means more work.
+
+### Next CPU candidate from this recording (not implemented)
+
+Time Profiler still shows guest-code self at roughly 34.6% / 31.3% of active
+running sample weight, NativeDraw inclusive at 10.59% / 9.88%, and RenderFrame
+inclusive at 18.02% / 23.01%, ON/OFF respectively. Rows overlap and must not
+be summed; they are CPU-time shares, not energy fractions.
+
+A UUID-matched instruction audit refines the earlier resource-list proposal.
+The main list-construction block before useResources, linked addresses
+0x10007ad68..0x10007b038 (end exclusive), accounts for 226 / 206 ms of self
+sample weight: 0.048% / 0.070% of active app CPU. This excludes callees and
+outlined vector-growth blocks, so it is not a complete cost bound. Driver
+resource-list processing also costs time but must remain. List caching is
+therefore lower priority than a newly identified sizing prepass hotspot.
+
+RenderFrame walks frame->draws twice to size its pooled upload buffer:
+first tracking VS/PS/previous-VS constant ranges, then counting shared data,
+fresh indices and fresh attributes. Source is ios/src/native_renderer.mm
+around lines 4240–4280. The compiled binary retains both separate scans.
+Their linked main-loop range 0x1000735e0..0x10007374c accounts for 7,280 /
+6,081 ms of self samples, approximately 1.54% / 2.06% of active app CPU,
+or 26.7% / 27.5% of RenderFrame self. The hot load at 0x100073654 alone has
+4,989 / 4,296 ms. Sampling skid/cache stalls prevent exact per-instruction
+cost attribution. These totals describe the existing scans, not recoverable
+savings from removing only their redundant traversal.
+
+Recommended isolated experiment, subject to user approval: fuse the two
+sizing scans into one while preserving the same total allocation budget,
+constant-range coverage semantics, fresh geometry accounting, alignment
+allowances, actual upload order and pooled-buffer/GPU ownership. Only
+ios/src/native_renderer.mm needs production changes; a targeted host fixture
+in tools/native/test_upload_sizing.py would compare legacy and fused totals
+for repeated/covering/empty/changing ranges, previous-frame constants, cached
+and fresh geometry, empty frames and randomized draw sequences, and benchmark
+the traversal. Keep a separate OFF control path for device comparison.
+Check compiled ARM64 and any register-pressure regressions, then request one
+short device correctness run before stacking more changes. Expected gain is
+modest and unquantified; this is not a substitute for the much larger observed
+system-mode effect. No new code, build, default or QoS policy changed here.
+
+Analysis exports and scripts currently in /tmp use the nfsmw_oct18_ prefix:
+power1_toc.xml, power_tables.xml, time_profile.xml, analyze.py, cpu.py,
+renderer_pcs.py, power_summary.json, cpu_summary.json, renderer_pcs.json and
+render_disassembly.txt. Raw device logs/traces are not committed. Both arms
+have been analyzed; no second recording or repeated A/B is needed for this
+specific comparison. The iPhone loading investigation remains parked.
