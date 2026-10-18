@@ -2339,3 +2339,34 @@ short correctness run, build or long tiny-change A/B is required for this result
 Sustained stability and isolated/device energy benefit remain unproven. No app
 source was changed and no next implementation approved. iPhone loading stays
 parked per user request. Checkpoint updated; no push or release.
+
+
+### October 18, 2026 — next step: profile current stack at usual settings
+
+Following IPA22's initial check, user asks what comes next. Rechecked existing
+IPA20 Power Profiler/Time Profiler summaries before proposing more source work.
+Those detailed traces use 0.85x /30 FPS and predate both fused upload sizing
+and bulk attribute-key comparison. New short logs establish correctness, not
+instruction-level attribution or energy gains. Old active self shares remain
+Record5.394% /4.979%, RenderFrame5.744% /7.495%, guest sub_82699100 2.384% /
+2.027%, Fingerprint1.126% /1.025% (Low Power ON/OFF). These are overlapping
+pipeline functions' individual self shares, not energy fractions or removable
+work. Guest constant-copy patches are already present; content fingerprints
+remain necessary. Motion hash and gpuAddress micro-targets were previously
+estimated at only about0.08–0.11% app CPU each; no next implementation selected.
+
+Recommended input: a single8–10 minute Power Profiler recording on iPad with
+Time Profiler and Thermal State using the established working minimal template,
+IPA22, normal1.5x /60 FPS, Battery mode OFF and system Low Power Mode OFF.
+Keep all accumulated Extra Args including attribute lookup, fused upload sizing
+and bulk comparison ON. Hold manual brightness fixed, record unplugged using
+the working wireless workflow. Usual race followed by pursuit, note approximate
+transition time; supply game log plus trace. No comparison-OFF run, new build,
+GPU capture repair or iPhone freeze re-investigation requested.
+
+Purpose: find current game-code, renderer and GPU costs at the user's normal
+settings before choosing a larger or another incremental change. This single
+run cannot establish batch savings against earlier0.85x /30 FPS data. A later
+matched energy comparison must hold graphics, frame cap, brightness, workload
+and Low Power Mode state consistent. No source implementation approved or made;
+checkpoint updated with the pending recommendation.
