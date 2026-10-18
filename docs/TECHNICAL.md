@@ -2013,6 +2013,7 @@ Device profiling and accumulated power testing remain the actual outcome.
    those must not be counted as additional shader libraries.
 
 Final artifact: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
+Implementation and host validation fixture are saved in local commit 2463b16.
 UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
 `8663dd8a610febf1d4461cfe5898e0b884f4e562f214d11ca4a5af01fe484a9e`.
 The provisional outlined-helper build at that same path was replaced before

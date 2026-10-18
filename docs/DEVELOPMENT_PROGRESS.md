@@ -144,6 +144,7 @@ convert between defaults and the accumulated experimental stack.
 IPA21: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
 UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
 `8663dd8a610febf1d4461cfe5898e0b884f4e562f214d11ca4a5af01fe484a9e`.
+Implementation and validation fixture: local source commit `2463b16`.
 This is the final build with the budget helpers forced inline. The provisional
 build produced during development was replaced before handoff; its UUID
 `161393D6-CBA1-38ED-A7D3-29A75747C2A0` identifies the superseded version.
@@ -154,7 +155,7 @@ UUID `2CD6D542-84B7-3379-BB26-DAE64A642F64`; SHA256
 Its source change was committed as `da5617b`; later commits through `03da344`
 are documentation. See TECHNICAL.md for previous IPA IDs and tests.
 
-Approved next change: combine the renderer's two upload-buffer sizing scans.
+Current approved implementation: combine the renderer's two upload-buffer sizing scans.
 Production source: `ios/src/native_renderer.mm`; regression/benchmark fixture:
 `tools/native/test_upload_sizing.py`. The fixture extracts production layouts
 and both sizing arms and compares against Git reference `03da344`.
