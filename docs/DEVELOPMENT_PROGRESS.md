@@ -209,7 +209,7 @@ convert between defaults and the accumulated experimental stack.
 IPA24: `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
 UUID `6E360E6A-9918-3D39-B4FE-70B755E02D30`; SHA256
 `7adc3d1885b29f7921e72b2f80a4b6bed50e55deffc2fe48a3bfb5365af367a9`.
-Source and fixture commit recorded in final work log below.
+Implementation and fixture: local source commit `9474672`.
 
 IPA23: `ios/build/NFSMW-battery-target-lookup-23.ipa`.
 UUID `18262CD0-8C95-3E09-B2C1-26931A50BED2`; SHA256
@@ -646,3 +646,6 @@ intact. New default false. This is incremental CPU work, not a proven energy win
   system LPM OFF, Battery mode OFF, old experimental stack and comparable
   gameplay fixed. Four independent restart-only flags all ON versus all OFF;
   master battery group unchanged. Energy improvement remains unproven.
+- Source, extracted Objective-C++ fixture and validation record committed locally
+  as `9474672` on `battery-optimization`. No push; HANDOFF_CHATGPT.md remains
+  untouched/untracked. Initial IPA24 device check is next.

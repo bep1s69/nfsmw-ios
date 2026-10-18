@@ -2915,3 +2915,6 @@ Temporary outputs /tmp/nfsmw_pipeline_lookup24_tests.txt (stopped initial fixtur
 /tmp/nfsmw_pipeline_lookup24_build.log, /tmp/nfsmw_pipeline_lookup24_disassembly.txt.
 Essential failures/results/build identity retained here and checkpoint updated.
 No push, release, author configuration change or attribution added.
+
+Implementation, fixture and evidence saved in local commit `9474672` on
+`battery-optimization`; initial IPA24 device validation remains pending.
