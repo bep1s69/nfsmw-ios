@@ -117,6 +117,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, false, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_fused_upload_sizing, false, "GPU",
+                    "Experiment: size the frame upload buffer in one draw traversal (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
                     "each render target to Documents/native");
@@ -4241,6 +4243,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // constants, vertex attributes, indices.
     // Constants: the registers the draw's shader reads, uploaded again only
     // when they are not already (the same set, a range that covers them).
+    static const bool fused_upload_sizing = REXCVAR_GET(nfsmw_native_fused_upload_sizing);
     struct UploadedConstants {
       const void* set = nullptr;
       std::pair<uint16_t, uint16_t> range{0, 0};
@@ -4252,7 +4255,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t total = 0;
     {
       UploadedConstants vs, ps, previous_vs;
-      for (const Draw& d : frame->draws) {
+      // Keep the budget arithmetic in each loop instead of a call per draw.
+      auto size_constants = [&](const Draw& d) __attribute__((always_inline)) {
         if (!vs.Covers(d.vs_constants.get(), d.vs_range)) {
           total += (d.vs_range.second - d.vs_range.first) * 16 + 256;
           vs = {d.vs_constants.get(), d.vs_range};
@@ -4265,12 +4269,24 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           total += (d.ps_range.second - d.ps_range.first) * 16 + 256;
           ps = {d.ps_constants.get(), d.ps_range};
         }
-      }
-    }
-    for (const Draw& d : frame->draws) {
-      total += 1024 + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
-      for (const Attribute& a : d.attributes) {
-        if (a.fresh && a.values) total += a.values->size() * 4 + 256;
+      };
+      auto size_geometry = [&](const Draw& d) __attribute__((always_inline)) {
+        total += 1024 + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
+        for (const Attribute& a : d.attributes) {
+          if (a.fresh && a.values) total += a.values->size() * 4 + 256;
+        }
+      };
+      // Only the budget calculation is fused. The same per-stage coverage
+      // state and byte allowances size the same buffer; put() below still
+      // writes every upload in the original encoding order.
+      if (fused_upload_sizing) {
+        for (const Draw& d : frame->draws) {
+          size_constants(d);
+          size_geometry(d);
+        }
+      } else {
+        for (const Draw& d : frame->draws) size_constants(d);
+        for (const Draw& d : frame->draws) size_geometry(d);
       }
     }
     // Every byte read from it is written by put() first: not zeroed.
@@ -6643,6 +6659,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
+        REXLOG_INFO("[native] upload sizing: {} (restart required)",
+                    fused_upload_sizing ? "fused single traversal" : "legacy two traversals");
         REXLOG_INFO("[native] GPU buffer selector: {}; 4096 direct-mapped slots (restart required)",
                     GpuBufferLookupHashEnabled() ? "higher-bit mix" : "legacy low bits");
         if (GpuBufferLookupStatsEnabled()) {
