@@ -84,6 +84,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   fine. Keep `--nfsmw_native_fused_upload_sizing=true` for accumulated testing;
   its compiled default stays false. No isolated device CPU/energy improvement
   is established. No further implementation has been approved yet.
+- Next proposed experiment: bulk comparison of the complete 40-byte vertex-
+  attribute front-cache key, preserving all nine identity fields and content
+  validation. A temporary host prototype passed existing cache correctness
+  checks and was about 51% faster in one synthetic lookup workload. No app
+  source or new IPA yet. Approval and wider hit/miss benchmarks are pending;
+  details are in the October 18 audit entry below and TECHNICAL.md.
 - Latest completed measurement: the two runs in
   `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_1_ipad.trace`, paired
   with `nfsmw_run_1_ipad.log` in the same folder. Both arms have been analyzed;
@@ -228,3 +234,38 @@ No shaders, rendering settings, synchronization or SDK source changes.
   stacked tests, default false. No long A/B, another build or repeat short run
   is needed for this result. Sustained stability and device energy benefit
   remain unproven. The iPhone issue remains parked; no new source change.
+
+### October 18 — next-target audit after IPA21 validation
+
+- Existing profile's attribute front-cache selector/key-check region accounts
+  for about 1.17% / 1.09% of active app CPU in the Low Power ON/OFF arms.
+  ARM64 performs a chain of field comparisons at each of two possible slots.
+  These shares include other lookup work; not all is removable.
+- Temporary probe changed only front-slot equality to a full 40-byte memcmp;
+  backing-map equality, keys, set selector, replacement and validation remain
+  unchanged. The current AttributeKey has unique object representations and
+  no padding on this target; static assertions passed. Preserve such guards
+  if implementing this, rather than applying raw byte equality to arbitrary
+  structs. Every identity field still participates.
+- Reused the extracted production cache/sweep fixture under ASan/UBSan. Both
+  original and candidate passed nine-field identity, collisions, same-frame
+  source mutation, rehash, sweep/reinsert and ownership tests, including
+  90,000 changing-key pairs. Matching lookup counters/checksums were preserved.
+- Seven alternating -O3 trials, 3,686,400 lookups each: original median
+  66.64 ms, candidate 32.78 ms (about 50.8% faster in this one host workload).
+  Ranges 64.46–98.44 / 30.45–65.35 ms show timing variability. This is not a
+  replay of device addresses, a whole-renderer gain or an energy result.
+- Proposed production scope: native_renderer.mm plus extending
+  tools/native/test_attribute_lookup.py and the Markdown records. Use an
+  independent default-false comparison switch, preserve original scalar
+  comparison, test hit-heavy and miss/collision-heavy layouts, and inspect
+  optimized ARM64 before a new build. Then one short iPad correctness run.
+- Additional leads deferred: motion-only geometry hashing runs even when no
+  temporal/debug consumer is active, but its sampled arithmetic regions total
+  only ~0.08% app CPU. Repeated frame-buffer gpuAddress getters total roughly
+  0.09–0.11% including dispatch/accessor symbols. Neither warrants priority
+  over the key checks. Fingerprints remain required for mutation detection;
+  no content-validation skipping or write-watch revival is proposed.
+- No app source, control defaults or build changed in this audit. Temporary
+  scripts/results use /tmp/nfsmw_key_compare* and /tmp/nfsmw_oct18_record_pcs*;
+  essential results are persisted here. Await approval before implementation.
