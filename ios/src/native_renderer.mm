@@ -38,6 +38,8 @@
 #include <mach/mach.h>
 #include <os/os_sync_wait_on_address.h>
 #include <mach/mach_time.h>
+#include <cstddef>
+#include <type_traits>
 #include <objc/runtime.h>
 #include <pthread.h>
 #include <mach/task_info.h>
@@ -111,6 +113,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, false, "GPU",
+                    "Experiment: compare complete attribute front-cache keys in bulk (requires attribute lookup; restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, false, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
@@ -1441,6 +1445,11 @@ struct AttributeKeyHash {
     return size_t(h);
   }
 };
+// Bulk equality is valid only while equal values have identical bytes: no
+// padding, alternate representations or ownership-bearing members.
+static_assert(sizeof(AttributeKey) == 40 && std::is_standard_layout_v<AttributeKey> &&
+              offsetof(AttributeKey, base) == 0 && std::is_trivially_copyable_v<AttributeKey> &&
+              std::has_unique_object_representations_v<AttributeKey>);
 std::unordered_map<AttributeKey, CacheEntry<FloatArray>, AttributeKeyHash> attribute_cache;
 
 // Recording-thread-only entry lookup. This does not cache validation results:
@@ -1467,11 +1476,25 @@ struct AttributeLookupCache {
     return size_t(h ^ (h >> 27)) & (kSets - 1);
   }
 
+  template <bool BulkCompare>
   CacheEntry<FloatArray>& Find(const AttributeKey& key, VertexDiagnostics& diagnostics) {
     Set& set = sets[SetIndex(key)];
     for (size_t i = 0; i < 2; ++i) {
       Slot& slot = set.slots[i];
-      if (slot.entry && slot.key == key) {
+      if (!slot.entry) continue;
+      bool matches;
+      if constexpr (BulkCompare) {
+        // Reject different buffers before loading the rest of a colliding
+        // key. The remaining eight fields occupy 32 contiguous bytes.
+        const auto* stored = reinterpret_cast<const unsigned char*>(&slot.key);
+        const auto* requested = reinterpret_cast<const unsigned char*>(&key);
+        matches = slot.key.base == key.base &&
+                  std::memcmp(stored + sizeof(uintptr_t), requested + sizeof(uintptr_t),
+                              sizeof(AttributeKey) - sizeof(uintptr_t)) == 0;
+      } else {
+        matches = slot.key == key;
+      }
+      if (matches) {
         set.replace = uint8_t(i ^ 1);
         ++diagnostics.attribute_lookup_hits;
         return *slot.entry;
@@ -1500,8 +1523,16 @@ bool AttributeLookupEnabled() {
   return enabled;
 }
 
+bool AttributeBulkCompareEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_attribute_bulk_compare);
+  return enabled;
+}
+
 CacheEntry<FloatArray>& AttributeEntryFor(const AttributeKey& key, VertexDiagnostics& diagnostics) {
-  if (AttributeLookupEnabled()) return attribute_lookup.Find(key, diagnostics);
+  if (AttributeLookupEnabled()) {
+    if (AttributeBulkCompareEnabled()) return attribute_lookup.Find<true>(key, diagnostics);
+    return attribute_lookup.Find<false>(key, diagnostics);
+  }
   ++diagnostics.attribute_lookup_bypasses;
   return attribute_cache[key];
 }
@@ -6774,6 +6805,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "(content validation unchanged)",
                     AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
                     vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses);
+        REXLOG_INFO("[native] attribute key comparison: {}; front cache {} (exact identity, restart required)",
+                    AttributeBulkCompareEnabled() ? "base + bulk 32 bytes" : "scalar fields",
+                    AttributeLookupEnabled() ? "on" : "off");
         REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
                     "{} unknown-shader draws retained all slots (diagnostics also retain all)",
                     REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",

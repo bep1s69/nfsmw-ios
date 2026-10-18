@@ -2167,3 +2167,116 @@ disassembly are /tmp/nfsmw_oct18_record_pcs.py/.json and
 /tmp/nfsmw_record20_disassembly.txt. This entry retains the material findings
 if those temporary files disappear. Guest sub_82699100's two short copy loops
 are already optimized; no repeat of that earlier experiment is proposed.
+
+### October 18, 2026 — IPA22: exact attribute front-key comparison
+
+User approved implementation after the preceding audit and IPA21 device check.
+Production changes are confined to ios/src/native_renderer.mm; the extracted
+fixture tools/native/test_attribute_lookup.py and Markdown records are updated.
+No sibling SDK, shader, guest code, settings defaults or asset changes.
+
+The independent restart-only flag `nfsmw_native_attribute_bulk_compare` defaults
+false. It affects only front-cache equality when the existing
+`nfsmw_native_attribute_lookup` flag is true. It does not enable that cache.
+AttributeEntryFor chooses Find<true> or Find<false>; each candidate first requires
+a populated entry. The final ON implementation rejects a different 64-bit base
+address, then uses memcmp on the remaining eight uint32_t fields (32 bytes).
+Thus the entire 40-byte identity remains exact. Static assertions require size40,
+standard layout, base at offset0, trivial copyability and unique object
+representations. Backing unordered_map equality is the original scalar operator.
+No fingerprint/content validation, hash selector, two-way capacity, replacement,
+sweep, pointer ownership or source mutation behavior has changed. Periodic log:
+
+```
+[native] attribute key comparison: base + bulk 32 bytes; front cache on (exact identity, restart required)
+```
+
+Scalar mode logs `scalar fields`; cache state is independently reported. All
+prior experimental controls, including fused sizing, remain independent.
+
+The first production candidate used full-40-byte memcmp. All four switch arms
+passed correctness, but expanded host testing exposed a downside omitted by the
+original one-layout probe. Seven alternating trials, 3,686,400 timed lookups each:
+
+| Synthetic layout | Scalar median ms | Initial full40 median ms | Final base + bulk32 median ms (separate run) | Final scalar control ms |
+|---|---:|---:|---:|---:|
+| small-hit: 512 keys | 20.06 | 15.73 | 15.87 | 20.68 |
+| mixed: 4,096 keys | 51.11 | 41.42 | 34.65 | 47.37 |
+| large-miss: 16,384 keys | 114.21 | 116.83 | 102.38 | 108.38 |
+| same-set: 32 keys, differing format, same base | 53.11 | 53.34 | 51.84 | 53.11 |
+| early-miss: 32 keys, differing base low bits/format | 50.18 | 54.66 | 47.95 | 49.66 |
+
+Full40 was ~8.9% slower for early mismatches. A temporary base-first probe then
+passed optimized correctness and gave scalar/bulk medians 20.62/16.01,
+47.46/34.37, 113.24/106.76, 54.55/53.24 and 56.32/51.62 ms respectively.
+This justified refining the production implementation within the approved
+scope. Final figures above come from a fresh run of actual production extraction
+and both runtime switches, not that temporary replacement. Machine timing and
+control codegen vary between runs; compare paired controls within each run.
+Final gains are ~2–27% for these lookup workloads only. This is not a device
+address replay, whole-renderer improvement or a battery measurement. The sampled
+lookup region was ~1.1% of app CPU and includes work not removed here.
+
+Validation command, exit0:
+
+```
+python3 tools/native/test_attribute_lookup.py --benchmark
+```
+
+Each of four independent-process configurations (lookup OFF/ON × comparison
+OFF/ON) passed ASan/UBSan at -O1 and correctness again at -O3. Coverage retains
+nine individual fields, now also every one of 320 object bits, forced two-way
+collisions, map fallback/rehash, same-frame source mutation rejection, live
+entry metadata and payload updates, extracted production sweep invalidation,
+surviving nodes, erased/reinserted keys and retained ownership. Randomized
+90,000 changing-key pairs per arm produce 110,719 hits / 69,281 misses / zero
+bypasses with lookup ON in both comparison modes; lookup OFF gives 180,000
+bypasses regardless of comparison mode. Content validation remains necessary.
+
+Seven alternating timing trials per layout compare both modes with lookup ON;
+all 3,686,400 timed calls include actual switch selection. Matching checksums /
+hits-misses-bypasses across modes and trials (counts include warm population):
+
+| Layout | Checksum | Hits / misses / bypasses |
+|---|---:|---|
+| small-hit | 4421836800 | 3686400 / 512 / 0 |
+| mixed | 551116800 | 2615400 / 1075096 / 0 |
+| large-miss | 136396800 | 357075 / 3345709 / 0 |
+| same-set and early-miss | 70777036800 | 0 / 3686432 / 0 |
+
+Final iOS build `cmake --build --preset ios --target ipa -j 6` passed with 13
+existing FPSCR/UIScreen warnings. Optimized ARM64 has both lookup paths inline
+in Record, no outlined Find/flag helper symbols or memcmp/bcmp call for key
+comparison. At 0x1000b6a94..0x1000b6b18 the two bulk slots reject empty entries
+and unequal bases, then load four 64-bit words and use cmp/ccmp with one final
+branch per remainder. Scalar field-by-field comparisons remain at
+0x1000b6b34..0x1000b6c3c. This is conditional scalar code, not a vector/SIMD
+claim; compiler combines pairs of uint32_t fields into each 64-bit comparison.
+No extra always_inline annotation was needed. Fallback/map work remains.
+
+Final artifact: `ios/build/NFSMW-battery-attribute-bulk-22.ipa` (29,942,979 bytes).
+UUID: `3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640` (arm64).
+SHA256: `88dd71bf9d4e379e682ea6ac168211c6d3f90b06285ca32efe90030a392ee7c7`.
+ZIP CRC passed; packaged executable matches signed cache app; strict deep
+codesign passed; all 104 actual .metallib files are byte-identical to IPA21
+(excluding AppleDouble __MACOSX records). Initial packaging's hash print used
+hashlib.file_digest unavailable in system Python, so verification was repeated
+successfully with streaming SHA256. This was a verification-script issue.
+An initial full40 iOS build completed but was superseded before issuing a named
+IPA22. A documentation patch context mismatch was corrected; source unaffected.
+
+Pending first device check: same accumulated flags as IPA21, preserve
+`--nfsmw_native_attribute_lookup=true` and
+`--nfsmw_native_fused_upload_sizing=true`, add only
+`--nfsmw_native_attribute_bulk_compare=true`. Cold force-quit LiveContainer.
+iPad, usual 1.5x / 60 FPS, Battery mode OFF and system Low Power Mode OFF; one
+short event, log plus visual/stability report. No long tiny-change power A/B
+requested. New comparison stays compiled-default false; do not stack another
+source change before validation. No device energy benefit is yet established.
+
+Temporary outputs: /tmp/nfsmw_bulk_compare22_tests.txt (initial full40),
+/tmp/nfsmw_bulk22_hybrid_probe.{py,cpp,txt} (intermediate),
+/tmp/nfsmw_bulk_compare22_final_tests.txt,
+/tmp/nfsmw_bulk_compare22_final_build.log,
+/tmp/nfsmw_bulk22_record_disassembly.txt. Essential evidence is retained here
+so continuation does not depend on temporary files. No push or release.
