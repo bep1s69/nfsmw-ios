@@ -2033,3 +2033,53 @@ line, visuals, stability and pacing. A short race/pursuit cannot establish an
 energy saving; no repeated long Low Power Mode A/B or individual OFF race is
 requested. Await the log before stacking another source change. Defaults are
 unchanged, and the iPhone loading investigation remains parked.
+
+### IPA21 first iPad correctness result (October 18, run 2)
+
+The user supplied
+`/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_2_ipad.log`
+and reports that everything looks fine. Before the test they asked to return
+to 1.5x / 60 FPS; that was explicitly accepted with Battery mode and system
+Low Power Mode OFF. This changes the visual/workload configuration from the
+preceding 0.85x / 30 power traces, so this is not an energy comparison.
+
+The single launch starts at 18:51:47.316; renderer build Oct 18 18:16:30 and
+all 21 mode summaries confirm fused single traversal. The five-option group,
+constant/transform copies, texture pruning, draw pooling, Utility rendering,
+attribute lookup, lazy diagnostics, mixed GPU selector and lookup counters
+are enabled. Effective settings are 1.5x, 60 FPS, FXAA OFF, MetalFX OFF and
+no forced MSAA. Memory-report suffixes do not report Low Power Mode ON.
+
+Driving begins at 18:52:15.356; the app resigns active at 18:53:32.567,
+77.211 seconds later. Five-second transition guards and fully contained
+five-second renderer/pacing summaries give 13 summaries / 3,900 frames.
+CPU reports use fully contained ten-second intervals.
+
+| Metric | Guarded sample |
+|---|---:|
+| FPS min/median/max | 60/60/60 |
+| CPU recording median | 1.45 ms/frame |
+| CPU render encoding median, includes waits | 13.90 ms/frame |
+| GPU median | 10.03 ms/frame |
+| Draws/frame mean | 2,378 |
+| CPU mean, % of one core, six intervals | 87.33 |
+| Pacing off-grid intervals | 16/3,900 |
+| Worst pacing deviation | 4.2 ms |
+
+All 34 thermal observations are Nominal. There are no GPU command failures
+or error-level lines during driving. Watchdog and semaphore dump entries occur
+before driving and do not establish a persistent hang. One 41.6 ms swap hitch
+at 18:52:15.429, immediately after entering the event and outside the guarded
+window, includes 235 texture decodes / 61,371 KiB taking 31.8 ms. Do not erase
+this observation or attribute it to fused sizing without further evidence.
+
+This passes the initial short visual/stability/performance check. The trace
+does not cover a complete long session, isolate the sizing code's duration,
+or establish an energy improvement; workloads and settings differ from prior
+measurements. Retain the new switch ON for accumulated tests, with its default
+still false. No repeated long power A/B or OFF race is requested for this small
+change. Record a future recurrence if any issue appears. No new implementation,
+default change, build or push was made while analyzing this log. The iPhone
+loading issue remains parked. Temporary detailed analysis and summary are
+/tmp/nfsmw_upload21_run2_analysis.py and /tmp/nfsmw_upload21_run2_summary.json;
+the material evidence is preserved here and in DEVELOPMENT_PROGRESS.md.
