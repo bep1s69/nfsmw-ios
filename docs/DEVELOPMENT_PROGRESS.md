@@ -94,20 +94,36 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - Keep `--nfsmw_native_attribute_bulk_compare=true` with the accumulated
   experimental stack for later measurement. Compiled default remains false;
   no isolated CPU/energy gain is established. No repeat short run or new build
-  needed for this result. Sustained stability remains unproven. Recommended
-  next action: one current IPA22 Power Profiler recording with Time Profiler
-  and Thermal State, 8–10 minutes at usual 1.5x / 60 FPS, Battery mode OFF,
-  system Low Power Mode OFF, all current arguments retained, fixed brightness,
-  unplugged via the already-working wireless workflow. Usual race then pursuit;
-  note transition time. Purpose: locate current hotspots, not an isolated A/B
-  or proof of energy savings. Await that input; no new source change approved.
-  iPhone issue remains parked.
+  needed for this result. Sustained stability remains unproven.
+- Current IPA22 profile analyzed: October 18 `nfsmw_run_4_ipad.log` plus
+  `Power_Profiler_2_ipad.trace`, 1.5x/60, all accumulated flags ON, brightness 34%,
+  nominal thermals. User confirms last gameplay stretch is a chase. Actual
+  recording 19:23:41.755–19:33:48.860 also includes earlier unclassified play;
+  primary guarded chase is 19:28:53.813–19:33:43.860 (290.047 s), not ten minutes.
+- Primary chase: modeled whole-device drain 31.956 battery points/hour;
+  CPU/GPU/display impact 11.088 / 2.273 / 5.731 (not watts/additive), network 0.
+  57 complete summaries all 60 FPS; pacing 20/17,100, worst 8.3 ms. No errors in
+  guarded chase/GPU failures; earlier watchdog/semaphore diagnostics are
+  recorded separately. No matched OFF arm, so no batch energy claim.
+- CPU priority remains justified. Render task 35.77% inclusive CPU, already
+  99.97% on E cores; guest functions 26.52% self, Record 5.37% self. Fractions
+  overlap and are CPU samples, not energy savings. See TECHNICAL.md for detail.
+- Next proposed isolated change: frame-local reuse of the last exact target
+  lookup in frame setup and encoding, retaining the existing string-keyed map,
+  mutable live Target values, ordering, resize and resource lifetimes. These
+  two call sites account for 98.6% of target-map self work (~1.04% app CPU in
+  total). Expected benefit modest; full recovery is not assumed. Production
+  scope native_renderer.mm plus a targeted differential/benchmark fixture and
+  Markdown records. Independent default-false switch, original fallback.
+  **Await approval before implementation. No new recording/build requested.**
+  Pipeline lookup (~0.69% main hash/find self) is secondary; broader guest/PM4
+  bypass requires more evidence and ordering analysis. iPhone issue stays parked.
 - IPA21's initial iPad correctness check passed (`nfsmw_run_2_ipad.log` on
   October 18). Keep fused sizing ON for accumulated tests; its compiled default
   remains false. IPA22's new comparison also defaults false and requires
   attribute lookup ON. Host timings are favorable in five synthetic layouts;
   no isolated device CPU/energy improvement is established for either change.
-- Latest completed measurement: the two runs in
+- Previous matched Low Power measurement: the two runs in
   `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_1_ipad.trace`, paired
   with `nfsmw_run_1_ipad.log` in the same folder. Both arms have been analyzed;
   no second file or repeat comparison is needed for this pair.
@@ -388,3 +404,33 @@ The prior fused sizing implementation remains intact and independently gated.
   with different resolution/FPS/content. Later energy attribution requires
   matched settings/workloads. No code, control defaults, SDK, IPA or parked
   diagnostics changed. Recommendation saved; recording pending user action.
+
+### October 18 — IPA22 current power recording reviewed
+
+- Inputs: October 18 `nfsmw_run_4_ipad.log` / `Power_Profiler_2_ipad.trace`.
+  Trace UUID matches IPA22; all experimental controls confirmed ON. User
+  confirms only final stretch as a chase; it overlaps about five minutes of
+  the ten-minute recording. Split phases rather than mislabeling the earlier
+  event or assuming ten chase minutes. Five-second guards at gameplay and
+  recording boundaries leave 290.047 s primary sample. Detailed methods,
+  inputs, model scores, CPU shares, instruction ranges and caveats saved in
+  TECHNICAL.md. Exports and local analysis passed; no code or IPA changes.
+- Constant 34% brightness, whole trace Nominal; charging table empty, GPU/clock
+  tables have no rows. Modeled chase drain 31.956pp/hour, CPU impact11.088 vs
+  GPU 2.273, display 5.731, network 0. These are not watts/additive shares and
+  cannot attribute gains against earlier differently configured recordings.
+- Primary chase 57 summaries at 60 FPS, 20/17,100 off-grid with 8.3 ms worst,
+  medians recording 1.88 ms / encoding 5.10 ms including waits /GPU 4.08 ms;
+  CPU log mean 94.36% of one core. No primary error-level lines or GPU failures.
+  Earlier 19:28:15 watchdog/recovery is documented without inferring a confirmed
+  image freeze; do not reopen parked phone isolation from it.
+- Render task 35.77% inclusive, 99.97% of running weight on E cores already;
+  game guest functions 26.52% self, Record 5.37% self, RenderFrame main 7.80% self.
+  IOKit hot leaf resolves to user-client trap under command submission, not
+  evidence of a removable spin loop. Repeating core-priority work is not next.
+- Next proposed target-reference reuse removes some repeated string-tree
+  searches while returning the existing live target. Total target operator[]
+  self 1.042%, split encoding 1674 ms / setup 1067 ms / other 39 ms. Original maps, resource
+  calls, target identity/resizing and ordering remain required. Full source
+  scope and validation plan in TECHNICAL.md; no implementation yet. Await
+  approval. No additional trace requested; preserve all current args meanwhile.
