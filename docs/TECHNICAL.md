@@ -2533,3 +2533,130 @@ target_callers.py,target_callers.json,render_disassembly.txt}. A temporary calle
 PC display initially missed flagged unaligned non-leaf addresses; correcting
 normalization located the actual call sites. No app, SDK, shader, defaults or
 IPA modifications; Markdown checkpoint updated. No push/release.
+
+### October 18, 2026 — IPA23: last exact target lookup reuse
+
+User approved the preceding target-reference proposal. Production changes are
+confined to ios/src/native_renderer.mm. New independent restart-only flag
+`nfsmw_native_target_lookup` defaults false and is read once per RenderFrame
+through a cached launch value. It does not enable or disable earlier experiments.
+The frame-setup traversal and primary encoding traversal each construct their
+own TargetLookupCache, retaining only a pointer to an existing map entry.
+
+ON: if the previous entry's full std::string key equals the requested key,
+return its live mutable Target. On a miss, try_emplace(requested) obtains the
+map node with the same default-value insertion semantics as original operator[].
+The map owns both the const key and mutable Target, so no second key string,
+texture reference or target state is copied/retained. Insertion preserves node
+addresses, and this renderer does not erase targets during either traversal.
+Caches have separate traversal lifetimes and do not persist across frames.
+OFF calls original targets[requested]. Existing secondary/MRT lookups remain
+unchanged. No target identity, string-map order, creation/resize, resolve,
+clear flags, rendering order, diagnostic snapshots, shader or resource operation
+is bypassed. The two optimized call sites are the ones measured previously.
+
+A small member always_inline annotation keeps cache selection at the call sites;
+flag selection is outside both loops. Periodic renderer log identifies mode:
+
+```
+[native] target lookup: frame-local last target (exact key, live target, restart required)
+```
+
+OFF logs `original map`. This is an optional incremental CPU experiment, not
+a wholesale renderer/guest rewrite or an established battery saving.
+
+The initial implementation held its own std::string copy of the last key and
+Target*. It called original operator[] on a miss. Correctness passed, but the
+extra key assignment made miss-heavy host layouts slower. Before building,
+refined it to borrow the existing map node/key and use default try_emplace on
+miss. OFF behavior remains original operator[]. This differs mechanically from
+the proposed miss call, while preserving its exact map insertion and lookup
+semantics; this is within the approved last-target reuse scope. Both versions'
+negative results are retained instead of claiming a universal speedup.
+
+Extracted production fixture:
+
+```
+python3 tools/native/test_target_lookup.py --benchmark
+```
+
+Both initial and final helpers pass OFF/ON at -O1 ASan/UBSan and correctness
+again at -O3: 720,102 checks per configuration. Coverage includes empty, embedded-
+NUL and long keys, differences in each representative EDRAM key component,
+different string objects with equal bytes, temporary/mutated caller strings,
+map rotations through hundreds of unrelated insertions, exact returned node
+identity, live dimensions/format/flags, in-place target replacement, resource
+rebinding without cache ownership, primary/MRT aliasing, distinct primary and
+secondary keys, frame resets and two traversals over 2,000 randomized frames.
+Randomized final maps/values/order are compared to an independent original-map
+reference. Frame-boundary map clears were moved before construction of the new
+frame's caches, after the previous caches are destroyed. The fixture also checks
+the two intended source integration sites and retained secondary-map operation.
+
+The test substitutes CPU Target fields plus shared resource tokens for actual
+Metal objects; it checks lookup identity, visibility and ownership, not GPU
+execution/texture resize correctness. The pending device visual test remains
+necessary. No unrelated broad suite was rerun for this isolated lookup change.
+
+Seven alternating host trials per layout. Each timed trial is 1,000 frames ×
+two independent traversals × 2,400 draw keys = 4,800,000 lookups. It runs the
+actual cached-switch/helper path; original direct map is an additional control.
+A full 4.8-million-lookup warm-up precedes timing. Draw count includes warm+timed
+operations. Payload/checksums and insertion counts match across all three arms.
+
+| Layout | Initial original / OFF / ON median ms | Final original / OFF / ON median ms |
+|---|---|---|
+| one-target: same key for 2,400 draws |40.654 /40.540 /14.345|40.652 /41.035 /13.901|
+| runs: 12 targets in 50-draw runs |43.237 /43.224 /17.934|43.246 /43.117 /17.504|
+| short-runs: 12 targets in four-draw runs |46.811 /45.751 /23.562|45.591 /45.946 /23.986|
+| alternating: 12 targets, new key each draw |42.623 /42.576 /51.428|43.467 /43.470 /49.813|
+| many-targets: 256 targets, new key each draw |95.818 /101.683 /116.694|103.638 /95.403 /106.385|
+| long-keys: 50-draw runs, >120-byte keys |58.420 /58.601 /31.241|57.507 /57.495 /30.348|
+
+Final repeated-target workloads are ~47–66% faster versus current OFF for this
+lookup fixture. Alternating is ~14.6% slower, many-targets ~11.5% slower versus
+current OFF. Different original/OFF controls for many-targets show host timing
+variability; neither a universally identical OFF timing nor an across-run
+refinement speedup is claimed. Cache checks still cost time when every lookup
+misses. Expected normal target runs motivate device testing, but this is not
+an actual device target-key replay or a measured hit rate. Source/sample
+analysis bounds direct opportunity at about 1.04% of app CPU, only partly
+recoverable. No whole-app or device energy percentage follows from host gains.
+
+Matching checksum / draw updates / entries for all seven trials and modes:
+- one-target: 4608000000 /9600000 /12
+- runs, short-runs, alternating, long-keys: 4634400000 /9600000 /12
+- many-targets: 5204640000 /9600000 /256
+
+Final iOS build `cmake --build --preset ios --target ipa -j 6` passed with 13
+existing FPSCR/UIKit warnings. Optimized ARM64 inspection shows the cached
+flag loaded once per frame and helper logic inline. Setup uses x28 for the
+last map entry, with length/full-byte comparison at0x100073e78..0x100073ed0;
+a hit branches to0x100074248 and returns existing node value. Encoding keeps
+its own pointer at stack+0x330; check0x100079dac..0x100079e10, hit returns live
+value at0x100079e2c. Both cache hits branch around the tree lookup. String
+equality calls a byte comparison routine; it is not a completely call-free
+fast path. ON misses and OFF calls reach the same default-insertion tree
+routine0x100098fac. No standalone TargetLookupCache::Find/TargetLookupEnabled
+symbol or custom helper call per draw remains. This verifies code shape,
+not device speed or energy. No further source refinement was made after tests.
+
+Final artifact `ios/build/NFSMW-battery-target-lookup-23.ipa`,29,945,793 bytes.
+UUID `18262CD0-8C95-3E09-B2C1-26931A50BED2` (arm64).
+SHA256 `dd300305e12bc45adf890a505e2a2978fd3ed350b833859e7500d7c8f564b644`.
+ZIP CRC passed, packaged executable equals signed cache app, strict deep
+codesign passed. All 104 actual .metallib payloads and both bundled SDK dylibs
+are byte-identical to IPA22; AppleDouble records excluded. SDK, guest and shader
+sources were not edited. No provisional named IPA23 was issued.
+
+Pending next action: one short iPad event, same accumulated Extra Args as IPA22,
+including fused sizing and bulk attribute comparison ON. Add only
+`--nfsmw_native_target_lookup=true`, fully force-quit LiveContainer, usual
+1.5x /60 FPS, Battery mode OFF and system Low Power Mode OFF. Supply log and
+visual/stability report. Do not request another long small-change power A/B
+or stack another implementation before this check. New default remains false.
+No push, release, attribution line or author configuration change.
+
+Temporary outputs /tmp/nfsmw_target_lookup23_tests.txt (initial),
+/tmp/nfsmw_target_lookup23_final_tests.txt, /tmp/nfsmw_target_lookup23_build.log,
+/tmp/nfsmw_target_lookup23_disassembly.txt; essential evidence retained here.

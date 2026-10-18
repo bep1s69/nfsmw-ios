@@ -115,6 +115,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, false, "GPU",
                     "Experiment: compare complete attribute front-cache keys in bulk (requires attribute lookup; restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_target_lookup, false, "GPU",
+                    "Experiment: reuse the last exact target lookup within frame setup and encoding (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, false, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
@@ -3174,6 +3176,28 @@ struct Target {
   double clear_depth_value = 1.0;
 };
 
+// One instance per traversal, on the serial render queue. The map owns the
+// targets and never erases them during a traversal; insertions keep pointers
+// valid. Cache the live value, not its textures or other mutable fields.
+struct TargetLookupCache {
+  std::pair<const std::string, Target>* entry = nullptr;
+
+  __attribute__((always_inline)) Target& Find(std::map<std::string, Target>& targets,
+                                             const std::string& requested, bool enabled) {
+    if (!enabled) return targets[requested];
+    if (entry && entry->first == requested) return entry->second;
+    // The same default insertion as operator[], retaining the map-owned key
+    // with its live value so a miss does not copy a second string.
+    entry = &*targets.try_emplace(requested).first;
+    return entry->second;
+  }
+};
+
+bool TargetLookupEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_target_lookup);
+  return enabled;
+}
+
 // Depth resolves: the depth buffer read into an R32Float texture (the game
 // samples the shadow map as a 24-bit depth texture: the value in [0, 1]).
 id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
@@ -4442,9 +4466,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       (void)pass_of[i];
       return EdramKey(d.surface_info, d.color_info, d.depth_info);
     };
+    const bool reuse_target_lookup = TargetLookupEnabled();
+    TargetLookupCache setup_target_lookup;
     for (const Draw& d : frame->draws) {
       const std::string key = target_key(d);
-      Target& t = targets[key];
+      Target& t = setup_target_lookup.Find(targets, key, reuse_target_lookup);
       auto& size = sizes[key];
       size.first = std::max<uint32_t>(d.surface_info & 0x3FFF, 1);
       if ((d.color_mask & 0xF) == 0) ++depth_only_draws[key];
@@ -5402,6 +5428,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         i = j - 1;
       }
     }
+    TargetLookupCache draw_target_lookup;
     for (size_t position = 0; position < frame->draws.size(); ++position) {
       const size_t di = draw_order.empty() ? position : draw_order[position];
       const Draw& d = frame->draws[di];
@@ -5444,7 +5471,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                           d.second_target ? "+" + EdramKey(d.surface_info, d.color1_info, d.depth_info) : "",
                                           d.blend_control, d.color_mask, tex));
       }
-      Target& t = targets[tk];
+      Target& t = draw_target_lookup.Find(targets, tk, reuse_target_lookup);
       const std::string tk1 = d.second_target ? EdramKey(d.surface_info, d.color1_info, d.depth_info) : std::string();
       Target* t1 = d.second_target ? &targets[tk1] : nullptr;
       if (t1 && (!t1->color || t1->color.width != t.color.width || t1->color.height != t.color.height)) {
@@ -6808,6 +6835,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         REXLOG_INFO("[native] attribute key comparison: {}; front cache {} (exact identity, restart required)",
                     AttributeBulkCompareEnabled() ? "base + bulk 32 bytes" : "scalar fields",
                     AttributeLookupEnabled() ? "on" : "off");
+        REXLOG_INFO("[native] target lookup: {} (exact key, live target, restart required)",
+                    reuse_target_lookup ? "frame-local last target" : "original map");
         REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
                     "{} unknown-shader draws retained all slots (diagnostics also retain all)",
                     REXCVAR_GET(nfsmw_native_texture_masks) ? "on" : "off",
