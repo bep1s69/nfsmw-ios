@@ -1691,3 +1691,35 @@ only `--nfsmw_native_gpu_lookup_hash=true`, force-quit/relaunch LiveContainer,
 then load the same event once. This tests the newest optional cache selector
 against the verified default baseline without stacking other experiments.
 No source code, build or default was changed for these loading checks.
+
+### iPhone mixed GPU selector loading check and offline clue (October 18)
+
+`/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_3_iphone.log`
+contains one launch, starting at 17:20:50.996, of the same IPA20 renderer.
+The five-option master group, constant copies, texture pruning and draw
+pooling are ON. The GPU selector reports higher-bit mix; Utility scheduling,
+attribute lookup, transform copies, lazy diagnostics and lookup counters are
+OFF. Settings remain 0.85x, FXAA normal, MetalFX OFF, cap 30. The game reaches
+in-world/driving at 17:21:19.357 and the last renderer summary reports 30 FPS
+at 17:21:21.909; the app resigns active at 17:21:23.030. No error is logged
+outside the watchdog/semaphore categories. This verifies another successful
+event load, not sustained stability or an energy improvement.
+
+The user recalls airplane mode with Wi-Fi OFF during the previous day's
+failure. Connectivity is user-reported, not recorded by these logs; neither
+the earlier appended failure log nor this run has network-keyword messages.
+A limited source check found no network/reachability use in ios/src.
+The SDK's src/kernel/xam/xam_net.cpp returns a fixed zero from
+NetDll_XNetGetEthernetLinkStatus_entry, a loopback address from
+NetDll_XNetGetTitleXnAddr_entry, and a stub error/signaled event from
+NetDll_XNetDnsLookup_entry. Other socket functions exist, so this does not
+prove that connectivity cannot affect execution. The prior frozen stack
+also did not identify a network wait.
+
+Proposed next diagnostic: retain this exact Extra Args line and graphics
+configuration, enable airplane mode with Wi-Fi OFF, force-quit/relaunch
+LiveContainer and load the same event. If the freeze recurs, restore network
+connectivity and repeat without changing arguments. This checks the new
+environmental clue before adding another optional optimization. A passing
+offline attempt would not rule out an intermittent freeze or interactions
+among the still-disabled experiments. No code or defaults changed.
