@@ -191,7 +191,7 @@ IPA23: `ios/build/NFSMW-battery-target-lookup-23.ipa`.
 UUID `18262CD0-8C95-3E09-B2C1-26931A50BED2`; SHA256
 `dd300305e12bc45adf890a505e2a2978fd3ed350b833859e7500d7c8f564b644`.
 Final version borrows the existing map node; the owned-key prototype was not
-issued. Local source commit is recorded after implementation below.
+issued. Implementation and fixture: local source commit `5e612c8`.
 
 IPA22: `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
 UUID `3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640`; SHA256
@@ -506,3 +506,6 @@ all-miss cache overhead must remain part of the evaluation.
   flags and add only `--nfsmw_native_target_lookup=true` for one short normal
   settings iPad check. No stacked next implementation, repeat power recording,
   push or release. Device visual/stability and energy validation pending.
+- IPA23 source, fixture and evidence committed locally as `5e612c8` on
+  `battery-optimization`. No push; original HANDOFF_CHATGPT.md remains
+  untouched/untracked. Initial iPad device check is the next action.
