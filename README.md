@@ -110,6 +110,10 @@ What the app keeps in its `Documents` folder:
 
 ## Building it yourself
 
+For the battery branch's current checkpoint, experiments, measurements and
+handoff instructions, read [Development progress](docs/DEVELOPMENT_PROGRESS.md).
+Update that document when continuing development so work can resume across sessions.
+
 Clone this repository next to where the SDK will go (the SDK is prepared in
 `../rexglue-sdk-ios`, beside the repository):
 

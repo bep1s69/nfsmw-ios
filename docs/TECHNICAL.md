@@ -1939,3 +1939,96 @@ renderer_pcs.py, power_summary.json, cpu_summary.json, renderer_pcs.json and
 render_disassembly.txt. Raw device logs/traces are not committed. Both arms
 have been analyzed; no second recording or repeated A/B is needed for this
 specific comparison. The iPhone loading investigation remains parked.
+
+### IPA21 — fused upload-buffer sizing (October 18)
+
+The user approved the proposed sizing experiment and requested that every
+meaningful observation, change and test be persisted in Markdown for session
+and agent continuity. docs/DEVELOPMENT_PROGRESS.md is the shared current
+checkpoint/index; root AGENTS.md / CLAUDE.md and README point to it. Keep that
+checkpoint current alongside this chronological evidence; preserve negative
+results and pending device checks. The original HANDOFF_CHATGPT.md remains
+untracked and unchanged, and docs/BACKLOG.md retains deferred investigations.
+
+Production change is limited to ios/src/native_renderer.mm:
+- New independent, restart-only nfsmw_native_fused_upload_sizing defaults false.
+- Budget helpers preserve the existing per-stage coverage state and all byte
+  allowances. ON evaluates constant and geometry budgets in one Draw traversal;
+  OFF keeps the original two traversals. Actual uploads, pooling, Metal buffer
+  size, resource ordering and completion ownership retain their source behavior.
+- Both tiny budget lambdas are explicitly always_inline. The mode is logged
+  once per ordinary 300-frame summary, including the initial frame, as
+  `[native] upload sizing: fused single traversal` or `legacy two traversals`.
+- No new hot-path counters/clocks, no shader, quality, SDK or QoS changes.
+
+tools/native/test_upload_sizing.py extracts the actual Attribute, ConstantBank
+and Draw definitions, the original sizing block from 03da344 and both current
+arms. FloatArray uses a normal host float-vector allocator; no Metal work is
+submitted. sizeof(Draw) is 328, matching the profiled ARM64 stride. The fixture
+uses real shared array ownership and Objective-C ARC, covers empty/reversed/
+covering/changing ranges, separate VS/PS/previous banks, null and empty arrays,
+fresh/cached indices and attributes, empty frames and 2,000 randomized frames.
+An independent alignment/upload simulation bounds maximum possible writes;
+relevant input identities/values remain unchanged. Instrumented iterators
+verify exactly one versus two complete traversals, including empty frames.
+
+Validation history:
+1. Initial ASan/UBSan run passed all 2,011 edge/random frame checks for exact
+   original/current-OFF/fused totals, traversal counts, input preservation and
+   aligned upload bounds. Initial timing overlapped the iOS build and was noisy;
+   it was not treated as a performance result.
+2. A warmed seven-trial host benchmark exposed slower fused cases. Before the
+   inlining correction, original/current-OFF/fused medians in microseconds were
+   24.949/22.648/28.711 at 0% fresh, 48.474/52.547/49.053 at 20%, and
+   41.915/41.724/46.323 at 100%. Inspection of the first iOS executable found
+   a constant-budget lambda call for every draw in both switch arms. The first
+   build passed packaging but was superseded, not issued as the test build.
+3. Added always_inline to both budget lambdas. ASan/UBSan again passed all
+   2,011 checks. The -O3 benchmark also passed the differential checks, warmed
+   all arms, rotated their order and timed 2,000 iterations per arm per trial.
+   Seven-trial medians, 2,700 synthetic draws with eight attributes each:
+
+| Fresh geometry probability | Original two scans | Current OFF | Fused ON |
+|---|---:|---:|---:|
+| 0% | 26.944 us | 26.897 us | 19.212 us |
+| 20% | 49.910 us | 52.877 us | 38.127 us |
+| 100% | 42.676 us | 43.328 us | 37.955 us |
+
+This is about 11–29% less time for the synthetic sizing step versus original,
+not whole-renderer, device or energy improvement. OFF timings are not identical
+in every layout; the 20% case was about 6% slower than original in this host
+run. Preserve that observation instead of claiming zero performance risk.
+Device profiling and accumulated power testing remain the actual outcome.
+
+4. Final `cmake --build --preset ios --target ipa -j 6` passed. The 13 warnings
+   are from the existing FPSCR asm constraint and UIScreen deprecations, with
+   no errors. Final ARM64 has one sizing draw loop ON (advance at linked
+   0x10007362c), two OFF (advances at 0x1000737f4 / 0x10007387c); budget helper
+   call operators are not emitted. Source from the subsequent pooled-buffer
+   allocation through upload/encoding/ownership before the summary entry is
+   byte-identical to the reference. Compiler layout elsewhere may differ.
+5. ZIP CRC and strict deep codesign verification passed. All 104 actual
+   .metallib payloads match IPA20 byte for byte. A naive ZIP suffix count is
+   208 because __MACOSX AppleDouble metadata entries also end in .metallib;
+   those must not be counted as additional shader libraries.
+
+Final artifact: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
+UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
+`8663dd8a610febf1d4461cfe5898e0b884f4e562f214d11ca4a5af01fe484a9e`.
+The provisional outlined-helper build at that same path was replaced before
+handoff: UUID 161393D6-CBA1-38ED-A7D3-29A75747C2A0, SHA256
+afdf3f8b0e40681a2abaf5f6a3f43405dbf360a04df7bffed4ad93d4ab6b4863. Do not
+confuse its assembly or timing with the final build.
+
+Temporary build/benchmark/assembly details have the /tmp/nfsmw_upload* prefix;
+the essential results and identities above are durable even if /tmp is cleared.
+An additional Python syntax check initially hit the sandbox's external Python
+cache-write restriction; directing its .pyc output to /tmp passed without
+changing the script or requesting broader filesystem access.
+Device validation is pending: preserve the last iPad experiment arguments and
+graphics settings, add only --nfsmw_native_fused_upload_sizing=true, cold-launch
+LiveContainer and complete one short correctness event. Check the new mode
+line, visuals, stability and pacing. A short race/pursuit cannot establish an
+energy saving; no repeated long Low Power Mode A/B or individual OFF race is
+requested. Await the log before stacking another source change. Defaults are
+unchanged, and the iPhone loading investigation remains parked.
