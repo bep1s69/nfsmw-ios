@@ -2779,3 +2779,139 @@ a broader guest/PM4 bypass needs separate evidence/ordering analysis.
 No app or SDK source, flags, IPA, archive persistence or capture changed in this
 review. Checkpoint and proposal saved in Markdown; implementation approval is
 pending. No push/release.
+
+### October 18, 2026 — IPA24 exact last-ready pipeline lookup
+
+User approved the preceding pipeline-lookup proposal. Production source change
+is confined to ios/src/native_renderer.mm. Independent restart-only flag
+`nfsmw_native_pipeline_lookup` defaults false, selected once per RenderFrame and
+passed to the only PipelineCache::Get caller. Earlier switches remain intact.
+
+PipelineLookupCache<Value> holds one raw pointer to the map-owned key/value
+pair. ON compares all 11 existing PipelineKey fields with original operator==;
+no padded-object memcmp, new hash, guessed shader identity or PSO copy. A match
+returns the same ready-map entry. On mismatch/OFF it performs original find;
+only a successful ready-map lookup updates the optional pointer. A miss leaves
+it alone and follows original Get failure/descriptor/compilation behavior.
+A newly synchronously compiled PSO is not cached by the shortcut until a later
+successful ready-map lookup. No nil/pending/failed response is cached. Lifetime
+relies on existing successful ready entries never being erased/replaced and
+unordered_map node stability across rehash. Background compilation still only
+queues Done records; serial renderer Collect/Finish publishes actual readiness.
+
+Actual Get suffix from failed_.count onward, entire Finish and Collect are
+byte-identical to Git reference 8623510. Pipeline creation, async warm/demand,
+duplicate completion, failure out-parameter behavior, encoder-state filtering,
+PSO ownership, draw order and all resource/shader work remain unchanged. One
+borrowed pointer adds no extra retained PSO. No archive persistence changes.
+
+Test command:
+
+```
+python3 tools/native/test_pipeline_lookup.py --benchmark
+```
+
+The new Objective-C++ fixture extracts actual key/hash/helper/Get/Finish and
+compares candidate Get to the pinned original method, with Foundation pipeline
+objects and descriptor/compilation stand-ins. Source guards require unchanged
+miss suffix, Finish/Collect and correct frame/caller integration. This tests
+actual lookup/control behavior and ARC ownership, not actual Metal compilation,
+GPU rendering or concurrent scheduling. Original scheduling code is unchanged.
+
+Initial fixture attempt had two bugs: its descriptor class reused the real
+MTLRenderPipelineDescriptor runtime name (duplicate-class warning), and repeated
+rehash doubled buckets without a bound. It reached the first sanitized arm,
+then was stopped by terminating our owned test PID 57211. Default sandbox denied
+the signal; escalation succeeded. No automatic approval rejection occurred.
+Renamed the stand-in FixturePipelineDescriptor (including extracted method type
+references) and bounded randomized rehash to 256–1280 buckets, then reran. This
+was a host-fixture failure, not a device/app regression; no provisional IPA built.
+
+Corrected fixture exits 0. Candidate OFF/ON pass -O1 ASan/UBSan and correctness
+again at -O3, each 60,456 differential checks. Coverage:
+- Every one of 11 key fields differs independently, original failed-output value
+  retained on ready hits, forced bucket collisions, insertion/rehash and stable
+  borrowed-node identity.
+- Actual Get/Finish synchronous success/failure/Objective-C exception, missing
+  descriptor, pending demand deduplication, warm failure/retry, publication of
+  readiness, duplicate success/failure keeping the first PSO, and later ready
+  entry taking precedence over an old failed-set entry.
+- Weak-reference check with real Foundation ARC objects proves the shortcut
+  does not retain a second PSO owner; test-only map erasure is followed by no
+  further lookup. Production ready_ does not erase.
+- 500 frames / 60,000 randomized requests including completion, warm races,
+  failed-output inputs and repeated/missing/ready requests; candidate and original
+  maps, sets, work requests, compile counts and bookkeeping match after each step.
+
+Seven alternating optimized host trials per layout; three arms: original Get,
+current OFF, current ON. Each timed trial is 2,000 frames × 2,400 requests =
+4,800,000 calls after a full-size warmup. Candidate launch value is selected
+once/frame, actual Get and ARC return path are included. All requested entries
+are ready in timing tests: "miss-heavy" means misses of the new last-entry
+shortcut, not shader compilation. No actual GPU commands are submitted.
+
+| Synthetic layout | Original median ms | OFF median ms | ON median ms |
+|---|---:|---:|---:|
+| One pipeline |102.234|103.070|88.889|
+|12 pipelines, 50-draw runs |108.969|110.001|90.274|
+|12 pipelines, four-draw runs |121.873|124.658|109.204|
+|12 alternating pipelines, early mismatch |136.693|139.533|139.544|
+|256 alternating pipelines |138.065|140.929|141.491|
+|12 alternating keys differing in alpha_spec, later mismatch |125.129|127.886|151.610|
+
+Repeated-key fixtures are 12–18% faster against current OFF. Two early-mismatch
+fixtures are approximately unchanged (many-pipelines ON 0.4% slower), but late-
+field mismatch is 18.6% slower. OFF/original codegen/timing varies; no universally
+identical OFF performance, actual device key distribution or energy benefit is
+established. No attempt was made to hide this cost through weaker equality.
+The targeted hash/find region was 0.6935% of app CPU in the confirmed chase,
+only partly recoverable, so host percentages cannot become whole-app savings.
+
+Matching checksum / ready entries / zero compilation requests across all modes:
+- one:12732845799654063104 /1 /0
+- runs, short-runs, alternating:4472847380238121088 /12 /0
+- many:18231629890471510704 /256 /0
+- late-mismatch:7021216598412459136 /12 /0
+
+Final iOS build `cmake --build --preset ios --target ipa -j 6` passed with 13
+existing FPSCR/UIKit warnings. ARM64 main-frame inline path at 0x10007b8cc..
+0x10007b98c checks cached mode/pointer then all fields, with bool loaded as one
+byte. Success branches to 0x10007bc10, bypassing hash/find at 0x10007b990 onward;
+OFF/mismatch uses original search and pending/failure paths. No custom Find,
+PipelineLookupEnabled or PipelineCache::Get call per draw; no extra always_inline
+annotation on Get was necessary. Helper itself has a small always_inline member
+annotation. Node storage is one pointer, no additional owned PSO. This confirms
+code shape, not device performance. No source edits after passing host tests.
+
+Final artifact `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`,29,946,097 bytes.
+UUID `6E360E6A-9918-3D39-B4FE-70B755E02D30` (arm64).
+SHA256 `7adc3d1885b29f7921e72b2f80a4b6bed50e55deffc2fe48a3bfb5365af367a9`.
+ZIP CRC passed; packaged executable equals signed cache app; strict deep codesign
+passed. All 104 actual .metallib files and both bundled SDK dylibs are byte-
+identical to IPA23 (AppleDouble records excluded). SDK, guest, shaders, graphics
+and earlier experiment defaults unchanged. Periodic mode log:
+
+```
+[native] pipeline lookup: last ready entry (exact key, ready results only, restart required)
+```
+
+OFF identifies `original map`. New flag stays compiled-default false.
+Pending one short iPad event: retain all previous accumulated arguments,
+including IPA21 fused sizing, IPA22 bulk comparison and IPA23 target lookup ON;
+add only `--nfsmw_native_pipeline_lookup=true`. Cold force-quit LiveContainer;
+usual 1.5x / 60 FPS, Battery mode OFF, system Low Power Mode OFF; log and visual/
+stability check. No next implementation before that validation.
+
+After this check, recommend a matched power comparison of these four accumulated
+changes ON versus OFF, preserving earlier stack, manual brightness, normal
+resolution/FPS, system Low Power Mode state, thermal starting state and comparable
+gameplay. These flags are independent of nfsmw_battery_optimizations; do not use
+the master as a substitute or change earlier QoS/graphics behavior between arms.
+This is the next measurement proposal after correctness, not another request
+for a tiny isolated power A/B now. No device energy improvement established.
+
+Temporary outputs /tmp/nfsmw_pipeline_lookup24_tests.txt (stopped initial fixture),
+/tmp/nfsmw_pipeline_lookup24_final_tests.txt (corrected complete run),
+/tmp/nfsmw_pipeline_lookup24_build.log, /tmp/nfsmw_pipeline_lookup24_disassembly.txt.
+Essential failures/results/build identity retained here and checkpoint updated.
+No push, release, author configuration change or attribution added.
