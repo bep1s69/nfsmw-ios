@@ -2370,3 +2370,166 @@ run cannot establish batch savings against earlier0.85x /30 FPS data. A later
 matched energy comparison must hold graphics, frame cap, brightness, workload
 and Low Power Mode state consistent. No source implementation approved or made;
 checkpoint updated with the pending recommendation.
+
+### October 18, 2026 — IPA22 current-build power profile and next target
+
+Inputs supplied together:
+- `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_4_ipad.log`
+- `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_2_ipad.trace`
+
+User clarification: "i think only the last gameplay stretch matters, it should
+match the 10 minute long power profiler and it was a chase only". Treat that
+last stretch as the confirmed chase and primary result. Actual trace metadata
+covers 19:23:41.755–19:33:48.860347, 607.105347 s, not ten minutes of the last
+stretch alone. The log's first driving interval is 19:23:49.048–19:28:34.480;
+the second is 19:28:48.813–19:34:32.587. Earlier event type is unclassified;
+do not relabel it a race or infer it from PostRace menu filenames. The final
+chase overlaps the trace for about 300 s. Apply five-second guards around actual
+gameplay boundaries AND trace endpoints: primary trace-relative window
+312.058–602.105347 s, 290.047347 s, wall time 19:28:53.813–19:33:43.860347.
+Earlier guarded window 12.293–287.725s,275.432 s, is secondary only.
+
+Device is M4 iPad Pro 13-inch, iPadOS 27.0.1 (24A446); Instruments 27.1, attached
+LiveContainer PID 2532. Time Profiler binary UUID is exactly IPA22
+`3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640`, load address 0x10fe4c000. Renderer
+build Oct 18 19:11:46; both SDK UUIDs match the preceding device logs. Log confirms
+scale 1.500, cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0; all accumulated switches
+ON, including fused sizing, base + bulk 32 attribute comparison, lookup, mixed GPU
+selector and lookup stats, Utility queue, lazy diagnostics, copy patches,
+texture masks, draw arena and master group. No Low Power Mode suffix appears.
+Requested Battery mode OFF/system Low Power Mode OFF is consistent with logs;
+no default or option changes were made for analysis.
+
+SystemPowerLevel and DisplayBrightnessLevel both report 34% throughout. The
+thermal table is Nominal for the entire 607.105 s; all 210 log thermal observations
+are nominal. DeviceChargingState exports zero rows, so unplugged state cannot
+be independently established from that table. CPU cluster/GPU-state/performance-
+state and dyld-load selections export no sample rows despite their TOC entries;
+CPU stack binary metadata is available. These exports do not establish GPU
+utilization, limiter, CPU/GPU clocks or voltages. No new capture debugging needed.
+
+Interval-weighted power/model measurements, clipping each source interval to
+the analysis window and excluding sentinel values:
+
+| Phase | Seconds | System drain estimate, battery pp/hour | CPU impact | GPU impact | Display impact | Network impact |
+|---|---:|---:|---:|---:|---:|---:|
+| Whole recording |607.105|32.407|11.525|2.198|5.784|0|
+| Earlier unclassified gameplay, guarded |275.432|33.587|12.458|2.141|5.887|0|
+| **Confirmed chase, guarded** |**290.047**|**31.956**|**11.088**|**2.273**|**5.731**|**0**|
+| Both guarded gameplay intervals |565.479|32.751|11.755|2.209|5.807|0|
+
+Power-usage coverage is essentially complete within the primary window
+(290.047334924s). Impact scores are dimensionless modeled subsystem indicators;
+do not add them, divide them into energy fractions or call them watts. Whole-
+device drain estimate is not app-only consumption. Chase CPU core-equivalent
+from QoS durations 94.68% of one core; retired instructions about 9.968 billion/s.
+No ON/OFF arm exists. Comparing this to earlier 0.85x / 30 FPS traces cannot isolate
+IPA21/22 gains or establish regression: resolution, rate and gameplay differ.
+CPU still deserves priority based on the model plus CPU sample attribution;
+GPU timing is headroom, not proof that GPU or memory traffic is cheap.
+
+Log metrics require complete five-second intervals inside the guarded primary
+window; CPU percentages require complete ten-second intervals:
+- 57 summaries / 17,100 reported frames, all 60.0 FPS. Pacing 20/17,100 off-grid
+ (0.117%), worst logged deviation 8.3 ms; no broad missed-deadline problem shown.
+- Median recording 1.88 ms, encoding 5.10 ms (includes drawable waits), GPU 4.08 ms.
+  Last-frame draw count median 2,496; this is not the average of every frame.
+- 28 CPU intervals, mean 94.36%, median 95.5%, range 69–129% of one core. These
+  interval windows differ slightly from QoS duration clipping.
+- Attribute front-cache 120,251,574 hits / 22,122,121 misses / 0 bypasses (~84.46%).
+  GPU buffer front cache 120,643,981 hits / 4,125 empty misses / 54,274,621 collisions
+  (~68.97% hits). No comparison of raw coverage with different scenes is a win
+  or regression claim for the selector; no disabled arm provided.
+- No error-level lines in guarded confirmed chase and no GPU-failure messages
+  anywhere. Earlier recording includes a watchdog dump 19:28:15.575 and recovery
+  warning 19:28:16.578, with semaphore details; its five-second FPS summaries
+  remain 60. Startup and post-pause diagnostics also occur. Do not claim the
+  entire file error-free or assume the watchdog is a demonstrated 5 s image freeze.
+  This was not investigated as a recurrence of the parked iPhone issue.
+
+Time Profiler, primary guarded chase: 266,762 ms running sample weight,
+266,762 rows. Self shares and inclusive regions describe CPU time, not power;
+inclusive rows overlap and must not be summed:
+
+| Region | CPU share | Meaning |
+|---|---:|---|
+| Native render task, including driver calls/destruction |35.767% inclusive|99.971% of its running weight on E cores|
+| NativeDraw recording role |10.442% inclusive|Mostly P cores; includes Record and callees|
+| Guest __imp__sub_ functions |26.524% self|Original game work plus translated implementation; not all removable|
+| RenderFrame main function |7.800% self|Excludes separately outlined lambdas|
+| Record main function |5.369% self|Same-frame content validation retained|
+| Guest sub_82699100 |2.293% self|Earlier copy optimizations already active|
+| Fingerprint |1.113% self|Required mutation detection; don't skip it|
+| std::map<string,Target>::operator[] |1.042% self|Repeated target lookup candidate|
+| Draw destructor |0.992% self|Ownership/lifetime work; not safe to remove wholesale|
+
+Overall P/E running weights 63.955% / 36.045%. Render task already runs almost
+entirely on E cores; repeating Utility QoS experiments is not the next target.
+The ~5.233% unsymbolicated IOKit leaf 0x1a46a4f19 resolves, using UUID-matched
+DeviceSupport symbols, to iokit_user_client_trap + 9. Its major callers are GPU
+command queue submission (13,933ms), not proven application busy-polling.
+There is one normal frame command-buffer commit; separate BC decode submission
+is not evidence of redundant main-frame submission. Removing driver calls or
+waits without semantic proof is not proposed. UUID-matched libsystem_platform
+leaves0x1a19ac055 and0x1a19ab9cd resolve to memmove+181 and memset+141; these
+include multiple call sites/driver work and are not wholly redundant app copies.
+
+Instruction/source checks of the matched IPA22 binary:
+- Ready-pipeline hash/find main block0x10007b998..0x10007bc00 has 1,850 ms self,
+  0.6935% app CPU, excluding ARC calls and other pipeline work. Useful secondary
+  candidate; any front cache must retain full key, successful-ready-only state,
+  asynchronous collection and failure behavior.
+- Per-texture resolve-map check0x10007ce34..0x10007cebc has 1,190 ms, 0.4461%; maps
+  change after resolves, so cross-draw reuse would need correct invalidation.
+- GPU-buffer lookup/bind main block0x10007fbf0..0x10007ff0c has 4,705 ms, 1.7637%,
+  excluding outlined backing map 0.726%. Includes binding, diagnostics, ownership
+  and real uploads: not all recoverable. Lookup statistics are ON consistently.
+- Attribute front-check main block0x1000b6a30..0x1000b6ca4 has 2,778 ms, 1.0414%.
+  Fused-sizing inspected subrange0x1000736a0..0x100073764 has 3,297 ms, 1.2359%;
+  neither establishes gains versus the differently configured IPA20 profile.
+  Sampling skid/cache stalls limit exact per-instruction cost interpretation.
+
+Recommended next isolated experiment, pending approval: **reuse the last exact
+render-target lookup result in each hot draw traversal**. This is preferable
+as a low-risk first step to replacing the renderer's string identity system.
+The existing persistent std::map<string,Target> has stable node addresses and
+no erasure; values are mutated/resized in place. Consecutive draws often use
+the same target, but both the frame setup and encoding loop call operator[].
+Primary chase lookup caller attribution: 1,674 ms at call0x100079f54 (encoding),
+1,067 ms at 0x100074034 (frame setup),39 ms elsewhere; total 2,780 ms / 1.042% app CPU.
+These two sites account for 98.6% of target-map self weight. Stack non-leaf PC
+flags were masked to instruction boundaries and matched to actual bl sites;
+leaf PCs normalize using UUID/load address and low tag bit removal.
+
+Proposed scope:
+- Production: ios/src/native_renderer.mm only. Independent default-false
+  restart-only switch. A small frame-local last-key/Target* cache per hot
+  traversal uses full existing string equality, returns the live map value,
+  and calls the original operator[] on a miss. Preserve original fallback,
+  map keys/order, insertion behavior, MRT identities, resize/format mutation,
+  resolves, diagnostics and all Metal resource operations. Cache no copies of
+  target textures, no missing entries; reset cache before each traversal.
+- Add tools/native/test_target_lookup.py extracting the actual helper when
+  implemented: differential ON/OFF identity, exact keys, repeated/interleaved
+  layouts, insertion while cached, live target replacement/resizing, MRT and
+  frame reset tests under sanitizers. Benchmark long same-target runs and
+  alternating/miss-heavy layouts; include switch overhead, inspect iOS ARM64.
+- No change to shaders, graphics defaults, guest or SDK code. Expected total
+  gain is modest and unmeasured; the entire 1.042% is not a guaranteed saving.
+  If host/codegen evidence is favorable, build an independently gated IPA and
+  get one short correctness run, retaining the stacked-testing strategy.
+
+Other priorities: pipeline ready lookup and resolve metadata reuse are secondary;
+a broader PM4/guest draw-state bypass has a higher possible ceiling but lacks
+measured equivalent-path savings and carries substantial ordering/query/fence
+risk. Do not repeat patched guest copy loops, content-check skipping, write-watch
+experiments or core-QoS changes. No further trace is needed to propose the
+isolated target-lookup step. User approval remains required before implementing.
+
+All exports completed successfully. Essential findings are retained here;
+temporary analysis files are /tmp/nfsmw_oct18_power2_{toc.xml,tables.xml,cpu.xml,
+metal.xml,summary.json,cpu_summary.json,windows.json,analyze.py,cpu.py,
+target_callers.py,target_callers.json,render_disassembly.txt}. A temporary caller
+PC display initially missed flagged unaligned non-leaf addresses; correcting
+normalization located the actual call sites. No app, SDK, shader, defaults or
+IPA modifications; Markdown checkpoint updated. No push/release.
