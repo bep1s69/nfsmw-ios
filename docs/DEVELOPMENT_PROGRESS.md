@@ -28,7 +28,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. The attribute bulk-comparison experiment below is approved.
+  user's approval. IPA22's approved comparison experiment is implemented and
+  initially device-validated; no subsequent source change is approved yet.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -84,12 +85,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   All four lookup/comparison switch configurations passed host correctness
   checks at ASan/UBSan and -O3. Final iOS build, ARM64 inspection, ZIP CRC,
   strict deep codesign and 104 unchanged Metal libraries passed.
-- **Pending: one short iPad correctness run**, usual 1.5x / 60 FPS, Battery mode
-  OFF, system Low Power Mode OFF. Keep all existing experimental arguments,
-  including fused upload sizing and attribute lookup ON, and add only
-  `--nfsmw_native_attribute_bulk_compare=true`. Cold force-quit LiveContainer.
-  Send the log and report any visual/stability issues. Do not stack another
-  implementation or request a long power A/B before this result.
+- **IPA22 initial iPad correctness check passed**: October 18
+  `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
+  19:11:46, base + bulk 32 comparison/front cache ON, fused sizing and prior
+  experiments retained. Scale 1.5 / cap 60, MetalFX and FXAA OFF; no Low Power
+  Mode suffix. All 11 guarded complete summaries report 60 FPS; pacing 0/3,300
+  off-grid, all 33 thermal samples Nominal, no error-level/GPU-failure messages.
+- Keep `--nfsmw_native_attribute_bulk_compare=true` with the accumulated
+  experimental stack for later measurement. Compiled default remains false;
+  no isolated CPU/energy gain is established. No repeat short run or new build
+  needed for this result. Sustained stability remains unproven. Next action is
+  further investigation/proposal or a meaningful accumulated measurement;
+  obtain approval before another source change. iPhone issue remains parked.
 - IPA21's initial iPad correctness check passed (`nfsmw_run_2_ipad.log` on
   October 18). Keep fused sizing ON for accumulated tests; its compiled default
   remains false. IPA22's new comparison also defaults false and requires
@@ -144,7 +151,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_gpu_lookup_hash` | false | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
-| `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks passed; initial device check pending; requires attribute lookup ON |
+| `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -319,3 +326,35 @@ The prior fused sizing implementation remains intact and independently gated.
 - Implementation, expanded fixture and validation documentation committed locally
   as `7b848b1` on `battery-optimization`; no push. HANDOFF_CHATGPT.md remains
   untouched/untracked. Device validation is the next action.
+
+### October 18 — first IPA22 device result
+
+- Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_3_ipad.log`;
+  user reports "still no issues". Renderer built Oct 18 19:11:46, consistent
+  with final IPA22. New comparison logs base + bulk 32 with front cache ON;
+  fused sizing, higher-bit GPU selector/statistics, Utility queue, lazy
+  diagnostics, draw arena, texture masks, native copy patches and master
+  group remain ON. No restart-only option was silently omitted.
+- Log confirms scale 1.500 / cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0.
+  Requested test was Battery mode OFF / system Low Power Mode OFF; no LPM
+  suffix appears in the memory reports. No brightness/power trace provided.
+- Driving 19:17:07.563 to background 19:18:18.581 (71.018 s). Applying five-second
+  transition guards and requiring whole five-second windows gives 11 summaries /
+  3,300 frames, all 60 FPS. Pacing 0/3,300 off-grid, worst 0.0 ms; all 33 thermal
+  observations Nominal. No error/critical-level or GPU failure messages.
+- Median recording 1.62 ms, encoding 9.56 ms (includes drawable waits), GPU 8.57 ms.
+  Five wholly eligible 10 s CPU windows 81/81/91/100/89%, mean 88.4% of one core.
+  Last-frame draw counts average 2,388.73 (not average draws over every frame).
+  Attribute front-cache counters total 23,417,964 hits / 2,809,215 misses / 0 bypasses
+  across guarded windows. These do not isolate key-comparison cost or establish
+  a gain against IPA21; scene and sample variability prevent that inference.
+- Initial loading hitch 41.5 ms shortly after driving contains 238 texture decodes,
+  61,559 KiB / 32.0 ms; outside the guarded sample. Background transition produces
+  301.5 ms encode with 295.8 ms drawable wait; exclude it and the following 56.8 FPS
+  summary from gameplay performance. File-probe warnings persist; two traffic
+  asset probes occur during driving, with no reported fault. Battery reports
+  stay 65% throughout; quantized short-run readings cannot measure energy gain.
+- Initial visual/correctness check passed; preserve the flag ON for accumulated
+  testing and default false in source. No source/build change, no repeated
+  test requested, no push. Sustained stability and device energy benefit remain
+  pending. No further source optimization is approved by this log submission.

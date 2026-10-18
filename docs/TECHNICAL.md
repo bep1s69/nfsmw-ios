@@ -2198,7 +2198,7 @@ The first production candidate used full-40-byte memcmp. All four switch arms
 passed correctness, but expanded host testing exposed a downside omitted by the
 original one-layout probe. Seven alternating trials, 3,686,400 timed lookups each:
 
-| Synthetic layout | Scalar median ms | Initial full40 median ms | Final base + bulk32 median ms (separate run) | Final scalar control ms |
+| Synthetic layout | Scalar median ms | Initial full40 median ms | Final base + bulk 32 median ms (separate run) | Final scalar control ms |
 |---|---:|---:|---:|---:|
 | small-hit: 512 keys | 20.06 | 15.73 | 15.87 | 20.68 |
 | mixed: 4,096 keys | 51.11 | 41.42 | 34.65 | 47.37 |
@@ -2283,3 +2283,59 @@ so continuation does not depend on temporary files. No push or release.
 
 Implementation/fixture and evidence saved in local commit `7b848b1` on
 `battery-optimization`. Original HANDOFF_CHATGPT.md remains untracked.
+
+
+### October 18, 2026 — IPA22 first iPad validation passes
+
+Input: `/Users/bep1s/Desktop/debug/18 October 2026/nfsmw_run_3_ipad.log`
+(1,480 lines), user reports "still no issues". One launch; renderer build Oct 18
+19:11:46 matches the final IPA22 source build. New periodic mode confirms
+`base + bulk 32 bytes; front cache on`. All previous experimental controls are
+retained: fused sizing, attribute lookup, higher-bit GPU cache selector and
+statistics, Utility render queue, lazy diagnostics, CPU draw arena, texture-slot
+pruning, native float/scalar copies and the master battery group. This is an
+initial visual/correctness check, not an isolated power/performance comparison.
+
+Settings logged: scale 1.500, cap 60, MetalFX OFF, FXAA OFF, forced MSAA 0. Requested
+Battery mode OFF and system Low Power Mode OFF; memory reports contain no LPM
+suffix. No brightness or instrument power recording accompanies this run.
+Driving begins 19:17:07.563; scene resigns active 19:18:18.581, duration 71.018 s.
+As for IPA21, exclude five seconds at each boundary and accept only complete
+five-second summaries / complete ten-second CPU intervals inside that guard.
+
+| Guarded metric | Result |
+|---|---:|
+| Renderer summaries / reported frames | 11 / 3,300 |
+| Reported FPS in each summary | 60.0 |
+| Off-grid pacing / intervals | 0 / 3,300 |
+| Worst logged grid deviation | 0.0 ms |
+| Median sampled recording | 1.62 ms |
+| Median rendering/encoding, including drawable waits | 9.56 ms |
+| Median GPU | 8.57 ms |
+| Mean CPU, five complete 10 s intervals | 88.4% of one core |
+| Median CPU | 89% |
+| Mean last-frame draws across summaries | 2,388.73 |
+| Attribute front-cache hits / misses / bypasses | 23,417,964 / 2,809,215 / 0 |
+
+CPU intervals are 81%, 81%, 91%, 100%, 89%. All 33 logged thermal observations across
+the file are Nominal. No error/critical-level lines or GPU failure messages.
+CPU recording is sampled; GPU/encode timing and scene complexity vary. The draw
+count is the last frame of each summary, not an average of all 3,300 frames.
+No direct key-comparison timing exists in this log. Differences from IPA21's
+short run therefore establish neither improvement nor regression of this step.
+
+A 41.5 ms swap hitch at 19:17:07.637 contains 238 texture decodes /61,559KiB taking
+32.0 ms, outside guarded gameplay. At 19:18:18.904, after resigning active,
+encoding takes301.5 ms including 295.8 ms waiting for a drawable; the next summary
+reports 56.8 FPS. These transition measurements are excluded. Startup/menu file
+probe warnings continue, with two additional traffic asset probes during driving
+and two after backgrounding. No visual/stability issue was reported. Battery
+reports remain 65%; this brief integer-percentage reading proves no energy gain.
+
+Outcome: initial correctness and user visual check pass. Keep
+`--nfsmw_native_attribute_bulk_compare=true` alongside previous experimental
+arguments for accumulated testing. Compiled default remains false. No repeat
+short correctness run, build or long tiny-change A/B is required for this result.
+Sustained stability and isolated/device energy benefit remain unproven. No app
+source was changed and no next implementation approved. iPhone loading stays
+parked per user request. Checkpoint updated; no push or release.
