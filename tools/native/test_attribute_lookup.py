@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Check the renderer's extracted attribute lookup, pointer lifetime and sweep.
 
-Runs both launch-switch arms under ASan/UBSan. --benchmark also times a fixed
-host workload; this is not a device performance or energy measurement.
+Runs all lookup/comparison switch combinations under ASan/UBSan. --benchmark
+also times several host hit/miss layouts; these are not device energy tests.
 """
 import argparse
 import pathlib
+import re
+import statistics
 import subprocess
 import tempfile
 
@@ -14,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 HARNESS = r'''
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -21,11 +24,17 @@ HARNESS = r'''
 #include <memory>
 #include <random>
 #include <string>
+#include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 using FloatArray = std::vector<float>;
-bool g_lookup_enabled;
-#define REXCVAR_GET(name) g_lookup_enabled
+bool g_lookup_enabled,g_bulk_enabled;
+bool Flag(std::string_view name) {
+  if(name=="nfsmw_native_attribute_lookup")return g_lookup_enabled;
+  assert(name=="nfsmw_native_attribute_bulk_compare");return g_bulk_enabled;
+}
+#define REXCVAR_GET(name) Flag(#name)
 uint64_t frame_counter = 0;
 struct VertexDiagnostics {
   uint64_t attribute_lookup_hits=0, attribute_lookup_misses=0, attribute_lookup_bypasses=0;
@@ -75,6 +84,15 @@ void IdentityAndCollisionChecks() {
     assert(&Check(changed)!=first);
     assert(&Check(key)==first);
   }
+  // Every bit in the complete object participates. All members are unsigned
+  // integers and the production representation assertions exclude padding.
+  for(size_t byte=0;byte<sizeof(AttributeKey);++byte)for(unsigned bit=0;bit<8;++bit) {
+    auto changed=key;
+    reinterpret_cast<unsigned char*>(&changed)[byte]^=static_cast<unsigned char>(1u<<bit);
+    assert(!(changed==key));
+    assert(&Check(changed)!=first);
+    assert(&Check(key)==first);
+  }
   std::vector<AttributeKey> colliding;
   const size_t set=AttributeLookupCache::SetIndex(key);
   for(uint32_t format=0;format<40;++format) {
@@ -89,7 +107,7 @@ void IdentityAndCollisionChecks() {
   attribute_cache.reserve(buckets*8+40000);
   assert(attribute_cache.bucket_count()>buckets);
   assert(&Check(key)==before);
-  std::puts("PASS all nine identity fields, forced two-way collisions, map fallback and rehash");
+  std::puts("PASS all nine identity fields, all 320 key bits, forced two-way collisions, map fallback and rehash");
 }
 void MutationChecks() {
   ClearAll();auto key=Key(9);
@@ -159,12 +177,23 @@ void RandomizedChecks() {
   std::printf("PASS 90000 changing-key accesses with immediate reuse, insertions and periodic sweeps; hits/misses/bypasses %llu/%llu/%llu\n",
     (unsigned long long)diagnostics.attribute_lookup_hits,(unsigned long long)diagnostics.attribute_lookup_misses,(unsigned long long)diagnostics.attribute_lookup_bypasses);
 }
-void Benchmark() {
+void Benchmark(std::string_view layout) {
   ClearAll();std::vector<AttributeKey> keys;
-  for(unsigned i=0;i<4096;++i){keys.push_back(Key(i));Check(keys.back());}
+  const unsigned count=layout=="small-hit"?512:layout=="large-miss"?16384:
+                       layout=="same-set" || layout=="early-miss"?32:4096;
+  for(unsigned i=0;i<count;++i) {
+    auto k=Key(i);
+    if(layout=="same-set" || layout=="early-miss") {
+      k=Key(0);k.format=i;
+      if(layout=="early-miss") { k.base+=i%16;k.format=i/16; }
+      assert(AttributeLookupCache::SetIndex(k)==AttributeLookupCache::SetIndex(Key(0)));
+    }
+    keys.push_back(k);Check(keys.back());
+  }
   volatile uint64_t checksum=0;
+  const unsigned frames=3686400/(3*count);
   const auto start=std::chrono::steady_clock::now();
-  for(unsigned frame=0;frame<300;++frame) {
+  for(unsigned frame=0;frame<frames;++frame) {
     frame_counter=frame;
     for(unsigned pass=0;pass<3;++pass)for(const auto& k:keys) {
       auto& e=AttributeEntryFor(k,diagnostics);
@@ -172,13 +201,14 @@ void Benchmark() {
     }
   }
   const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
-  std::printf("HOST FIXTURE %s: %.2f ms for 3686400 lookups; checksum %llu; hits/misses/bypasses %llu/%llu/%llu\n",
-    g_lookup_enabled?"on":"off",ms,(unsigned long long)checksum,
+  std::printf("HOST FIXTURE %s %s: %.2f ms for %u lookups; checksum %llu; hits/misses/bypasses %llu/%llu/%llu\n",
+    layout.data(),g_bulk_enabled?"bulk":"scalar",ms,frames*3*count,(unsigned long long)checksum,
     (unsigned long long)diagnostics.attribute_lookup_hits,(unsigned long long)diagnostics.attribute_lookup_misses,(unsigned long long)diagnostics.attribute_lookup_bypasses);
 }
 int main(int argc,char** argv) {
   g_lookup_enabled=argc>1 && std::string(argv[1])=="on";
-  if(argc>2){Benchmark();return 0;}
+  g_bulk_enabled=argc>2 && std::string(argv[2])=="on";
+  if(argc>3){Benchmark(argv[3]);return 0;}
   IdentityAndCollisionChecks();MutationChecks();SweepChecks();RandomizedChecks();
 }
 '''
@@ -199,11 +229,31 @@ def main():
         subprocess.run(['xcrun', 'clang++', '-std=c++20', '-O1', '-fsanitize=address,undefined',
                         '-fno-omit-frame-pointer', str(cpp), '-o', str(exe)], check=True)
         for arm in ['off', 'on']:
-            subprocess.run([str(exe), arm], check=True)
+            for bulk in ['off', 'on']:
+                print(f'CHECK lookup {arm}, bulk {bulk}', flush=True)
+                subprocess.run([str(exe), arm, bulk], check=True)
         if args.benchmark:
             subprocess.run(['xcrun', 'clang++', '-std=c++20', '-O3', str(cpp), '-o', str(exe)], check=True)
+            # Also run correctness in the actual optimized configuration.
             for arm in ['off', 'on']:
-                subprocess.run([str(exe), arm, 'benchmark'], check=True)
+                for bulk in ['off', 'on']:
+                    subprocess.run([str(exe), arm, bulk], check=True)
+            for layout in ['small-hit', 'mixed', 'large-miss', 'same-set', 'early-miss']:
+                times = {'off': [], 'on': []}
+                expected = None
+                for trial in range(7):
+                    for bulk in (['off', 'on'] if trial % 2 == 0 else ['on', 'off']):
+                        output = subprocess.check_output([str(exe), 'on', bulk, layout], text=True)
+                        print(f'TRIAL {trial} {output}', end='', flush=True)
+                        match = re.search(r': ([\d.]+) ms.*checksum (\d+); hits/misses/bypasses (\d+/\d+/\d+)', output)
+                        assert match, output
+                        identity = match.group(2, 3)
+                        if expected is None:
+                            expected = identity
+                        assert identity == expected, (layout, identity, expected)
+                        times[bulk].append(float(match[1]))
+                print(f'MEDIAN {layout}: scalar {statistics.median(times["off"]):.2f} ms, '
+                      f'bulk {statistics.median(times["on"]):.2f} ms; matching checksum/counters {expected}', flush=True)
 
 
 if __name__ == '__main__':

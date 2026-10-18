@@ -28,7 +28,7 @@ input paths, test commands, outcomes and next action for each experiment.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
   lines. Do not commit game assets, generated game code, logs, traces or IPAs.
 - Investigate and explain new source changes before implementation; obtain the
-  user's approval. The fused upload-sizing experiment below is approved.
+  user's approval. The attribute bulk-comparison experiment below is approved.
 - Preserve default visual fidelity, stability and functionality. Quality
   reductions belong only in optional Battery mode or its settings.
 - Make isolated changes. Validate on device before stacking another source
@@ -77,19 +77,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 18, 2026
 
-- Latest build: **IPA21**, `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
-  Host differential checks, final iOS build, ARM64 inspection, ZIP CRC and
-  strict deep codesign checks passed. The initial device correctness run also
-  passed: October 18 `nfsmw_run_2_ipad.log`, 1.5x / 60 FPS, user reports visuals
-  fine. Keep `--nfsmw_native_fused_upload_sizing=true` for accumulated testing;
-  its compiled default stays false. No isolated device CPU/energy improvement
-  is established. No further implementation has been approved yet.
-- Next proposed experiment: bulk comparison of the complete 40-byte vertex-
-  attribute front-cache key, preserving all nine identity fields and content
-  validation. A temporary host prototype passed existing cache correctness
-  checks and was about 51% faster in one synthetic lookup workload. No app
-  source or new IPA yet. Approval and wider hit/miss benchmarks are pending;
-  details are in the October 18 audit entry below and TECHNICAL.md.
+- Latest build: **IPA22**, `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
+  Approved and implemented exact attribute-key comparison: reject a different
+  base address, then compare the remaining 32 bytes in bulk. Original scalar
+  control remains; front-cache content validation and rendered inputs unchanged.
+  All four lookup/comparison switch configurations passed host correctness
+  checks at ASan/UBSan and -O3. Final iOS build, ARM64 inspection, ZIP CRC,
+  strict deep codesign and 104 unchanged Metal libraries passed.
+- **Pending: one short iPad correctness run**, usual 1.5x / 60 FPS, Battery mode
+  OFF, system Low Power Mode OFF. Keep all existing experimental arguments,
+  including fused upload sizing and attribute lookup ON, and add only
+  `--nfsmw_native_attribute_bulk_compare=true`. Cold force-quit LiveContainer.
+  Send the log and report any visual/stability issues. Do not stack another
+  implementation or request a long power A/B before this result.
+- IPA21's initial iPad correctness check passed (`nfsmw_run_2_ipad.log` on
+  October 18). Keep fused sizing ON for accumulated tests; its compiled default
+  remains false. IPA22's new comparison also defaults false and requires
+  attribute lookup ON. Host timings are favorable in five synthetic layouts;
+  no isolated device CPU/energy improvement is established for either change.
 - Latest completed measurement: the two runs in
   `/Users/bep1s/Desktop/debug/18 October 2026/Power_Profiler_1_ipad.trace`, paired
   with `nfsmw_run_1_ipad.log` in the same folder. Both arms have been analyzed;
@@ -139,6 +144,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_gpu_lookup_hash` | false | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
+| `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks passed; initial device check pending; requires attribute lookup ON |
 
 These are independent switches; clearing Extra Args does not enable the five
 older default-false experiments. Most recent iPad profiling had them ON.
@@ -146,6 +152,13 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA22: `ios/build/NFSMW-battery-attribute-bulk-22.ipa`.
+UUID `3CDAD6C3-51F9-372C-B7C5-DB5B3FBF1640`; SHA256
+`88dd71bf9d4e379e682ea6ac168211c6d3f90b06285ca32efe90030a392ee7c7`.
+The final implementation uses a base-address rejection followed by a 32-byte
+comparison, not the superseded full-40-byte prototype. Source commit is recorded
+in the final work-log entry below.
 
 IPA21: `ios/build/NFSMW-battery-upload-sizing-21.ipa`.
 UUID `BB547F91-F458-34B1-856F-BED78713E517`; SHA256
@@ -161,19 +174,17 @@ UUID `2CD6D542-84B7-3379-BB26-DAE64A642F64`; SHA256
 Its source change was committed as `da5617b`; later commits through `03da344`
 are documentation. See TECHNICAL.md for previous IPA IDs and tests.
 
-Current approved implementation: combine the renderer's two upload-buffer sizing scans.
+Current approved implementation: exact bulk comparison of attribute front-cache keys.
 Production source: `ios/src/native_renderer.mm`; regression/benchmark fixture:
-`tools/native/test_upload_sizing.py`. The fixture extracts production layouts
-and both sizing arms and compares against Git reference `03da344`.
+`tools/native/test_attribute_lookup.py`. The fixture extracts production key,
+lookup and sweep code. Comparison is base8 + remaining32 bytes with static
+representation guards; map equality, content fingerprints, two-way selection,
+replacement, ownership, sweep, shaders and GPU resource operations are preserved.
 
-The sizing loops account for ~1.54% / 2.06% of active sampled CPU in the latest
-ON/OFF profiles; only part is potentially recoverable. The earlier resource-
-list assembly proposal is lower priority (main block self only ~0.05–0.07%,
-excluding callees). No large energy saving is promised for scan fusion.
-
-The code keeps an independent default-false restart-only switch, the original
-two-pass control, exact capacity allowances, and actual upload/resource order.
-No shaders, rendering settings, synchronization or SDK source changes.
+The profile's selector/key-check region accounts for ~1.17% / 1.09% of active
+sampled app CPU; this includes other work and is not fully recoverable. This is
+an incremental CPU optimization, not evidence of a large total energy saving.
+The prior fused sizing implementation remains intact and independently gated.
 
 ### October 18 — approved sizing experiment work log
 
@@ -269,3 +280,39 @@ No shaders, rendering settings, synchronization or SDK source changes.
 - No app source, control defaults or build changed in this audit. Temporary
   scripts/results use /tmp/nfsmw_key_compare* and /tmp/nfsmw_oct18_record_pcs*;
   essential results are persisted here. Await approval before implementation.
+
+### October 18 — approved IPA22 attribute comparison experiment
+
+- User approved the proposal. Added default-false restart-only
+  `nfsmw_native_attribute_bulk_compare`, requiring attribute lookup ON. Its log
+  identifies `base + bulk 32 bytes` or `scalar fields`, plus front-cache state.
+- Initial full-40-byte production candidate passed correctness, but wider host
+  benchmarks exposed early-base mismatch regression: 50.18 ms scalar versus
+  54.66 ms bulk. Large-miss was also slightly slower (114.21 / 116.83 ms).
+  Preserve this negative result; the earlier one-layout 51% gain was not general.
+- Refined the approved change to reject different base addresses first and
+  bulk-compare the remaining eight fields. Complete 40-byte identity remains
+  required. No padding or alternate representations are permitted by static
+  assertions; backing-map equality and mutation validation are unchanged.
+- `python3 tools/native/test_attribute_lookup.py --benchmark` passed all four
+  lookup OFF/ON × comparison OFF/ON configurations under ASan/UBSan and -O3.
+  Coverage includes nine fields, every one of 320 bits, collision/fallback,
+  rehash, same-frame mutation, live updates, actual sweep invalidation,
+  reinsertion, ownership and 90,000 changing-key pairs per configuration.
+- Seven alternating trials, 3,686,400 timed lookups per layout: scalar / final
+  bulk medians in ms: small-hit 20.68 / 15.87; mixed 47.37 / 34.65; large-miss
+  108.38 / 102.38; same-set 53.11 / 51.84; early-miss 49.66 / 47.95. All matching
+  checksums/counters. These synthetic lookup gains (~2–27%) are not app or
+  device energy gains. Full detail and prototype results are in TECHNICAL.md.
+- Final iOS build passed with 13 existing FPSCR/UIScreen warnings. ARM64 shows
+  both paths inline in Record, with base rejection then four 64-bit compare /
+  conditional-compare operations in bulk mode. No comparison helper/library
+  calls in either slot; scalar branch chain retained. ZIP CRC, signed-app
+  executable match, strict deep codesign and all 104 unchanged Metal libraries
+  against IPA21 passed. SDK and shaders were not edited.
+- Packaging initially reached Python's unavailable hashlib.file_digest API;
+  reran using streaming SHA256 successfully. A documentation patch context
+  mismatch was corrected without changing the built source. Neither affected
+  the app. An earlier full-40-byte build was superseded before named delivery.
+- Device validation is pending with the settings/arguments above. Keep the new
+  default false until results; no additional source optimization is approved.
