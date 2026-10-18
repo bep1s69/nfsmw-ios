@@ -1723,3 +1723,28 @@ connectivity and repeat without changing arguments. This checks the new
 environmental clue before adding another optional optimization. A passing
 offline attempt would not rule out an intermittent freeze or interactions
 among the still-disabled experiments. No code or defaults changed.
+
+### iPhone run 4 after requested offline check (October 18)
+
+`/Users/bep1s/Desktop/debug/18 October 2026/nfsmw-run_4_iphone.log`
+contains one IPA20 launch at 17:24:21.511 and reaches in-world/driving at
+17:24:48.132; the log ends at 17:24:50.044. Settings and optimization state
+match run 3: defaults ON plus the mixed GPU selector, with Utility,
+attribute lookup, transform copies, lazy diagnostics and lookup counters
+OFF; 0.85x, normal FXAA, MetalFX OFF, cap 30. The last renderer summary
+precedes driving, so it is not a gameplay performance measurement.
+
+This log was supplied in response to the requested airplane-mode/Wi-Fi-OFF
+test, without an explicit accompanying confirmation of connectivity. The
+log itself cannot verify radio state. It does verify another successful
+load and provides no new evidence that airplane mode caused the previous
+freeze. Two watchdog dumps occur before driving, including one at
+17:24:46.746 shortly before the successful transition; they do not establish
+a persistent hang. No other error category is logged.
+
+Next proposed isolation adds only --nfsmw_native_transform_copies=true to
+the existing --nfsmw_native_gpu_lookup_hash=true line, keeping graphics and
+connectivity unchanged. Cold-launch LiveContainer and enter the same event
+once. Utility, attribute lookup, lazy diagnostics and lookup counters remain
+OFF. This checks the optional game-code scalar transfer change against the
+now repeatedly loading configuration. No code, build or defaults changed.
