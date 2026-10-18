@@ -2280,3 +2280,6 @@ Temporary outputs: /tmp/nfsmw_bulk_compare22_tests.txt (initial full40),
 /tmp/nfsmw_bulk_compare22_final_build.log,
 /tmp/nfsmw_bulk22_record_disassembly.txt. Essential evidence is retained here
 so continuation does not depend on temporary files. No push or release.
+
+Implementation/fixture and evidence saved in local commit `7b848b1` on
+`battery-optimization`. Original HANDOFF_CHATGPT.md remains untracked.
