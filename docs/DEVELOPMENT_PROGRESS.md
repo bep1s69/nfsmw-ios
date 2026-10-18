@@ -94,9 +94,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - Keep `--nfsmw_native_attribute_bulk_compare=true` with the accumulated
   experimental stack for later measurement. Compiled default remains false;
   no isolated CPU/energy gain is established. No repeat short run or new build
-  needed for this result. Sustained stability remains unproven. Next action is
-  further investigation/proposal or a meaningful accumulated measurement;
-  obtain approval before another source change. iPhone issue remains parked.
+  needed for this result. Sustained stability remains unproven. Recommended
+  next action: one current IPA22 Power Profiler recording with Time Profiler
+  and Thermal State, 8–10 minutes at usual 1.5x / 60 FPS, Battery mode OFF,
+  system Low Power Mode OFF, all current arguments retained, fixed brightness,
+  unplugged via the already-working wireless workflow. Usual race then pursuit;
+  note transition time. Purpose: locate current hotspots, not an isolated A/B
+  or proof of energy savings. Await that input; no new source change approved.
+  iPhone issue remains parked.
 - IPA21's initial iPad correctness check passed (`nfsmw_run_2_ipad.log` on
   October 18). Keep fused sizing ON for accumulated tests; its compiled default
   remains false. IPA22's new comparison also defaults false and requires
@@ -358,3 +363,28 @@ The prior fused sizing implementation remains intact and independently gated.
   testing and default false in source. No source/build change, no repeated
   test requested, no push. Sustained stability and device energy benefit remain
   pending. No further source optimization is approved by this log submission.
+
+### October 18 — next measurement recommendation after IPA22 check
+
+- User asks what comes next. Reviewed remaining candidates and existing power/
+  CPU summaries. Last detailed profile is IPA20 at 0.85x / 30 FPS; IPA21 fused
+  sizing and IPA22 bulk key comparison have since passed initial iPad checks.
+  Their host timings do not establish app/device energy benefit.
+- Old active profile has Record self5.394% /4.979%, RenderFrame self5.744% /
+  7.495%, sub_82699100 self2.384% /2.027%, fingerprint self1.126% /1.025%
+  (Low Power ON/OFF). Guest share remains broad, but prior small-copy paths
+  already exist; don't infer all of it is waste or repeat completed patches.
+  Fingerprints remain necessary. Previously deferred micro-work such as
+  motion hashes and repeated GPU-address queries is only ~0.08–0.11% app CPU
+  in that profile; no new implementation justified from these totals alone.
+- Recommend a single current-build 8–10 minute recording at 1.5x /60 FPS,
+  Battery mode and system Low Power Mode OFF, same accumulated flags including
+  comparison and fused sizing ON, fixed manual brightness, unplugged wireless
+  recording. Reuse the working Power Profiler + Time Profiler + Thermal State
+  template. Usual race then pursuit; provide approximate transition timestamp
+  and game log. No OFF arm or new build requested.
+- This is a current-workload diagnostic to rank game-code, renderer and GPU
+  effort; it cannot measure the optimization batch's gain against older traces
+  with different resolution/FPS/content. Later energy attribution requires
+  matched settings/workloads. No code, control defaults, SDK, IPA or parked
+  diagnostics changed. Recommendation saved; recording pending user action.
