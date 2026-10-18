@@ -1748,3 +1748,66 @@ connectivity unchanged. Cold-launch LiveContainer and enter the same event
 once. Utility, attribute lookup, lazy diagnostics and lookup counters remain
 OFF. This checks the optional game-code scalar transfer change against the
 now repeatedly loading configuration. No code, build or defaults changed.
+
+### Battery work resumed; iPhone issue parked (October 18)
+
+The user explicitly requests that the loading issue be marked resolved for
+now and retained in the backlog. It is no longer an investigation blocker;
+there is no established fix or causal attribution. The transform-copy-only
+addition proposed after run 4 was not tested. See [BACKLOG.md](BACKLOG.md).
+
+The 95-minute iPad report (75% to 55%, Battery mode plus system Low Power
+Mode, stable reported 30 FPS) remains the sustained low-drain reference,
+approximately 12.6 battery percentage points per hour. It is not a controlled
+comparison against the earlier 60 FPS Power Profiler runs at roughly 31.9
+percentage points per hour. The user subsequently recalls low brightness
+in the dark aircraft cabin. The exact brightness and experiment state remain
+unknown: they recall either no Extra Args or the arguments from the last
+optimization check. Do not label the flight all-experiments-ON or defaults-only.
+Low brightness is another plausible contributor to the sustained result,
+whose contribution requires matched display conditions to separate.
+
+Read-only follow-up checked current low-cap behavior:
+- launcher.mm BatteryValue selects 0.85x, MetalFX OFF, FXAA, half-size
+  shadows, half-rate cube reflection updates and thermal/menu policies.
+- battery.mm can switch a launcher's 60 cap to 30 for system Low Power Mode
+  or heat; therefore explicitly choosing 30 in both comparison arms is
+  necessary to avoid inadvertently comparing 60 FPS against 30 FPS.
+- display_rate.mm requests 60 Hz for the 30/60 caps, 120 Hz for 40/120.
+  This is a request, not proof of actual panel refresh or callback rate.
+- The display-vblank SDK patch sleeps until the next refresh. Its display
+  lock expects a period close to the guest's 60 Hz at the 30 FPS cap;
+  simply lowering CADisplayLink to 30 would break that condition and select
+  the fallback timer. No pacing change is justified by inspection alone.
+- RenderFrame still flattens textures, resolved_textures, assembled_cubes,
+  volumes and cubes for every main render encoder. The base arrays are
+  fixed before the draw loop and the dynamic arrays only append. A frame-
+  local flattened-list cache keyed by collection counts could avoid repeated
+  enumeration when unchanged. Every encoder must still receive useResources,
+  with the same objects, order, usage and stage flags. Existing owning arrays
+  and GPU completion lifetimes must remain intact. Savings are unmeasured.
+
+Next recommended measurement is two matched iPad Power Profiler recordings,
+8–10 minutes each, Battery mode ON and explicit cap 30, same current build
+and arguments, manual brightness, content, connectivity and starting thermal
+state. Change only system Low Power Mode OFF/ON. Record Power Profiler,
+Thermal State and Time Profiler, unplugged, using the working minimal template.
+Compare whole-device drain rate, CPU/GPU/display impact, CPU running samples
+and core distribution, frame pacing, logged effective scale and thermal state.
+Do not use short integer battery deltas or GPU milliseconds alone as the
+success criterion. Check any heat-scale change or brightness difference
+before attributing the result to scheduling or clock/power management.
+
+Keep the newer experiments optional: better GPU lookup coverage has not
+established a CPU or energy improvement. Reuse the resulting profile to
+choose between renderer bookkeeping and remaining guest-code work; do not
+assume another guest-native rewrite will recover the full guest CPU share.
+The next concrete lossless code candidate is the resource-list cache in
+ios/src/native_renderer.mm, with targeted ARC/list-equivalence validation,
+subject to user approval and evidence of relevant cost. No implementation,
+default changes or new IPA were made during this review.
+
+Apple's [iPad Low Power Mode documentation](https://support.apple.com/en-gb/guide/ipad/ipadbaefc31d/26/ipados/26)
+confirms the ProMotion display limit of 60 FPS; it does not quantify this
+game's CPU/GPU or whole-device savings. Source and instrumentation must
+establish the actual behavior in LiveContainer.
