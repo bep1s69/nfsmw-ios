@@ -90,7 +90,17 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — October 19, 2026
+## Current checkpoint — October 20, 2026
+
+- Retention clarification: keep accepted/default-on optimizations enabled and
+  retain recent experiments for accumulated testing. Not every recent shortcut
+  has demonstrated lower total CPU work: the four-change pair was 110.114% ON
+  versus 109.074% OFF of one core, with gameplay variance. No measured energy
+  win does not rule out CPU power; the matched LPM comparison used more CPU
+  time while consuming substantially less estimated device power. Do not
+  discard stable changes solely for an inconclusive small battery comparison,
+  or promote experimental defaults solely on assumed CPU savings. No source,
+  flags, compiled defaults or next diagnostic approval changed by this question.
 
 - **Three-axis investigation completed; next recommendation is an opt-in
   frame-flow/copy-eligibility diagnostic, awaiting source approval.** User
