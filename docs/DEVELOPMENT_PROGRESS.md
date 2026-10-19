@@ -92,14 +92,31 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 19, 2026
 
-- Session documentation protocol is now explicit in AGENTS.md for both agents.
-  Startup review found branch `battery-optimization` at `fc27788`, with no
-  tracked local changes. `HANDOFF_CHATGPT.md` is pre-existing and deliberately
-  untracked: preserve it without staging or overwriting it. Latest two commits
-  document shared records and the move to `~/Developer/GitHub`; no new app
-  build or device test was performed in this documentation session. Next
-  development action remains the paired IPA24 power comparison below; await
-  user-supplied OFF/ON logs and traces. No next source implementation approved.
+- **IPA24 four-change power A/B analyzed**, October 19, same Challenge Series
+  pursuit restarted in both arms (user confirmed). ON first, OFF second; both
+  exact IPA24 UUID, 1.5x/60, constant35% brightness, Nominal thermals. Equal
+  guarded/event-elapsed527.535 s: estimated drain **34.1868 /33.3576 pp/hour**
+  (ON/OFF), CPU110.114 /109.074% one core, GPU4.299 /4.305 ms. ON estimates
+  2.49% more drain; retired instructions1.79% higher and sampled last-frame
+  draws3.00% higher. **No demonstrated saving; not a proven causal regression.**
+  Same-event attempts help but do not make pursuits deterministic. Full methods,
+  diagnostic exclusion, CPU samples and limits are in the latest TECHNICAL entry.
+- Pipeline shortcut reduces original hash/find samples74.2%, but added equality
+  consumes most of that; combined region2.825 /2.959 CPU s over527.535 wall s.
+  Do not turn the hash-only improvement into a whole-game energy claim.
+- Retain IPA21–24 as experimental/default false; earlier changes/defaults stay
+  unchanged. No new IPA or source change. **Next: read-only audit of larger
+  repeated guest state/PM4/native Record work using this existing trace**, then
+  propose a concrete safe change and tests. No next implementation approved.
+  No second arm/repeated tiny A/B is needed to begin this audit.
+- Inputs now under `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/19
+  October 2026/`: `nfsmw_run_1_ipad.log` and `power_profiler_1_ipad.trace`.
+  Three OFF gameplay watchdog/semaphore dumps are documented; frames continue
+  progressing and excluding matched +/-5 s windows preserves the power result's
+  direction. Do not reopen the parked iPhone or GPU capture investigation.
+- Startup HEAD `cdd04b2`; branch `battery-optimization`; only intentionally
+  untracked `HANDOFF_CHATGPT.md`, preserved. Explicit workdir is required after
+  repository move; old Documents/GitHub cwd no longer exists.
 
 - Latest build: **IPA24**, `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
   Optional exact last-ready pipeline lookup, borrowing the existing owning map
@@ -114,11 +131,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   all 39 thermal observations Nominal. No gameplay errors or GPU failures;
   two startup/menu watchdog groups precede driving. Final partial log line
   ignored. No repeat short check or new build needed.
-- Keep pipeline lookup ON with the previous stack for now; compiled defaults
-  remain unchanged. No device energy gain is established. **Next recommended
-  measurement: matched IPA21–24 four-change power comparison on IPA24**, after
-  this correctness pass; protocol below. No next source implementation before
-  reviewing the batch. iPhone and other parked diagnostics stay parked.
+- The matched IPA21–24 four-change power comparison is now complete; see
+  the current result above. Both arms are in the supplied trace. These changes
+  remain experimental, compiled defaults unchanged; no energy win established.
+  No next source implementation approved; parked diagnostics stay parked.
 - **IPA23 initial iPad correctness check passed**: October 18
   `nfsmw_run_5_ipad.log`, user reports "still looks jsut fine". Renderer build
   19:48:54; target lookup mode confirms frame-local last target, earlier flags
@@ -133,11 +149,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   profile, not all recoverable. Host repeated-key Get fixtures improve 12–18%;
   synthetic late-field all-miss case regresses 18.6%. No universal/device gain
   claim. Detailed fixture failure/correction, tests and timings recorded below.
-  Now correctness passed, recommend matched power A/B of the accumulated
-  **IPA21–24 four-change batch**, retaining all earlier experiments/settings in
-  both arms. Toggle only fused_upload_sizing, attribute_bulk_compare,
-  target_lookup and pipeline_lookup, fully cold restart each arm. The master
-  battery flag does NOT control these; don't change it for this batch test.
+  The accumulated **IPA21–24 four-change batch** was measured October 19,
+  retaining earlier experiments/settings in both arms; result above. Only
+  fused_upload_sizing, attribute_bulk_compare, target_lookup and pipeline_lookup
+  changed after cold restarts; the master battery flag was retained ON.
   No next source optimization approved; iPhone issue stays parked.
 - **IPA22 initial iPad correctness check passed**: October 18
   `nfsmw_run_3_ipad.log`, user reports "still no issues". Renderer build
@@ -149,7 +164,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   experimental stack for later measurement. Compiled default remains false;
   no isolated CPU/energy gain is established. No repeat short run or new build
   needed for this result. Sustained stability remains unproven.
-- Current IPA22 profile analyzed: October 18 `nfsmw_run_4_ipad.log` plus
+- Earlier IPA22 profile analyzed: October 18 `nfsmw_run_4_ipad.log` plus
   `Power_Profiler_2_ipad.trace`, 1.5x/60, all accumulated flags ON, brightness 34%,
   nominal thermals. User confirms last gameplay stretch is a chase. Actual
   recording 19:23:41.755–19:33:48.860 also includes earlier unclassified play;
