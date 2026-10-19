@@ -92,8 +92,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 19, 2026
 
+- **User requests strategy reassessment before the GPR prototype.** Recent
+  changes have not demonstrated substantial battery savings. Hold the unapproved
+  helper proposal; next discussion/investigation should prioritize the much
+  larger LPM/system-policy clue and higher-ceiling redundant work. Prior matched
+  30 FPS LPM comparison estimated ~44% lower drain; no established app equivalent
+  or1.5x/60 extrapolation. No claim that the port is already fully optimized.
+  Latest TECHNICAL entry records evidence, limits and revised priorities. No
+  new implementation, device test or generic repeat pursuit A/B approved.
 - **Broader CPU audit complete; next proposal is a guarded GPR save/restore
-  prototype, awaiting approval.** IPA24 paired trace: helper bodies 3.805 /4.318%
+  prototype, currently held/unapproved pending strategy reassessment.** IPA24 paired trace: helper bodies 3.805 /4.318%
   app CPU self (ON/OFF), plus separately sampled link stubs 0.762 /0.681%.
   Full 4.6–5.0% pool is NOT recoverable or a battery-saving estimate. All 36
   generated save/restore functions (GPR14..31) exactly match simple fixed stack

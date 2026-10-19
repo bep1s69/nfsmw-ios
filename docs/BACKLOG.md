@@ -45,8 +45,9 @@ workload variation prevents a causal regression claim. Four flags remain
 experimental/default false. Broader CPU audit complete: GPR save/restore bodies
 account for 3.805 /4.318% app CPU self, with all 36 generated helpers structurally
 uniform. Propose guarded ordinary-stack native helpers with exact original
-fallback; approval and host correctness/guard-inclusive timing are next, before
-any new IPA. No energy gain claimed; full helper pool is not removable.
+fallback; prototype remains unapproved and held while Stefan questions the
+energy strategy. Prioritize the LPM/system-policy clue and higher-ceiling work;
+any future prototype still needs host correctness/guard-inclusive timing first. No energy gain claimed; full helper pool is not removable.
 Existing constant bulk paths/capture bypass confirmed; broad PM4 bypass remains
 unproven and higher risk. Full proposal and gates in latest TECHNICAL entry.
 No new source implementation, build, default change or repeated test requested.
