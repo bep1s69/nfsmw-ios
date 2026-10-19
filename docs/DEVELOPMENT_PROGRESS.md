@@ -92,9 +92,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 19, 2026
 
+- **Three-axis investigation completed; next recommendation is an opt-in
+  frame-flow/copy-eligibility diagnostic, awaiting source approval.** User
+  approved investigation of scheduling, redundant graphics stages and GPU
+  traffic. No source change/diagnostic build approved or made. Existing trace
+  lacks blocked/runnable/wakeup/deadline data. A new optional diagnostic would
+  measure guest/CP/render/GPU/presentation timing and compatible copy stages;
+  no quality, cap, QoS or resource-operation change. Exact four-file scope and
+  validation in latest TECHNICAL entry. GPR prototype remains held.
+- New CPU union: identified guest graphics/constant prep plus packet handling
+  outside native draw/swap is 9.13 /8.09% app CPU, only partly removable. Do not
+  describe all guest CPU or CP inclusive work as translation overhead.
+- GPU: 105 profiles/arm: main scene/reflection/shadow ~73% sampled span; color
+  resolves+cube assembly ~0.35 ms (~8%), only partly eligible. Depth audit: 315
+  snapshots/arm has ZERO unchanged candidates; artificial splits ZERO and
+  discard-unread already active. Pool checkouts ~99.95% reused. Do not repeat
+  those implemented/ruled-out experiments. Candidate image-preserving changes
+  need versioned color snapshots / reflection intermediate liveness proof.
+- Public CAMetalDisplayLink is a possible deadline-aware native pacing path;
+  energy gain unproven, guest vblank/atTime presentation need careful migration.
+  Sustained Execution is a conditional platform lead, not the main solution.
+  **User confirms free LiveContainer signing; Game Mode appears only with shared
+  app +LiveContainer2. Main plan must serve ordinary free-signing users without
+  that workaround.** Host entitlements govern; no entitlement/host change made.
 - **User requests strategy reassessment before the GPR prototype.** Recent
   changes have not demonstrated substantial battery savings. Hold the unapproved
-  helper proposal; next discussion/investigation should prioritize the much
+  helper proposal; the three-axis follow-up above prioritizes the much
   larger LPM/system-policy clue and higher-ceiling redundant work. Prior matched
   30 FPS LPM comparison estimated ~44% lower drain; no established app equivalent
   or1.5x/60 extrapolation. No claim that the port is already fully optimized.

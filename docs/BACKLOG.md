@@ -42,15 +42,18 @@ user confirms same pursuit restarted, ON then OFF. Equal guarded527.535 s:
 estimated drain34.1868 /33.3576 pp/hour, CPU110.114 /109.074% one core, GPU
 4.299 /4.305 ms. No demonstrated energy saving for the four-change batch;
 workload variation prevents a causal regression claim. Four flags remain
-experimental/default false. Broader CPU audit complete: GPR save/restore bodies
-account for 3.805 /4.318% app CPU self, with all 36 generated helpers structurally
-uniform. Propose guarded ordinary-stack native helpers with exact original
-fallback; prototype remains unapproved and held while Stefan questions the
-energy strategy. Prioritize the LPM/system-policy clue and higher-ceiling work;
-any future prototype still needs host correctness/guard-inclusive timing first. No energy gain claimed; full helper pool is not removable.
-Existing constant bulk paths/capture bypass confirmed; broad PM4 bypass remains
-unproven and higher risk. Full proposal and gates in latest TECHNICAL entry.
-No new source implementation, build, default change or repeated test requested.
+experimental/default false. Three-axis follow-up complete: identified guest
+front/packet stages cover 9.13 /8.09% app CPU, only partly removable; color/cube
+copies ~0.35 ms GPU (~8% span) need exact compatibility/lifetime proof. No unchanged
+depth snapshots (315/arm), artificial splits 0; pooling/discard-unread already work.
+Next proposed source work is an opt-in frame-flow/copy-eligibility diagnostic in
+four app files, then a focused scheduling trace to investigate the LPM result.
+Await approval; no new source/build/test. GPR prototype remains held. Native
+Metal display-link pacing and versioned copy removal are candidates, not proven
+energy wins. Free LiveContainer signing and ordinary user workflow are required;
+Game Mode currently needs shared-app +LiveContainer2 per Stefan, so do not make
+the main plan depend on that or a paid host entitlement. Full evidence, platform
+sources, proposal and gates in latest TECHNICAL/checkpoint.
 
 ### iPad Pro M4 sun flickering — open
 
