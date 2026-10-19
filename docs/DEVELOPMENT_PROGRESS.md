@@ -19,8 +19,8 @@ input paths, test commands, outcomes and next action for each experiment.
 - `../HANDOFF_CHATGPT.md`: the original October 15 architecture/history handoff,
   present locally but intentionally untracked. Do not overwrite or stage it.
 - Previous battery investigations, before repeating an experiment:
-  `/Users/bep1s/Desktop/debug/14 October 2026/BATTERY_FINDINGS.md` and
-  `/Users/bep1s/Desktop/debug/14 October 2026/BATTERY_OPTIMIZATION.md`.
+  `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 October 2026/BATTERY_FINDINGS.md` and
+  `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 October 2026/BATTERY_OPTIMIZATION.md`.
 
 ## Working rules
 
@@ -92,6 +92,27 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 19, 2026
 
+- **Broader CPU audit complete; next proposal is a guarded GPR save/restore
+  prototype, awaiting approval.** IPA24 paired trace: helper bodies 3.805 /4.318%
+  app CPU self (ON/OFF), plus separately sampled link stubs 0.762 /0.681%.
+  Full 4.6–5.0% pool is NOT recoverable or a battery-saving estimate. All 36
+  generated save/restore functions (GPR14..31) exactly match simple fixed stack
+  operations. Translate the ordinary stack once, keep identical ordered writes,
+  GPR/LR state and original unusual-address fallback. Host measurement must
+  include guard/OFF dispatch overhead before any new IPA. No optimization code,
+  new flag, benchmark or build exists yet; only structural inspection passed.
+- Proposed files: new `ios/src/game_gpr_helpers.{h,cpp}` and
+  `tools/ios/test_game_gpr_helpers.py`; integration in `ios/CMakeLists.txt` and
+  startup logging in `ios/src/ios_main.mm`. Use strong overrides of existing
+  weak entries, original __imp fallback; no generated or SDK source changes.
+  Proposed independent flag `nfsmw_native_gpr_helpers`, default false, not yet
+  available. Exact semantics, ranking and host/device gates in newest TECHNICAL.
+- Audit also confirms old game-thread Capture parsing is bypassed; native-only
+  constant writes already use bulk paths. Record's constant memcmp call sites
+  cover only 0.085 /0.110% app CPU here. A general guest/PM4 bypass needs much
+  more ordering/state proof. No next implementation approved, no extra trace
+  needed before the proposed host prototype. Existing SDK local work preserved.
+
 - **IPA24 four-change power A/B analyzed**, October 19, same Challenge Series
   pursuit restarted in both arms (user confirmed). ON first, OFF second; both
   exact IPA24 UUID, 1.5x/60, constant35% brightness, Nominal thermals. Equal
@@ -105,10 +126,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   consumes most of that; combined region2.825 /2.959 CPU s over527.535 wall s.
   Do not turn the hash-only improvement into a whole-game energy claim.
 - Retain IPA21–24 as experimental/default false; earlier changes/defaults stay
-  unchanged. No new IPA or source change. **Next: read-only audit of larger
-  repeated guest state/PM4/native Record work using this existing trace**, then
-  propose a concrete safe change and tests. No next implementation approved.
-  No second arm/repeated tiny A/B is needed to begin this audit.
+  unchanged. No new IPA or source change. The larger-work audit is complete;
+  proposed GPR helper prototype and approval boundary are above. No second arm
+  or repeated tiny A/B is required before that host work.
 - Inputs now under `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/19
   October 2026/`: `nfsmw_run_1_ipad.log` and `power_profiler_1_ipad.trace`.
   Three OFF gameplay watchdog/semaphore dumps are documented; frames continue

@@ -2,7 +2,8 @@
 
 Single list of open bugs, parked investigations and feature ideas, shared by
 every agent (Claude, ChatGPT Codex) and by Stefan. Each entry: status, devices
-and build seen on, evidence paths (logs live in `~/Desktop/debug/<date>/`),
+and build seen on, evidence paths (current logs live in
+`~/Developer/Debug/Most Wanted (2005) Debug/<date>/`),
 what is known versus inferred, and the next step. Update the status here when
 an item is fixed (and add the fix to `CHANGELOG.md`) instead of deleting it.
 
@@ -41,9 +42,13 @@ user confirms same pursuit restarted, ON then OFF. Equal guarded527.535 s:
 estimated drain34.1868 /33.3576 pp/hour, CPU110.114 /109.074% one core, GPU
 4.299 /4.305 ms. No demonstrated energy saving for the four-change batch;
 workload variation prevents a causal regression claim. Four flags remain
-experimental/default false. Next: read-only audit of larger guest constant/state,
-PM4 and native Record costs using the existing trace, before proposing code.
-Full inputs, identity, controls, diagnostic caveats and methods in TECHNICAL.md.
+experimental/default false. Broader CPU audit complete: GPR save/restore bodies
+account for 3.805 /4.318% app CPU self, with all 36 generated helpers structurally
+uniform. Propose guarded ordinary-stack native helpers with exact original
+fallback; approval and host correctness/guard-inclusive timing are next, before
+any new IPA. No energy gain claimed; full helper pool is not removable.
+Existing constant bulk paths/capture bypass confirmed; broad PM4 bypass remains
+unproven and higher risk. Full proposal and gates in latest TECHNICAL entry.
 No new source implementation, build, default change or repeated test requested.
 
 ### iPad Pro M4 sun flickering — open
