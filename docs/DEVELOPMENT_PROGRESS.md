@@ -12,9 +12,10 @@ input paths, test commands, outcomes and next action for each experiment.
 - [Technical history and evidence](TECHNICAL.md): architecture, SDK patches,
   chronological experiment records, measurements, test limitations and build IDs.
   Old "pending" paragraphs are historical; use this checkpoint for current state.
-- [Backlog](BACKLOG.md): parked iPhone loading issue, pipeline archive persistence
-  and GPU capture. Do not reopen those during battery work unless requested or
-  the issue recurs.
+- [Backlog](BACKLOG.md): open bugs (iOS 26 shader libraries, sun flicker, red FMV
+  frame, dim edge band), parked iPhone loading issue, pipeline archive
+  persistence, GPU capture, feature ideas. Do not reopen those during battery
+  work unless requested or the issue recurs.
 - `../HANDOFF_CHATGPT.md`: the original October 15 architecture/history handoff,
   present locally but intentionally untracked. Do not overwrite or stage it.
 - Previous battery investigations, before repeating an experiment:
@@ -39,6 +40,10 @@ input paths, test commands, outcomes and next action for each experiment.
   sibling SDK. No SDK source edits are required for the current experiment.
 - Persist observations and results in Markdown as explicitly requested on
   October 18, including inconclusive/failed tests and pending device validation.
+- October 19: everything (changes, test results, bugs and feature requests)
+  must be documented in this repository so both Claude and ChatGPT Codex can
+  continue from it. See [AGENTS.md](../AGENTS.md) for what goes where. Open bugs
+  and feature ideas live in [BACKLOG.md](BACKLOG.md).
 
 ## Workspace and build
 
