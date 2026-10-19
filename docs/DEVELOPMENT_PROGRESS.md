@@ -44,6 +44,15 @@ input paths, test commands, outcomes and next action for each experiment.
   must be documented in this repository so both Claude and ChatGPT Codex can
   continue from it. See [AGENTS.md](../AGENTS.md) for what goes where. Open bugs
   and feature ideas live in [BACKLOG.md](BACKLOG.md).
+- October 19 session protocol: read AGENTS completely, this checkpoint, backlog
+  and newest TECHNICAL evidence in that order; inspect `git status` and
+  `git log --oneline -15`, including other-agent documentation changes; state
+  current state/next step before working. Preserve and report others' local work.
+  Use existing records, keep backlog IDs stable and record exact observed
+  commands/results plus failures and limits. End every session, even unfinished,
+  with dated TECHNICAL evidence, current next action, matching backlog updates
+  and a local commit; document why anything must remain uncommitted. Private
+  material stays in ignored local folders, with paths recorded in the docs.
 
 ## Workspace and build
 
@@ -81,7 +90,16 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — October 18, 2026
+## Current checkpoint — October 19, 2026
+
+- Session documentation protocol is now explicit in AGENTS.md for both agents.
+  Startup review found branch `battery-optimization` at `fc27788`, with no
+  tracked local changes. `HANDOFF_CHATGPT.md` is pre-existing and deliberately
+  untracked: preserve it without staging or overwriting it. Latest two commits
+  document shared records and the move to `~/Developer/GitHub`; no new app
+  build or device test was performed in this documentation session. Next
+  development action remains the paired IPA24 power comparison below; await
+  user-supplied OFF/ON logs and traces. No next source implementation approved.
 
 - Latest build: **IPA24**, `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
   Optional exact last-ready pipeline lookup, borrowing the existing owning map
