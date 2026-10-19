@@ -10,6 +10,10 @@ Status words: **open** (not started), **active** (being worked on),
 **parked** (deferred by Stefan), **monitor** (not reproduced since),
 **fixed in x.y.z**.
 
+Keep assigned IDs stable (`B-xxx` blockers, `D-xxx` defects); give new items the
+next free number in their series. Update existing entries, including the legacy
+unnumbered entries below, instead of opening duplicates.
+
 ## Open bugs
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — open
@@ -29,9 +33,13 @@ investigated during the October 16–18 battery work.
 ### iPad Pro M4 battery drain — active
 
 The battery-optimization branch exists for this. Current state, measurements
-and next step are in the [checkpoint](DEVELOPMENT_PROGRESS.md#current-checkpoint--october-18-2026).
+and next step are in the [checkpoint](DEVELOPMENT_PROGRESS.md#current-checkpoint--october-19-2026).
 First report: `nfsmw_ipad_session_insane_battery_drain_sun_flickering.log`
 (October 15, ~26 minutes, 50% to 25%, 60 cap, MetalFX temporal to 2064x1548).
+October 19 documentation review: IPA24 initial correctness passed; energy
+benefit remains unproven. Next step is the same-build four-change OFF/ON
+comparison in the checkpoint, awaiting paired user logs/traces. No new device
+measurement or source implementation in this session.
 
 ### iPad Pro M4 sun flickering — open
 

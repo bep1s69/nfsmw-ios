@@ -2966,3 +2966,52 @@ approved. No production changes or push/release in this analysis.
 User replied "continue" following the validation update. Provide the batch
 comparison instructions above; next input is the two paired logs/traces.
 No batch result or new implementation is implied by that reply.
+
+### October 19, 2026 — shared session protocol recorded
+
+Documentation-only session following Stefan's explicit startup, evidence and
+handoff requirements. Read AGENTS.md completely, DEVELOPMENT_PROGRESS.md,
+BACKLOG.md and the newest TECHNICAL.md entries; reviewed the recent documentation
+commits `fc27788`, `6368386` and `4246e94`. Also checked CLAUDE.md: it points to
+AGENTS.md and the shared checkpoint. No parallel status or evidence file added.
+
+Observed commands (all exit 0): `cat AGENTS.md`,
+`cat docs/DEVELOPMENT_PROGRESS.md` (tool output truncated; read the missing
+middle with `sed -n '230,490p' docs/DEVELOPMENT_PROGRESS.md`),
+`cat docs/BACKLOG.md`, `tail -n 200 docs/TECHNICAL.md`,
+`wc -l docs/DEVELOPMENT_PROGRESS.md docs/TECHNICAL.md` (720 / 2,968 lines before
+edits), `git status --short --branch` (battery-optimization, only
+`?? HANDOFF_CHATGPT.md`), `git log --oneline -15` (15 entries, HEAD `fc27788`),
+`git show --stat fc27788 6368386 4246e94`,
+`git show fc27788 -- AGENTS.md docs/BACKLOG.md docs/DEVELOPMENT_PROGRESS.md`,
+and `cat CLAUDE.md`. Backlog/instruction search found no assigned B-/D-numbered
+entries in the checked files; retained the existing unnumbered items.
+
+Updated AGENTS.md with the ordered startup checks, exact-evidence requirements,
+existing-file and stable-ID rules, private-material handling and mandatory
+end-of-session documentation/local commit. Updated checkpoint/working rules and
+the existing active battery item; corrected its checkpoint link for October 19.
+Pre-existing HANDOFF_CHATGPT.md remains untouched and untracked by the existing
+explicit repository rule. No source, SDK, build procedure, flag/default or
+release changed. No build, application tests or device measurements run; these
+documentation checks establish no new correctness or energy result.
+
+Validation: `git diff --check` exited 0 with no output. `git diff --stat` and
+`git diff -- AGENTS.md docs/DEVELOPMENT_PROGRESS.md docs/BACKLOG.md docs/TECHNICAL.md`
+both exited 0; reviewed changes are confined to those four documentation files.
+`git status` exited 0 and listed those four modified files plus the preserved
+untracked handoff. Local commit includes only those four documentation files.
+
+Initial sandboxed `git add AGENTS.md docs/DEVELOPMENT_PROGRESS.md docs/BACKLOG.md
+docs/TECHNICAL.md` and the subsequent `git commit` attempt each exited 128:
+unable to create `.git/index.lock` (Operation not permitted). Documentation
+edits remained intact and unstaged; retry requires the Git-metadata sandbox
+escalation. This is a filesystem restriction, not a validation failure.
+Escalated `git add` and `git commit` then each exited 0;
+`git diff --cached --check` exited 0 with no output. Post-commit
+`git status --short --branch` exited 0 and showed only the intentionally
+untracked HANDOFF_CHATGPT.md. This success note is included by amending that
+same local documentation commit.
+
+Next action remains the documented matched IPA24 four-change OFF/ON power
+comparison; await paired user logs/traces. No further source change approved.
