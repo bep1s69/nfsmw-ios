@@ -3015,3 +3015,217 @@ same local documentation commit.
 
 Next action remains the documented matched IPA24 four-change OFF/ON power
 comparison; await paired user logs/traces. No further source change approved.
+
+### October 19, 2026 — IPA24 four-change pursuit power A/B
+
+Inputs (new debug location):
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/19 October 2026/nfsmw_run_1_ipad.log`
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/19 October 2026/power_profiler_1_ipad.trace`
+
+User confirms both arms restarted the same Challenge Series pursuit and gameplay
+was kept as similar as possible. This answers the pending event-identity question;
+do not request another recording on the assumption that the second arm is absent.
+The trace contains BOTH recordings. Actual order is ON first, OFF second.
+
+Repository is now `/Users/bep1s/Developer/GitHub/nfsmw-ios`, sibling SDK and
+reference repository also under `~/Developer/GitHub`. Old Documents/GitHub cwd
+no longer exists. Initial default-cwd execution failed with CreateProcess ENOENT;
+subsequent commands use explicit workdir at the new repository. Startup branch
+`battery-optimization`, HEAD `cdd04b2`, only untracked `HANDOFF_CHATGPT.md`;
+pre-existing handoff preserved. Documentation-only analysis; no build or source
+change, SDK mutation, flag/default change, push, publication or release.
+
+Identity and controls:
+- Run 1, `New Optimizations On`, 22:48:25.674+02:00, 600.471787 s, PID 3929.
+- Run 2, `New Optimizations Off`, 23:00:25.586+02:00, 600.472493 s, PID 3935.
+- Both NFSMW UUIDs match final IPA24 exactly:
+  `6E360E6A-9918-3D39-B4FE-70B755E02D30`. Runtime UUID both
+  `5EB416B2-DBBA-35B8-B411-EE9B10AA2E75`. Packaged IPA24 executable extracted
+  to `/tmp/nfsmw_oct19_IPA24`; `xcrun dwarfdump --uuid` agrees. Log renderer
+  build October 18 20:14:16 in both launches. No replacement IPA produced.
+- Four restart-only settings ON then OFF: `nfsmw_native_fused_upload_sizing`,
+  `nfsmw_native_attribute_bulk_compare`, `nfsmw_native_target_lookup`,
+  `nfsmw_native_pipeline_lookup`. Mode logs confirm every change in both arms.
+  Bulk comparison OFF retains attribute front cache ON; it is not disabling
+  the earlier cache. Target/pipeline OFF return to original map lookup.
+- Earlier five-option battery group stays ON, baseline elevated QoS OFF,
+  native constant copies and transform copies ON; Utility rendering,
+  attribute lookup, lazy diagnostics, higher-bit GPU buffer selector and lookup
+  statistics, CPU draw pooling and resolve compression eligibility retained.
+  Geometry arena range reuse OFF in both. Master battery flag is not this A/B.
+- Scale 1.500, cap60, MetalFX OFF, FXAA OFF, forced MSAA0, no LPM suffix in either
+  log. These establish logged controls, not independent proof of system LPM.
+- M4 13-inch iPad Pro / iPadOS27.0.1(24A446). Constant 35% brightness. Entire
+  trace duration Nominal thermal state in both arms; all407 log thermal
+  observations Nominal. Charging-state table empty in both, so not independent
+  proof of unplugged state. No GPU command-buffer failure messages found.
+
+Method:
+- Exported TOC and relevant tables with `xcrun xctrace export --input <trace>
+  --toc --output /tmp/nfsmw_oct19_power1_toc.xml` and `--xpath` exports.
+  Both runs have table10 ProcessQOSExecution,12 device-thermal-state-intervals,
+  14 DeviceChargingState,20 ProcessSubsystemPowerImpact,22 time-profile,
+  44 SystemPowerLevel,48 DisplayBrightnessLevel. Representative CPU query:
+  `/trace-toc/run/data/table[@schema="time-profile"]`, output
+  `/tmp/nfsmw_oct19_power1_cpu.xml` (347,004,335 bytes). Export completed.
+  Local TOC/schema-driven parsing resolves all id/ref values. XML power table
+  engineering type explicitly confirms percent-per-hour units; impact scores
+  are dimensionless, not watts or additive energy shares.
+- Python analysis `/tmp/nfsmw_oct19_analyze.py`: align log wall clock to each
+  trace start; identify actual driving and pause/background transitions. One
+  concatenated launch header has a partial timestamp prefix; recover the first
+  complete timestamp without modifying the original log. 20,890 input lines.
+- Five-second guards at driving/trace boundaries. Main comparison intersects
+  both arms' active windows by elapsed time since event start, excluding either
+  arm's pauses. Equal527.534787 s per arm. Common event-elapsed windows in s:
+  [8.411,10.188], [25.055,388.467], [403.431,505.334],
+  [518.532,558.473], [577.708,598.209787]. Trace starts are2.738 s and3.411 s
+  after the first driving log respectively; subtract these offsets to reproduce
+  trace-relative windows. Original unguarded active intervals saved below.
+- Interval-weight power/impact/brightness with exact overlap duration; full
+  coverage of main windows. Sum prorated process CPU instruction intervals
+  (row-kind0) and QoS CPU durations. Complete five-second log summaries and
+  ten-second CPU windows only. CPU utilization is a fraction of ONE core.
+  Draw counts are one last-frame sample per log summary, not every-frame totals.
+
+| Main equal-time guarded comparison | Four ON | Four OFF |
+|---|---:|---:|
+| Estimated system drain, percentage points/hour |34.1868|33.3576|
+| Process CPU impact score |12.6924|12.2919|
+| Process GPU impact score |2.3447|2.4020|
+| Display impact score |5.9109|5.9118|
+| Network impact score |0|0|
+| QoS-derived CPU, % one core |110.114|109.074|
+| Retired CPU instructions, billion/second |11.5769|11.3734|
+| Complete log summaries / frames |101 /30,300|101 /30,300|
+| Mean logged FPS |60.000|59.999 (one59.9 summary)|
+| Off-grid pacing / sampled frames |69 /30,300|34 /30,300|
+| Worst logged pacing displacement, ms |8.3|8.3|
+| Mean recording, ms/frame (sampled) |2.1781|2.1251|
+| Mean encoding incl drawable waits, ms/frame |5.9593|6.0308|
+| Mean GPU, ms/frame |4.2991|4.3048|
+| Median recording / encoding / GPU, ms |2.17 /5.96 /4.27|2.07 /5.88 /4.29|
+| Mean sampled last-frame draws |2,893.48|2,809.15|
+
+Main ON drain is2.49% higher (+0.8292 pp/hour), CPU impact3.26% higher,
+GPU impact2.39% lower; display score essentially equal. ON retired1.79% more
+instructions and last-frame draw samples average3.00% higher. This is NOT a
+normalization formula: varying AI/traffic/camera/state can change non-draw CPU
+work and cost per draw. Do not divide drain by draws to claim an energy gain.
+Mean/median encoding point in different directions and include waits.
+
+Sensitivity checks:
+- Whole600.47 s recordings: drain34.1413 /33.3342 pp/hour (ON/OFF).
+- Each arm's separately guarded active sample556.273 /562.407 s:
+  drain34.1936 /33.3423. Unequal duration; secondary check only.
+- Common event elapsed30–180,180–360,360–540 s: ON drain
+  34.2482 /34.3681 /33.8915; OFF33.3936 /33.6807 /33.1836. Last band has
+  151.838 s after pause exclusion. ON higher in every band, so whole-recording
+  menu/pause contamination does not explain the direction.
+- OFF emits three watchdog/semaphore groups inside gameplay at23:02:24.307,
+  23:05:44.825,23:10:04.528:54 vigilante lines and1,539 semaforos lines within
+  the main windows. ON has none in these windows. Both also have startup/menu
+  watchdog activity. Logged rendering keeps progressing; these messages alone
+  do not prove a visible freeze or establish a cause. Keep parked phone issue
+  parked. Diagnostic log overhead remains a confound.
+- Remove +/-5 s around each OFF gameplay dump from BOTH arms at matched event
+  elapsed time:497.889787 s each, drain34.1285 /33.3994, CPU impact
+  12.6997 /12.3468, GPU2.3019 /2.4243, CPU110.125 /109.688%,
+  Ginst/s11.5723 /11.4414. Direction unchanged. This limited exclusion cannot
+  remove all possible diagnostic effects.
+
+CPU sampling and compiled-path check:
+- `/tmp/nfsmw_oct19_cpu.py` resolves frames/binaries/stacks and weights in the
+  exported time-profile, both runs642,068 /640,373 rows. Main windows contain
+  565.321 /561.438 CPU seconds, equivalent107.163 /106.427% one core. Sampling
+  differs from QoS accounting; do not present them as identical measurements.
+- Self in guest `__imp__sub_` functions148.611 /170.705 s (26.29 /30.40% app
+  samples); RenderFrame main46.905 /38.407 s (8.297 /6.841%); Record31.863 /
+  28.485 s (5.636 /5.074%). Guest worker role includes original game work and
+  translated work; it is not a measure of removable emulator overhead.
+- Native render block incl callees204.299 /184.500 s; NativeDraw role63.781 /
+  54.127 s; separate CommandProcessor role20.752 /13.228 s. Roles are assigned
+  from available stacks (render first, recording second, then CP); inlining,
+  unwind coverage and changed event work limit cross-arm interpretation.
+  Overall P/E weights63.58/36.42% ON and63.25/36.75% OFF; these are CPU samples,
+  not energy shares or evidence for another priority experiment.
+- UUID-matched IPA24 disassembly (`xcrun llvm-objdump --disassemble
+  --no-show-raw-insn --start-address=0x10007119c
+  --stop-address=0x1000a2500 /tmp/nfsmw_oct19_IPA24`) confirms original pipeline
+  hash/find0x10007b990..0x10007bbf8, added comparison0x10007b8cc..0x10007b990,
+  map-hit shortcut pointer update0x10007bbf8..0x10007bc10. PCs normalized using
+  EACH run's binary load address, low two tagged address bits masked.
+- Original hash/find self0.755 /2.927 s, about74.2% fewer samples ON. But new
+  comparison self2.066 /0.029 s; pointer update0.004 /0.003. Combined region
+  2.825 /2.959 s, only0.134 CPU seconds lower over527.535 wall seconds (~0.025%
+  of one core). Statistical samples/skid and small region prohibit an exact
+  latency or energy claim. The shortcut operates; hash-only savings would
+  overstate its net benefit. This is a reason to stop extrapolating synthetic
+  repeated-key gains into large whole-game savings.
+- Largest individual guest leaf remains sub_82699100,13.006 /13.726 CPU s;
+  its previously optimized short copies are already enabled. Inspect remaining
+  descriptor validation/dirty-state construction before any further patch.
+  Keep guard/fallback/FPR semantics; do not repeat earlier copy experiments or
+  remove content validation based on aggregate cost.
+- GPU-buffer backing map self8.092 /6.459 s. Cache diagnostics still show
+  122,704,349 /122,184,726 occupied-slot collisions over30,300 frames, against
+  243,054,967 /232,261,893 hits and5,080 /4,766 empty misses. These are lookups,
+  not GPU allocations. Higher-bit selector remains ON both arms. This is a
+  remaining measured CPU cost, not evidence yet for an efficient replacement.
+- Indexed Metal draw call site0x1000802a0 has25.239 /23.408 s inclusive;
+  resolve-event lambda call0x100078ea8 has13.634 /18.273 s; main render-encoder
+  creation call0x10007ae34 has5.792 /8.219 s. Driver costs and live rendering
+  requirements cannot simply be removed. Need semantic/source audit before
+  any batching or pass merging proposal.
+
+Conclusion and next action:
+The four-change batch has **no demonstrated whole-device power saving** in
+this comparison; the measured direction is worse ON. Do not call it a proven
+regression either: a single fixed-order pair, non-deterministic pursuit work,
+model limitations, sample variation and logging differences remain. Do not
+claim benefits from earlier baseline/entire-branch comparisons for this batch.
+Keep the four flags experimental/default false; no silent removal or default
+promotion. Earlier validated/default-on changes stay unchanged. User previously
+asked not to abandon small inconclusive changes automatically; retain them for
+future accumulated comparisons rather than repeatedly requesting this race.
+
+Recommended next work is a read-only audit of larger repeated CPU work across
+guest constant/state construction, Xbox draw submission/PM4 decoding and native
+Record, using this existing profile. Main places to inspect:
+`ios/src/native_renderer.mm`, `ios/src/game_constant_copies.h`,
+`ios/src/native_draw_census.cpp`, `ios/src/ios_main.mm`, generated guest
+sub_82699100 and SDK `CommandProcessor` draw/state path. Generated files must
+not be edited manually. Seek a concrete state reuse/bypass that preserves
+ordering, full state snapshots, mutation detection, fences/queries and resource
+lifetimes before proposing a source change. Potential ceiling exceeds another
+small lookup, but no safe shortcut or promised battery saving is established.
+No further user trace is needed to begin that audit. No next implementation
+approved; exact source scope/verification required before seeking approval.
+The much larger previous30 FPS + system LPM result remains distinct evidence,
+not directly comparable to1.5x/60 here. No visual compromise proposed.
+
+Raw unguarded driving intervals (wall clock):
+ON22:48:22.936–22:54:56.403,22:54:57.437–22:54:57.704,
+22:55:01.367–22:57:46.409,22:57:55.644–22:58:28.410.
+OFF23:00:22.175–23:00:37.363,23:00:42.230–23:08:52.509,
+23:08:55.707–23:10:28.755. Transition guards discard the267 ms ON blip.
+
+Temporary outputs: `/tmp/nfsmw_oct19_power1_{toc,tables,cpu}.xml`, six
+`schema_*.xml` exports, `analyze.py`, `summary.json`, `windows.json`,
+`analysis.txt`, `cpu.py`, `cpu_summary.json`, `cpu_analysis.txt`,
+`sensitivity.py`, `sensitivity.json`, `sensitivity_windows.json`,
+`sensitivity.txt`, `render_disasm.txt`, executable `IPA24`, all with prefix
+`nfsmw_oct19_`. Temporary files are not the durable record; evidence, input
+paths, windows, identities, methods, negative results and next action are
+preserved above. Exports/analysis/disassembly exited0. An attempted old tmp
+schema glob had no matches after tmp cleanup; re-exported fresh schemas. An
+initial source-path probe `src/gpu/native_renderer.mm` failed (file absent);
+`rg --files` located actual `ios/src/native_renderer.mm`. One overly broad
+schema read was truncated; schema units verified in its header. No application
+or test failure follows from those local inspection mistakes.
+
+Documentation validation: `git diff --check` exited 0; reviewed diff/stat and
+confirmed only TECHNICAL.md, DEVELOPMENT_PROGRESS.md and BACKLOG.md changed.
+Existing author configuration remains Stefan Stoica. No application tests were
+run for this documentation-only change. Save these three files in one local
+commit; intentionally untracked HANDOFF_CHATGPT.md remains excluded.

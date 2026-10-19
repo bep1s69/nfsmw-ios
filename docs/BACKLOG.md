@@ -36,10 +36,15 @@ The battery-optimization branch exists for this. Current state, measurements
 and next step are in the [checkpoint](DEVELOPMENT_PROGRESS.md#current-checkpoint--october-19-2026).
 First report: `nfsmw_ipad_session_insane_battery_drain_sun_flickering.log`
 (October 15, ~26 minutes, 50% to 25%, 60 cap, MetalFX temporal to 2064x1548).
-October 19 documentation review: IPA24 initial correctness passed; energy
-benefit remains unproven. Next step is the same-build four-change OFF/ON
-comparison in the checkpoint, awaiting paired user logs/traces. No new device
-measurement or source implementation in this session.
+October 19 matched pursuit comparison complete: both IPA24 arms supplied and
+user confirms same pursuit restarted, ON then OFF. Equal guarded527.535 s:
+estimated drain34.1868 /33.3576 pp/hour, CPU110.114 /109.074% one core, GPU
+4.299 /4.305 ms. No demonstrated energy saving for the four-change batch;
+workload variation prevents a causal regression claim. Four flags remain
+experimental/default false. Next: read-only audit of larger guest constant/state,
+PM4 and native Record costs using the existing trace, before proposing code.
+Full inputs, identity, controls, diagnostic caveats and methods in TECHNICAL.md.
+No new source implementation, build, default change or repeated test requested.
 
 ### iPad Pro M4 sun flickering — open
 
