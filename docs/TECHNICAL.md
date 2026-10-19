@@ -3229,3 +3229,186 @@ confirmed only TECHNICAL.md, DEVELOPMENT_PROGRESS.md and BACKLOG.md changed.
 Existing author configuration remains Stefan Stoica. No application tests were
 run for this documentation-only change. Save these three files in one local
 commit; intentionally untracked HANDOFF_CHATGPT.md remains excluded.
+
+### October 19, 2026 — broader CPU audit; GPR helper prototype proposed
+
+After the matched pursuit result, Stefan replied "alright" to continuing the
+read-only audit. This authorizes investigation, not a new implementation. Branch
+`battery-optimization`, starting HEAD `ca379b1`, only intentionally untracked
+HANDOFF_CHATGPT.md in main repository. The sibling SDK has extensive pre-existing
+tracked, untracked and submodule changes; inspected read-only and preserved.
+No production source, generated source, SDK, flags, graphics or build changed.
+
+Evidence is the SAME IPA24 paired trace and common-event windows from the
+preceding entry: ON / OFF over 527.534787 s each; CPU sample weight 565.321 /
+561.438 s. UUID `6E360E6A-9918-3D39-B4FE-70B755E02D30`. No new device test,
+re-export, speculative optimization benchmark or app build was needed.
+
+Source-path audit:
+
+- `ios/src/native_draw_census.cpp`: default native_cp path already bypasses
+  the old game-thread Capture parser (`Capturing()` requires !native_cp).
+  Existing draw wrappers still dispatch the guest function; plain/indexed calls
+  update known_device, but the old full capture is not duplicated per draw.
+  Do not present deleting this diagnostic parser as a large current saving.
+- Native backend lives in sibling SDK `src/graphics/plugin_main.cpp`, generated
+  by `tools/ios/patch_ios_native_backend.py`, not a separate native command
+  processor file. It loads microcode objects without Vulkan host rendering.
+  `CommandProcessor::ExecutePacketType3Draw` sends live registers/shaders to
+  CpDraw and avoids backend draws when native-only is armed. PM4 still carries
+  ordering, predicates, queries, memory events and swaps; bypassing arbitrary
+  packets or the ring would break required behavior.
+- `tools/ios/patch_ios_native_constants.py` / live plugin_main.cpp already use
+  bounded bulk byte-swapping for side-effect-free shader constants, including
+  ranges emitted by type-0 packets. Other registers retain WriteRegister's
+  scratch writebacks, coherency handling, gamma state and game-specific
+  adjustments. Re-proposing bulk constant writes repeats an implemented change.
+- `Record` in `ios/src/native_renderer.mm` already reuses shader-read constant
+  ranges and validates vertex/index content. Its two constant memcmp call sites
+  0x1000b9764 and 0x1000b9860 total only 0.483 /0.616 CPU s inclusive here,
+  ~0.085 /0.110% of app CPU samples. These sites were identified from linked
+  _memcmp stub0x102629d44 (`llvm-objdump --macho --indirect-symbols`) and UUID-
+  matched Record disassembly. Sampling/skid can miss very short calls, but this
+  evidence does not justify SDK-to-renderer dirty-generation tracking first.
+- `sub_82699100` remains the largest guest self leaf, 13.006 /13.726 CPU s,
+  ~2.30 /2.44% app CPU. Located in ignored generated
+  `ios/generated/default/nfsmw_recomp.93.cpp`, 2,272 lines. Two short-copy
+  fast paths are already applied (`python3 tools/ios/patch_game_constant_copies.py
+  --status`: exit0, applied two guarded loops). Inspection shows remaining
+  descriptor/dirty-state traversal, conversions and helper guards; compiled
+  0x101b6c300 region includes existing range/overlap validation. Removing these
+  without proving equivalence or counting failures is not the next proposal.
+
+A broader, mechanically bounded target was found in recompiled register
+save/restore helpers. Measured self weights (CPU seconds; NOT device energy):
+
+| Region | Four ON | Four OFF |
+|---|---:|---:|
+| GPR helper bodies, ordinary names plus __imp originals |21.510 (3.805%)|24.241 (4.318%)|
+| Their separately sampled DYLD-STUB leaves |4.307 (0.762%)|3.823 (0.681%)|
+| Combined non-overlapping self |25.817 (4.567%)|28.064 (4.999%)|
+| Family29 save+restore bodies alone |7.174|5.895|
+
+Summed self names matching savegprlr_ /restgprlr_, grouping ordinary, __imp and
+DYLD-STUB symbols separately. Self leaves do not overlap. Helper bodies are a
+real translated implementation cost; call/link stubs are not all removable by
+an address calculation optimization. These measurements do not imply that all
+4.6–5.0% is waste or available as a saving. Optimizing part of the 3.8–4.3% body
+share could yield a modest CPU improvement; no battery percentage is predicted.
+It cannot by itself promise a dramatic increase in runtime.
+
+Structural check (read-only Python scan of generated *.cpp): **36/36 functions
+match the expected full bodies exactly**, all18 save and18 restore entry points
+for GPR14..31. No exceptions in this generated edition. Each saves/loads its
+suffix of 64-bit GPRs at fixed negative offsets from r1, plus a32-bit saved link
+register at -8. Restore zero-extends that saved word into r12 and LR. Save does
+not modify LR/r12; neither operation changes r1, CTR, CR, XER, FPSCR or FPRs.
+The last four bytes immediately below r1 are not written. Maximum touched span
+for GPR14 is148 bytes, from r1-152 through r1-5, including the32-bit LR field.
+Do not convert the LR field to64 bits, skip the guest-stack writes or assume
+PPCContext's distinct register members form a C++ array.
+
+Example originals: save29 in nfsmw_recomp.39.cpp:27832; restore29 in
+nfsmw_recomp.57.cpp:28211. `nfsmw_init.cpp` mappings use ordinary weak entry
+names (e.g. guest0x826BDB2C /0x826BDB7C), so a standard strong native hook can
+cover direct callers and dispatcher mappings without editing generated code.
+`xcrun nm -m` confirms weak ordinary symbols and strong __imp originals in
+IPA24. Original entry points remain callable for fallback. UUID-matched ARM64:
+
+- save29 ordinary0x100bffe0c, original0x100c38230;
+- restore29 ordinary0x10110755c, original0x10113fb14.
+Actual bodies repeatedly reload/normalize guest stack offsets and select the
+physical-alias adjustment for each individual access. A common ordinary-stack
+path can calculate the host stack base once, retain the same ordered volatile
+access widths and byte swaps, and leave unusual addresses to originals.
+The generated PCH describes weak musttail wrappers; current compiled ordinary
+save/restore entries contain bodies as well as __imp entries. Do not count all
+ordinary-name time as empty thunk overhead or assume the comment proves codegen.
+
+Ranked next directions:
+1. **Guarded native GPR save/restore prototype**: measured body pool3.8–4.3% of
+   app CPU, only partly avoidable. Medium implementation effort and regression
+   risk because helpers are used throughout the game, but simple exact semantics
+   and36 uniform originals allow full differential tests. Recommended first
+   experiment; benchmark before spending another device build/test.
+2. Guest state/PM4/native snapshot bypass: potentially a larger combined ceiling,
+   unquantified. High complexity/risk: live register state, predicates, shader
+   microcode changes, query boundaries, memory writes and ring progress must
+   remain equivalent. Existing native_cp=false does not remove guest packet
+   generation. Not approved or ready for implementation; do not sell guest CPU
+   self share as removable emulator overhead.
+3. Constant dirty-generation reuse or another lookup shortcut: measured constant
+   compare coverage is small here; tracking overhead and SDK ABI/state coupling
+   could cost more. Keep as secondary, not the next speculative build. Vertex
+   fingerprints and mutation checks remain necessary.
+
+Concrete proposed first experiment (NOT IMPLEMENTED / awaiting approval):
+
+- Add `ios/src/game_gpr_helpers.h`: specialized ordinary-stack save/restore
+  operations using actual named PPCContext members and compile-time register
+  suffixes. Guard before any mutation; preserve guest byte order, access order,
+  full64-bit GPR values,32-bit LR save and zero-extension on restore. Normal
+  virtual, non-wrapping/aligned ranges only; other cases decline intact.
+- Add `ios/src/game_gpr_helpers.cpp`: strong overrides for the36 existing weak
+  entries, with original __imp entry as OFF/guard-failure fallback. Define the
+  independent proposed `nfsmw_native_gpr_helpers` control here, default false,
+  so its storage access can inline in this translation unit. No string registry
+  queries, clocks, logging or counters per helper call. Treat the mode as a
+  launch/restart experiment, independent of master/four-cache flags.
+- Change `ios/src/ios_main.mm`: startup mode declaration/log only; no launch
+  graphics, priority or existing optimization defaults change.
+- Change `ios/CMakeLists.txt`: add hook source for the currently validated USA
+  edition; invoke read-only generated-helper pattern verification at configure
+  time. Leave generated files and SDK source unchanged. Strong-symbol binding
+  and existing other hooks must be checked in the linked app, including mapped
+  indirect entry points and the preserved original fallback.
+- Add `tools/ios/test_game_gpr_helpers.py`: read-only36-body matcher plus host
+  differential fixture extracting the ACTUAL originals and using SDK context;
+  no manually maintained fake originals. Exercise both switches, all18 suffixes,
+  full randomized64-bit registers/LR upper bits, complete context/stack equality,
+  untouched padding and surrounding bytes, repeated calls and boundary/fallback
+  decisions. Invalid/unmapped ranges should test safe decline without
+  dereferencing them; valid mapped alias fallbacks retain original translation.
+  Alignment and uint32-wrap cases must not introduce UB in the sanitizer fixture.
+- Update existing TECHNICAL/checkpoint/backlog with exact implementation/test
+  results if approved; no parallel status file or generated game code commit.
+
+Validation gates BEFORE an IPA: differential ASan/UBSan and optimized tests;
+benchmark original / hook OFF / hook ON, including dispatch and guard costs,
+short and long helpers, varied stack/context locality, mixed suffixes and
+fallbacks. Confirm flag/accessor overhead does not erase gains or penalize OFF
+materially. Inspect actual iOS ARM64 for repeated address dispatch/outlined
+helpers and compare with originals. If the native guarded path does not improve
+realistic host cases, stop/revise before issuing a device build. A host pass is
+not evidence of device energy savings.
+
+Only after those gates: iOS build, linked-symbol/dispatcher binding validation,
+strict codesign/ZIP checks and byte-identical shaders/SDK libraries, one short
+on-device event correctness run. No tiny isolated power A/B demanded; if correct,
+retain experiment for accumulated testing. Any eventual saving must be measured
+in comparable device CPU/instruction/power samples, not assumed from host speed.
+
+Commands/results: source inspection with rg/sed; `xcrun nm -n` / `nm -m`;
+`llvm-objdump --disassemble --no-show-raw-insn` address slices; indirect-symbol
+export; helper inventory script all exit0. No new implementation fixture run or
+benchmark; only the36-body structural inspection passed. Source probes at old
+src/graphics/command_processor.h and guessed native backend paths failed;
+`include/rex/graphics/command_processor.h` and live plugin_main.cpp identified.
+Old Desktop debug paths no longer exist; prior battery notes found under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 October 2026/`.
+No previous GPR save/restore experiment found in those notes or shared history.
+A missing guessed transform fixture path and optional unmatched generated-config
+probe/glob were inspection misses, not app/test failures. No fallback behavior,
+correctness or speed of a new GPR implementation has yet been tested.
+
+Temporary artifacts: `/tmp/nfsmw_oct19_gpr_helper_inventory.json`,
+`guest_82699100.txt`, `guest_disasm.txt`, `record_disasm.txt`,
+`audit_symbols.txt`, `memory_imports.txt` (all with nfsmw_oct19_ prefix). Raw
+source stays outside tracked docs. Essential inventory, sample weights,
+semantics, proposal files, tests/limits and next approval boundary saved here.
+
+Documentation checks: `git diff --check` exit0; reviewed diff/stat, only the three
+shared Markdown files changed. No application tests needed for this analysis.
+Author configuration unchanged. Local documentation commit only; original
+untracked handoff and pre-existing SDK changes remain excluded and preserved.
+Next action is user approval of the host GPR prototype, not another trace.
