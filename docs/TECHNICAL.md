@@ -3412,3 +3412,55 @@ shared Markdown files changed. No application tests needed for this analysis.
 Author configuration unchanged. Local documentation commit only; original
 untracked handoff and pre-existing SDK changes remain excluded and preserved.
 Next action is user approval of the host GPR prototype, not another trace.
+
+
+### October 19, 2026 — energy strategy reassessment before the GPR proposal
+
+Stefan challenges the return from the recent experiments: most have not shown a
+battery benefit, while system Low Power Mode is the only major demonstrated
+power discovery. He raises this BEFORE approving the GPR prototype. Keep that
+proposal on hold/unapproved; no new helper code, fixture or IPA should follow
+from the preceding audit alone. The assistant acknowledges that prioritizing
+many small CPU hotspots has not matched the goal of substantial battery savings.
+
+Evidence calibration, unchanged from earlier records:
+- Recent IPA21–24 batch demonstrates no system energy saving; direction slightly
+  worse ON, workload/measurement confounds prevent causal regression attribution.
+- Earlier changes improved individual timings, memory reservation, cache coverage
+  or correctness. Those are not proof of reduced whole-device energy consumption.
+- Earlier matched 30 FPS /0.85x LPM comparison estimated whole-run drain13.612
+  versus24.540 pp/hour, guarded13.856 versus24.879, ~44% lower ON. Brightness34%
+  and nominal thermals in both, approximately similar work; CPU execution time
+  increases ON despite lower estimated drain. Leading explanation remains a more
+  economical CPU/system operating point, NOT directly measured clocks/voltage or
+  a demonstrated wholesale move to E cores. The prior Utility experiment does
+  not reproduce the LPM result. Do not propose another generic QoS/core-affinity
+  change as if it were an established equivalent to system LPM.
+- This is evidence of substantially more economical execution at those 30 FPS
+  settings, not proof of equal savings at1.5x/60 or an app-level way to reproduce
+  OS power policy. It also does not establish that the port has reached its
+  minimum energy cost. GPR bodies3.8–4.3% CPU, only partly recoverable, cannot
+  credibly be presented as a dramatic battery solution.
+
+Recommended strategy (a proposal, not a new implemented policy or authorized
+source change): prioritize the LPM/system-policy clue and higher-ceiling work.
+Use existing evidence to separate how efficiently work executes from how much
+work is required. Audit frame deadlines, render-ahead, bursts/concurrency and
+wakeups only for specific new evidence; retain previous sleeping waits and QoS
+findings rather than repeating failed experiments. Investigate removing a
+complete redundant guest graphics/state stage (packet construction plus decode)
+where exact native-state submission can preserve ordering/queries/fences. Audit
+GPU passes, copies and bandwidth only where dependency/resource evidence shows
+avoidable work at identical output. These are candidate investigations, not
+established causes or guaranteed optimizations. Broad bypass carries significant
+state/lifetime risk; no claim that all guest work can be removed.
+
+Any next measurement should isolate a specific energy cost and decide whether a
+substantial opportunity exists, with settings/scene controls and explicit limits.
+Do not request another generic pursuit A/B or implement another small shortcut
+just to keep changes moving. Existing CPU-time profiles cannot assign watts to
+individual functions; exported clock/performance-state tables were empty. A
+focused diagnostic may be needed, but no particular new diagnostic/source change
+or device test is approved in this discussion. No new source, settings, build,
+device measurement or test result. This is a correction in prioritization and
+interpretation; keep uncertainty visible and avoid promising large gains.
