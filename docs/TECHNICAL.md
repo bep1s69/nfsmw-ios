@@ -3464,3 +3464,274 @@ focused diagnostic may be needed, but no particular new diagnostic/source change
 or device test is approved in this discussion. No new source, settings, build,
 device measurement or test result. This is a correction in prioritization and
 interpretation; keep uncertainty visible and avoid promising large gains.
+
+### October 19, 2026 — three-axis energy investigation and concrete next measurement
+
+Stefan approves investigating the three proposed areas: work scheduling/pacing,
+removal of redundant graphics stages, and GPU passes/copies/bandwidth. This is
+investigation approval, not approval to implement any new source experiment.
+GPR helper prototype remains held. Main repo starts at e2c5d3b on
+battery-optimization, only intentionally untracked HANDOFF_CHATGPT.md. SDK's
+extensive existing local/submodule changes preserved; no SDK edits. No source,
+flags, entitlements, build or device settings changed during this investigation.
+
+Deployment clarification from Stefan:
+- Game Mode appears only after converting NFSMW to a shared app and launching
+  it from LiveContainer 2. Typical users should not need those extra steps.
+- LiveContainer is signed with a FREE account. The main battery solution must
+  work with ordinary LiveContainer/free signing. Do not make it depend on a paid
+  capability or a Game Mode/shared-app workaround. This does not establish which
+  host/Game Mode state was used in every historical recording.
+
+Evidence: same October19 paired IPA24 trace/log, common-event 527.534787 s
+windows and UUIDs already documented above. Fresh analysis of existing CPU
+samples and existing per-pass/copy logs; no new trace or repeat race collected.
+
+1. Scheduling and work delivery
+
+Source inspection confirms:
+- display_rate.mm requests 60 Hz for cap30/60 and120 for cap40/120. It publishes
+  CADisplayLink timestamps/target period to the SDK and invokes the lifecycle
+  heartbeat. Actual callback cadence is not continuously logged.
+- SDK graphics_system.cpp display locking applies only at cap30/40, with a
+  target period within10% of guest60/120 Hz. At cap60/120 the guest worker uses
+  its timer/grid path. A callback period change can disable the lock; the
+  one-time lock message cannot prove the lock stayed active for an entire run.
+  Requested refresh/callback period is not an independent panel power measure.
+- Simply requesting30 Hz at cap30 would violate the current60 Hz lock condition.
+  Any new pacing path must preserve the guest vblank cadence/interrupt semantics
+  while handling presentation cadence separately. Do not repeat the old blind
+  refresh-rate proposal.
+- SDK IosCapBeforeSwap sleeps in vblank-counter waits before invoking the native
+  swap hook. Consequently this cap wait occurs AFTER the frame's draws have been
+  recorded, BEFORE that completed Frame is dispatched for Metal encoding. At
+  30/40 it is not a deadline supplied before CPU draw preparation begins.
+- NativeSwap dispatches serial Metal encoding; in_flight counts submitted frames
+  until GPU completion, uses address waits above the two-frame threshold, with
+  a50 ms bound. Recording of the next Frame is separate from this count. GPU
+  completion frees a slot; actual drawable presentation happens separately.
+  Exact guest ring/render-ahead depth and its energy effect are not measured.
+- nextDrawable plus custom presentDrawable:atTime: targeting last shown time
+  handles presentation. Ordinary rendering is asynchronous; waitUntilCompleted
+  is on the dump path. No busy polling of renderer completion remains.
+- Empty-ring CP work still uses64 yields then5 ms bounded event waits. Existing
+  profiles show very little WorkerThreadMain self; that does not measure wake
+  counts or prove idle timeouts have zero energy cost. Cap/vblank waits already
+  block rather than running a whole extra game frame.
+
+Missing evidence: current Power Profiler time-profile explicitly has
+context-switch-sampling=0 and record-waiting-threads=0. It measures running
+samples; it cannot reconstruct exact blocked/runnable intervals, wakeup counts,
+queue depth or deadline slack. Prior CPU/GPU performance-state tables had no
+samples. No proof yet that bursts/render-ahead cause the LPM energy difference.
+Changing priorities again is not justified by this inspection.
+
+Two public platform directions checked using installed iPhoneOS27.1 headers and
+Apple primary documentation:
+- CAMetalDisplayLink exists from iOS17; provides a drawable plus CPU/presentation
+  timestamps and a requested latency of1 or2 frames. It is a concrete native
+  frame-delivery alternative to the separate CADisplayLink/nextDrawable/custom
+  timing sequence. It does not promise LPM-equivalent clocks or energy savings.
+  A migration is a real pacing change, requiring guest timing, lifecycle,
+  drawable ownership and30/40/60/120 behavior validation. Apple's delegate docs
+  prohibit timed presentation methods with this path; current atTime presentation
+  cannot simply remain enabled. Potential energy gain is a hypothesis.
+  [CAMetalDisplayLink](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink),
+  [delegate contract](https://developer.apple.com/documentation/quartzcore/cametaldisplaylinkdelegate/metaldisplaylink(_:needsupdate:)),
+  [frame latency](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframelatency).
+- Apple's Sustained Execution entitlement constrains burst performance on
+  applicable devices. It is a relevant system-policy lead, not an established
+  substitute for LPM. Its effective availability is not established for this
+  deployment: ios/CMakeLists.txt and nfsmw.entitlements explicitly document that
+  LiveContainer's host-process entitlements apply. The game already declares
+  GCSupportsGameMode/racing category; do not claim the game lacks that declaration.
+  Adding a game-bundle entitlement alone would not enable a host capability.
+  Given the free-signing/user-workflow constraint, this is not the main route.
+  No signing/account/host modifications proposed or performed.
+  [Sustained Execution](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.sustained-execution),
+  [Apple's capability setup discussion](https://developer.apple.com/videos/play/wwdc2025/209/).
+
+2. Remaining graphics construction and decoding
+
+New stack attribution resolves id/ref values from existing exported CPU XML,
+uses the same eligible samples as the preceding audit (565,321 /561,438 ms),
+and counts membership in named call paths once per sample. Inclusive rows
+otherwise overlap and must not be added. Results ON/OFF:
+
+| Call-path footprint | CPU s ON /OFF | % app CPU ON /OFF |
+|---|---:|---:|
+| Guest draw/state/resolve writers union |17.055 /16.981|3.017 /3.025|
+| Above plus engine constant preparation sub_82699100 |32.617 /33.887|5.770 /6.036|
+| CP ExecutePacket outside CpDraw and NativeSwap paths |19.015 /11.527|3.364 /2.053|
+| Explicit union of these identified graphics stages |51.632 /45.414|9.133 /8.089|
+| sub_82593A58 inclusive (nested; do not add) |15.851 /15.300|2.804 /2.725|
+| sub_825A3EC8 inclusive (nested; do not add) |13.509 /13.740|2.390 /2.447|
+| sub_82699100 inclusive |15.562 /16.906|2.753 /3.011|
+| Record inclusive (native work still required) |53.036 /46.302|9.382 /8.247|
+
+Guest writer union includes825A3EC8,82593A58,82593818,825930E0,82593408,
+8259A308,82592340,82597070. This is a measured envelope with incomplete-unwind/
+sampling limits, not a strict whole-pipeline upper bound or recoverable saving.
+Record and CpDraw already overlap with CP's total12–15% inclusive footprint;
+calling that whole CP share removable decoding would overstate the opportunity.
+The separate native Metal indexed draw call site remains4.46 /4.17% inclusive
+CPU from the preceding audit; native batching might address part of driver
+submission, but unchanged per-draw state/query/ordering must be proven first.
+No batchability distribution or successful indirect-command experiment exists.
+
+Generated functions inspected read-only: sub_82593A58 (368 lines,
+nfsmw_recomp.55.cpp) flushes state, checks segment space, emits commands and
+handles indexed/tiling state; sub_825A3EC8 (306 lines, .85.cpp) walks dirty masks
+and delegates register/constant writes; sub_82592340 (1,949 lines, .87.cpp)
+handles complex resolve state/quad/clear sequences. Current old Capture parser
+still decodes PM4 when native_cp=false; toggling it is not a native submission
+bypass. Native backend already omits Vulkan device/EDRAM rendering and bulk-
+copies side-effect-free constants. Those are not new opportunities.
+
+A direct guest-to-native state/draw submission design could eliminate selected
+packet generation/decoding, but must preserve command ordering, shader loads,
+register side effects, predicate/tiling decisions, queries, fences, writebacks,
+segment/ring progress, async lifetime and guest ABI effects. Immediate calls on
+the game thread are not automatically equivalent to ordered CP consumption;
+state and memory can change before later packets execute. Identified envelope
+is larger than a tiny cache but insufficient to promise a large battery change.
+High complexity/risk; no blind replacement of all guest graphics or game logic.
+
+3. GPU pass and resource audit
+
+Parsed105 sampled per-pass profiles per arm inside the common windows. Each
+profile describes one instrumented frame; means are not continuously measured
+per-pass averages. Incremental timestamp contributions overlap execution and
+are NOT watts, bandwidth or exact recoverable costs. Mean frame span4.3518 /
+4.2555 ms; approximately46.90 passes/blits per sampled frame in both.
+
+| Incremental category, mean ms/profile | ON | OFF |
+|---|---:|---:|
+| Main scene (~2.9 passes) |1.9472|1.8829|
+| Reflection rendering (6 passes) |0.8013|0.7900|
+| Shadow rendering (2 passes) |0.4391|0.4289|
+| Ordinary color resolve copies (18 blits) |0.2976|0.2907|
+| Depth copies (3) |0.2843|0.2883|
+| Cube assembly (6 blits) |0.0604|0.0614|
+| Main presentation |0.0614|0.0602|
+| Other passes/blits combined |0.4350|0.4277|
+
+Main scene + reflection + shadow is ~73% of sampled span. Those are real image
+work; removing faces, lowering shadows or shrinking resolution affects fidelity
+and stays optional Battery mode. These timings do not establish the GPU's
+current utilization/limiter or DRAM traffic. Full-frame GPU time alone cannot
+rule out bandwidth-related energy, and shortening a pass is not an energy result.
+
+New reanalysis of existing diagnostics, NOT a repeated device experiment:
+-105 depth-audit frames/arm:315 snapshots each, ZERO unchanged single-sample
+ candidates. Two shadow snapshots represent different depth generations. Do
+ not repeat reuse/removal of unchanged depth copies without new evidence.
+-101 complete300-frame summaries/arm: ZERO artificial pass splits; seven final
+ passes/summary already discard unread attachments. Presentation drawable
+ sizing already uses the picture's requested size when applicable. These old
+ ideas are implemented/off as appropriate; they are not fresh savings.
+-Pooled frame buffers/resolves:442 made/847,958 reused ON;431 /847,925 OFF,
+ ~99.95% reuse of THIS pool's checkouts. Does not count all textures/views or
+ prove no allocation/driver overhead remains. Do not call persistent resource
+ creation per frame the dominant cost based on source allocation expressions.
+-Logged logical CPU copies (vertices/indices/constants/shared):2.168 /2.076
+ MiB/frame (~130.06 /124.53 MiB/s at60), spans2.592 /2.486 MiB/frame including
+ alignment. Logical sizes are not measured DRAM bytes or a bandwidth diagnosis.
+
+Concrete GPU dataflow opportunities worth proving:
+A. Whole-surface COLOR resolve after the source's last write: potentially keep
+   the original color image as the resolved snapshot instead of copying it.
+   Requires identical pixel format/dimensions/coordinate interpretation, no
+   exponent conversion, correct swap/swizzle, and per-frame/versioned target
+   ownership so the next clear/write cannot corrupt a retained snapshot. Partial
+   resolves, cropping/linear views, MSAA, CPU readbacks and later writes need
+   original behavior. Existing retained targets/kept resolves cannot just alias.
+B. Reflection faces currently may flow source color -> individual2D resolve ->
+   assembled cube face (separate blits). Remove an intermediate only if consumers,
+   dimensions/cropping, exponent conversion, CPU writeback, final-output tracking
+   and cross-frame persistence remain equivalent. A face may also be sampled as
+   2D; a cube reused next frame cannot silently replace an immutable old snapshot.
+   A versioned cube/2D-view design might preserve both, but compatibility and
+   liveness coverage are unmeasured. Current code already directly handles array
+   resolves; investigate the additional ordinary2D-to-cube assembly path only.
+
+Color copies plus cube assembly contribute ~0.358 /0.352 ms/profile (~8% GPU
+span), only partly eligible; depth-copy savings are NOT included in that number.
+This bounds expectations for these specific copy proposals. Uncompressed texel
+bytes could be estimated from eligible rectangles but are not physical traffic.
+Need actual format/rectangle/consumer/version counts before implementation.
+
+Priorities and recommended first change (PROPOSED, NOT APPROVED):
+1. Frame-delivery/deadline diagnostic, leading toward an optional native Metal
+   display-link pacing experiment if timing evidence supports it. Highest
+   uncertainty but directly pursues the large system-policy signal. Medium
+   diagnostic effort/low behavior risk; an actual pacing rewrite is higher risk
+   (stutter, latency and guest cadence). No guaranteed energy benefit.
+2. Versioned color-resolve / reflection intermediate removal after eligibility
+   audit. Concrete stage elimination, limited measured timing envelope; medium-
+   high complexity and lifetime/image risk. Preserve original path for all
+   incompatible cases and default fidelity.
+3. Guest graphics/native submission bypass (possibly native Metal batching
+   separately). Identified8–9% CPU stage envelope, only partly avoidable, high
+   complexity/regression risk. Needs detailed state-equivalence design, not a
+   rushed whole-renderer change. GPR micro-optimization remains held.
+
+Recommended single diagnostic build scope, before an optimization build:
+- ios/src/native_renderer.mm: opt-in per-frame signposts/IDs at recording/frame
+  ready, render-queue start, command-buffer commit, GPU completion and actual
+  presentation; queue/in-flight state. Rare-frame resolve eligibility and texel-
+  byte summaries using existing Draw/Resolve records. No per-draw clocks, no
+  image dumps, skipped draws, changed copies or altered resource lifetimes.
+- ios/src/native_draw_census.cpp: opt-in guest Swap begin/end markers to connect
+  game production with CP/native submission; establish IDs/order carefully,
+  including menus, dropped/non-recorded frames, movies and restarts.
+- ios/src/display_rate.mm: opt-in callback timestamp/target-period observations
+  and lifecycle/rate transitions; no refresh/cap policy change. This addresses
+  missing evidence about dynamic LPM/display-lock behavior.
+- ios/src/ios_main.mm: independent diagnostic control default false, startup
+  mode/settings logging. No new entitlement, QoS or default optimization change.
+- Shared docs updated with implementation/checks if approved. No SDK/generated
+  source edits required for this proposed diagnostic scope. No flag exists yet.
+
+Validation plan if approved: first confirm ordinary rendering/draw counts, copy
+counts, caps and existing controls unchanged with diagnostics off/on; bound
+marker/audit overhead. Then a short targeted System Trace + Points of Interest
+recording with thread-state/runnable/wait information, same settings/event work,
+LPM ON/OFF at explicitly fixed30 FPS. Begin with the already established LPM
+configuration to investigate its timing difference; higher-resolution/60 FPS
+validation follows an actual candidate, not another generic test sequence now.
+Use existing Power Profiler for eventual energy validation; diagnostic observer
+effect and nondeterministic gameplay remain controlled/qualified. No GPU hardware
+counters or parked GPU capture repair required. This new trace would answer the
+missing scheduling question; it is not needed to reconfirm the old drain result.
+
+Decisions the diagnostic should resolve: (1) deadline slack/render-ahead and
+actual callback/guest timing states, (2) whether LPM changes work delivery as well
+as execution cost, (3) how many compatible copy stages/bytes can be removed
+without changing snapshots. A pacing change must preserve FPS, gameplay speed,
+input/lifecycle and image, and show reduced comparable device power; lower CPU
+percent or lower GPU milliseconds alone does not pass.
+
+Commands/results: rg/sed source/prior-findings review; git status/log (HEAD
+e2c5d3b, untracked handoff only); xcrun --sdk iphoneos --show-sdk-path identifies
+installed iPhoneOS27.1 SDK with nonfatal Xcode cache/FSEvents warnings; read its
+CAMetalDisplayLink.h. Official Apple docs researched; only primary sources used.
+Temporary stage_audit.py initially encountered an empty backtrace row; fixed to
+skip it and matched prior sample totals exactly. Corrected analysis and explicit
+union scan exit0; GPU log parser exit0. Full source snippets/guessed optional
+paths sometimes absent or output-truncated; actual paths inspected via rg and
+bounded reads. No application/compiler/test failure or new device result.
+
+Temporary outputs all prefix /tmp/nfsmw_oct19_: stage_audit.py/.txt/.json,
+stage_union.py/.txt (writes same stage_audit.json with union fields),
+gpu_audit.py/.txt/.json and ignored guest-function extracts sub_82593A58.txt,
+sub_825A3EC8.txt, sub_82592340.txt. Inputs, windows, counts, formulas, semantics,
+platform sources, user deployment constraint, proposed files and next approval
+boundary are preserved here; temporary files are not the sole handoff record.
+
+Documentation validation: git diff --check exit0; reviewed diff/stat and current
+checkpoint/backlog. Only these three Markdown files changed. No production test
+or build required for read-only analysis. Existing Stefan Stoica author retained.
+Local documentation commit only; untracked handoff and SDK changes excluded.
+Next action: approval of the specific diagnostic build above. No implementation
+or repeated device test should be inferred from investigation approval alone.
