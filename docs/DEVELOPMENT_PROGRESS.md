@@ -42,8 +42,8 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Workspace and build
 
-Main repository: `/Users/bep1s/Documents/GitHub/nfsmw-ios`.
-SDK: `/Users/bep1s/Documents/GitHub/rexglue-sdk-ios`, also on the battery branch,
+Main repository: `/Users/bep1s/Developer/GitHub/nfsmw-ios`.
+SDK: `/Users/bep1s/Developer/GitHub/rexglue-sdk-ios`, also on the battery branch,
 with extensive pre-existing local platform patches and submodule changes.
 The Android reference repository is the sibling `NFSMW-Recompiled-Mobile`.
 
