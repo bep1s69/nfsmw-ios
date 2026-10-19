@@ -3735,3 +3735,40 @@ or build required for read-only analysis. Existing Stefan Stoica author retained
 Local documentation commit only; untracked handoff and SDK changes excluded.
 Next action: approval of the specific diagnostic build above. No implementation
 or repeated device test should be inferred from investigation approval alone.
+
+
+### October 20, 2026 — Retaining useful work without assuming an energy benefit
+
+User asks whether CPU optimizations should stay enabled despite inconclusive
+battery gains, and whether those results imply a different source of drain.
+Accepted/default-on changes should remain enabled. Retain newer experiments
+and their independent OFF controls; stable changes need not be discarded just
+because one small or variable comparison cannot establish a battery benefit.
+Recent experimental defaults remain false; no setting, source or build changed.
+
+Qualification: not all changes have demonstrated lower total application CPU
+work. In the October 19 four-change pair, ON/OFF CPU execution was 110.114 /
+109.074% of one core, retired instructions were about 1.79% higher ON and sampled
+last-frame draws about 3% higher ON. This is neither a proven CPU saving nor a
+causal regression: gameplay variation remains. Removing allocations, copies or
+redundant visits is useful evidence for the specific operation; cache checks and
+miss handling can offset savings elsewhere. Headroom/memory benefits should be
+reported separately from established app-level CPU or energy improvements.
+
+An undetectable battery change does not exclude CPU power as a principal cost.
+The earlier matched LPM comparison had about 91.4% versus 59.2% CPU time of one
+core, yet approximately 44% lower estimated whole-device drain with LPM. CPU
+utilization is time running, not energy per unit work. A different CPU/system
+operating point remains a leading hypothesis; clocks/voltage were not measured.
+Small work reductions can be masked by gameplay variance and other device costs.
+
+Recommendation: preserve accepted defaults, keep stable experiments available
+for development/batch testing and use a fixed control configuration for the next
+investigation. Do not toggle the master group to isolate the newer four because
+it also changes guest/CP QoS above 40 FPS. No new device test requested for this
+conceptual clarification. The proposed frame-flow/copy diagnostic still awaits
+explicit source approval; no GPR prototype, pacing rewrite or new build approved.
+
+Documentation-only update; git diff --check and reviewed diff required before
+local commit. No production tests needed. Existing author configuration retained;
+untracked handoff and SDK edits excluded.
