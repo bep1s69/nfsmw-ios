@@ -149,6 +149,7 @@ IOS_PATCHES = [
     "patch_ios_sdl_scene",
     "patch_ios_retire_qos",
     "patch_ios_battery_group",
+    "patch_ios_utility_qos",
 ]
 
 

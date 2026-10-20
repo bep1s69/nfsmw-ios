@@ -173,6 +173,7 @@ to write unless each anchor appears exactly once, idempotent, `--status` and
 | `patch_ios_aspect` | An exact 4:3 mode (`--resolution=1024x768`) is reported to the game as 4:3: the SDK's `width*3 >= height*4` called it widescreen |
 | `patch_ios_retina` | Cvar `ios_retina` (default `auto`): the screen layer at point resolution where the points are at least the game's 1280x720 (1600x1200 on an iPad Pro M4 with Display Zoom "More Space"), full density otherwise (an iPhone 17 Pro Max has 956x440 points). `true`/`false` force it |
 | `patch_ios_qos` / `patch_ios_retire_qos` | The original main/command-thread priority promotion is retired on the battery branch. The launcher setting is removed; `ios_thread_qos` remains accepted but has no promotion effect. M4 testing held 120 FPS at 1.5x without promotion; iPhone testing also maintained 60 FPS. This establishes performance headroom in those tests, not a measured energy saving. |
+| `patch_ios_utility_qos` | Battery experiment (cvar `ios_utility_qos`, default false, restart required): the game main thread and GPU command thread request `QOS_CLASS_UTILITY`, to ask for a cheaper CPU operating point like Low Power Mode. Logs `[ios] ... QoS utility set`. `ios_battery_baseline_qos` wins when both are set. October 20, IPA25; energy and frame-rate effect untested |
 | `patch_ios_fault_log` | The same guest fault back to back is logged in full only 3 times, then one line at 10, 100, 1000... repeats. A stuck guest thread wrote ~100 MB in 4 s and the log's rotation lost the moment it started |
 | `patch_ios_register_check` | Two per-draw costs found with Instruments' Time Profiler (attached to the running game in a police chase): the "unknown register" check on every GPU register write (a switch with static guards, 7.4 % of the GPU thread) is a table built once, and the memexport readback setting is no longer looked up by name on every draw (2.3 %) |
 | `patch_ios_fps_cap` | Frame rate cap (cvar `ios_fps_cap`: 30, 40, 60, 120; pre-launch screen, Display). Counted in guest vblanks, just before each swap: a frame is not presented until N vblanks after the previous one, and a late frame does not wait. 40 and 120 run the guest vblank at 120 Hz (experimental: the game was made for 60) |
@@ -3840,3 +3841,37 @@ OFF arm, same brightness, Power Profiler plus thermal state.
 
 Next action: Stefan chooses whether to approve lever 1 (a single default-false
 switch). Nothing implemented. Documentation-only change.
+
+
+### October 20, 2026 — IPA25 guest-thread Utility QoS switch (approved, built)
+
+Stefan approved lever 1 of the entry above ("sure lets do it"), on
+battery-optimization. New SDK patch `tools/ios/patch_ios_utility_qos.py`,
+listed last in `prepare_sdk.py` IOS_PATCHES and applied to the sibling SDK
+(3 of 3 blocks; no other SDK edits). Cvar `ios_utility_qos`, default false:
+at the start of their own bodies, XThread::Execute (main_thread_ only) and
+CommandProcessor::WorkerThreadMain call
+`pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0)` and log
+`[ios] game main thread: QoS utility set` / `[ios] GPU Commands thread: QoS
+utility set` (FAILED on error). It is an `else` of the baseline-promotion
+control, so `ios_battery_baseline_qos=true` still wins. No visual, scale, cap
+or MetalFX change; the Metal encoding queue keeps its own setting.
+
+Build: `cmake --build --preset ios --target ipa -j 6` exit 0; only xthread.cpp
+and command_processor.cpp recompiled, two dylibs relinked, app relinked/signed.
+IPA25 `ios/build/NFSMW-battery-utility-qos-25.ipa`, SHA256
+`3ac6f0456a05edf10f67782268cc54674bf84c98928dfaaba249c23a751ab9c8`; NFSMW UUID
+`D50A53D8-C274-3D12-924E-B73273D35F8D`, librexruntime
+`2D163E20-61E8-3D72-AF89-1AD955AE0E45`, librexgpu-xenos
+`D01DFAC8-C338-3717-A457-114B4F70741B`. `unzip -tq` no errors; `codesign -v`
+OK; both dylibs contain the new log strings (strings count 2 each).
+Not run on a device yet.
+
+Proposed device test: (1) a short correctness check with Extra Args
+`--ios_utility_qos=true` after a cold LiveContainer restart: both log lines
+present, FPS, audio and input normal at the usual 1.5x / 60 / MetalFX setting.
+(2) If it passes, two matched ~10-minute Power Profiler recordings, same IPA,
+settings, other Extra Args, manual brightness, LPM OFF, only `ios_utility_qos`
+toggled (cold restart between arms). Pass criterion: lower whole-device drain
+with FPS and game speed unchanged. Failure modes to watch: frame drops,
+audio crackle, input lag, slower game time.

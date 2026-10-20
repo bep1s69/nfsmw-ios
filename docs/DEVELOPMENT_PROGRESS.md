@@ -92,6 +92,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 20, 2026
 
+- **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
+  and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
+  Next: short correctness check, then a matched 1.5x/60 LPM-OFF power pair
+  toggling only this flag. Details in latest TECHNICAL entry.
+
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
   LPM runs the same work at a lower clock ceiling (inferred). Apps cannot set
@@ -309,6 +314,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
+| `ios_utility_qos` | false | IPA25: Utility QoS for game main + GPU command threads; built, not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
@@ -317,6 +323,11 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA25: `ios/build/NFSMW-battery-utility-qos-25.ipa`.
+UUID `D50A53D8-C274-3D12-924E-B73273D35F8D`; SHA256
+`3ac6f0456a05edf10f67782268cc54674bf84c98928dfaaba249c23a751ab9c8`.
+SDK patch `tools/ios/patch_ios_utility_qos.py`.
 
 IPA24: `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
 UUID `6E360E6A-9918-3D39-B4FE-70B755E02D30`; SHA256
