@@ -3772,3 +3772,71 @@ explicit source approval; no GPR prototype, pacing rewrite or new build approved
 Documentation-only update; git diff --check and reviewed diff required before
 local commit. No production tests needed. Existing author configuration retained;
 untracked handoff and SDK edits excluded.
+
+
+### October 20, 2026 — What Low Power Mode changes and what the game can copy
+
+Question from Stefan: why does iPad Low Power Mode cut estimated drain from
+24.540 to 13.612 pp/hour, and what can the game do to approach that without
+LPM, keeping the default look and every MetalFX mode. Analysis only, using the
+October 18 matched recording above; no source, flag, build or device test.
+
+What LPM changed in that recording (measured, both arms 0.85x / FXAA / MetalFX
+OFF / explicit cap 30 / 60 Hz request / 34% brightness / Nominal):
+- Frame rate, refresh request, render scale, draws (~2,700/frame) and GPU impact
+  (0.919 / 0.945) were effectively equal; display impact was slightly higher ON.
+  The ProMotion 60 Hz limit therefore played no part in this result.
+- CPU power impact fell 8.359 -> 3.242 (~61%) while CPU time ROSE 59.2% ->
+  91.4% of one core for similar instruction volume (6.05 vs 6.40 G/s) and CPU
+  recording time rose 2.20 -> 3.41 ms/frame. Core mix barely moved (76/24 vs
+  70/30 P/E). Inference: LPM runs the same work at a lower CPU frequency/voltage
+  ceiling instead of racing at high clocks and idling. Clocks were not exported.
+- Background work reduction (mail fetch, iCloud, etc.) is not visible in this
+  trace and is unlikely to explain a ~5 W-scale CPU impact difference (inference).
+
+What an app cannot do: set CPU clocks, voltage or the system DVFS ceiling.
+There is no public API; Game Mode / Sustained Execution are unavailable under
+free LiveContainer signing (see the October 19 deployment constraint).
+
+What the game can influence: the performance controller chooses clocks from
+thread QoS, how bursty the work is, and how much slack exists before a deadline.
+At 30 FPS the OFF arm finished CPU recording in 2.2 ms of a 33 ms budget, so the
+controller had no reason to stay low. Candidate levers, ranked by expected gain
+versus visual cost (all keep the image, scale and MetalFX modes unchanged; all
+are hypotheses until measured):
+
+1. Guest game-thread QoS experiment (highest expected gain, lowest effort,
+   zero visual cost if FPS holds). Previous Utility work moved only the serial
+   Metal encoding queue, which already ran ~95-100% on E cores; it could not
+   test LPM's lever. The guest main/CP threads, which carry most P-core time,
+   have never been demoted (baseline promotion is retired; ios_battery_baseline_qos
+   only restores promotion). A switch requesting QOS_CLASS_UTILITY (or DEFAULT)
+   for those threads, default false, tested at 1.5x/60 with MetalFX on, is the
+   closest app-side imitation of a lower operating point. Risk: dropped frames,
+   audio or input latency; gameplay speed must not change. This is a QoS change
+   and needs Stefan's explicit approval despite the October 19 caution (that
+   caution concerned the render queue and generic affinity, not this thread).
+2. Deadline-aware pacing via CAMetalDisplayLink (medium/high effort, zero
+   visual cost). Gives the system per-frame deadlines rather than bursts after
+   a vblank wait; may let clocks stay lower with unchanged FPS. Already listed
+   as a candidate; requires guest vblank and presentation migration.
+3. Spread work instead of bursting: start frame preparation at a predictable
+   time after vblank and avoid parallel wakeups (the CP 64-yield spin before 5 ms
+   waits, concurrent warm/pipeline queues). Small expected gain; low risk.
+4. Keep reducing CPU work (existing lines of investigation). Real but small per
+   change, and masked by variance; do not expect LPM-sized gains from it alone.
+5. Follow LPM automatically when the user enables it (battery.mm already
+   switches 60 -> 30 there). Changes nothing when LPM is off; listed only for
+   completeness.
+
+Not candidates: capping refresh below the frame cap (the guest 60 Hz lock needs
+it; earlier finding), lighter MetalFX (excluded by Stefan; GPU impact was not the
+LPM difference anyway), Game Mode / entitlements (deployment constraint).
+
+Unknown: whether LPM saves the same share at the default 1.5x / 60 / MetalFX
+setting, where GPU and display take a larger part of drain. The first device
+test of lever 1 should therefore be at default settings, LPM OFF, with a matched
+OFF arm, same brightness, Power Profiler plus thermal state.
+
+Next action: Stefan chooses whether to approve lever 1 (a single default-false
+switch). Nothing implemented. Documentation-only change.
