@@ -3982,3 +3982,39 @@ Limits: different day, one arm, non-identical pursuit, and brightness 29% vs
 is brightness. The CPU-impact drop is not explained by brightness. Not yet a
 proven whole-device saving; a same-day OFF arm at the same brightness would
 settle it. FPS held, no visual change.
+
+### October 20, 2026 — Core placement in the IPA26 trace; IPA27 adds guest-thread Utility
+
+Stefan asked to stack more changes before further power tests. Time Profiler of
+`20 October 2026/power_profiler_1_ipad.trace` (time-profile export 218 MB,
+861.4 s of samples; scratchpad tp.py/tp2.py, temporary). Measured core split:
+665.6 s E cores / 195.9 s P cores (23% P). Per thread+core share of all samples:
+LiveContainer dispatch workers E 28.9% / P 5.5%, GPU Commands E 25.3% (P none),
+Main XThread E 23.1% (P none), XThread3243 P 9.0%, XThread14E07 P 5.2%, UI Main
+Thread P 1.6%, XMA Decoder P 0.6%. So Utility moved both target threads fully to
+E cores at 60 FPS. XThread3243 (guest game code under PosixCondition waits) and
+XThread14E07 (guest audio code plus wma/fft decode) did not inherit Utility and
+stay on P cores. P-core LiveContainer time is mostly an unsymbolized dispatch
+workloop (0x1a46a4f19; likely Metal/IOGPU completion, not app-controlled).
+Spin/wait candidates are negligible in this profile: MaybeYield 0.02%,
+RtlEnterCriticalSection 0.00%, Wait( 0.30% inclusive, so the CP yield spin and
+critical-section spin changes considered earlier are not worth stacking.
+Top self costs remain Record 10.3%, RenderFrame 6.7%, Fingerprint 4.2%,
+sub_82699100 4.1% (existing CPU-work lines).
+
+Change (same patch script `tools/ios/patch_ios_utility_qos.py`, now 5 blocks,
+applied, `--status` 5 of 5, re-run idempotent): cvar `ios_utility_qos_guest`,
+default false. In XThread::Execute every guest thread other than main_thread_
+requests QOS_CLASS_UTILITY and logs `[ios] guest thread <id>: QoS utility set`.
+XHostThread overrides Execute, so host threads (XMA Decoder, GPU VSync, audio
+worker) are unchanged. Risk to watch: audio gaps (coreaudio 5 s lines report
+gaps) and loading time, since audio decode and streaming threads move to E cores.
+
+Build exit 0 (xthread.cpp, command_processor.cpp recompiled). IPA27
+`ios/build/NFSMW-battery-utility-qos-guest-27.ipa`, SHA256
+`f534f92f1456229906719dafd12b4242cc1940ac548a078a2b4b412efdc6ccdf`; NFSMW UUID
+`8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1` (unchanged from IPA26), librexruntime
+`1FAE8DDC-9FAE-3CF3-962C-DB86037B1E89`. 104 metallibs, NativeShaders identical
+to the shader cache, `unzip -tq` OK, `codesign --verify --deep --strict` OK.
+Not run on a device. Test with Extra Args `--ios_utility_qos=true
+--ios_utility_qos_guest=true`; OFF arm both false.
