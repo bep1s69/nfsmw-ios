@@ -3906,3 +3906,28 @@ freeze, not only the loading pause; the earlier inference is withdrawn. That
 attempt is not in the supplied log (ends 13:31:07). Requested: its log, and one
 IPA25 run without `--ios_utility_qos=true` to separate the switch from the build.
 Do not use the switch for power tests until resolved.
+
+### October 20, 2026 — Cause of the IPA25 freeze: shader libraries missing; IPA26
+
+Stefan: still freezes with `--ios_utility_qos=false`; log
+`20 October 2026/nfsmw_run_2_ipad.log` (13:35:12 launch, the >30 s attempt; it
+still logs `QoS utility set`, so the flag-OFF run itself is not in a log).
+Measured: every game draw logs `no shader library ... (missing)`; after the skip
+the command processor keeps running the menu (~1168 constant ranges/frame) but
+no native frame reaches the screen, while audio continues. The October 19 IPA24
+log reports `0 without a shader library` on every summary.
+
+Cause: IPA25 contains 0 `.metallib` files (40 entries) versus IPA24's
+NativeShaders directory (104 libraries plus 4 text files). The build directory's
+CMakeCache had `NFSMW_NATIVE_SHADERS_DIR` empty, so packaging skipped the copy.
+The movie still played because its shaders are built into the executable. The
+freeze is a packaging error, not the QoS switch. IPA25 is withdrawn.
+
+Fix (build configuration only): `cmake -S ios -B ~/Library/Caches/nfsmw-ios/build
+-DNFSMW_NATIVE_SHADERS_DIR=$HOME/Library/Caches/nfsmw-ios/shaders/lib`, then
+the usual `cmake --build --preset ios --target ipa -j 6` (both exit 0). IPA24's
+NativeShaders and that directory were checked identical (`diff -rq`, 108 files)
+before and after the build. IPA26 `ios/build/NFSMW-battery-utility-qos-26.ipa`,
+SHA256 `1f5b7c3d1b7e54619346bd8386b5d0484b0a55a9d588f7ec738926ee340761c0`, NFSMW
+UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1`; `unzip -tq` OK, `codesign --verify
+--deep --strict` OK. Same sources as IPA25. Not yet run on a device.

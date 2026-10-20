@@ -68,7 +68,10 @@ cmake --build --preset ios --target ipa -j 6
 ```
 
 The actual build directory is `/Users/bep1s/Library/Caches/nfsmw-ios/build`;
-compiled shaders are in the sibling cache `shaders` directory. The IPA is
+compiled shaders are in the sibling cache `shaders` directory. The build dir
+must be configured with `-DNFSMW_NATIVE_SHADERS_DIR=$HOME/Library/Caches/nfsmw-ios/shaders/lib`;
+if that cache entry is empty the IPA has no `NativeShaders` and every game draw
+is skipped (IPA25). Check `unzip -l <ipa> | grep -c metallib` before handing off. The IPA is
 copied into `ios/build/NFSMW.ipa`. CMake/Ninja is used; there is no Xcode project.
 Keep uniquely named copies for device tests and record UUID/SHA256, build,
 ZIP-integrity and codesign results. Native shader libraries should remain
@@ -96,8 +99,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
   Next: short correctness check, then a matched 1.5x/60 LPM-OFF power pair
   toggling only this flag. Details in latest TECHNICAL entry.
-  First check: image froze on the last FMV frame after skip (audio continued,
-  >30 s). Awaiting the new log and a flag-OFF run of IPA25; power tests on hold.
+  IPA25 froze after the movie skip because it shipped WITHOUT the native shader
+  libraries (empty NFSMW_NATIVE_SHADERS_DIR); withdrawn. Use IPA26 (same source,
+  shaders included); repeat the short check, then the power pair.
 
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
@@ -326,9 +330,10 @@ convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
 
-IPA25: `ios/build/NFSMW-battery-utility-qos-25.ipa`.
-UUID `D50A53D8-C274-3D12-924E-B73273D35F8D`; SHA256
-`3ac6f0456a05edf10f67782268cc54674bf84c98928dfaaba249c23a751ab9c8`.
+IPA26: `ios/build/NFSMW-battery-utility-qos-26.ipa`.
+UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1`; SHA256
+`1f5b7c3d1b7e54619346bd8386b5d0484b0a55a9d588f7ec738926ee340761c0`.
+IPA25 (same source) is withdrawn: no native shader libraries packaged.
 SDK patch `tools/ios/patch_ios_utility_qos.py`.
 
 IPA24: `ios/build/NFSMW-battery-pipeline-lookup-24.ipa`.
