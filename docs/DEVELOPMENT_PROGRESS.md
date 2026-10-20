@@ -101,7 +101,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   toggling only this flag. Details in latest TECHNICAL entry.
   IPA25 froze after the movie skip because it shipped WITHOUT the native shader
   libraries (empty NFSMW_NATIVE_SHADERS_DIR); withdrawn. Use IPA26 (same source,
-  shaders included); repeat the short check, then the power pair.
+  shaders included). IPA26 short check passed (2-lap race, 60 fps, flag ON);
+  next is the matched flag ON/OFF Power Profiler pair.
 
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
