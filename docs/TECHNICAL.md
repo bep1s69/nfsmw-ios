@@ -3931,3 +3931,14 @@ before and after the build. IPA26 `ios/build/NFSMW-battery-utility-qos-26.ipa`,
 SHA256 `1f5b7c3d1b7e54619346bd8386b5d0484b0a55a9d588f7ec738926ee340761c0`, NFSMW
 UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1`; `unzip -tq` OK, `codesign --verify
 --deep --strict` OK. Same sources as IPA25. Not yet run on a device.
+
+### October 20, 2026 — IPA26 short correctness check passes
+
+Stefan: IPA26 worked, full usual two-lap Quick Race. Log
+`20 October 2026/nfsmw_run_3_ipad.log`: launch 1 at 13:38:30 without the flag,
+launch 2 at 13:42:02 logging `QoS utility set` for GPU Commands and the game
+main thread. Launch 2 frame summaries: 30 at 60.0 fps on screen; below 59.5 only
+frame 301 (38.4, menu/loading, 33 draws), 901 (58.6), 1501 (58.2, load into the
+race) and the final 10501 (54.9, post-race). Battery-percentage field stayed 85%
+(not an energy measure). Correctness/frame-rate only; no power data. Next: the
+matched ~10-minute Power Profiler pair, flag ON vs OFF, as specified above.
