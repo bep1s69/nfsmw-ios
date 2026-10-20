@@ -48,6 +48,8 @@ copies ~0.35 ms GPU (~8% span) need exact compatibility/lifetime proof. No uncha
 depth snapshots (315/arm), artificial splits 0; pooling/discard-unread already work.
 Next proposed source work is an opt-in frame-flow/copy-eligibility diagnostic in
 four app files, then a focused scheduling trace to investigate the LPM result.
+October 20: LPM gain traced to CPU operating point only (GPU/display/FPS
+equal); proposed guest-thread Utility QoS switch, awaiting approval.
 Await approval; no new source/build/test. GPR prototype remains held. Native
 Metal display-link pacing and versioned copy removal are candidates, not proven
 energy wins. Free LiveContainer signing and ordinary user workflow are required;

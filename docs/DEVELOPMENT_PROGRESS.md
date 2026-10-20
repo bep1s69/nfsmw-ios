@@ -92,6 +92,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 20, 2026
 
+- **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
+  GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
+  LPM runs the same work at a lower clock ceiling (inferred). Apps cannot set
+  clocks. Ranked app-side levers in latest TECHNICAL entry; top proposal is a
+  default-false switch demoting the guest game/CP threads to Utility QoS,
+  never tested before (only the render queue was). Awaiting Stefan's approval.
+
 - Retention clarification: keep accepted/default-on optimizations enabled and
   retain recent experiments for accumulated testing. Not every recent shortcut
   has demonstrated lower total CPU work: the four-change pair was 110.114% ON
