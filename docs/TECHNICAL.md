@@ -3942,3 +3942,43 @@ frame 301 (38.4, menu/loading, 33 draws), 901 (58.6), 1501 (58.2, load into the
 race) and the final 10501 (54.9, post-race). Battery-percentage field stayed 85%
 (not an energy measure). Correctness/frame-rate only; no power data. Next: the
 matched ~10-minute Power Profiler pair, flag ON vs OFF, as specified above.
+
+### October 20, 2026 — IPA26 Utility QoS power recording (one arm)
+
+Stefan recorded one ~10-minute arm (no time for the OFF arm), the same Challenge
+Series pursuit and as similar a route as possible as the October 19 IPA24 pair,
+and asked to compare with those. Inputs: `20 October 2026/nfsmw_run_4_ipad.log`,
+`20 October 2026/power_profiler_1_ipad.trace` (run 1 13:49:03.784+02:00,
+600.224 s; Metal performance overview tables included). Log: IPA26 launch
+13:48:33, `QoS utility set` for GPU Commands and main thread, scale 1.500, MetalFX
+off, FXAA off, MSAA 0, cap 60, five-option group on; the four IPA24 lookup flags
+at their default false (= the Oct 19 OFF arm). Thermal Nominal for the whole run.
+
+Method: `xctrace export` of SystemPowerLevel, ProcessSubsystemPowerImpact,
+DisplayBrightnessLevel, thermal for today and both Oct 19 runs, the same
+duration-weighted whole-run parser for all three (scratchpad an.py/gpu.py,
+temporary). It reproduces the Oct 19 whole-run values recorded above
+(34.141 / 33.334), so the method matches. LiveContainer process rows.
+
+| Whole run (599 s) | Oct 19 IPA24 four ON | Oct 19 four OFF | Oct 20 IPA26 Utility QoS |
+|---|---:|---:|---:|
+| Estimated system drain, pp/hour | 34.141 | 33.334 | 31.263 |
+| Process CPU impact | 12.639 | 12.292 | 8.740 |
+| Process GPU impact | 2.244 | 2.291 | 2.401 |
+| Display impact | 5.895 | 5.922 | 5.506 |
+| CPU instructions, billion/s | 11.52 | 11.35 | 10.91 |
+| Brightness | 35% | 35% | 29% |
+| Log CPU % of one core, median of 10 s windows | 106 (whole Oct 19 log) | | 142 |
+
+Log FPS: 133 summaries, 128 at >= 59.5; below were 0.0 (launch), 28.7 (load),
+58.6, 57.7, 59.4.
+
+Measured: drain 6.2% lower than the comparable OFF arm (-2.07 pp/h); CPU impact
+29% lower with only ~4% fewer instructions while CPU time rose: the same
+signature as system Low Power Mode (cheaper CPU operating point, inferred, clocks
+not exported). GPU impact unchanged within ~5%.
+Limits: different day, one arm, non-identical pursuit, and brightness 29% vs
+35% lowers display cost (display impact -7%), so part of the drain difference
+is brightness. The CPU-impact drop is not explained by brightness. Not yet a
+proven whole-device saving; a same-day OFF arm at the same brightness would
+settle it. FPS held, no visual change.

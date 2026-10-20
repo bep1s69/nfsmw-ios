@@ -102,7 +102,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA25 froze after the movie skip because it shipped WITHOUT the native shader
   libraries (empty NFSMW_NATIVE_SHADERS_DIR); withdrawn. Use IPA26 (same source,
   shaders included). IPA26 short check passed (2-lap race, 60 fps, flag ON);
-  next is the matched flag ON/OFF Power Profiler pair.
+  One ON power arm vs Oct 19 pair: drain 31.26 vs 33.33 pp/h (-6%), CPU impact
+  -29%, FPS held; brightness 29% vs 35% confounds. Next: same-day OFF arm at
+  the same brightness, then decide on making it default.
 
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
