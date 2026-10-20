@@ -3875,3 +3875,27 @@ settings, other Extra Args, manual brightness, LPM OFF, only `ios_utility_qos`
 toggled (cold restart between arms). Pass criterion: lower whole-device drain
 with FPS and game speed unchanged. Failure modes to watch: frame drops,
 audio crackle, input lag, slower game time.
+
+### October 20, 2026 — IPA25 first device check: frozen image after skipping the intro movie
+
+Stefan: iPad, IPA25 with `--ios_utility_qos=true`. After skipping the movie
+with A, the image stayed on the last movie frame while the "press start" audio
+played. Log: `~/Developer/Debug/Most Wanted (2005) Debug/20 October 2026/nfsmw_run_1_ipad.log`
+(two launches, 13:30:19 and 13:30:56; both log `QoS utility set` for the main and
+GPU Commands threads; 1.5x, cap 60, MetalFX off, five-option group on).
+
+Measured: launch 2 skips at ~13:31:01 (815.7 ms hitch, frame 95), last frame
+log 13:31:01.6, disc loads (CARS, StreamL2RA_Perm.bun) at 13:31:01-02, watchdog
+"5 s without any guest register moving" at 13:31:07.203, app to background at
+13:31:07.266, 63 ms later. CPU 16% of a core over the preceding 10 s, so no
+thread was spinning. Launch 1 had the same watchdog at 13:30:35.752 after its own
+skip and logged "moving again after 5 s" at 13:30:36.766, then rendered the menu.
+The October 19 log without the flag (`19 October 2026/nfsmw_run_1_ipad.log`) shows
+the same post-start watchdog stalls of 5-9 s that recover.
+
+Inference: the log does not show a hang; it shows the usual post-skip loading
+pause, with the app left ~6 s in. Not established whether Utility makes that pause
+longer. Note for the experiment: Darwin threads inherit the creating thread's
+QoS, so guest threads created by the main thread after it switches likely run at
+Utility too, including loading threads (Utility I/O is throttled). Next: Stefan
+retries and waits at least 15 s; if it never recovers, compare with the flag off.
