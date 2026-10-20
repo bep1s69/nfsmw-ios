@@ -105,6 +105,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   One ON power arm vs Oct 19 pair: drain 31.26 vs 33.33 pp/h (-6%), CPU impact
   -29%, FPS held; brightness 29% vs 35% confounds. Next: same-day OFF arm at
   the same brightness, then decide on making it default.
+- **IPA27 adds `--ios_utility_qos_guest=true`** (default false): the remaining
+  guest threads (a game worker and the audio decoder, still on P cores in the
+  IPA26 trace) also at Utility. Not device-tested. Stack both flags for the
+  next ON arm; OFF arm both false, same brightness (Auto-Brightness off).
 
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so
@@ -323,6 +327,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
+| `ios_utility_qos_guest` | false | IPA27: Utility QoS for all other guest threads; built, not device-tested |
 | `ios_utility_qos` | false | IPA25: Utility QoS for game main + GPU command threads; built, not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -332,6 +337,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA27: `ios/build/NFSMW-battery-utility-qos-guest-27.ipa`.
+UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1` (runtime `1FAE8DDC-9FAE-3CF3-962C-DB86037B1E89`);
+SHA256 `f534f92f1456229906719dafd12b4242cc1940ac548a078a2b4b412efdc6ccdf`.
 
 IPA26: `ios/build/NFSMW-battery-utility-qos-26.ipa`.
 UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1`; SHA256
