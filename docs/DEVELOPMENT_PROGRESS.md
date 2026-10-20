@@ -96,6 +96,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
   Next: short correctness check, then a matched 1.5x/60 LPM-OFF power pair
   toggling only this flag. Details in latest TECHNICAL entry.
+  First check: image froze on the last FMV frame after skip (audio continued,
+  >30 s). Awaiting the new log and a flag-OFF run of IPA25; power tests on hold.
 
 - **LPM explanation (Oct 20):** in the matched 30 FPS pair, frame rate, refresh,
   GPU and display were equal; only CPU power fell (~61%) while CPU time rose, so

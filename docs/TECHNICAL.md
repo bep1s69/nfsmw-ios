@@ -3899,3 +3899,10 @@ longer. Note for the experiment: Darwin threads inherit the creating thread's
 QoS, so guest threads created by the main thread after it switches likely run at
 Utility too, including loading threads (Utility I/O is throttled). Next: Stefan
 retries and waits at least 15 s; if it never recovers, compare with the flag off.
+
+Correction (same day): Stefan waited over 30 s on a later attempt; menu music
+played but the image stayed on the last movie frame. So this is a real visual
+freeze, not only the loading pause; the earlier inference is withdrawn. That
+attempt is not in the supplied log (ends 13:31:07). Requested: its log, and one
+IPA25 run without `--ios_utility_qos=true` to separate the switch from the build.
+Do not use the switch for power tests until resolved.
