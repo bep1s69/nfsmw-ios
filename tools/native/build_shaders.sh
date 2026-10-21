@@ -11,6 +11,8 @@
 #    shader that compiles as Metal with -D__air__.
 # 3. tools/native/rewrite_shadow_filter.py: the soft-shadow filter's 9
 #    fetches as one call (4 gathers; see shader_common.h).
+#    tools/native/rewrite_shadow_caster_alpha.py: the shadow caster's cut-out
+#    behind specialization bit 12 (compiled out where c1.x is 0).
 # 4. xcrun metal: one .metallib per shader, named vs_/ps_<microcode hash>.
 # 5. tools/native/constant_ranges.py: the float constants each shader reads
 #    (lib/constant_ranges.txt), so the renderer handles only those.
@@ -51,6 +53,7 @@ for container in "$out"/containers/*.bin; do
   fi
   translated=$((translated + 1))
   python3 "$repo/tools/native/rewrite_shadow_filter.py" "$out/msl/$name.hlsl" | grep -v " 0 blocks" || true
+  python3 "$repo/tools/native/rewrite_shadow_caster_alpha.py" "$out/msl/$name.hlsl" | grep -v ": 0 shadow" || true
   cp "$out/msl/$name.hlsl" "$out/air/$name.metal"
   if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ \
        -mios-version-min="$ios_min" -c "$out/air/$name.metal" -o "$out/air/$name.air" &&

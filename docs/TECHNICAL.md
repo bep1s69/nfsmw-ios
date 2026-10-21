@@ -4338,3 +4338,29 @@ constant register is 0 (shader rewrite in the style of rewrite_shadow_filter.py
 plus a pipeline-key bit). Expected: part of ~0.9 ms (shadow casters), size
 unknown until measured with the same probe. Memoryless (candidate 3) moved to
 the backlog for its memory benefit on older devices, at Stefan's request.
+
+### October 21, 2026 — IPA33: shadow-caster variant without the unused cut-out
+
+Stefan approved the proposal ("yes"). Shader side: new
+`tools/native/rewrite_shadow_caster_alpha.py`, run by `build_shaders.sh` after
+the shadow-filter rewrite, changes only ps_4fbaecfb8e7c4f40 line
+`p0 = g_bShadowMapAlphaEnabled.x != 0.0;` to
+`p0 = ((g_SpecConstants() & 0x1000u) == 0u) && (g_bShadowMapAlphaEnabled.x != 0.0);`
+(G_SPEC_CONSTANTS is function constant 0; unset = 0 = original behavior). Applied
+to the shader cache and that one library recompiled with the script's exact
+commands (`-O2 -std=metal3.1 -D__air__ -mios-version-min=26.0`); all other 103
+libraries unchanged; previous library kept in the scratchpad.
+Renderer: `nfsmw_native_shadow_caster_variant` (default false). For ps 4fbaecfb
+draws whose c1.x (ps constant word 4) is 0.0f, bit 0x1000 is added to the
+pipeline key's alpha_spec, so PixelVariant/MotionVariant build the function
+with that bit set; the branch it removes is never taken for those draws, so the
+shadow map is unchanged. New pipelines for the variant are compiled at first
+use (one-time). The stats line now ends with `shadow caster variant on|off:
+<n> draws`.
+Build exit 0. IPA33 `ios/build/NFSMW-battery-shadow-caster-33.ipa`, SHA256
+`080f5418db319dc276aa2f5828a8e9519e2e01a4f6257e30272dc81cfc4ad6a4`, NFSMW UUID
+`516A4623-1FCF-3AD4-B994-4939E6ABA39E`; 104 metallibs identical to the cache
+(ps_4fbaecfb now SHA256 prefix 3f45de43a3f7f522); zip and codesign OK. Not run
+on a device. Test: one pursuit with `--nfsmw_native_shadow_caster_variant=true
+--nfsmw_native_cost_probe=true`; compare 4fbaecfb's probe delta (0.91 ms) and
+the frame GPU time with the IPA32 probe run; check shadows look the same.

@@ -120,8 +120,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   ranked in latest TECHNICAL entry. Next: one pursuit on IPA32 with
   `--nfsmw_native_cost_probe=true` to rank shader GPU costs; 1 and 3 backlogged.
   Done: shadow casters 0.91, trees 0.90, fences/plants 0.76 ms of ~10.1 ms.
-  Proposal: shadow-caster variant without its uniform-guarded discard; awaiting
-  Stefan.
+  Shadow-caster variant implemented (IPA33, `nfsmw_native_shadow_caster_variant`,
+  default false). Next: probe run with it on vs the IPA32 probe run.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -358,6 +358,7 @@ is retired and `ios_thread_qos` is ignored.
 | `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
+| `nfsmw_native_shadow_caster_variant` | false | IPA33: ps 4fbaecfb without its cut-out where c1.x is 0; not device-tested |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -367,6 +368,12 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA33 (shadow-caster variant switch): `ios/build/NFSMW-battery-shadow-caster-33.ipa`.
+UUID `516A4623-1FCF-3AD4-B994-4939E6ABA39E`; SHA256
+`080f5418db319dc276aa2f5828a8e9519e2e01a4f6257e30272dc81cfc4ad6a4`.
+Its NativeShaders include the rewritten ps_4fbaecfb (rebuild shaders with the
+updated build_shaders.sh to reproduce).
 
 IPA32 (fingerprint memo default): `ios/build/NFSMW-battery-memo-default-32.ipa`.
 UUID `5D1534C8-183D-3D26-84B4-F178ADB0FDC4`; SHA256
