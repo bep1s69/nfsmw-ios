@@ -19,7 +19,7 @@ decides. See docs/TECHNICAL.md, October 20.
 Applies after patch_ios_battery_group; the baseline control wins when both
 are set.
 
-Second cvar ios_utility_qos_guest (default false): every other guest thread
+Second cvar ios_utility_qos_guest (default true since October 21): every other guest thread
 (XThread::Execute, not main_thread_) also requests QOS_CLASS_UTILITY. The
 October 20 IPA26 trace showed the main and GPU command threads entirely on
 efficiency cores, while two guest threads that did not inherit Utility (a game
@@ -32,7 +32,7 @@ XT = 'src/system/xthread.cpp'
 CP = 'src/graphics/command_processor.cpp'
 
 CVAR_ANCHOR = 'REXCVAR_DEFINE_BOOL(ios_thread_qos, false, "Kernel",'
-CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_utility_qos, false, "Kernel",
+CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_utility_qos, true, "Kernel",
                     "Battery experiment: game main thread and GPU command thread at "
                     "QOS_CLASS_UTILITY (restart required)");
 ''' + CVAR_ANCHOR
@@ -61,8 +61,8 @@ CP_NEW = '''    REXLOG_INFO("[ios] GPU Commands thread: QoS user-interactive {}"
   }
 '''
 
-GUEST_CVAR_ANCHOR = 'REXCVAR_DEFINE_BOOL(ios_utility_qos, false, "Kernel",'
-GUEST_CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_utility_qos_guest, false, "Kernel",
+GUEST_CVAR_ANCHOR = 'REXCVAR_DEFINE_BOOL(ios_utility_qos, true, "Kernel",'
+GUEST_CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_utility_qos_guest, true, "Kernel",
                     "Battery experiment: every other guest thread at QOS_CLASS_UTILITY "
                     "(restart required)");
 ''' + GUEST_CVAR_ANCHOR

@@ -4055,3 +4055,24 @@ Cost: slightly more frequent small frame-rate dips (summaries of 57-59.4 fps).
 Limits: one pair, ON first (fuller battery), pursuit not identical. The
 -23.6% is far larger than the Oct 19/20 pursuit-to-pursuit variation (~2.5%).
 Next: Stefan decides whether to make both flags default; check the dips in play.
+
+### October 21, 2026 — Utility QoS made the default (IPA28)
+
+Stefan: the small dips appeared only while Instruments was recording; ~3 minutes
+of the same pursuit before the first trace, unrecorded, had no stutter; "great
+news so far! whats next?". Decision recorded: both flags default true.
+Inferred: the extra ON-arm dips in the Oct 21 pair are at least partly profiler
+overhead; not separately measured.
+
+Change: `tools/ios/patch_ios_utility_qos.py` defines `ios_utility_qos` and
+`ios_utility_qos_guest` with default true; the applied SDK `xthread.cpp` was
+edited to the same text so `--status` stays 5 of 5 (re-run: all applied, no
+duplicate). Opt out: `--ios_utility_qos=false --ios_utility_qos_guest=false`.
+CHANGELOG "Unreleased" entry added. Build exit 0. IPA28
+`ios/build/NFSMW-battery-utility-default-28.ipa`, SHA256
+`ce31d0a89fd44ac19d34ed763f6ec8abece1871506dbe3e078004eafbe6866d8`; NFSMW UUID
+`8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1`, librexruntime
+`C4710F54-F0DE-3948-83FC-1B75F230B23D`; 104 metallibs identical to the shader
+cache; `unzip -tq` OK; `codesign --verify --deep --strict` OK.
+Untested: iPhone (A19 Pro has fewer E cores than the M4; 60 FPS on E cores is
+not established there), Battery mode / 30 FPS, MetalFX modes with these flags.
