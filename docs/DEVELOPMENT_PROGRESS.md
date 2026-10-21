@@ -104,7 +104,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **Both Utility flags are now default true (IPA28, Oct 21, Stefan approved).**
   iPhone 17 Pro stuttered badly with it (45-55 fps, 4 E cores). IPA29 turns it
   on by default only with >= 6 efficiency cores (`[utility-qos]` log line).
-  Next: confirm iPhone back at 60 and iPad still on with IPA29.
+  IPA29 confirmed: iPhone 4 E cores/off, smooth 60; iPad 6/on, smooth 60.
+  Next: iPhone try `--ios_utility_qos=false --ios_utility_qos_guest=true`.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
