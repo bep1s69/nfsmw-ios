@@ -5,7 +5,9 @@
 - **About a quarter less battery drain while playing**, with the same picture,
   resolution and frame rate: the game's threads ask iOS for a lower priority,
   so the CPU runs at cheaper speeds (measured on an iPad Pro M4 at 1.5x / 60 fps).
-  Turn it off with `--ios_utility_qos=false --ios_utility_qos_guest=false`.
+  On by default on devices with at least 6 efficiency cores (M-series iPads);
+  off on iPhones, where it made the game stutter.
+  Override with `--ios_utility_qos=true|false --ios_utility_qos_guest=true|false`.
 
 ## 0.3.0
 

@@ -32,6 +32,7 @@
 #include <SDL3/SDL_messagebox.h>
 
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -176,6 +177,31 @@ void ApplyBatteryExperiment(std::vector<std::string>& args) {
   SetArgument(args, std::string("--ios_battery_baseline_qos=") + (!enabled && !low_cap ? "true" : "false"));
 }
 
+// Utility QoS for the game threads (tools/ios/patch_ios_utility_qos.py) runs
+// them on the efficiency cores: about a quarter less drain on an iPad Pro M4
+// (6 E cores) at 1.5x / 60, but an iPhone 17 Pro (4 E cores) fell to 45-55 fps
+// (docs/TECHNICAL.md, October 21). Default on only with 6 or more efficiency
+// cores; an explicit --ios_utility_qos / --ios_utility_qos_guest wins.
+int utility_qos_efficiency_cores = -1;
+const char* utility_qos_source = "default";
+
+void ApplyUtilityQosDefault(std::vector<std::string>& args) {
+  int cores = 0;
+  size_t size = sizeof(cores);
+  if (sysctlbyname("hw.perflevel1.physicalcpu", &cores, &size, nullptr, 0) != 0) cores = 0;
+  utility_qos_efficiency_cores = cores;
+  const bool on = cores >= 6;
+  for (const char* flag : {"--ios_utility_qos", "--ios_utility_qos_guest"}) {
+    const bool given = std::any_of(args.begin() + 1, args.end(),
+                                   [&](const std::string& a) { return OptionName(a) == flag; });
+    if (given) {
+      utility_qos_source = "Extra Args";
+    } else {
+      SetArgument(args, std::string(flag) + (on ? "=true" : "=false"));
+    }
+  }
+}
+
 // Documents/extra_args.txt: one argument per line; blank lines and lines
 // starting with '#' are ignored. Each replaces any argument with the same
 // option name already in `args`.
@@ -231,6 +257,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   boot::Trace("game: parsing the arguments");
   std::vector<std::string> experiment_args(argv, argv + argc);
   ApplyBatteryExperiment(experiment_args);
+  ApplyUtilityQosDefault(experiment_args);
   std::vector<char*> experiment_argv;
   for (auto& arg : experiment_args) experiment_argv.push_back(arg.data());
   experiment_argv.push_back(nullptr);
@@ -260,6 +287,9 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
+  REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {} ({})",
+              utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",
+              rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off", utility_qos_source);
   REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_constant_copies) ? "on" : "off");
   REXLOG_INFO("[transform-copies] native scalar transfers {}; separate from the five-option battery group",

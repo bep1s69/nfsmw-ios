@@ -4076,3 +4076,31 @@ CHANGELOG "Unreleased" entry added. Build exit 0. IPA28
 cache; `unzip -tq` OK; `codesign --verify --deep --strict` OK.
 Untested: iPhone (A19 Pro has fewer E cores than the M4; 60 FPS on E cores is
 not established there), Battery mode / 30 FPS, MetalFX modes with these flags.
+
+### October 21, 2026 — iPhone stutters with Utility QoS; default limited by E-core count (IPA29)
+
+Stefan, iPhone (A19 Pro, the 17 Pro), IPA28, three laps: 1.5x, then 1x with
+MetalFX "to the screen", then Battery mode; all with very bad stuttering. Log
+`21 October 2026/nfsmw_run_1_iphone.log`: three launches (22:37:24, 22:39:37,
+22:41:38), each logs `QoS utility set` for main and GPU Commands. Energy lines:
+1.5x/MetalFX off/cap 60; 1.0x/MetalFX screen/cap 60; 0.85x/FXAA normal, cap 60
+(briefly 30). FPS summaries bucketed by 5: 0 x3, 25 x2, 30 x4, 35 x3, 40 x3,
+45 x8, 50 x23, 55 x8; none at 60. 639 hitch lines. CPU line sample: GPU Commands
+34%, Main XThread 23%, XThreadD113 22%, XThread10033 16%. Earlier iPhone tests
+without promotion held 60 FPS (patch table), so the cause is inferred to be
+Utility QoS: the iPhone's 4 efficiency cores cannot carry these threads at 60 FPS
+(the M4 has 6 and held 60).
+
+Change (`ios/src/ios_main.mm`): `ApplyUtilityQosDefault` reads
+`hw.perflevel1.physicalcpu` (efficiency cores) and, unless Extra Args set the
+flag, passes `--ios_utility_qos` and `--ios_utility_qos_guest` = true only with
+6 or more E cores, false otherwise. Logs `[utility-qos] <n> efficiency cores;
+main/GPU threads on|off, other guest threads on|off (default|Extra Args)`.
+The SDK cvar defaults stay true. Build exit 0. IPA29
+`ios/build/NFSMW-battery-utility-ecores-29.ipa`, SHA256
+`ea7e301e241b4ba9bab77588888cf08f06cab8431a666498cca4209255c6fe4e`, NFSMW UUID
+`DDF5F784-C577-3AA9-8115-FF5769EB088B`; 104 metallibs identical; `unzip -tq` OK;
+`codesign --verify --deep --strict` OK. Not run on a device: needs the iPhone
+log line to show 4 / off and 60 FPS restored, and the iPad to show 6 / on.
+Possible later refinement (not implemented): on 4-E-core devices put only the
+non-critical guest threads at Utility, or adapt QoS to measured frame rate.
