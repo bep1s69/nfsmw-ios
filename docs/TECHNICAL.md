@@ -4228,3 +4228,33 @@ Dumps and capture still disable it. Build exit 0. IPA31
 `9AEF39D1-5E2D-3902-A6F0-E687F0F36DD4`; 104 metallibs identical; zip and
 codesign checks OK. Next: one lap to see nonzero early commits, then Stefan's
 single A+B power run on the same pursuit/route, compared with the Oct 21 ON arm.
+
+### October 21, 2026 — IPA31 A+B power run (one arm) against the Oct 21 ON arm
+
+Inputs: `21 October 2026/nfsmw_run_4_ipad.log` (one unrecorded Quick Race lap,
+then the pursuit) and `21 October 2026/power_profiler_2_ipad.trace` (run 1,
+23:20:00.048+02:00, 544.509 s). IPA31 defaults plus
+`--nfsmw_native_early_commit=true --nfsmw_native_fingerprint_memo=true`.
+Early commit fired: 118 windows at 900 early buffers / 300 frames (3 per frame),
+6 at 0 (menus/loading). Brightness 32.0%, thermal Nominal. Same parser; GPU
+impact recomputed with the actual duration (gpu.py assumed 599 s).
+
+| Whole run | Oct 21 ON arm (IPA27) | IPA31 A+B |
+|---|---:|---:|
+| Estimated drain, pp/hour | 25.703 | 25.413 |
+| CPU impact | 5.299 | 5.221 |
+| GPU impact | 2.781 | 2.900 |
+| Display impact | 5.587 | 5.399 |
+| CPU instructions, billion/s | 10.69 | 9.94 |
+| Log FPS >= 59.5 | 157/171 | 139/147 |
+
+Measured: -1.1% drain, within the ~2.5% pursuit-to-pursuit variation; B lowers
+instructions ~7% but CPU impact only -1.5% (cheap E-core clocks); A did not
+lower GPU impact (+4%), so the "GPU starved by a late single commit" inference is
+not supported. Log GPU ms/frame now spans all buffers (10.91 vs 9.35) and is
+not comparable to earlier values. FPS lows 55.6-58.8 outside loading.
+Charging: DeviceChargingState has no rows; the log battery field fell 80% -> 75%
+during the recording, consistent with running on battery. The "charger
+connected" Stefan sees is inferred to be the device state Instruments captured
+when it first attached over the cable; the power estimate is modeled.
+Recommendation: keep B (less work, no visual issue seen), leave A off by default.

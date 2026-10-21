@@ -115,6 +115,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   then A+B ON vs OFF power pair on the iPad. IPA30 checks: defaults OK on both;
   B cuts fingerprints ~75%; A never fired (threshold), fixed in IPA31. Next:
   IPA31 lap showing early commits, then one A+B power run vs the Oct 21 ON arm.
+  Done: A+B 25.41 vs 25.70 pp/h (-1.1%, noise level); A no GPU benefit. Proposal:
+  B default on, A stays off; awaiting Stefan.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
