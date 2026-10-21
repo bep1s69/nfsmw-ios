@@ -127,6 +127,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_caster_variant, false, "GPU",
+                    "Experiment: shadow casters without the cut-out compiled in where it is off (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
                     "Experiment: commit finished render passes to the GPU while the frame is still encoded (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fused_upload_sizing, false, "GPU",
@@ -1172,6 +1174,7 @@ bool timed_draw = false;  // this draw's recording is timed (one in eight; comma
 uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
+uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};  // early command-buffer commits, since the last stats line
 
 // Occlusion queries: the last count per sample count address, at the guest's
@@ -5723,9 +5726,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // covers the pixel (an alpha test, threshold set where the constants
       // are written).
       const bool alpha_to_coverage = !(d.color_control & 8) && (d.color_control & 0x10);
-      const uint32_t alpha_spec = (d.color_control & 8) ? (2u | ((d.color_control & 7) << 8))
-                                  : alpha_to_coverage && t.sample_count == 1 ? (2u | (6u << 8))
-                                                                            : 0u;
+      uint32_t alpha_spec = (d.color_control & 8) ? (2u | ((d.color_control & 7) << 8))
+                            : alpha_to_coverage && t.sample_count == 1 ? (2u | (6u << 8))
+                                                                      : 0u;
+      // The shadow caster (ps 4fbaecfb) with its cut-out off (c1.x 0): the
+      // variant without the discard compiled in (bit 12, see
+      // tools/native/rewrite_shadow_caster_alpha.py), so the GPU can drop
+      // hidden caster pixels early. Same shadow map: the branch is not taken.
+      static const bool caster_variant = REXCVAR_GET(nfsmw_native_shadow_caster_variant);
+      if (caster_variant && d.ps_key == 0x4fbaecfb8e7c4f40ull && d.ps_constants) {
+        float cut_out;
+        std::memcpy(&cut_out, &(*d.ps_constants)[4], 4);
+        if (cut_out == 0.0f) {
+          alpha_spec |= 0x1000u;
+          ++caster_variant_draws;
+        }
+      }
       // Motion: every draw of a motion pass through the motion shaders (the
       // same positions as each other: depth-equal passes match), written by
       // the opaque ones that write depth.
@@ -6911,9 +6927,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                         : 0.0,
                     vertex_diagnostics.fingerprint_memo,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
-        REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}",
+        REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
+                    "shadow caster variant {}: {} draws",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
-                    REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off");
+                    REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
+                    REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws);
+        caster_variant_draws = 0;
         REXLOG_INFO("[native] energy baseline: scale {:.3f}, MetalFX {}, FXAA {}, forced MSAA {}, cap {} | "
                     "geometry decoded {:.2f} MiB/frame ({:.2f} classified dynamic), persistent arena uploads {:.2f} MiB/frame "
                     "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "
