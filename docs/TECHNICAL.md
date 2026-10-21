@@ -4104,3 +4104,17 @@ The SDK cvar defaults stay true. Build exit 0. IPA29
 log line to show 4 / off and 60 FPS restored, and the iPad to show 6 / on.
 Possible later refinement (not implemented): on 4-E-core devices put only the
 non-critical guest threads at Utility, or adapt QoS to measured frame rate.
+
+### October 21, 2026 — IPA29 device check on both devices passes
+
+`21 October 2026/nfsmw_run_2_iphone.log` (22:48:12–22:49:59): `[utility-qos] 4
+efficiency cores; main/GPU threads off, other guest threads off (default)`, no
+`QoS utility set`; 20 of 22 FPS summaries >= 59.5 (low 56.8); CPU median 80% of
+a core. Stefan: 1.5x / 60 very smooth. `21 October 2026/nfsmw_run_2_ipad.log`
+(22:51:10–22:52:51): `6 efficiency cores; ... on, ... on (default)`, 24
+`QoS utility set` lines; 15 of 20 summaries >= 59.5 (31.8 load, 58.6, 59.4,
+57.7); CPU median 150%. Stefan: smooth as ever at 1.5x / 60. E-core rule
+confirmed on both devices. The iPhone keeps the old (higher) drain.
+Next candidate for 4-E-core devices, no code needed: iPhone with Extra Args
+`--ios_utility_qos=false --ios_utility_qos_guest=true` (only the non-main guest
+threads at Utility; main and GPU command threads keep their normal QoS).
