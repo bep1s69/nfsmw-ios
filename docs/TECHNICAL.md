@@ -4258,3 +4258,31 @@ during the recording, consistent with running on battery. The "charger
 connected" Stefan sees is inferred to be the device state Instruments captured
 when it first attached over the cable; the power estimate is modeled.
 Recommendation: keep B (less work, no visual issue seen), leave A off by default.
+
+### October 21, 2026 — Fingerprint memo default on (IPA32); GPU options without lower resolution
+
+Stefan agreed: B default, A off. `nfsmw_native_fingerprint_memo` default true;
+`nfsmw_native_early_commit` stays false. Build exit 0. IPA32
+`ios/build/NFSMW-battery-memo-default-32.ipa`, SHA256
+`1f4990de76be2b6bd59b629741591bf8ba5cdf52bc00c6bd47ce27da000802af`, NFSMW UUID
+`5D1534C8-183D-3D26-84B4-F178ADB0FDC4`; 104 metallibs identical; zip and codesign OK.
+
+Stefan asked whether the GPU can be cheapened other than by resolution. From the
+Oct 19 per-pass audit above (mean sampled span 4.35 ms): main scene 1.95,
+reflection 0.80, shadow 0.44 ms (~73%, real image work); color resolve copies
+0.30, depth copies 0.28, cube assembly 0.06 ms (~15% together); other 0.43 ms.
+Already done: BC textures sampled natively where supported, unread attachments
+discarded, no artificial pass splits, pooled targets, no unchanged depth copies.
+Image-identical candidates, ranked:
+1. Avoid whole-surface color resolve copies (dataflow A/B above): keep the
+   source image as the snapshot when format/size/swizzle match and nothing
+   writes it later; versioned targets needed. Up to ~0.3-0.6 ms of the span,
+   only partly eligible; medium-high effort.
+2. Per-shader GPU cost: profile which translated pixel shaders dominate the main
+   scene and reflection passes, then improve their translation (registers,
+   redundant conversions) without changing results. Largest ceiling, unknown
+   size until profiled; needs a GPU capture or per-draw timing diagnostic.
+3. Memoryless storage for attachments that are cleared and discarded within
+   one pass: saves memory, small bandwidth gain.
+Not image-identical (settings only): MetalFX temporal from a lower internal
+resolution to the same output, Battery mode's half-rate reflections/shadows.

@@ -125,7 +125,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
                     "Experiment: commit finished render passes to the GPU while the frame is still encoded (restart required)");

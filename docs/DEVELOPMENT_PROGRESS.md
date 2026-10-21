@@ -116,7 +116,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   B cuts fingerprints ~75%; A never fired (threshold), fixed in IPA31. Next:
   IPA31 lap showing early commits, then one A+B power run vs the Oct 21 ON arm.
   Done: A+B 25.41 vs 25.70 pp/h (-1.1%, noise level); A no GPU benefit. Proposal:
-  B default on, A stays off; awaiting Stefan.
+  B default on (IPA32), A stays off. GPU candidates without lower resolution
+  ranked in latest TECHNICAL entry; awaiting Stefan's pick.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -352,7 +353,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
 | `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
-| `nfsmw_native_fingerprint_memo` | false | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
+| `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -362,6 +363,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA32 (fingerprint memo default): `ios/build/NFSMW-battery-memo-default-32.ipa`.
+UUID `5D1534C8-183D-3D26-84B4-F178ADB0FDC4`; SHA256
+`1f4990de76be2b6bd59b629741591bf8ba5cdf52bc00c6bd47ce27da000802af`.
 
 IPA31 (early-commit threshold fix): `ios/build/NFSMW-battery-early-commit-fix-31.ipa`.
 UUID `9AEF39D1-5E2D-3902-A6F0-E687F0F36DD4`; SHA256
