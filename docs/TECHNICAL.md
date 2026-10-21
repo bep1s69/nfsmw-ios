@@ -4201,3 +4201,30 @@ Build exit 0, no native_renderer warnings. IPA30
 `unzip -tq` OK; `codesign --verify --deep --strict` OK. Not run on a device.
 Test: iPhone and iPad correctness with defaults; then A and B with
 `--nfsmw_native_early_commit=true --nfsmw_native_fingerprint_memo=true`.
+
+### October 21, 2026 — IPA30 checks: defaults fine, B works, A never fired; IPA31 fixes A
+
+iPhone, `21 October 2026/nfsmw_run_4_iphone.log` (IPA30 defaults, A/B off):
+`4 efficiency cores ... off`, render queue Utility, 16 of 21 summaries >= 59.5
+(57.3, 59.4, 58.8, 58.6). Stefan: seemed OK.
+iPad, `21 October 2026/nfsmw_run_3_ipad.log` (23:10:18-23:11:58, defaults + A + B):
+`early commit on ... fingerprint memo on`; 15 of 20 summaries >= 59.5 (37.9 load,
+58.2, 59.4, 57.7), similar to the Oct 21 reference run. All hitch lines are in
+the intro/loading, as in the reference. Stefan felt possible microstutters, not
+confirmed by the log.
+B measured: race windows 276k-416k attribute fingerprints per 300 frames versus
+1.03M-2.03M in the reference run (~70-80% fewer), 597k-830k served by the memo;
+recording 3.7-5.3 ms/frame versus 5.2-7.9 ms in the reference. No visual issue.
+A measured: `0 early command buffers` in every window. Cause: the threshold
+(max(400, draws/3) since the last commit with half of that left) never met at a
+pass boundary, since most draws sit in one long main-scene pass.
+IPA31 change: up to three early commits per frame, each at a pass boundary
+after >= 250 draws since the last commit with >= 100 draws left, counted by
+draw position; also allowed while GPU pass profiling is active (sample buffers
+are read in the last buffer's completion handler, after the earlier ones).
+Dumps and capture still disable it. Build exit 0. IPA31
+`ios/build/NFSMW-battery-early-commit-fix-31.ipa`, SHA256
+`2f09dae9f714acbe8586436032403af2c260c738a9a1a422acce99bc7034ff85`, NFSMW UUID
+`9AEF39D1-5E2D-3902-A6F0-E687F0F36DD4`; 104 metallibs identical; zip and
+codesign checks OK. Next: one lap to see nonzero early commits, then Stefan's
+single A+B power run on the same pursuit/route, compared with the Oct 21 ON arm.

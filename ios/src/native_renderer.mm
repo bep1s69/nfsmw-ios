@@ -4786,7 +4786,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // Resources are retained by each command buffer; the frame's completion
     // work stays on the last one, which the queue completes last.
     static const bool early_commit = REXCVAR_GET(nfsmw_native_early_commit);
-    const size_t early_commit_draws = std::max<size_t>(400, frame->draws.size() / 3);
+    // At most three per frame, each after at least 250 draws, with at least
+    // 100 left: the reflection and shadow passes go first while the main
+    // scene (most of the draws, one long pass) is still being encoded.
+    const size_t early_commit_draws = 250, early_commit_rest = 100, early_commit_max = 3;
     size_t early_commit_from = 0;
     uint32_t early_commits = 0;
     auto early_gpu_start = std::make_shared<std::atomic<double>>(0.0);
@@ -5565,8 +5568,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                           2 * std::fabs(d.viewport[2]), d.viewport[1], d.viewport[3]));
         [enc endEncoding];
         finish_motion(di);
-        if (early_commit && !profile && !dump && !capture.active && di >= early_commit_from + early_commit_draws &&
-            frame->draws.size() - di >= early_commit_draws / 2) {
+        if (early_commit && !dump && !capture.active && early_commits < early_commit_max &&
+            position >= early_commit_from + early_commit_draws && frame->draws.size() - position >= early_commit_rest) {
           if (early_commits == 0) {
             [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
               early_gpu_start->store(done.GPUStartTime, std::memory_order_relaxed);
@@ -5574,7 +5577,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
           [cb commit];
           cb = [queue commandBuffer];
-          early_commit_from = di;
+          early_commit_from = position;
           ++early_commits;
           early_commit_total.fetch_add(1, std::memory_order_relaxed);
         }
