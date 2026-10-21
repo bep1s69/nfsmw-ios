@@ -95,7 +95,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_battery_optimizations, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_constant_copies, true, "CPU",
                     "Native float-constant copy loops in the USA game graphics front end (restart required)");
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_transform_copies, false, "CPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_transform_copies, true, "CPU",
                     "Avoid float mode round-trips in two USA transform transfers (restart required)");
 
 namespace {

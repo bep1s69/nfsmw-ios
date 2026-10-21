@@ -4161,3 +4161,43 @@ B. Per-frame fingerprint memo for non-dynamic attribute regions (default-off):
 Not proposed: sampled index hashing or write-watch reuse (could miss changes,
 visual risk), and the earlier caution against core-QoS changes is superseded
 by the Oct 21 measured result.
+
+### October 21, 2026 — IPA30: five experiments made default; proposals A and B implemented
+
+Stefan: "yes make the 5 default, and also implement both A and B and if
+something goes wrong we'll go from there".
+
+Defaults changed to true (they were on in every iPad measurement, including the
+Oct 21 -23.6% pair, per the run_1_ipad log mode lines): `nfsmw_native_render_utility`,
+`nfsmw_native_attribute_lookup`, `nfsmw_native_gpu_lookup_hash`,
+`nfsmw_native_lazy_diagnostics` (native_renderer.mm) and
+`nfsmw_native_transform_copies` (ios_main.mm). `nfsmw_native_gpu_lookup_stats`
+stays false (diagnostic only). The iPhone runs of Oct 21 had all five off; an
+iPhone correctness lap is still needed.
+
+B, `nfsmw_native_fingerprint_memo` (default false), Record in
+native_renderer.mm: a per-frame map (base, region start, region size) ->
+fingerprint, cleared when frame_counter changes. Used only for attribute entries
+not marked dynamic and not for DrawPrimitiveUP vertices; dynamic data keeps its
+per-draw fingerprint. Consequence: a non-dynamic region rewritten mid-frame is
+seen one frame later. Counter: the frame summary now ends the fingerprint part
+with `, <n> from this frame's memo`.
+
+A, `nfsmw_native_early_commit` (default false), RenderFrame: at a render-pass
+boundary (after the previous encoder ends and the motion copy), once at least
+max(400, draws/3) draws were encoded since the last commit and at least half
+that many remain, the command buffer is committed and encoding continues in a
+new one on the same queue. Disabled while GPU pass profiling, dumps or capture
+are active. Present, write-backs and completion handlers stay on the last buffer;
+each buffer retains its resources; same-queue order keeps pass order. GPU ms per
+frame becomes the span from the first buffer's GPU start to the last one's end.
+New line every stats window: `[native] early commit on|off: <n> early command
+buffers over <frames> frames; fingerprint memo on|off`.
+
+Build exit 0, no native_renderer warnings. IPA30
+`ios/build/NFSMW-battery-defaults-early-commit-30.ipa`, SHA256
+`0f24555d5ae48cae59616ec4592865317ad0509b61b7106ad6a8ca85fcee185c`, NFSMW UUID
+`5E8C4D54-6722-3B1C-95FD-3B23FFA00AAD`; 104 metallibs identical to the cache;
+`unzip -tq` OK; `codesign --verify --deep --strict` OK. Not run on a device.
+Test: iPhone and iPad correctness with defaults; then A and B with
+`--nfsmw_native_early_commit=true --nfsmw_native_fingerprint_memo=true`.
