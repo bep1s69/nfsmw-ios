@@ -93,7 +93,12 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — October 20, 2026
+## Current checkpoint — October 21, 2026
+
+- **IPA27 matched pair (Oct 21): both Utility flags ON cut estimated drain
+  33.66 -> 25.70 pp/h (-23.6%) and CPU impact -57% at 1.5x/60, equal 32%
+  brightness, Nominal thermals.** GPU impact +21%; small extra FPS dips
+  (57-59.4 summaries). Next: Stefan decides on making both flags default.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
