@@ -107,7 +107,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA29 confirmed: iPhone 4 E cores/off, smooth 60; iPad 6/on, smooth 60.
   iPhone with `--ios_utility_qos=false --ios_utility_qos_guest=true` (Oct 21,
   run_3_iphone.log): smooth Quick Race, 17/20 summaries >= 59.5; power not yet
-  measured. Next (Stefan, step 3): investigate renderer per-draw CPU work.
+  measured. Step 3 investigated (Oct 21): proposals A (early command-buffer
+  commit, aimed at the +21% GPU impact) and B (per-frame fingerprint memo)
+  await Stefan's approval; details in latest TECHNICAL entry.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
