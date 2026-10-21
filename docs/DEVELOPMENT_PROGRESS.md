@@ -105,7 +105,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   iPhone 17 Pro stuttered badly with it (45-55 fps, 4 E cores). IPA29 turns it
   on by default only with >= 6 efficiency cores (`[utility-qos]` log line).
   IPA29 confirmed: iPhone 4 E cores/off, smooth 60; iPad 6/on, smooth 60.
-  Next: iPhone try `--ios_utility_qos=false --ios_utility_qos_guest=true`.
+  iPhone with `--ios_utility_qos=false --ios_utility_qos_guest=true` (Oct 21,
+  run_3_iphone.log): smooth Quick Race, 17/20 summaries >= 59.5; power not yet
+  measured. Next (Stefan, step 3): investigate renderer per-draw CPU work.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -339,8 +341,8 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
-| `ios_utility_qos_guest` | true (IPA28) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
-| `ios_utility_qos` | true (IPA28) | Utility QoS for game main + GPU command threads |
+| `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
+| `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
