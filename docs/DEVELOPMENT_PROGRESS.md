@@ -102,7 +102,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   brightness, Nominal thermals.** GPU impact +21%; small extra FPS dips
   (57-59.4 summaries, seen only while recording per Stefan).
 - **Both Utility flags are now default true (IPA28, Oct 21, Stefan approved).**
-  Next: quick iPhone and MetalFX-mode checks on IPA28, then the next lever.
+  iPhone 17 Pro stuttered badly with it (45-55 fps, 4 E cores). IPA29 turns it
+  on by default only with >= 6 efficiency cores (`[utility-qos]` log line).
+  Next: confirm iPhone back at 60 and iPad still on with IPA29.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -346,6 +348,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA29 (Utility QoS default only with >= 6 E cores): `ios/build/NFSMW-battery-utility-ecores-29.ipa`.
+UUID `DDF5F784-C577-3AA9-8115-FF5769EB088B`; SHA256
+`ea7e301e241b4ba9bab77588888cf08f06cab8431a666498cca4209255c6fe4e`.
 
 IPA28 (Utility QoS default on): `ios/build/NFSMW-battery-utility-default-28.ipa`.
 UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1` (runtime `C4710F54-F0DE-3948-83FC-1B75F230B23D`);
