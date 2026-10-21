@@ -127,7 +127,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_caster_variant, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_caster_variant, true, "GPU",
                     "Experiment: shadow casters without the cut-out compiled in where it is off (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
                     "Experiment: commit finished render passes to the GPU while the frame is still encoded (restart required)");

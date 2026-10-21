@@ -121,7 +121,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `--nfsmw_native_cost_probe=true` to rank shader GPU costs; 1 and 3 backlogged.
   Done: shadow casters 0.91, trees 0.90, fences/plants 0.76 ms of ~10.1 ms.
   Shadow-caster variant implemented (IPA33, `nfsmw_native_shadow_caster_variant`,
-  default false). Next: probe run with it on vs the IPA32 probe run.
+  default false). Probe run: shadows identical, frame GPU -11% but not
+  attributable (caster delta unchanged). Default on from IPA34 (equivalent by
+  construction). Next: one power run on IPA34 defaults vs the Oct 21 runs.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -358,7 +360,7 @@ is retired and `ios_thread_qos` is ignored.
 | `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
-| `nfsmw_native_shadow_caster_variant` | false | IPA33: ps 4fbaecfb without its cut-out where c1.x is 0; not device-tested |
+| `nfsmw_native_shadow_caster_variant` | true (IPA34) | ps 4fbaecfb without its cut-out where c1.x is 0; shadows identical, energy unproven |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -368,6 +370,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA34 (shadow-caster variant default): `ios/build/NFSMW-battery-shadow-caster-default-34.ipa`.
+UUID `36D129D7-74A9-3D18-A33C-9E9B4DD91D77`; SHA256
+`f86bceb52fea01c9d7135371bf9ab5917f9f2a5620bb9c7a97f8df8d088f83f2`.
 
 IPA33 (shadow-caster variant switch): `ios/build/NFSMW-battery-shadow-caster-33.ipa`.
 UUID `516A4623-1FCF-3AD4-B994-4939E6ABA39E`; SHA256

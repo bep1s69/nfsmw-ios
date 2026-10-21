@@ -4364,3 +4364,29 @@ Build exit 0. IPA33 `ios/build/NFSMW-battery-shadow-caster-33.ipa`, SHA256
 on a device. Test: one pursuit with `--nfsmw_native_shadow_caster_variant=true
 --nfsmw_native_cost_probe=true`; compare 4fbaecfb's probe delta (0.91 ms) and
 the frame GPU time with the IPA32 probe run; check shadows look the same.
+
+### October 21, 2026 — IPA33 shadow-caster variant result; default on (IPA34)
+
+Log `21 October 2026/nfsmw_run_6_ipad.log` (IPA33, variant + cost probe, same
+pursuit). Stefan: shadows looked identical. Variant draws per 300-frame window
+94,610-98,510 in race windows (~320 of the ~620 caster draws per frame), 0 in
+menus. Probe comparison with run_5 (IPA32):
+
+| | run_5 IPA32 | run_6 IPA33 variant |
+|---|---:|---:|
+| Probe samples | 264 | 287 |
+| Mean GPU of the 8 frames before each probe, ms | 10.12 | 8.85 |
+| Mean logged GPU ms/frame (summaries) | 9.38 (58) | 8.35 (62) |
+| ps 4fbaecfb median saved when left out, ms | 0.91 (n=19) | 0.96 (n=18) |
+| ps 27d82ea0 (trees) | 0.90 (n=23) | 1.44 (n=17) |
+| ps 684f4711 (fences/plants) | 0.76 (n=14) | 0.22 (n=16) |
+| FPS summaries >= 59.5 | | 52/62 |
+
+Frame GPU time is ~11-13% lower, but the casters' own probe delta did not fall,
+so the drop cannot be attributed to the variant; route/scene variation (the
+foliage deltas moved a lot) is the more likely explanation (inference). The
+variant is equivalent by construction (removed branch not taken for those
+draws) and showed no visual difference, so it is default on from IPA34; its
+energy effect is unproven. IPA34 `ios/build/NFSMW-battery-shadow-caster-default-34.ipa`,
+SHA256 `f86bceb52fea01c9d7135371bf9ab5917f9f2a5620bb9c7a97f8df8d088f83f2`, NFSMW
+UUID `36D129D7-74A9-3D18-A33C-9E9B4DD91D77`; 104 metallibs identical; zip/codesign OK.
