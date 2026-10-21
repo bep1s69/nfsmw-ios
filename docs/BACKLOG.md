@@ -109,8 +109,11 @@ Power Profiler or CPU investigations.
 - GPU, image-identical (Oct 21, kept for later by Stefan): avoid whole-surface
   color resolve copies by keeping the source as the snapshot when it is not
   written again (versioned targets; ~0.3-0.6 ms of a 4.35 ms sampled span,
-  partly eligible). Memoryless storage for single-pass attachments: little
-  energy expected since unread attachments are already discarded.
+  partly eligible).
+- Memory, image-identical (Oct 21, Stefan: worth it for older devices):
+  memoryless storage for attachments cleared and discarded within one pass.
+  Little energy expected (unread attachments are already discarded); the
+  benefit is lower memory footprint on devices with less RAM.
 
 - Battery-mode-only savings still open (visual changes allowed only there):
   cheaper reflection cube, lower post-effect resolution. See

@@ -4306,3 +4306,35 @@ probe on (no profiler), then shader translation work targets the top deltas.
 bandwidth that memoryless storage would save is already avoided; memoryless
 would mainly save memory. Expected energy gain about zero; deferred to the
 backlog with 1. Not implemented.
+
+### October 21, 2026 — Cost probe results (IPA32, iPad pursuit)
+
+Log `21 October 2026/nfsmw_run_5_ipad.log`, `--nfsmw_native_cost_probe=true`:
+264 probe frames; mean GPU of the 8 frames before each probe 10.12 ms. Median
+GPU time saved when the pixel shader's draws are left out (includes their
+vertex, raster and overdraw cost, not only the pixel shader):
+
+| ps key | samples | median saved, ms | draws/frame | what it is (from the translated source) |
+|---|---:|---:|---:|---|
+| 4fbaecfb8e7c4f40 | 19 | 0.91 | 620 | shadow-map caster: writes 1,1,1,1; optional alpha test on the float constant g_bShadowMapAlphaEnabled |
+| 27d82ea0faa380a8 | 23 | 0.90 | 326 | alpha-tested trees (known from bring-up) |
+| 684f4711f29b9f77 | 14 | 0.76 | 460 | alpha-tested fences/plants (known), 12 fetches |
+| fe510d2d256c173b | 12 | 0.49 | 8 | few large draws |
+| 2d8bf2c63ddd2608 | 20 | 0.30 | 186 | |
+| d8bb87fee2d8ec76 | 20 | 0.26 | 126 | 18 fetches |
+| d1f317fad0f46ac6 | 15 | 0.24 | 369 | uses g_bDoCarShadowMap |
+| 705e150f5ef6e09b | 20 | 0.24 | 16 | |
+| 914048260028ca21 | 2 | 1.21 | 10 | too few samples |
+
+Every translated pixel shader has the alpha-test block behind a Metal function
+constant (G_SPEC_CONSTANTS, compiled out when off), so generic discards are not
+the issue. The top three are inherent work: shadow casters and alpha-tested
+foliage, whose discard is required. Lossless candidate found: the shadow-caster
+shader keeps a discard reachable through a uniform (`p0 = g_bShadowMapAlphaEnabled.x
+!= 0.0`), which can prevent Apple's hidden-surface removal/early depth for all
+620 casters even when the constant is 0. Proposal (not implemented): a function
+constant variant with that branch compiled out, chosen per draw when the
+constant register is 0 (shader rewrite in the style of rewrite_shadow_filter.py
+plus a pipeline-key bit). Expected: part of ~0.9 ms (shadow casters), size
+unknown until measured with the same probe. Memoryless (candidate 3) moved to
+the backlog for its memory benefit on older devices, at Stefan's request.

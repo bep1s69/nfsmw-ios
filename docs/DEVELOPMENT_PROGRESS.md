@@ -119,6 +119,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   B default on (IPA32), A stays off. GPU candidates without lower resolution
   ranked in latest TECHNICAL entry. Next: one pursuit on IPA32 with
   `--nfsmw_native_cost_probe=true` to rank shader GPU costs; 1 and 3 backlogged.
+  Done: shadow casters 0.91, trees 0.90, fences/plants 0.76 ms of ~10.1 ms.
+  Proposal: shadow-caster variant without its uniform-guarded discard; awaiting
+  Stefan.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
