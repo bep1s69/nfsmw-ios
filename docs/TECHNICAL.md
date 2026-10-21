@@ -4018,3 +4018,40 @@ Build exit 0 (xthread.cpp, command_processor.cpp recompiled). IPA27
 to the shader cache, `unzip -tq` OK, `codesign --verify --deep --strict` OK.
 Not run on a device. Test with Extra Args `--ios_utility_qos=true
 --ios_utility_qos_guest=true`; OFF arm both false.
+
+### October 21, 2026 — IPA27 matched pair: Utility QoS (main+CP+guest) ON vs OFF
+
+Inputs: `~/Developer/Debug/Most Wanted (2005) Debug/21 October 2026/nfsmw.log`
+and `.../21 October 2026/power_profiler_1_ipad.trace` (two runs: run 1
+22:05:12.598+02:00, 604.118 s; run 2 22:19:06.437, 600.844 s). Log launch 1
+22:01:59 logs `QoS utility set` for GPU Commands, main thread and 22 guest
+threads (ON arm = run 1); launch 2 22:18:28 logs none (OFF arm = run 2, both
+flags false). Both: IPA27 build, scale 1.500, MetalFX off, FXAA off, MSAA 0, cap 60,
+five-option group on, IPA24 lookup flags default false. Brightness 32.0% in both
+(SystemPowerLevel), thermal Nominal throughout both runs. Same pursuit per Stefan.
+Same whole-run parser as October 20 (validated against Oct 19 values).
+
+| Whole run | ON (run 1) | OFF (run 2) | Change |
+|---|---:|---:|---:|
+| Estimated system drain, pp/hour | 25.703 | 33.656 | -23.6% |
+| Process CPU impact | 5.299 | 12.457 | -57.5% |
+| Process GPU impact (row kind 2) | 2.799 | 2.309 | +21% |
+| Display impact | 5.587 | 5.251 | +6% |
+| CPU instructions, billion/s | 10.69 | 11.40 | -6% |
+| Log CPU % of one core, median 10 s window | 192 | 105 | |
+| Log FPS summaries >= 59.5 | 157 / 171 | 142 / 145 | |
+| Audio gaps (coreaudio 5 s lines) | 0 | 0 | |
+
+ON low summaries: 37.6 (load) and twelve between 57.3 and 59.4; OFF: 28.2
+(load) and 59.3. Log battery field: launch 1 100% -> 95%, launch 2 95% -> 85%.
+
+Measured: at the normal 1.5x / 60 setting and equal brightness, Utility QoS on
+all game threads cut estimated whole-device drain by about a quarter and CPU
+power impact by 57%, close to system Low Power Mode's 61% CPU reduction in the
+Oct 18 30 FPS pair. CPU time nearly doubles for 6% fewer instructions: the
+lower-operating-point signature. GPU impact rose 21% (cause not established;
+possibly the GPU clocking up as CPU work arrives later, inferred).
+Cost: slightly more frequent small frame-rate dips (summaries of 57-59.4 fps).
+Limits: one pair, ON first (fuller battery), pursuit not identical. The
+-23.6% is far larger than the Oct 19/20 pursuit-to-pursuit variation (~2.5%).
+Next: Stefan decides whether to make both flags default; check the dips in play.
