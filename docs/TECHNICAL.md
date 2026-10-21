@@ -4021,7 +4021,7 @@ Not run on a device. Test with Extra Args `--ios_utility_qos=true
 
 ### October 21, 2026 — IPA27 matched pair: Utility QoS (main+CP+guest) ON vs OFF
 
-Inputs: `~/Developer/Debug/Most Wanted (2005) Debug/21 October 2026/nfsmw.log`
+Inputs: `~/Developer/Debug/Most Wanted (2005) Debug/21 October 2026/nfsmw_run_1_ipad.log` (renamed by Stefan from nfsmw.log)
 and `.../21 October 2026/power_profiler_1_ipad.trace` (two runs: run 1
 22:05:12.598+02:00, 604.118 s; run 2 22:19:06.437, 600.844 s). Log launch 1
 22:01:59 logs `QoS utility set` for GPU Commands, main thread and 22 guest
@@ -4118,3 +4118,46 @@ confirmed on both devices. The iPhone keeps the old (higher) drain.
 Next candidate for 4-E-core devices, no code needed: iPhone with Extra Args
 `--ios_utility_qos=false --ios_utility_qos_guest=true` (only the non-main guest
 threads at Utility; main and GPU command threads keep their normal QoS).
+
+### October 21, 2026 — Step 3 investigation: renderer per-draw CPU work and the GPU rise
+
+Stefan asked to move on to the renderer's CPU work. Read-only; no source change.
+Evidence: the Oct 20 IPA26 time profile (scratchpad tp3.py, temporary) and the
+Oct 21 ON-arm log `21 October 2026/nfsmw_run_1_ipad.log` (frame 17701 summary,
+300 frames, 2,794 draws/frame, Extra Args in `21 October 2026/extra_args.txt`).
+
+Profile, % of all samples: Record 18.31% inclusive (self 4.44%, nested Record
+5.89%, Fingerprint 4.12%, AttributeKey map 1.06%, operator new 0.67%, Metal
+function map 0.58%); RenderFrame 19.98% inclusive (self 2.44%, nested 6.34%,
+unsymbolized Metal driver ~4.3%, GpuBuffer map 1.17%, string-keyed tree 0.88%).
+Fingerprint callers: Record 4.12%, NativeResolve 0.06%.
+
+Log per 300 frames: vertex cache watch/fingerprint/miss 0 / 2,925,878 /
+123,715; 1,410,395 attribute fingerprints (0.12 us/sample incl. timing); index
+cache hits/misses 1,013,384 / 628. Recording 6.23 ms/frame (vertices 3.21),
+rendering 8.73 ms/frame, GPU 10.92 ms/frame. Write watch is off by default
+(`nfsmw_native_write_watch`, correctness problems recorded earlier), so every
+cached attribute is re-validated by sampled fingerprint (~4,700 calls/frame)
+and every cached index list by a full hash up to 4 KiB (~3,400/frame).
+RenderFrame encodes the whole frame into ONE command buffer and commits at
+the end (native_renderer.mm ~4741 / ~6709).
+
+Interpretation (inferred): after Utility QoS the CPU side is cheap per
+instruction, so the remaining per-draw CPU work is worth roughly a few percent
+of drain at most. GPU impact rose 21% in the Oct 21 ON arm; with encoding
+now ~8.7 ms on E cores and a single end-of-frame commit, the GPU receives each
+frame later and has less slack, which may raise its clock.
+
+Proposals (not implemented; awaiting Stefan):
+A. Early command-buffer commit (default-off switch): commit the frame's command
+   buffer at a few render-pass boundaries and continue in a new one on the same
+   queue, so the GPU starts while encoding continues. Same passes, order and
+   image; completion/lifetime handling must wait for the last buffer. Target:
+   recover the +21% GPU impact. Medium effort; gain unproven.
+B. Per-frame fingerprint memo for non-dynamic attribute regions (default-off):
+   one fingerprint per (base, region, size) per frame instead of per draw, for
+   meshes drawn again in reflection/shadow passes. Dynamic entries keep
+   per-draw checks. Needs a duplicate counter first. Small CPU gain (<= ~4%).
+Not proposed: sampled index hashing or write-watch reuse (could miss changes,
+visual risk), and the earlier caution against core-QoS changes is superseded
+by the Oct 21 measured result.
