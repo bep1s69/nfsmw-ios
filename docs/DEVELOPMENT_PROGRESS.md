@@ -123,7 +123,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Shadow-caster variant implemented (IPA33, `nfsmw_native_shadow_caster_variant`,
   default false). Probe run: shadows identical, frame GPU -11% but not
   attributable (caster delta unchanged). Default on from IPA34 (equivalent by
-  construction). Next: one power run on IPA34 defaults vs the Oct 21 runs.
+  construction). It exposed the synchronous pipeline-archive save (two big
+  stutters); IPA35 saves in the background to a new file. iPhone baseline
+  37.6 pp/h, CPU impact 21.0; heat drops it to ~20 FPS after ~9 min. Next: iPhone
+  guest-only Utility run (`--ios_utility_qos_guest=true`) on IPA35.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -370,6 +373,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA35 (background pipeline-archive save): `ios/build/NFSMW-battery-pipeline-save-35.ipa`.
+UUID `EC48DBCA-637F-3BA7-841D-C28D8B1B6EDF`; SHA256
+`50b0f8419dfb7d2ba89ef9239135ee4a72a227063395abdf0f0a51a33304d1da`.
 
 IPA34 (shadow-caster variant default): `ios/build/NFSMW-battery-shadow-caster-default-34.ipa`.
 UUID `36D129D7-74A9-3D18-A33C-9E9B4DD91D77`; SHA256

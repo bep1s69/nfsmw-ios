@@ -4390,3 +4390,46 @@ draws) and showed no visual difference, so it is default on from IPA34; its
 energy effect is unproven. IPA34 `ios/build/NFSMW-battery-shadow-caster-default-34.ipa`,
 SHA256 `f86bceb52fea01c9d7135371bf9ab5917f9f2a5620bb9c7a97f8df8d088f83f2`, NFSMW
 UUID `36D129D7-74A9-3D18-A33C-9E9B4DD91D77`; 104 metallibs identical; zip/codesign OK.
+
+### October 21-22, 2026 — Stutters after the shader change (pipeline archive), iPhone heat, iPhone baseline
+
+Stefan (IPA34, iPad and iPhone): two big stutters since the shadow-caster change,
+one right after "loading save data" into the main menu, one from the pursuit's
+opening scene until a few seconds of control. iPhone profiler run: 60 FPS locked
+until ~6 minutes, then 30-40 logged but felt like 10-15, never recovered; the
+profiler showed Nominal -> Fair while the phone felt very hot.
+
+Stutters, measured: `21 October 2026/nfsmw_run_5_iphone.log` logs 8 `pipeline
+cache miss: ps_4fbaecfb8e7c4f40 ... (added)` (the rewritten library invalidates
+its archived pipelines), `334 draws left out while theirs compiled`, and two
+synchronous archive saves exactly at the two stutters: 00:03:19.344 `saved
+(43699 KiB)` after the menu load, 00:03:40.384 `saved (21057 KiB)` at the pursuit
+start. iPad `nfsmw_run_6_ipad.log`: same, saves 24372 then 14356 KiB. The IPA32
+iPad log has no misses and no saves. This is the parked "pipeline archive
+persistence" issue (synchronous save ~2.7 s stall) exposed by the library change.
+The saved file shrinking (43.7 -> 21.1 MB, 24.4 -> 14.4 MB) is consistent with
+saving over the file the archive was loaded from losing entries (inferred), which
+the old v2 comment also reports (misses recurring session after session).
+Fix (IPA35, no switch, no visual effect): PipelineArchive::Report no longer
+serializes on the render queue; it sets dirty=false and dispatches the save to a
+serial Utility queue `nfsmw.pipelines.save`, which serializes to
+`<archive>.new` under the archive mutex, then rename()s it over the archive
+(one save in flight; on failure dirty is set again). Log: `pipeline cache saved
+in the background (<n> KiB)`. Risk: archive lookups (outside the mutex) can run
+while a save is in progress; MTLBinaryArchive thread-safety for that case is
+assumed, not verified. Still expected once per changed library: the first
+compile of new pipelines (draws left out while compiling).
+
+iPhone heat, measured from the same log: FPS summaries 57-60 until 00:08:49, then
+50.4, 45.8, 36.7, 28.0, 26.1, then 19.7-25.9 to the end; late windows GPU
+23.7-24.2 ms/frame and rendering 21-33 ms/frame (GPU and CPU slowed by thermal
+throttling, inferred). Stefan's settings have `[battery] 30 fps when warm off,
+30 fps in menus off, 0.75x when hot off`, so no automatic step-down happened;
+uneven 20-40 FPS under a 60 cap judders, which explains "feels like 10-15".
+iPhone baseline power (no Utility QoS; `power_profiler_1_iphone.trace`, run 1
+00:04:07.015, 549.654 s): drain 37.599 pp/h, CPU impact 21.014, display 1.993,
+instructions 9.85 G/s, brightness 47%; Nominal 0-5:48, Fair 5:48-9:09. CPU
+dominates the iPhone's cost, so the guest-only Utility setting is the main lever.
+IPA35 `ios/build/NFSMW-battery-pipeline-save-35.ipa`, SHA256
+`50b0f8419dfb7d2ba89ef9239135ee4a72a227063395abdf0f0a51a33304d1da`, NFSMW UUID
+`EC48DBCA-637F-3BA7-841D-C28D8B1B6EDF`; 104 metallibs identical; zip/codesign OK.

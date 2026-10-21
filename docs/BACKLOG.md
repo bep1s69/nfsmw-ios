@@ -92,7 +92,13 @@ request-completion wait and renderer progress against the earlier failure.
 Evidence and individual loading checks are in [TECHNICAL.md](TECHNICAL.md).
 Do not resume the isolation sequence unless the issue returns or the user asks.
 
-### Pipeline archive persistence — parked
+### Pipeline archive persistence — active (Oct 21)
+
+Oct 21: the shadow-caster library change caused two multi-second stutters
+(synchronous saves after new pipelines). IPA35 saves in the background to a new
+file then renames; awaiting device check that the stutters are gone and the
+misses do not recur next session.
+
 
 Defer to a future session as requested. A synchronous archive save previously
 coincided with a roughly 2.667-second stall. Investigate persistence scheduling
