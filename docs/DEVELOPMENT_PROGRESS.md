@@ -109,7 +109,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   run_3_iphone.log): smooth Quick Race, 17/20 summaries >= 59.5; power not yet
   measured. Step 3 investigated (Oct 21): proposals A (early command-buffer
   commit, aimed at the +21% GPU impact) and B (per-frame fingerprint memo)
-  await Stefan's approval; details in latest TECHNICAL entry.
+  approved and implemented as default-off switches in IPA30, together with
+  five experiments made default (render utility, attribute lookup, GPU lookup
+  hash, lazy diagnostics, transform copies). Next: iPhone/iPad correctness lap,
+  then A+B ON vs OFF power pair on the iPad.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -334,17 +337,19 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_constant_copies` | true | Guarded guest copy patch; differential host checks, iPad/device checks; no isolated energy claim |
 | `nfsmw_native_texture_masks` | true | Conservative shader-slot pruning; large reduction in slot visits, no quality issue reported |
 | `nfsmw_native_draw_arena` | true | Per-frame PMR storage; allocation count reduced; GPU/frame ownership preserved |
-| `nfsmw_native_render_utility` | false | Render queue largely on E cores; earlier 60 FPS whole-device power unchanged; short iPhone load passed |
-| `nfsmw_native_attribute_lookup` | false | Bounded entry front cache, content validation unchanged; iPad correctness passed |
-| `nfsmw_native_transform_copies` | false | Guarded scalar transfers, bit-exact differential tests and iPad checks; energy gain unproven |
-| `nfsmw_native_lazy_diagnostics` | false | Skips unused normal-frame metadata/labels, preserves snapshots and residency; iPad check passed |
-| `nfsmw_native_gpu_lookup_hash` | false | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
+| `nfsmw_native_render_utility` | true (IPA30) | Render queue largely on E cores; earlier 60 FPS whole-device power unchanged; short iPhone load passed |
+| `nfsmw_native_attribute_lookup` | true (IPA30) | Bounded entry front cache, content validation unchanged; iPad correctness passed |
+| `nfsmw_native_transform_copies` | true (IPA30) | Guarded scalar transfers, bit-exact differential tests and iPad checks; energy gain unproven |
+| `nfsmw_native_lazy_diagnostics` | true (IPA30) | Skips unused normal-frame metadata/labels, preserves snapshots and residency; iPad check passed |
+| `nfsmw_native_gpu_lookup_hash` | true (IPA30) | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
 | `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
+| `nfsmw_native_fingerprint_memo` | false | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
+| `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
@@ -353,6 +358,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA30 (five defaults + A/B switches): `ios/build/NFSMW-battery-defaults-early-commit-30.ipa`.
+UUID `5E8C4D54-6722-3B1C-95FD-3B23FFA00AAD`; SHA256
+`0f24555d5ae48cae59616ec4592865317ad0509b61b7106ad6a8ca85fcee185c`.
 
 IPA29 (Utility QoS default only with >= 6 E cores): `ios/build/NFSMW-battery-utility-ecores-29.ipa`.
 UUID `DDF5F784-C577-3AA9-8115-FF5769EB088B`; SHA256

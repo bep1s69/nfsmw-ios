@@ -109,9 +109,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, true, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, false, "GPU",
                     "Experiment: compare complete attribute front-cache keys in bulk (requires attribute lookup; restart required)");
@@ -119,12 +119,16 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_target_lookup, false, "GPU",
                     "Experiment: reuse the last exact target lookup within frame setup and encoding (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pipeline_lookup, false, "GPU",
                     "Experiment: reuse the last successful ready-pipeline lookup on an exact key match (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, true, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, false, "GPU",
+                    "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
+                    "Experiment: commit finished render passes to the GPU while the frame is still encoded (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fused_upload_sizing, false, "GPU",
                     "Experiment: size the frame upload buffer in one draw traversal (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
@@ -1032,6 +1036,7 @@ struct VertexDiagnostics {
   uint64_t fingerprint_sample_count = 0;
   uint64_t fingerprint_sample_ns = 0;
   uint64_t fingerprint_shared = 0;  // inputs that reused their draw's region fingerprint
+  uint64_t fingerprint_memo = 0;    // regions fingerprinted earlier in the same frame (fingerprint memo)
   uint64_t decoded_vertex_elements = 0;
   uint64_t decoded_bytes = 0, dynamic_decoded_bytes = 0;
   uint64_t expanded_input_indices = 0;
@@ -1060,6 +1065,7 @@ struct VertexDiagnostics {
     fingerprint_sample_count += other.fingerprint_sample_count;
     fingerprint_sample_ns += other.fingerprint_sample_ns;
     fingerprint_shared += other.fingerprint_shared;
+    fingerprint_memo += other.fingerprint_memo;
     decoded_vertex_elements += other.decoded_vertex_elements;
     decoded_bytes += other.decoded_bytes;
     dynamic_decoded_bytes += other.dynamic_decoded_bytes;
@@ -1166,6 +1172,7 @@ bool timed_draw = false;  // this draw's recording is timed (one in eight; comma
 uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
+std::atomic<uint64_t> early_commit_total{0};  // early command-buffer commits, since the last stats line
 
 // Occlusion queries: the last count per sample count address, at the guest's
 // resolution (written when the GPU finishes a frame, read by the command
@@ -2535,14 +2542,47 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         // once per draw and stream, not once per input.
         const size_t region = size_t(lo) * f.stride * 4;
         const size_t region_size = size_t(d.vertex_count + 1) * f.stride * 4 + 16;
+        // Fingerprint memo: the same static mesh drawn again in this frame
+        // (reflection faces, shadows) reuses the fingerprint taken at its
+        // first draw. Only for entries not marked dynamic and not for
+        // DrawPrimitiveUP vertices; dynamic data is still checked per draw.
+        // A static region rewritten mid-frame is seen on the next frame.
+        struct MemoKey {
+          const uint8_t* base;
+          size_t start, size;
+          bool operator==(const MemoKey& o) const { return base == o.base && start == o.start && size == o.size; }
+        };
+        struct MemoHash {
+          size_t operator()(const MemoKey& k) const {
+            return std::hash<uintptr_t>()(uintptr_t(k.base) + k.start) ^ (k.size * 0x9E3779B97F4A7C15ull);
+          }
+        };
+        static std::unordered_map<MemoKey, uint64_t, MemoHash> memo;
+        static uint64_t memo_frame = UINT64_MAX;
+        static const bool memo_on = REXCVAR_GET(nfsmw_native_fingerprint_memo);
+        const bool memo_ok = memo_on && !acached.dynamic && !in.up_vertices;
+        if (memo_on && memo_frame != frame_counter) {
+          memo.clear();
+          memo_frame = frame_counter;
+        }
+        const MemoKey mkey{base, region, region_size};
+        const auto memo_hit = memo_ok ? memo.find(mkey) : memo.end();
         if (base == region_fp_base && region == region_fp_start && region_size == region_fp_size) {
           afp = region_fp;
           ++frame.vertex_diagnostics.fingerprint_shared;
+        } else if (memo_hit != memo.end()) {
+          afp = memo_hit->second;
+          region_fp_base = base;
+          region_fp_start = region;
+          region_fp_size = region_size;
+          region_fp = afp;
+          ++frame.vertex_diagnostics.fingerprint_memo;
         } else {
         const uint64_t call = frame.vertex_diagnostics.fingerprint_calls++;
         const bool sample = (call & 63) == 0;
         const auto fingerprint_start = sample ? FastClock::now() : FastClock::time_point{};
         afp = Fingerprint(base + region, region_size);
+        if (memo_ok) memo[mkey] = afp;
         region_fp_base = base;
         region_fp_start = region;
         region_fp_size = region_size;
@@ -4739,6 +4779,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::vector<std::string> order;  // targets in order of first use
 
     id<MTLCommandBuffer> cb = [queue commandBuffer];
+    // Early commit (nfsmw_native_early_commit): at a pass boundary, once
+    // enough draws are encoded, the command buffer so far goes to the GPU and
+    // the frame continues in a new one on the same queue (same order, same
+    // passes), so the GPU starts while the rest is still being encoded.
+    // Resources are retained by each command buffer; the frame's completion
+    // work stays on the last one, which the queue completes last.
+    static const bool early_commit = REXCVAR_GET(nfsmw_native_early_commit);
+    const size_t early_commit_draws = std::max<size_t>(400, frame->draws.size() / 3);
+    size_t early_commit_from = 0;
+    uint32_t early_commits = 0;
+    auto early_gpu_start = std::make_shared<std::atomic<double>>(0.0);
     // Resolved textures by destination address -> heap index.
     std::map<uint32_t, uint32_t> resolved;
     // For sampling a resolve the way the console does: what it swapped in
@@ -5514,6 +5565,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                           2 * std::fabs(d.viewport[2]), d.viewport[1], d.viewport[3]));
         [enc endEncoding];
         finish_motion(di);
+        if (early_commit && !profile && !dump && !capture.active && di >= early_commit_from + early_commit_draws &&
+            frame->draws.size() - di >= early_commit_draws / 2) {
+          if (early_commits == 0) {
+            [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
+              early_gpu_start->store(done.GPUStartTime, std::memory_order_relaxed);
+            }];
+          }
+          [cb commit];
+          cb = [queue commandBuffer];
+          early_commit_from = di;
+          ++early_commits;
+          early_commit_total.fetch_add(1, std::memory_order_relaxed);
+        }
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
         // The target's last pass this frame: nothing loads it again.
@@ -6601,7 +6665,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           REXLOG_WARN("[native] GPU error: {}", done.error.localizedDescription.UTF8String);
         } else {
           ApplyWriteBacks(*writebacks);
-          const double gpu_ms = std::max(0.0, done.GPUEndTime - done.GPUStartTime) * 1000.0;
+          // With early commits: from the first command buffer's start (a span).
+          const double early_start = early_gpu_start->load(std::memory_order_relaxed);
+          const double gpu_start = early_start > 0 ? std::min(early_start, done.GPUStartTime) : done.GPUStartTime;
+          const double gpu_ms = std::max(0.0, done.GPUEndTime - gpu_start) * 1000.0;
           gpu_us += uint64_t(gpu_ms * 1000.0);
           {  // the cost probe: this frame against the average of the 8 before
             static std::mutex m;
@@ -6821,7 +6888,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "{:.2f} ms/frame (game thread: vertices {:.2f}, constants and textures {:.2f}; with the command stream "
                     "decoding {:.2f}), rendering {:.2f} ms/frame, "
                     "GPU {:.2f} ms/frame ({} over 45 ms) | vertex cache watch/fingerprint/miss {}/{}/{}, decoded {} attribute elements, "
-                    "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample) | "
+                    "expanded indices {} -> {}, index cache hits/misses {}/{}, fingerprints {} calls / {} samples ({:.2f} us/sample), {} from this frame's memo | "
                     "textures decoded {} ({} MiB)",
                     number, drawn, frame->draws.size(), frame->skipped_shader, resolves_done, frame->textures.size(),
                     gpu_texture_count.load(), gpu_buffers.size(), pipeline_cache.size(), kept_used, pass_splits, stores_discarded, sky_deferred, sky_covered_draws,
@@ -6839,7 +6906,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                         ? double(vertex_diagnostics.fingerprint_sample_ns) /
                               double(vertex_diagnostics.fingerprint_sample_count) / 1000.0
                         : 0.0,
+                    vertex_diagnostics.fingerprint_memo,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
+        REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}",
+                    REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
+                    REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off");
         REXLOG_INFO("[native] energy baseline: scale {:.3f}, MetalFX {}, FXAA {}, forced MSAA {}, cap {} | "
                     "geometry decoded {:.2f} MiB/frame ({:.2f} classified dynamic), persistent arena uploads {:.2f} MiB/frame "
                     "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "
