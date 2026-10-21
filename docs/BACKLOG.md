@@ -106,6 +106,12 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- GPU, image-identical (Oct 21, kept for later by Stefan): avoid whole-surface
+  color resolve copies by keeping the source as the snapshot when it is not
+  written again (versioned targets; ~0.3-0.6 ms of a 4.35 ms sampled span,
+  partly eligible). Memoryless storage for single-pass attachments: little
+  energy expected since unread attachments are already discarded.
+
 - Battery-mode-only savings still open (visual changes allowed only there):
   cheaper reflection cube, lower post-effect resolution. See
   `HANDOFF_CHATGPT.md` and the checkpoint before starting.
