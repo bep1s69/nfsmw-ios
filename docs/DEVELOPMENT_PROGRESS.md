@@ -112,7 +112,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   approved and implemented as default-off switches in IPA30, together with
   five experiments made default (render utility, attribute lookup, GPU lookup
   hash, lazy diagnostics, transform copies). Next: iPhone/iPad correctness lap,
-  then A+B ON vs OFF power pair on the iPad.
+  then A+B ON vs OFF power pair on the iPad. IPA30 checks: defaults OK on both;
+  B cuts fingerprints ~75%; A never fired (threshold), fixed in IPA31. Next:
+  IPA31 lap showing early commits, then one A+B power run vs the Oct 21 ON arm.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -358,6 +360,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA31 (early-commit threshold fix): `ios/build/NFSMW-battery-early-commit-fix-31.ipa`.
+UUID `9AEF39D1-5E2D-3902-A6F0-E687F0F36DD4`; SHA256
+`2f09dae9f714acbe8586436032403af2c260c738a9a1a422acce99bc7034ff85`.
 
 IPA30 (five defaults + A/B switches): `ios/build/NFSMW-battery-defaults-early-commit-30.ipa`.
 UUID `5E8C4D54-6722-3B1C-95FD-3B23FFA00AAD`; SHA256
