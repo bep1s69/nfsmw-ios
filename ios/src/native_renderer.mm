@@ -1193,7 +1193,7 @@ std::unordered_map<uint32_t, uint64_t> occlusion_counts;
 struct PipelineArchive {
   id<MTLBinaryArchive> archive = nil;
   NSURL* url = nil;
-  bool tried = false, dirty = false;
+  bool tried = false, dirty = false, saving = false;
   std::mutex mutex;  // the archive's additions and saving, the counts
   // Since the last log line: pipelines made, of them from the archive, time.
   uint32_t made = 0, loaded = 0;
@@ -1274,14 +1274,37 @@ struct PipelineArchive {
     }
     made = loaded = 0;
     ms = worst_ms = 0;
-    if (dirty && archive) {
-      NSError* error = nil;
-      if (![archive serializeToURL:url error:&error]) {
-        REXLOG_WARN("[native] pipeline cache not saved: {}", error ? error.localizedDescription.UTF8String : "?");
-      } else {
-        REXLOG_INFO("[native] pipeline cache saved ({} KiB)", FileSize(url) / 1024);
-      }
+    if (dirty && archive && !saving) {
+      // Saved on a background queue, not here on the render queue: a
+      // synchronous save stalled the picture for seconds after the menu and
+      // at the start of an event, whenever new pipelines had been added.
+      // Written to a new file that then replaces the old one: the archive was
+      // loaded from that file, and saving over it in place lost entries (the
+      // file shrank, and the same pipelines missed again next session).
       dirty = false;
+      saving = true;
+      static dispatch_queue_t queue = dispatch_queue_create(
+          "nfsmw.pipelines.save", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
+      dispatch_async(queue, ^{
+        NSURL* tmp = [url URLByAppendingPathExtension:@"new"];
+        NSError* error = nil;
+        bool ok;
+        {
+          std::lock_guard<std::mutex> lock(mutex);
+          [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
+          ok = [archive serializeToURL:tmp error:&error];
+        }
+        if (ok) ok = rename(tmp.fileSystemRepresentation, url.fileSystemRepresentation) == 0;
+        if (!ok) {
+          REXLOG_WARN("[native] pipeline cache not saved: {}", error ? error.localizedDescription.UTF8String : "rename failed");
+          std::lock_guard<std::mutex> lock(mutex);
+          dirty = true;
+        } else {
+          REXLOG_INFO("[native] pipeline cache saved in the background ({} KiB)", FileSize(url) / 1024);
+        }
+        std::lock_guard<std::mutex> lock(mutex);
+        saving = false;
+      });
     }
   }
 };
