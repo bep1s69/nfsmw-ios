@@ -117,7 +117,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA31 lap showing early commits, then one A+B power run vs the Oct 21 ON arm.
   Done: A+B 25.41 vs 25.70 pp/h (-1.1%, noise level); A no GPU benefit. Proposal:
   B default on (IPA32), A stays off. GPU candidates without lower resolution
-  ranked in latest TECHNICAL entry; awaiting Stefan's pick.
+  ranked in latest TECHNICAL entry. Next: one pursuit on IPA32 with
+  `--nfsmw_native_cost_probe=true` to rank shader GPU costs; 1 and 3 backlogged.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.

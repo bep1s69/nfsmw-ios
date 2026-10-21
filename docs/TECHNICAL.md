@@ -4286,3 +4286,23 @@ Image-identical candidates, ranked:
    one pass: saves memory, small bandwidth gain.
 Not image-identical (settings only): MetalFX temporal from a lower internal
 resolution to the same output, Battery mode's half-rate reflections/shadows.
+
+### October 21, 2026 — GPU next steps: cost probe for shaders, memoryless deferred
+
+Stefan chose candidate 2 (shader cost) and 3 (memoryless), with 1 (resolve-copy
+avoidance) kept on the backlog.
+
+2: no new build needed. The renderer already has `--nfsmw_native_cost_probe=true`
+(native_renderer.mm ~5361 / ~6676, default false): every 60th frame with more than
+1,000 draws it leaves out one pixel shader, cycling through the 16 most-drawn,
+and logs `[cost-probe] without ps <key> (<n> of <m> draws): GPU <x> ms, the 8
+frames before <y> ms: <delta> ms`. A ~5-minute pursuit gives roughly 19 samples
+per shader. Limits: ranks by draw count (a costly full-screen shader with few
+draws is missed), one frame per sample, noisy. The left-out frame is visible as
+a missing material for one frame. Next: Stefan records one pursuit with the
+probe on (no profiler), then shader translation work targets the top deltas.
+3: on inspection the renderer already discards attachments not read later
+(last-pass store actions, "last passes storing only what is read"), so the
+bandwidth that memoryless storage would save is already avoided; memoryless
+would mainly save memory. Expected energy gain about zero; deferred to the
+backlog with 1. Not implemented.
