@@ -49,7 +49,7 @@ depth snapshots (315/arm), artificial splits 0; pooling/discard-unread already w
 Next proposed source work is an opt-in frame-flow/copy-eligibility diagnostic in
 four app files, then a focused scheduling trace to investigate the LPM result.
 October 20: LPM gain traced to CPU operating point only (GPU/display/FPS
-equal); Oct 21 IPA27 matched pair with both Utility flags: drain -23.6%, CPU impact -57%, small FPS dips; default decision pending.
+equal); Oct 21 IPA27 pair: drain -23.6%, CPU impact -57%; both Utility flags default on from IPA28. iPhone check pending.
 Await approval; no new source/build/test. GPR prototype remains held. Native
 Metal display-link pacing and versioned copy removal are candidates, not proven
 energy wins. Free LiveContainer signing and ordinary user workflow are required;

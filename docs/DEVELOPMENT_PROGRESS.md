@@ -24,6 +24,8 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 21: Stefan approved Utility QoS for all game threads as the default
+  (`ios_utility_qos`, `ios_utility_qos_guest`); keep the Extra Args opt-out.
 - Work locally on `battery-optimization`; do not push, publish, tag or release
   without explicit permission. Local commits are authorized.
 - Preserve Stefan Stoica's existing Git author configuration; add no attribution
@@ -98,7 +100,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **IPA27 matched pair (Oct 21): both Utility flags ON cut estimated drain
   33.66 -> 25.70 pp/h (-23.6%) and CPU impact -57% at 1.5x/60, equal 32%
   brightness, Nominal thermals.** GPU impact +21%; small extra FPS dips
-  (57-59.4 summaries). Next: Stefan decides on making both flags default.
+  (57-59.4 summaries, seen only while recording per Stefan).
+- **Both Utility flags are now default true (IPA28, Oct 21, Stefan approved).**
+  Next: quick iPhone and MetalFX-mode checks on IPA28, then the next lever.
 
 - **IPA25 built: `--ios_utility_qos=true` (default false) runs the game main
   and GPU command threads at Utility QoS** (approved Oct 20). Not device-tested.
@@ -332,8 +336,8 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
-| `ios_utility_qos_guest` | false | IPA27: Utility QoS for all other guest threads; built, not device-tested |
-| `ios_utility_qos` | false | IPA25: Utility QoS for game main + GPU command threads; built, not device-tested |
+| `ios_utility_qos_guest` | true (IPA28) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
+| `ios_utility_qos` | true (IPA28) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
 These are independent switches; clearing Extra Args does not enable the five
@@ -342,6 +346,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA28 (Utility QoS default on): `ios/build/NFSMW-battery-utility-default-28.ipa`.
+UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1` (runtime `C4710F54-F0DE-3948-83FC-1B75F230B23D`);
+SHA256 `ce31d0a89fd44ac19d34ed763f6ec8abece1871506dbe3e078004eafbe6866d8`.
 
 IPA27: `ios/build/NFSMW-battery-utility-qos-guest-27.ipa`.
 UUID `8EB9B0F3-21DB-31FB-B9BD-351BB7FC08C1` (runtime `1FAE8DDC-9FAE-3CF3-962C-DB86037B1E89`);

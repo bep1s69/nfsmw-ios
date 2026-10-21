@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **About a quarter less battery drain while playing**, with the same picture,
+  resolution and frame rate: the game's threads ask iOS for a lower priority,
+  so the CPU runs at cheaper speeds (measured on an iPad Pro M4 at 1.5x / 60 fps).
+  Turn it off with `--ios_utility_qos=false --ios_utility_qos_guest=false`.
+
 ## 0.3.0
 
 - **Fixes for freezes.** The freeze after leaving the safehouse (and in some
