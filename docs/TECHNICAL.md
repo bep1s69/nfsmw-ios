@@ -4557,3 +4557,47 @@ large share of CPU work": measured, it is the largest single removable stage,
 but under 10% even as an upper bound. Risks unchanged from Oct 19: command
 ordering, register side effects, predicates, queries, fences, writebacks,
 ring/segment progress. No code written; direction awaits Stefan.
+
+### October 22, 2026 — Direct draw path: how the game feeds the GPU, and a phased design
+
+Stefan chose to start the direct path (backlog item 3) and parked the older-chip
+profile (it is Battery mode chosen automatically: polishing work).
+
+How state reaches the GPU today (read from the generated USA code):
+- sub_825A3EC8 is the game's D3D "flush dirty state" before a draw. The device
+  object holds 64-bit dirty masks at +16, +24, +32, +40 and +48 and a register
+  shadow. For each mask it calls an emitter and then clears the mask.
+- sub_825A28A8 (nfsmw_recomp.56.cpp), the emitter: (device, mask, first
+  register, shadow pointer). For every run of set bits it writes a PM4 type-0
+  header `((count-1) << 16) | register` into the ring, then copies the run's
+  values from the shadow, wrapping or flushing via sub_825A27F0 when the
+  segment is full.
+- sub_825A2A60 (nfsmw_recomp.22.cpp): the same for 4-word groups (float4
+  constants), with a 0x80000000-based header.
+- sub_82593A58: the draw itself (state flush, segment space check, draw packet,
+  indexed/tiling state). Draws, resolves, fences and queries all reach the SDK
+  CommandProcessor through the same ordered ring.
+So every dirty register is copied twice: shadow -> ring by the game, ring ->
+register file by the CP (ExecutePacket), before native Record reads it.
+
+Phased design (each phase is a default-off switch, measured before the next):
+- P0, diagnostic (no behaviour change): per-frame counts of register words
+  written per emitter (type-0 runs, float4 groups), draw packets and other
+  packet types, so each phase's ceiling is known on device.
+- P1, register runs as one block: the emitters copy the dirty runs into one
+  host-side block appended to the ring as a single private packet (e.g. a
+  type-3 NOP carrying a pointer and length), in the same position in the
+  stream. The CP applies the block with one copy into its register file, and
+  runs the existing per-register side-effect handling only for registers that
+  have side effects. Order, fences and queries are unchanged because the block
+  stays in the stream. Saves header formatting and per-packet decoding.
+- P2, draw records: the draw packet carries a pointer to a draw record prepared
+  on the game thread (indices, fetch constants), so CpDraw skips re-deriving it.
+- P3, direct native recording on the game thread, keeping a stream marker for
+  order. Largest change; only if P1/P2 show the stage is worth it.
+Ceiling for the whole path on the iPhone: 9.3% of app CPU (measured envelope),
+realistic 4-6% (inferred). Main risks: register side effects, ring segment
+wrap and CP read-pointer writeback, predicated packets, and anything else that
+reads the ring (resolves, occlusion queries, swaps). Validation: bit-exact frame
+snapshots (nfsmw_native_dump) with the switch on/off on the same scene, plus
+the usual device checks. Next: implement P0 on Stefan's approval.
