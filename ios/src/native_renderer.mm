@@ -45,6 +45,7 @@
 #include <mach/task_info.h>
 
 #include <algorithm>
+#include <dlfcn.h>
 #include <deque>
 #include <atomic>
 #include <chrono>
@@ -1175,7 +1176,10 @@ uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
 uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
-std::atomic<uint64_t> early_commit_total{0};  // early command-buffer commits, since the last stats line
+std::atomic<uint64_t> early_commit_total{0};
+// PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
+// key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
+// (librexgpu-xenos, loaded at run time): found with dlsym.  // early command-buffer commits, since the last stats line
 
 // Occlusion queries: the last count per sample count address, at the guest's
 // resolution (written when the GPU finishes a frame, read by the command
@@ -6983,6 +6987,28 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
                     REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws);
         caster_variant_draws = 0;
+        static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
+        static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));
+        if (census_packets && census_words && rex::cvar::Query<bool>("ios_packet_census")) {
+          uint64_t* nfsmw_cp_census_packets = census_packets;
+          uint64_t* nfsmw_cp_census_words = census_words;
+          std::vector<int> keys(130);
+          for (int i = 0; i < 130; ++i) keys[i] = i;
+          std::sort(keys.begin(), keys.end(),
+                    [&](int x, int y) { return nfsmw_cp_census_words[x] + nfsmw_cp_census_packets[x] >
+                                              nfsmw_cp_census_words[y] + nfsmw_cp_census_packets[y]; });
+          std::string census;
+          for (int k = 0; k < 10 && nfsmw_cp_census_packets[keys[k]]; ++k) {
+            const int i = keys[k];
+            census += fmt::format(" | {}: {:.1f} packets, {:.1f} words", i < 128 ? fmt::format("op {:02x}", i)
+                                                                            : i == 128 ? std::string("type 0")
+                                                                                       : std::string("type 1/2"),
+                                  double(nfsmw_cp_census_packets[i]) / frames, double(nfsmw_cp_census_words[i]) / frames);
+          }
+          REXLOG_INFO("[pm4-census] per frame over {} frames{}", frames, census);
+          std::fill(nfsmw_cp_census_packets, nfsmw_cp_census_packets + 130, 0);
+          std::fill(nfsmw_cp_census_words, nfsmw_cp_census_words + 130, 0);
+        }
         REXLOG_INFO("[native] energy baseline: scale {:.3f}, MetalFX {}, FXAA {}, forced MSAA {}, cap {} | "
                     "geometry decoded {:.2f} MiB/frame ({:.2f} classified dynamic), persistent arena uploads {:.2f} MiB/frame "
                     "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "

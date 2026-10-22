@@ -97,6 +97,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
+  `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
+  Next: one race with the census on, then size P1 (register runs as one block).
+
 - **IPA36: fix for the iPhone null-call crash near the safehouse** (deferred-call
   queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
   play to the safehouse on IPA36; then the pending IPA35/36 two-launch stutter
@@ -381,6 +385,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA38 (PM4 census): `ios/build/NFSMW-battery-pm4-census-38.ipa`.
+UUID `83839B57-2037-347F-BD4C-310AEB0B51BF`; SHA256
+`bf0bd4b08f5ec3660c35e579e3fd4424c9f8472496cdc99b7e5994fc240f56b2`; dSYM beside it.
 
 IPA37 (bookkeeping trims, line tables): `ios/build/NFSMW-battery-target-memo-37.ipa`.
 UUID `353B6258-10CB-347B-91AB-38E4DCAB69BC`; SHA256
