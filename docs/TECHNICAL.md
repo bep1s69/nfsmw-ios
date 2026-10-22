@@ -4601,3 +4601,22 @@ wrap and CP read-pointer writeback, predicated packets, and anything else that
 reads the ring (resolves, occlusion queries, swaps). Validation: bit-exact frame
 snapshots (nfsmw_native_dump) with the switch on/off on the same scene, plus
 the usual device checks. Next: implement P0 on Stefan's approval.
+
+### October 22, 2026 — Direct draw path P0: PM4 census build (IPA38)
+
+Stefan approved P0 ("ok"). New SDK patch `tools/ios/patch_ios_packet_census.py`
+(listed last in prepare_sdk.py, applied 2/2): cvar `ios_packet_census` (default
+false). In CommandProcessor::ExecutePacket it counts packets and payload words by
+key (type-3 opcode 0-127; 128 type 0; 129 type 1/2) into exported arrays
+`nfsmw_cp_census_packets` / `nfsmw_cp_census_words` in librexgpu-xenos. The native
+renderer finds them with dlsym (the GPU plugin is loaded at run time; the first
+link failed with undefined symbols and the first export attempt was hidden, both
+fixed) and, with each 300-frame stats window, logs `[pm4-census] per frame over
+<n> frames | op <xx>: <p> packets, <w> words | type 0: ...` for the top ten
+keys, then resets. Counters are plain integers (CP thread writes, render queue
+reads): approximate, diagnostic only. Build exit 0. IPA38
+`ios/build/NFSMW-battery-pm4-census-38.ipa`, SHA256
+`bf0bd4b08f5ec3660c35e579e3fd4424c9f8472496cdc99b7e5994fc240f56b2`, NFSMW UUID
+`83839B57-2037-347F-BD4C-310AEB0B51BF`, dSYM beside it; 104 metallibs; zip and
+codesign OK; both symbols exported (nm). Not run on a device.
+Test: one race or pursuit with `--ios_packet_census=true` (iPhone or iPad).
