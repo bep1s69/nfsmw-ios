@@ -193,7 +193,9 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   const bool on = cores >= 6;
   // Above 60 fps (the 120 cap) the main and GPU command threads need the
   // performance cores' headroom: adaptive there (adaptive_qos.cpp), so the cap
-  // is still reached while frames have time to spare.
+  // is still reached while frames have time to spare. With fewer efficiency
+  // cores (iPhones, M1 iPads) adaptive at every cap: at 30/40 fps or in light
+  // scenes they run on the efficiency cores, and switch back when frames are late.
   int cap = 60;
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
@@ -201,7 +203,7 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   const bool high_cap = cap > 60;
   const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", on && !high_cap},
                                                    {"--ios_utility_qos_guest", on},
-                                                   {"--ios_adaptive_qos", on && high_cap}};
+                                                   {"--ios_adaptive_qos", !on || high_cap}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });

@@ -4822,3 +4822,22 @@ cannot change the 8-bit result (largest GPU lever on Apple GPUs; not
 bit-identical, needs a per-shader safety analysis), (b) resolve-copy avoidance
 (backlog), (c) MetalFX temporal from 1x to the native output as the "native look"
 at much lower GPU cost (settings, already available).
+
+### October 22, 2026 — IPA45 iPhone adaptive check; adaptive default on below 6 E cores (IPA46)
+
+`22 October 2026/nfsmw_run_7_iphone.log` (IPA45, 1x + MetalFX "to the screen",
+guest Utility + adaptive via Extra Args): boosts at 23:18:38 (after 1 s on Utility,
+hold 40 s) and 23:19:21 (after 2 s, hold 80 s); main thread followed at 23:19:10.
+16 of 21 FPS summaries >= 59.5; Stefan saw no dropped frames; `[cpu]` median 126%.
+Reading: at 60 fps on the iPhone the main/GPU threads cannot stay on Utility; the
+backoff makes adaptive settle at full speed (few late frames per retry, retries
+every 80-240 s). Stefan asks about the 30/40 caps: the lateness budget follows
+`ios_fps_cap` (33.3 / 25 ms), so there Utility is expected to hold (inferred from
+the Oct 18 30 FPS Low Power pair; not measured on the iPhone).
+IPA46: `ios_adaptive_qos` defaults on whenever the device has fewer than 6 E
+cores (and, as in IPA45, with >= 6 E cores above 60 fps); guest-thread Utility
+stays default off there (not self-correcting). IPA46
+`ios/build/NFSMW-battery-adaptive-default-46.ipa`, SHA256
+`e53538ebb055566abff989b0e4a9c3d9e13d956f02d7f7006233bf8e89e11798`, NFSMW UUID
+`C60ADFE5-E2BA-319E-8715-3BF3AC5CDBEC`; 104 metallibs; zip/codesign OK.
+Test: iPhone at cap 30 and 40, log should show long stretches on Utility.

@@ -102,6 +102,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   --ios_adaptive_qos=true`; IPA43 also carries the iOS 26 shader rebuild.
   iPhone not smooth enough; IPA45 tightens it and makes the 120 cap use adaptive
   QoS on 6-E-core iPads. GPU candidates listed (half precision first).
+  IPA46: adaptive default on below 6 E cores; next iPhone test at cap 30/40.
 
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
@@ -391,7 +392,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
 | `nfsmw_native_shadow_caster_variant` | true (IPA34) | ps 4fbaecfb without its cut-out where c1.x is 0; shadows identical, energy unproven |
 | `nfsmw_native_gpr_helpers` | true (IPA42) | native guest register save/restore helpers; iPhone race passed, gain unmeasured |
-| `ios_adaptive_qos` | false | IPA44: Utility for main/CP threads while frames are on time; not device-tested |
+| `ios_adaptive_qos` | on below 6 E cores, or >= 6 E above 60 fps (IPA46) | Utility for main/CP while frames are on time; iPhone at 60 settles at full speed |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -401,6 +402,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA46 (adaptive default below 6 E cores): `ios/build/NFSMW-battery-adaptive-default-46.ipa`.
+UUID `C60ADFE5-E2BA-319E-8715-3BF3AC5CDBEC`; SHA256
+`e53538ebb055566abff989b0e4a9c3d9e13d956f02d7f7006233bf8e89e11798`.
 
 IPA45 (cap-aware QoS, tighter adaptive): `ios/build/NFSMW-battery-qos-cap-aware-45.ipa`.
 UUID `3D31A4DB-CA99-3D00-B23F-EFCE6EADF310`; SHA256
