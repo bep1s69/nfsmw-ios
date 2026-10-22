@@ -6,7 +6,7 @@ Direct draw path, phase 1: runs of register and filler packets in one pass.
     python3 tools/ios/patch_ios_cp_fast_runs.py --status
     python3 tools/ios/patch_ios_cp_fast_runs.py --revert
 
-Cvar ios_cp_fast_runs (default false). The October 22 census measured ~17,000
+Cvar ios_cp_fast_runs (default true since October 22, after a visual check). The October 22 census measured ~17,000
 type-0 register packets and ~17,000 type-2 one-word fillers per race frame
 (~14 per draw). Each went through the whole ExecutePacket dispatch. With the
 cvar on, a type-0 or type-2 packet is followed by the next ones of those two
@@ -22,7 +22,7 @@ from patch_engine import run
 CP = "src/graphics/command_processor.cpp"
 
 CVAR_ANCHOR = '''REXCVAR_DEFINE_BOOL(ios_packet_census, false, "GPU",'''
-CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_cp_fast_runs, false, "GPU",
+CVAR_NEW = '''REXCVAR_DEFINE_BOOL(ios_cp_fast_runs, true, "GPU",
                     "Experiment: runs of type-0/type-2 packets in one pass of ExecutePacket");
 ''' + CVAR_ANCHOR
 

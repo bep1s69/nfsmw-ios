@@ -4666,3 +4666,25 @@ UUID `83839B57-2037-347F-BD4C-310AEB0B51BF` (unchanged), librexgpu-xenos
 zip/codesign OK. Not run on a device.
 Test: a race with `--ios_cp_fast_runs=true` for correctness (image, no hangs at
 loading or resolves), then an iPhone profiler pair ON/OFF.
+
+### October 22, 2026 — P1a visual check passed; fast runs default on (IPA40); P1b assessment
+
+`22 October 2026/nfsmw_run_4_iphone.log` (IPA39, `--ios_cp_fast_runs=true` per
+Stefan; the build had no log line confirming the switch): one launch
+22:46:36-22:48:23, visual check passed per Stefan, no FATAL/invalid-call, one
+startup watchdog at 22:46:53 (the usual post-start pause), 16 of 21 summaries
+>= 59.5. Stefan asks to postpone Time Profiler measurement to the end and keep
+stacking. `ios_cp_fast_runs` default true (patch reverted and re-applied with the
+new default; status 2/2); the stats line now ends `CP fast runs on|off`. IPA40
+`ios/build/NFSMW-battery-cp-fast-runs-default-40.ipa`, SHA256
+`3296d281f638e0e1e3061897936ffaa24b4df5f9ea933ed9a5e3616ff393b420`, NFSMW UUID
+`32FD84F2-2FE2-3492-B1E5-67E3AD6D9388`, GPU plugin `7B12845A-4D0E-31A6-AD60-29E219B31569`,
+dSYM beside it; 104 metallibs; zip/codesign OK.
+P1b (guest emitters writing one block) assessment: with fast runs, the
+remaining per-packet cost on the CP is gone; what the guest still does is write
+~17k headers + ~17k fillers around ~220k value words it must copy anyway (the CP
+consumes asynchronously, so values cannot be read from the device shadow in
+place without a snapshot copy). Removing headers/fillers saves ~34k of ~254k
+words per frame of guest stores: inferred well under 1% CPU, for a rewrite of two
+emitters plus a private packet. Recommendation: skip P1b/P2; the direct path's
+remaining value does not justify its risk.
