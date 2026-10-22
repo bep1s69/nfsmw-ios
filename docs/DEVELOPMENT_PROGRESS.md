@@ -99,7 +99,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
-  Next: one race with the census on, then size P1 (register runs as one block).
+  Census done (iPhone race): ~17k type-0 + ~17k NOP packets, ~220k register
+  words, ~2.4k draws per frame; P1 estimated ~2-3% CPU. Awaiting Stefan: P1 or stop.
 
 - **IPA36: fix for the iPhone null-call crash near the safehouse** (deferred-call
   queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
