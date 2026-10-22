@@ -100,6 +100,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **IPA44: adaptive QoS for the iPhone (`--ios_adaptive_qos=true`, default
   false).** Next: iPhone race with `--ios_utility_qos_guest=true
   --ios_adaptive_qos=true`; IPA43 also carries the iOS 26 shader rebuild.
+  iPhone not smooth enough; IPA45 tightens it and makes the 120 cap use adaptive
+  QoS on 6-E-core iPads. GPU candidates listed (half precision first).
 
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
@@ -399,6 +401,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA45 (cap-aware QoS, tighter adaptive): `ios/build/NFSMW-battery-qos-cap-aware-45.ipa`.
+UUID `3D31A4DB-CA99-3D00-B23F-EFCE6EADF310`; SHA256
+`a89e2776d77938f9740657d7a3b8e4d8df722b14e9980528187ee8e40e0faec9`.
 
 IPA44 (adaptive QoS switch): `ios/build/NFSMW-battery-adaptive-qos-44.ipa`.
 UUID `145F69E6-0EA9-3207-85BA-7D87F64413D8`; SHA256

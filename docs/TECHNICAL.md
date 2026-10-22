@@ -4789,3 +4789,36 @@ Build exit 0. IPA44 `ios/build/NFSMW-battery-adaptive-qos-44.ipa`, SHA256
 bound (nm); 104 metallibs; zip/codesign OK.
 Test (iPhone): `--ios_utility_qos_guest=true --ios_adaptive_qos=true`, one race;
 check smoothness and how often the log switches.
+
+### October 22, 2026 — Adaptive QoS iPhone result; cap-aware QoS defaults (IPA45); GPU view
+
+`22 October 2026/nfsmw_run_6_iphone.log` (IPA44, guest Utility + adaptive):
+`main loop thread 23742f follows the mode` (the sub_823C8290 hook works on the main
+thread); two boosts (23:08:58 after 1 s on Utility, 23:10:17 after 59 s), each 20 s.
+FPS summaries mostly 57-60 (e.g. 59.3, 58.0, 57.0, 56.8, 57.9), but Stefan: "not
+really smooth 60": up to 3 late frames per 60 were tolerated before boosting.
+IPA45 tightens it: late = over 1.2x the interval, 2 late in a 120-frame window
+boost, hold 20 s doubling to 240 s when a retry fails within 10 s.
+
+Stefan's point (correct): Utility QoS trades peak performance for efficiency; it
+does not reduce work. At the 120 cap on the iPad, fixed Utility on the main/GPU
+threads could cap the frame rate. IPA45 ApplyUtilityQosDefault: with >= 6 E
+cores and `ios_fps_cap` > 60, main/GPU threads default to adaptive instead of
+fixed Utility (other guest threads stay Utility); log
+`[utility-qos] ... adaptive on|off`. Devices with fewer than 6 E cores (iPhone 17
+Pro, M1 iPads: 4 E cores) keep full-speed defaults, so an M1 tester is not
+slowed by this work. IPA45 `ios/build/NFSMW-battery-qos-cap-aware-45.ipa`, SHA256
+`a89e2776d77938f9740657d7a3b8e4d8df722b14e9980528187ee8e40e0faec9`, NFSMW UUID
+`3D31A4DB-CA99-3D00-B23F-EFCE6EADF310`; 104 metallibs; zip/codesign OK. Not tested.
+
+GPU view for "native resolution melts the phone" (inferred from earlier data):
+1.5x is 1920x1080, 2.25x the console's pixels; the iPhone's native panel is ~3.4x
+more. Per sampled iPad frame the GPU spends ~1.95 ms main scene, 0.80 ms six
+reflection faces (every frame), 0.44 ms two 1600x1600 shadow maps, ~0.64 ms copies
+(Oct 19 audit). The console's shaders run in full 32-bit precision, unlike games
+written for phones (half precision where it does not show). Candidates:
+(a) half-precision arithmetic in translated pixel shaders where the source math
+cannot change the 8-bit result (largest GPU lever on Apple GPUs; not
+bit-identical, needs a per-shader safety analysis), (b) resolve-copy avoidance
+(backlog), (c) MetalFX temporal from 1x to the native output as the "native look"
+at much lower GPU cost (settings, already available).

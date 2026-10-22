@@ -5,10 +5,10 @@
 // Utility QoS for those two threads cut the iPad Pro M4's estimated drain by a
 // quarter at 1.5x / 60 (docs/TECHNICAL.md, October 21), but an iPhone 17 Pro
 // (4 efficiency cores) could not hold 60 that way. Here the GPU command thread
-// watches the time between swaps: 4 late frames (over 1.3x the cap's interval)
-// in the last 60 switch both threads to User Initiated for a hold time, then they
-// try Utility again. A retry that fails within 5 s doubles the hold (10 s up to
-// 120 s); 60 s on Utility resets it. Each thread can only set its own QoS: the
+// watches the time between swaps: 2 late frames (over 1.2x the cap's interval)
+// in the last 120 switch both threads to User Initiated for a hold time, then they
+// try Utility again. A retry that fails within 10 s doubles the hold (20 s up to
+// 240 s); 60 s on Utility resets it. Each thread can only set its own QoS: the
 // command thread at its swap (NativeSwap), the main thread in the game's
 // deferred-call runner (sub_823C8290, called from its main loop).
 
@@ -52,10 +52,10 @@ bool Enabled() {
 void OnSwap(double interval_ms) {
   if (!Enabled()) return;
   static int applied = -1;
-  static bool late[60] = {};
+  static bool late[120] = {};
   static int at = 0, late_count = 0;
   static Clock::time_point hold_until, eco_since = Clock::now();
-  static double hold_s = 10.0;
+  static double hold_s = 20.0;
   static int lines = 0;
   const auto now = Clock::now();
   int m = mode.load(std::memory_order_relaxed);
@@ -66,16 +66,16 @@ void OnSwap(double interval_ms) {
   }
   const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
   const double budget = 1000.0 / cap;
-  const bool is_late = interval_ms > budget * 1.3 && interval_ms < 250.0;  // not loading stalls
+  const bool is_late = interval_ms > budget * 1.2 && interval_ms < 250.0;  // not loading stalls
   late_count += int(is_late) - int(late[at]);
   late[at] = is_late;
-  at = (at + 1) % 60;
-  if (m == 0 && late_count >= 4) {
+  at = (at + 1) % 120;
+  if (m == 0 && late_count >= 2) {
     const double eco_s = std::chrono::duration<double>(now - eco_since).count();
-    hold_s = eco_s < 5.0 ? std::min(hold_s * 2.0, 120.0) : eco_s > 60.0 ? 10.0 : hold_s;
+    hold_s = eco_s < 10.0 ? std::min(hold_s * 2.0, 240.0) : eco_s > 60.0 ? 20.0 : hold_s;
     hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
     m = 1;
-    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] User Initiated for {:.0f} s ({} late frames of 60, {:.0f} s on Utility)", hold_s, late_count, eco_s);
+    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] User Initiated for {:.0f} s ({} late frames of 120, {:.0f} s on Utility)", hold_s, late_count, eco_s);
   } else if (m == 1 && now >= hold_until) {
     m = 0;
     eco_since = now;
