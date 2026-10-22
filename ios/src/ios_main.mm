@@ -196,13 +196,15 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   // is still reached while frames have time to spare. With fewer efficiency
   // cores (iPhones, M1 iPads) adaptive at every cap: at 30/40 fps or in light
   // scenes they run on the efficiency cores, and switch back when frames are late.
+  // The other guest threads at Utility on every device (since October 22: the
+  // iPhone 17 Pro held 60 with it in every run from October 21).
   int cap = 60;
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
   }
   const bool high_cap = cap > 60;
   const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", on && !high_cap},
-                                                   {"--ios_utility_qos_guest", on},
+                                                   {"--ios_utility_qos_guest", true},
                                                    {"--ios_adaptive_qos", !on || high_cap}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
