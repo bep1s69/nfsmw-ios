@@ -6982,10 +6982,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     vertex_diagnostics.fingerprint_memo,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
-                    "shadow caster variant {}: {} draws",
+                    "shadow caster variant {}: {} draws; CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
-                    REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws);
+                    REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws,
+                    rex::cvar::Query<bool>("ios_cp_fast_runs") ? "on" : "off");
         caster_variant_draws = 0;
         static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
         static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));

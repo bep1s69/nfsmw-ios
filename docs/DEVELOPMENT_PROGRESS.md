@@ -101,7 +101,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
   Census done (iPhone race): ~17k type-0 + ~17k NOP packets, ~220k register
   words, ~2.4k draws per frame. P1a (CP fast runs, `--ios_cp_fast_runs=true`)
-  built as IPA39; guest-side block deferred until P1a is measured.
+  visual check passed; default on in IPA40. P1b/P2 assessed as <1% each:
+  recommended to stop the direct path there. Measurement batched to the end.
 
 - **IPA36: fix for the iPhone null-call crash near the safehouse** (deferred-call
   queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
@@ -387,6 +388,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA40 (CP fast runs default): `ios/build/NFSMW-battery-cp-fast-runs-default-40.ipa`.
+UUID `32FD84F2-2FE2-3492-B1E5-67E3AD6D9388`; SHA256
+`3296d281f638e0e1e3061897936ffaa24b4df5f9ea933ed9a5e3616ff393b420`.
 
 IPA39 (CP fast runs): `ios/build/NFSMW-battery-cp-fast-runs-39.ipa`.
 GPU plugin UUID `7BC3CF79-94F8-39EB-B333-7174107B362E`; SHA256
