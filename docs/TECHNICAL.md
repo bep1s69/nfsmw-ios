@@ -4620,3 +4620,26 @@ reads): approximate, diagnostic only. Build exit 0. IPA38
 `83839B57-2037-347F-BD4C-310AEB0B51BF`, dSYM beside it; 104 metallibs; zip and
 codesign OK; both symbols exported (nm). Not run on a device.
 Test: one race or pursuit with `--ios_packet_census=true` (iPhone or iPad).
+
+### October 22, 2026 — P0 census result (iPhone race lap)
+
+`22 October 2026/nfsmw_run_3_iphone.log`, IPA38, `--ios_packet_census=true`,
+21 census windows. Race windows (5 shown in the log tail; ~1,830-3,270 draws
+per frame summary sample), per frame:
+- type 0 (register runs): 16,500-18,200 packets, 214,500-233,900 words
+- type 1/2 (2 = 1-word NOP): 16,200-18,400 packets, ~1 per type-0 packet
+  (the float4 emitter sub_825A2A60 writes a 0x80000000 word before its header)
+- op 0x22 DRAW_INDX: 2,270-2,660 packets, 8,800-10,300 words
+- op 0x2b: 130-360 packets, 4,500-13,000 words; op 0x50: ~2,000-2,300;
+  op 0x27 / 0x3b: 1,500-1,870 each; op 0x5a ~1,000-1,130; op 0x46 ~1,000-1,160
+Menus/loading: type 0 1,160-6,700 packets.
+Reading: ~7 type-0 runs and ~90 register words per draw, written by the game's
+emitters and decoded by the CP; ~34,000 tiny packets per frame in all. The CP
+already copies type-0 runs in bulk (`ios_type0_ranges`,
+patch_ios_type0_ranges.py), so the remaining CP cost is mainly per-packet
+dispatch (~34k ExecutePacket calls/frame) plus the guest's header/NOP writes.
+P1 (one block per state flush, ~2,400/frame instead of ~34,000 packets) would
+remove most of that dispatch; estimated ~2-3% of app CPU (inferred from the
+3.46% CP-decode footprint), within the 4-6% realistic estimate for the whole
+path. Decision for Stefan: implement P1 (guest emitter rewrite + private packet
++ CP handler, medium risk) or stop the direct path here.
