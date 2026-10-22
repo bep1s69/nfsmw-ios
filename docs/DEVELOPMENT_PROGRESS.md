@@ -97,6 +97,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **IPA44: adaptive QoS for the iPhone (`--ios_adaptive_qos=true`, default
+  false).** Next: iPhone race with `--ios_utility_qos_guest=true
+  --ios_adaptive_qos=true`; IPA43 also carries the iOS 26 shader rebuild.
+
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
   Census done (iPhone race): ~17k type-0 + ~17k NOP packets, ~220k register
@@ -385,6 +389,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
 | `nfsmw_native_shadow_caster_variant` | true (IPA34) | ps 4fbaecfb without its cut-out where c1.x is 0; shadows identical, energy unproven |
 | `nfsmw_native_gpr_helpers` | true (IPA42) | native guest register save/restore helpers; iPhone race passed, gain unmeasured |
+| `ios_adaptive_qos` | false | IPA44: Utility for main/CP threads while frames are on time; not device-tested |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -394,6 +399,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA44 (adaptive QoS switch): `ios/build/NFSMW-battery-adaptive-qos-44.ipa`.
+UUID `145F69E6-0EA9-3207-85BA-7D87F64413D8`; SHA256
+`e4f5d178c4cf83a443f5e139adc648ecfd69fbc3e9e3928f60188a94125ec36b`.
 
 IPA42 (GPR helpers default): `ios/build/NFSMW-battery-gpr-default-42.ipa`.
 UUID `5C6A9AF4-41C0-33C3-94E3-964C285291D7`; SHA256

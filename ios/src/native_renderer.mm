@@ -7325,6 +7325,10 @@ void EnsurePresentLayer() {
 
 }  // namespace
 
+namespace nfsmw::adaptive_qos {
+void OnSwap(double interval_ms);  // adaptive_qos.cpp
+}
+
 namespace {
 bool NativeSwap();
 void NativeDraw(const NfsmwNativeDraw* draw);
@@ -7476,6 +7480,7 @@ bool NativeSwap() {
   static size_t previous_draws = 0, previous_attribute_bytes = 0;
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
+  ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
   struct {
     bool valid = false;
     size_t draws = 0;
