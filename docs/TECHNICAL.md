@@ -4472,3 +4472,21 @@ Heat, from the same logs: 1.5x session FPS 60 from 16:11 to 16:16:31, then 46.1,
 18.6 min. The game log's thermal field stayed `nominal` in both; Stefan reports
 the 1.5x phone hot. Inferred: 1x roughly halves the iPhone's drain rate and
 avoids the throttling; Stefan's "30 fps when warm"/"0.75x when hot" are off.
+
+### October 22, 2026 — iPhone CPU profile (from the Oct 21 iPhone baseline trace)
+
+Time profile of `21 October 2026/power_profiler_1_iphone.trace` (no Utility QoS;
+1.5x; 652.9 s of samples; scratchpad tp.py/tp3.py, temporary). iPhone cores are
+labelled E and "S" (performance) in this trace. Per thread: LiveContainer dispatch
+workers (native render queue + Metal driver) 43.5%, GPU Commands 16.2%, Main
+XThread 15.3%, XThreadA70F 12.5%, XThreadDB0B 7.6%, UI main thread 2.5%.
+RenderFrame 24.85% inclusive (self 10.04% nested + driver: drawIndexedPrimitives
+4.38%, renderCommandEncoderWithDescriptor 1.29%, AGX context 1.21%,
+setRenderPipelineState 0.45%, newTextureView 0.25%; GpuBuffer map 1.58%,
+string-keyed tree map 0.73%, EdramKey 0.30%). Record 10.32% inclusive
+(Fingerprint only 0.81%: the memo works). Inference: on the iPhone the Metal
+encoding loop is the largest single CPU cost; its own bookkeeping (~10% self plus
+maps/strings) is the lossless target, driver draw calls largely are not.
+Next (proposal): attribute RenderFrame self time to source lines (atos on the
+matching binary) and trim per-pass/per-draw bookkeeping; a new iPhone profile is
+optional for that first step.
