@@ -278,6 +278,9 @@ if(NFSMW_WITH_GAME)
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/native_draw_census.cpp
             src/native_metal_probe.mm src/native_renderer.mm)
+# Line tables for the native renderer (no code change): Time Profiler samples
+# from a device trace map to source lines (dsymutil the app's NFSMW).
+set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -gline-tables-only)
         message(STATUS "NFSMW: ${_extra}")
         execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_constant_copies.py"

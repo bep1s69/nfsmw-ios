@@ -131,7 +131,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_caster_variant, true, "GPU",
                     "Experiment: shadow casters without the cut-out compiled in where it is off (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
                     "Experiment: commit finished render passes to the GPU while the frame is still encoded (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_fused_upload_sizing, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_fused_upload_sizing, true, "GPU",
                     "Experiment: size the frame upload buffer in one draw traversal (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_dump, false, "GPU",
                     "Native renderer bring-up: every 10 s, draw a menu frame with Metal and save "
@@ -4560,13 +4560,32 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const bool reuse_target_lookup = TargetLookupEnabled();
     const bool reuse_pipeline_lookup = PipelineLookupEnabled();
     TargetLookupCache setup_target_lookup;
+    // Draws in a row mostly share their target (same surface, colour and
+    // depth info): its key, map entries and sample count found once per run
+    // of draws. Map entries stay valid as the maps grow (node-based).
+    const Draw* setup_prev = nullptr;
+    std::string setup_key;
+    Target* setup_target = nullptr;
+    std::pair<uint32_t, uint32_t>* setup_size = nullptr;
+    uint32_t* setup_depth_only = nullptr;
     for (const Draw& d : frame->draws) {
-      const std::string key = target_key(d);
-      Target& t = setup_target_lookup.Find(targets, key, reuse_target_lookup);
-      auto& size = sizes[key];
+      if (!setup_prev || setup_prev->surface_info != d.surface_info || setup_prev->color_info != d.color_info ||
+          setup_prev->depth_info != d.depth_info) {
+        setup_key = target_key(d);
+        setup_target = &setup_target_lookup.Find(targets, setup_key, reuse_target_lookup);
+        setup_size = &sizes[setup_key];
+        setup_depth_only = nullptr;
+        sample_counts[setup_key] = NativeSampleCount(device, d.surface_info, msaa_disabled, maximum_samples);
+      }
+      setup_prev = &d;
+      const std::string& key = setup_key;
+      Target& t = *setup_target;
+      auto& size = *setup_size;
       size.first = std::max<uint32_t>(d.surface_info & 0x3FFF, 1);
-      if ((d.color_mask & 0xF) == 0) ++depth_only_draws[key];
-      sample_counts[key] = NativeSampleCount(device, d.surface_info, msaa_disabled, maximum_samples);
+      if ((d.color_mask & 0xF) == 0) {
+        if (!setup_depth_only) setup_depth_only = &depth_only_draws[key];
+        ++*setup_depth_only;
+      }
       // The height: the viewport's bottom (the scissor is often the whole
       // EDRAM range).
       const float viewport_bottom = ((d.vte & 8) ? d.viewport[3] : 0.0f) + std::fabs((d.vte & 4) ? d.viewport[2] : 1.0f);
@@ -5545,7 +5564,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         ++next_resolve;
       }
       if (!skip_draw.empty() && skip_draw[di]) continue;  // a cube face kept from the frame before
-      const std::string tk = target_key(d);
+      // The key once per run of draws on the same target (as key_of above).
+      static thread_local const Draw* tk_prev = nullptr;
+      static thread_local std::string tk_cached;
+      if (position == 0 || !tk_prev || tk_prev->surface_info != d.surface_info || tk_prev->color_info != d.color_info ||
+          tk_prev->depth_info != d.depth_info) {
+        tk_cached = target_key(d);
+      }
+      tk_prev = &d;
+      const std::string& tk = tk_cached;
       if (dump) {
         // Snapshots: each pass's draws grouped (shaders, viewport, depth,
         // mask, clipping), with the first draw of each group.
