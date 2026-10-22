@@ -4643,3 +4643,26 @@ remove most of that dispatch; estimated ~2-3% of app CPU (inferred from the
 3.46% CP-decode footprint), within the 4-6% realistic estimate for the whole
 path. Decision for Stefan: implement P1 (guest emitter rewrite + private packet
 + CP handler, medium risk) or stop the direct path here.
+
+### October 22, 2026 — Direct draw path P1a: CP fast runs (IPA39)
+
+Stefan: "yes lets go" for P1. Implemented first as the lower-risk CP-side half of
+P1 (no guest code change): new SDK patch `tools/ios/patch_ios_cp_fast_runs.py`
+(after the census in prepare_sdk.py, applied 2/2), cvar `ios_cp_fast_runs`
+(default false). In ExecutePacket, a type-0 or type-2 packet continues in a tight
+loop with the following type-0/type-2 packets (up to 64): type 0 through the
+unchanged ExecutePacketType0 (bulk ranges, side effects), type 2 skipped as
+before. The next word is peeked (read, then set_read_offset back) and anything
+else (type 1/3, 0, 0xCDCDCDCD) is left to the normal path. Disabled while
+medir_paquetes timing is on; the census still counts run packets. Effect: the
+~34,000 per-frame ExecutePacket dispatches of register/filler packets become
+one per run. Known difference: the primary ring's read-pointer writeback can
+trail by up to one run (<= 64 small packets). Expected ~1-2% app CPU (inferred);
+the guest-side half (emitters writing one block) is deferred until this is
+measured. Build exit 0. IPA39 `ios/build/NFSMW-battery-cp-fast-runs-39.ipa`,
+SHA256 `334fc422a32af5ad424a8f2eef514f8c8f49f32747246987893d68aeb94167c9`, NFSMW
+UUID `83839B57-2037-347F-BD4C-310AEB0B51BF` (unchanged), librexgpu-xenos
+`7BC3CF79-94F8-39EB-B333-7174107B362E`; dSYM beside it; 104 metallibs;
+zip/codesign OK. Not run on a device.
+Test: a race with `--ios_cp_fast_runs=true` for correctness (image, no hangs at
+loading or resolves), then an iPhone profiler pair ON/OFF.
