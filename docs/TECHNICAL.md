@@ -4841,3 +4841,14 @@ stays default off there (not self-correcting). IPA46
 `e53538ebb055566abff989b0e4a9c3d9e13d956f02d7f7006233bf8e89e11798`, NFSMW UUID
 `C60ADFE5-E2BA-319E-8715-3BF3AC5CDBEC`; 104 metallibs; zip/codesign OK.
 Test: iPhone at cap 30 and 40, log should show long stretches on Utility.
+
+### October 22, 2026 — Adaptive QoS at the 40 cap (iPhone)
+
+`22 October 2026/nfsmw_run_8_iphone.log` (IPA46 or 45 with Extra Args showing
+`adaptive on`, 1x + MetalFX "to the screen", cap 40, 23:24:39-23:26:25): one
+boost at 23:24:41 (1 s after start, during loading; hold 40 s), `back to Utility`
+at 23:25:21, then no further boost to the end (~64 s on Utility in the race).
+FPS summaries after loading: 39.0, 40.0, 39.6, 40.0, 40.0, 39.9 and 40.0 x8.
+`[cpu]` median 110%. Short run; no power data. Measured: at the 40 cap the iPhone's
+main/GPU threads held the cap on Utility. Half-precision shader work put at the
+top of the backlog at Stefan's request.

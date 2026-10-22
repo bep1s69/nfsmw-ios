@@ -102,7 +102,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   --ios_adaptive_qos=true`; IPA43 also carries the iOS 26 shader rebuild.
   iPhone not smooth enough; IPA45 tightens it and makes the 120 cap use adaptive
   QoS on 6-E-core iPads. GPU candidates listed (half precision first).
-  IPA46: adaptive default on below 6 E cores; next iPhone test at cap 30/40.
+  IPA46: adaptive default on below 6 E cores. Cap 40 iPhone: Utility held, 40
+  fps steady. **Next session: half-precision shaders (top of backlog), then the
+  batched end-of-work power measurement (iPad no Extra Args; iPhone
+  `--ios_utility_qos_guest=true`).**
 
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
