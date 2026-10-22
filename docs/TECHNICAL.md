@@ -4762,3 +4762,30 @@ wins are taken. On the iPhone (Oct 21 baseline CPU impact 21.0 vs display 2.0)
 CPU is still the dominant cost; the main open lever is Utility QoS for the main
 and GPU command threads without dropping frames, e.g. adaptive QoS (Utility while
 the frame's CPU work has headroom, normal QoS when it nears the budget).
+
+### October 22, 2026 — Adaptive QoS for 4-E-core devices (IPA44)
+
+Stefan agreed to the adaptive QoS idea. New `ios/src/adaptive_qos.cpp` (USA
+sources in ios/CMakeLists.txt), cvar `ios_adaptive_qos` (Kernel, default false,
+restart required; ignored when `ios_utility_qos` is on, i.e. on the iPad).
+- The GPU command thread calls `OnSwap(interval)` from NativeSwap: a 60-swap
+  window of late frames (interval > 1.3x the cap's 1000/ios_fps_cap ms and below
+  250 ms, so loading stalls do not count). On Utility, 4 late frames switch both
+  threads to User Initiated for a hold time; when it expires they return to
+  Utility. Hold starts at 10 s, doubles (max 120 s) when Utility fails within 5 s
+  of a retry, resets to 10 s after 60 s on Utility. Starts at Utility.
+- The main thread follows through a strong override of `sub_823C8290` (the
+  deferred-call runner called from its main loop): the first thread to call it
+  applies the current mode to itself, then the original runs.
+- Each thread sets only its own QoS (pthread_set_qos_class_self_np).
+- Logs: `[adaptive-qos] on ...`, `main loop thread <id> follows the mode`,
+  `User Initiated for <n> s (<late> late frames of 60, <s> s on Utility)`,
+  `back to Utility` (first 60 transitions).
+Not verified on device: that sub_823C8290 runs every loop on the main thread
+(the log line will show which thread follows), oscillation behaviour, battery.
+Build exit 0. IPA44 `ios/build/NFSMW-battery-adaptive-qos-44.ipa`, SHA256
+`e4f5d178c4cf83a443f5e139adc648ecfd69fbc3e9e3928f60188a94125ec36b`, NFSMW UUID
+`145F69E6-0EA9-3207-85BA-7D87F64413D8`, dSYM beside it; strong `_sub_823C8290`
+bound (nm); 104 metallibs; zip/codesign OK.
+Test (iPhone): `--ios_utility_qos_guest=true --ios_adaptive_qos=true`, one race;
+check smoothness and how often the log switches.
