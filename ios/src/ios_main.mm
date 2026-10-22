@@ -191,13 +191,24 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   if (sysctlbyname("hw.perflevel1.physicalcpu", &cores, &size, nullptr, 0) != 0) cores = 0;
   utility_qos_efficiency_cores = cores;
   const bool on = cores >= 6;
-  for (const char* flag : {"--ios_utility_qos", "--ios_utility_qos_guest"}) {
+  // Above 60 fps (the 120 cap) the main and GPU command threads need the
+  // performance cores' headroom: adaptive there (adaptive_qos.cpp), so the cap
+  // is still reached while frames have time to spare.
+  int cap = 60;
+  for (const auto& arg : args) {
+    if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
+  }
+  const bool high_cap = cap > 60;
+  const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", on && !high_cap},
+                                                   {"--ios_utility_qos_guest", on},
+                                                   {"--ios_adaptive_qos", on && high_cap}};
+  for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });
     if (given) {
       utility_qos_source = "Extra Args";
     } else {
-      SetArgument(args, std::string(flag) + (on ? "=true" : "=false"));
+      SetArgument(args, std::string(flag) + (value ? "=true" : "=false"));
     }
   }
 }
@@ -287,9 +298,10 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
-  REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {} ({})",
+  REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {}, adaptive {} ({})",
               utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",
-              rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off", utility_qos_source);
+              rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off",
+              rex::cvar::Query<bool>("ios_adaptive_qos") ? "on" : "off", utility_qos_source);
   REXLOG_INFO("[gpr-helpers] native register save/restore helpers {}",
               rex::cvar::Query<bool>("nfsmw_native_gpr_helpers") ? "on" : "off");
   REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
