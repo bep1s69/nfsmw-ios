@@ -17,6 +17,13 @@ unnumbered entries below, instead of opening duplicates.
 
 ## Open bugs
 
+### D-001 Null call crash near the first safehouse (iPhone) — active
+
+Since 2026-10-12; Oct 22 iPhone logs `22 October 2026/nfsmw_crash_iphone.log`,
+`nfsmw_crash_2_iphone.log`: lr 0x823C82F8, r4 0. Deferred-call queue publication
+race; fix in IPA36 (`tools/ios/patch_game_deferred_queue.py`), awaiting device
+confirmation. Details in TECHNICAL.md, October 22.
+
 ### iOS 26 black screen with the native renderer on 0.3.0 — open
 
 Reported October 15, 2026 on an iPhone (A19 Pro, iOS 26.6.2) with the released

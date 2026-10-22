@@ -4433,3 +4433,42 @@ dominates the iPhone's cost, so the guest-only Utility setting is the main lever
 IPA35 `ios/build/NFSMW-battery-pipeline-save-35.ipa`, SHA256
 `50b0f8419dfb7d2ba89ef9239135ee4a72a227063395abdf0f0a51a33304d1da`, NFSMW UUID
 `EC48DBCA-637F-3BA7-841D-C28D8B1B6EDF`; 104 metallibs identical; zip/codesign OK.
+
+### October 22, 2026 — iPhone null-call crash near the safehouse: deferred-queue ordering fix (IPA36)
+
+Stefan, iPhone, `--ios_utility_qos_guest=true` in all three logs
+(`22 October 2026/`): `nfsmw_crash_iphone.log` (1.5x, 16:08:48-16:19:04, 3
+launches) and `nfsmw_crash_2_iphone.log` (1x, 16:20:33-16:21:26) both end with
+`[invalid-call] lr=0x823C82F8 r1=0x7018FB80 r3=0x8293CD30 r4=0x00000000 r5=0x00000001
+| stack <- 0x82441C5C <- 0x82441DAC <- 0x8262E904` and `[FATAL] Call to invalid or
+unregistered function at guest address 0x00000000` (the crash
+patch_ios_invalid_call_log.py was added to locate). `nfsmw_run_1_iphone.log` (1x,
+16:23:38-16:42:27) did not crash.
+
+Cause, from the generated USA code: lr 0x823C82F8 is the bctrl in sub_823C8290
+(nfsmw_recomp.100.cpp), the main loop's runner of a deferred-call queue at
+0x82919650 (+0 count written, +4 count run, +12 flag, +20 end, +24 read pointer;
+entries: function pointer, size, copied data). sub_823C8210
+(nfsmw_recomp.48.cpp) appends: copies the data, stores the function pointer and
+size, then advances +20 and +0, with no barrier. r3 is the entry, r4 its function
+pointer (0) and r5 = 1 pending entry: the consumer saw the advanced queue before
+the entry's function pointer (inferred: a cross-thread publication race the
+recompiled code allows on ARM; the producer thread is not identified).
+
+Fix: new `tools/ios/patch_game_deferred_queue.py` (run by generate_code.py after
+the transform copies; --status/--revert; applied, idempotent): release fence before
+the producer stores +20; acquire fence after the consumer loads +20; if the
+function pointer reads 0, up to 200,000 re-reads with yield + acquire fence
+before the original call (if it stays 0 the original crash still occurs). Not a
+fix if the queue is also reset concurrently (not observed). Build exit 0, only
+nfsmw_recomp.48/.100 recompiled. IPA36 `ios/build/NFSMW-battery-queue-fix-36.ipa`,
+SHA256 `41398761a0c0cb8851b15fb54576b77370535a4f48fdcb3e2b08cce77f235429`, NFSMW
+UUID `D8A19FC2-C3A9-3E63-AA24-47E9EAF8D600`; 104 metallibs; zip/codesign OK.
+Not run on a device.
+
+Heat, from the same logs: 1.5x session FPS 60 from 16:11 to 16:16:31, then 46.1,
+29.2 (battery field 65% -> 55% in 10 min including menus); 1x session held
+57-60 throughout except loading/menus (3.2, 10.0, 17.3), battery 55% -> 45% in
+18.6 min. The game log's thermal field stayed `nominal` in both; Stefan reports
+the 1.5x phone hot. Inferred: 1x roughly halves the iPhone's drain rate and
+avoids the throttling; Stefan's "30 fps when warm"/"0.75x when hot" are off.
