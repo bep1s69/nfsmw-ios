@@ -67,6 +67,27 @@ cp "$out/containers/vertex_inputs.txt" "$out/lib/"
 python3 "$repo/tools/native/constant_ranges.py" "$out/msl" "$out/lib/constant_ranges.txt"
 python3 "$repo/tools/native/texture_masks.py" "$out/msl" "$out/lib/texture_masks.txt"
 echo "$translated translated, $compiled Metal libraries in $out/lib"
+# Every library in lib/ goes into the app, including hand-built bring-up
+# variants (ps_<key>_dbgN, from their own .metal in air/): any built for a newer
+# iOS than $ios_min does not load there (on iOS 26: "3 shader libraries could
+# not be loaded"). Rebuild those from air/ and fail if one still differs.
+for lib in "$out"/lib/*.metallib; do
+  target=$(strings -a "$lib" | grep -o -m1 'apple-ios[0-9.]*' || true)
+  case "$target" in
+    apple-ios"$ios_min"*) ;;
+    *)
+      name=$(basename "$lib" .metallib)
+      if [ -f "$out/air/$name.metal" ] &&
+         xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -mios-version-min="$ios_min" \
+           -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
+         xcrun -sdk iphoneos metal -mios-version-min="$ios_min" "$out/air/$name.air" -o "$lib"; then
+        echo "rebuilt $name for iOS $ios_min (was ${target:-unknown})"
+      else
+        failed="$failed $name(ios-version)"
+      fi
+      ;;
+  esac
+done
 if [ -n "$failed" ]; then
   echo "failed:$failed"
   exit 1
