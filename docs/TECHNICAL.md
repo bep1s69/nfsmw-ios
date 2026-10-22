@@ -4490,3 +4490,36 @@ maps/strings) is the lossless target, driver draw calls largely are not.
 Next (proposal): attribute RenderFrame self time to source lines (atos on the
 matching binary) and trim per-pass/per-draw bookkeeping; a new iPhone profile is
 optional for that first step.
+
+### October 22, 2026 — Renderer bookkeeping trims and line tables (IPA37)
+
+Stefan approved starting on the renderer's own CPU cost. The Oct 21 iPhone trace
+was recorded with IPA34 (NFSMW UUID 36D129D7..., load 0x10ba58000). RenderFrame
+self samples by address (scratchpad addr.py): 7.50% of all samples; hottest
+address RenderFrame+9916 (0.93% of all samples), then a cluster near +61524 and
++43968/+49060. The IPA34 binary had no line tables; with the same function start
+in IPA37, +9916 maps to the upload-sizing traversal (`size_constants` over all
+draws, native_renderer.mm ~4434; two full passes over ~2,800 328-byte Draws) and
++61524 near the vertex-buffer binding (~6288). Mapping across builds is
+approximate; future traces will map exactly (below).
+
+Changes (IPA37, all exact equivalents, no switches):
+- Setup loop over draws: target key, Target, size entry and sample count looked
+  up once per run of draws on the same target (surface/colour/depth info), as
+  the existing motion `key_of` memo does; depth-only counter entry cached too.
+  Second-target (MRT) path unchanged.
+- Main encode loop: the target key string made once per run of draws on the
+  same target (reset at position 0 of every frame).
+- `nfsmw_native_fused_upload_sizing` default true (IPA21 experiment, iPad
+  correctness passed): one traversal for the upload budget instead of two.
+- `ios/CMakeLists.txt`: native_renderer.mm compiled with `-gline-tables-only`
+  (no code change); a dSYM is kept beside the IPA copy so Time Profiler
+  addresses from a device trace resolve to source lines with atos.
+Expected gain: about 1-2% of app CPU (inferred from the sampled hot spots), not
+measured. Build exit 0. IPA37 `ios/build/NFSMW-battery-target-memo-37.ipa`,
+SHA256 `774badbd173be121227419f22059522b0171d6e4f71d9b8ddaef46340b7c6654`, NFSMW
+UUID `353B6258-10CB-347B-91AB-38E4DCAB69BC`; dSYM
+`ios/build/NFSMW-battery-target-memo-37.dSYM` (ignored, same UUID); 104 metallibs;
+zip/codesign OK. Includes the IPA36 queue fix. Not run on a device.
+Next: an iPhone Power Profiler run on IPA37 (with `--ios_utility_qos_guest=true`),
+then symbolize RenderFrame/Record self time to lines and trim the top items.

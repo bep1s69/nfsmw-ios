@@ -101,6 +101,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
   play to the safehouse on IPA36; then the pending IPA35/36 two-launch stutter
   check and the iPhone `--ios_utility_qos_guest=true` power pair.
+- IPA37 adds exact renderer bookkeeping trims, fused upload sizing default on,
+  and line tables + dSYM so the next device trace maps to source lines. Next:
+  iPhone profiler on IPA37, then trim the top lines.
 
 - **IPA27 matched pair (Oct 21): both Utility flags ON cut estimated drain
   33.66 -> 25.70 pp/h (-23.6%) and CPU impact -57% at 1.5x/60, equal 32%
@@ -362,7 +365,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_lazy_diagnostics` | true (IPA30) | Skips unused normal-frame metadata/labels, preserves snapshots and residency; iPad check passed |
 | `nfsmw_native_gpu_lookup_hash` | true (IPA30) | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
-| `nfsmw_native_fused_upload_sizing` | false | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
+| `nfsmw_native_fused_upload_sizing` | true (IPA37) | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
 | `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
@@ -378,6 +381,11 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA37 (bookkeeping trims, line tables): `ios/build/NFSMW-battery-target-memo-37.ipa`.
+UUID `353B6258-10CB-347B-91AB-38E4DCAB69BC`; SHA256
+`774badbd173be121227419f22059522b0171d6e4f71d9b8ddaef46340b7c6654`; dSYM beside it.
+Keep each test IPA's dSYM (`xcrun dsymutil <app>/NFSMW -o <ipa name>.dSYM`).
 
 IPA36 (deferred-queue crash fix): `ios/build/NFSMW-battery-queue-fix-36.ipa`.
 UUID `D8A19FC2-C3A9-3E63-AA24-47E9EAF8D600`; SHA256
