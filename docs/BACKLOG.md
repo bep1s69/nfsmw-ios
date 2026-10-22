@@ -121,6 +121,15 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- Older devices (Oct 22, Stefan's goal: as cheap as possible, e.g. iPhone 13 Pro
+  Max / A15, 2 performance + 4 efficiency cores). Plan, by expected gain: (1) a
+  device-chosen default profile for older chips (render scale, shadow size,
+  reflection rate; same mechanism as the E-core rule), (2) renderer CPU trims
+  driven by line-level traces (IPA37 has line tables), (3) a direct guest-to-native
+  draw path that skips PM4 packet building/decoding (largest CPU ceiling, high
+  risk; see Oct 19 three-axis notes), (4) GPU: resolve-copy avoidance, leaner
+  shader translation. Needs an older test device to measure; none available yet.
+
 - GPU, image-identical (Oct 21, kept for later by Stefan): avoid whole-surface
   color resolve copies by keeping the source as the snapshot when it is not
   written again (versioned targets; ~0.3-0.6 ms of a 4.35 ms sampled span,
