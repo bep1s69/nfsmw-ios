@@ -4532,3 +4532,28 @@ then symbolize RenderFrame/Record self time to lines and trim the top items.
 earlier logs; 0 invalid-call/FATAL lines; 31 of 37 FPS summaries >= 59.5. The log
 does not identify the IPA build (36 or 37; both contain the fix). One clean run of
 an intermittent crash; D-001 moved to monitor.
+
+### October 22, 2026 — Direct draw path (backlog item 3): iPhone size check before design
+
+Stefan wants to start on the direct guest-to-native draw path. Before any design,
+the same stage attribution as Oct 19 (iPad) was run on the Oct 21 iPhone trace
+(scratchpad stage.py, temporary; call-path membership, each sample counted once
+per category; categories overlap):
+
+| Call-path footprint, % of all iPhone samples | |
+|---|---:|
+| Guest draw/state/resolve packet writers (sub_825A3EC8, 82593A58, 82593818, 825930E0, 82593408, 8259A308, 82592340, 82597070) | 3.13 |
+| Engine constant preparation sub_82699100 | 2.73 |
+| CP ExecutePacket outside CpDraw/NativeSwap (packet decoding) | 3.46 |
+| Union of the above (removable envelope) | 9.33 |
+| CP thread total (WorkerThreadMain) | 17.39 |
+
+The envelope matches the iPad's 9.13% (Oct 19). It is an upper bound: a direct
+path still needs the state those writers compute (dirty registers, constants,
+fetch constants), so only part of it would disappear; inferred realistic saving
+~4-6% of app CPU. The native recording itself (Record, ~10%) stays, only moved
+to the game thread. Correction to the earlier chat summary that called this "a
+large share of CPU work": measured, it is the largest single removable stage,
+but under 10% even as an upper bound. Risks unchanged from Oct 19: command
+ordering, register side effects, predicates, queries, fences, writebacks,
+ring/segment progress. No code written; direction awaits Stefan.
