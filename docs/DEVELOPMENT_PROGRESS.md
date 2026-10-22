@@ -104,8 +104,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   QoS on 6-E-core iPads. GPU candidates listed (half precision first).
   IPA46: adaptive default on below 6 E cores. Cap 40 iPhone: Utility held, 40
   fps steady. **Next session: half-precision shaders (top of backlog), then the
-  batched end-of-work power measurement (iPad no Extra Args; iPhone
-  `--ios_utility_qos_guest=true`).**
+  batched end-of-work power measurement (no Extra Args on either device:
+  guest Utility is default everywhere from IPA47).**
 
 - **Direct draw path (Stefan chose it, Oct 22): P0 census built (IPA38,
   `--ios_packet_census=true`).** Design phases P0-P3 in TECHNICAL Oct 22.
@@ -390,7 +390,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_fused_upload_sizing` | true (IPA37) | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
 | `nfsmw_native_target_lookup` | false | IPA23: host/build checks and initial iPad 1.5x/60 correctness passed; energy gain unproven; miss-heavy cost documented |
-| `ios_utility_qos_guest` | on with >= 6 E cores (IPA29) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
+| `ios_utility_qos_guest` | on on every device (IPA47) | Utility QoS for all other guest threads; Oct 21 pair -23.6% drain with the flag below |
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
 | `nfsmw_native_shadow_caster_variant` | true (IPA34) | ps 4fbaecfb without its cut-out where c1.x is 0; shadows identical, energy unproven |
@@ -405,6 +405,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA47 (guest Utility default everywhere): `ios/build/NFSMW-battery-guest-utility-default-47.ipa`.
+UUID `E67B131A-6620-3978-8D16-AB741FA96B32`; SHA256
+`4abe8f7a501e49c59c2baea2f679a329f7baf9d855395ef53f4d541f14007e57`.
 
 IPA46 (adaptive default below 6 E cores): `ios/build/NFSMW-battery-adaptive-default-46.ipa`.
 UUID `C60ADFE5-E2BA-319E-8715-3BF3AC5CDBEC`; SHA256

@@ -4852,3 +4852,19 @@ FPS summaries after loading: 39.0, 40.0, 39.6, 40.0, 40.0, 39.9 and 40.0 x8.
 `[cpu]` median 110%. Short run; no power data. Measured: at the 40 cap the iPhone's
 main/GPU threads held the cap on Utility. Half-precision shader work put at the
 top of the backlog at Stefan's request.
+
+### October 22, 2026 — Guest-thread Utility default on all devices (IPA47)
+
+Stefan asked why `--ios_utility_qos_guest=true` is not the default on the
+iPhone after using it since Oct 21. It was default on only with >= 6 E cores
+because, unlike adaptive QoS, it does not back off when frames are late. Every
+iPhone run with it (Oct 21 run_3/4, Oct 22 runs 1-8) held 60 at 1x (and 40 at the
+40 cap). IPA47 makes it default on for every device (Extra Args can still turn it
+off); power effect on the iPhone still unmeasured; older 4-E-core chips (A15, M1)
+untested. Last log's `[cpu]` lines (run_8, cap 40, 10 s windows): 15, 22, 34, 71%
+during loading/menus, then 110, 128, 128, 131, 136, 120% in the race (GPU Commands
+22-29%, Main XThread 18-26%, XThread1000B 17-20%, XThread10423 11-16%). CPU-time
+percent is higher on efficiency cores for the same work and is not an energy
+measure. IPA47 `ios/build/NFSMW-battery-guest-utility-default-47.ipa`, SHA256
+`4abe8f7a501e49c59c2baea2f679a329f7baf9d855395ef53f4d541f14007e57`, NFSMW UUID
+`E67B131A-6620-3978-8D16-AB741FA96B32`; 104 metallibs; zip/codesign OK.
