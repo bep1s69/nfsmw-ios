@@ -4688,3 +4688,35 @@ place without a snapshot copy). Removing headers/fillers saves ~34k of ~254k
 words per frame of guest stores: inferred well under 1% CPU, for a rewrite of two
 emitters plus a private packet. Recommendation: skip P1b/P2; the direct path's
 remaining value does not justify its risk.
+
+### October 22, 2026 — Native GPR save/restore helpers (IPA41)
+
+Stefan approved the held October 19 GPR helper prototype ("yes"). Implemented a
+reduced version of that proposal: `ios/src/game_gpr_helpers.cpp` (added to the
+USA-edition sources in ios/CMakeLists.txt) defines strong `__savegprlr_14..31` and
+`__restgprlr_14..31` (the generated ones are weak thunks to `__imp__` bodies),
+switch `nfsmw_native_gpr_helpers` (CPU, default false, restart required). With it
+on and an ordinary stack pointer (256 <= r1 < 0xE0000000) the helper computes
+`base + r1` once and stores/loads byte-swapped 64-bit rK at r1-8*(32-K)-8 in
+ascending order and the 32-bit r12 word at r1-8 (restore: zero-extended into
+r12 and LR), the same layout as the generated bodies; otherwise, or with the
+switch off, it calls the original `__imp__` body. Not done from the proposal: the
+host differential/sanitizer fixture and benchmark (skipped for time; every guest
+function with a frame uses these helpers, so a mistake would crash at once).
+Linked-app checks: all 36 ordinary helper symbols are the app's strong
+definitions (`nm -m`, external, in the hook object); disassembly of save29: new
+path 3 instructions per register (ldr, rev, stur) after a flag and range check,
+versus ~9 per register in `__imp____savegprlr_29` (r1 reloaded and the physical
+alias offset selected for every access). Inferred gain: roughly half of the
+helpers' 3.8-4.3% body share, ~1.5-2% of app CPU; not measured.
+Build exit 0. IPA41 `ios/build/NFSMW-battery-gpr-helpers-41.ipa`, SHA256
+`c49270cf225398eae76720fc0427ec3b6efe5ea593d315e5e99e645265b827e3`, NFSMW UUID
+`0CEBC0F6-811F-3547-865C-C345953E4273`, dSYM beside it; 104 metallibs;
+zip/codesign OK. Not run on a device. Test: a race with
+`--nfsmw_native_gpr_helpers=true` (any crash or freeze is the first check).
+
+Extra Args guidance given to Stefan for IPA41: everything measured so far is a
+compiled default now, so the old experiment lines should be deleted. iPad:
+`--nfsmw_native_gpr_helpers=true` only. iPhone: that plus
+`--ios_utility_qos_guest=true`. The log's `[cpu] <n>% of a core over 10 s` lines
+are a rough CPU-time indicator (not energy; gameplay varies them by ~10%).
