@@ -95,7 +95,12 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — October 21, 2026
+## Current checkpoint — October 22, 2026
+
+- **IPA36: fix for the iPhone null-call crash near the safehouse** (deferred-call
+  queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
+  play to the safehouse on IPA36; then the pending IPA35/36 two-launch stutter
+  check and the iPhone `--ios_utility_qos_guest=true` power pair.
 
 - **IPA27 matched pair (Oct 21): both Utility flags ON cut estimated drain
   33.66 -> 25.70 pp/h (-23.6%) and CPU impact -57% at 1.5x/60, equal 32%
@@ -373,6 +378,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA36 (deferred-queue crash fix): `ios/build/NFSMW-battery-queue-fix-36.ipa`.
+UUID `D8A19FC2-C3A9-3E63-AA24-47E9EAF8D600`; SHA256
+`41398761a0c0cb8851b15fb54576b77370535a4f48fdcb3e2b08cce77f235429`.
 
 IPA35 (background pipeline-archive save): `ios/build/NFSMW-battery-pipeline-save-35.ipa`.
 UUID `EC48DBCA-637F-3BA7-841D-C28D8B1B6EDF`; SHA256
