@@ -4523,3 +4523,12 @@ UUID `353B6258-10CB-347B-91AB-38E4DCAB69BC`; dSYM
 zip/codesign OK. Includes the IPA36 queue fix. Not run on a device.
 Next: an iPhone Power Profiler run on IPA37 (with `--ios_utility_qos_guest=true`),
 then symbolize RenderFrame/Record self time to lines and trim the top items.
+
+### October 22, 2026 — Queue fix device check
+
+`22 October 2026/nfsmw_run_2_iphone.log` (one launch, 22:23:22-22:26:30, 1x,
+`[utility-qos] 4 efficiency cores; main/GPU threads off, other guest threads on
+(Extra Args)`): Stefan completed the race that crashed at its start in both
+earlier logs; 0 invalid-call/FATAL lines; 31 of 37 FPS summaries >= 59.5. The log
+does not identify the IPA build (36 or 37; both contain the fix). One clean run of
+an intermittent crash; D-001 moved to monitor.
