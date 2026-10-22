@@ -290,6 +290,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {} ({})",
               utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",
               rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off", utility_qos_source);
+  REXLOG_INFO("[gpr-helpers] native register save/restore helpers {}",
+              rex::cvar::Query<bool>("nfsmw_native_gpr_helpers") ? "on" : "off");
   REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_constant_copies) ? "on" : "off");
   REXLOG_INFO("[transform-copies] native scalar transfers {}; separate from the five-option battery group",

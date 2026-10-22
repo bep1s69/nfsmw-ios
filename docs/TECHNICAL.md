@@ -4720,3 +4720,15 @@ compiled default now, so the old experiment lines should be deleted. iPad:
 `--nfsmw_native_gpr_helpers=true` only. iPhone: that plus
 `--ios_utility_qos_guest=true`. The log's `[cpu] <n>% of a core over 10 s` lines
 are a rough CPU-time indicator (not energy; gameplay varies them by ~10%).
+
+### October 22, 2026 — GPR helpers device check; default on (IPA42)
+
+`22 October 2026/nfsmw_run_5_iphone.log` (IPA41, 22:56:17-22:58:03, 1x, guest
+Utility via Extra Args; Stefan set `--nfsmw_native_gpr_helpers=true`, which IPA41
+did not log): full race, no FATAL/invalid-call, 16 of 21 FPS summaries >= 59.5,
+`[cpu]` median 100% of a core (runs 3/4 the same evening: 106 / 98; within
+gameplay variation, so no CPU claim). Switch default true from IPA42; startup
+log `[gpr-helpers] native register save/restore helpers on|off`. IPA42
+`ios/build/NFSMW-battery-gpr-default-42.ipa`, SHA256
+`1781118ace622b3b3a356238a06408f5796a644e841637b10ea0ce8733793500`, NFSMW UUID
+`5C6A9AF4-41C0-33C3-94E3-964C285291D7`, dSYM beside it; 104 metallibs; zip/codesign OK.

@@ -10,7 +10,7 @@
 // zero-extends that word into r12 and LR. An unusual stack pointer (near 0 or in
 // the physical range) takes the original body.
 //
-// Switch: --nfsmw_native_gpr_helpers (default false; restart required).
+// Switch: --nfsmw_native_gpr_helpers (default true since October 22; restart required).
 
 #include <cstdint>
 #include <cstring>
@@ -19,7 +19,7 @@
 
 #include "nfsmw_pch.h"
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_gpr_helpers, false, "CPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_gpr_helpers, true, "CPU",
                     "Experiment: native guest register save/restore helpers (restart required)");
 
 namespace {
