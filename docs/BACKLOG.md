@@ -26,7 +26,13 @@ race; fix in IPA36 (`tools/ios/patch_game_deferred_queue.py`). Oct 22
 the race that crashed completed, no invalid-call/FATAL. One run of an
 intermittent crash: keep monitoring. Details in TECHNICAL.md, October 22.
 
-### iOS 26 black screen with the native renderer on 0.3.0 — open
+### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
+
+Oct 22: the 3 iOS-27-only libraries were the stale `ps_af393d4c46af230c_dbg1-3`
+bring-up variants; rebuilt for iOS 26 and build_shaders.sh now rebuilds or fails
+on any library not built for the minimum iOS. Needs an iOS 26 device check; not
+proven to be the black screen's cause.
+
 
 Reported October 15, 2026 on an iPhone (A19 Pro, iOS 26.6.2) with the released
 0.3.0 IPA. Log:
@@ -120,6 +126,10 @@ capture freeze/crash separately; do not make it a prerequisite for ordinary
 Power Profiler or CPU investigations.
 
 ## Feature ideas
+
+- iPhone adaptive QoS (Oct 22): Utility for the main/GPU command threads while
+  CPU frame work has headroom, normal QoS near the budget. The main open battery
+  lever on 4-E-core phones (iPhone CPU impact 21.0 vs display 2.0, Oct 21).
 
 - Older devices (Oct 22, Stefan's goal: as cheap as possible, e.g. iPhone 13 Pro
   Max / A15, 2 performance + 4 efficiency cores). Plan, by expected gain: (1) a

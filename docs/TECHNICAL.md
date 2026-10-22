@@ -4732,3 +4732,33 @@ log `[gpr-helpers] native register save/restore helpers on|off`. IPA42
 `ios/build/NFSMW-battery-gpr-default-42.ipa`, SHA256
 `1781118ace622b3b3a356238a06408f5796a644e841637b10ea0ce8733793500`, NFSMW UUID
 `5C6A9AF4-41C0-33C3-94E3-964C285291D7`, dSYM beside it; 104 metallibs; zip/codesign OK.
+
+### October 22, 2026 — iOS 26 shader libraries: stale bring-up variants (IPA43); battery ceiling
+
+Stefan: shaders for iOS 26 still not compiled. Measured in the shader cache
+(`strings` of each .metallib's target triple): 101 libraries `apple-ios26.0.0`,
+3 `apple-ios27.0.0`: `ps_af393d4c46af230c_dbg1/2/3.metallib`, the wet-road shadow
+bring-up variants, dated Oct 8 (built by hand from their own .metal in air/,
+before `-mios-version-min`, and never rebuilt by build_shaders.sh, which only
+compiles containers). They match the 0.3.0 iOS 26 log's
+`ps_af393d4c46af230c_dbg2.metallib not loaded ... (0x00020009)` and `3 shader
+libraries could not be loaded`. Fix: recompiled the three from air/ with the
+script's flags and `-mios-version-min=26.0` (originals in the scratchpad); all
+104 now `apple-ios26.0.0`. build_shaders.sh now checks every lib/*.metallib after
+building and rebuilds any whose target is not `$ios_min` from air/, failing
+otherwise (`sh -n` OK; full script not re-run, it needs the ISO containers).
+IPA43 `ios/build/NFSMW-battery-ios26-shaders-43.ipa`, SHA256
+`0ea5572853704b6eb694a5a8c290b53adea06cdc058ebe28675687f0bb20e65a`, NFSMW UUID
+unchanged `5C6A9AF4-41C0-33C3-94E3-964C285291D7`; 104 metallibs all iOS 26.0;
+zip/codesign OK. Not tested on iOS 26 (no device). Unverified: whether these
+debug-only libraries caused the 0.3.0 black screen, or only the load warning.
+
+Battery ceiling (Stefan's question), from the Oct 21 iPad pair (impact units):
+with Utility QoS the whole run was CPU 5.30, GPU 2.80, display 5.59. Display is
+now the largest and depends on brightness and refresh (already 60 Hz); the GPU is
+mostly real image work (73% of span). Remaining lossless items are 1-3% each
+(renderer trims, resolve-copy avoidance). Inference: on the iPad the big lossless
+wins are taken. On the iPhone (Oct 21 baseline CPU impact 21.0 vs display 2.0)
+CPU is still the dominant cost; the main open lever is Utility QoS for the main
+and GPU command threads without dropping frames, e.g. adaptive QoS (Utility while
+the frame's CPU work has headroom, normal QoS when it nears the budget).
