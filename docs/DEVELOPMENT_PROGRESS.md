@@ -106,6 +106,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - IPA41: native GPR save/restore helpers (`--nfsmw_native_gpr_helpers=true`,
   default false). Next: a race with it on; Extra Args: iPad only that flag,
   iPhone that plus `--ios_utility_qos_guest=true`; delete the rest.
+  Race passed on iPhone; default on in IPA42 (log `[gpr-helpers]`). Extra Args
+  now: iPad none, iPhone `--ios_utility_qos_guest=true` only.
 
 - **IPA36: fix for the iPhone null-call crash near the safehouse** (deferred-call
   queue ordering, `patch_game_deferred_queue.py`). Not device-tested. Next: iPhone
@@ -382,7 +384,7 @@ is retired and `ios_thread_qos` is ignored.
 | `ios_utility_qos` | on with >= 6 E cores (IPA29) | Utility QoS for game main + GPU command threads |
 | `nfsmw_native_fingerprint_memo` | true (IPA32) | IPA30 proposal B: per-frame fingerprint memo for non-dynamic regions; not device-tested |
 | `nfsmw_native_shadow_caster_variant` | true (IPA34) | ps 4fbaecfb without its cut-out where c1.x is 0; shadows identical, energy unproven |
-| `nfsmw_native_gpr_helpers` | false | IPA41: native guest register save/restore helpers; not device-tested |
+| `nfsmw_native_gpr_helpers` | true (IPA42) | native guest register save/restore helpers; iPhone race passed, gain unmeasured |
 | `nfsmw_native_early_commit` | false | IPA30 proposal A: commit finished passes early; not device-tested |
 | `nfsmw_native_pipeline_lookup` | false | IPA24: host/build and initial iPad 1.5x/60 correctness passed; energy gain unproven; late-mismatch cost documented |
 
@@ -392,6 +394,10 @@ Keep test arguments/settings fixed when adding the new flag; don't silently
 convert between defaults and the accumulated experimental stack.
 
 ## Build references and experiment
+
+IPA42 (GPR helpers default): `ios/build/NFSMW-battery-gpr-default-42.ipa`.
+UUID `5C6A9AF4-41C0-33C3-94E3-964C285291D7`; SHA256
+`1781118ace622b3b3a356238a06408f5796a644e841637b10ea0ce8733793500`.
 
 IPA41 (GPR helpers switch): `ios/build/NFSMW-battery-gpr-helpers-41.ipa`.
 UUID `0CEBC0F6-811F-3547-865C-C345953E4273`; SHA256
