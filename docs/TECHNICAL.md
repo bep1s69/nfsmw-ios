@@ -4868,3 +4868,19 @@ percent is higher on efficiency cores for the same work and is not an energy
 measure. IPA47 `ios/build/NFSMW-battery-guest-utility-default-47.ipa`, SHA256
 `4abe8f7a501e49c59c2baea2f679a329f7baf9d855395ef53f4d541f14007e57`, NFSMW UUID
 `E67B131A-6620-3978-8D16-AB741FA96B32`; 104 metallibs; zip/codesign OK.
+
+### October 22, 2026 — IPA47 no-Extra-Args iPhone run (cap 40, MetalFX lighter)
+
+`22 October 2026/nfsmw_run_9_iphone.log` (23:31:41-23:33:3x): defaults confirmed
+(`4 efficiency cores; main/GPU threads off, other guest threads on, adaptive on
+(default)`, `[gpr-helpers] ... on`); 1x, MetalFX "lower", cap 40. Adaptive: boost
+at 23:31:42 (loading, 40 s), Utility at 23:32:22, boost again at 23:32:27 after 5 s
+(80 s hold), i.e. most of this race at full speed. FPS summaries: 40.0, 37.8
+(23:32:08, during the first full-speed hold, so not caused by Utility), then
+39.7-40.0. Hitches: 37.1 and 38.9 ms encodes, a 62.7 ms swap gap at 23:32:59
+(2,070 draws), two 49.2 ms GPU frames at 23:33:32. `[cpu]` race windows 84-114%
+(run_8, MetalFX "to the screen": 110-136%). Late summaries: GPU 20.7-23.3 ms/frame
+at a 25 ms budget (may reflect lowered GPU clocks with slack; not a saturation
+proof). No FATAL. Inference: at cap 40 the iPhone is near its GPU budget in some
+scenes, so a heavy moment late-frames even at full CPU speed; half-precision
+shaders (top of backlog) target exactly this.
