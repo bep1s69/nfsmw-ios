@@ -127,6 +127,13 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- **HIGHEST PRIORITY (Stefan, Oct 22): half-precision shader math.** Convert
+  translated pixel-shader arithmetic to half precision where it cannot change
+  the 8-bit result; the largest remaining GPU lever on Apple GPUs (the Xbox
+  shaders run full 32-bit). Not bit-identical: needs per-shader analysis and
+  snapshot comparison (nfsmw_native_dump), heavy shaders first (cost probe:
+  4fbaecfb, 27d82ea0, 684f4711). See TECHNICAL Oct 22 GPU view.
+
 - iPhone adaptive QoS (Oct 22): Utility for the main/GPU command threads while
   CPU frame work has headroom, normal QoS near the budget. The main open battery
   lever on 4-E-core phones (iPhone CPU impact 21.0 vs display 2.0, Oct 21).
