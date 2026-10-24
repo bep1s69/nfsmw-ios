@@ -19,6 +19,13 @@
 // cores and preempted most of each 80 ms gap. Those threads cannot be asked to
 // set their own QoS, so the command thread starts an override on each one
 // (pthread_override_qos_class_start_np) and ends it on the way back to Utility.
+//
+// October 24 experiment: Low Power Mode halved the iPhone drain at 1x / 40 for
+// about 1% fps, so the boost is tunable to find a cheaper one that still holds
+// the cap: --ios_adaptive_qos_level (default, or user_initiated), the longest
+// hold --ios_adaptive_qos_max_hold (seconds) and --ios_adaptive_qos_workers_count
+// (the busiest guest threads by CPU time; 0 raises all of them).
+// --ios_adaptive_qos_ipa48=true restores IPA48: user_initiated, 240 s, all.
 
 #include <pthread.h>
 #include <pthread/qos.h>
@@ -29,6 +36,8 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <rex/cvar.h>
@@ -41,15 +50,44 @@ REXCVAR_DEFINE_BOOL(ios_adaptive_qos, false, "Kernel",
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_workers, true, "Kernel",
                     "Adaptive QoS: User Initiated also raises the other guest threads and the "
                     "native render queue (restart required)");
+REXCVAR_DEFINE_STRING(ios_adaptive_qos_level, "default", "Kernel",
+                      "Adaptive QoS: the class of a boost, default or user_initiated (restart required)");
+REXCVAR_DEFINE_INT32(ios_adaptive_qos_max_hold, 20, "Kernel",
+                     "Adaptive QoS: longest boost in seconds; IPA48 used 240 (restart required)");
+REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 3, "Kernel",
+                     "Adaptive QoS: how many guest threads a boost raises, busiest first by CPU time; "
+                     "0 raises all (restart required)");
+REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
+                    "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
+                    "overrides the three settings above (restart required)");
 
 namespace {
 
-std::atomic<int> mode{-1};  // 0 Utility, 1 User Initiated
+std::atomic<int> mode{-1};  // 0 Utility, 1 boosted
 using Clock = std::chrono::steady_clock;
+
+struct Boost {
+  qos_class_t qos;
+  const char* name;
+  double max_hold_s;
+  int workers;  // 0: all
+};
+
+const Boost& Settings() {
+  static const Boost boost = [] {
+    if (REXCVAR_GET(ios_adaptive_qos_ipa48)) return Boost{QOS_CLASS_USER_INITIATED, "User Initiated", 240.0, 0};
+    const bool user_initiated = REXCVAR_GET(ios_adaptive_qos_level) == "user_initiated";
+    return Boost{user_initiated ? QOS_CLASS_USER_INITIATED : QOS_CLASS_DEFAULT,
+                 user_initiated ? "User Initiated" : "Default",
+                 double(std::clamp<int32_t>(REXCVAR_GET(ios_adaptive_qos_max_hold), 5, 240)),
+                 std::max<int32_t>(REXCVAR_GET(ios_adaptive_qos_workers_count), 0)};
+  }();
+  return boost;
+}
 
 void Apply(int m, int& applied) {
   if (m < 0 || m == applied) return;
-  pthread_set_qos_class_self_np(m == 0 ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED, 0);
+  pthread_set_qos_class_self_np(m == 0 ? QOS_CLASS_UTILITY : Settings().qos, 0);
   applied = m;
 }
 
@@ -69,17 +107,39 @@ void RaiseGuestThreads(bool raise) {
   thread_act_array_t threads = nullptr;
   mach_msg_type_number_t count = 0;
   if (task_threads(mach_task_self(), &threads, &count) != KERN_SUCCESS) return;
+  // (CPU time since the previous boost, thread), busiest first.
+  static std::vector<std::pair<uint64_t, uint64_t>> last_us;  // (thread id, CPU time)
+  std::vector<std::pair<uint64_t, uint64_t>> now_us;
+  std::vector<std::pair<uint64_t, pthread_t>> guests;
   for (mach_msg_type_number_t i = 0; i < count; ++i) {
     pthread_t thread = pthread_from_mach_thread_np(threads[i]);
     char name[64] = {};
-    if (thread && pthread_getname_np(thread, name, sizeof(name)) == 0 && std::strncmp(name, "XThread", 7) == 0) {
-      if (pthread_override_t o = pthread_override_qos_class_start_np(thread, QOS_CLASS_USER_INITIATED, 0)) {
-        overrides.push_back(o);
+    thread_identifier_info_data_t id = {};
+    thread_basic_info_data_t basic = {};
+    mach_msg_type_number_t n = THREAD_IDENTIFIER_INFO_COUNT, b = THREAD_BASIC_INFO_COUNT;
+    if (thread && pthread_getname_np(thread, name, sizeof(name)) == 0 && std::strncmp(name, "XThread", 7) == 0 &&
+        thread_info(threads[i], THREAD_IDENTIFIER_INFO, thread_info_t(&id), &n) == KERN_SUCCESS &&
+        thread_info(threads[i], THREAD_BASIC_INFO, thread_info_t(&basic), &b) == KERN_SUCCESS) {
+      const uint64_t us = uint64_t(basic.user_time.seconds + basic.system_time.seconds) * 1000000 +
+                          basic.user_time.microseconds + basic.system_time.microseconds;
+      uint64_t before = 0;
+      for (const auto& [tid, t] : last_us) {
+        if (tid == id.thread_id) before = t;
       }
+      now_us.push_back({id.thread_id, us});
+      guests.push_back({us - std::min(us, before), thread});
     }
     mach_port_deallocate(mach_task_self(), threads[i]);
   }
   vm_deallocate(mach_task_self(), vm_address_t(threads), count * sizeof(thread_act_t));
+  last_us.swap(now_us);
+  std::sort(guests.begin(), guests.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+  const size_t limit = Settings().workers ? size_t(Settings().workers) : guests.size();
+  for (size_t i = 0; i < guests.size() && i < limit; ++i) {
+    if (pthread_override_t o = pthread_override_qos_class_start_np(guests[i].second, Settings().qos, 0)) {
+      overrides.push_back(o);
+    }
+  }
 }
 
 }  // namespace
@@ -91,9 +151,10 @@ bool Enabled() {
   return on;
 }
 
-// For the native render queue: submit this frame at User Initiated.
-bool WorkersRaised() {
-  return Enabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1;
+// For the native render queue: submit this frame at the boost's class (0 when not boosted).
+qos_class_t WorkersRaised() {
+  return Enabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1 ? Settings().qos
+                                                                               : QOS_CLASS_UNSPECIFIED;
 }
 
 // On the GPU command thread, once per swap.
@@ -112,6 +173,10 @@ void OnSwap(double interval_ms) {
     mode.store(0, std::memory_order_relaxed);
     REXLOG_INFO("[adaptive-qos] on: main and GPU command threads start at Utility; guest workers and render queue {}",
                 WorkersOn() ? "follow the mode" : "stay at Utility");
+    REXLOG_INFO("[adaptive-qos] boost: {} QoS, holds up to {:.0f} s, {} guest threads{}", Settings().name,
+                Settings().max_hold_s,
+                Settings().workers ? fmt::format("the {} busiest", Settings().workers) : std::string("all"),
+                REXCVAR_GET(ios_adaptive_qos_ipa48) ? " (IPA48 settings)" : "");
   }
   const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
   const double budget = 1000.0 / cap;
@@ -121,10 +186,11 @@ void OnSwap(double interval_ms) {
   at = (at + 1) % 120;
   if (m == 0 && late_count >= 2) {
     const double eco_s = std::chrono::duration<double>(now - eco_since).count();
-    hold_s = eco_s < 10.0 ? std::min(hold_s * 2.0, 240.0) : eco_s > 60.0 ? 20.0 : hold_s;
+    hold_s = eco_s < 10.0 ? std::min(hold_s * 2.0, Settings().max_hold_s) : eco_s > 60.0 ? 20.0 : hold_s;
+    hold_s = std::min(hold_s, Settings().max_hold_s);
     hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
     m = 1;
-    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] User Initiated for {:.0f} s ({} late frames of 120, {:.0f} s on Utility)", hold_s, late_count, eco_s);
+    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} for {:.0f} s ({} late frames of 120, {:.0f} s on Utility)", Settings().name, hold_s, late_count, eco_s);
   } else if (m == 1 && now >= hold_until) {
     m = 0;
     eco_since = now;

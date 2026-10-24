@@ -169,8 +169,9 @@ Power Profiler or CPU investigations.
 
 - Low Power Mode headroom (Oct 24): on the iPhone at 1x/40 it halved the drain
   (~17 vs ~33 %/h) for ~1% fps (TECHNICAL Oct 24). Ideas, not approved: (1) log
-  `NSProcessInfo.lowPowerModeEnabled` and thermal state at start and in `[cpu]`;
-  (2) lower-clock experiment for adaptive holds: User Initiated only for the
+  `NSProcessInfo.lowPowerModeEnabled` and thermal state in `[cpu]` (done in
+  IPA49; `[memory]` lines already had both); (2) lower-clock experiment for
+  adaptive holds (built as IPA49 switches, testing): User Initiated only for the
   threads on the critical path, or Default instead of User Initiated, or shorter
   holds, measured against a matched Low Power Mode run; (3) suggest Low Power Mode
   in the Battery settings text.

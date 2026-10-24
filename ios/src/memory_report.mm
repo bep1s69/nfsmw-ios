@@ -109,9 +109,10 @@ void ReportCpu() {
     top += fmt::format("{}{} {:.0f}%", i ? ", " : "", used[i].second, 100.0 * used[i].first / wall_us);
   }
   const float battery = [UIDevice currentDevice].batteryLevel;  // -1 until monitoring is on
-  REXLOG_INFO("[cpu] {:.0f}% of a core over {:.0f} s ({} threads) | {} | battery {}", 100.0 * total_us / wall_us,
-              wall_us / 1e6, thread_count, top,
-              battery >= 0 ? fmt::format("{:.0f}%", battery * 100.0f) : std::string("unknown"));
+  REXLOG_INFO("[cpu] {:.0f}% of a core over {:.0f} s ({} threads) | {} | battery {}, Low Power Mode {}, thermal {}",
+              100.0 * total_us / wall_us, wall_us / 1e6, thread_count, top,
+              battery >= 0 ? fmt::format("{:.0f}%", battery * 100.0f) : std::string("unknown"),
+              [NSProcessInfo processInfo].lowPowerModeEnabled ? "on" : "off", ThermalState());
 }
 
 void StartPeriodicReports(int seconds) {
