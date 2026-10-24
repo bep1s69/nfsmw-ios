@@ -155,6 +155,11 @@ counting on Stefan never saw the sun in the sky (weather, or a count too low:
 the new line answers it). The sun in the car reflection (IMG_3949/3950) does not
 use the query; likely the cube map seeing the sun behind the camera (inferred),
 which also explains it in tunnel reflections.
+October 25 (IPA54 run, `nfsmw_ipa54_sun_test.log`): 6-7 query addresses per
+300 frames, none ever answered 0, counts 65k to 7.8M (above a full 1280x720
+frame, so overlapping draws/passes add up). The answer is not too low; if the
+sun still never shows in open sky, next check which address is the sun and how
+the game turns the count into glare (ratio or threshold). See TECHNICAL Oct 25.
 
 ### Textures flashing — open (since the Vulkan renderer)
 
