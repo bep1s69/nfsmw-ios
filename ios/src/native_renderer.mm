@@ -128,6 +128,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
+                    "Native renderer: hash index buffers in four independent lanes (every word, "
+                    "as before, but not one long dependent chain)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_caster_variant, true, "GPU",
                     "Experiment: shadow casters without the cut-out compiled in where it is off (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_early_commit, false, "GPU",
@@ -1609,11 +1612,29 @@ struct IndexEntry {
 std::unordered_map<IndexKey, IndexEntry, IndexKeyHash> index_cache;
 
 // The index memory's fingerprint: every word up to 4 KB (most draws), else
-// the sampled one.
+// the sampled one. One FNV chain is a multiply per 8 bytes that each waits for
+// the last (~3,000 draws a frame in pursuits, up to 512 steps each), so by
+// default four chains run side by side over 32-byte blocks and are folded at
+// the end: the same words go in, a different (equally strong) value comes out.
+// The values live only in this session's index cache.
 uint64_t IndexFingerprint(const uint8_t* p, size_t size) {
   if (size > 4096) return Fingerprint(p, size);
   uint64_t h = 0xCBF29CE484222325ull ^ size;
   size_t i = 0;
+  static const bool lanes = REXCVAR_GET(nfsmw_native_fast_index_fingerprint);
+  if (lanes) {
+    uint64_t l0 = h, l1 = h ^ 0x9E3779B97F4A7C15ull, l2 = h ^ 0xC2B2AE3D27D4EB4Full,
+             l3 = h ^ 0x165667B19E3779F9ull;
+    for (; i + 32 <= size; i += 32) {
+      uint64_t v[4];
+      std::memcpy(v, p + i, 32);
+      l0 = (l0 ^ v[0]) * 0x100000001B3ull;
+      l1 = (l1 ^ v[1]) * 0x100000001B3ull;
+      l2 = (l2 ^ v[2]) * 0x100000001B3ull;
+      l3 = (l3 ^ v[3]) * 0x100000001B3ull;
+    }
+    h = (((l0 * 0x100000001B3ull) ^ l1) * 0x100000001B3ull ^ l2) * 0x100000001B3ull ^ l3;
+  }
   for (; i + 8 <= size; i += 8) {
     uint64_t v;
     std::memcpy(&v, p + i, 8);

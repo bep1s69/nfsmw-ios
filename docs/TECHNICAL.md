@@ -5302,3 +5302,29 @@ is the first change that moves the battery-% drain toward Low Power Mode without
 its clock caps. Still 70 ring-wait timeouts/s: the 8 ms cap expiring during the
 40 fps vblank pause (a frame-relative cap would remove most).
 
+### October 24, 2026 (night) — IPA53: frame-relative ring wait, faster index fingerprint
+
+- `ios/src/game_hooks.cpp`: `--ios_ring_wait_ms` default 0 = half a frame of the
+  current `ios_fps_cap` (read per wait, so Battery mode's 30 gives 16.7 ms;
+  uncapped counts as 120); a value above 0 is a fixed cap in ms (IPA52 = 8, older
+  = 1). IPA52 still had 70 timeouts/s at 8 ms in the 40 fps pursuit. The
+  `[ring-wait]` line now shows the cap in use.
+- `ios/src/native_renderer.mm` `IndexFingerprint`: for index ranges up to 4 KB
+  (most draws), every 8-byte word went through one FNV chain: up to 512 dependent
+  multiplies per draw, ~3,000 draws a frame in pursuits; it is inlined into
+  `Record()`, so part of `Record()`'s self time (~15-19% of GPU Commands in the
+  Oct 24 trace) and `Fingerprint` (~3-6%) is this. With
+  `--nfsmw_native_fast_index_fingerprint` (default true) four chains run over
+  32-byte blocks and are folded at the end; the remaining words go through the
+  old chain. Same input coverage, different values; the values are used only for
+  this session's index cache (not persisted), so no visual change is expected.
+- Not changed: the rest of `Record()`. A line-level profile is needed to pick
+  the next target (the build keeps line tables; Stefan's Time Profiler trace
+  attached to LiveContainer would do).
+Risks: a collision in the new hash would reuse a stale index buffer (same risk
+class as before); the half-frame cap at 30 fps is 16.7 ms (only on a missed
+wake). Checks: build OK, 208 metallibs, ZIP OK, both new strings present. IPA53
+`ios/build/NFSMW-frame-wait-encode-53.ipa`, SHA256
+`c08433ff248cba276584a44eaf8605135342e34ee045a959d138b2ae2d4076e5`, NFSMW UUID
+`4AECB5A4-A7C1-3162-8D46-5180E300A7EF`. Not run on a device.
+

@@ -103,6 +103,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA53 (Stefan approved backlog 2 and 3). Built, not run.** Ring
+  wait capped at half a frame of the fps cap (`--ios_ring_wait_ms=0` default;
+  12.5 ms at 40, 8.3 at 60, 4.2 at 120, follows Battery mode's 30); index-buffer
+  fingerprint in four lanes (`--nfsmw_native_fast_index_fingerprint=true`).
+  `Record()` itself not changed: needs a line-level profile first. **Next: the
+  same police chase on IPA53 (~10 min, battery %, log) vs IPA52's ~22 %/h.**
+
 - **October 24 night: IPA52 gives the first clear iPhone saving without Low Power
   Mode.** Police chase 23:11-23:22, Low Power Mode off, 1x/40: 79 -> 75% = ~22 %/h
   (16-27 with +-1 point) vs IPA51 ~30, IPA48 ~33, Low Power Mode ~17; 39.96 fps,
