@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 24: Stefan records Instruments traces himself in the Instruments app,
+  attached to LiveContainer (the plain one, not LiveContainer2/3), and sends the
+  saved path; agents only analyze. Agent-driven `xctrace record` uses his usage
+  limit and, recording the whole phone, made 13-21 GB raw files.
 - October 24: 0.4.0 is held until it has more than battery tweaks that do not
   measurably help (Stefan). No tag or version bump; IPA51 is a test baseline.
 - October 21: Stefan approved Utility QoS for all game threads as the default
@@ -98,6 +102,14 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 24 evening: iPhone traces on IPA51** (TECHNICAL Oct 24 evening).
+  Power Profiler, Low Power Mode off, race: ~42.5 %/h estimated system drain; the
+  Low Power Mode arm could not be recorded (Low Power Mode drops the wireless
+  link). Pursuit System Trace: Main XThread blocked ~78%, in ~709 short lock
+  waits/s (mostly timeouts, ~103 wakes/s from GPU Commands) plus 236 tiny sleeps/s
+  in the main loop; GPU Commands yields ~908 times/s in `WorkerThreadMain`.
+  **Proposed (not approved): replace these polls with real blocking waits.**
 
 - **October 24: IPA51 is the test baseline (not a release candidate).** Defaults:
   `--ios_display_match_cap=false` (old 60/120/60 Hz), adaptive boost back to IPA48
