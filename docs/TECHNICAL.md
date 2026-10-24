@@ -5465,3 +5465,21 @@ IPA55 `ios/build/NFSMW-texture-flips-55.ipa`, SHA256
 `DD867111-3B2F-3716-A693-0A416DAD6AA6`; 208 metallib entries; zip test and
 codesign OK. Not run on a device. Test: drive or stand near a flashing
 billboard for a minute.
+
+### October 25, 2026 — IPA55 run: the flashing billboard's textures do not change
+
+Stefan, iPhone, IPA55 (`24 October 2026/nfsmw_ipa55_texture_flickering.log`,
+00:54-00:58), the same billboard flashing towards the end. In-game lines
+00:56:45-00:57:22 list 1-27 changing textures, all minor: the fetch constant
+changing 1-3 times per 300 frames with identical size, mips (bias 0, aniso 0)
+and content (the same address bound with two fetch constants), or content
+changes of small 1-level 128x128 textures (dynamic). The last six lines
+(00:57:30-00:58:07, the billboard part) show **0 textures changing**; frames
+7501-9301 draw 2924-3133 draws and 410-417 textures per frame, stable.
+So the billboard's texture is not rebound, resized, re-mipped or rewritten
+between frames; the sharp/blurry flip comes from what is drawn, not from the
+texture cache. Remaining suspects (inferred): two models/textures at
+different addresses alternating (a model LOD switch, e.g. camera shake around
+a LOD distance), or the sampler/derivative (anisotropy setting constant;
+`anisotropic_override` is a launcher setting). Next proposal: log texture
+addresses bound in one frame but not the next and back (A/B alternation).
