@@ -5582,3 +5582,14 @@ it (inferred: draw order/depth of the translucent glass versus the
 alpha-tested trees). Both renderers show it. Next: snapshot dump at that spot
 (`--nfsmw_native_dump=true --nfsmw_native_dump_interval_ms=3000`) to read the
 glass and tree draws' order, blend, depth and alpha-test state.
+Glass capture (`nfsmw_ipa58_glass_issues.log`, IMG_3954-3957): the
+`24 October 2026/native` folder arrived empty (the log says 61 snapshots
+were saved on the phone), so only the log's per-pass draw groups are
+available (shader pairs, depth control 0x732 = test, no write / 0x736 = test
+and write, LEQUAL; no blend state). Screenshots: the bus-terminal skylights
+and wall panes show crisp trees and bright sky, as a reflection map would
+(IMG_3957: trees inside the roof panes, where only sky is above), not what
+is behind them. Inferred: the glass samples the dynamic environment cube
+(the same as the car paint), so the question is whether the cube's faces or
+orientation are wrong, or whether this is the game's own look. Needs the
+snapshot images and a reference (360 footage of the same spot).
