@@ -103,6 +103,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24 night: IPA53 run looked worse by battery % (~30-40 %/h) and
+  hotter, but its counters are all equal or better than IPA52 (CPU ~100% vs
+  127%, fewer ring timeouts, 39.95 fps, 2 in-play hitches); it was the 7th
+  back-to-back run.** Treated as inconclusive. Next: cool-down A/B (IPA53 default
+  vs `--ios_ring_wait_ms=8 --nfsmw_native_fast_index_fingerprint=false`, i.e.
+  IPA52 behaviour) on a fresh, cool phone. Sun flicker/occlusion updated in
+  BACKLOG.
+
 - **October 24: IPA53 (Stefan approved backlog 2 and 3). Built, not run.** Ring
   wait capped at half a frame of the fps cap (`--ios_ring_wait_ms=0` default;
   12.5 ms at 40, 8.3 at 60, 4.2 at 120, follows Battery mode's 30); index-buffer

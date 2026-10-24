@@ -123,11 +123,18 @@ Game Mode currently needs shared-app +LiveContainer2 per Stefan, so do not make
 the main plan depend on that or a paid host entitlement. Full evidence, platform
 sources, proposal and gates in latest TECHNICAL/checkpoint.
 
-### iPad Pro M4 sun flickering — open
+### iPad Pro M4 sun flickering — open (also iPhone, Oct 24)
 
 Seen in the same October 15 session as the battery drain (MetalFX temporal to
 the screen, 1x then 1.5x, MSAA up to 4x). Not investigated yet. Possibly related
 to MetalFX temporal's missing motion for the sky (inferred, unverified).
+October 24 (Stefan, iPhone, IPA48-53, MetalFX off): since the skybox change the
+sun flickers constantly whenever the weather shows it; it is still drawn through
+buildings and tunnels (occlusion never hides it, unchanged from before); its
+reflection flickers too and stays visible even fully inside a tunnel. Next:
+check how the sun/flare visibility is decided (occlusion query or depth read in
+the native renderer) and what the skybox change altered; compare with the
+emulated renderer.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
