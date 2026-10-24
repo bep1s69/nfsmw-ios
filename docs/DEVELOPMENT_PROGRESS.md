@@ -103,6 +103,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24 night: IPA52 gives the first clear iPhone saving without Low Power
+  Mode.** Police chase 23:11-23:22, Low Power Mode off, 1x/40: 79 -> 75% = ~22 %/h
+  (16-27 with +-1 point) vs IPA51 ~30, IPA48 ~33, Low Power Mode ~17; 39.96 fps,
+  6 hitches, thermal nominal throughout; Stefan: cooler than the old Low Power
+  Mode runs. Ring-space waits 104/s (was 709/s), CP yields 164/s (was 908/s).
+  One run: needs a repeat and the iPad. Next: wider test, then the ranked list in
+  BACKLOG (frame-relative ring cap first).
+
 - **October 24: IPA52 cuts the two polls found in the pursuit trace (Stefan
   approved). Built, not run.** `--ios_ring_wait_ms=8` (was 1): the main thread's
   ring-space wait sleeps up to 8 ms; the CP already wakes it exactly when it
