@@ -183,6 +183,10 @@ address when the bound size or mip range differs from the last bind. Built as
 IPA55 (`nfsmw_native_texture_flip_log`). Run Oct 25: 0 textures changing while
 the billboard flashed, so not the texture cache; next suspect two textures or
 models alternating (LOD). See TECHNICAL Oct 25.
+Stefan then described it as a dark grey layer flickering over the billboard,
+worse when moving: z-fighting. The native renderer ignored the polygon offset;
+IPA56 applies it (`nfsmw_native_depth_bias`), not run. If it persists: compile
+the Metal shaders with invariant positions (shader rebuild).
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 

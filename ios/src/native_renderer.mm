@@ -150,11 +150,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
                     "Native renderer: answer the game's occlusion queries (the sun glare) by "
                     "counting its own samples");
-// Textures shown sharp one frame and blurry the next (billboards): per
-// address, how often what is bound changes between frames.
-REXCVAR_DEFINE_BOOL(nfsmw_native_texture_flip_log, true, "GPU",
-                    "Native renderer: log textures whose size, mips, fetch constant or content differ "
-                    "from their last use in an earlier frame");
+// Polygon offset (PA_SU_POLY_OFFSET_*): decals and overlays drawn on the
+// surface under them (the flickering grey on billboards was z-fighting).
+REXCVAR_DEFINE_BOOL(nfsmw_native_depth_bias, true, "GPU",
+                    "Native renderer: apply the game's polygon offset as Metal depth bias");
 // Cubes made from resolves (environment maps) sampled with the resolves'
 // red/blue swap and the fetch swizzle, as 2D resolves are.
 REXCVAR_DEFINE_BOOL(nfsmw_native_cube_swizzle, true, "GPU",
@@ -1015,6 +1014,8 @@ struct Draw {
   // Render state.
   uint32_t surface_info, color_info, depth_info;
   uint32_t depth_control, blend_control, color_mask;
+  // Polygon offset: constant in host depth units, slope per guest pixel.
+  float depth_bias = 0, depth_slope = 0;
   // A second render target (the pixel shader's oC1), when the colour mask
   // writes one: RB_COLOR1_INFO and RB_BLENDCONTROL1.
   bool second_target = false;
@@ -1206,59 +1207,9 @@ struct OcclusionAnswers {
 };
 std::unordered_map<uint32_t, OcclusionAnswers> occlusion_answers;
 
-// nfsmw_native_texture_flip_log: per texture address, what was bound last
-// (its fetch constant, size, levels, content) and, since the last stats line,
-// how often that changed from one frame to a later one. Under texture_flip_mutex.
-struct TextureUse {
-  FetchKey key;
-  uint32_t width = 0, height = 0, levels = 0;
-  uint64_t fingerprint = 0;
-  uint64_t frame = 0;
-};
-struct TextureFlips {
-  uint32_t uses = 0, key_changes = 0, size_changes = 0, content_changes = 0;
-  std::string example;  // the last change: before -> after
-};
-std::mutex texture_flip_mutex;
-std::unordered_map<uint32_t, TextureUse> texture_last_use;
-std::unordered_map<uint32_t, TextureFlips> texture_flips;
-
-std::string DescribeTextureUse(const TextureUse& u) {
-  xenos::xe_gpu_texture_fetch_t t;
-  std::memcpy(&t, u.key.v, sizeof(t));
-  return fmt::format("{}x{} levels {} mips {}-{} bias {} mipfilter {} aniso {} fmt {} content {:04X}", u.width,
-                     u.height, u.levels, uint32_t(t.mip_min_level), uint32_t(t.mip_max_level), int32_t(t.lod_bias),
-                     uint32_t(t.mip_filter), uint32_t(t.aniso_filter), uint32_t(t.format),
-                     uint32_t(u.fingerprint & 0xFFFF));
-}
-
-void NoteTextureUse(uint32_t address, const FetchKey& key, const Texture& tex, uint64_t fingerprint) {
-  if (!REXCVAR_GET(nfsmw_native_texture_flip_log)) return;
-  TextureUse now;
-  now.key = key;
-  now.width = tex.width;
-  now.height = tex.height;
-  now.levels = tex.levels;
-  now.fingerprint = fingerprint;
-  now.frame = frame_counter;
-  std::lock_guard<std::mutex> lock(texture_flip_mutex);
-  TextureFlips& f = texture_flips[address];
-  ++f.uses;
-  auto [it, fresh] = texture_last_use.try_emplace(address, now);
-  if (!fresh && it->second.frame != now.frame) {
-    const TextureUse& was = it->second;
-    const bool key_changed = !(was.key == now.key);
-    const bool size_changed = was.width != now.width || was.height != now.height || was.levels != now.levels;
-    const bool content_changed = was.fingerprint != now.fingerprint;
-    f.key_changes += key_changed;
-    f.size_changes += size_changed;
-    f.content_changes += content_changed;
-    if (key_changed || size_changed || content_changed) {
-      f.example = DescribeTextureUse(was) + " -> " + DescribeTextureUse(now);
-    }
-  }
-  if (fresh || it->second.frame != now.frame) it->second = now;
-}
+// Draws with a polygon offset, and with an equal depth test (z-fighting
+// candidates), since the last stats line.
+std::atomic<uint64_t> depth_bias_draws{0}, depth_equal_draws{0};
 
 // Compiled pipelines kept on disk (Library/Caches), so a pipeline compiled
 // once is loaded, not compiled, in later sessions: compiling them as the race
@@ -2199,7 +2150,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     }
   }
   if (hit) {
-    NoteTextureUse(texture_address, key, *cached.value, cached.fingerprint);
     frame.textures.push_back(cached.value);
     const int index = int(frame.textures.size() - 1);
     frame.texture_index[key] = index;
@@ -2350,7 +2300,6 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   cached.value = std::make_shared<Texture>(std::move(tex));
   cached.fingerprint = fingerprint;
-  NoteTextureUse(texture_address, key, *cached.value, fingerprint);
   frame.textures.push_back(cached.value);
   const int index = int(frame.textures.size() - 1);
   frame.texture_index[key] = index;
@@ -2944,6 +2893,29 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.color_info = regs[kRbColorInfo];
   d.depth_info = regs[kRbDepthInfo];
   d.depth_control = regs[kRbDepthControl];
+  {
+    // As rexglue's GetPreferredFacePolygonOffset and its Vulkan renderer:
+    // the front offset unless front faces are culled, the back one then;
+    // points and lines by poly_offset_para_enable.
+    const uint32_t mode = regs[kPaSuScModeCntl];
+    float scale = 0, offset = 0;
+    if (prim > 3) {
+      if ((mode >> 11 & 1) && !(mode & 1)) {
+        scale = AsFloat(regs[0x2380]);
+        offset = AsFloat(regs[0x2381]);
+      }
+      if ((mode >> 12 & 1) && !(mode >> 1 & 1) && !scale && !offset) {
+        scale = AsFloat(regs[0x2382]);
+        offset = AsFloat(regs[0x2383]);
+      }
+    } else if (mode >> 13 & 1) {
+      scale = AsFloat(regs[0x2380]);
+      offset = AsFloat(regs[0x2381]);
+    }
+    // RB_DEPTH_INFO bit 16: 24-bit float depth, else 24-bit unorm.
+    d.depth_bias = offset * ((regs[kRbDepthInfo] >> 16 & 1) ? float(1u << 24) : float((1u << 24) - 1));
+    d.depth_slope = scale * (1.0f / 16.0f);
+  }
   d.blend_control = regs[kRbBlendControl0];
   d.color_mask = regs[kRbColorMask];
   d.color1_info = regs[0x2003];
@@ -5070,6 +5042,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::map<std::string, std::pair<size_t, size_t>> groups;  // snapshot: draw groups of the pass (first draw, count)
     std::string group_target;
     __unsafe_unretained id<MTLRenderCommandEncoder> clip_mode_encoder = nil;  // the depth clip mode set on
+    __unsafe_unretained id<MTLRenderCommandEncoder> bias_encoder = nil;  // the depth bias set on it:
+    float bias_constant = 0, bias_slope = 0;
     bool clip_mode_clamp = false;
     // GPU profile (every frame while hitches are logged, else every 300th; not
     // in snapshots): a timestamp at the start and end of each pass and blit.
@@ -5923,6 +5897,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setDepthClipMode:d.clip_disable ? MTLDepthClipModeClamp : MTLDepthClipModeClip];
         clip_mode_encoder = enc;
         clip_mode_clamp = d.clip_disable;
+      }
+      // Polygon offset (a new encoder starts without bias).
+      {
+        const bool on = REXCVAR_GET(nfsmw_native_depth_bias);
+        const float constant = on ? d.depth_bias : 0.0f, slope = on ? d.depth_slope * std::max(t.scale, 1.0f) : 0.0f;
+        if (enc != bias_encoder) {
+          bias_encoder = enc;
+          bias_constant = bias_slope = 0;
+        }
+        if (constant != bias_constant || slope != bias_slope) {
+          [enc setDepthBias:constant slopeScale:slope clamp:0];
+          bias_constant = constant;
+          bias_slope = slope;
+        }
+        if (d.depth_bias != 0 || d.depth_slope != 0) depth_bias_draws.fetch_add(1, std::memory_order_relaxed);
+        if ((d.depth_control & 0x72) == 0x22) depth_equal_draws.fetch_add(1, std::memory_order_relaxed);
       }
       // Occlusion query: counted while its draws run (a new encoder starts
       // with counting off, and with new slots).
@@ -6974,9 +6964,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       cube_stats_removed += cube_duplicates_removed;
       cube_stats_copies += cube_assembly_copies;
       if (number % 300 == 1) {
-        REXLOG_INFO("[native] upload sizing: {} (restart required)",
+        // Settings that cannot change while running: in the first summary only.
+        static bool settings_logged = false;
+        const bool log_settings = !settings_logged;
+        settings_logged = true;
+        if (log_settings) REXLOG_INFO("[native] upload sizing: {} (restart required)",
                     fused_upload_sizing ? "fused single traversal" : "legacy two traversals");
-        REXLOG_INFO("[native] GPU buffer selector: {}; 4096 direct-mapped slots (restart required)",
+        if (log_settings) REXLOG_INFO("[native] GPU buffer selector: {}; 4096 direct-mapped slots (restart required)",
                     GpuBufferLookupHashEnabled() ? "higher-bit mix" : "legacy low bits");
         if (GpuBufferLookupStatsEnabled()) {
           // Scanning 4,096 slots once per summary avoids an occupancy update
@@ -6991,10 +6985,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       lookup.frames, lookup.snapshot_frames, lookup.hits, lookup.empty_misses,
                       lookup.collisions, lookup.existing_entries, lookup.new_entries, occupied, gpu_buffers.size());
           gpu_buffer_lookup_stats = {};
-        } else {
+        } else if (log_settings) {
           REXLOG_INFO("[native] GPU buffer lookup: stats off (nfsmw_native_gpu_lookup_stats, restart required)");
         }
-        REXLOG_INFO("[native] lazy diagnostics: {}; snapshot-only preparation {} on ordinary frames",
+        if (log_settings) REXLOG_INFO("[native] lazy diagnostics: {}; snapshot-only preparation {} on ordinary frames",
                     lazy_diagnostics ? "on" : "off", prepare_snapshots ? "active" : "skipped");
         REXLOG_INFO("[native] render scheduling: utility requested {}; frame-entry QoS samples "
                     "utility {}, default {}, user-initiated {}, user-interactive {}, background {}, other {} "
@@ -7057,29 +7051,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
           REXLOG_INFO("[native] occlusion queries since the last line:{}", answers.empty() ? " none" : answers);
         }
-        if (REXCVAR_GET(nfsmw_native_texture_flip_log)) {
-          // The textures that changed most often between frames (the
-          // flashing billboards): changes of fetch constant, size/levels,
-          // content, and the last change.
-          std::vector<std::pair<uint32_t, TextureFlips>> top;
-          {
-            std::lock_guard<std::mutex> lock(texture_flip_mutex);
-            for (auto& [address, f] : texture_flips) {
-              if (f.key_changes || f.size_changes || f.content_changes) top.emplace_back(address, std::move(f));
-            }
-            texture_flips.clear();
-            if (texture_last_use.size() > 20000) texture_last_use.clear();
-          }
-          auto changes = [](const TextureFlips& f) { return f.key_changes + f.size_changes + f.content_changes; };
-          std::sort(top.begin(), top.end(),
-                    [&](const auto& a, const auto& b) { return changes(a.second) > changes(b.second); });
-          REXLOG_INFO("[native] textures changing between frames since the last line: {}", top.size());
-          for (size_t i = 0; i < top.size() && i < 8; ++i) {
-            const TextureFlips& f = top[i].second;
-            REXLOG_INFO("[native]   texture {:08X}: {} uses, fetch changed {}, size/levels {}, content {} | {}",
-                        top[i].first, f.uses, f.key_changes, f.size_changes, f.content_changes, f.example);
-          }
-        }
+        REXLOG_INFO("[native] depth: {} draws with a polygon offset ({}), {} with an equal depth test, since the "
+                    "last line",
+                    depth_bias_draws.exchange(0), REXCVAR_GET(nfsmw_native_depth_bias) ? "applied" : "ignored",
+                    depth_equal_draws.exchange(0));
         const int64_t now = NowMs();
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
@@ -7156,12 +7131,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "(content validation unchanged)",
                     AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
                     vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses);
-        REXLOG_INFO("[native] attribute key comparison: {}; front cache {} (exact identity, restart required)",
+        if (log_settings) REXLOG_INFO("[native] attribute key comparison: {}; front cache {} (exact identity, restart required)",
                     AttributeBulkCompareEnabled() ? "base + bulk 32 bytes" : "scalar fields",
                     AttributeLookupEnabled() ? "on" : "off");
-        REXLOG_INFO("[native] target lookup: {} (exact key, live target, restart required)",
+        if (log_settings) REXLOG_INFO("[native] target lookup: {} (exact key, live target, restart required)",
                     reuse_target_lookup ? "frame-local last target" : "original map");
-        REXLOG_INFO("[native] pipeline lookup: {} (exact key, ready results only, restart required)",
+        if (log_settings) REXLOG_INFO("[native] pipeline lookup: {} (exact key, ready results only, restart required)",
                     reuse_pipeline_lookup ? "last ready entry" : "original map");
         REXLOG_INFO("[native] texture slots: pruning requested {}; skipped {} of {} slots; "
                     "{} unknown-shader draws retained all slots (diagnostics also retain all)",
@@ -7177,7 +7152,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     double(vertex_diagnostics.draw_attribute_heap_calls) / arena_frames,
                     double(vertex_diagnostics.draw_attribute_heap_bytes) / kMiB / arena_frames,
                     double(vertex_diagnostics.draw_attribute_peak_bytes) / kMiB);
-        REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
+        if (log_settings) REXLOG_INFO("[native] resolve compression eligibility: {} (buffer-backed textures remain ineligible)",
                     compressible_resolves ? "enabled" : "legacy view usage");
         REXLOG_INFO("[native] geometry arena: range reuse {}; {} empty chunks released since launch",
                     buffer_arena.reuse_ranges ? "on" : "off", buffer_arena.chunks_released);

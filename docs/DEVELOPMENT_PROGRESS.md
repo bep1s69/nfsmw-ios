@@ -105,8 +105,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 - **October 25: IPA55 (`NFSMW-texture-flips-55.ipa`) run.** While the billboard
   flashed, 0 textures changed fetch constant, size/mips or content between
-  frames: not the texture cache. Next (proposed): log textures that alternate
-  frame to frame (two LOD models/textures).
+  frames: not the texture cache. Stefan: it is a dark grey layer flickering
+  (z-fighting). **IPA56 (`NFSMW-depth-bias-56.ipa`) built, not run:** applies
+  the game's polygon offset, logs `[native] depth:` counts, drops the texture
+  log and repeated settings lines. Next: Stefan checks the same billboard.
 
 - **October 25: IPA54 sun test log read.** 6-7 occlusion queries per line,
   none ever answered 0, counts 65k-7.8M: the game always sees them as visible,
