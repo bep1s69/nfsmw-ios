@@ -6319,7 +6319,30 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                             frame->textures[d.textures[0]]->width, frame->textures[d.textures[0]]->height,
                                             int(frame->textures[d.textures[0]]->format))));
       }
-      if (dump && watched.count(d.ps_key) && (watched_seen[d.ps_key]++ < 3 || skin)) {
+      // Glass and other reflective surfaces in the main picture: draws that
+      // read a cube or one of the renderer's own resolves (the reflection
+      // images), with their blend state and textures (saved as watch_).
+      bool reflective = false;
+      if (dump && (d.surface_info & 0x3FFF) >= 1280) {
+        std::string slots;
+        for (int s = 0; s < 16; ++s) {
+          if (d.textures[s] < 0) continue;
+          const Texture& ft = *frame->textures[d.textures[s]];
+          const bool own = ft.persistent || ft.format == MTLPixelFormatInvalid;
+          reflective |= ft.cube || own;
+          slots += fmt::format(" t{} {:08x} {}x{}{}{}", s, ft.address, ft.width, ft.height, ft.cube ? " cube" : "",
+                               own ? " resolve" : "");
+        }
+        if (reflective && watched_seen[d.ps_key ^ 0x6C61]++ < 3) {
+          diagnostics.push_back(fmt::format(
+              "reflective draw {}: vs {:016x} ps {:016x} blend {:08x} depth {:08x} mask {:x} colorctl {:08x}{}",
+              &d - frame->draws.data(), d.vs_key, d.ps_key, d.blend_control, d.depth_control, d.color_mask,
+              d.color_control, slots));
+        } else {
+          reflective = false;
+        }
+      }
+      if (dump && (watched.count(d.ps_key) || reflective) && (watched_seen[d.ps_key]++ < 3 || skin)) {
         for (int s = 0; s < (skin ? 1 : 16); ++s) {
           const uint32_t index = shared[s];
           if (d.textures[s] < 0 || index >= heap_object.size() || !heap_object[index]) continue;
