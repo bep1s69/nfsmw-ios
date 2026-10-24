@@ -5373,3 +5373,17 @@ and interpolator storage, not ALU rate (general knowledge, not measured here).
 Expected GPU saving: small, likely below the probe's noise. UVs cannot become
 half (11-bit mantissa snaps texels on 1-2k textures and tiled coordinates).
 Not implemented; options sent to Stefan for a decision.
+
+### October 24, 2026 (late) — Oct 22-23 iPhone logs sent on the morning of Oct 24
+
+Stefan's message (sent Oct 24 10:59, reached this session late) with three logs
+from build "Oct 22 2026 23:29:47": `nfsmw.1_morning.log` (Oct 22 23:57 onwards;
+default settings until the heat-up, then QoS off in Extra Args), `nfsmw_morning.log`
+(Oct 23 10:56) and `nfsmw_night.log` (Oct 23 21:27, Battery preset + Low Power
+Mode). He reported 1x/40: badly hot after ~10 min, ~32 fps, choppy; Battery preset
++ Low Power Mode: barely warm, low drain. Measured: `[memory]` lines report thermal
+state nominal in every line of all three logs (595, 58 and 455 lines), including
+the 147 Low Power Mode-off lines of the default session. Inference: iOS did not
+raise its thermal state while the phone felt hot, so the in-game heat reactions
+keyed to it would not have fired. Superseded for planning by the Oct 24 work
+(Low Power Mode comparison, IPA48-53, Stefan's IPA51 traces); no new action.
