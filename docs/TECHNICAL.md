@@ -5574,3 +5574,11 @@ surfaces). Suspect for both (inferred): the 19.5:9 mode. The game renders
 post-processing and screen-copy shaders were written for 1280x720; a
 mis-scaled blurred copy or refraction copy would match "a darker blurred
 copy" and the hard-edged glass. Next: the same spots with Screen shape 16:9.
+Stefan, 16:9: both still present, so not the 19.5:9 mode. IMG_3953 (bus
+terminal, from inside): the trees behind distant glass panes are drawn as
+hard dark silhouettes on top of the glass's bright reflection, and the upper
+panes look wrong too: the trees are not seen through the glass, they cover
+it (inferred: draw order/depth of the translucent glass versus the
+alpha-tested trees). Both renderers show it. Next: snapshot dump at that spot
+(`--nfsmw_native_dump=true --nfsmw_native_dump_interval_ms=3000`) to read the
+glass and tree draws' order, blend, depth and alpha-test state.
