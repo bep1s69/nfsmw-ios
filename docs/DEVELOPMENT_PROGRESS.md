@@ -110,7 +110,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   the game's polygon offset, logs `[native] depth:` counts, drops the texture
   log and repeated settings lines; Stefan: still the same. **IPA57
   (`NFSMW-invariance-57.ipa`) built, not run:** shaders rebuilt with
-  `-fpreserve-invariance`. Next: the same billboard.
+  `-fpreserve-invariance`: still the same. **IPA58 (`NFSMW-exact-math-58.ipa`)
+  built, not run:** shaders with exact math (`-fno-fast-math
+  -ffp-contract=off`). Next: the same billboard, and GPU ms.
 
 - **October 25: IPA54 sun test log read.** 6-7 occlusion queries per line,
   none ever answered 0, counts 65k-7.8M: the game always sees them as visible,

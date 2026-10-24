@@ -185,8 +185,10 @@ the billboard flashed, so not the texture cache; next suspect two textures or
 models alternating (LOD). See TECHNICAL Oct 25.
 Stefan then described it as a dark grey layer flickering over the billboard,
 worse when moving: z-fighting. The native renderer ignored the polygon offset;
-IPA56 applies it (`nfsmw_native_depth_bias`): still the same. IPA57 compiles the
-shaders with `-fpreserve-invariance` (their `[[invariant]]` was ignored), not run.
+IPA56 applies it (`nfsmw_native_depth_bias`): still the same. IPA57 (shader
+invariance): still the same. IPA58 compiles the shaders with exact math (no
+fast math, no contraction; 0.1.0 had dropped precise math from pixel shaders
+for speed), not run.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
