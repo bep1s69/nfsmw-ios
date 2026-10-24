@@ -29,8 +29,9 @@
 //
 // The hook: if the pointer has not moved since the last lap, sleep on the
 // CP's sequence counter (nfsmw_cp_rptr_seq, from tools/parche_espera_anillo.py)
-// until it publishes a new one, capped at --ios_ring_wait_ms (default 8; it was
-// 1). Without that counter (an SDK without the patch) nothing changes. The CP
+// until it publishes a new one, capped at half a frame of the current fps cap
+// (12.5 ms at 40, 8.3 at 60, 4.2 at 120; IPA52 used 8, before that 1), or at
+// --ios_ring_wait_ms when that is set above 0. Without that counter (an SDK without the patch) nothing changes. The CP
 // bumps the counter every time it publishes the read pointer, so the cap is only
 // a safety net: in the October 24 iPhone pursuit trace the main thread made ~709
 // of these waits a second and only ~103 ended with a wake, the rest timed out
@@ -63,9 +64,9 @@
 
 #include <rex/cvar.h>
 
-REXCVAR_DEFINE_INT32(ios_ring_wait_ms, 8, "Juego",
+REXCVAR_DEFINE_INT32(ios_ring_wait_ms, 0, "Juego",
                      "iOS: longest sleep of the ring-space wait before re-reading the CP's read "
-                     "pointer (1 before October 24)");
+                     "pointer, in ms; 0 = half a frame of the fps cap (1 before October 24)");
 REXCVAR_DEFINE_BOOL(nfsmw_sin_posprocesado, false, "Juego",
                     "Remove post-processing: colour filter, bloom and blur. Less GPU work, but the "
                     "game loses its look");
@@ -115,8 +116,13 @@ extern "C" REX_FUNC(sub_825A5D18) {
       const uint32_t seen = REX_LOAD_U32(state + 8);
       const uint32_t rptr = REX_LOAD_U32(REX_LOAD_U32(device + kDeviceRptrPointer));
       if (rptr == seen) {
-        static const uint64_t timeout_ns =
-            uint64_t(std::clamp<int32_t>(REXCVAR_GET(ios_ring_wait_ms), 1, 50)) * 1000000;
+        // The cap can change while playing (Battery mode's 30 fps), so per wait.
+        const int32_t fixed_ms = REXCVAR_GET(ios_ring_wait_ms);
+        const int32_t set_cap = rex::cvar::Query<int32_t>("ios_fps_cap");
+        const int32_t cap = set_cap > 0 ? set_cap : 120;  // 0: uncapped
+        const uint64_t timeout_ns = fixed_ms > 0
+                                        ? uint64_t(std::min<int32_t>(fixed_ms, 50)) * 1000000
+                                        : uint64_t(std::clamp(500.0 / cap, 1.0, 50.0) * 1e6);
         const int woke = os_sync_wait_on_address_with_timeout(sequence, before, sizeof(uint32_t),
                                                               OS_SYNC_WAIT_ON_ADDRESS_NONE,
                                                               OS_CLOCK_MACH_ABSOLUTE_TIME, timeout_ns);
@@ -126,8 +132,8 @@ extern "C" REX_FUNC(sub_825A5D18) {
         ++waits;
         timeouts += woke < 0 && errno == ETIMEDOUT;
         if (std::chrono::steady_clock::now() - since >= std::chrono::seconds(10)) {
-          REXLOG_INFO("[ring-wait] 10 s: {} waits for ring space, {} timed out ({} ms cap)", waits,
-                      timeouts, timeout_ns / 1000000);
+          REXLOG_INFO("[ring-wait] 10 s: {} waits for ring space, {} timed out ({:.1f} ms cap{})",
+                      waits, timeouts, timeout_ns / 1e6, fixed_ms > 0 ? "" : ", half a frame");
           waits = timeouts = 0;
           since = std::chrono::steady_clock::now();
         }
