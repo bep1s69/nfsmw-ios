@@ -29,8 +29,12 @@
 //
 // The hook: if the pointer has not moved since the last lap, sleep on the
 // CP's sequence counter (nfsmw_cp_rptr_seq, from tools/parche_espera_anillo.py)
-// until it publishes a new one, capped at 1 ms. Without that counter (an SDK
-// without the patch) nothing changes.
+// until it publishes a new one, capped at --ios_ring_wait_ms (default 8; it was
+// 1). Without that counter (an SDK without the patch) nothing changes. The CP
+// bumps the counter every time it publishes the read pointer, so the cap is only
+// a safety net: in the October 24 iPhone pursuit trace the main thread made ~709
+// of these waits a second and only ~103 ended with a wake, the rest timed out
+// after 1 ms while the CP sat in its vblank wait. "[ring-wait]" counts them.
 //
 // Only for the two ring-space loops, recognised by their return address. The
 // other watchdog users wait on fences the CP writes mid-stream, and waiting
@@ -47,7 +51,10 @@
 #include <dlfcn.h>
 #include <os/os_sync_wait_on_address.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -56,6 +63,9 @@
 
 #include <rex/cvar.h>
 
+REXCVAR_DEFINE_INT32(ios_ring_wait_ms, 8, "Juego",
+                     "iOS: longest sleep of the ring-space wait before re-reading the CP's read "
+                     "pointer (1 before October 24)");
 REXCVAR_DEFINE_BOOL(nfsmw_sin_posprocesado, false, "Juego",
                     "Remove post-processing: colour filter, bloom and blur. Less GPU work, but the "
                     "game loses its look");
@@ -105,9 +115,22 @@ extern "C" REX_FUNC(sub_825A5D18) {
       const uint32_t seen = REX_LOAD_U32(state + 8);
       const uint32_t rptr = REX_LOAD_U32(REX_LOAD_U32(device + kDeviceRptrPointer));
       if (rptr == seen) {
-        os_sync_wait_on_address_with_timeout(sequence, before, sizeof(uint32_t),
-                                             OS_SYNC_WAIT_ON_ADDRESS_NONE,
-                                             OS_CLOCK_MACH_ABSOLUTE_TIME, 1000000);  // 1 ms
+        static const uint64_t timeout_ns =
+            uint64_t(std::clamp<int32_t>(REXCVAR_GET(ios_ring_wait_ms), 1, 50)) * 1000000;
+        const int woke = os_sync_wait_on_address_with_timeout(sequence, before, sizeof(uint32_t),
+                                                              OS_SYNC_WAIT_ON_ADDRESS_NONE,
+                                                              OS_CLOCK_MACH_ABSOLUTE_TIME, timeout_ns);
+        // Counted on the game's thread that waits; logged every 10 s.
+        static uint64_t waits = 0, timeouts = 0;
+        static auto since = std::chrono::steady_clock::now();
+        ++waits;
+        timeouts += woke < 0 && errno == ETIMEDOUT;
+        if (std::chrono::steady_clock::now() - since >= std::chrono::seconds(10)) {
+          REXLOG_INFO("[ring-wait] 10 s: {} waits for ring space, {} timed out ({} ms cap)", waits,
+                      timeouts, timeout_ns / 1000000);
+          waits = timeouts = 0;
+          since = std::chrono::steady_clock::now();
+        }
       }
     }
   }

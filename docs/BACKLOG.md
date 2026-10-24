@@ -39,8 +39,9 @@ iPhones) and longer sessions. Optional follow-ups:
   Oct 24 System Trace found it: 709 short `sys_ulock_wait2`/s in `sub_82593A58` /
   `sub_825A3EC8` (mostly timeouts; only GPU Commands wakes it) and 236 tiny
   sleeps/s in `sub_82441B60`; GPU Commands spins with `MaybeYield` 908 times/s.
-  Proposal: exact wake + longer timeout, and a blocking CP idle wait (TECHNICAL
-  Oct 24 evening).
+  The wait is the existing ring-space hook (already woken exactly by the CP);
+  IPA52 raises its cap to 8 ms (`--ios_ring_wait_ms`) and cuts the CP idle spin
+  to 4 yields (`--ios_cp_idle_spins`). Testing (TECHNICAL Oct 24, IPA52).
 - Encode cost: `Record()` + `Fingerprint()` are ~35% of GPU Commands; render
   workers ~19 ms/frame in B. Memoize/skip `Fingerprint` for repeated draws, fewer
   encoders per frame. A few ms per frame; after the QoS fix.
