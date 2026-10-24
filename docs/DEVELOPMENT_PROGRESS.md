@@ -97,6 +97,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA48 fixed the iPhone pursuit stutter (D-002, Stefan: "didn't
+  slow down anymore during the chase").** `nfsmw_ipa48_chase_iphone.log`: 39.95
+  fps over 12,600 pursuit frames, 10 guest threads raised at each User Initiated
+  hold, 7 swap gaps 41-107 ms in ~8.7 min of pursuit. Battery 72 -> 66% in 10.9
+  min (~33 %/h, coarse). New: AirPods crackles (police chatter) and the
+  engine-sound fade seen again on IPA47, both in BACKLOG (audio section);
+  evidence in TECHNICAL October 24. No source change approved for them yet.
+
 - **October 24: pursuit stutter traced to QoS placement; IPA48 built, untested
   (`--ios_adaptive_qos_workers=true`, default true).** Game Performance trace
   (IPA46, iPhone 17 Pro Max, 1x/40): Trace A 40.0 fps steady; Trace B (police
@@ -107,10 +115,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   only main/GPU while guest workers stay at Utility makes a cross-cluster
   critical path. IPA48 raises the other guest threads (QoS override) and the
   native render queue together with main/GPU. Evidence: TECHNICAL October 24.
-  **Next: police pursuit on IPA48 at default settings (no Extra Args), 1x/40,
-  Low Power Mode off; check the fps counter and `[adaptive-qos]` lines.** If it
-  holds 40, recapture B with waiting-thread stacks for the main-loop poll wait
-  (BACKLOG D-002). Half precision and the batched power measurement follow.
+  Pursuit on IPA48 held 40 (entry above). Remaining D-002 follow-ups (poll wait,
+  encode cost) are optional; half precision and the batched power measurement
+  follow.
 
 - **IPA44: adaptive QoS for the iPhone (`--ios_adaptive_qos=true`, default
   false).** Next: iPhone race with `--ios_utility_qos_guest=true
