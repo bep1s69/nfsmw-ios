@@ -97,6 +97,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA49 makes the adaptive boost tunable (Stefan approved the
+  lower-clock experiment). Built, not run on a device.** New default boost:
+  Default QoS (not User Initiated), holds up to 20 s (not 240), the 3 busiest guest
+  threads plus the render queue (not all). `--ios_adaptive_qos_ipa48=true` restores
+  IPA48. `[cpu]` lines now end with Low Power Mode and thermal state.
+  **Next: Stefan's run A on IPA49 (no Extra Args, Low Power Mode off, 1x/40,
+  ~10 min with a pursuit, start/end battery % and times); compare with today's
+  ~33 %/h (normal) and ~17 %/h (Low Power Mode) and check 40 fps holds.**
+
 - **October 24: Low Power Mode on IPA48 about halves the iPhone drain at 1x/40.**
   `nfsmw_ipa48_battery_test_iphone.log` (17:02:44-17:13:05, heavy pursuit, same
   settings, no Extra Args): 66 -> 63% = ~17 %/h (12-23 with +-1 point) vs ~33 %/h

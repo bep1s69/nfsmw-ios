@@ -5037,3 +5037,41 @@ our User Initiated threads are well above what 40 fps needs. We cannot set clock
 directly; the levers are QoS class, how long holds last and how the work is
 spread across threads.
 
+### October 24, 2026 — Correction: the logs record Low Power Mode and thermal state
+
+The two IPA48 entries above say the logs do not record Low Power Mode or thermal
+state. They do, in every `[memory]` line (`thermal state ...`, plus `, Low Power
+Mode on` when on). `nfsmw_ipa48_battery_test_iphone.log`: Low Power Mode on in all
+146 lines, thermal nominal throughout. `nfsmw_ipa48_chase_iphone.log`: Low Power
+Mode off; nominal until 16:52:52, then fair to the end (about the last 2 minutes).
+`[cpu]` battery (UIDevice, 5% steps): chase 70% at 16:44:04, 65% from 16:52:44;
+Low Power Mode run 65% throughout. The normal-mode run therefore also ended warmer;
+its drain is not inflated by Low Power Mode differences but the thermal states
+differ for the last ~2 minutes.
+
+### October 24, 2026 — Tunable adaptive boost (IPA49)
+
+Stefan approved the lower-clock experiment from the Low Power Mode result. Change
+(`ios/src/adaptive_qos.cpp`, `native_renderer.mm`, `memory_report.mm`):
+- `--ios_adaptive_qos_level` = `default` (new default) or `user_initiated`: the QoS
+  class of a boost, for main, GPU Commands, the raised guest threads (override) and
+  the render-queue frame blocks.
+- `--ios_adaptive_qos_max_hold` = 20 (new default; 5-240 s): the longest hold. The
+  20 s start and the doubling stay; IPA48 grew to 240 s.
+- `--ios_adaptive_qos_workers_count` = 3 (new default; 0 = all): at each boost the
+  guest threads (`XThread...`) are ranked by CPU time since the previous boost
+  (`thread_info`) and only the busiest N get the override. The pursuit logs show
+  two guest threads at 50-76% of a core and one at ~20%; the rest are small.
+- `--ios_adaptive_qos_ipa48=true`: user_initiated, 240 s, all guest threads (IPA48).
+- Startup log: `[adaptive-qos] boost: Default QoS, holds up to 20 s, the 3 busiest
+  guest threads`; boosts log `[adaptive-qos] Default for N s (...)`.
+- `[cpu]` lines end with `battery N%, Low Power Mode on|off, thermal <state>`.
+Why Default: it is the class between Utility and User Initiated; whether iOS
+picks lower clocks for it on the iPhone is what the run tests (inference only).
+Risk: shorter holds mean more boosts and more late frames when a pursuit needs the
+speed; Default may not leave the efficiency cores enough.
+Checks: build OK, 208 metallibs, ZIP OK, the four cvar names present. IPA49
+`ios/build/NFSMW-adaptive-qos-tunable-49.ipa`, SHA256
+`152861503300d87504c50c2d9191b588424ce8fe9e9773afa7866917d3b85551`, NFSMW UUID
+`A14E11CE-3C31-34FB-9808-5B4E615141DA`. Not run on a device.
+

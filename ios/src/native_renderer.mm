@@ -7327,7 +7327,7 @@ void EnsurePresentLayer() {
 
 namespace nfsmw::adaptive_qos {
 void OnSwap(double interval_ms);  // adaptive_qos.cpp
-bool WorkersRaised();
+qos_class_t WorkersRaised();
 }
 
 namespace {
@@ -7545,9 +7545,9 @@ bool NativeSwap() {
       dispatch_block_t render = ^{
         RenderFrame(std::unique_ptr<Frame>(raw), number, present, dump);
       };
-      // Adaptive QoS at User Initiated: above the queue's Utility for this frame.
-      if (::nfsmw::adaptive_qos::WorkersRaised()) {
-        render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, QOS_CLASS_USER_INITIATED, 0, render);
+      // Adaptive QoS boosted: above the queue's Utility for this frame.
+      if (const qos_class_t boost = ::nfsmw::adaptive_qos::WorkersRaised(); boost != QOS_CLASS_UNSPECIFIED) {
+        render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, boost, 0, render);
       }
       dispatch_async(queue, render);
     }
