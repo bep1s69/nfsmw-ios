@@ -5614,3 +5614,11 @@ codesign OK; not run): with `nfsmw_native_dump`, draws into the main picture
 logged as `reflective draw N: vs, ps, blend, depth, mask, colorctl, t<slot>
 <address> <size> [cube] [resolve]` (3 per shader per snapshot) and their
 textures saved as `watch_ps<key>_d<draw>_t<slot>_...png`.
+Stefan: interval snapshots (even 15 s) make driving impossible. IPA60
+(`ios/build/NFSMW-snap-button-60.ipa`, SHA256
+`6eb5f9edc401d4b263a5f9bde00917bdeb2d12103997d4e10b733ff7d83ab638`, NFSMW UUID
+`C174D6A8-0FDC-3564-8B32-ED17B874ADAA`; 208 metallib entries, zip test and
+codesign OK; not run): `--nfsmw_native_dump_manual=true` shows a SNAP pill
+right of HIDE; each tap saves one snapshot (same content as
+`nfsmw_native_dump`, including IPA59's reflective draws; log
+`[touch] snapshot requested`). No timed snapshots in that mode.

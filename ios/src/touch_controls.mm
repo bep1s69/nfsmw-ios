@@ -57,6 +57,8 @@ REXCVAR_DEFINE_BOOL(ios_touch_auto_layout, true, "Input",
                     "Touch controls: the DRIVE layout while driving, the PAD layout in menus and pause "
                     "screens, switched by themselves");
 
+extern "C" void NativeRequestDump();  // native_renderer.mm
+
 namespace {
 
 // SDL gamepad button indices, as bits (the same as TouchControllerView.java).
@@ -188,6 +190,7 @@ struct Control {
   NSMapTable<UITouch*, NSNumber*>* _owners;  // touch -> control index
   CGRect _toggle;
   CGRect _modeToggle;  // DRIVE/PAD
+  CGRect _snap;        // SNAP (nfsmw_native_dump_manual): a renderer snapshot; empty when off
   BOOL _driving;
   BOOL _controlsVisible;
   UIImpactFeedbackGenerator* _haptic;
@@ -320,6 +323,8 @@ static CGFloat TouchOpacity() {
   _controls.clear();
   _toggle = CGRectMake(w * .5 - unit * .9, h * .02, unit * 1.8, unit * .5);
   _modeToggle = CGRectOffset(_toggle, -(_toggle.size.width + unit * .3), 0);
+  static const bool snap = rex::cvar::Query<bool>("nfsmw_native_dump_manual");
+  _snap = snap ? CGRectOffset(_toggle, _toggle.size.width + unit * .3, 0) : CGRectZero;
   if (_driving) {
     [self layoutDriving:w height:h unit:unit];
     [self releaseAll];
@@ -461,7 +466,7 @@ static CGFloat TouchOpacity() {
   if (!_controlsVisible) {
     return self;  // any tap brings the controls back
   }
-  if (CGRectContainsPoint(_toggle, p) || CGRectContainsPoint(_modeToggle, p)) {
+  if (CGRectContainsPoint(_toggle, p) || CGRectContainsPoint(_modeToggle, p) || CGRectContainsPoint(_snap, p)) {
     return self;
   }
   for (const Control& c : _controls) {
@@ -534,6 +539,12 @@ static CGFloat TouchOpacity() {
     const CGPoint p = [t locationInView:self];
     if (CGRectContainsPoint(_toggle, p)) {
       [self setControlsVisible:NO];
+      return;
+    }
+    if (CGRectContainsPoint(_snap, p)) {
+      NativeRequestDump();
+      REXLOG_INFO("[touch] snapshot requested");
+      [_haptic impactOccurred];
       return;
     }
     if (CGRectContainsPoint(_modeToggle, p)) {
@@ -754,6 +765,17 @@ static CGFloat TouchOpacity() {
   [self drawLabel:(_driving ? @"PAD" : @"DRIVE")
                at:CGPointMake(CGRectGetMidX(_modeToggle), CGRectGetMidY(_modeToggle))
              size:_modeToggle.size.height * 0.42];
+  if (!CGRectIsEmpty(_snap)) {
+    UIBezierPath* snap = [UIBezierPath bezierPathWithRoundedRect:_snap cornerRadius:_snap.size.height / 2];
+    [fill setFill];
+    [snap fill];
+    [stroke setStroke];
+    snap.lineWidth = 1;
+    [snap stroke];
+    [self drawLabel:@"SNAP"
+                 at:CGPointMake(CGRectGetMidX(_snap), CGRectGetMidY(_snap))
+               size:_snap.size.height * 0.42];
+  }
   }
 
   for (const Control& c : _controls) {
