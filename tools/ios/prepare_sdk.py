@@ -137,6 +137,7 @@ IOS_PATCHES = [
     "patch_ios_invalid_call_log",
     "patch_ios_read_timing",
     "patch_ios_xma_reset_stats",
+    "patch_ios_xma_voice_log",
     "patch_ios_xma_direct_output",
     "patch_ios_shader_disasm_log",
     "patch_ios_small_shared_memory",

@@ -5123,3 +5123,33 @@ engine fade lines up with the largest burst of XMA resets and a drop in decode
 work, consistent with many voices (the engine banks) being reset at once. Low to
 medium confidence; one occurrence.
 
+### October 24, 2026 — Display at the cap's rate; XMA stream log (IPA50)
+
+Stefan approved the display-rate test and asked for it at every cap. Change:
+- `ios/src/display_rate.mm`: `--ios_display_match_cap` (default true). At the 30,
+  40 and 60 caps the CADisplayLink asks for `CAFrameRateRangeMake(cap, cap, cap)`;
+  otherwise (false, or the 120 cap) the old ranges (80-120 at 40/120, 30-60
+  otherwise). The guest vblank lock in the GPU plugin needs a display period within
+  10% of its interval (60 Hz at the 30 cap, 120 Hz at 40): each tick now publishes
+  the refresh's time with the period divided by round(period x guest rate) (3 at
+  40 Hz, 2 at 30 Hz, 1 otherwise), so the lock extrapolates evenly spaced guest
+  vblanks on the display's phase. No SDK change for this.
+- Log: `[display] cap N fps: asking for N Hz, the cap's rate (...)` at start and on
+  each request; `[display] refresh now N Hz (asked N Hz, cap N)` when the rate iOS
+  gives changes (stable for 30 refreshes, max 40 lines).
+- `ios/src/battery.mm`: when Battery mode moves the cap (60 <-> 30, warm or menus)
+  and the switch is on, the display rate is requested again (main queue).
+- Audio diagnostics, no behaviour change: SDK patch
+  `tools/ios/patch_ios_xma_voice_log.py` (added to `prepare_sdk.py` after the reset
+  stats; applied to `../rexglue-sdk-ios/src/audio/xma_context.cpp`). Every 5 s:
+  `[xma-voices] 5 s: F streams fed, R reset (N resets, B bursts of 300+/s), S
+  stopped after a reset: id(windows fed x5s,input buffer address) ...` (up to 12
+  ids, longest-fed first; 2,000 lines max). A fade should show as long-fed
+  contexts stopping together. The bank behind an address is not resolved yet.
+Risks: 30/40 Hz may make pacing or input feel different; a frame that misses a
+refresh at 30 Hz waits 33 ms; iOS may not grant 40 Hz (the `refresh now` line
+shows it). Checks: build OK, 208 metallibs, ZIP OK, both new log strings present
+(NFSMW and librexruntime). IPA50 `ios/build/NFSMW-display-match-cap-50.ipa`,
+SHA256 `43fb543badf5ad8d7507e97a3330faa811eb5adca2469a4445d7181900e08205`, NFSMW
+UUID `A5BF2569-4D0E-3E79-8F9D-64F20FF4C300`. Not run on a device.
+

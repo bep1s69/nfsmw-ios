@@ -13,6 +13,9 @@
   because some game threads stayed on the slow cores when the game sped the
   others up; now they all speed up together. Turn off with
   `--ios_adaptive_qos_workers=false`.
+- **Less battery on ProMotion screens:** the screen refreshes at the frame rate
+  cap (30, 40 or 60 Hz) instead of 60 or 120 Hz. Turn off with
+  `--ios_display_match_cap=false`.
 - **Experiment: a gentler speed-up on iPhones**, to see if it saves battery while
   keeping 40 fps. `--ios_adaptive_qos_ipa48=true` brings back the previous one.
 

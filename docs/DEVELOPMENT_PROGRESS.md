@@ -97,6 +97,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA50 asks the display for the cap's rate (Stefan approved,
+  extended to every cap): `--ios_display_match_cap=true` (default) -> 30 Hz at
+  30, 40 Hz at 40, 60 Hz at 60; 120 unchanged. Built, not run.** The guest vblank
+  keeps 60/120 Hz by splitting each published refresh. Battery mode's 30 fps cap
+  changes follow. New `[display] refresh now N Hz` and `[xma-voices]` (5 s stream
+  feed/reset/stopped summaries, SDK patch `patch_ios_xma_voice_log.py`, applied).
+  IPA49 adaptive defaults unchanged. **Next: run A on IPA50, normal mode, 1x/40,
+  ~10 min with a pursuit; battery % and times; note audio stutter / engine fade
+  times. Check `[display] refresh now 40 Hz` and smooth pacing.**
+
 - **October 24: IPA49 run A (gentler boost) saved nothing measurable:** 61 -> 56%
   in ~10 min = ~30 %/h (24-37) vs ~33 normal IPA48 and ~17 Low Power Mode; 39.8
   fps; phone hotter, thermal fair at the end. `[cpu]` fell to ~150% of a core, so
