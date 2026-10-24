@@ -103,6 +103,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA52 cuts the two polls found in the pursuit trace (Stefan
+  approved). Built, not run.** `--ios_ring_wait_ms=8` (was 1): the main thread's
+  ring-space wait sleeps up to 8 ms; the CP already wakes it exactly when it
+  publishes the read pointer. `--ios_cp_idle_spins=4` (was 64): GPU Commands
+  yields 4 times, not 64, before its event wait. Logs `[ring-wait]` and
+  `[cp-idle]` every 10 s. Main-loop 0.14 ms sleeps left alone (game timing).
+  **Next: Stefan's pursuit (smoothness) and ~10 min / test race drain on IPA52
+  vs IPA51, with the log.**
+
 - **October 24 evening: iPhone traces on IPA51** (TECHNICAL Oct 24 evening).
   Power Profiler, Low Power Mode off, race: ~42.5 %/h estimated system drain; the
   Low Power Mode arm could not be recorded (Low Power Mode drops the wireless

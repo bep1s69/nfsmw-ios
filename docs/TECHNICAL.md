@@ -5245,3 +5245,37 @@ writes the awaited value, with a longer timeout; (2) replace the `MaybeYield` sp
 in `WorkerThreadMain` with a blocking wait on the ring write pointer. Expected:
 far fewer wakeups (P cores can idle); energy effect unmeasured.
 
+### October 24, 2026 — IPA52: fewer wakeups in the ring-space wait and CP idle
+
+Where the pursuit trace's waits come from (generated code, USA edition):
+`sub_82593A58` is D3D DrawIndexedVertices; it and `sub_825A3EC8` reach the
+ring-space loops (`sub_82597070` -> ... -> `sub_82597498`), which call the watchdog
+`sub_825A5B20` (PAL `sub_825A5D18`), hooked in `ios/src/game_hooks.cpp`: when the
+CP read pointer has not moved it sleeps on `nfsmw_cp_rptr_seq`
+(os_sync_wait_on_address_with_timeout), capped at 1 ms. The CP bumps and wakes
+that counter after every primary buffer and on mid-stream publishes. So the main
+thread's 709 waits/s are real waits for ring space while the CP sits in its
+vblank wait (its own 141 waits/s woken by GPU VSync); ~600/s of them were just the
+1 ms cap expiring. The GPU Commands yields come from `WorkerThreadMain`'s idle
+loop: 64 `MaybeYield` (sched_yield) laps before the 5 ms event wait; the event is
+set on every CP_RB_WPTR write.
+
+Change:
+- `ios/src/game_hooks.cpp`: `--ios_ring_wait_ms` (default 8, 1-50; 1 = before).
+  Logs `[ring-wait] 10 s: N waits for ring space, M timed out (8 ms cap)`.
+- SDK patch `tools/ios/patch_ios_cp_idle_wait.py` (in `prepare_sdk.py`, applied):
+  `--ios_cp_idle_spins` (default 4; 64 = before); no yield on laps that wait.
+  Logs `[cp-idle] 10 s: N idle stalls, Y yields, W event waits`.
+- Left alone: the main loop's ~236/s `mach_wait_until` (~0.14 ms, from
+  `sub_82441B60`): that is the game's own timing and changing it could alter
+  pacing.
+Risks: a missed counter bump would cost up to 8 ms of ring wait (a hitch) instead
+of 1 ms; the publish points make that unlikely. Fewer CP yields add a little
+latency only when new work arrives within the first few laps (the event then
+wakes the thread). Expected: hundreds fewer wakeups a second on the P cores;
+energy effect unmeasured. Checks: build OK, 208 metallibs, ZIP OK, `ring-wait`
+in NFSMW and `cp-idle` in librexgpu-xenos. IPA52
+`ios/build/NFSMW-wait-fixes-52.ipa`, SHA256
+`95f6c2ba2087b9e428d337a1cd033c35df8587487370aea471cf98f9b8822144`, NFSMW UUID
+`AE1010F1-4FC9-35F6-9A01-C0946DF82931`. Not run on a device.
+

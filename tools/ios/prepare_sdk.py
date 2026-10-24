@@ -153,6 +153,7 @@ IOS_PATCHES = [
     "patch_ios_utility_qos",
     "patch_ios_packet_census",
     "patch_ios_cp_fast_runs",
+    "patch_ios_cp_idle_wait",
 ]
 
 
