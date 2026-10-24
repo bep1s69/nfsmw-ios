@@ -9,6 +9,11 @@
   off on iPhones, where it made the game stutter.
   Override with `--ios_utility_qos=true|false --ios_utility_qos_guest=true|false`.
 
+- **Smoother police pursuits on iPhones.** Pursuits dropped to about 22 fps
+  because some game threads stayed on the slow cores when the game sped the
+  others up; now they all speed up together. Turn off with
+  `--ios_adaptive_qos_workers=false`.
+
 ## 0.3.0
 
 - **Fixes for freezes.** The freeze after leaving the safehouse (and in some

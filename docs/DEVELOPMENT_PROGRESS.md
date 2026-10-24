@@ -97,6 +97,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: pursuit stutter traced to QoS placement; IPA48 built, untested
+  (`--ios_adaptive_qos_workers=true`, default true).** Game Performance trace
+  (IPA46, iPhone 17 Pro Max, 1x/40): Trace A 40.0 fps steady; Trace B (police
+  pursuit) 22 fps in a 20 ms / 80 ms two-step. GPU 15.5 ms p50 in B, not
+  limiting. During the gaps XThreadDF1B (Utility, E cores 0-3 only) was Preempted
+  69% while Main XThread (User Initiated via adaptive QoS, P cores 4-5) was
+  Blocked 62% with ~2,300 idle wakeups/s (~6x A). Inference: adaptive QoS raising
+  only main/GPU while guest workers stay at Utility makes a cross-cluster
+  critical path. IPA48 raises the other guest threads (QoS override) and the
+  native render queue together with main/GPU. Evidence: TECHNICAL October 24.
+  **Next: police pursuit on IPA48 at default settings (no Extra Args), 1x/40,
+  Low Power Mode off; check the fps counter and `[adaptive-qos]` lines.** If it
+  holds 40, recapture B with waiting-thread stacks for the main-loop poll wait
+  (BACKLOG D-002). Half precision and the batched power measurement follow.
+
 - **IPA44: adaptive QoS for the iPhone (`--ios_adaptive_qos=true`, default
   false).** Next: iPhone race with `--ios_utility_qos_guest=true
   --ios_adaptive_qos=true`; IPA43 also carries the iOS 26 shader rebuild.

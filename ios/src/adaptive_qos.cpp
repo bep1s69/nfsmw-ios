@@ -11,14 +11,25 @@
 // 240 s); 60 s on Utility resets it. Each thread can only set its own QoS: the
 // command thread at its swap (NativeSwap), the main thread in the game's
 // deferred-call runner (sub_823C8290, called from its main loop).
+//
+// --ios_adaptive_qos_workers (default true): User Initiated also covers the other
+// guest threads (Utility through --ios_utility_qos_guest) and the native render
+// queue. The October 24 pursuit trace (docs/TECHNICAL.md) had main on the
+// performance cores waiting on a guest worker left at Utility on the efficiency
+// cores and preempted most of each 80 ms gap. Those threads cannot be asked to
+// set their own QoS, so the command thread starts an override on each one
+// (pthread_override_qos_class_start_np) and ends it on the way back to Utility.
 
 #include <pthread.h>
 #include <pthread/qos.h>
+#include <mach/mach.h>
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
+#include <vector>
 
 #include <rex/cvar.h>
 
@@ -27,6 +38,9 @@
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos, false, "Kernel",
                     "Experiment: main and GPU command threads at Utility QoS while frames are on time "
                     "(restart required)");
+REXCVAR_DEFINE_BOOL(ios_adaptive_qos_workers, true, "Kernel",
+                    "Adaptive QoS: User Initiated also raises the other guest threads and the "
+                    "native render queue (restart required)");
 
 namespace {
 
@@ -39,6 +53,35 @@ void Apply(int m, int& applied) {
   applied = m;
 }
 
+bool WorkersOn() {
+  static const bool on = REXCVAR_GET(ios_adaptive_qos_workers);
+  return on;
+}
+
+// Guest threads keep their default names ("XThreadDF1B (F8000010)"; the main
+// thread is "Main XThread", which follows the mode itself).
+std::vector<pthread_override_t> overrides;
+
+void RaiseGuestThreads(bool raise) {
+  for (pthread_override_t o : overrides) pthread_override_qos_class_end_np(o);
+  overrides.clear();
+  if (!raise) return;
+  thread_act_array_t threads = nullptr;
+  mach_msg_type_number_t count = 0;
+  if (task_threads(mach_task_self(), &threads, &count) != KERN_SUCCESS) return;
+  for (mach_msg_type_number_t i = 0; i < count; ++i) {
+    pthread_t thread = pthread_from_mach_thread_np(threads[i]);
+    char name[64] = {};
+    if (thread && pthread_getname_np(thread, name, sizeof(name)) == 0 && std::strncmp(name, "XThread", 7) == 0) {
+      if (pthread_override_t o = pthread_override_qos_class_start_np(thread, QOS_CLASS_USER_INITIATED, 0)) {
+        overrides.push_back(o);
+      }
+    }
+    mach_port_deallocate(mach_task_self(), threads[i]);
+  }
+  vm_deallocate(mach_task_self(), vm_address_t(threads), count * sizeof(thread_act_t));
+}
+
 }  // namespace
 
 namespace nfsmw::adaptive_qos {
@@ -46,6 +89,11 @@ namespace nfsmw::adaptive_qos {
 bool Enabled() {
   static const bool on = REXCVAR_GET(ios_adaptive_qos) && !rex::cvar::Query<bool>("ios_utility_qos");
   return on;
+}
+
+// For the native render queue: submit this frame at User Initiated.
+bool WorkersRaised() {
+  return Enabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1;
 }
 
 // On the GPU command thread, once per swap.
@@ -62,7 +110,8 @@ void OnSwap(double interval_ms) {
   if (m < 0) {
     m = 0;
     mode.store(0, std::memory_order_relaxed);
-    REXLOG_INFO("[adaptive-qos] on: main and GPU command threads start at Utility");
+    REXLOG_INFO("[adaptive-qos] on: main and GPU command threads start at Utility; guest workers and render queue {}",
+                WorkersOn() ? "follow the mode" : "stay at Utility");
   }
   const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
   const double budget = 1000.0 / cap;
@@ -85,6 +134,10 @@ void OnSwap(double interval_ms) {
     std::fill(std::begin(late), std::end(late), false);
     late_count = 0;
     mode.store(m, std::memory_order_relaxed);
+    if (WorkersOn()) {
+      RaiseGuestThreads(m == 1);
+      if (m == 1 && lines < 60) REXLOG_INFO("[adaptive-qos] {} guest threads and the render queue raised", overrides.size());
+    }
   }
   Apply(m, applied);
 }

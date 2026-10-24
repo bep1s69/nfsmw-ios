@@ -26,6 +26,20 @@ race; fix in IPA36 (`tools/ios/patch_game_deferred_queue.py`). Oct 22
 the race that crashed completed, no invalid-call/FATAL. One run of an
 intermittent crash: keep monitoring. Details in TECHNICAL.md, October 22.
 
+### D-002 Police-pursuit stutter on the iPhone (22 fps, 20/80 ms) — fix built (IPA48), untested
+
+iPhone 17 Pro Max, IPA46, 1x/40: about 22 fps in pursuits. October 24 trace
+(TECHNICAL October 24): guest worker XThreadDF1B at Utility preempted 69% of each
+80 ms gap while the main thread waited; GPU not limiting. IPA48
+(`--ios_adaptive_qos_workers=true`) raises the guest workers and render queue
+with adaptive QoS. Next: pursuit on IPA48. Follow-ups:
+- Main-loop poll wait -> blocking wait. Main XThread woke ~2,300 times/s in B.
+  Needs a capture with waiting-thread stacks (Time Profiler "Record Waiting
+  Threads" or System Trace) to find the call site first.
+- Encode cost: `Record()` + `Fingerprint()` are ~35% of GPU Commands; render
+  workers ~19 ms/frame in B. Memoize/skip `Fingerprint` for repeated draws, fewer
+  encoders per frame. A few ms per frame; after the QoS fix.
+
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
 Oct 22: the 3 iOS-27-only libraries were the stale `ps_af393d4c46af230c_dbg1-3`
