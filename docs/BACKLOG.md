@@ -171,9 +171,15 @@ flashing in the game image is the player car's roof/body reflection, which
 changes brightness and pattern from frame to frame (e.g. 0.10-0.30 s), plus
 single cells in the top-right sky. The world textures stay stable. Same family
 as the flickering sun reflection (inferred: the car's environment map is
-unstable from frame to frame). Next: confirm with Stefan that this is the flashing
-he means; then check how the reflection map is rendered and read in the native
-renderer.
+unstable from frame to frame).
+Stefan: the flashing he means is the billboard at the top left ("Get in the
+Zone"), and many textures like it. Crops every 0.25 s: the billboard switches
+between sharp and blurry (a lower mip or lower-resolution copy) while the car
+stands still; the tree and the sky stay sharp. So it is mip/resolution flipping,
+not brightness. Suspects (unverified): the fetch constant's mip range or LOD
+bias changing per draw/frame, or two cached copies of the texture (full and
+mips-only/low-res) bound alternately. Next (proposed, not done): log per texture
+address when the bound size or mip range differs from the last bind.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
