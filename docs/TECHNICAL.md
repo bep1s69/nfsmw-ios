@@ -4884,3 +4884,64 @@ at a 25 ms budget (may reflect lowered GPU clocks with slack; not a saturation
 proof). No FATAL. Inference: at cap 40 the iPhone is near its GPU budget in some
 scenes, so a heavy moment late-frames even at full CPU speed; half-precision
 shaders (top of backlog) target exactly this.
+
+### October 24, 2026 — iPhone pursuit trace: Utility guest workers stall the frame (IPA48)
+
+Inputs (local, not tracked): `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/24 October 2026/game_performance.trace`
+(Instruments Game Performance, windowed, wired, two 60 s runs) and
+`nfsmw_iphone_traces_a_b.log`. iPhone 17 Pro Max (A19 Pro, 2 P + 4 E), iOS 27.0.1,
+IPA46 in LiveContainer, default settings, 1x, cap 40, Low Power Mode off.
+Run 1 "Trace A" (16:13:56, normal driving) and run 2 = Trace B (16:20:10, police
+pursuit). Windowed mode kept CPU samples only for the last ~7.2 s of A and
+~10.6 s of B; drawable signposts cover more. Symbols resolved without dSYMs
+(host code named, guest code as `__imp__sub_XXXXXXXX`). Exported with
+`xcrun xctrace export` and parsed with throwaway scripts (not kept).
+
+Measured:
+- Pacing (CAMetalLayer ClientDrawable end to end, last 10 s): A 40.0 fps, 391 of
+  422 intervals 20-29 ms, p50 25.0, p99 33 ms. B 22 fps in a strict two-step:
+  ~20 ms then 72-90 ms, repeating; 104 of 232 intervals over 60 ms.
+- GPU busy per frame: A p50 7.6 ms (p99 12.0); B p50 15.5 ms (p99 20.2). Under the
+  25 ms budget in both.
+- CPU per presented frame, A -> B: Main XThread 5.5 -> 13.9 ms (all in the game
+  main loop `sub_82441B60`; self time diffuse, top `sub_82699100` 13% / 4.5%);
+  XThreadDF1B (entry `sub_8284FE40`) 3.8 -> 13.4 ms, diffuse self time
+  (`sub_8243E670`, `sub_8243E1F0`, `sub_824C26E8`, `sub_824542C0` 2-3% each);
+  XThread9633 1.8 -> 4.0 ms; GPU Commands 5.9 -> 4.8 ms (`Record()` 29-32% and
+  `Fingerprint()` 3-6% of the thread under `NativeDraw`/`CpDraw`); render-queue
+  workers (`RenderFrame` + AGX encode) ~10 -> ~19 ms over 6+ dispatch threads;
+  TimerQueue 1.5 -> 52 ms/s. No thread above ~30% of a core in B.
+- Core placement (time-profile samples): in A every hot thread on cores 0-3. In B
+  Main XThread and GPU Commands ~95% on cores 4-5 (log: adaptive QoS User Initiated
+  from 16:20:51 for 80 s), XThreadDF1B 100% and XThread9633 ~100% on 0-3.
+- Thread states in B's >60 ms gaps (8.7 s of wall): XThreadDF1B Preempted 69%,
+  Running 20% (Utility pri 20); XThread9633 Preempted 64%; render workers
+  Preempted 59% summed over workers (11% in normal frames); Main XThread Blocked
+  62%, Running 30%; GPU Commands Blocked 83%. In A preemption was 1-4% for the
+  same threads. Main XThread made runnable by idle ~24,000 times in 10.6 s in B
+  (~2,300/s) vs ~3,000 in 7.2 s in A. Recorded preempters were mostly wired
+  tracing daemons (AppleT8150USBXDCI, remotepairingdeviced, DTServiceHub) and
+  AppleCLPC, small totals. iOS thermal state nominal.
+
+Inference (not proven): adaptive QoS raises only main and GPU Commands to User
+Initiated; the guest workers they depend on stay at Utility on the E cluster and
+are descheduled, while main waits in a short poll/timed wait (the wake rate and
+TimerQueue growth fit this). Draw count and GPU time grow in B but do not set the
+pace. The trace has no waiting-thread stacks, so the exact wait site is unknown.
+
+Change (IPA48): `--ios_adaptive_qos_workers` (default true; only acts when
+adaptive QoS is on). When adaptive switches to User Initiated, the GPU command
+thread starts a `pthread_override_qos_class_start_np` User Initiated override on
+every thread named `XThread...` (the guest threads `--ios_utility_qos_guest` puts
+at Utility; Main XThread follows the mode itself) and ends them on the way back
+to Utility. While raised, each frame goes to the native render queue as a
+`DISPATCH_BLOCK_ENFORCE_QOS_CLASS` User Initiated block. Log: `[adaptive-qos] on:
+... guest workers and render queue follow the mode` and `[adaptive-qos] N guest
+threads and the render queue raised`. Files: `ios/src/adaptive_qos.cpp`,
+`ios/src/native_renderer.mm`. Built only; not run on a device. Checked: build
+succeeded, 208 metallibs (as IPA47), ZIP OK, ad-hoc signature, cvar string present.
+IPA48 `ios/build/NFSMW-adaptive-qos-workers-48.ipa`, SHA256
+`ca452c544695d62a40f51b20488a37fb0e50fad79e1bb46d5cd72fe66efadfd5`, NFSMW UUID
+`0107077C-F537-3823-8DD3-F6DD482419EA`. Not proven: that the stall goes away,
+or the battery cost of raising the workers during holds.
+
