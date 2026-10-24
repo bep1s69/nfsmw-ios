@@ -20,12 +20,13 @@
 // set their own QoS, so the command thread starts an override on each one
 // (pthread_override_qos_class_start_np) and ends it on the way back to Utility.
 //
-// October 24 experiment: Low Power Mode halved the iPhone drain at 1x / 40 for
-// about 1% fps, so the boost is tunable to find a cheaper one that still holds
-// the cap: --ios_adaptive_qos_level (default, or user_initiated), the longest
-// hold --ios_adaptive_qos_max_hold (seconds) and --ios_adaptive_qos_workers_count
-// (the busiest guest threads by CPU time; 0 raises all of them).
-// --ios_adaptive_qos_ipa48=true restores IPA48: user_initiated, 240 s, all.
+// The boost is tunable: --ios_adaptive_qos_level (user_initiated or default),
+// the longest hold --ios_adaptive_qos_max_hold (seconds) and
+// --ios_adaptive_qos_workers_count (the busiest guest threads by CPU time; 0
+// raises all of them). The defaults are IPA48's (user_initiated, 240 s, all),
+// the boost proven in pursuits; IPA49's Default / 20 s / 3 saved no battery on
+// the iPhone (docs/TECHNICAL.md, October 24). --ios_adaptive_qos_ipa48=true
+// forces the IPA48 values over Extra Args.
 
 #include <pthread.h>
 #include <pthread/qos.h>
@@ -50,11 +51,11 @@ REXCVAR_DEFINE_BOOL(ios_adaptive_qos, false, "Kernel",
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_workers, true, "Kernel",
                     "Adaptive QoS: User Initiated also raises the other guest threads and the "
                     "native render queue (restart required)");
-REXCVAR_DEFINE_STRING(ios_adaptive_qos_level, "default", "Kernel",
+REXCVAR_DEFINE_STRING(ios_adaptive_qos_level, "user_initiated", "Kernel",
                       "Adaptive QoS: the class of a boost, default or user_initiated (restart required)");
-REXCVAR_DEFINE_INT32(ios_adaptive_qos_max_hold, 20, "Kernel",
-                     "Adaptive QoS: longest boost in seconds; IPA48 used 240 (restart required)");
-REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 3, "Kernel",
+REXCVAR_DEFINE_INT32(ios_adaptive_qos_max_hold, 240, "Kernel",
+                     "Adaptive QoS: longest boost in seconds; IPA49 tried 20 (restart required)");
+REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 0, "Kernel",
                      "Adaptive QoS: how many guest threads a boost raises, busiest first by CPU time; "
                      "0 raises all (restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",

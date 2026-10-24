@@ -180,9 +180,9 @@ Power Profiler or CPU investigations.
   pattern is less even). (3) Main-loop poll wait (~2,300 wakeups/s in pursuits):
   one Instruments capture with Record Waiting Threads to find the call site, then a
   blocking wait. (4) `Fingerprint`/`Record` encode cost (~35% of GPU Commands).
-  (5) Half-precision shaders (below). (6) Restore the IPA48 boost as the default
-  (`--ios_adaptive_qos_ipa48` behaviour): the IPA49 boost saved nothing and the
-  pursuit fix was proven with IPA48.
+  (5) Half-precision shaders (below). (6) Restore the IPA48 boost as the default:
+  done in IPA51, with (2). 0.4.0 is held until it has more than battery tweaks
+  (Stefan, Oct 24); new features belong in this list.
 
 - **HIGHEST PRIORITY (Stefan, Oct 22): half-precision shader math.** Convert
   translated pixel-shader arithmetic to half precision where it cannot change

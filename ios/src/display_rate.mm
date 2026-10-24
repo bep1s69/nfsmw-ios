@@ -13,11 +13,13 @@
 // the display's, not when this callback ran, so main-thread delays do not
 // matter. CACurrentMediaTime's clock is mach_absolute_time, as the plugin's.
 //
-// --ios_display_match_cap (default true, October 24): ask for exactly the cap's
+// --ios_display_match_cap (default false since IPA51): ask for exactly the cap's
 // rate at 30, 40 and 60 (30 Hz, 40 Hz, 60 Hz) instead of 60 / 120 / 60. In Low
 // Power Mode iOS ran the 40 cap at 60 Hz and the iPhone's drain halved
-// (docs/TECHNICAL.md). The guest vblank still runs at 60 (30 cap) or 120 (40
-// cap): each refresh is published as that many evenly spaced ones, so the
+// (docs/TECHNICAL.md), but IPA50 at 40 got iOS's 60 Hz pattern and the same
+// drain as 120 Hz, and 40 fps on 60 Hz is less even. The guest vblank still
+// runs at 60 (30 cap) or 120 (40 cap): each refresh is published as that many
+// evenly spaced ones, so the
 // plugin's lock keeps its interval and stays on the display's phase.
 
 #import <QuartzCore/QuartzCore.h>
@@ -36,7 +38,7 @@
 #include "display_rate.h"
 #include "lifecycle.h"
 
-REXCVAR_DEFINE_BOOL(ios_display_match_cap, true, "GPU",
+REXCVAR_DEFINE_BOOL(ios_display_match_cap, false, "GPU",
                     "iOS: ask the display for exactly the frame rate cap's refresh rate at 30, 40 "
                     "and 60 fps (instead of 60 / 120 / 60)");
 
