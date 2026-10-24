@@ -5606,3 +5606,11 @@ planar reflection image (trees, sky) at full strength while the cube it
 would otherwise reflect is black. Next: a capture of the glass draw itself
 (its textures and blend state) to see which image it samples and how it
 blends; check why the cube faces are black.
+IPA59 (`ios/build/NFSMW-glass-capture-59.ipa`, SHA256
+`398daccc8797d5287d3a98999edc14e725cdbd67a8439818c9b73bf37501a68e`, NFSMW UUID
+`55DAC1E5-98A3-3C14-99FD-D179B2D10063`; 208 metallib entries, zip test and
+codesign OK; not run): with `nfsmw_native_dump`, draws into the main picture
+(pitch >= 1280) that read a cube or one of the renderer's own resolves are
+logged as `reflective draw N: vs, ps, blend, depth, mask, colorctl, t<slot>
+<address> <size> [cube] [resolve]` (3 per shader per snapshot) and their
+textures saved as `watch_ps<key>_d<draw>_t<slot>_...png`.
