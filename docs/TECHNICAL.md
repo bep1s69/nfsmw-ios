@@ -5419,3 +5419,25 @@ in every 5 s line). XMA resets per minute: 00:00-00:11 between 234 and 6818,
 from 00:12: 256 streams fed, 164-242 reset per 5 s, 1-5 bursts of 300+/s, 0
 stopped after a reset. Matches Stefan's "boop" at ~00:12 and the glitches with
 the engine bug at ~00:15. See BACKLOG D-004.
+
+### October 25, 2026 — IPA54 sun test: every occlusion answer is nonzero
+
+Stefan, iPhone, IPA54 (`24 October 2026/nfsmw_ipa54_sun_test.log`, 00:32-00:34,
+~1.5 min, 40 fps, MetalFX off). 12 `occlusion queries` lines: frames 1-901
+(menus/loading) `none`; frames 1201-3601 (in game) 6-7 query addresses per
+line (`05D81080`, `05D81340`, `05D81600`, `05D82040`, `05D82580`, `05D82B00`,
+`05D82DC0`), 12-242 answers each per 300 frames, and **0 answers of 0 on every
+address in every line**. Largest/last per address: `05D81600` 3.3M-7.8M,
+`05D82040` 2.2M-4.5M, the others ~65k-650k (921600 in the first in-game line is
+the default before the first count). So the game is never told a query is
+fully hidden; the count is not too low.
+
+Two things do not fit a one-sun-per-frame query (TECHNICAL table above, inferred):
+seven addresses, not one, and counts up to 8x a full 1280x720 frame. Likely the
+queries cover several flares/lights (not only the sun) and the counting sums
+overlapping draws or passes (one slot per query per pass, summed; divisor =
+scale² x MSAA). If the game decides sun visibility as a ratio of two queries
+or against a fixed threshold, the units matter and could still hide the sun;
+unverified. Which address is the sun, and how the game turns the count into
+glare, is not known from the log. The log has no weather or sun markers, so
+whether the sun was on screen is Stefan's observation.

@@ -103,6 +103,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 25: IPA54 sun test log read.** 6-7 occlusion queries per line,
+  none ever answered 0, counts 65k-7.8M: the game always sees them as visible,
+  so a too-low count is ruled out. If the sun still never shows in open sky,
+  next: find which query is the sun and how the game uses its count (TECHNICAL
+  Oct 25).
+
 - **October 24 night: sun flicker traced to the occlusion answer; IPA54 built
   (`NFSMW-sun-occlusion-54.ipa`), not run.** Stefan's IPA53 extra-args test:
   sky reorder off did not help, native occlusion counting on stopped the flicker
