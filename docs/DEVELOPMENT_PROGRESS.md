@@ -97,6 +97,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA50 display match saved nothing (~30 %/h, as IPA49).** iOS gave
+  the link 30 Hz for a 40 Hz request and presented on a 60 Hz pattern (the same
+  2/4-refresh gaps as Low Power Mode), so the display matched Low Power Mode's and
+  drain did not move. Neither QoS (IPA49) nor the refresh rate (IPA50) explains Low
+  Power Mode's halving; what remains is its clock caps (CPU time per second was
+  ~198% of a core in Low Power Mode vs ~145% here: same work, slower clocks).
+  **Proposed next (not approved), ranked: (1) recommend Low Power Mode in Battery
+  settings; (2) less CPU work per frame: the main-loop poll wait, then
+  `Fingerprint`/`Record`; (3) half-precision shaders (GPU; Stefan's priority);
+  (4) `--ios_display_match_cap` back to default false (no gain, 40 fps on a 60 Hz
+  pattern judders).** Audio: stutters from 17:52 match XMA resets doubling.
+
 - **October 24: IPA50 asks the display for the cap's rate (Stefan approved,
   extended to every cap): `--ios_display_match_cap=true` (default) -> 30 Hz at
   30, 40 Hz at 40, 60 Hz at 60; 120 unchanged. Built, not run.** The guest vblank

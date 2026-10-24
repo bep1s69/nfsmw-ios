@@ -5153,3 +5153,42 @@ shows it). Checks: build OK, 208 metallibs, ZIP OK, both new log strings present
 SHA256 `43fb543badf5ad8d7507e97a3330faa811eb5adca2469a4445d7181900e08205`, NFSMW
 UUID `A5BF2569-4D0E-3E79-8F9D-64F20FF4C300`. Not run on a device.
 
+### October 24, 2026 — IPA50 run: display at the cap's rate, no saving
+
+`24 October 2026/nfsmw_ipa50_battery_test.log`, 17:45:15-17:55:32, iPhone 17 Pro
+Max, IPA50, no Extra Args, Low Power Mode off (`[cpu]`), thermal nominal until
+17:54:06, then fair. Stefan: 54% at 17:45 -> 49% at 17:55, as warm as IPA49 and much
+warmer than Low Power Mode; audio stutters from 17:52.
+
+Measured:
+- Drain ~30 %/h (24-37 with +-1 point), the same as IPA49 (~30) and IPA48 (~33);
+  Low Power Mode ~17.
+- Display: `cap 40 fps: asking for 40 Hz, the cap's rate`; `[ios-vblank] cap 40:
+  guest vblank locked to the display refresh (8.33 ms)`; then `[display] refresh
+  now 30 Hz (asked 40 Hz, cap 40)` (the CADisplayLink's period was 33.3 ms). Pacing
+  lines: gaps in 120 Hz refreshes 2:~148 4:~152 per 300 frames, the same pattern as
+  the Low Power Mode run (a 60 Hz panel, 40 fps alternating 16.7/33.3 ms), versus
+  mostly 3 in IPA49. So iOS did not grant 40 Hz; the presentation matched Low
+  Power Mode's.
+- Frames 301 (17:45:28.310) -> 24301 (17:55:31.568): 39.78 fps. Hitches 67.
+- GPU ms per frame (native summaries): median 12.9, max 18.2 (IPA49 12.3/18.1; Low
+  Power Mode 9.4/15.1). `[cpu]` median 149% of a core (IPA49 142%, Low Power Mode
+  198%).
+- `[xma-voices]` (new): all 256 contexts fed in most windows. 17:51:17-17:52:07
+  ~700-1,000 resets per 5 s; from 17:52:17 to 17:54:47 1,100-2,270 per 5 s with 1-5
+  bursts of 300+/s (17:52:52 2,269 resets, 5 bursts). Silent-block clusters at
+  17:52:56, 17:53:36, 17:54:36-17:54:51 (86 silent blocks, longest run 235 ms) and
+  17:55:11. Output path: 0 gaps, ring 12 throughout. The big "stopped after a
+  reset" lists (17:50:37, 127; 17:51:42, 100, with 299 silent blocks and a 1,259
+  ms run) look like scene changes, not single voices.
+- Input buffer addresses are per context (0x0A28C000 + id x 0x1000), so they are
+  each voice's own ring, not bank addresses: they cannot identify the engine
+  streams. Stefan did not report an engine fade in this run.
+
+Inference: (1) The display rate is not Low Power Mode's saving either: same
+presentation, same drain as IPA49. Left: Low Power Mode's CPU (and maybe GPU)
+clock caps. More CPU time per second at lower clocks fits that. The levers left
+are less work per frame, or recommending Low Power Mode. (2) Stutters again
+coincide with the XMA reset rate roughly doubling, with the output healthy;
+medium confidence that the reset path (streams run dry and dropped) is the cause.
+
