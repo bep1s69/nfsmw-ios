@@ -9,4 +9,7 @@ namespace nfsmw::display {
 // Main thread.
 void RequestRateForCap(int fps_cap);
 
+// --ios_display_match_cap: the display follows cap changes (Battery mode's 30).
+bool MatchesCap();
+
 }  // namespace nfsmw::display

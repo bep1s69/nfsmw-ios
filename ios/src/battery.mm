@@ -29,6 +29,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "display_rate.h"
 #include "memory_report.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_battery_auto_cap, false, "Battery",
@@ -67,6 +68,12 @@ void UpdateCap(const char* why) {
   cap = want;
   rex::cvar::SetFlagByName("ios_fps_cap", std::to_string(cap));
   REXLOG_INFO("[battery] cap {} fps: {}", cap, why);
+  if (nfsmw::display::MatchesCap()) {
+    const int now = cap;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      nfsmw::display::RequestRateForCap(now);
+    });
+  }
 }
 
 }  // namespace
