@@ -638,7 +638,7 @@ struct ShaderStore {
     }
     const std::string source =
         "#include <metal_stdlib>\nusing namespace metal;\n"
-        "struct Out {\n  float4 pos [[position]];\n" + outs + "};\n"
+        "struct Out {\n  float4 pos [[position]] [[invariant]];\n" + outs + "};\n"
         "struct InPos { float4 a0 [[attribute(0)]]; };\n"
         "struct InPosUv { float4 a0 [[attribute(0)]]; float4 a13 [[attribute(13)]]; };\n"
         "struct InPosUv2 { float4 a0 [[attribute(0)]]; float4 a13 [[attribute(13)]]; float4 a14 [[attribute(14)]]; };\n"
@@ -687,6 +687,7 @@ struct ShaderStore {
     NSError* error = nil;
     MTLCompileOptions* options = [MTLCompileOptions new];
     options.languageVersion = MTLLanguageVersion3_0;  // GPU addresses as pointers
+    options.preserveInvariance = YES;  // the same depth as the game's shaders (equal tests, overlays)
     id<MTLLibrary> library = [device newLibraryWithSource:[NSString stringWithUTF8String:source.c_str()]
                                                   options:options
                                                     error:&error];

@@ -108,7 +108,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   frames: not the texture cache. Stefan: it is a dark grey layer flickering
   (z-fighting). **IPA56 (`NFSMW-depth-bias-56.ipa`) built, not run:** applies
   the game's polygon offset, logs `[native] depth:` counts, drops the texture
-  log and repeated settings lines. Next: Stefan checks the same billboard.
+  log and repeated settings lines; Stefan: still the same. **IPA57
+  (`NFSMW-invariance-57.ipa`) built, not run:** shaders rebuilt with
+  `-fpreserve-invariance`. Next: the same billboard.
 
 - **October 25: IPA54 sun test log read.** 6-7 occlusion queries per line,
   none ever answered 0, counts 65k-7.8M: the game always sees them as visible,

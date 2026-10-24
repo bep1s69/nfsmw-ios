@@ -5508,3 +5508,20 @@ IPA56 `ios/build/NFSMW-depth-bias-56.ipa`, SHA256
 `F38E4682-8A98-3F34-B51C-A6CB6FC9B038`; 208 metallib entries; zip test and
 codesign OK. Not run. Test: the same billboard; A/B with
 `--nfsmw_native_depth_bias=false`.
+
+### October 25, 2026 — IPA56 did not fix the billboard; IPA57 shader invariance
+
+Stefan: IPA56 "still the same" (no log). Second suspect: the translated vertex
+shaders declare `oPos [[position]] [[invariant]]`, but `build_shaders.sh`
+compiled them without `-fpreserve-invariance`, so the attribute was ignored
+and two passes over one surface can compute different depths (fast math).
+Change: `-fpreserve-invariance` in both compile lines of
+`tools/native/build_shaders.sh`; the D3D internal vertex shaders (runtime
+source) get `[[invariant]]` and `preserveInvariance = YES`. All 104
+`air/*.metal` in `~/Library/Caches/nfsmw-ios/shaders` recompiled into `lib/`
+(old ones kept in `lib.before-invariance-ipa57/`); the IPA's metallibs match
+the new ones. IPA56's polygon offset stays on.
+IPA57 `ios/build/NFSMW-invariance-57.ipa`, SHA256
+`e4470f5798d3d58b57e5b914b718cb60357d08556fdfdb89aef2b26ef0226678`, NFSMW UUID
+`70800D84-C16E-3563-B095-F5927A4D936D`; 208 metallib entries; zip test and
+codesign OK. Not run. Watch also GPU ms (invariance can cost a little).
