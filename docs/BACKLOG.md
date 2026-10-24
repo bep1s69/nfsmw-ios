@@ -180,7 +180,9 @@ not brightness. Suspects (unverified): the fetch constant's mip range or LOD
 bias changing per draw/frame, or two cached copies of the texture (full and
 mips-only/low-res) bound alternately. Next (proposed, not done): log per texture
 address when the bound size or mip range differs from the last bind. Built as
-IPA55 (`nfsmw_native_texture_flip_log`), not run.
+IPA55 (`nfsmw_native_texture_flip_log`). Run Oct 25: 0 textures changing while
+the billboard flashed, so not the texture cache; next suspect two textures or
+models alternating (LOD). See TECHNICAL Oct 25.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
