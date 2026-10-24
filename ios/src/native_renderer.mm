@@ -197,6 +197,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_write_watch, false, "GPU",
                     "Native renderer: trust caches by the memory write watch (experimental)");
 REXCVAR_DEFINE_INT32(nfsmw_native_dump_interval_ms, 10000, "GPU",
                      "Native renderer bring-up: time between snapshots (nfsmw_native_dump)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_dump_manual, false, "GPU",
+                    "Native renderer bring-up: snapshots (as nfsmw_native_dump) only when the SNAP "
+                    "touch button is tapped");
+// A snapshot asked for with the SNAP button (touch_controls.mm).
+std::atomic<bool> native_dump_requested{false};
+extern "C" void NativeRequestDump() { native_dump_requested.store(true, std::memory_order_relaxed); }
 // Bring-up: the alpha-tested shaders (fences, plants: 684f4711; trees:
 // 27d82ea0) replaced every 6 s by debug versions (test builds with
 // ps_<key>_dbg1-2 bundled): 1 their alpha as grey, 2 white where the alpha
@@ -2851,7 +2857,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   static const bool prune_texture_slots = [] {
     const char* capture = getenv("MTL_CAPTURE_ENABLED");
     return !(capture && strcmp(capture, "1") == 0) && REXCVAR_GET(nfsmw_native_texture_masks) &&
-      !REXCVAR_GET(nfsmw_native_dump) && !REXCVAR_GET(nfsmw_native_shadow_debug) &&
+      !REXCVAR_GET(nfsmw_native_dump) && !REXCVAR_GET(nfsmw_native_dump_manual) &&
+      !REXCVAR_GET(nfsmw_native_shadow_debug) &&
       !REXCVAR_GET(nfsmw_native_alpha_debug) && !REXCVAR_GET(nfsmw_native_cost_probe) &&
       !REXCVAR_GET(nfsmw_native_motion_debug) && !REXCVAR_GET(nfsmw_native_test_no_envcube) &&
       !REXCVAR_GET(nfsmw_native_test_grey_volume);
@@ -7717,7 +7724,9 @@ bool NativeSwap() {
   // No native frames for a while (FMVs): the emulated renderer draws again.
   rex_native_draws_only.store(present && REXCVAR_GET(nfsmw_native_exclusive) && frames_without_output < 3,
                               std::memory_order_relaxed);
-  const bool dump_due = REXCVAR_GET(nfsmw_native_dump) && NowMs() >= next_dump_ms;
+  const bool dump_due =
+      (REXCVAR_GET(nfsmw_native_dump) && !REXCVAR_GET(nfsmw_native_dump_manual) && NowMs() >= next_dump_ms) ||
+      (REXCVAR_GET(nfsmw_native_dump_manual) && native_dump_requested.exchange(false, std::memory_order_relaxed));
   if (!present && !dump_due) {
     return false;
   }
