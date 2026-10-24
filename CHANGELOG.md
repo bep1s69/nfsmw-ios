@@ -13,6 +13,11 @@
   because some game threads stayed on the slow cores when the game sped the
   others up; now they all speed up together. Turn off with
   `--ios_adaptive_qos_workers=false`.
+- **Less battery and heat on iPhones in pursuits:** the game and GPU threads now
+  sleep while they wait instead of checking hundreds of times a second. An
+  iPhone 17 Pro Max police chase at 1x / 40 fps went from about 30 to about 22 %
+  battery an hour, cooler, still at 40 fps (one test so far). Undo with
+  `--ios_ring_wait_ms=1 --ios_cp_idle_spins=64`.
 <!-- Not for release as they stand (October 24 tests: no battery saving):
      --ios_display_match_cap (screen at the cap's rate) and the IPA49 gentler
      boost (--ios_adaptive_qos_ipa48 restores the tested one). See BACKLOG. -->

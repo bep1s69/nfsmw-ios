@@ -5279,3 +5279,26 @@ in NFSMW and `cp-idle` in librexgpu-xenos. IPA52
 `95f6c2ba2087b9e428d337a1cd033c35df8587487370aea471cf98f9b8822144`, NFSMW UUID
 `AE1010F1-4FC9-35F6-9A01-C0946DF82931`. Not run on a device.
 
+### October 24, 2026 (night) — IPA52 iPhone police chase: first clear saving
+
+`24 October 2026/nfsmw_ipa52_police_chase.log` (several launches 19:44-23:21; the
+measured run is the last, 23:11-23:21). `[cpu]`: Low Power Mode off, thermal
+nominal in every line of that run; energy baseline `scale 1.000, MetalFX off,
+FXAA off, forced MSAA 0, cap 40`. Stefan: 79% at 23:11 -> 75% at 23:22, police
+chase, "this was finally it", the phone heats less than in the old 10-minute Low
+Power Mode runs.
+- Drain: 4 points in 0.183 h = ~22 %/h (16-27 with +-1 point). IPA51 ~30 (24-36),
+  IPA48 ~33 (28-39), IPA48 Low Power Mode ~17 (12-23). One run; battery at 75-79%.
+- Frames 1501 (23:11:01.326) -> 26401 (23:21:24.468): 39.96 fps. 6 hitches (largest
+  47.7, 50.4, 109.7 ms). GPU median 12.2 ms. `[cpu]` median 127% of a core (IPA51
+  ~145%, IPA48 ~280%).
+- `[ring-wait]` (64 x 10 s): 66,566 waits (104/s, trace before: 709/s), 44,755 timed
+  out at 8 ms (70/s, before ~600/s at 1 ms).
+- `[cp-idle]` (64 x 10 s): 104,706 yields (164/s, trace before: 908/s), 37,842 event
+  waits.
+Inference: the drop in wakeups lets the P cores (and likely the GPU driver
+thread) idle between frames; that, on top of the earlier QoS and renderer work,
+is the first change that moves the battery-% drain toward Low Power Mode without
+its clock caps. Still 70 ring-wait timeouts/s: the 8 ms cap expiring during the
+40 fps vblank pause (a frame-relative cap would remove most).
+

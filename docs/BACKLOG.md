@@ -41,7 +41,9 @@ iPhones) and longer sessions. Optional follow-ups:
   sleeps/s in `sub_82441B60`; GPU Commands spins with `MaybeYield` 908 times/s.
   The wait is the existing ring-space hook (already woken exactly by the CP);
   IPA52 raises its cap to 8 ms (`--ios_ring_wait_ms`) and cuts the CP idle spin
-  to 4 yields (`--ios_cp_idle_spins`). Testing (TECHNICAL Oct 24, IPA52).
+  to 4 yields (`--ios_cp_idle_spins`). **Proven on the iPhone pursuit, pending a
+  repeat and the iPad:** ~22 %/h vs ~30 (IPA51), cooler, 39.96 fps (TECHNICAL Oct
+  24 night).
 - Encode cost: `Record()` + `Fingerprint()` are ~35% of GPU Commands; render
   workers ~19 ms/frame in B. Memoize/skip `Fingerprint` for repeated draws, fewer
   encoders per frame. A few ms per frame; after the QoS fix.
@@ -175,6 +177,13 @@ capture freeze/crash separately; do not make it a prerequisite for ordinary
 Power Profiler or CPU investigations.
 
 ## Feature ideas
+
+- **After IPA52 (Oct 24 night), ranked, none approved:** (1) repeat run + iPad
+  check of IPA52; (2) frame-relative ring-wait cap (~half a frame; 70 timeouts/s
+  left at 8 ms); (3) `Fingerprint`/`Record` encode cost (~35% of GPU Commands);
+  (4) half-precision shaders; (5) re-test IPA49 Default-QoS boost and IPA50
+  display match now that threads can idle; (6) main-loop 0.14 ms sleeps (only with
+  care, game timing); (7) Low Power Mode hint text.
 
 - **Battery next steps after the Oct 24 iPhone runs (ranked, saved for later by
   Stefan; none approved).** QoS (IPA49) and the display rate (IPA50) did not move
