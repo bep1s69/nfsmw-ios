@@ -97,6 +97,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: IPA49 run A (gentler boost) saved nothing measurable:** 61 -> 56%
+  in ~10 min = ~30 %/h (24-37) vs ~33 normal IPA48 and ~17 Low Power Mode; 39.8
+  fps; phone hotter, thermal fair at the end. `[cpu]` fell to ~150% of a core, so
+  CPU time is not what Low Power Mode saves. New lead: the 40 cap runs the display
+  at 120 Hz in normal mode, 60 Hz in Low Power Mode (pacing lines). Audio: stutters
+  at 17:32 and the 17:27 engine fade are game-side (silent blocks, XMA resets), not
+  output underruns (TECHNICAL Oct 24). **Next (proposal, not approved): a build
+  that asks for 40 Hz at the 40 cap (`--ios_display_40hz`-style switch), A/B
+  against IPA49/IPA48 in normal mode.**
+
 - **October 24: IPA49 makes the adaptive boost tunable (Stefan approved the
   lower-clock experiment). Built, not run on a device.** New default boost:
   Default QoS (not User Initiated), holds up to 20 s (not 240), the 3 busiest guest

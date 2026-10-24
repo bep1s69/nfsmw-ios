@@ -5075,3 +5075,51 @@ Checks: build OK, 208 metallibs, ZIP OK, the four cvar names present. IPA49
 `152861503300d87504c50c2d9191b588424ce8fe9e9773afa7866917d3b85551`, NFSMW UUID
 `A14E11CE-3C31-34FB-9808-5B4E615141DA`. Not run on a device.
 
+### October 24, 2026 — IPA49 run A: gentler boost, drain, audio stutters
+
+`24 October 2026/nfsmw_ipa49_battery_test.log`, 17:22:19-17:33:04, iPhone 17 Pro
+Max, IPA49, no Extra Args, `[cpu]`: Low Power Mode off, thermal nominal until
+17:32:59, then fair. Startup: `boost: Default QoS, holds up to 20 s, the 3 busiest
+guest threads`. Stefan: 61% at 17:23, 56% at 17:33; noticeably hotter than IPA48 in
+Low Power Mode; close to locked 40; engine sound fade around 17:27; heavy audio
+stutters in the last ~2 minutes.
+
+Measured:
+- Drain: 5 points in ~0.167 h = ~30 %/h (24-37 with +-1 point). IPA48 normal 33
+  (28-39), IPA48 Low Power Mode 17 (12-23). No measurable saving.
+- Frames 2101 (17:23:20.577) -> 23701 (17:32:22.893): 39.83 fps. Hitches 87, of
+  which 58 in the first minute (loading); 1-8 per minute after.
+- `[adaptive-qos]`: 15 boosts, each 20 s (the cap), 1-118 s on Utility between
+  them; 3 guest threads + render queue raised each time. About half the run was
+  boosted.
+- `[cpu]` in gameplay 65-214% of a core, ~150% typical (IPA48 normal ~280%, Low
+  Power Mode ~200%). Less CPU time than IPA48 normal mode for the same drain.
+- Display: `cap 40: guest vblank locked to the display refresh (8.33 ms)`; native
+  pacing lines show 120 Hz refresh gaps of mostly 3 (40 fps on 120 Hz) in normal
+  mode, and gaps of 2 and 4 (a 60 Hz display) in the Low Power Mode run.
+  `display_rate.mm` asks for 80-120 Hz at the 40 cap.
+- Audio output: 0 gaps, 0 dropped, ring minimum 11-12 blocks in every window,
+  including 17:31-17:33. Limiter 0-94% per window. The `sudden drop` lines stop
+  after 60 per run (all three logs have exactly 60); use the per-5 s `sudden drops`
+  counts: run totals 109 (IPA49), 99 (IPA48 normal), 167 (IPA48 Low Power Mode).
+  IPA49 clusters: 17:32:05 (11), 17:32:10 (19), 17:32:40 (39), with peaks right
+  before the drop at -0.2 to -7 dB, one every ~100 ms at 17:32:03-17:32:07. They
+  happened both on Utility and during a boost (boost started 17:32:07.6 and
+  17:32:40.7).
+- 17:27 engine fade window: XMA resets peaked at 17:27:21 (556 on 116 contexts in
+  one second; run maximum 585); XMA decode time (`[xma-work]`) then fell from
+  60-100 ms/s to 15-26 ms/s for ~40 s (17:27:22-17:28:05) before recovering.
+  17:27:20 window: 18 silent blocks from the game, longest run 75 ms. No failed
+  file opens near 17:27.
+
+Inference: (1) Lower QoS cut CPU time but not drain, so Low Power Mode's saving is
+not CPU scheduling; likely the CPU/GPU clock caps plus the 60 Hz display, which
+our QoS cannot reach. The display rate is the one lever we control. (2) The
+stutters are game-side: the game's mix delivers isolated silent 5-11 ms blocks
+after loud ones, while output never runs dry. Probably XMA voices whose streams run
+dry and get reset (decoded output dropped). They are not tied to QoS changes and
+occur in every mode, most in Low Power Mode. Medium confidence. (3) The 17:27
+engine fade lines up with the largest burst of XMA resets and a drop in decode
+work, consistent with many voices (the engine banks) being reset at once. Low to
+medium confidence; one occurrence.
+
