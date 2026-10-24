@@ -76,6 +76,13 @@ without restarting. IPA50 adds `[xma-voices]` (stopped-after-reset contexts with
 input addresses, every 5 s). IPA50 run: the addresses are per-context rings
 (0x0A28C000 + id x 0x1000), not banks; engine identification needs another
 signal (e.g. which voices the game starts from the engine banks). No fade that run.
+October 24 night IPA53 (`nfsmw_ipa53_sun_issues.log`), Stefan: a robotic "boop"
+at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on from
+~00:11; it was on in his earlier glitch runs too, so not ruled out). Output clean
+(0 gaps). XMA resets per minute rose from ~1-6k to 9.6k/13.5k/14.1k/11.0k at
+00:12-00:15, with `[xma-voices]` showing all 256 streams fed and 2-5 bursts of
+300+ resets/s per 5 s. Inference: every XMA context in use at once; check
+whether 256 is a context limit the game runs into.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
@@ -123,7 +130,7 @@ Game Mode currently needs shared-app +LiveContainer2 per Stefan, so do not make
 the main plan depend on that or a paid host entitlement. Full evidence, platform
 sources, proposal and gates in latest TECHNICAL/checkpoint.
 
-### iPad Pro M4 sun flickering — open (also iPhone, Oct 24)
+### iPad Pro M4 sun flickering — fix built (IPA54), untested (also iPhone, Oct 24)
 
 Seen in the same October 15 session as the battery drain (MetalFX temporal to
 the screen, 1x then 1.5x, MSAA up to 4x). Not investigated yet. Possibly related
@@ -135,6 +142,26 @@ reflection flickers too and stays visible even fully inside a tunnel. Next:
 check how the sun/flare visibility is decided (occlusion query or depth read in
 the native renderer) and what the skybox change altered; compare with the
 emulated renderer.
+October 24 night (IPA53 extra-args test, `nfsmw_ipa53_sun_issues.log`):
+`--nfsmw_native_sky_last=false` did not stop the flicker;
+`--nfsmw_native_occlusion=true` did, and the sun no longer shows through
+geometry. So the flicker is the sun glare's query answer, not the sky reorder:
+with native counting off the game got the emulated renderer's answers, whose
+draws are skipped. The Oct 12 reason for turning counting off (the safehouse
+null-call crash) was the deferred-queue race fixed in IPA36. IPA54 makes
+`nfsmw_native_occlusion` default on and logs the answers every 300 frames
+(`[native] occlusion queries since the last line`). Open: in ~10 min with
+counting on Stefan never saw the sun in the sky (weather, or a count too low:
+the new line answers it). The sun in the car reflection (IMG_3949/3950) does not
+use the query; likely the cube map seeing the sun behind the camera (inferred),
+which also explains it in tunnel reflections.
+
+### Textures flashing — open (since the Vulkan renderer)
+
+Stefan, October 24: some textures flash, seen since the Vulkan renderer days,
+so not specific to the native renderer.
+`Most Wanted (2005) Debug/24 October 2026/ScreenRecording_10-25-2026 00-09-10_1.mp4`.
+Not investigated.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 

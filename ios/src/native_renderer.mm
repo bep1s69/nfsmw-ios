@@ -147,7 +147,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
                     "Native renderer: skip the emulated renderer's draws while it shows the game");
 // The game waits for the native renderer instead of it dropping frames.
 // The sun glare's occlusion query counted by the native renderer.
-REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
                     "Native renderer: answer the game's occlusion queries (the sun glare) by "
                     "counting its own samples");
 // Cubes made from resolves (environment maps) sampled with the resolves'
@@ -1192,6 +1192,14 @@ constexpr size_t kVisibilitySlots = 64;
 constexpr int kVisibilityBuffers = 8;
 std::mutex occlusion_mutex;
 std::unordered_map<uint32_t, uint64_t> occlusion_counts;
+// The answers given since the last stats line (per query address: answers,
+// how many were 0, the largest, the last), to see whether the sun is ever
+// counted as visible. Under occlusion_mutex.
+struct OcclusionAnswers {
+  uint32_t answers = 0, zero = 0;
+  uint64_t largest = 0, last = 0;
+};
+std::unordered_map<uint32_t, OcclusionAnswers> occlusion_answers;
 
 // Compiled pipelines kept on disk (Library/Caches), so a pipeline compiled
 // once is loaded, not compiled, in later sessions: compiling them as the race
@@ -6974,6 +6982,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     resolve_bytes / kMiB, gpu_texture_count.load(), texture_bytes / kMiB,
                     gpu_buffers.size(), buffer_bytes / kMiB, gpu_pool.made, gpu_pool.reused);
         gpu_pool.made = gpu_pool.reused = 0;
+        if (REXCVAR_GET(nfsmw_native_occlusion)) {
+          // The sun glare's queries: samples given to the game (guest pixels;
+          // 921600 = a full 1280x720 target, given before the first count).
+          std::string answers;
+          {
+            std::lock_guard<std::mutex> lock(occlusion_mutex);
+            for (const auto& [address, a] : occlusion_answers) {
+              answers += fmt::format(" | {:08X}: {} answers, {} of them 0, largest {}, last {}", address, a.answers,
+                                     a.zero, a.largest, a.last);
+            }
+            occlusion_answers.clear();
+          }
+          REXLOG_INFO("[native] occlusion queries since the last line:{}", answers.empty() ? " none" : answers);
+        }
         const int64_t now = NowMs();
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
         const uint64_t frames = number > 1 ? 300 : 1;
@@ -7472,6 +7494,11 @@ bool CpOcclusion(uint32_t address, bool end, uint64_t* samples) {
   std::lock_guard<std::mutex> lock(occlusion_mutex);
   auto it = occlusion_counts.find(address);
   *samples = it != occlusion_counts.end() ? it->second : 1280u * 720u;
+  OcclusionAnswers& a = occlusion_answers[address];
+  a.answers += 1;
+  a.zero += *samples == 0;
+  a.largest = std::max(a.largest, *samples);
+  a.last = *samples;
   return true;
 }
 
