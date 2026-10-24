@@ -97,6 +97,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24: Low Power Mode on IPA48 about halves the iPhone drain at 1x/40.**
+  `nfsmw_ipa48_battery_test_iphone.log` (17:02:44-17:13:05, heavy pursuit, same
+  settings, no Extra Args): 66 -> 63% = ~17 %/h (12-23 with +-1 point) vs ~33 %/h
+  (28-39) without it earlier today; 39.4 vs 39.95 fps, more single late frames
+  (~5/min vs ~1/min in gameplay). Stefan: fps "99% the same". Inference: the
+  40 fps workload fits lower clocks, so the OS's normal clock choice for our
+  User Initiated holds costs energy we don't need. Next idea (BACKLOG, not
+  approved): log Low Power Mode/thermal state, then a lower-clock experiment.
+  Audio crackles (D-003) parked by Stefan (minor, inconsistent).
+
 - **October 24: IPA48 fixed the iPhone pursuit stutter (D-002, Stefan: "didn't
   slow down anymore during the chase").** `nfsmw_ipa48_chase_iphone.log`: 39.95
   fps over 12,600 pursuit frames, 10 guest threads raised at each User Initiated

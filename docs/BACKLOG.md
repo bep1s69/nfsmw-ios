@@ -49,8 +49,9 @@ found by ear. No output underruns in the log (0 gaps/drops). Candidates, both mu
 more active in the pursuit (TECHNICAL October 24): the instant-attack limiter in
 `coreaudio_driver.mm` (up to 100% of samples turned down, -6.6 dB) and about 200
 XMA stream resets per second with decoded output dropped (`[xma-resets]`).
-Next: compare against the phone speaker, and a test build with a smoother limiter
-or a lower mix gain, then the XMA reset path if the crackles stay.
+Parked (Stefan, October 24: minor and inconsistent). When resumed: compare
+against the phone speaker, then a test build with a smoother limiter or a lower
+mix gain, then the XMA reset path if the crackles stay.
 
 ### D-004 Engine sound almost disappears — reoccurred (IPA47)
 
@@ -165,6 +166,14 @@ Power Profiler or CPU investigations.
   shaders run full 32-bit). Not bit-identical: needs per-shader analysis and
   snapshot comparison (nfsmw_native_dump), heavy shaders first (cost probe:
   4fbaecfb, 27d82ea0, 684f4711). See TECHNICAL Oct 22 GPU view.
+
+- Low Power Mode headroom (Oct 24): on the iPhone at 1x/40 it halved the drain
+  (~17 vs ~33 %/h) for ~1% fps (TECHNICAL Oct 24). Ideas, not approved: (1) log
+  `NSProcessInfo.lowPowerModeEnabled` and thermal state at start and in `[cpu]`;
+  (2) lower-clock experiment for adaptive holds: User Initiated only for the
+  threads on the critical path, or Default instead of User Initiated, or shorter
+  holds, measured against a matched Low Power Mode run; (3) suggest Low Power Mode
+  in the Battery settings text.
 
 - iPhone adaptive QoS (Oct 22): Utility for the main/GPU command threads while
   CPU frame work has headroom, normal QoS near the budget. The main open battery
