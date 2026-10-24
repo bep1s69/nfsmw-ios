@@ -5328,3 +5328,24 @@ wake). Checks: build OK, 208 metallibs, ZIP OK, both new strings present. IPA53
 `c08433ff248cba276584a44eaf8605135342e34ee045a959d138b2ae2d4076e5`, NFSMW UUID
 `4AECB5A4-A7C1-3162-8D46-5180E300A7EF`. Not run on a device.
 
+### October 24, 2026 (night) — IPA53 iPhone police chase: drain not repeated
+
+`24 October 2026/nfsmw_ipa53_police_chase.log`, 23:35:11-23:45:16, Low Power Mode
+off, thermal nominal in every `[cpu]` line, cap 40. Stefan: 74/73% at 23:35-23:36
+-> 68% at 23:45 (~30-40 %/h depending on the start reading), "seems worse, much
+hotter" than IPA52. The 7th launch of the evening, ~13 min after the IPA52 run.
+Measured, against IPA52 (23:11-23:21):
+- Frames 301 -> 24001 in 593.2 s = 39.95 fps (IPA52 39.96). Hitches 31, all but 2
+  in the first ~90 s of loading (IPA52: 6). Draws median 3,156. GPU median 11.1 ms
+  (IPA52 12.2).
+- `[cpu]` in play 67-177% of a core, ~100% typical (IPA52 ~127%).
+- `[ring-wait]` (cap 12.5 ms, half a frame): 47,167 waits (79/s), 22,895 timeouts
+  (38/s) (IPA52: 104/s, 70/s at 8 ms). `[cp-idle]`: 98,737 yields (165/s), as IPA52.
+- Adaptive QoS: same behaviour (User Initiated holds, all guest threads).
+Inference: every in-game counter is equal or better than IPA52 (less CPU, fewer
+wakeups), so neither IPA53 change explains a higher drain; more likely the run
+conditions (phone and battery already warm from back-to-back runs, a different
+chase) plus the 1-point battery readings on short runs (IPA52 16-27, IPA53 ~25-44
+%/h with the reading error). Not proven either way. A fair comparison needs both
+builds after a full cool-down, ideally same chase, longer than 10 min.
+
