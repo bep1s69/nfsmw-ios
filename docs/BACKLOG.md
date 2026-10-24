@@ -179,7 +179,8 @@ stands still; the tree and the sky stay sharp. So it is mip/resolution flipping,
 not brightness. Suspects (unverified): the fetch constant's mip range or LOD
 bias changing per draw/frame, or two cached copies of the texture (full and
 mips-only/low-res) bound alternately. Next (proposed, not done): log per texture
-address when the bound size or mip range differs from the last bind.
+address when the bound size or mip range differs from the last bind. Built as
+IPA55 (`nfsmw_native_texture_flip_log`), not run.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 

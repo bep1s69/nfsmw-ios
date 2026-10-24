@@ -103,6 +103,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 25: IPA55 (`NFSMW-texture-flips-55.ipa`) built, not run.** Flashing
+  billboards flip between sharp and blurry; IPA55 logs textures whose fetch
+  constant, size/mips or content change between frames (`[native] textures
+  changing between frames`). Next: Stefan stands near a flashing billboard for
+  a minute; read which of the three changes.
+
 - **October 25: IPA54 sun test log read.** 6-7 occlusion queries per line,
   none ever answered 0, counts 65k-7.8M: the game always sees them as visible,
   so a too-low count is ruled out. If the sun still never shows in open sky,

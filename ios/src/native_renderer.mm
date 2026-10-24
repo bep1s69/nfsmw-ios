@@ -150,6 +150,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exclusive, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_occlusion, true, "GPU",
                     "Native renderer: answer the game's occlusion queries (the sun glare) by "
                     "counting its own samples");
+// Textures shown sharp one frame and blurry the next (billboards): per
+// address, how often what is bound changes between frames.
+REXCVAR_DEFINE_BOOL(nfsmw_native_texture_flip_log, true, "GPU",
+                    "Native renderer: log textures whose size, mips, fetch constant or content differ "
+                    "from their last use in an earlier frame");
 // Cubes made from resolves (environment maps) sampled with the resolves'
 // red/blue swap and the fetch swizzle, as 2D resolves are.
 REXCVAR_DEFINE_BOOL(nfsmw_native_cube_swizzle, true, "GPU",
@@ -1201,6 +1206,60 @@ struct OcclusionAnswers {
 };
 std::unordered_map<uint32_t, OcclusionAnswers> occlusion_answers;
 
+// nfsmw_native_texture_flip_log: per texture address, what was bound last
+// (its fetch constant, size, levels, content) and, since the last stats line,
+// how often that changed from one frame to a later one. Under texture_flip_mutex.
+struct TextureUse {
+  FetchKey key;
+  uint32_t width = 0, height = 0, levels = 0;
+  uint64_t fingerprint = 0;
+  uint64_t frame = 0;
+};
+struct TextureFlips {
+  uint32_t uses = 0, key_changes = 0, size_changes = 0, content_changes = 0;
+  std::string example;  // the last change: before -> after
+};
+std::mutex texture_flip_mutex;
+std::unordered_map<uint32_t, TextureUse> texture_last_use;
+std::unordered_map<uint32_t, TextureFlips> texture_flips;
+
+std::string DescribeTextureUse(const TextureUse& u) {
+  xenos::xe_gpu_texture_fetch_t t;
+  std::memcpy(&t, u.key.v, sizeof(t));
+  return fmt::format("{}x{} levels {} mips {}-{} bias {} mipfilter {} aniso {} fmt {} content {:04X}", u.width,
+                     u.height, u.levels, uint32_t(t.mip_min_level), uint32_t(t.mip_max_level), int32_t(t.lod_bias),
+                     uint32_t(t.mip_filter), uint32_t(t.aniso_filter), uint32_t(t.format),
+                     uint32_t(u.fingerprint & 0xFFFF));
+}
+
+void NoteTextureUse(uint32_t address, const FetchKey& key, const Texture& tex, uint64_t fingerprint) {
+  if (!REXCVAR_GET(nfsmw_native_texture_flip_log)) return;
+  TextureUse now;
+  now.key = key;
+  now.width = tex.width;
+  now.height = tex.height;
+  now.levels = tex.levels;
+  now.fingerprint = fingerprint;
+  now.frame = frame_counter;
+  std::lock_guard<std::mutex> lock(texture_flip_mutex);
+  TextureFlips& f = texture_flips[address];
+  ++f.uses;
+  auto [it, fresh] = texture_last_use.try_emplace(address, now);
+  if (!fresh && it->second.frame != now.frame) {
+    const TextureUse& was = it->second;
+    const bool key_changed = !(was.key == now.key);
+    const bool size_changed = was.width != now.width || was.height != now.height || was.levels != now.levels;
+    const bool content_changed = was.fingerprint != now.fingerprint;
+    f.key_changes += key_changed;
+    f.size_changes += size_changed;
+    f.content_changes += content_changed;
+    if (key_changed || size_changed || content_changed) {
+      f.example = DescribeTextureUse(was) + " -> " + DescribeTextureUse(now);
+    }
+  }
+  if (fresh || it->second.frame != now.frame) it->second = now;
+}
+
 // Compiled pipelines kept on disk (Library/Caches), so a pipeline compiled
 // once is loaded, not compiled, in later sessions: compiling them as the race
 // starts (dozens, tens of ms each, on the render thread) made it stutter.
@@ -2140,6 +2199,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     }
   }
   if (hit) {
+    NoteTextureUse(texture_address, key, *cached.value, cached.fingerprint);
     frame.textures.push_back(cached.value);
     const int index = int(frame.textures.size() - 1);
     frame.texture_index[key] = index;
@@ -2290,6 +2350,7 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
   }
   cached.value = std::make_shared<Texture>(std::move(tex));
   cached.fingerprint = fingerprint;
+  NoteTextureUse(texture_address, key, *cached.value, fingerprint);
   frame.textures.push_back(cached.value);
   const int index = int(frame.textures.size() - 1);
   frame.texture_index[key] = index;
@@ -6995,6 +7056,29 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             occlusion_answers.clear();
           }
           REXLOG_INFO("[native] occlusion queries since the last line:{}", answers.empty() ? " none" : answers);
+        }
+        if (REXCVAR_GET(nfsmw_native_texture_flip_log)) {
+          // The textures that changed most often between frames (the
+          // flashing billboards): changes of fetch constant, size/levels,
+          // content, and the last change.
+          std::vector<std::pair<uint32_t, TextureFlips>> top;
+          {
+            std::lock_guard<std::mutex> lock(texture_flip_mutex);
+            for (auto& [address, f] : texture_flips) {
+              if (f.key_changes || f.size_changes || f.content_changes) top.emplace_back(address, std::move(f));
+            }
+            texture_flips.clear();
+            if (texture_last_use.size() > 20000) texture_last_use.clear();
+          }
+          auto changes = [](const TextureFlips& f) { return f.key_changes + f.size_changes + f.content_changes; };
+          std::sort(top.begin(), top.end(),
+                    [&](const auto& a, const auto& b) { return changes(a.second) > changes(b.second); });
+          REXLOG_INFO("[native] textures changing between frames since the last line: {}", top.size());
+          for (size_t i = 0; i < top.size() && i < 8; ++i) {
+            const TextureFlips& f = top[i].second;
+            REXLOG_INFO("[native]   texture {:08X}: {} uses, fetch changed {}, size/levels {}, content {} | {}",
+                        top[i].first, f.uses, f.key_changes, f.size_changes, f.content_changes, f.example);
+          }
         }
         const int64_t now = NowMs();
         const double seconds = stats_since_ms ? (now - stats_since_ms) / 1000.0 : 0;
