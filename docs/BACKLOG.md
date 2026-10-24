@@ -166,7 +166,14 @@ the game turns the count into glare (ratio or threshold). See TECHNICAL Oct 25.
 Stefan, October 24: some textures flash, seen since the Vulkan renderer days,
 so not specific to the native renderer.
 `Most Wanted (2005) Debug/24 October 2026/ScreenRecording_10-25-2026 00-09-10_1.mp4`.
-Not investigated.
+October 25 (frame diff of that 7 s clip, car standing still, 40 fps): the only
+flashing in the game image is the player car's roof/body reflection, which
+changes brightness and pattern from frame to frame (e.g. 0.10-0.30 s), plus
+single cells in the top-right sky. The world textures stay stable. Same family
+as the flickering sun reflection (inferred: the car's environment map is
+unstable from frame to frame). Next: confirm with Stefan that this is the flashing
+he means; then check how the reflection map is rendered and read in the native
+renderer.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
