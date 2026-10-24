@@ -103,6 +103,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 24 night: sun flicker traced to the occlusion answer; IPA54 built
+  (`NFSMW-sun-occlusion-54.ipa`), not run.** Stefan's IPA53 extra-args test:
+  sky reorder off did not help, native occlusion counting on stopped the flicker
+  and hides the sun behind geometry. IPA54 makes `nfsmw_native_occlusion` default
+  on and logs the sun query answers. **Next: an IPA54 run in sunny weather,
+  checking the sun appears in open sky (log line `occlusion queries`).** Audio
+  glitches and flashing textures recorded in BACKLOG (D-004, new entry).
+
 - **October 24 night: IPA53 run looked worse by battery % (~30-40 %/h) and
   hotter, but its counters are all equal or better than IPA52 (CPU ~100% vs
   127%, fewer ring timeouts, 39.95 fps, 2 in-play hitches); it was the 7th

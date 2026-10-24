@@ -5387,3 +5387,35 @@ the 147 Low Power Mode-off lines of the default session. Inference: iOS did not
 raise its thermal state while the phone felt hot, so the in-game heat reactions
 keyed to it would not have fired. Superseded for planning by the Oct 24 work
 (Low Power Mode comparison, IPA48-53, Stefan's IPA51 traces); no new action.
+
+### October 24, 2026 (night) — sun flicker is the occlusion answer; IPA54
+
+Stefan, iPhone, IPA53 (`24 October 2026/nfsmw_ipa53_sun_issues.log`, 23:59-00:20).
+Test 1 `--nfsmw_native_sky_last=false`: flicker unchanged. Test 2
+`--nfsmw_native_occlusion=true`: no flicker, sun hidden by buildings and tunnels,
+no crash in the log (it ends 00:20; the arguments are not logged); the sun was never seen in the sky in ~10 min (weather or a
+low count, open). The sun stayed visible in the car's reflection (IMG_3949/3950):
+the reflection does not use the query (inferred: the cube map sees the sun behind
+the camera). Cause: with native counting off (`06ac2b3`, Oct 12, suspected in the
+safehouse crash) the ZPD events went to the emulated Vulkan queries, whose draws
+are skipped while the native renderer shows the game; the answer did not follow
+the geometry and flickered. The crash was later found to be the deferred-queue
+race (IPA36), so the suspicion is cleared. The sky reorder (`e046455`) skips draws
+with a query and is not involved. Night log: "sky drawn last" 1 or 2 per sampled
+frame (the reorder varies per frame but did not cause the flicker).
+
+Change: `nfsmw_native_occlusion` default true; the native renderer keeps, per
+query address, the answers given since the last 300-frame stats line (count,
+how many 0, largest, last; 921600 = full 1280x720 before the first count) and
+logs `[native] occlusion queries since the last line: ...`. IPA54
+`ios/build/NFSMW-sun-occlusion-54.ipa`, SHA256
+`cb18b4f439df5f2252bf2265d8d66d06e3dd13a7964cd10c88aaa0cbc37669a2`, NFSMW UUID
+`78D6C91B-A711-3DF5-9BE6-6813754DD15E`; 208 metallib entries (same as IPA53);
+zip test and codesign OK. Not run on a device.
+
+Audio, same log: Low Power Mode on from ~00:11. Coreaudio output clean (0 gaps
+in every 5 s line). XMA resets per minute: 00:00-00:11 between 234 and 6818,
+00:12 9641, 00:13 13545, 00:14 14129, 00:15 11008, 00:16 5761. `[xma-voices]`
+from 00:12: 256 streams fed, 164-242 reset per 5 s, 1-5 bursts of 300+/s, 0
+stopped after a reset. Matches Stefan's "boop" at ~00:12 and the glitches with
+the engine bug at ~00:15. See BACKLOG D-004.
