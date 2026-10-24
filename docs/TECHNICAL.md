@@ -5483,3 +5483,28 @@ different addresses alternating (a model LOD switch, e.g. camera shake around
 a LOD distance), or the sampler/derivative (anisotropy setting constant;
 `anisotropic_override` is a launcher setting). Next proposal: log texture
 addresses bound in one frame but not the next and back (A/B alternation).
+
+### October 25, 2026 — billboard flicker is z-fighting; IPA56 polygon offset
+
+Stefan: the billboard flicker is a dark grey layer over it, worse when moving,
+gone from some still positions: z-fighting of an overlay pass, matching IPA55
+(texture unchanged). The native renderer never applied the guest polygon
+offset (PA_SU_SC_MODE_CNTL bits 11-13, PA_SU_POLY_OFFSET_* 0x2380-0x2383); its
+Metal shaders also have no invariant position / fast-math control (second
+suspect, needs a shader rebuild). Note: rexglue's Vulkan renderer does apply
+the offset, and Stefan saw the flicker there too, so this may not be enough.
+
+Change: `nfsmw_native_depth_bias` (default true) applies the offset as
+`setDepthBias` per draw, as rexglue's GetPreferredFacePolygonOffset and Vulkan
+renderer do (constant x 2^24 or 2^24-1 by RB_DEPTH_INFO's depth format, slope
+/16 x resolution scale; reset per encoder). New line per 300 frames:
+`[native] depth: N draws with a polygon offset (applied|ignored), M with an
+equal depth test`. Removed: the IPA55 texture change log. Settings lines that
+cannot change while running (upload sizing, GPU buffer selector/lookup off,
+lazy diagnostics, attribute key comparison, target/pipeline lookup, resolve
+compression eligibility) now print in the first summary only.
+IPA56 `ios/build/NFSMW-depth-bias-56.ipa`, SHA256
+`d11c2bb652b2e1c07399ebf6ab784c06599ca5bec9827c60b9df4baac4a68985`, NFSMW UUID
+`F38E4682-8A98-3F34-B51C-A6CB6FC9B038`; 208 metallib entries; zip test and
+codesign OK. Not run. Test: the same billboard; A/B with
+`--nfsmw_native_depth_bias=false`.
