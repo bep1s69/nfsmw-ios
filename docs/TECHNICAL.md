@@ -5525,3 +5525,28 @@ IPA57 `ios/build/NFSMW-invariance-57.ipa`, SHA256
 `e4470f5798d3d58b57e5b914b718cb60357d08556fdfdb89aef2b26ef0226678`, NFSMW UUID
 `70800D84-C16E-3563-B095-F5927A4D936D`; 208 metallib entries; zip test and
 codesign OK. Not run. Watch also GPU ms (invariance can cost a little).
+
+### October 25, 2026 — IPA57 did not fix the billboard; IPA58 exact shader math
+
+Stefan, IPA57 (`24 October 2026/nfsmw_ipa57_texture_flickering.log`): billboard
+unchanged; the screen was black until the shaders were cached and in free roam
+things were invisible for moments, then one big stutter (pipelines rebuilt
+after the metallibs changed: once per shader change, inferred). He recalls an
+early performance change that started this.
+Found in the history: 0.1.0 (Oct 7, `patch_ios_shader_contraction`) dropped
+the `NoContraction` (precise) arithmetic from pixel shaders for speed; its
+own notes say the 360 draws geometry several times and a fused multiply-add
+"would change the last bit and make it flicker". The native renderer's
+XenosRecomp shaders were then always compiled with Metal's default fast math
+(contraction on), vertex and pixel alike. The dark layer is likely a pass
+whose result depends on bit-exact math (a depth/shadow comparison, inferred).
+Change: `build_shaders.sh` compiles with `-fno-fast-math -ffp-contract=off`
+instead of IPA57's `-fpreserve-invariance` (taken out, also from the D3D
+internal vertex shaders); all 104 libraries rebuilt. IPA56's polygon offset
+stays. Expect the one-time shader recompile again on first launch, and watch
+GPU ms (exact math can cost some).
+IPA58 `ios/build/NFSMW-exact-math-58.ipa`, SHA256
+`19dc46a870cd371c2283e66e3f334653301e41edf665d1e8b52e798ab7fff0d7`, NFSMW UUID
+`9558B802-B89B-3385-AAF0-5B792472CCF3`; 208 metallib entries; zip test and
+codesign OK. Not run. If it fixes the flicker but costs too much GPU time:
+exact math only for vertex shaders, or only for the shaders of that pass.

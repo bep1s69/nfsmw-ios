@@ -14,8 +14,9 @@
 #    tools/native/rewrite_shadow_caster_alpha.py: the shadow caster's cut-out
 #    behind specialization bit 12 (compiled out where c1.x is 0).
 # 4. xcrun metal: one .metallib per shader, named vs_/ps_<microcode hash>,
-#    with -fpreserve-invariance (else [[invariant]] on oPos is ignored and
-#    passes over the same surface z-fight: the flickering billboards).
+#    with exact math (-fno-fast-math -ffp-contract=off): fused multiply-adds
+#    change the last bit between passes and the dark layers on billboards
+#    flicker (the 360 draws a surface several times; see patch_ios_shader_contraction).
 # 5. tools/native/constant_ranges.py: the float constants each shader reads
 #    (lib/constant_ranges.txt), so the renderer handles only those.
 # 6. tools/native/texture_masks.py: conservative texture-slot metadata.
@@ -57,7 +58,7 @@ for container in "$out"/containers/*.bin; do
   python3 "$repo/tools/native/rewrite_shadow_filter.py" "$out/msl/$name.hlsl" | grep -v " 0 blocks" || true
   python3 "$repo/tools/native/rewrite_shadow_caster_alpha.py" "$out/msl/$name.hlsl" | grep -v ": 0 shadow" || true
   cp "$out/msl/$name.hlsl" "$out/air/$name.metal"
-  if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fpreserve-invariance \
+  if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off \
        -mios-version-min="$ios_min" -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
      xcrun -sdk iphoneos metal -mios-version-min="$ios_min" "$out/air/$name.air" -o "$out/lib/$name.metallib"; then
     compiled=$((compiled + 1))
@@ -80,7 +81,7 @@ for lib in "$out"/lib/*.metallib; do
     *)
       name=$(basename "$lib" .metallib)
       if [ -f "$out/air/$name.metal" ] &&
-         xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fpreserve-invariance -mios-version-min="$ios_min" \
+         xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off -mios-version-min="$ios_min" \
            -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
          xcrun -sdk iphoneos metal -mios-version-min="$ios_min" "$out/air/$name.air" -o "$lib"; then
         echo "rebuilt $name for iOS $ios_min (was ${target:-unknown})"
