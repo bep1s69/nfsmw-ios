@@ -67,7 +67,9 @@ and XMA decode time down to a quarter for ~40 s after it. Inference: many voices
 possibly the engine banks, reset at once and do not restart. Next: find which
 contexts (the `most:` ids) belong to the engine, and log when a voice is reset
 without restarting. IPA50 adds `[xma-voices]` (stopped-after-reset contexts with
-input addresses, every 5 s); mapping addresses to banks still to do.
+input addresses, every 5 s). IPA50 run: the addresses are per-context rings
+(0x0A28C000 + id x 0x1000), not banks; engine identification needs another
+signal (e.g. which voices the game starts from the engine banks). No fade that run.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
@@ -186,8 +188,11 @@ Power Profiler or CPU investigations.
   holds, measured against a matched Low Power Mode run; (3) suggest Low Power Mode
   in the Battery settings text; (4) at the 40 cap ask for 40 Hz instead of
   120 Hz (Low Power Mode runs the display at 60 Hz, normal mode at 120; TECHNICAL
-  Oct 24 IPA49 entry). Built in IPA50 for every cap (`--ios_display_match_cap`),
-  testing.
+  Oct 24 IPA49 entry). Built in IPA50 for every cap (`--ios_display_match_cap`):
+  iOS gave a 60 Hz pattern for 40 (as Low Power Mode) and the drain did not change
+  (~30 %/h). Proposed: default false again. (5) Since QoS and display gave nothing,
+  Low Power Mode's remaining saving is clock caps: cut work per frame (main-loop
+  poll wait, Fingerprint/Record, half precision) or recommend Low Power Mode.
 
 - iPhone adaptive QoS (Oct 22): Utility for the main/GPU command threads while
   CPU frame work has headroom, normal QoS near the budget. The main open battery
