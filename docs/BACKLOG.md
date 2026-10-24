@@ -212,6 +212,10 @@ Power Profiler or CPU investigations.
   shaders run full 32-bit). Not bit-identical: needs per-shader analysis and
   snapshot comparison (nfsmw_native_dump), heavy shaders first (cost probe:
   4fbaecfb, 27d82ea0, 684f4711). See TECHNICAL Oct 22 GPU view.
+  Oct 24 analysis (TECHNICAL, late Oct 24): the three top shaders have almost
+  no arithmetic (caster writes a constant, trees 3 multiply-adds, fences' shadow
+  compares must stay 32-bit); their cost is fill/overdraw/fetches, so half
+  precision is expected to gain little. Awaiting Stefan's choice of next step.
 
 - Low Power Mode headroom (Oct 24): on the iPhone at 1x/40 it halved the drain
   (~17 vs ~33 %/h) for ~1% fps (TECHNICAL Oct 24). Ideas, not approved: (1) log
