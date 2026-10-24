@@ -5000,3 +5000,40 @@ streamed sounds such as police radio mid-waveform. Neither is tied to the
 adaptive QoS transitions (holds started at 16:45:58, 16:47:04, 16:47:35, 16:47:56,
 16:48:36; the limiter and reset rates stay high throughout the 80 s hold).
 
+### October 24, 2026 — IPA48 iPhone Low Power Mode run (1x/40, pursuit)
+
+`24 October 2026/nfsmw_ipa48_battery_test_iphone.log`, 17:02:44-17:13:05 (10.35
+min), iPhone 17 Pro Max, IPA48, Low Power Mode on (Stefan; the log does not record
+it or the thermal state), no Extra Args, energy baseline `scale 1.000, MetalFX
+off, FXAA off, forced MSAA 0, cap 40`, heavy police pursuit. Compared with the
+same day's normal-mode run (`nfsmw_ipa48_chase_iphone.log`, entry above).
+
+Measured:
+- Battery (Stefan): 66% at 17:03 -> 63% at 17:13. 3 points in 0.1725 h = 17.4 %/h;
+  with +-1 point 11.6-23.2 %/h. Normal mode: 33 %/h (28-39). The ranges do not
+  overlap; about half the drain. Single runs each, different pursuit content.
+- Frames 2101 (17:03:44.924) -> 23701 (17:12:52.673): 21,600 in 547.7 s = 39.43 fps
+  (normal mode 39.95). Stefan: fps "99% the same".
+- Hitches: 111 (normal mode 46), of which 51 in the first two minutes (loading;
+  the 100-809 ms ones there decode textures). Gameplay from 17:05: 1-16 per
+  minute, mostly 40-60 ms (one missed frame at the 40 cap); largest 95.7 ms. Normal
+  mode had 8 from the start of the pursuit.
+- GPU ms per frame (native summaries): median 9.4, max 15.1 (normal mode median
+  12.6, max 16.5); scene-dependent, not a clock measurement.
+- `[cpu]` in gameplay 110-265% of a core per 10 s, around 200% typical (normal
+  mode 207-314%, around 280%). CPU-time percent rises at lower clocks for the
+  same work, so this is not an energy figure.
+- `[adaptive-qos]`: 5 User Initiated holds (40 s, then 80 s from 17:03:29, 160 s
+  from 17:04:50, 160 s from 17:08:20, 160 s from 17:11:01), each `10 guest threads
+  and the render queue raised`. Most of the run was on User Initiated, as in
+  normal mode.
+- Audio: 0 gaps and 0 dropped blocks in every 5 s window; ring minimum 9.
+
+Inference (not proven): Low Power Mode caps CPU (and likely GPU) clocks and trims
+background work. Energy per unit of work falls steeply at lower voltage and
+frequency, and at the 40 cap our frame work still fits: only ~1.3% fps and a few
+extra single late frames were lost. So in normal mode, the clocks iOS picks for
+our User Initiated threads are well above what 40 fps needs. We cannot set clocks
+directly; the levers are QoS class, how long holds last and how the work is
+spread across threads.
+
