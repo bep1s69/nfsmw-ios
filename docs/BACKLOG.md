@@ -49,6 +49,9 @@ found by ear. No output underruns in the log (0 gaps/drops). Candidates, both mu
 more active in the pursuit (TECHNICAL October 24): the instant-attack limiter in
 `coreaudio_driver.mm` (up to 100% of samples turned down, -6.6 dB) and about 200
 XMA stream resets per second with decoded output dropped (`[xma-resets]`).
+October 24 IPA49: heavy stutter at 17:32 (39 sudden drops in 5 s, one every
+~100 ms, peaks to -0.2 dB), output still clean; game-side silent blocks, likely XMA
+stream resets. Occurs in every mode, most in Low Power Mode (167 per run).
 Parked (Stefan, October 24: minor and inconsistent). When resumed: compare
 against the phone speaker, then a test build with a smoother limiter or a lower
 mix gain, then the XMA reset path if the crackles stay.
@@ -58,6 +61,12 @@ mix gain, then the XMA reset path if the crackles stay.
 Stefan heard the engine sound fade almost completely again during an IPA47 run
 (October 24, no timestamp, no log). Nothing related stood out in the IPA48 log.
 Next: note the time when it happens and keep that log.
+October 24 IPA49 (`nfsmw_ipa49_battery_test.log`), Stefan: ~17:27. The log has the
+run's largest XMA reset burst at 17:27:21 (556 resets on 116 contexts in a second)
+and XMA decode time down to a quarter for ~40 s after it. Inference: many voices,
+possibly the engine banks, reset at once and do not restart. Next: find which
+contexts (the `most:` ids) belong to the engine, and log when a voice is reset
+without restarting.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
@@ -171,10 +180,12 @@ Power Profiler or CPU investigations.
   (~17 vs ~33 %/h) for ~1% fps (TECHNICAL Oct 24). Ideas, not approved: (1) log
   `NSProcessInfo.lowPowerModeEnabled` and thermal state in `[cpu]` (done in
   IPA49; `[memory]` lines already had both); (2) lower-clock experiment for
-  adaptive holds (built as IPA49 switches, testing): User Initiated only for the
+  adaptive holds (IPA49 switches; run A ~30 %/h, no saving): User Initiated only for the
   threads on the critical path, or Default instead of User Initiated, or shorter
   holds, measured against a matched Low Power Mode run; (3) suggest Low Power Mode
-  in the Battery settings text.
+  in the Battery settings text; (4) at the 40 cap ask for 40 Hz instead of
+  120 Hz (Low Power Mode runs the display at 60 Hz, normal mode at 120; TECHNICAL
+  Oct 24 IPA49 entry).
 
 - iPhone adaptive QoS (Oct 22): Utility for the main/GPU command threads while
   CPU frame work has headroom, normal QoS near the budget. The main open battery
