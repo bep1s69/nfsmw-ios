@@ -5206,3 +5206,42 @@ threads`. Checks: build OK, 208 metallibs, ZIP OK. IPA51
 `e57392a8143ef4a703bb13b7e961817e97376271a7fab79e62bcc4e9df20d667`, NFSMW UUID
 `A954195D-C945-38B7-A6E2-A663B55A1524`. Not run on a device.
 
+### October 24, 2026 (evening) — IPA51 iPhone traces: power, main-thread polling
+
+Recorded by Claude with `xctrace record` because attaching to LiveContainer from
+the command line failed ("Cannot find process" by name and by devicectl PID); from
+now on Stefan records in the Instruments app (working rules).
+- First GUI Power Profiler run (with CPU Counters) crashed Instruments 27.1 in
+  analysis (`CoreTypeDistributionCalculator.receive`, EXC_BREAKPOINT; report
+  `~/Library/Logs/DiagnosticReports/Instruments-2026-10-24-195534.ips`). Its raw
+  ktrace imported (`24 October 2026/recovery/ipa51_power_lpm_off.trace`, 136.9 s)
+  but holds no power tables (those come from the device at save time); it did
+  show the hot game threads 54-82% on P cores 4-5.
+- `24 October 2026/ipa51_power_lpm_off.trace` (whole phone, Power Profiler +
+  Thermal State + Display instruments; the template refuses all-processes):
+  SystemPowerLevel 162 samples; race part (~110 s) 42.5 %/h estimated (p10/p50/p90
+  40/42/45), brightness 32%, thermal nominal -> fair at 1:19. Instruments' model;
+  not comparable with battery-% figures. Saving took ~25 min over Wi-Fi.
+- Low Power Mode arm: the device disconnected after 2.3 s, twice. Low Power Mode
+  appears to drop the wireless profiling link; needs the cable.
+- `24 October 2026/ipa51_waiting_pursuit.trace` (System Trace, whole phone,
+  90.9 s, 6.8 GB; 13 GB raw): syscall table, LiveContainer threads.
+  - Main XThread: 64,306 `sys_ulock_wait2` (709/s, 70.6 s total, ~1.1 ms each), all
+    on one address; call sites `sub_82593A58` (13,309), `sub_825A2968` <
+    `sub_825A3EC8` (7,784), a `sub_825A27F0` chain (2,589), many unsymbolized.
+    Only 9,358 wakes of that address, all from GPU Commands
+    (`CommandProcessor::WorkerThreadMain`): most waits end by timeout, i.e. the
+    main thread polls the command processor's progress. Plus 21,374
+    `mach_wait_until` (236/s) from the main loop `sub_82441B60`, ~0.14 ms each.
+  - GPU Commands: 82,373 `swtch_pri` (908/s) from `rex::thread::MaybeYield()` in
+    `WorkerThreadMain` (spinning for ring-buffer work), and 12,746
+    `sys_ulock_wait2` (141/s, 71.6 s) in `ExecutePacketType3`, woken only by GPU
+    VSync (10,858): the vblank-paced wait at the 40 cap.
+Inference: the main thread's wait in `sub_82593A58` / `sub_825A3EC8` is a
+short-timeout poll on GPU command progress (probably a fence or ring read
+pointer), and the CP thread spins with yields while idle. Proposals (not approved):
+(1) find the host wait behind those guest calls and wake it exactly when the CP
+writes the awaited value, with a longer timeout; (2) replace the `MaybeYield` spin
+in `WorkerThreadMain` with a blocking wait on the ring write pointer. Expected:
+far fewer wakeups (P cores can idle); energy effect unmeasured.
+

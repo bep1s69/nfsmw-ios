@@ -36,8 +36,11 @@ with adaptive QoS. October 24 IPA48 pursuit: 39.95 fps, no slowdown (Stefan),
 battery 72 -> 66% in 10.9 min. Still to check: other devices (4-E-core iPads, older
 iPhones) and longer sessions. Optional follow-ups:
 - Main-loop poll wait -> blocking wait. Main XThread woke ~2,300 times/s in B.
-  Needs a capture with waiting-thread stacks (Time Profiler "Record Waiting
-  Threads" or System Trace) to find the call site first.
+  Oct 24 System Trace found it: 709 short `sys_ulock_wait2`/s in `sub_82593A58` /
+  `sub_825A3EC8` (mostly timeouts; only GPU Commands wakes it) and 236 tiny
+  sleeps/s in `sub_82441B60`; GPU Commands spins with `MaybeYield` 908 times/s.
+  Proposal: exact wake + longer timeout, and a blocking CP idle wait (TECHNICAL
+  Oct 24 evening).
 - Encode cost: `Record()` + `Fingerprint()` are ~35% of GPU Commands; render
   workers ~19 ms/frame in B. Memoize/skip `Fingerprint` for repeated draws, fewer
   encoders per frame. A few ms per frame; after the QoS fix.
