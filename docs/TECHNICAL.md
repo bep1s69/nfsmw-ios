@@ -5550,3 +5550,18 @@ IPA58 `ios/build/NFSMW-exact-math-58.ipa`, SHA256
 `9558B802-B89B-3385-AAF0-5B792472CCF3`; 208 metallib entries; zip test and
 codesign OK. Not run. If it fixes the flicker but costs too much GPU time:
 exact math only for vertex shaders, or only for the shaders of that pass.
+
+### October 25, 2026 — IPA58 did not fix the billboard either
+
+Stefan, IPA58 (`nfsmw_ipa58_texture_flickering.log`,
+`ScreenRecording_10-25-2026 01-20-21_1.mp4`): still flickers. GPU time is
+unchanged by exact math or invariance (last 8 lines: IPA55 9.2-10.1 ms,
+IPA57 9.3-9.7, IPA58 8.1-10.2). Crops of the new clip every 33 ms (1.0-1.4 s):
+in some frames the billboard is replaced by a **darker, blurred copy** of
+itself (lettering soft, colours dimmer), in others it is sharp. This looks
+less like z-fighting of a decal than like a blurred post-processing layer
+(the game's blur/visual-treatment composite) blended in with a weight that
+changes from frame to frame (inferred). The stats show 1 resolve sampled
+from an earlier frame per frame (the renderer's previous-frame copy).
+Three negative results so far: polygon offset (IPA56), shader invariance
+(IPA57), exact shader math (IPA58).
