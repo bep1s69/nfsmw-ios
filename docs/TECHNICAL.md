@@ -5349,3 +5349,27 @@ chase) plus the 1-point battery readings on short runs (IPA52 16-27, IPA53 ~25-4
 %/h with the reading error). Not proven either way. A fair comparison needs both
 builds after a full cool-down, ideally same chase, longer than 10 min.
 
+
+### October 24, 2026 (late) — Half-precision shaders: analysis of the costly pixel shaders
+
+Read-only analysis, no code or build. Sources: the translated shaders in
+`~/Library/Caches/nfsmw-ios/shaders/air/ps_<key>.metal` (the Oct 21 cost-probe
+list). Body of each `shaderBody` after the register declarations:
+- 4fbaecfb (shadow caster, 0.91 ms): writes a constant colour; the only fetch and
+  compare are already compiled out by the IPA34 variant. No arithmetic to narrow.
+- 27d82ea0 (trees, 0.90 ms): one texture fetch and three multiply-adds.
+- 684f4711 (fences/plants, 0.76 ms): the shadow part (9-tap shadow fetch, depth
+  bias, compares against depth in [0,1]) must stay 32-bit (half has an 11-bit
+  mantissa against a 24-bit depth map: shadow acne); the colour tail is 5
+  multiply-adds.
+- Next tier, counted roughly (lines with arithmetic / fetches): fe510d2d 17/10,
+  2d8bf2c6 5/4, d8bb87fe 47/18 (2 shadow blocks), d1f317fa 22/14 (2),
+  705e150f 48/14 (2), 91404826 43/18 (2).
+Inference: the probe deltas (which include vertex, raster and overdraw) come from
+fill, overdraw of alpha-tested foliage and texture fetches, not pixel arithmetic.
+Half precision in these shaders can only narrow a handful of colour operations
+and the texture return values; on recent Apple GPUs half mainly saves registers
+and interpolator storage, not ALU rate (general knowledge, not measured here).
+Expected GPU saving: small, likely below the probe's noise. UVs cannot become
+half (11-bit mantissa snaps texels on 1-2k textures and tiled coordinates).
+Not implemented; options sent to Stefan for a decision.
