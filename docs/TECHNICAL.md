@@ -5441,3 +5441,27 @@ or against a fixed threshold, the units matter and could still hide the sun;
 unverified. Which address is the sun, and how the game turns the count into
 glare, is not known from the log. The log has no weather or sun markers, so
 whether the sun was on screen is Stefan's observation.
+
+### October 25, 2026 — flashing billboard; IPA55 texture change log
+
+Stefan: the flashing is the billboard at the top left ("Get in the Zone") and
+many like it, not the car. Crops of `ScreenRecording_10-25-2026 00-09-10_1.mp4`
+every 0.25 s, car standing still: the billboard switches between sharp and
+blurry (a lower mip or lower-resolution copy); the tree and sky stay sharp.
+Seen since the Vulkan renderer (shared texture path suspected, inferred).
+The native renderer ignores the fetch constant's `mip_min_level`/`lod_bias`
+(sampler bias is only MetalFX's); textures are cached per full fetch constant.
+
+Change (`nfsmw_native_texture_flip_log`, default true): per texture address,
+the last bind (fetch constant, size, levels, content fingerprint) and, since
+the last 300-frame stats line, how often it differed from its use in an
+earlier frame. Logs `[native] textures changing between frames since the last
+line: N` and the top 8 as `texture ADDR: uses, fetch changed, size/levels,
+content | before -> after` (size, levels, mips min-max, bias, mip filter,
+aniso, format, low 16 bits of the fingerprint). Limit: an address bound with
+two fetch constants in one frame also counts as a change.
+IPA55 `ios/build/NFSMW-texture-flips-55.ipa`, SHA256
+`d757be2b28f4dc01b21fa2848935b175c2e3ed24423b465a92bfcee1fc5b08ff`, NFSMW UUID
+`DD867111-3B2F-3716-A693-0A416DAD6AA6`; 208 metallib entries; zip test and
+codesign OK. Not run on a device. Test: drive or stand near a flashing
+billboard for a minute.
