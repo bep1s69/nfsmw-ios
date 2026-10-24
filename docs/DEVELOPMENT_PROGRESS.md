@@ -24,6 +24,8 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 24: 0.4.0 is held until it has more than battery tweaks that do not
+  measurably help (Stefan). No tag or version bump; IPA51 is a test baseline.
 - October 21: Stefan approved Utility QoS for all game threads as the default
   (`ios_utility_qos`, `ios_utility_qos_guest`); keep the Extra Args opt-out.
 - Work locally on `battery-optimization`; do not push, publish, tag or release
@@ -96,6 +98,14 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 24: IPA51 is the test baseline (not a release candidate).** Defaults:
+  `--ios_display_match_cap=false` (old 60/120/60 Hz), adaptive boost back to IPA48
+  (`user_initiated`, holds up to 240 s, all guest threads + render queue); the
+  IPA49/IPA50 alternatives stay as switches. Built, not run. **Next: Stefan's
+  wireless profiling on IPA51: Power Profiler pair of the full test race, Low
+  Power Mode off then on, and one Time Profiler (Record Waiting Threads) in a
+  pursuit.** 0.4.0 held (working rules).
 
 - **October 24: IPA50 display match saved nothing (~30 %/h, as IPA49).** iOS gave
   the link 30 Hz for a 40 Hz request and presented on a 60 Hz pattern (the same

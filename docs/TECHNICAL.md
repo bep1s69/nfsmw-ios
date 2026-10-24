@@ -5192,3 +5192,17 @@ are less work per frame, or recommending Low Power Mode. (2) Stutters again
 coincide with the XMA reset rate roughly doubling, with the output healthy;
 medium confidence that the reset path (streams run dry and dropped) is the cause.
 
+### October 24, 2026 — IPA51 test baseline
+
+Stefan approved a baseline build for profiling and held 0.4.0 (not enough beyond
+battery tweaks). Defaults changed: `ios_display_match_cap` false (IPA50 gave no
+saving); `ios_adaptive_qos_level` user_initiated, `ios_adaptive_qos_max_hold` 240,
+`ios_adaptive_qos_workers_count` 0 (IPA48's boost, proven in pursuits; IPA49's
+Default / 20 s / 3 saved nothing). `[xma-voices]` and the `[cpu]` Low Power Mode /
+thermal fields stay. Expected startup lines: `[display] cap 40 fps: asking for 120
+Hz`, `[adaptive-qos] boost: User Initiated QoS, holds up to 240 s, all guest
+threads`. Checks: build OK, 208 metallibs, ZIP OK. IPA51
+`ios/build/NFSMW-baseline-51.ipa`, SHA256
+`e57392a8143ef4a703bb13b7e961817e97376271a7fab79e62bcc4e9df20d667`, NFSMW UUID
+`A954195D-C945-38B7-A6E2-A663B55A1524`. Not run on a device.
+
