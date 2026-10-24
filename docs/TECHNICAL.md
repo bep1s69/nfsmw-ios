@@ -4945,3 +4945,58 @@ IPA48 `ios/build/NFSMW-adaptive-qos-workers-48.ipa`, SHA256
 `0107077C-F537-3823-8DD3-F6DD482419EA`. Not proven: that the stall goes away,
 or the battery cost of raising the workers during holds.
 
+### October 24, 2026 — IPA48 iPhone pursuit result; audio crackle evidence
+
+`24 October 2026/nfsmw_ipa48_chase_iphone.log`, 16:43:54-16:54:47 (10.9 min),
+iPhone 17 Pro Max, IPA48, AirPods. Log: `[utility-qos] 4 efficiency cores;
+main/GPU threads off, other guest threads on, adaptive on (default)` (no Extra
+Args override reported), energy baseline `scale 1.000, MetalFX off, FXAA off,
+forced MSAA 0, cap 40`. Low Power Mode and thermal state are not in the log
+(Stefan's test plan: Low Power Mode off).
+
+Pursuit, measured:
+- Frame counter 5101 (16:46:07.085) -> 17701 (16:51:22.502): 12,600 frames in
+  315.4 s = 39.95 fps. Draws per frame (sampled lines from 16:46) 1,803-4,812,
+  median 3,104, higher than the morning trace's 2,200-3,300.
+- `[adaptive-qos]`: holds of 40/20/20/20/40/80 s from 16:43:56; each followed by
+  `10 guest threads and the render queue raised`. From 16:48:36 on, an 80 s hold.
+- Hitches from 16:46: 7 swap gaps of 41.1, 41.3, 55.5, 71.5, 76.9, 103.7, 107.4 ms
+  and one 41.0 ms encode (16:54:41). The morning IPA46 trace B had a >60 ms gap
+  on nearly every other frame.
+- `[cpu]` in the pursuit 207-314% of a core per 10 s (IPA46 morning: 153-191%);
+  XThreadE40B and XThreadE643 at 50-76% each, Main XThread 19-31%, GPU Commands
+  12-32%. More CPU time per second is expected with the workers on the P cores
+  and twice the frames; not an energy measure on its own.
+- Battery (Stefan): 72% -> 66% over the run, about 33 %/h (6 points in 0.18 h;
+  with a +-1 point reading error 28-39 %/h). Not comparable with the Instruments
+  model drain estimates used for the iPad pairs.
+
+Audio, measured (AirPods; `[coreaudio] session: 48000 Hz, IO buffer 5.3 ms, 2
+output channels`):
+- 5 s `[coreaudio]` summaries: 0 gaps, 0 permits refused and 0 blocks dropped in
+  every window; 52 blocks trimmed only in the first window (startup). Ring minimum
+  12 blocks while driving calmly, 10-11 in the pursuit, lowest 8 (16:48:59, longest
+  wait between blocks 27.7 ms). The longest wait rose from ~6.5 ms to 10-17 ms in
+  the pursuit. No underrun.
+- Limiter: 0% of samples turned down until 16:46:09; in the pursuit 6-100% of
+  samples per 5 s window (100% at 16:54:25 and 16:54:30), deepest -6.6 dB.
+  `coreaudio_driver.mm` uses an instant-attack limiter (gain set to the
+  ceiling/peak on the same sample, ~100 ms release) with no look-ahead.
+- `[xma-resets]` (streams that ran out of input with output pending, decoded
+  blocks dropped): 46-336 resets per minute before the pursuit, 6,600-12,400 per
+  minute during it (~200/s, about 20 decoded blocks dropped per reset).
+- 60 `sudden drop: block peak -140.0 dB after -12 to -18 dB` lines, mostly
+  16:45-16:47 (2 / 6 / 32 / 20 per minute).
+- Engine sound: nothing in this log stands out (Stefan saw the fade on IPA47, no
+  timestamp). Five `CAR_*_ENG_*.abk` / `CAR_TRANNY.abk` / `CAR_WHINE_00.abk` open
+  failures (0xc000000f) at load are present; not checked whether they also occur
+  in logs without the fade.
+
+Inference (not proven): the crackles are not output underruns. Two candidates
+line up with the pursuit: (1) the instant-attack limiter working hard (hard gain
+steps on loud transients such as sirens plus radio chatter), and (2) XMA streams
+being reset with decoded output thrown away about 200 times a second, which cuts
+streamed sounds such as police radio mid-waveform. Neither is tied to the
+adaptive QoS transitions (holds started at 16:45:58, 16:47:04, 16:47:35, 16:47:56,
+16:48:36; the limiter and reset rates stay high throughout the 80 s hold).
+

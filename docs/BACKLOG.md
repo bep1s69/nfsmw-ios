@@ -26,19 +26,37 @@ race; fix in IPA36 (`tools/ios/patch_game_deferred_queue.py`). Oct 22
 the race that crashed completed, no invalid-call/FATAL. One run of an
 intermittent crash: keep monitoring. Details in TECHNICAL.md, October 22.
 
-### D-002 Police-pursuit stutter on the iPhone (22 fps, 20/80 ms) — fix built (IPA48), untested
+### D-002 Police-pursuit stutter on the iPhone (22 fps, 20/80 ms) — fixed in IPA48 (iPhone pursuit), wider test pending
 
 iPhone 17 Pro Max, IPA46, 1x/40: about 22 fps in pursuits. October 24 trace
 (TECHNICAL October 24): guest worker XThreadDF1B at Utility preempted 69% of each
 80 ms gap while the main thread waited; GPU not limiting. IPA48
 (`--ios_adaptive_qos_workers=true`) raises the guest workers and render queue
-with adaptive QoS. Next: pursuit on IPA48. Follow-ups:
+with adaptive QoS. October 24 IPA48 pursuit: 39.95 fps, no slowdown (Stefan),
+battery 72 -> 66% in 10.9 min. Still to check: other devices (4-E-core iPads, older
+iPhones) and longer sessions. Optional follow-ups:
 - Main-loop poll wait -> blocking wait. Main XThread woke ~2,300 times/s in B.
   Needs a capture with waiting-thread stacks (Time Profiler "Record Waiting
   Threads" or System Trace) to find the call site first.
 - Encode cost: `Record()` + `Fingerprint()` are ~35% of GPU Commands; render
   workers ~19 ms/frame in B. Memoize/skip `Fingerprint` for repeated draws, fewer
   encoders per frame. A few ms per frame; after the QoS fix.
+
+### D-003 Small audio crackles on AirPods, mostly in police radio chatter — open
+
+iPhone 17 Pro Max, IPA48, October 24 (`nfsmw_ipa48_chase_iphone.log`); no pattern
+found by ear. No output underruns in the log (0 gaps/drops). Candidates, both much
+more active in the pursuit (TECHNICAL October 24): the instant-attack limiter in
+`coreaudio_driver.mm` (up to 100% of samples turned down, -6.6 dB) and about 200
+XMA stream resets per second with decoded output dropped (`[xma-resets]`).
+Next: compare against the phone speaker, and a test build with a smoother limiter
+or a lower mix gain, then the XMA reset path if the crackles stay.
+
+### D-004 Engine sound almost disappears — reoccurred (IPA47)
+
+Stefan heard the engine sound fade almost completely again during an IPA47 run
+(October 24, no timestamp, no log). Nothing related stood out in the IPA48 log.
+Next: note the time when it happens and keep that log.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
