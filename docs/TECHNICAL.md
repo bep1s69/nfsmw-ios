@@ -5565,3 +5565,12 @@ changes from frame to frame (inferred). The stats show 1 resolve sampled
 from an earlier frame per frame (the renderer's previous-frame copy).
 Three negative results so far: polygon offset (IPA56), shader invariance
 (IPA57), exact shader math (IPA58).
+Stefan: the same flicker with the Vulkan renderer, so it is in shared code or
+game patches, not the native renderer. He also reports glass panes looking
+wrong on both renderers (IMG_3456: airport terminal, the glass shows a bright,
+hard-edged rectangle of the outside; issues looking through two glass
+surfaces). Suspect for both (inferred): the 19.5:9 mode. The game renders
+1560x720 (resolves 1560x720, blur chain 390x180/195x90) while its
+post-processing and screen-copy shaders were written for 1280x720; a
+mis-scaled blurred copy or refraction copy would match "a darker blurred
+copy" and the hard-edged glass. Next: the same spots with Screen shape 16:9.
