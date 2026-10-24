@@ -172,6 +172,18 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- **Battery next steps after the Oct 24 iPhone runs (ranked, saved for later by
+  Stefan; none approved).** QoS (IPA49) and the display rate (IPA50) did not move
+  the drain (~30 %/h); Low Power Mode halved it (~17 %/h), so what is left is its
+  clock caps. (1) Recommend Low Power Mode in the Battery settings text. (2) Turn
+  `--ios_display_match_cap` back to default false (no gain; 40 fps on a 60 Hz
+  pattern is less even). (3) Main-loop poll wait (~2,300 wakeups/s in pursuits):
+  one Instruments capture with Record Waiting Threads to find the call site, then a
+  blocking wait. (4) `Fingerprint`/`Record` encode cost (~35% of GPU Commands).
+  (5) Half-precision shaders (below). (6) Restore the IPA48 boost as the default
+  (`--ios_adaptive_qos_ipa48` behaviour): the IPA49 boost saved nothing and the
+  pursuit fix was proven with IPA48.
+
 - **HIGHEST PRIORITY (Stefan, Oct 22): half-precision shader math.** Convert
   translated pixel-shader arithmetic to half precision where it cannot change
   the 8-bit result; the largest remaining GPU lever on Apple GPUs (the Xbox
