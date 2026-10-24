@@ -5593,3 +5593,16 @@ is behind them. Inferred: the glass samples the dynamic environment cube
 (the same as the car paint), so the question is whether the cube's faces or
 orientation are wrong, or whether this is the game's own look. Needs the
 snapshot images and a reference (360 footage of the same spot).
+Snapshots arrived (61 frames, `24 October 2026/native`); frames 3000-3168
+match IMG_3957. References from Stefan (IMG_3958-3961, 360/PC footage of the
+bus terminal): the glass shows a dim, low-contrast reflection over a dark
+interior; ours is a bright, high-contrast picture of trees and sky, also in
+the roof panes. In the snapshots: pass_01 (800x360, ~200-340 draws) is a
+mirrored scene with trees (the planar/road reflection, resolved 784x360 to
+07280000); pass_02 (320x256, ~620 draws, the environment cube's faces) is
+black in 53 of 56 frames, and all six resolved cube faces (256x256 to
+06fd4000 etc.) are black in 55. Inferred, unverified: the glass shows the
+planar reflection image (trees, sky) at full strength while the cube it
+would otherwise reflect is black. Next: a capture of the glass draw itself
+(its textures and blend state) to see which image it samples and how it
+blends; check why the cube faces are black.
