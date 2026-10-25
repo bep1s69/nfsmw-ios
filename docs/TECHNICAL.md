@@ -5648,3 +5648,14 @@ colour clear|load (rgba), depth clear|load <value>` for every pass, and now
 prints IPA59's `reflective draw` lines (the diagnostics filter dropped them).
 `--nfsmw_native_test_small_no_depth=true` turns the depth test off in the
 320- and 240-wide targets (cube faces, small blur) to see whether they fill.
+IPA61 runs (`nfsmw_ipa61_run1.log`/`native_ipa61_run1`, run2 with
+`--nfsmw_native_test_small_no_depth=true`): the cube pass starts with colour
+cleared to 0 and depth cleared to 1.0 (Depth32Float_Stencil8), like the
+passes that work; with no depth test (run2) the cube faces, the cube resolves
+and the 200x90 blur resolves are still all zero. So it is not the depth test
+or the clears: the draws write black (or nothing). Reflective draws now
+logged (e.g. ps 2442daf2/ae927576/1181eda3/d1f317fa read the cube 06fd4000;
+ps 4fbaecfb, 8c8b5358, 8436534c, 20710a9a read the 195x90 blur 08734000 with
+the previous frame's depth). Next: A/B without the CPU-side experiments that
+change what the GPU receives (`--nfsmw_battery_optimizations=false
+--nfsmw_native_constant_copies=false --nfsmw_native_transform_copies=false`).
