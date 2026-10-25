@@ -166,6 +166,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_exp_bias, true, "GPU",
 // environment cube (black), or with a neutral grey 3D texture.
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
                     "Native renderer test: car paint without its environment cube");
+// The environment cube's faces (320-wide target) and the 240-wide blur target
+// came out black in every snapshot (IPA60): their draws without a depth test.
+REXCVAR_DEFINE_BOOL(nfsmw_native_test_small_no_depth, false, "GPU",
+                    "Native renderer test: no depth test in the 320- and 240-wide targets (environment cube, "
+                    "small blur)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
 // The movies (XMV player) drawn by the native renderer's own shaders.
@@ -5801,6 +5806,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         t.used = true;
         if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
           profile_pass(rp, fmt::format("pass {} from draw {} ({}x{})", pass_key, di, t.color.width, t.color.height));
+        if (dump) {
+          // How each pass starts: cleared or loaded, with what (the black cube faces).
+          diagnostics.push_back(fmt::format(
+              "pass start {} at draw {} ({}x{}, depth {}): colour {} ({:.3f} {:.3f} {:.3f} {:.3f}), depth {} {:.6f}",
+              pass_key, di, t.color.width, t.color.height,
+              t.multisample_depth ? int(t.multisample_depth.pixelFormat) : -1,
+              rp.colorAttachments[0].loadAction == MTLLoadActionClear ? "clear" : "load",
+              rp.colorAttachments[0].clearColor.red, rp.colorAttachments[0].clearColor.green,
+              rp.colorAttachments[0].clearColor.blue, rp.colorAttachments[0].clearColor.alpha,
+              rp.depthAttachment.loadAction == MTLLoadActionClear ? "clear" : "load", rp.depthAttachment.clearDepth));
+        }
         enc = [cb renderCommandEncoderWithDescriptor:rp];
         clip_mode_encoder = nil;  // a new encoder starts clipping
         clip_mode_clamp = false;
@@ -5946,7 +5962,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       }
 
       // Depth: RB_DEPTHCONTROL z enable (bit 1), write (2), function (4-6).
-      const uint32_t dc = d.depth_control & 0x76;
+      const uint32_t dc = (REXCVAR_GET(nfsmw_native_test_small_no_depth) &&
+                           (t.color.width == 320 || t.color.width == 240))
+                              ? 0u
+                              : d.depth_control & 0x76;
       const uint32_t smode = stencil_mode.empty() ? 0u : stencil_mode[di];
       id<MTLDepthStencilState> ds = depth_states[dc | smode << 8];
       if (!ds) {
@@ -7285,7 +7304,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 frame->from_arguments);
     {  // snapshot frames only (every 10 s): the resolves and pass changes
       for (const std::string& line : diagnostics) {
-        if (line.rfind("resolve", 0) != 0 && line.rfind("post draw", 0) != 0 && line.rfind("group", 0) != 0) continue;
+        if (line.rfind("resolve", 0) != 0 && line.rfind("post draw", 0) != 0 && line.rfind("group", 0) != 0 &&
+            line.rfind("reflective", 0) != 0 && line.rfind("pass start", 0) != 0)
+          continue;
         REXLOG_INFO("[native]   {}", line);
       }
     }
