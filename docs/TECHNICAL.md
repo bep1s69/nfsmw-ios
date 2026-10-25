@@ -5622,3 +5622,23 @@ codesign OK; not run): `--nfsmw_native_dump_manual=true` shows a SNAP pill
 right of HIDE; each tap saves one snapshot (same content as
 `nfsmw_native_dump`, including IPA59's reflective draws; log
 `[touch] snapshot requested`). No timed snapshots in that mode.
+
+### October 25, 2026 — IPA60 snapshots: the environment cube renders black
+
+Stefan, IPA60 SNAP (`24 October 2026/native_ipa60`, 4 frames incl. one at the
+flickering billboard; `nfsmw.log`). The `reflective draw` log lines did not
+appear (the diagnostics list is not printed on this path), but the textures
+were saved. Draws reading the environment cube 06fd4000 (as a "kept" copy
+from the previous frame): ps ae927576, d1f317fa, 1181eda3, 2442daf2, 8436534c
+(glass and other reflective surfaces). Draws reading the 195x90 buffer
+08734000 (kept) plus the previous frame's depth 08954000: ps 4fbaecfb,
+8c8b5358, 8436534c. Measured (every 4th pixel): pass_02 (the cube pass,
+000_320_0_d7c0, 6 faces of 256x256 per frame, 683 draws of the same world
+shaders, colour mask 7, depth LEQUAL, viewport 256x-256) is **all zero**, as
+are all six cube resolves and the 200x90 resolve to 08734000; pass_01 (planar
+reflection) is fine (mean 0.13, max 1). So every surface that reflects the
+cube reflects black. Each cube resolve clears colour and depth after the copy
+(ctrl 00100300); the planar one does too and is fine, so the clear alone does
+not explain it. Next: why the cube faces' draws leave nothing (depth clear
+value/format of the 320x256 target, draws passing the depth test, colour
+writes).
