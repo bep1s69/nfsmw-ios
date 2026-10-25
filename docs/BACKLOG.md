@@ -188,7 +188,9 @@ worse when moving: z-fighting. The native renderer ignored the polygon offset;
 IPA56 applies it (`nfsmw_native_depth_bias`): still the same. IPA57 (shader
 invariance): still the same. IPA58 compiles the shaders with exact math (no
 fast math, no contraction; 0.1.0 had dropped precise math from pixel shaders
-for speed), not run.
+for speed): still the same. Parked Oct 25 by Stefan; state in
+DEVELOPMENT_PROGRESS (environment cube and 200x90 blur render black; A/B
+without the CPU-side experiments not yet done).
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 

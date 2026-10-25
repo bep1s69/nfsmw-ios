@@ -103,6 +103,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 25 (late): billboard flicker and glass parked by Stefan.** Seen
+  on Vulkan too and since the start. Negative: polygon offset (IPA56, kept),
+  shader invariance (IPA57, removed), exact shader math (IPA58, kept: no GPU
+  cost). Found: the environment cube faces (320x256 pass) and the 200x90 blur
+  render all black in every snapshot, even with no depth test (IPA61); glass
+  and other reflective draws read that cube. Untested next step: A/B with
+  `--nfsmw_battery_optimizations=false --nfsmw_native_constant_copies=false
+  --nfsmw_native_transform_copies=false` (Stefan doubts it; the terminal glass
+  may also be the 360's own look). Tools: `--nfsmw_native_dump_manual=true`
+  (SNAP button, IPA60). Latest build IPA61 (`NFSMW-cube-test-61.ipa`).
+
 - **October 25: IPA55 (`NFSMW-texture-flips-55.ipa`) run.** While the billboard
   flashed, 0 textures changed fetch constant, size/mips or content between
   frames: not the texture cache. Stefan: it is a dark grey layer flickering
