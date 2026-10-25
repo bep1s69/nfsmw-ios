@@ -5642,3 +5642,9 @@ cube reflects black. Each cube resolve clears colour and depth after the copy
 not explain it. Next: why the cube faces' draws leave nothing (depth clear
 value/format of the 320x256 target, draws passing the depth test, colour
 writes).
+IPA61 (`ios/build/NFSMW-cube-test-61.ipa`, SHA256 `db7d3558b5407fe70997ce1762cd8269e367a83a5bd1fb39898460e8069f0f41`, NFSMW UUID `8A4F5D9B-5D7D-3C6F-91DF-AB58E3957D8B`; 208 metallib entries, zip test and codesign OK; not run): on
+snapshot frames logs `pass start <key> at draw N (WxH, depth <MTLPixelFormat>):
+colour clear|load (rgba), depth clear|load <value>` for every pass, and now
+prints IPA59's `reflective draw` lines (the diagnostics filter dropped them).
+`--nfsmw_native_test_small_no_depth=true` turns the depth test off in the
+320- and 240-wide targets (cube faces, small blur) to see whether they fill.
