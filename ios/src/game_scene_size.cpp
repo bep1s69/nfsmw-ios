@@ -143,6 +143,9 @@ float LoadF(uint8_t* base, uint32_t address) {
   return v;
 }
 
+// A guest heap pointer (the HUD's objects are at 0xBE......).
+bool Plausible(uint32_t a) { return a >= 0x40000000 && a < 0xF0000000 && (a & 3) == 0; }
+
 void StoreF(uint8_t* base, uint32_t address, float v) {
   uint32_t bits;
   std::memcpy(&bits, &v, sizeof(bits));
@@ -368,8 +371,8 @@ void MoveGroup(uint8_t* base, uint32_t object, float dx, float dy, Moved& moved)
   if (!object) {
     return;
   }
-  const uint32_t data = REX_LOAD_U32(object + 44);
-  if (!data) {
+  const uint32_t data = Plausible(object) ? REX_LOAD_U32(object + 44) : 0;
+  if (!Plausible(data)) {
     return;
   }
   const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
@@ -413,8 +416,8 @@ void MoveMinimap(uint8_t* base, uint32_t minimap, float dx, float dy, bool switc
     StoreF(base, minimap + 188, LoadF(base, minimap + 188) + oy);
     for (uint32_t off : {60u, 64u, 68u, 72u, 144u}) {
       const uint32_t child = REX_LOAD_U32(minimap + off);
-      const uint32_t data = child ? REX_LOAD_U32(child + 44) : 0;
-      if (data) {
+      const uint32_t data = Plausible(child) ? REX_LOAD_U32(child + 44) : 0;
+      if (Plausible(data)) {
         StoreF(base, data + 28, LoadF(base, data + 28) + ox);
         StoreF(base, data + 32, LoadF(base, data + 32) + oy);
       }
@@ -441,8 +444,6 @@ void MoveMinimap(uint8_t* base, uint32_t minimap, float dx, float dy, bool switc
 // +56/+60 size); a group's children list at +5C (vtable 0x82080030), +60
 // count, +64 first.
 constexpr uint32_t kListVtable = 0x82080030;
-
-bool Plausible(uint32_t a) { return a >= 0x40000000 && a < 0xF0000000 && (a & 3) == 0; }
 
 void DumpObjects(uint8_t* base, uint32_t first, int depth, int& budget) {
   for (uint32_t o = first; Plausible(o) && budget > 0; o = REX_LOAD_U32(o + 4)) {
@@ -517,6 +518,7 @@ struct Piece {
   uint32_t object;
   Element element;
   Moved moved;
+  uint32_t hash, vtable;  // the object's when found: checked every frame
 };
 std::vector<Piece> g_pieces;
 uint32_t g_pieces_package = 0;
@@ -556,9 +558,9 @@ void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above
        c = REX_LOAD_U32(c + 4), ++n) {
     const float y = y0 + AnchorY(base, c, 0);
     if (y > kBottom) {
-      g_pieces.push_back({c, below, {}});
+      g_pieces.push_back({c, below, {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
     } else if (above >= 0) {
-      g_pieces.push_back({c, Element(above), {}});
+      g_pieces.push_back({c, Element(above), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
     }
   }
 }
@@ -615,8 +617,18 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   if (package) {
     const uint32_t left = FindObject(ctx, base, package, kLeftGroup);
     const uint32_t right = FindObject(ctx, base, package, kRightGroup);
-    if (package != g_pieces_package) {
+    // A new HUD (the race HUD after free roam's, IPA77's crash) may be built
+    // where the old one was: the pieces are found again whenever the groups
+    // or any piece are not the ones found (a freed piece was written to).
+    static uint32_t pieces_left = 0, pieces_right = 0;
+    bool stale = package != g_pieces_package || left != pieces_left || right != pieces_right;
+    for (const Piece& p : g_pieces) {
+      stale = stale || REX_LOAD_U32(p.object + 0x10) != p.hash || REX_LOAD_U32(p.object) != p.vtable;
+    }
+    if (stale) {
       g_pieces_package = package;
+      pieces_left = left;
+      pieces_right = right;
       g_pieces.clear();
       const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
       const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);

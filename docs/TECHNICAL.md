@@ -6248,3 +6248,19 @@ the kept point is each element's outer corner: x = middle + 76 units, y 215
 margin (with the safe zone too), and the native renderer moves the mirror's
 picture by as much (`nfsmw_mirror_shift_y`, of the screen's half height:
 HUD units x 0.92/240 in HD, 1/240 at 4:3, x the size). Not yet run.
+
+IPA77 result (Stefan, Oct 26, iPad): the HUD scales correctly in free roam
+(corners and mirror kept). Starting a race crashed (log
+`Debug/26 October 2026/nfsmw_ipa76_hud_race_crash_ipad.log`, named ipa76):
+right after `HUDTEXRACE.BIN` loaded, "Unhandled guest access violation: read
+of guest 0x0000011B", lr 0x822A8D5C (the return from sub_822AA6D0 in
+sub_822A8C50, so inside the HUD hook), r3 = r4 = 0xBE8F9CB0, r31 = 0.
+Inference: the race HUD was built at the free-roam package's address, so the
+cached pieces were not looked up again and MoveGroup read a freed piece's
+data pointer (small garbage, + 28/32 = 0x11B).
+
+IPA78 (`ios/build/NFSMW-hud-race-fix-78.ipa`, 30047117 bytes, SHA256 prefix
+f02e3358106a3a80, UUID 13CD6D6C-9BE7-3A01-9679-773C6E9E6BDE, `unzip -t` ok):
+the pieces are found again when the package, either group, or any piece's
+vtable or name hash differs from when found (checked every frame); MoveGroup
+and the minimap's children only follow plausible heap pointers. Not yet run.
