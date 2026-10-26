@@ -4732,13 +4732,33 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // 320 x 256 passes were ~1.5 ms of an iPad frame at 1x and ~3 ms at 2x.
     std::set<std::string> cube_sources, other_sources;
     if (!REXCVAR_GET(nfsmw_native_scale_reflections)) {
+      // The race's cube is six 2D resolves at the faces of a cube the frame
+      // samples (assembled below, see cube_targets), not cube-slice resolves.
+      std::vector<CubeTarget> sampled_cubes;
+      for (const auto& tp : frame->textures) {
+        if (tp->cube && tp->format == MTLPixelFormatInvalid && tp->width) {
+          const uint32_t w32 = (tp->width + 31) & ~31u;
+          const uint32_t stride = (w32 * 4 * ((tp->height + 31) & ~31u) + 4095) & ~4095u;
+          sampled_cubes.push_back({tp->address, tp->width, tp->height, stride});
+        }
+      }
+      auto into_cube = [&](const ResolveEvent& ev) {
+        if (ev.array) return true;
+        for (const CubeTarget& ct : sampled_cubes) {
+          if (ev.dest_base >= ct.base && (ev.dest_base - ct.base) % ct.face_stride == 0 &&
+              (ev.dest_base - ct.base) / ct.face_stride < 6) {
+            return true;
+          }
+        }
+        return false;
+      };
       for (const ResolveEvent& ev : frame->resolves) {
         if (ev.depth) continue;
         std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
         if (!sizes.count(key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size()) {
           key = target_key(frame->draws[ev.after_draws - 1]);  // as the resolve below picks its source
         }
-        (ev.array ? cube_sources : other_sources).insert(std::move(key));
+        (into_cube(ev) ? cube_sources : other_sources).insert(std::move(key));
       }
       for (const std::string& key : other_sources) cube_sources.erase(key);
       static size_t logged = 0;
