@@ -308,6 +308,9 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_native_shadow_scale, 1.0, "GPU",
                     "Native renderer (battery): the shadow map's size, times the game's (0.5: half)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_scale_shadows, false, "GPU",
                     "Native renderer: the resolution scale also applies to the shadow map (depth-only targets)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_scale_reflections, false, "GPU",
+                    "Native renderer: the resolution scale also applies to the environment cube's faces (targets "
+                    "resolved only into a cube)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_present, false, "GPU",
                     "Native renderer (experimental): every frame drawn by the native Metal renderer "
                     "and shown on screen, over the emulated one");
@@ -4724,9 +4727,31 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       for (auto& [key1, key] : second_of) sample_counts[key1] = sample_counts[key];
     }
     const bool scale_shadows = REXCVAR_GET(nfsmw_native_scale_shadows);
+    // The environment cube's faces (targets resolved only into a cube) stay at
+    // 1x unless nfsmw_native_scale_reflections, like the 360 draws them: six
+    // 320 x 256 passes were ~1.5 ms of an iPad frame at 1x and ~3 ms at 2x.
+    std::set<std::string> cube_sources, other_sources;
+    if (!REXCVAR_GET(nfsmw_native_scale_reflections)) {
+      for (const ResolveEvent& ev : frame->resolves) {
+        if (ev.depth) continue;
+        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        if (!sizes.count(key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size()) {
+          key = target_key(frame->draws[ev.after_draws - 1]);  // as the resolve below picks its source
+        }
+        (ev.array ? cube_sources : other_sources).insert(std::move(key));
+      }
+      for (const std::string& key : other_sources) cube_sources.erase(key);
+      static size_t logged = 0;
+      if (logged < 3 && !cube_sources.empty()) {
+        ++logged;
+        REXLOG_INFO("[native] reflections at 1x: {} environment cube target(s), e.g. {}", cube_sources.size(),
+                    *cube_sources.begin());
+      }
+    }
     auto scale_of = [&](const std::string& key) -> float {
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
+      if (cube_sources.count(k)) return 1.0f;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
       if (!shadow) return resolution_scale;
       const float shadow_scale = std::clamp(float(REXCVAR_GET(nfsmw_native_shadow_scale)), 0.25f, 1.0f);

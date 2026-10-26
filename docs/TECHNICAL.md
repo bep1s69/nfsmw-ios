@@ -5942,3 +5942,22 @@ resolve copies 0.22 -> 1.05 ms.
 Inference/lead: the six 320x256 passes grow with the scale; if they are the
 reflection (environment cube) faces, keeping them at 1x size would save ~0.7 ms
 at 1.5x and ~1.5 ms at 2x. Not checked, not proposed for implementation yet.
+
+### October 26, 2026 — IPA65: environment cube faces at 1x (built, not run)
+
+Approved by Stefan ("reflections don't really need to scale up with
+resolution"). Change (`ios/src/native_renderer.mm`, target sizing): colour
+targets whose resolves in the frame all go into a cube slice (the
+environment cube's 320x256 faces) get scale 1 like the shadow map; the cube
+texture follows (it is sized from the source). Source key matched like the
+resolve picks it (own EDRAM key, else the last draw's). Switch
+`--nfsmw_native_scale_reflections` (default false; true = scaled as before).
+Startup log: `[native] reflections at 1x: N environment cube target(s)` (up to
+3 lines). Expected (from the IPA64 race): ~0.7 ms/frame saved at 1.5x, ~1.5 ms
+at 2x; reflections as sharp as at 1x.
+IPA65 `ios/build/NFSMW-reflections-1x-65.ipa`, SHA256
+`9c21849057464232fb096e33da74f284d90ce03bb836aff52e091c74d9cad56a`, NFSMW UUID
+`C024EDFD-25F8-31BE-AB6C-12A27CD41FB8`; 208 metallib entries, zip test and
+codesign OK. Test: iPad 1.5x/60 test race with the log; check the log line and
+the 320 passes in the `GPU profile` lines (should read 320x256), and that the
+car reflections look right.
