@@ -176,7 +176,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   radar detector's arcs sit too low. **IPA83 (`NFSMW-hud-overlays-83.ipa`):
   size 1 while the black screen is fully up; EA_Trax.fng kept at the safe
   zone; the middle group's top pieces go with the mirror, bottom ones with
-  the bottom edge.** Not yet run.
+  the bottom edge.** Not yet run. IPA83 (Stefan): the whole race HUD at full
+  size and off screen (the fade's alpha stays 255 all race). **IPA84
+  (`NFSMW-hud-overlays-84.ipa`): that hold removed; song box and radar arcs
+  kept.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

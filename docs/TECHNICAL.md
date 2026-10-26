@@ -6352,3 +6352,18 @@ aa46c7723c1cfa29, UUID BFC0BD9D-9763-3750-95B2-1F3143DE7B81, `unzip -t` ok):
   mirror (top edge -220), below +60 with the bottom edge (215), in between
   left alone.
 Not yet run.
+
+IPA83 result (Stefan, Oct 26, iPad, smallest size; log
+`Debug/26 October 2026/nfsmw_ipa83_broken_hud_ipad.log`, ipa_83_broken_hud.png):
+the race HUD was at full size with the small size's offsets (off the
+screen). `[hud] fade BE909B60: black screen up (alpha 255)` and never
+"fading": FadeScreen.fng's black images keep alpha 255 the whole race, so the
+alpha is not what hides them. EA_Trax.fng was found (`overlay package
+BE8D73E0`, list at +44): a text at (266,-269) and the song box group
+A1341735 at (-203,-191).
+
+IPA84 (`ios/build/NFSMW-hud-overlays-84.ipa`, 30063250 bytes, SHA256 prefix
+939e8f5ba7161061, UUID D08AB079-6B1A-3CEC-B1ED-6717541FF21B, `unzip -t` ok):
+the alpha hold removed (still logged); the rest of IPA83 kept. The bleed at
+the end of the loading screen (IPA82) is back; open: what hides the black
+screen (flags at +0x1C, the package's own state). Not yet run.
