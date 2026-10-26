@@ -117,7 +117,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **October 26: iPad GPU cost per setting (IPA64 test race).** GPU ms/frame:
   1x/60 5.9, 1.5x/60 10.2, 2x/60 14.2 (~85-90% busy), 1.5x/120 6.1 at a
   higher clock (the heat). All held their cap. Lead: the six 320x256 passes
-  scale with resolution (TECHNICAL, Oct 26 iPad race).
+  scale with resolution (TECHNICAL, Oct 26 iPad race). They are the
+  environment cube: **IPA65 (`NFSMW-reflections-1x-65.ipa`) keeps them at 1x**
+  (`--nfsmw_native_scale_reflections`, default false). Built, not run. Next:
+  iPad 1.5x/60 test race on IPA65.
 
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
@@ -585,6 +588,7 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_gpu_lookup_hash` | true (IPA30) | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
 | `nfsmw_native_gpu_lookup_slots_log2` | 14 (IPA64) | GPU buffer direct cache 16,384 slots (12 = old 4,096); not device-tested |
 | `nfsmw_native_attribute_lookup_sets_log2` | 14 (IPA64) | Attribute front cache 16,384 sets (12 = old 4,096; 18% misses in the IPA63 chase); not device-tested |
+| `nfsmw_native_scale_reflections` | false (IPA65) | Environment cube faces stay at 1x; not device-tested |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | true (IPA37) | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
