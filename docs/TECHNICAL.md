@@ -6396,3 +6396,11 @@ in game_hooks.cpp, which is translated from the reference edition); logged
 the in-game menu, live (the cvar is read every frame). Risk: the other path
 may need pipelines not yet compiled (a few frames missing) or show the scene
 unexposed/too dark. Not yet run.
+
+IPA85 result (Stefan, Oct 26, iPad; log
+`Debug/26 October 2026/nfsmwipa85_no_post_ipad.log`, ipa85_no_post_ipad.png):
+with Post-processing off the picture has no colour filter, bloom or
+vignette; Stefan: "looks just like no post processing should". `[post]` lines
+logged (the first two in the frontend, byte +9 already 0 there). A 5 s
+`[vigilante]` stall at 18:13:02, during startup/loading, not looked into
+(not seen as a problem by Stefan).

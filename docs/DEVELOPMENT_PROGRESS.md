@@ -186,7 +186,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   form; kept in the backlog.** Next: post-processing. **IPA85
   (`NFSMW-no-post-85.ipa`): Post-processing off now skips the game's post
   chain (bloom, colour filter, vignette); the switch is in the in-game menu
-  too (live).** Not yet run.
+  too (live).** IPA85 on iPad (Stefan): looks as no post-processing should.
+  Both QoL items of this branch done; branch stays local, not pushed.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

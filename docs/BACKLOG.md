@@ -277,8 +277,8 @@ Power Profiler or CPU investigations.
   Oct 26 in-game options); later Extra Options in it. Separate later items:
   Post-processing switch did nothing (Stefan, Oct 26): the byte only picked
   the visual treatment's branching technique. IPA85 skips the post chain
-  (sub_82442310's view byte +9) and adds the switch to the in-game menu;
-  waiting for the device test.
+  (sub_82442310's view byte +9) and adds the switch to the in-game menu.
+  **Fixed in IPA85** (Stefan, iPad, Oct 26: looks as it should).
   Movable/resizable HUD: functional and declared finished for now (IPA84,
   Stefan Oct 26): size, safe zone, minimap/speedometer/race info positions,
   launcher and in-game, live. Open, not final: (1) the picture shows through
