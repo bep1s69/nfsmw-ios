@@ -5911,3 +5911,34 @@ Inference: B and C remove their lookups as intended; the battery effect is
 small and cannot be read from these traces (different cores). Whether the
 adaptive boost engages dominates CPU energy in a chase far more than these
 lookups.
+
+### October 26, 2026 — IPA64 iPad test race: GPU cost per resolution and frame cap
+
+Stefan, iPad, IPA64, test race, ~3 min each, LPM off, no Extra Args. Logs
+`26 October 2026/nfsmw_ipa64_race{1,2,3,4}_ipad.log` (race3's log also holds
+the 1.5x run before it; the 2x part starts at its first `scale 2.000` line).
+Battery (Stefan, 1% steps, too coarse for a rate): 1x/60 84->83, 1.5x/60
+83->81, 2x/60 81->81, 1.5x/120 with 120 Hz sim 79->76 (only run that got warm).
+
+Measured from the log's `GPU profile` lines (race frames, 47 passes):
+
+| Run | GPU ms/frame mean (median, max) | Frame budget |
+|---|---|---|
+| 1x / 60 | 5.9 (5.4, 9.2) | 16.7 |
+| 1.5x / 60 | 10.2 (10.6, 15.2) | 16.7 |
+| 2x / 60 | 14.2 (14.8, 15.6) | 16.7 |
+| 1.5x / 120 | 6.1 (6.5, 8.0) | 8.3 |
+
+All runs held 60.0 (or ~119-120) frames/s on screen; in-race hitches (>~40 ms)
+only 1-4 per run, the rest at loading. The log has no frame-interval
+distribution, so pacing below ~40 ms is not visible.
+GPU ms are at whatever clock the GPU chose: 1.5x/120 does the same work as
+1.5x/60 in ~6 ms because it runs at a higher clock (more energy per frame and
+twice the frames: the heat). At 2x/60 the GPU is ~85-90% busy.
+Pass breakdown (one late window each): main scene (960x720 guest, 3 passes)
+1.36 ms at 1x -> 6.84 ms at 2x; the six 320x256 passes (scaled to 640x512 at
+2x) 1.48 -> 3.01 ms; the 1600x1600 shadow pair 0.9 -> 1.3 ms (not scaled);
+resolve copies 0.22 -> 1.05 ms.
+Inference/lead: the six 320x256 passes grow with the scale; if they are the
+reflection (environment cube) faces, keeping them at 1x size would save ~0.7 ms
+at 1.5x and ~1.5 ms at 2x. Not checked, not proposed for implementation yet.
