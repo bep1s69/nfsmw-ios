@@ -265,6 +265,17 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- **In-game options menu (Stefan, Oct 26; 0.4.0 QoL). Status: built in IPA67
+  (`NFSMW-ingame-options-67.ipa`), not yet tested on device.** Graphics only
+  for now (Extra Options are not complete yet, Stefan). Opened from menus and
+  pause screens with a gear (top right) or L3+R3. Live: render resolution,
+  MetalFX modes, 30/60 cap, FXAA, shadow drawing size, car reflections, auto
+  cap, menu cap, 0.75x when hot, Battery mode; next launch: 40/120 fps, MSAA
+  and launch-only values Battery mode sets. Next: device test (TECHNICAL,
+  Oct 26 in-game options); later Extra Options in it. Separate later items:
+  movable/resizable HUD, save manager, pre-launch menu redesign, trainer-style
+  menu idea.
+
 - **After IPA52 (Oct 24 night), ranked, none approved:** (1) repeat run + iPad
   check of IPA52; (2) frame-relative ring-wait cap (~half a frame; 70 timeouts/s
   left at 8 ms) - built in IPA53; (3) `Fingerprint`/`Record` encode cost (~35% of

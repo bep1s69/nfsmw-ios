@@ -359,13 +359,23 @@ REXCVAR_DEFINE_STRING(nfsmw_native_metalfx, "off", "GPU",
                       "Native renderer: MetalFX temporal (motion vectors, a jittered scene) to the picture's "
                       "size on screen (screen), to three quarters of it (lower), or at the size drawn, as "
                       "anti-aliasing (drawn); off");
-// MetalFX temporal on (any size).
+// Bumped by the in-game options menu (launcher.mm) after it changes the
+// render resolution or MetalFX: the two settings below are read again.
+std::atomic<uint32_t> settings_generation{0};
+extern "C" void NativeSettingsChanged() { settings_generation.fetch_add(1, std::memory_order_release); }
+
+// MetalFX temporal on (any size). Read once per frame by the recording
+// (Frame's motion and jitter follow it), so a change starts on a new frame.
 bool MetalFxTemporal() {
-  static const bool on = [] {
+  static std::atomic<uint32_t> read_at{~0u};
+  static std::atomic<bool> on{false};
+  const uint32_t generation = settings_generation.load(std::memory_order_acquire);
+  if (read_at.load(std::memory_order_acquire) != generation) {
     const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
-    return mode == "screen" || mode == "lower" || mode == "drawn";
-  }();
-  return on;
+    on.store(mode == "screen" || mode == "lower" || mode == "drawn", std::memory_order_relaxed);
+    read_at.store(generation, std::memory_order_release);
+  }
+  return on.load(std::memory_order_relaxed);
 }
 REXCVAR_DEFINE_BOOL(nfsmw_native_motion_debug, false, "GPU",
                     "Native renderer diagnostics: the scene's motion vectors shown instead of the picture "
@@ -384,14 +394,24 @@ std::atomic<float> native_screen_scale{0.0f};
 // The internal resolution scale: a target of W x H guest pixels is drawn at
 // round(W * scale) x round(H * scale). While the phone is hot, at most
 // battery::HeatScale() (battery.mm): the targets are made again at the new
-// size on the next frame.
+// size on the next frame. The in-game options menu changes the setting the
+// same way (settings_generation).
 float NativeResolutionScale() {
-  static const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
-  static const bool native = setting == "native";
-  static const float fixed = std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, 4.0f);
+  static std::atomic<uint32_t> read_at{~0u};
+  static std::atomic<bool> native{false};
+  static std::atomic<float> fixed{1.0f};
+  const uint32_t generation = settings_generation.load(std::memory_order_acquire);
+  if (read_at.load(std::memory_order_acquire) != generation) {
+    const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
+    native.store(setting == "native", std::memory_order_relaxed);
+    fixed.store(std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, 4.0f), std::memory_order_relaxed);
+    read_at.store(generation, std::memory_order_release);
+  }
   const float s = native_screen_scale.load();
-  const float chosen = !native ? (std::isfinite(fixed) && fixed > 0 ? fixed : 1.0f)
-                               : s > 0 ? s : 1.0f;  // until the first frame has been shown
+  const float f = fixed.load(std::memory_order_relaxed);
+  const float chosen = !native.load(std::memory_order_relaxed) ? (std::isfinite(f) && f > 0 ? f : 1.0f)
+                       : s > 0                                 ? s
+                                                               : 1.0f;  // until the first frame has been shown
   const float hot = nfsmw::battery::HeatScale();
   return hot > 0 ? std::min(chosen, hot) : chosen;
 }

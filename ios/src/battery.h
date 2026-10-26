@@ -20,6 +20,11 @@ void SetInMenu(bool in_menu);
 // thread (the touch controls read it).
 int InMenu();
 
+// The in-game options menu: the frame rate cap chosen (30 or 60; only when
+// the game started at one of them), and the caps' switches changed.
+void ChooseCap(int fps);
+void SettingsChanged();
+
 // The native renderer's resolution scale while the phone is hot (0.75), or 0
 // (the scale chosen). Any thread.
 float HeatScale();

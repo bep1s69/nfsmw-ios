@@ -1694,4 +1694,30 @@ std::vector<std::string> SettingsArguments(const fs::path& documents) {
   return Arguments(LoadSettings(documents));
 }
 
+std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {
+  std::vector<MenuRow> rows;
+  for (NSString* key in keys) {
+    const Option* o = FindOption(key);
+    if (!o || (o->type != Type::kSwitch && o->type != Type::kChoice)) continue;
+    MenuRow r{o->key, o->title, o->summary, o->type == Type::kSwitch, {}};
+    for (const Choice& c : o->choices) r.choices.emplace_back(c.title, c.value);
+    rows.push_back(std::move(r));
+  }
+  return rows;
+}
+
+NSMutableDictionary<NSString*, NSString*>* ReadSettings(const fs::path& documents) { return LoadSettings(documents); }
+
+void WriteSettings(const fs::path& documents, NSDictionary<NSString*, NSString*>* settings) {
+  SaveSettings(documents, settings);
+}
+
+NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* key) { return Value(settings, key); }
+
+bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
+  return On(settings, @"native_renderer") && On(settings, @"battery_mode") && BatteryValue(key);
+}
+
+std::vector<std::string> ArgumentsFor(NSDictionary<NSString*, NSString*>* settings) { return Arguments(settings); }
+
 }  // namespace nfsmw::launcher

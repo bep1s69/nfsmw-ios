@@ -107,6 +107,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 26 (night): in-game options menu, IPA67
+  (`NFSMW-ingame-options-67.ipa`), branch `in-game-options` (local, off
+  `battery-optimization`; Stefan approved the design: gear for touch, L3+R3
+  for controllers, graphics settings only).** Built, not yet run on device.
+  Next: Stefan's device test (checklist in TECHNICAL, Oct 26 in-game
+  options); then Extra Options in the menu once they are complete.
+
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
   (`Record()` ~2.9 ms/frame), render queue ~180 ms/s. No single large waste
