@@ -168,7 +168,7 @@ trees). ~860k answers on 8 addresses, still none 0; 05D81600 never under ~3
 full frames, up to 31. Status: flicker fixed, occlusion still wrong. Next
 (proposed): on SNAP frames, log each query's bracketed draws (pass, ps,
 depth state, draw count, GPU count) to find the sun's query and why it never
-reaches 0. See TECHNICAL Oct 26.
+reaches 0. Built as IPA62, untested. See TECHNICAL Oct 26.
 
 ### Textures flashing — open (since the Vulkan renderer)
 
@@ -206,7 +206,8 @@ shows the scene behind (IMG_3975/3977). The black snapshots are a readback
 artefact. So the bus-terminal glass shows the cube's real content (trees) too
 strongly compared with the 360's faint reflection; the battery-switch A/B is
 dropped. Next (proposed): a test switch that gives the glass shaders a black
-cube, to see whether the harsh trees come from the cube term. TECHNICAL Oct 26.
+cube, to see whether the harsh trees come from the cube term. Built as IPA62
+(`--nfsmw_native_test_no_envcube_world=true`), untested. TECHNICAL Oct 26.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
