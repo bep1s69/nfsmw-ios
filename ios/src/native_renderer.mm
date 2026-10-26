@@ -4155,6 +4155,7 @@ std::vector<uint8_t> fps_overlay_pixels;
 int fps_overlay_w = 0, fps_overlay_h = 0;
 float fps_overlay_rect[4] = {};
 bool fps_overlay_changed = false;
+std::atomic<int> shown_drawable_width{0};
 id<MTLRenderPipelineState> PresentPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -6864,6 +6865,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
         // The FPS counter, over the picture, in its own small viewport.
+        shown_drawable_width.store(int(drawable.texture.width), std::memory_order_relaxed);
         {
           static id<MTLTexture> counter;
           static float rect[4];
@@ -8090,4 +8092,8 @@ extern "C" void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, 
     fps_overlay_pixels.clear();
   }
   fps_overlay_changed = true;
+}
+
+extern "C" int nfsmw_native_drawable_width() {
+  return shown_drawable_width.load(std::memory_order_relaxed);
 }

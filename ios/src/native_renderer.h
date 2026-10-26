@@ -45,6 +45,9 @@ bool nfsmw_native_overlay_active();
 // The counter's picture (BGRA, premultiplied over its dark box, w x h pixels)
 // and where it goes, as fractions of the window (x, y from the top left).
 // Null bgra: no counter.
+// The width in pixels of the last frame shown (0 before the first): the
+// counter is drawn at that resolution, not the screen's (IPA89).
+int nfsmw_native_drawable_width();
 void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, float x, float y, float fw, float fh);
 
 }  // extern "C"

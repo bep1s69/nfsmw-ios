@@ -198,7 +198,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (`NFSMW-fps-counter-87.ipa`): the counter no longer masks or re-frames on
   each update.** IPA87 (Stefan): worse, double text. **IPA88
   (`NFSMW-fps-in-frame-88.ipa`): the counter drawn into the game's frame by
-  the native renderer; the label hidden.** Not yet run.
+  the native renderer; the label hidden.** IPA88 (Stefan): counter pairs
+  gone; counter blurry at 1x; race start still choppy. **IPA89
+  (`NFSMW-sharp-counter-89.ipa`): counter at the frame's resolution.** Next:
+  Stefan's Instruments trace of a race start on IPA89.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

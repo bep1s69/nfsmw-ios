@@ -6491,3 +6491,24 @@ texture and draws it with the present pipeline in its own viewport after
 the picture. The label stays hidden and untouched (no text or frame
 changes); with the emulated renderer it works as before. Test: race with
 the counter on; success = no pairs on the 0.5 s phase. Not yet run.
+
+IPA88 result (Stefan, Oct 26, iPad, 1x render scale; log
+`Debug/26 October 2026/nfsmw_ipa88_fps_in_frame_ipad.log`): the counter
+works and seems to catch smaller hitches, but is visibly low-resolution (the
+bitmap was made at the screen's scale and shrunk into the 1x frame); the
+first ~20 s of the race were still very choppy. Log: 8 pairs of 25 + 8.3
+ms, none on a 0.5 s phase (the counter's pairs are gone); from 18:45:58 most
+windows have 0-2 off-grid frames. The race start (18:45:38-56) has 33 ms
+frames (`4:` 1-3 per window) and two texture-decode hitches: frame 670,
+116 ms between swaps, 148 textures / 54.8 MiB decoded (96.7 ms) and 23.5 ms
+of uploads; frame 1392, 110 ms, 236 textures / 61.6 MiB (83.3 ms) and 24.9
+ms of uploads. So the race start's choppiness is first-use texture
+decoding/uploading plus smaller (33 ms) misses the log does not explain;
+an Instruments trace of the race start is the next step.
+
+IPA89 (`ios/build/NFSMW-sharp-counter-89.ipa`, 30065730 bytes, SHA256
+prefix 679c8ec782481a19, UUID 75B7CB51-68E9-3577-BFD3-0919B2531096, `unzip
+-t` ok, codesign ok, 208 metallib entries): the counter's bitmap is made at
+the shown frame's resolution (`nfsmw_native_drawable_width`), one bitmap
+pixel per frame pixel. At 1x it is still the frame's resolution, below the
+screen's. Not yet run.

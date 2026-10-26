@@ -94,7 +94,9 @@ fixed at 30/40 in `patch_ios_vblank_display`). IPA86 locks the 60 cap too
 (`ios_vblank_lock_60`): no change. The pairs follow the on-screen FPS
 counter's 0.5 s text updates; with the counter off they are gone. IPA87
 (cheaper label updates) was worse and drew double text; IPA88 draws the
-counter into the game's frame. Next: race with the counter on.
+counter into the game's frame: its pairs gone (IPA88). Left: the race
+start's choppiness (texture decode hitches and 33 ms misses); next: an
+Instruments trace of the race start (IPA89).
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
