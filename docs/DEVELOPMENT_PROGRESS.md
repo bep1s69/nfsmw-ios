@@ -155,7 +155,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   still change (closer to the middle at min, to the edges at max) and the
   mirror goes half off the top at max. **IPA77 (`NFSMW-hud-corners-77.ipa`):
   each element keeps its outer corner (not its middle); the mirror's frame
-  and picture keep their top margin.** Not yet run.
+  and picture keep their top margin.** Not yet run. IPA77 (Stefan): works
+  in free roam; crashed when a race started. **IPA78
+  (`NFSMW-hud-race-fix-78.ipa`): the HUD pieces are found again when a new
+  HUD replaces the old one; pointers checked before use.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
