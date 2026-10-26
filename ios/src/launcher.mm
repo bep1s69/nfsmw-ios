@@ -94,6 +94,16 @@ std::vector<Choice> HudSizes() {
   return c;
 }
 
+// The HUD's safe zone, 80% to 110% by 2.
+std::vector<Choice> HudSafeZones() {
+  std::vector<Choice> c;
+  for (int i = 80; i <= 110; i += 2) {
+    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
+    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
+  }
+  return c;
+}
+
 // A HUD side moved, in HUD units (640 across at 4:3): -160 to 160 by 10,
 // with arrows (less: left or up).
 std::vector<Choice> HudOffsets(NSString* less, NSString* more) {
@@ -440,10 +450,13 @@ const std::vector<Section>& Sections() {
                @"they apply at once: the HUD shows them as soon as driving starts again.",
        {
            {@"hud_scale", Type::kChoice, @"HUD size",
-            @"The size of the speedometer, minimap and the rest of the race HUD, about the middle "
-            @"of the screen (the mirror too): smaller brings it inward, larger outward; move "
-            @"the pieces back with the rows below. Menus keep their size.",
+            @"The size of the speedometer, minimap and the rest of the race HUD (the mirror "
+            @"too). Each keeps its place. Menus keep their size.",
             @"1.00", HudSizes()},
+           {@"hud_safe_zone", Type::kChoice, @"HUD safe zone",
+            @"How far out toward the screen's edges the HUD's pieces sit. Lower: further in "
+            @"from the edges.",
+            @"1.00", HudSafeZones()},
            {@"hud_left_x", Type::kChoice, @"Minimap: left / right",
             @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"←", @"→")},
            {@"hud_left_y", Type::kChoice, @"Minimap: up / down",
@@ -775,6 +788,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
+  a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
   a.push_back("--nfsmw_hud_left_x=" + str(@"hud_left_x"));
   a.push_back("--nfsmw_hud_left_y=" + str(@"hud_left_y"));
   a.push_back("--nfsmw_hud_right_x=" + str(@"hud_right_x"));
