@@ -192,8 +192,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `frame-pacing-60` (from this one). **IPA86 (`NFSMW-pacing-60-86.ipa`): the
   60 cap's guest vblank locked to the display refresh like 30/40 (cvar
   `ios_vblank_lock_60`, default on; A/B with Extra Args
-  `--ios_vblank_lock_60=false`) and a log line per off-grid frame.** Not yet
-  run.
+  `--ios_vblank_lock_60=false`) and a log line per off-grid frame.** IPA86
+  (Stefan): no change; the stutter pairs follow the FPS counter's 0.5 s text
+  updates and vanish with the counter off. **IPA87
+  (`NFSMW-fps-counter-87.ipa`): the counter no longer masks or re-frames on
+  each update.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

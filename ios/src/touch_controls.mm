@@ -883,11 +883,15 @@ static std::atomic<float>* PluginCounter(const char* name) {
   if ((self = [super initWithFrame:CGRectZero])) {
     self.userInteractionEnabled = NO;
     self.textColor = UIColor.whiteColor;
-    self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
+    // The rounded background is the layer's own (no masksToBounds, which
+    // makes the compositor redraw the label off screen whenever its text
+    // changes): each text change delayed the game's frame of that refresh
+    // by one 120 Hz refresh, a 25 + 8 ms stutter pair (IPA86 logs).
+    self.backgroundColor = nil;
+    self.layer.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6].CGColor;
     self.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightBold];
     self.textAlignment = NSTextAlignmentCenter;
     self.layer.cornerRadius = 6;
-    self.layer.masksToBounds = YES;
     self.text = @"-- fps";
     __weak NFSFpsLabel* weak = self;
     _timer = [NSTimer scheduledTimerWithTimeInterval:0.5
@@ -906,14 +910,14 @@ static std::atomic<float>* PluginCounter(const char* name) {
   }
   const float fps = _fps ? _fps->load(std::memory_order_relaxed) : -1.0f;
   const float ms = _ms ? _ms->load(std::memory_order_relaxed) : -1.0f;
-  if (fps < 0) {
-    self.text = @"-- fps";
-  } else if (ms > 0) {
-    self.text = [NSString stringWithFormat:@"%.0f fps · %.1f ms", fps, ms];
-  } else {
-    self.text = [NSString stringWithFormat:@"%.0f fps", fps];
+  NSString* text = fps < 0 ? @"-- fps"
+                   : ms > 0 ? [NSString stringWithFormat:@"%.0f fps · %.1f ms", fps, ms]
+                            : [NSString stringWithFormat:@"%.0f fps", fps];
+  // Only a changed text, in a frame that stays the same size.
+  if (![text isEqualToString:self.text]) {
+    self.text = text;
   }
-  [self layoutInSuperview];
+  [self layoutInSuperview];  // the safe area may change
 }
 
 - (void)layoutInSuperview {
@@ -921,10 +925,14 @@ static std::atomic<float>* PluginCounter(const char* name) {
   if (!parent) {
     return;
   }
-  const CGSize s = [self.text sizeWithAttributes:@{NSFontAttributeName : self.font}];
+  // Sized once for the widest text, so a new text never changes the frame.
+  const CGSize s = [@"000 fps · 000.0 ms" sizeWithAttributes:@{NSFontAttributeName : self.font}];
   const UIEdgeInsets safe = parent.safeAreaInsets;
-  self.frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(s.width) + 16,
-                          std::ceil(s.height) + 6);
+  const CGRect frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(s.width) + 16,
+                                 std::ceil(s.height) + 6);
+  if (!CGRectEqualToRect(frame, self.frame)) {
+    self.frame = frame;
+  }
 }
 
 - (void)removeFromSuperview {

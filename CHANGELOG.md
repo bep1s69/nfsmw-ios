@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- **Smoother 60 fps.** At the 60 fps cap frames are now made in step with the
-  screen's refresh, as at 30 and 40, which removes a small stutter every few
-  seconds.
+- **Smoother frame pacing with the FPS counter on.** Each counter update
+  delayed a frame, a small stutter up to twice a second; the counter no longer
+  does. At the 60 fps cap frames are also made in step with the screen's
+  refresh, as at 30 and 40.
 
 - **Options while playing.** In a menu or the pause screen, tap the gear at
   the top right (or press L3+R3 on a controller) to change the render
