@@ -132,7 +132,7 @@ sources, proposal and gates in latest TECHNICAL/checkpoint.
 October 25 (Stefan, iPhone, plane): ~2+ h in Low Power Mode, 72% to 35%
 (~17 %/h), IPA54-line build, default settings. TECHNICAL Oct 26.
 
-### iPad Pro M4 sun flickering — fix built (IPA54), untested (also iPhone, Oct 24)
+### iPad Pro M4 sun flickering — fixed (flicker IPA54, occlusion IPA63; iPad confirmed Oct 26)
 
 Seen in the same October 15 session as the battery drain (MetalFX temporal to
 the screen, 1x then 1.5x, MSAA up to 4x). Not investigated yet. Possibly related
@@ -171,7 +171,8 @@ depth state, draw count, GPU count) to find the sun's query and why it never
 reaches 0. Built as IPA62, untested. See TECHNICAL Oct 26.
 IPA62 iPad run: GPU counts are right (mostly 0); answers were filed under the
 begin address while the game reads begin-0x20, and unmarked ends opened
-runaway queries. Fix built as IPA63, untested.
+runaway queries. Fix built as IPA63; Stefan, iPad, Oct 26: the sun fades in
+and out with cover; ~99k of ~127k answers are 0. Fixed.
 
 ### Textures flashing — open (since the Vulkan renderer)
 
