@@ -10,6 +10,7 @@
 //     (NativeSettingsChanged), as for 0.75x when hot;
 //   - FXAA, shadow map drawing size, car reflections (rate and size): read
 //     every frame;
+//   - the HUD's size and positions: game_scene_size.cpp, every frame;
 //   - the 30/60 fps cap, 30 fps when warm, 30 fps in menus, 0.75x when hot:
 //     battery.mm (ChooseCap, SettingsChanged).
 // The rest wait for the next launch, and the sheet says so: 40/120 fps (or
@@ -50,7 +51,8 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode" ];
+            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"hud_scale",
+            @"hud_left_x", @"hud_left_y", @"hud_right_x", @"hud_right_y" ];
 }
 
 // The settings that only the native renderer has (left out without it).
@@ -65,7 +67,9 @@ const std::set<std::string>& LiveFlags() {
   static const std::set<std::string> flags = {
       "nfsmw_native_resolution_scale", "nfsmw_native_metalfx",  "nfsmw_native_fxaa",
       "nfsmw_native_shadow_scale",     "nfsmw_native_half_rate_reflections", "nfsmw_native_scale_reflections",
-      "nfsmw_battery_auto_cap",        "nfsmw_menu_cap",        "nfsmw_heat_scale"};
+      "nfsmw_battery_auto_cap",        "nfsmw_menu_cap",        "nfsmw_heat_scale",
+      "nfsmw_hud_scale",               "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
+      "nfsmw_hud_right_x",             "nfsmw_hud_right_y"};
   return flags;
 }
 

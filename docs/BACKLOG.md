@@ -275,7 +275,8 @@ Power Profiler or CPU investigations.
   cap, menu cap, 0.75x when hot, Battery mode; next launch: 40/120 fps, MSAA
   and launch-only values Battery mode sets. Next: device test (TECHNICAL,
   Oct 26 in-game options); later Extra Options in it. Separate later items:
-  movable/resizable HUD, save manager, pre-launch menu redesign, trainer-style
+  movable/resizable HUD (step 1 in IPA70: size and two side positions as
+  settings; step 2, a drag editor, after the device test), save manager, pre-launch menu redesign, trainer-style
   menu idea.
 
 - **After IPA52 (Oct 24 night), ranked, none approved:** (1) repeat run + iPad

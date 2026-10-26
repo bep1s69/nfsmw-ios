@@ -8,6 +8,10 @@
   settings without restarting. Settings that need a restart (40/120 fps, MSAA)
   are marked "next launch".
 
+- **HUD size and position.** New HUD settings (launcher Graphics tab and the
+  options while playing): the race HUD's size, and the minimap and speedometer
+  moved left, right, up or down on their own.
+
 - **Battery mode now caps the game at 30 fps**, along with its other savings.
 
 - **New setting: reflection and mirror resolution.** The reflections on the
