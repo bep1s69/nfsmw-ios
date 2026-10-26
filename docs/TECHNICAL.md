@@ -6115,3 +6115,22 @@ its frame; (3) minimap moved right and up: the map picture moves with its
 ring, the arrow stays in the middle; (4) speedometer moved left and up;
 (5) a new race and a restart keep the positions (no doubled moves);
 (6) changed in the pause menu: applied after resuming.
+
+IPA70 result (Stefan, Oct 26, device not stated): 80% and 120% work, but the
+HUD shrinks toward / grows away from the middle of the screen (it scales
+about the middle, so the margins change). The positions move correctly and
+stay put in a race. The race element showing progress and position moves
+with the speedometer: it is in the right group (0x5D0101F1).
+
+IPA71 (`ios/build/NFSMW-hud-anchors-71.ipa`, 30042058 bytes, SHA256 prefix
+8b59180dfff2e049, UUID 2EC8FCCF-C13F-33E5-B9A4-0E7D9CCFD185, `unzip -t` ok):
+the sides are moved so each scales about its own middle: with g the side's
+middle in HUD units before the matrix, the offset d solves
+s * (g + d) = g + offset. g = (221 + 120 when the game's widescreen layout is
+on, 138), measured on the Oct 26 screenshots (4:3 iPad speedometer centre at
+0.845 x 0.787 of the screen = 221 x 138 HUD units; 19.5:9 iPhone at 0.895
+x = 446 x 0.92 HD title-safe = 410, as measured). The minimap moves with the
+left side's d. New log: `[hud] right group +00..+60` (raw words) and `right
+group data pos/size`, once per new HUD, to find the race position/progress
+objects inside the right group (next: split them off so they stay put).
+Not yet run.
