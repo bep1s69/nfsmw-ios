@@ -4148,6 +4148,13 @@ void UpdateLayerVisibility(bool visible) {
   REXLOG_INFO("[native] native layer {}", visible ? "shown" : "hidden (no native output: the emulated "
                                                               "renderer's shows)");
 }
+// The FPS counter's picture (nfsmw_native_set_fps_overlay): a new texture at
+// each change (twice a second at most), so frames still in flight keep theirs.
+std::mutex fps_overlay_mutex;
+std::vector<uint8_t> fps_overlay_pixels;
+int fps_overlay_w = 0, fps_overlay_h = 0;
+float fps_overlay_rect[4] = {};
+bool fps_overlay_changed = false;
 id<MTLRenderPipelineState> PresentPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -6856,6 +6863,48 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
         [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        // The FPS counter, over the picture, in its own small viewport.
+        {
+          static id<MTLTexture> counter;
+          static float rect[4];
+          {
+            std::lock_guard<std::mutex> lock(fps_overlay_mutex);
+            if (fps_overlay_changed) {
+              fps_overlay_changed = false;
+              counter = nil;
+              if (!fps_overlay_pixels.empty()) {
+                MTLTextureDescriptor* td =
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                       width:NSUInteger(fps_overlay_w)
+                                                                      height:NSUInteger(fps_overlay_h)
+                                                                   mipmapped:NO];
+                td.usage = MTLTextureUsageShaderRead;
+                td.storageMode = MTLStorageModeShared;
+                counter = [device newTextureWithDescriptor:td];
+                [counter replaceRegion:MTLRegionMake2D(0, 0, NSUInteger(fps_overlay_w), NSUInteger(fps_overlay_h))
+                           mipmapLevel:0
+                             withBytes:fps_overlay_pixels.data()
+                           bytesPerRow:NSUInteger(fps_overlay_w) * 4];
+                std::copy(fps_overlay_rect, fps_overlay_rect + 4, rect);
+              }
+            }
+          }
+          if (counter) {
+            const double tw = double(dw), th = double(dh);
+            const double x = std::floor(double(rect[0]) * tw), y = std::floor(double(rect[1]) * th);
+            const double w = std::min(std::round(double(rect[2]) * tw), tw - x);
+            const double h = std::min(std::round(double(rect[3]) * th), th - y);
+            if (w >= 1 && h >= 1) {
+              const float one[4] = {1.0f, 1.0f, 0, 0};
+              [e setViewport:(MTLViewport){x, y, w, h, 0.0, 1.0}];
+              [e setScissorRect:(MTLScissorRect){NSUInteger(x), NSUInteger(y), NSUInteger(w), NSUInteger(h)}];
+              [e setVertexBytes:one length:sizeof(one) atIndex:0];
+              [e setFragmentBytes:one length:sizeof(one) atIndex:0];
+              [e setFragmentTexture:counter atIndex:0];
+              [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+            }
+          }
+        }
         [e endEncoding];
         // The same picture on the external display, fitted to its shape.
         // Skipped while two of its frames are still waiting to be shown (a
@@ -8021,3 +8070,24 @@ void NativeResolve(const uint32_t* regs) {
 }
 
 }  // namespace
+
+extern "C" bool nfsmw_native_overlay_active() {
+  return present_layer != nil && layer_visible.load();
+}
+
+extern "C" void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, float x, float y, float fw,
+                                              float fh) {
+  std::lock_guard<std::mutex> lock(fps_overlay_mutex);
+  if (bgra && w > 0 && h > 0) {
+    fps_overlay_pixels.assign(bgra, bgra + size_t(w) * size_t(h) * 4);
+    fps_overlay_w = w;
+    fps_overlay_h = h;
+    fps_overlay_rect[0] = x;
+    fps_overlay_rect[1] = y;
+    fps_overlay_rect[2] = fw;
+    fps_overlay_rect[3] = fh;
+  } else {
+    fps_overlay_pixels.clear();
+  }
+  fps_overlay_changed = true;
+}

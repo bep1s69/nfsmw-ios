@@ -6469,3 +6469,25 @@ once for the widest text, and sets text/frame only when they change. Test:
 one race with the counter on; success = no 25 + 8.3 ms pairs at .023/.523.
 If they stay, next step is drawing the counter into the game's Metal frame.
 Not yet run.
+
+IPA87 result (Stefan, Oct 26, iPad; log
+`Debug/26 October 2026/nfsmw_ipa_87_fps_counter_broken_choppy_ipad.png` and
+`nfsmw_ipa_87_fps_counter_broken_choppy_ipad.log`): worse. The counter's old
+and new texts showed on top of each other (a UILabel with no background
+colour does not clear its old text), and the choppy stretches were more
+frequent. Log: 22 pairs of 25 + 8.3 ms, 15 of them on the counter's 0.5 s
+phase (.963/.463 this run), 103 off-grid frames in 21 windows. Any UIKit
+update over the game's layer seems to cost the game's frame its refresh.
+IPA87's label change reverted.
+
+IPA88 (`ios/build/NFSMW-fps-in-frame-88.ipa`, 30055438 bytes, SHA256 prefix
+943c7e134aa1f02d, UUID BDBB615F-A4D6-3578-9606-6F8D821C8FE3, `unzip -t` ok,
+codesign ok, 208 metallib entries): with the native layer showing, the
+counter is drawn into the game's frame. The label's 0.5 s timer still
+formats the text; when it changes it is drawn with Core Graphics into a
+BGRA bitmap (white on a near-black box, no rounded corners) and handed to
+the renderer (`nfsmw_native_set_fps_overlay`), which makes a new small
+texture and draws it with the present pipeline in its own viewport after
+the picture. The label stays hidden and untouched (no text or frame
+changes); with the emulated renderer it works as before. Test: race with
+the counter on; success = no pairs on the 0.5 s phase. Not yet run.
