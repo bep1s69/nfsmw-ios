@@ -5856,3 +5856,28 @@ thread_local after the first call (no atomic per call, ~8 ms/s); (B) larger or
 better-hashed GPU buffer slot table (needs `--nfsmw_native_gpu_lookup_stats=true`
 once to see the hit rate); (C) larger attribute front cache; (D) reuse `Draw`
 objects across frames instead of destroying 3,051 per frame.
+
+### October 26, 2026 — IPA64: proposals A-C from the IPA63 profile (built, not run)
+
+Stefan approved A-D. D (reuse `Draw` objects across frames) was dropped after
+reading the code: `~Draw` is mostly the shared_ptr releases of indices,
+constants and attribute arrays, which a reused object would still do when
+overwritten; no CPU saved, only moved.
+- A (`ios/src/adaptive_qos.cpp`, no switch, same behaviour): `OnMainLoop`
+  settles whether this thread is the owner once (thread_local) instead of a
+  `pthread_threadid_np` + compare-exchange on every call.
+- B (`--nfsmw_native_gpu_lookup_slots_log2`, default 14 = 16,384 slots; 12 =
+  the old 4,096): larger direct-mapped cache in front of `gpu_buffers`.
+- C (`--nfsmw_native_attribute_lookup_sets_log2`, default 14 = 16,384 sets x 2;
+  12 = the old 4,096): larger attribute front cache. IPA63 chase log: 2,493,136
+  hits / 539,758 misses (18% misses) at 4,096 sets.
+Static memory: +~0.45 MiB (B) and +~1.3 MiB (C). Startup log lines print the
+slot and set counts. Shader libraries untouched (208 metallib entries).
+IPA64 `ios/build/NFSMW-lookup-caches-64.ipa`, SHA256
+`e997fa1868ca4a3f89bc884eb236ea19191709c01658a9ae3c26c364834b4ee0`, NFSMW UUID
+`111B9391-F612-3460-936B-350557198BFB`, dSYM `ios/build/NFSMW-lookup-caches-64.dSYM`;
+zip test and codesign OK. Test: same chase and settings as the IPA63 Time
+Profiler (1x/40, 60 s, High Frequency, Deferred); compare `OnMainLoop`,
+`unordered_map` and `Record()`/`RenderFrame` ms/s and the attribute lookup
+miss ratio in the log. Old sizes for an A/B:
+`--nfsmw_native_gpu_lookup_slots_log2=12 --nfsmw_native_attribute_lookup_sets_log2=12`.

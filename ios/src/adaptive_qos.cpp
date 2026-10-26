@@ -210,18 +210,24 @@ void OnSwap(double interval_ms) {
 }
 
 // On the game's main thread (the first thread to call it), once per loop.
+// The owner is settled once per thread: the game calls this hundreds of
+// thousands of times a second in pursuits, and the compare-exchange on every
+// call cost ~8 ms/s on the iPhone (IPA63 profile).
 void OnMainLoop() {
   if (!Enabled()) return;
   static std::atomic<uint64_t> owner{0};
   thread_local int applied = -1;
-  uint64_t self = 0;
-  pthread_threadid_np(nullptr, &self);
-  uint64_t expected = 0;
-  if (owner.compare_exchange_strong(expected, self)) {
-    REXLOG_INFO("[adaptive-qos] main loop thread {:x} follows the mode", self);
-  } else if (expected != self) {
-    return;
+  thread_local int8_t is_owner = -1;  // -1 not checked yet
+  if (is_owner < 0) {
+    uint64_t self = 0;
+    pthread_threadid_np(nullptr, &self);
+    uint64_t expected = 0;
+    if (owner.compare_exchange_strong(expected, self)) {
+      REXLOG_INFO("[adaptive-qos] main loop thread {:x} follows the mode", self);
+    }
+    is_owner = expected == 0 || expected == self;
   }
+  if (!is_owner) return;
   Apply(mode.load(std::memory_order_relaxed), applied);
 }
 

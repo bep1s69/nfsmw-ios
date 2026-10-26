@@ -108,8 +108,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (`Record()` ~2.9 ms/frame), render queue ~180 ms/s. No single large waste
   left; top lines are per-draw cache lookups (attribute ~23 ms/s, GPU buffer
   ~17) and `adaptive_qos::OnMainLoop` 8 ms/s (an atomic per call). Proposals
-  A-D in TECHNICAL (Oct 26, Time Profiler), together ~5-6% of app CPU; await
-  Stefan's approval. Cool-start A/B (IPA53 vs IPA52) still open.
+  A-D in TECHNICAL (Oct 26, Time Profiler), together ~5-6% of app CPU.
+  **IPA64 (`NFSMW-lookup-caches-64.ipa`) built, not run:** A-C approved and
+  built (D dropped: no saving); see TECHNICAL "IPA64". Next: the same 60 s
+  chase Time Profiler on IPA64. Cool-start A/B (IPA53 vs IPA52) still open.
 
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
@@ -575,6 +577,8 @@ is retired and `ios_thread_qos` is ignored.
 | `nfsmw_native_transform_copies` | true (IPA30) | Guarded scalar transfers, bit-exact differential tests and iPad checks; energy gain unproven |
 | `nfsmw_native_lazy_diagnostics` | true (IPA30) | Skips unused normal-frame metadata/labels, preserves snapshots and residency; iPad check passed |
 | `nfsmw_native_gpu_lookup_hash` | true (IPA30) | Cache hit rate improved ~57.2% to ~74.0%; device CPU/power gain not established |
+| `nfsmw_native_gpu_lookup_slots_log2` | 14 (IPA64) | GPU buffer direct cache 16,384 slots (12 = old 4,096); not device-tested |
+| `nfsmw_native_attribute_lookup_sets_log2` | 14 (IPA64) | Attribute front cache 16,384 sets (12 = old 4,096; 18% misses in the IPA63 chase); not device-tested |
 | `nfsmw_native_gpu_lookup_stats` | false | Diagnostics only; enable consistently when comparing coverage |
 | `nfsmw_native_fused_upload_sizing` | true (IPA37) | IPA21: host/build checks and initial iPad 1.5x/60 correctness passed; device energy gain unproven |
 | `nfsmw_native_attribute_bulk_compare` | false | IPA22: exact base + 32-byte front-key equality; all four host switch configurations/build checks and initial iPad 1.5x/60 correctness passed; energy benefit unproven; requires attribute lookup ON |
