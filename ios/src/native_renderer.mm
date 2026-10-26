@@ -122,6 +122,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_pipeline_lookup, false, "GPU",
                     "Experiment: reuse the last successful ready-pipeline lookup on an exact key match (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, true, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
+REXCVAR_DEFINE_INT32(nfsmw_native_gpu_lookup_slots_log2, 14, "GPU",
+                     "GPU-buffer direct cache size as a power of two, 12-15 (12 = 4096 slots before IPA64; restart required)");
+REXCVAR_DEFINE_INT32(nfsmw_native_attribute_lookup_sets_log2, 14, "GPU",
+                     "Attribute front-cache sets (2 ways each) as a power of two, 12-14 (12 before IPA64; restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
@@ -1537,8 +1541,14 @@ std::unordered_map<AttributeKey, CacheEntry<FloatArray>, AttributeKeyHash> attri
 // Recording-thread-only entry lookup. This does not cache validation results:
 // every hit still checks the current guest bytes/write watch below in Record.
 // unordered_map nodes survive rehash, but Clear must precede any erasure.
+size_t AttributeLookupSetMask() {
+  static const size_t mask = (size_t(1) << std::clamp(REXCVAR_GET(nfsmw_native_attribute_lookup_sets_log2), 12, 14)) - 1;
+  return mask;
+}
 struct AttributeLookupCache {
-  static constexpr size_t kSets = 4096;
+  // Sized by nfsmw_native_attribute_lookup_sets_log2: at 4096 sets, ~18% of
+  // a pursuit's lookups missed into attribute_cache (IPA63 iPhone profile).
+  static constexpr size_t kSets = 16384;
   struct Slot {
     AttributeKey key{};
     CacheEntry<FloatArray>* entry = nullptr;
@@ -1555,7 +1565,7 @@ struct AttributeLookupCache {
     uint64_t h = uint64_t(key.base >> 4) ^ (uint64_t(key.lo) << 32) ^
                  (uint64_t(key.count) << 16) ^ (uint64_t(key.stride) << 8) ^ key.offset;
     h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9ull;
-    return size_t(h ^ (h >> 27)) & (kSets - 1);
+    return size_t(h ^ (h >> 27)) & AttributeLookupSetMask();
   }
 
   template <bool BulkCompare>
@@ -1592,9 +1602,9 @@ struct AttributeLookupCache {
   }
 
   void Clear() {
-    for (Set& set : sets) {
-      set.slots[0].entry = set.slots[1].entry = nullptr;
-      set.replace = 0;
+    for (size_t i = 0, n = AttributeLookupSetMask() + 1; i < n; ++i) {
+      sets[i].slots[0].entry = sets[i].slots[1].entry = nullptr;
+      sets[i].replace = 0;
     }
   }
 };
@@ -3994,7 +4004,14 @@ struct GpuBufferSlot {
   const void* key = nullptr;
   GpuBuffer* entry = nullptr;
 };
-GpuBufferSlot gpu_buffer_slots[4096];
+// Sized by nfsmw_native_gpu_lookup_slots_log2 (4096 before IPA64: a pursuit
+// binds ~10k arrays a frame, so most lookups fell through to the map).
+GpuBufferSlot gpu_buffer_slots[32768];
+
+size_t GpuBufferSlotMask() {
+  static const size_t mask = (size_t(1) << std::clamp(REXCVAR_GET(nfsmw_native_gpu_lookup_slots_log2), 12, 15)) - 1;
+  return mask;
+}
 
 bool GpuBufferLookupHashEnabled() {
   static const bool enabled = REXCVAR_GET(nfsmw_native_gpu_lookup_hash);
@@ -4014,7 +4031,7 @@ size_t GpuBufferSlotIndex(const void* pointer) {
     region ^= region >> 24;
     key ^= region * 0x9E37u;
   }
-  return size_t(key & 4095);
+  return size_t(key & GpuBufferSlotMask());
 }
 
 // Render-queue-only diagnostics. A collision means a different full pointer
@@ -7051,8 +7068,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         settings_logged = true;
         if (log_settings) REXLOG_INFO("[native] upload sizing: {} (restart required)",
                     fused_upload_sizing ? "fused single traversal" : "legacy two traversals");
-        if (log_settings) REXLOG_INFO("[native] GPU buffer selector: {}; 4096 direct-mapped slots (restart required)",
-                    GpuBufferLookupHashEnabled() ? "higher-bit mix" : "legacy low bits");
+        if (log_settings) REXLOG_INFO("[native] GPU buffer selector: {}; {} direct-mapped slots (restart required)",
+                    GpuBufferLookupHashEnabled() ? "higher-bit mix" : "legacy low bits", GpuBufferSlotMask() + 1);
         if (GpuBufferLookupStatsEnabled()) {
           // Scanning 4,096 slots once per summary avoids an occupancy update
           // on every lookup. No resource owns or depends on these counters.
@@ -7061,10 +7078,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const auto& lookup = gpu_buffer_lookup_stats;
           REXLOG_INFO("[native] GPU buffer lookup: stats on; over {} frames ({} snapshot), "
                       "{} hits, {} empty-slot misses, {} occupied-slot collisions; "
-                      "map fallbacks {} existing / {} new entries; {} of 4096 slots occupied, {} map entries "
+                      "map fallbacks {} existing / {} new entries; {} of {} slots occupied, {} map entries "
                       "(vertex and index lookups; new entries are not Metal allocation counts)",
                       lookup.frames, lookup.snapshot_frames, lookup.hits, lookup.empty_misses,
-                      lookup.collisions, lookup.existing_entries, lookup.new_entries, occupied, gpu_buffers.size());
+                      lookup.collisions, lookup.existing_entries, lookup.new_entries, occupied, GpuBufferSlotMask() + 1,
+                      gpu_buffers.size());
           gpu_buffer_lookup_stats = {};
         } else if (log_settings) {
           REXLOG_INFO("[native] GPU buffer lookup: stats off (nfsmw_native_gpu_lookup_stats, restart required)");
@@ -7213,9 +7231,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     "(content validation unchanged)",
                     AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
                     vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses);
-        if (log_settings) REXLOG_INFO("[native] attribute key comparison: {}; front cache {} (exact identity, restart required)",
+        if (log_settings) REXLOG_INFO("[native] attribute key comparison: {}; front cache {}, {} sets (exact identity, restart required)",
                     AttributeBulkCompareEnabled() ? "base + bulk 32 bytes" : "scalar fields",
-                    AttributeLookupEnabled() ? "on" : "off");
+                    AttributeLookupEnabled() ? "on" : "off", AttributeLookupSetMask() + 1);
         if (log_settings) REXLOG_INFO("[native] target lookup: {} (exact key, live target, restart required)",
                     reuse_target_lookup ? "frame-local last target" : "original map");
         if (log_settings) REXLOG_INFO("[native] pipeline lookup: {} (exact key, ready results only, restart required)",
