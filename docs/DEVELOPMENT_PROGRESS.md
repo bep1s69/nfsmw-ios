@@ -114,6 +114,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   or better; `OnMainLoop` now only call overhead. ms/s not comparable (IPA63
   window boosted on P cores, IPA64 mostly Utility on E cores). Next, if
   wanted: the battery-% chase on IPA64; cool-start A/B (IPA53 vs IPA52) open.
+- **October 26: iPad GPU cost per setting (IPA64 test race).** GPU ms/frame:
+  1x/60 5.9, 1.5x/60 10.2, 2x/60 14.2 (~85-90% busy), 1.5x/120 6.1 at a
+  higher clock (the heat). All held their cap. Lead: the six 320x256 passes
+  scale with resolution (TECHNICAL, Oct 26 iPad race).
 
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
