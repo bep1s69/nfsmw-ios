@@ -151,7 +151,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   yet run. IPA75 (Stefan): still parts of each element (dial face, ring,
   heat icon) do not keep the margins. **IPA76 (`NFSMW-hud-scale-76.ipa`):
   the pieces' offsets no longer change when a pause screen comes and goes.**
-  Not yet run.
+  Not yet run. IPA76 (Stefan): pieces stay together now, but the margins
+  still change (closer to the middle at min, to the edges at max) and the
+  mirror goes half off the top at max. **IPA77 (`NFSMW-hud-corners-77.ipa`):
+  each element keeps its outer corner (not its middle); the mirror's frame
+  and picture keep their top margin.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
