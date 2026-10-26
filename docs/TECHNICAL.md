@@ -5765,3 +5765,11 @@ antennae, since the first Metal version. In the snapshot PNGs the sky is black,
 so the halo against the sky cannot be seen there. Candidate (inferred, not
 checked): the final composite ps 20710a9a (scene t0, bloom t1 390x180, blur t3
 195x90, this frame's depth t4) blends the low-resolution blur by depth.
+Correction (Stefan): both runs share the log; the second run (13:38, frames
+3217-5910, bus terminal) had `--nfsmw_native_test_no_envcube_world=true`. With
+the world cube black the terminal glass still shows trees/sky (frames 3217,
+3897), so they do not come from the environment cube. No main-pass draw in those
+frames read a cube or resolve (no `reflective draw` lines besides the stale-slot
+4fbaecfb/8c8b5358), so the glass draw is still unidentified (27d82ea0's blended
+draws, blend 07060706, are tree cards). Proposed with the sun fix (IPA63):
+`--nfsmw_native_test_skip_ps=<hex>` to skip one pixel shader and find the glass.
