@@ -159,6 +159,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   in free roam; crashed when a race started. **IPA78
   (`NFSMW-hud-race-fix-78.ipa`): the HUD pieces are found again when a new
   HUD replaces the old one; pointers checked before use.** Not yet run.
+  IPA78 (Stefan): works; at the smallest size the picture bleeds through
+  the black loading screen before a race. **IPA79 (`NFSMW-hud-fade-79.ipa`):
+  the size is not applied while a full-screen fade package is up.** Not yet
+  run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

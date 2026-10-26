@@ -6264,3 +6264,21 @@ f02e3358106a3a80, UUID 13CD6D6C-9BE7-3A01-9679-773C6E9E6BDE, `unzip -t` ok):
 the pieces are found again when the package, either group, or any piece's
 vtable or name hash differs from when found (checked every frame); MoveGroup
 and the minimap's children only follow plausible heap pointers. Not yet run.
+
+IPA78 result (Stefan, Oct 26, iPad): races work, scaling as in free roam.
+Minor: at the smallest size, loading into a race, the game shows through at
+the top and bottom of the black loading screen (the HUD matrix shrinks it).
+Loading.fng and WS_Loading.fng are already "menus" (game_state.cpp) and none
+was logged before the IPA77 crash, so the black screen is another package.
+The game's image (`NFSMW_DUMP_IMAGE`, run from a scratch copy of the
+manifest with the Mac rexglue and `DYLD_LIBRARY_PATH` at its Release folder)
+lists FadeScreen.fng, FadeScreenNoLoadingBar.fng, BLACK_BACKGROUND.fng,
+BLACK_FADE_OUT.fng (also Loading_Tips, Loading_Controller, MW_LS_Splash).
+
+IPA79 (`ios/build/NFSMW-hud-fade-79.ipa`, 30058419 bytes, SHA256 prefix
+890c72a64d3ab4a9, UUID A06DB669-25E2-3568-BE90-F1C4CD9D5D0A, `unzip -t` ok):
+game_state.cpp also asks, in the world and outside menus, whether one of
+those four fade packages is up (`nfsmw_fade_up`, logged `[game] fade ...`,
+40 lines at most); the HUD matrix keeps size 1 meanwhile. Not menus, so the
+frame cap and touch layout are unchanged. Inference to check in the log:
+which one is the pre-race black screen. Not yet run.

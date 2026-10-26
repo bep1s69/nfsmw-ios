@@ -67,6 +67,14 @@ const char* const kMenuPackages[] = {
 };
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 
+// Full-screen fades while in the world (the black loading screen before a
+// race is one): not menus (the driving goes on under them, and the touch
+// controls keep their layout), but the HUD's size is not applied while one is
+// up, as it would shrink the black screen too (game_scene_size.cpp).
+const char* const kFadePackages[] = {"FadeScreen.fng", "FadeScreenNoLoadingBar.fng", "BLACK_BACKGROUND.fng",
+                                     "BLACK_FADE_OUT.fng"};
+constexpr int kFadeCount = int(sizeof(kFadePackages) / sizeof(kFadePackages[0]));
+
 const char* StateName(uint32_t s) {
   switch (s) {
     case 0: return "none";
@@ -91,8 +99,8 @@ uint32_t PutName(PPCContext& ctx, uint8_t* base, const char* name, uint32_t at) 
   return at;
 }
 
-// The first menu package up, or -1.
-int MenuPackage(PPCContext& ctx, uint8_t* base) {
+// The first of these packages up, or -1.
+int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, int count) {
   const uint32_t feng = REX_LOAD_U32(kFeng);
   if (!feng) return -1;
   const PPCContext saved = ctx;
@@ -100,11 +108,11 @@ int MenuPackage(PPCContext& ctx, uint8_t* base) {
   // that: r1 moved down past them for the call.
   const uint32_t name_at = saved.r1.u32 - 512;
   int found = -1;
-  for (int i = 0; i < kMenuCount && found < 0; ++i) {
+  for (int i = 0; i < count && found < 0; ++i) {
     ctx = saved;
     ctx.r1.u64 = name_at - 64;
     ctx.r3.u64 = feng;
-    ctx.r4.u64 = PutName(ctx, base, kMenuPackages[i], name_at);
+    ctx.r4.u64 = PutName(ctx, base, packages[i], name_at);
     sub_82284D70(ctx, base);
     if (ctx.r3.u8) found = i;
   }
@@ -114,12 +122,24 @@ int MenuPackage(PPCContext& ctx, uint8_t* base) {
 
 }  // namespace
 
+// Whether a full-screen fade is up in the world (kFadePackages); read by
+// game_scene_size.cpp on the game's thread.
+extern "C" {
+bool nfsmw_fade_up = false;
+}
+
 extern "C" REX_FUNC(sub_823B4158) {
   __imp__sub_823B4158(ctx, base);
   static uint32_t last_state = ~0u;
   static int last_menu = -2;
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
-  const int menu = state == kRacing ? MenuPackage(ctx, base) : -1;
+  const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
+  const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
+  if ((fade >= 0) != nfsmw_fade_up) {
+    nfsmw_fade_up = fade >= 0;
+    static int fade_lines = 40;
+    if (fade_lines-- > 0) REXLOG_INFO("[game] fade {}", fade >= 0 ? kFadePackages[fade] : "gone");
+  }
   if (state == last_state && menu == last_menu) return;
   static int lines_left = 400;  // in case something flickers every frame
   const bool log = lines_left-- > 0;
