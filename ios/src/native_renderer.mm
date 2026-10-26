@@ -171,6 +171,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_small_no_depth, false, "GPU",
                     "Native renderer test: no depth test in the 320- and 240-wide targets (environment cube, "
                     "small blur)");
+// The bus-terminal glass (IPA62): every shader but the car paint and the
+// rear-view mirror reads a black environment cube, to see whether the glass's
+// harsh trees come from the cube term.
+REXCVAR_DEFINE_BOOL(nfsmw_native_test_no_envcube_world, false, "GPU",
+                    "Native renderer test: world surfaces (glass) without their environment cube");
 REXCVAR_DEFINE_BOOL(nfsmw_native_test_grey_volume, false, "GPU",
                     "Native renderer test: car paint with a neutral grey 3D texture");
 // The movies (XMV player) drawn by the native renderer's own shaders.
@@ -5038,6 +5043,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::vector<int> pass_slot(frame->queries.size(), -1);  // in the current pass
     __unsafe_unretained id<MTLRenderCommandEncoder> visibility_encoder = nil;
     int visibility_slot = -1;  // the slot the current encoder counts into
+    // Snapshot frames: what each query's draws are, per pass (IPA62, the sun
+    // that is never hidden).
+    struct QueryNote {
+      size_t draws = 0, indices = 0, first = SIZE_MAX, last = 0;
+      std::set<uint64_t> ps;
+      std::set<uint32_t> depth, mask;
+    };
+    std::map<std::pair<int, std::string>, QueryNote> query_notes;
     if (!frame->queries.empty() && REXCVAR_GET(nfsmw_native_occlusion)) {
       static id<MTLBuffer> ring[kVisibilityBuffers];
       const int at = number % kVisibilityBuffers;
@@ -5953,6 +5966,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             visibility_slots.push_back({d.query, double(t.scale) * t.scale * std::max<uint32_t>(t.sample_count, 1)});
           }
           want = slot;
+          if (dump) {
+            QueryNote& qn = query_notes[{d.query, current + fmt::format(" slot {}", slot)}];
+            ++qn.draws;
+            qn.indices += d.index_count();
+            qn.first = std::min(qn.first, di);
+            qn.last = std::max(qn.last, di);
+            if (qn.ps.size() < 4) qn.ps.insert(d.ps_key);
+            qn.depth.insert(d.depth_control);
+            qn.mask.insert(d.color_mask);
+          }
         }
         if (want != visibility_slot) {
           [enc setVisibilityResultMode:want >= 0 ? MTLVisibilityResultModeCounting : MTLVisibilityResultModeDisabled
@@ -6293,6 +6316,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
             if (ft.cube && REXCVAR_GET(nfsmw_native_test_no_envcube)) shared[48 + s] = 0;
             if (ft.volume && REXCVAR_GET(nfsmw_native_test_grey_volume)) shared[32 + s] = grey_volume_index;
+          }
+          if (REXCVAR_GET(nfsmw_native_test_no_envcube_world) && frame->textures[d.textures[s]]->cube &&
+              d.ps_key != 0x2442daf2d3a7097aull && d.ps_key != 0xd1f317fad0f46ac6ull &&
+              d.ps_key != 0x8436534cfafcc0ebull) {
+            shared[48 + s] = 0;  // the black placeholder cube
           }
         }
       }
@@ -7308,6 +7336,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             line.rfind("reflective", 0) != 0 && line.rfind("pass start", 0) != 0)
           continue;
         REXLOG_INFO("[native]   {}", line);
+      }
+    }
+    // The occlusion queries' draws and what the GPU counted (the command
+    // buffer is done: its targets were just read back).
+    if (visibility) {
+      const uint64_t* counts = static_cast<const uint64_t*>(visibility.contents);
+      for (size_t q = 0; q < frame->queries.size(); ++q) {
+        REXLOG_INFO("[native]   query {} at {:08x}", q, frame->queries[q]);
+      }
+      for (const auto& [key, qn] : query_notes) {
+        const int slot = std::atoi(key.second.substr(key.second.rfind(' ') + 1).c_str());
+        std::string ps, depth, mask;
+        for (uint64_t k : qn.ps) ps += fmt::format(" {:016x}", k);
+        for (uint32_t v : qn.depth) depth += fmt::format(" {:08x}", v);
+        for (uint32_t v : qn.mask) mask += fmt::format(" {:x}", v);
+        REXLOG_INFO("[native]   query {} in {}: {} draws ({}-{}), {} indices, counted {} samples (/{:.0f} = {:.0f} "
+                    "guest pixels); ps{}; depth{}; mask{}",
+                    key.first, key.second, qn.draws, qn.first, qn.last, qn.indices, counts[slot],
+                    visibility_slots[slot].divisor, double(counts[slot]) / visibility_slots[slot].divisor, ps, depth,
+                    mask);
       }
     }
     for (const auto& [draw, note] : frame->notes) {

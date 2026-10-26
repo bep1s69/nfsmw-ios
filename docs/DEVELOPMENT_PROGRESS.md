@@ -108,8 +108,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA60/61 snapshots are a readback artefact; the battery-switch A/B below is
   dropped. Glass: the cube's real content is too strong. Sun: flicker fixed,
   but never hidden (0 of ~860k answers are 0). Plane run: ~2+ h LPM, 72%->35%.
-  Proposed IPA62 (awaiting approval): SNAP-only per-query draw log; test switch
-  giving the glass shaders a black cube. TECHNICAL Oct 26.
+  IPA62 built (approved, not run): SNAP frames log each occlusion query's
+  draws and counts; `--nfsmw_native_test_no_envcube_world=true` gives world
+  shaders (not car paint, not the mirror) a black cube. Test: SNAP with the sun
+  behind an overpass; drive past the bus terminal with and without the switch.
+  TECHNICAL Oct 26.
 
 - **October 25 (late): billboard flicker and glass parked by Stefan.** Seen
   on Vulkan too and since the start. Negative: polygon offset (IPA56, kept),

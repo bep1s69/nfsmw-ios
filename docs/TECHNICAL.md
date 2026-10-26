@@ -5706,3 +5706,23 @@ watchdog logged `5 s sin que se mueva ni un registro en ninguno de los 17
 hilos` with the semaphore history; the log ends there. Same signature as the
 parked iPhone event-loading freeze (BACKLOG); whether the game froze for
 Stefan is unconfirmed.
+Stefan (Oct 26): he did not notice the game freezing in that run.
+
+### October 26, 2026 — IPA62: per-query draw log, world cube test switch
+
+Approved by Stefan. `ios/src/native_renderer.mm` only; no default behaviour change.
+- On snapshot frames (SNAP with `--nfsmw_native_dump_manual=true`, or
+  `nfsmw_native_dump`), the log lists `query N at <address>` and, per query and
+  pass/slot, `query N in <pass> slot S: D draws (first-last), I indices,
+  counted C samples (/divisor = guest pixels); ps ...; depth ...; mask ...`
+  (up to 4 pixel shaders; every depth control and colour mask). Answers which
+  draws the sun's query brackets and why it never reaches 0.
+- `--nfsmw_native_test_no_envcube_world=true` (default false): every shader but
+  the car paint (2442daf2, d1f317fa) and the rear-view mirror (8436534c) reads
+  the black placeholder cube (index 0). If the bus-terminal glass then looks
+  like the 360's faint reflection, the cube term is too strong; if the trees
+  stay, they come from another texture.
+IPA62 `ios/build/NFSMW-query-glass-62.ipa`, SHA256
+`c893bb527aaf6a2f4f2e731cbd76c37c4953cc3619e4f23dd513c2572f43941e`, NFSMW UUID
+`9350B67F-51B7-3C0E-B933-F679A01D2B87`; 208 metallib entries (same as IPA61),
+zip test and codesign OK. Not run on a device.
