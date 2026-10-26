@@ -6071,3 +6071,47 @@ resolution" (Stefan's request), launcher Graphics tab and in-game menu:
 `reflection_size` = `1x` (default, the IPA66 behaviour) or `scaled`, giving
 `--nfsmw_native_scale_reflections`. Live in game: the renderer decides it
 every frame (no static). Battery mode sets 1x. Build exit 0. Not yet run.
+
+### October 26: HUD layout (movable/resizable HUD, step 1)
+
+Stefan asked whether single HUD elements can be moved. The HUD is a FEng
+package of named objects; the 19.5:9 code already finds the left group
+(0x1603009E: minimap side) and the right group (0x5D0101F1: speedometer side)
+and moves their x (object+44 -> +28). Found while reading the code:
+`sub_822AA6D0` (the HUD's widescreen switch) is called from `sub_822A8C50`
+(the HUD's update, assumed every frame) and only acts when the mode changes;
+the minimap is moved apart from the left group by `sub_8229C020`, which adds
+to its +184 (x) and its children's (+60/64/68/72/144) x, sets child 144's y
+from +188, and sets the map picture's offset x at 0x82A2C60C outright; the map
+drawing code (recomp.82, `lfs -14836/-14832`) reads that offset as x and y
+(0x82A2C610). So the minimap can move in y as well (inferred, not run).
+
+IPA70 (`ios/build/NFSMW-hud-layout-70.ipa`, 30040211 bytes, SHA256 prefix
+c1515f8e194e8f19, UUID 80317259-0F8A-3737-A022-7524F0DDE5FB, `unzip -t` ok;
+includes IPA69): new settings, launcher Graphics tab (section HUD) and the
+in-game menu, all live:
+
+| Setting | Cvar | Values |
+|---|---|---|
+| HUD size | `nfsmw_hud_scale` | 0.70-1.30 by 0.05 (1.00) |
+| Minimap left/right, up/down | `nfsmw_hud_left_x`, `nfsmw_hud_left_y` | -160..160 HUD units by 10 (0) |
+| Speedometer left/right, up/down | `nfsmw_hud_right_x`, `nfsmw_hud_right_y` | same |
+
+`game_scene_size.cpp`: the size multiplies the HUD matrix's x/y scale (the
+`sub_82453768` hook) while driving only (`battery::InMenu() == 0`), so menus
+keep their size; the mirror follows through `nfsmw_mirror_scale_*`. The sides:
+the groups' x and y are base + offset every call (base taken again whenever
+the game or its script moved them); the minimap's object and children get the
+difference from what was applied, and the picture offset is kept as the
+game's value + offset. The 19.5:9 extra is now part of the same offset. Logs:
+`[hud] matrix built (1/2/1000)` shows whether the matrix is rebuilt every
+frame (if not, the size only changes on the next race); `[hud] left group ...`
+on each new HUD. Not verified: y positive = down (the arrows' labels), the
+heat meter being in the left group. Build exit 0. Not yet run.
+
+Device checklist: (1) default 0s/100% look as IPA69 at 19.5:9, 16:9, 4:3;
+(2) HUD size 80% and 120% in a race, menus unchanged, mirror picture inside
+its frame; (3) minimap moved right and up: the map picture moves with its
+ring, the arrow stays in the middle; (4) speedometer moved left and up;
+(5) a new race and a restart keep the positions (no doubled moves);
+(6) changed in the pause menu: applied after resuming.

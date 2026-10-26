@@ -60,6 +60,18 @@
 //       - when it has just switched the minimap to widescreen, the minimap
 //         and its pivot (0x82A2C60C) go out by the same, the way the game
 //         moved them (the minimap's +184 and its children's x).
+//
+// The player's HUD layout (nfsmw_hud_*, live, from the options)
+// ==============================================================
+//
+//   - size: the HUD's matrix (above) scaled by nfsmw_hud_scale while driving
+//     (not in menus), about the middle of the screen; the mirror follows it
+//     (nfsmw_mirror_scale_*).
+//   - the two sides moved by nfsmw_hud_left_x/y and nfsmw_hud_right_x/y, in
+//     the same hook as the wide scene: the groups' x and y (object+44 -> +28,
+//     +32), and the minimap with them as the game moves it (sub_8229C020):
+//     its +184/+188, its children's x/y, and the map picture's offset
+//     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
 #include <cstring>
@@ -68,6 +80,8 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+
+#include "battery.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
                     "4:3 (SD) scene at 960x720 without MSAA instead of 640x480 with 2x MSAA "
@@ -82,6 +96,14 @@ REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
 // came too close to the edges of a 19.5:9 iPhone.
 REXCVAR_DEFINE_BOOL(nfsmw_hud_title_safe, false, "Game",
                     "Shrink the HUD into the TV title-safe area like the Xbox 360 (off: full size, like the PS2)");
+// The player's HUD (live): its size about the middle of the screen while
+// driving, and the left (minimap, heat) and right (speedometer, nitrous)
+// sides moved, in HUD units (640 across at 4:3; y down).
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_scale, 1.0, "Game", "HUD size while driving (1 = the game's)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_x, 0.0, "Game", "Minimap side of the HUD moved right by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_y, 0.0, "Game", "Minimap side of the HUD moved down by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_x, 0.0, "Game", "Speedometer side of the HUD moved right by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_y, 0.0, "Game", "Speedometer side of the HUD moved down by (HUD units)");
 REXCVAR_DEFINE_INT32(nfsmw_wide_scene_width, 0, "Game",
                      "Scene width for video modes wider than 16:9 (e.g. 1560 for 19.5:9); 0 = "
                      "the game's 1280 (experimental)")
@@ -226,6 +248,8 @@ extern "C" REX_FUNC(sub_82440D80) {
     REX_STORE_U32(kRenderSize + 8, 640);
     REX_STORE_U32(kRenderSize + 12, 480);
   }
+  static uint32_t calls = 0;  // how often it is rebuilt (nfsmw_hud_scale is read here)
+  if (++calls == 1 || calls == 2 || calls == 1000) REXLOG_INFO("[hud] matrix built ({})", calls);
   g_hud_matrix = true;
   __imp__sub_82440D80(ctx, base);
   g_hud_matrix = false;
@@ -275,6 +299,11 @@ extern "C" REX_FUNC(sub_82453768) {
       sx /= safe_x;
       sy /= safe_y;
     }
+    const double scale = REXCVAR_GET(nfsmw_hud_scale);
+    if (scale >= 0.5 && scale <= 1.5 && nfsmw::battery::InMenu() == 0) {  // not the menus
+      sx *= float(scale);
+      sy *= float(scale);
+    }
     StoreF(base, m, sx);
     StoreF(base, m + 20, sy);
     if (game_sx != 0 && game_sy != 0) {
@@ -285,11 +314,15 @@ extern "C" REX_FUNC(sub_82453768) {
   __imp__sub_82453768(ctx, base);
 }
 
+
 namespace {
 
 constexpr uint32_t kLeftGroup = 0x1603009E;
 constexpr uint32_t kRightGroup = 0x5D0101F1;
+// The minimap picture's offset (x, y), read where the map is drawn; the
+// game's widescreen switch sets x (sub_8229C020).
 constexpr uint32_t kMinimapPivotX = 0x82A2C60C;
+constexpr uint32_t kMinimapPivotY = 0x82A2C610;
 
 // HUD units the sides go out beyond the game's own 16:9 layout.
 float ExtraHudOffset(uint32_t width) {
@@ -297,14 +330,16 @@ float ExtraHudOffset(uint32_t width) {
   return 120.0f * (aspect - 16.0f / 9.0f) / (16.0f / 9.0f - 4.0f / 3.0f);
 }
 
-// One group: the x the game (or its script) last gave it, and what was written.
+// One group: the position the game (or its script) last gave it, and what
+// was written over it.
 struct Moved {
   uint32_t object = 0;
-  float written = 0;
+  float base_x = 0, base_y = 0;
+  float written_x = 0, written_y = 0;
 };
 Moved g_left, g_right;
 
-void MoveGroup(uint8_t* base, uint32_t object, float offset, Moved& moved) {
+void MoveGroup(uint8_t* base, uint32_t object, float dx, float dy, Moved& moved) {
   if (!object) {
     return;
   }
@@ -312,13 +347,66 @@ void MoveGroup(uint8_t* base, uint32_t object, float offset, Moved& moved) {
   if (!data) {
     return;
   }
-  const float x = LoadF(base, data + 28);
-  if (moved.object == object && x == moved.written) {
-    return;  // already moved, and nothing moved it since
+  const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
+  if (moved.object != object || x != moved.written_x || y != moved.written_y) {
+    moved.object = object;  // new, or the game moved it since: its new base
+    moved.base_x = x;
+    moved.base_y = y;
   }
-  moved.object = object;
-  moved.written = x + offset;
-  StoreF(base, data + 28, moved.written);
+  moved.written_x = moved.base_x + dx;
+  moved.written_y = moved.base_y + dy;
+  if (moved.written_x != x) StoreF(base, data + 28, moved.written_x);
+  if (moved.written_y != y) StoreF(base, data + 32, moved.written_y);
+}
+
+// The minimap is moved apart from the left group, as the game does it
+// (sub_8229C020): the object's +184/+188, its children's positions, and the
+// picture's offset. The game only adds to the object's (when it switches to
+// widescreen); it sets the offset's x outright.
+struct MovedMinimap {
+  uint32_t object = 0;
+  float x = 0, y = 0;  // added to the object and its children
+  float pivot_x = 0, pivot_y = 0;  // added to the offset
+  float written_px = 0, written_py = 0;
+  float written_x = 0;  // the object's +184 as left here
+};
+MovedMinimap g_minimap;
+
+// switched: the game has just moved it for (or back from) widescreen.
+void MoveMinimap(uint8_t* base, uint32_t minimap, float dx, float dy, bool switched) {
+  if (!minimap) {
+    return;
+  }
+  MovedMinimap& m = g_minimap;
+  if (m.object != minimap || (!switched && LoadF(base, minimap + 184) != m.written_x)) {
+    m.object = minimap;  // a new one (perhaps at the same address)
+    m.x = m.y = 0;
+  }
+  const float ox = dx - m.x, oy = dy - m.y;
+  if (ox != 0 || oy != 0) {
+    StoreF(base, minimap + 184, LoadF(base, minimap + 184) + ox);
+    StoreF(base, minimap + 188, LoadF(base, minimap + 188) + oy);
+    for (uint32_t off : {60u, 64u, 68u, 72u, 144u}) {
+      const uint32_t child = REX_LOAD_U32(minimap + off);
+      const uint32_t data = child ? REX_LOAD_U32(child + 44) : 0;
+      if (data) {
+        StoreF(base, data + 28, LoadF(base, data + 28) + ox);
+        StoreF(base, data + 32, LoadF(base, data + 32) + oy);
+      }
+    }
+    m.x = dx;
+    m.y = dy;
+  }
+  m.written_x = LoadF(base, minimap + 184);
+  const float px = LoadF(base, kMinimapPivotX), py = LoadF(base, kMinimapPivotY);
+  if (px != m.written_px) m.pivot_x = 0;  // set again by the game
+  if (py != m.written_py) m.pivot_y = 0;
+  m.written_px = px + (dx - m.pivot_x);
+  m.written_py = py + (dy - m.pivot_y);
+  m.pivot_x = dx;
+  m.pivot_y = dy;
+  if (m.written_px != px) StoreF(base, kMinimapPivotX, m.written_px);
+  if (m.written_py != py) StoreF(base, kMinimapPivotY, m.written_py);
 }
 
 uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t hash) {
@@ -330,41 +418,38 @@ uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t h
 
 }  // namespace
 
+// The HUD's update (sub_822AA6D0, every frame while there is a HUD): the
+// sides out for a wide scene, and the player's own HUD positions
+// (nfsmw_hud_left_x/y, nfsmw_hud_right_x/y, in HUD units: 640 across at 4:3).
 extern "C" REX_FUNC(sub_822AA6D0) {
   const uint32_t hud = ctx.r3.u32;
   const uint8_t was_wide = hud ? REX_LOAD_U8(hud + 816) : 0;
   __imp__sub_822AA6D0(ctx, base);
-  const uint32_t width = WideWidth();
-  if (!width || !hud || !REX_LOAD_U8(hud + 816)) {
+  if (!hud) {
     return;
   }
-  const float extra = ExtraHudOffset(width);
+  const uint32_t width = WideWidth();
+  const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
+  const float lx = float(REXCVAR_GET(nfsmw_hud_left_x)) - extra, ly = float(REXCVAR_GET(nfsmw_hud_left_y));
+  const float rx = float(REXCVAR_GET(nfsmw_hud_right_x)) + extra, ry = float(REXCVAR_GET(nfsmw_hud_right_y));
+  if (lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
+    return;  // nothing to move, and nothing moved
+  }
   const PPCContext saved = ctx;
   const uint32_t package = REX_LOAD_U32(hud + 36);
   if (package) {
     const uint32_t left = FindObject(ctx, base, package, kLeftGroup);
     const uint32_t right = FindObject(ctx, base, package, kRightGroup);
-    static bool said = false;
-    if (!said) {
-      said = true;
-      REXLOG_INFO("[wide-scene] HUD out by {:.0f} units: left group {:08X}, right group {:08X}",
-                  extra, left, right);
+    static uint32_t said_left = 0, said_right = 0;
+    if (left != said_left || right != said_right) {
+      said_left = left;
+      said_right = right;
+      REXLOG_INFO("[hud] left group {:08X} by {:.0f},{:.0f}; right group {:08X} by {:.0f},{:.0f} (wide {:.0f})",
+                  left, lx, ly, right, rx, ry, extra);
     }
-    MoveGroup(base, left, -extra, g_left);
-    MoveGroup(base, right, extra, g_right);
+    MoveGroup(base, left, lx, ly, g_left);
+    MoveGroup(base, right, rx, ry, g_right);
   }
   ctx = saved;
-  // The minimap, once, when the game has just moved it for widescreen.
-  const uint32_t minimap = REX_LOAD_U32(hud + 800);
-  if (!was_wide && minimap) {
-    StoreF(base, minimap + 184, LoadF(base, minimap + 184) - extra);
-    for (uint32_t off : {60u, 64u, 68u, 72u, 144u}) {
-      const uint32_t child = REX_LOAD_U32(minimap + off);
-      const uint32_t data = child ? REX_LOAD_U32(child + 44) : 0;
-      if (data) {
-        StoreF(base, data + 28, LoadF(base, data + 28) - extra);
-      }
-    }
-    StoreF(base, kMinimapPivotX, LoadF(base, kMinimapPivotX) - extra);
-  }
+  MoveMinimap(base, REX_LOAD_U32(hud + 800), lx, ly, REX_LOAD_U8(hud + 816) != was_wide);
 }

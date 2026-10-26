@@ -121,6 +121,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Stefan (Oct 26): the in-game menu is good enough for now; branch
   `in-game-options` stays local (not merged or pushed). Next QoL items are
   separate: movable HUD, save manager, pre-launch menu redesign.
+- **October 26: movable/resizable HUD, step 1, IPA70
+  (`NFSMW-hud-layout-70.ipa`), branch `claude/project-thread-w9st63` (local,
+  off `in-game-options`).** Stefan approved the plan: step 1 = HUD size plus
+  minimap and speedometer position as settings (launcher and in-game, live);
+  step 2 = a drag/pinch editor on screen. Built, not yet run. Next: Stefan's
+  device test (TECHNICAL, Oct 26 HUD layout); then step 2.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

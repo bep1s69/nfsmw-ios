@@ -84,6 +84,27 @@ std::vector<Choice> Percent(NSString* game) {
   return c;
 }
 
+// The HUD's size, 70% to 130%.
+std::vector<Choice> HudSizes() {
+  std::vector<Choice> c;
+  for (int i = 70; i <= 130; i += 5) {
+    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
+    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
+  }
+  return c;
+}
+
+// A HUD side moved, in HUD units (640 across at 4:3): -160 to 160 by 10,
+// with arrows (less: left or up).
+std::vector<Choice> HudOffsets(NSString* less, NSString* more) {
+  std::vector<Choice> c;
+  for (int i = -160; i <= 160; i += 10) {
+    NSString* v = [NSString stringWithFormat:@"%d", i];
+    c.push_back({i == 0 ? @"0 (game)" : [NSString stringWithFormat:@"%@ %d", i < 0 ? less : more, abs(i)], v});
+  }
+  return c;
+}
+
 // Settings only the emulated (Vulkan) renderer uses: greyed out while the
 // native Metal renderer draws the game. And the reverse.
 // "NFSMW Recompiled 0.2.0 · build 1A2B3C4D": the app's version and its
@@ -415,6 +436,24 @@ const std::vector<Section>& Sections() {
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
        }, kTabGraphics},
+      {@"HUD", @"Also in the options while playing (the gear in pause screens, or L3+R3), where "
+               @"they apply at once: the HUD shows them as soon as driving starts again.",
+       {
+           {@"hud_scale", Type::kChoice, @"HUD size",
+            @"The size of the speedometer, minimap and the rest of the race HUD, about the middle "
+            @"of the screen (the mirror too). Menus keep their size.",
+            @"1.00", HudSizes()},
+           {@"hud_left_x", Type::kChoice, @"Minimap: left / right",
+            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"←", @"→")},
+           {@"hud_left_y", Type::kChoice, @"Minimap: up / down",
+            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"↑", @"↓")},
+           {@"hud_right_x", Type::kChoice, @"Speedometer: left / right",
+            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
+            HudOffsets(@"←", @"→")},
+           {@"hud_right_y", Type::kChoice, @"Speedometer: up / down",
+            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
+            HudOffsets(@"↑", @"↓")},
+       }, kTabGraphics},
       {@"Graphics", nil,
        {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
@@ -730,6 +769,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
+  a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
+  a.push_back("--nfsmw_hud_left_x=" + str(@"hud_left_x"));
+  a.push_back("--nfsmw_hud_left_y=" + str(@"hud_left_y"));
+  a.push_back("--nfsmw_hud_right_x=" + str(@"hud_right_x"));
+  a.push_back("--nfsmw_hud_right_y=" + str(@"hud_right_y"));
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
