@@ -113,6 +113,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   for controllers, graphics settings only).** Built, not yet run on device.
   Next: Stefan's device test (checklist in TECHNICAL, Oct 26 in-game
   options); then Extra Options in the menu once they are complete.
+  IPA67 live settings confirmed by Stefan. **IPA68
+  (`NFSMW-battery-30fps-68.ipa`): Battery mode also sets 30 fps** (his
+  request); not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

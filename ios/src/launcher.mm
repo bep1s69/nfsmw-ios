@@ -407,7 +407,7 @@ const std::vector<Section>& Sections() {
             @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
-            @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
+            @"marked \"Set by Battery mode\" (0.85x, 30 fps, no MetalFX, FXAA, half-size shadows, car "
             @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
             @"menus and pause, 0.75x when hot). Each can also be chosen on its own with Battery "
             @"mode off.",
@@ -626,6 +626,7 @@ bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"scale" : @"0.85",
+    @"fps_cap" : @"30",
     @"metalfx_mode" : @"off",
     @"antialiasing" : @"fxaa",
     @"anisotropic" : @"3",
