@@ -6617,3 +6617,15 @@ fixed-step (repeated frame) hypothesis is ruled out. What the logs cannot
 see: unequal motion steps between distinct frames (a frame moving the world
 by 1.5 ticks and the next by 0.5) and perception (60 fps held for two
 refreshes on a 120 Hz panel). No measured delivery or timing fault remains.
+
+Wrap-up (Stefan, Oct 26 night): keep the in-frame FPS counter (IPA88/90:
+it did cause the 0.5 s stutter pairs); turn off the steady 120 Hz at 60
+and the diagnostics. IPA93 (`ios/build/NFSMW-pacing-cleanup-93.ipa`):
+`ios_display_120_at_60` default false (60 cap asks 60 Hz again; on with
+`--ios_display_120_at_60=true`); the swap-period and repeated-picture
+logging behind `nfsmw_native_frame_timing_log` (default false). Kept: the
+60 cap's vblank lock (IPA86, `ios_vblank_lock_60`, no harm seen), the
+per-frame off-grid lines (first 120) and the in-frame counter at screen
+scale. Remaining choppiness unexplained (no delivery, timing or repeated
+frame fault measured); untested suggestion: compare with the 120 fps cap.
+Still to do: a sharp counter on its own layer.

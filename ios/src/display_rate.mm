@@ -42,7 +42,7 @@ REXCVAR_DEFINE_BOOL(ios_display_match_cap, false, "GPU",
                     "iOS: ask the display for exactly the frame rate cap's refresh rate at 30, 40 "
                     "and 60 fps (instead of 60 / 120 / 60)");
 
-REXCVAR_DEFINE_BOOL(ios_display_120_at_60, true, "GPU",
+REXCVAR_DEFINE_BOOL(ios_display_120_at_60, false, "GPU",
                     "iOS: at the 60 fps cap, ask the display for a steady 120 Hz (as at 40) "
                     "instead of 60 Hz, which iOS may switch between 60 and 120 while playing");
 
@@ -97,9 +97,9 @@ namespace nfsmw::display {
 void RequestRateForCap(int fps_cap) {
   static CADisplayLink* link = nil;
   static NFSDisplayRate* target = nil;
-  // 60 too (IPA91): asking 60 Hz, the 120 Hz panel still ran at 120 at
-  // times (odd refresh counts in the pacing lines); the 40 cap, at a steady
-  // 120, is the one Stefan found smooth.
+  // 60 too, if asked (IPA91): asking 60 Hz, the 120 Hz panel still ran at
+  // 120 at times. A steady 120 did not help the choppiness Stefan saw (IPA91)
+  // and costs display power: off by default since IPA93.
   const bool high = fps_cap == 40 || fps_cap == 120 || (fps_cap == 60 && REXCVAR_GET(ios_display_120_at_60));
   const bool match = REXCVAR_GET(ios_display_match_cap) && (fps_cap == 30 || fps_cap == 40 || fps_cap == 60);
   const float preferred = match ? float(fps_cap) : high ? 120.0f : 60.0f;

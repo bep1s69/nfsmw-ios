@@ -210,7 +210,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (every frame 16.7 ms apart), still "skipping frames": content-side. Next
   (Stefan OK'd): find the game's frame-time code. **IPA92
   (`NFSMW-repeated-frames-92.ipa`): logs frames that repeat the previous
-  picture (`[native] content`).** Not yet run. New D-006
+  picture (`[native] content`).** IPA92: none repeat; the remaining
+  choppiness is unexplained and parked. **IPA93
+  (`NFSMW-pacing-cleanup-93.ipa`): counter fix kept; 120 Hz at 60 and the
+  frame-timing logs off by default.** Not yet run. Next: a sharp counter on
+  its own layer (backlog D-005). New D-006
   (race-finish background letterboxed).
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**

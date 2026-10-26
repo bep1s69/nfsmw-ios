@@ -7830,6 +7830,10 @@ __attribute__((constructor)) void InstallCommandProcessorHooks() {
   rex_native_occlusion_hook.store(&CpOcclusion);
 }
 
+// The IPA90/92 frame-timing diagnostics (swap periods, repeated pictures),
+// off by default since IPA93.
+REXCVAR_DEFINE_BOOL(nfsmw_native_frame_timing_log, false, "GPU",
+                    "Native renderer: log swap-period spread and repeated pictures every 300 frames");
 uint64_t content_sum = 0;  // repeated pictures (IPA92), see NativeDraw
 uint32_t content_draws = 0;
 bool NativeSwap() {
@@ -7852,7 +7856,7 @@ bool NativeSwap() {
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
-  {
+  if (REXCVAR_GET(nfsmw_native_frame_timing_log)) {
     static uint64_t previous_sum = 0;
     static uint32_t frames = 0, repeats = 0, runs = 0, longest = 0, run = 0;
     if (content_draws > 100) {  // a 3D scene, not a menu
@@ -7876,7 +7880,7 @@ bool NativeSwap() {
   // with the real clock (mftb), so uneven swap-to-swap periods are uneven
   // motion even when the screen shows every frame 16.7 ms apart. Every 300
   // swaps: the periods' spread and how many fall in each band.
-  {
+  if (REXCVAR_GET(nfsmw_native_frame_timing_log)) {
     static std::chrono::steady_clock::time_point previous_start;
     static double sum = 0, sum_sq = 0, low = 1e9, high = 0;
     static uint32_t count = 0, bands[8] = {};
@@ -8042,7 +8046,7 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
   if (!recording) {
     return;
   }
-  {
+  if (REXCVAR_GET(nfsmw_native_frame_timing_log)) {
     uint64_t h = 1469598103934665603ull;
     for (uint32_t i = 0; i < 64; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
     content_sum += h;

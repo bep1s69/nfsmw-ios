@@ -84,7 +84,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — cause found (FPS counter), fix built (IPA88), untested
+### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); remaining choppiness unexplained, parked
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show
@@ -100,7 +100,12 @@ Instruments trace of the race start (IPA89): the screen gets an even 60.
 Stefan: the whole screen judders. IPA90: the game's swap periods are even (sd ~0.45
 ms) and choppiness is random through the race. IPA91 (steady 120 Hz display): every
 frame shown on the 16.7 ms grid, still "skipping frames": the content's
-motion is uneven. Next: the game's frame-time code (fixed-step hypothesis).
+motion is uneven. IPA92: no repeated frames (fixed-step hypothesis ruled
+out). Parked Oct 26 (Stefan): IPA93 keeps the counter fix, turns the 120 Hz
+at 60 and diagnostics off. If resumed: race at the 120 cap to tell
+perception from content; then the game's timebase reads (~80 inline mftb,
+no frame-time function found yet). Also open: a sharp counter on its own
+layer (the in-frame one is soft at low render scales).
 
 ### D-006 Race-finish background letterboxed on the iPad — open
 
