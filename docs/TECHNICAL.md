@@ -6449,3 +6449,23 @@ one 120 Hz refresh. Hypothesis, not yet isolated: the counter causes the
 stutter it is meant to show, and "choppy moments" are stretches where the
 ms text changes at every tick. The vblank lock is not what helps or hurts
 here. Next: one race with the FPS counter off (no build needed).
+
+IPA86 with the FPS counter off (Stefan, Oct 26, iPad, one race; log
+`Debug/26 October 2026/nfsmw_ipa86_fps_counter_off.log`): "a few isolated
+hitches, but those moments of choppiness weren't present" (Stefan unsure if
+placebo). Log: 25 + 8.3 ms pairs fell from 21 (counter on) to 1, none on the
+0.5 s phase; 67 off-grid frames in 18 windows against 99 in 19, most of them
+in the first 20 s (loading, 117-158 ms hitches); after that 13 of 15
+windows have 0. Confirmed: the counter's text changes caused the pairs. The
+IPA86 vblank lock was on in both runs, so its own effect is not isolated;
+kept on (no harm seen).
+
+IPA87 (`ios/build/NFSMW-fps-counter-87.ipa`, 30064846 bytes, SHA256 prefix
+25f8c03c4040f20e, UUID 9C1B527E-0352-3A0C-961C-3675E25BC8BA, `unzip -t` ok,
+codesign ok, 208 metallib entries): `NFSFpsLabel` keeps its rounded
+background on the layer without `masksToBounds` (which renders the label
+off screen in the compositor whenever the text changes), sizes its frame
+once for the widest text, and sets text/frame only when they change. Test:
+one race with the counter on; success = no 25 + 8.3 ms pairs at .023/.523.
+If they stay, next step is drawing the counter into the game's Metal frame.
+Not yet run.
