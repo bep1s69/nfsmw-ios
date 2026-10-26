@@ -6051,3 +6051,10 @@ only (marked in the sheet). FXAA vs FXAA high looked the same to him: the
 two differ only in edge threshold (0.125 vs 0.063) and subpixel amount (0.75
 vs 1.0), the same as from the launcher; not a menu fault (inference). Not yet
 reported: whether B leaked into the pause menu, relaunch check.
+
+IPA68 (`ios/build/NFSMW-battery-30fps-68.ipa`, 30026701 bytes, SHA256 prefix
+cd838a3083b2032d, UUID B174EADB-7000-3A87-A186-A4615096AB48, 208 metallib,
+`unzip -t` ok): Battery mode now also sets the 30 fps cap (Stefan, Oct 26),
+in the launcher (row greyed "Set by Battery mode") and in the in-game menu
+(applied live through `battery::ChooseCap` when the game started at 30 or 60;
+from 40/120 it waits for the next launch). Build exit 0. Not yet run.

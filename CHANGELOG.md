@@ -8,6 +8,8 @@
   settings without restarting. Settings that need a restart (40/120 fps, MSAA)
   are marked "next launch".
 
+- **Battery mode now caps the game at 30 fps**, along with its other savings.
+
 - **About a quarter less battery drain while playing**, with the same picture,
   resolution and frame rate: the game's threads ask iOS for a lower priority,
   so the CPU runs at cheaper speeds (measured on an iPad Pro M4 at 1.5x / 60 fps).
