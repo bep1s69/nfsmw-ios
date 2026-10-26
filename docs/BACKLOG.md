@@ -275,12 +275,17 @@ Power Profiler or CPU investigations.
   cap, menu cap, 0.75x when hot, Battery mode; next launch: 40/120 fps, MSAA
   and launch-only values Battery mode sets. Next: device test (TECHNICAL,
   Oct 26 in-game options); later Extra Options in it. Separate later items:
-  Post-processing switch does nothing (Stefan, Oct 26, iPad; not in the
-  in-game menu either): IPA73 log shows the hook runs and clears byte
-  0x828F48B2 (1 before), yet the picture does not change (native renderer,
-  iPad); next: find what else draws the filter/bloom, then the in-game menu.
-  movable/resizable HUD (step 1 in IPA70: size and two side positions as
-  settings; step 2, a drag editor, after the device test), save manager, pre-launch menu redesign, trainer-style
+  Post-processing switch did nothing (Stefan, Oct 26): the byte only picked
+  the visual treatment's branching technique. IPA85 skips the post chain
+  (sub_82442310's view byte +9) and adds the switch to the in-game menu;
+  waiting for the device test.
+  Movable/resizable HUD: functional and declared finished for now (IPA84,
+  Stefan Oct 26): size, safe zone, minimap/speedometer/race info positions,
+  launcher and in-game, live. Open, not final: (1) the picture shows through
+  for a moment at the end of the loading screen at small sizes (what hides
+  FadeScreen.fng's black screen is unknown: its alpha stays 255); (2) a
+  drag/pinch editor on screen (step 2); (3) element corners are estimates
+  from the IPA73 tree; (4) only iPad 4:3 tested. Save manager, pre-launch menu redesign, trainer-style
   menu idea.
 
 - **After IPA52 (Oct 24 night), ranked, none approved:** (1) repeat run + iPad

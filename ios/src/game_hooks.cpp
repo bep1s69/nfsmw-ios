@@ -48,6 +48,18 @@
 // -lbz at 0x82224710 and 0x8222442C- read 0 instead. Here, without touching the
 // generated code: while those two functions run the byte is 0, and it is
 // restored on return. Cvar nfsmw_sin_posprocesado, off by default.
+//
+// That byte only picks the visual treatment's "branching" technique over the
+// plain one ("visualtreatment_branching" / "visualtreatment", 0x82075510 /
+// 0x8207552C; sub_822241A0 decides whether the branch is needed, e.g. for
+// motion blur), so with it the colour filter, bloom and vignette stayed
+// (Stefan, Oct 26: the switch did nothing he could see). The frame's post
+// chain is run by sub_82442310 (which also draws the HUD, sub_82440D80): the
+// byte at +9 of its argument (the view's "post-processing on") gates the
+// bloom chain (sub_82224C00) and the visual treatment (sub_822246F0, r4 =
+// 1); without it the function takes its other path, which puts the scene on
+// the screen as it is. game_scene_size.cpp (USA addresses, not translated
+// by tools/ediciones) makes that byte read 0 while the function runs.
 
 #include <dlfcn.h>
 #include <os/os_sync_wait_on_address.h>

@@ -24,6 +24,8 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 26: Stefan declared the movable/resizable HUD finished for now
+  (IPA84): functional, not final; remaining items in BACKLOG.
 - October 26: Stefan declared performance/battery solved for now (after the
   IPA63/64 profiles and IPA66 1x reflections). Battery leads stay in the
   backlog, parked; next work is QoL features (save manager, movable/resizable
@@ -179,7 +181,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   the bottom edge.** Not yet run. IPA83 (Stefan): the whole race HUD at full
   size and off screen (the fade's alpha stays 255 all race). **IPA84
   (`NFSMW-hud-overlays-84.ipa`): that hold removed; song box and radar arcs
-  kept.** Not yet run.
+  kept.** IPA84 (Stefan): all good apart from the short bleed; **HUD
+  declared finished for now (Stefan, Oct 26): functional, not its final
+  form; kept in the backlog.** Next: post-processing. **IPA85
+  (`NFSMW-no-post-85.ipa`): Post-processing off now skips the game's post
+  chain (bloom, colour filter, vignette); the switch is in the in-game menu
+  too (live).** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

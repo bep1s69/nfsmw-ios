@@ -123,7 +123,9 @@ extern "C" void __imp__sub_824585E0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82440D80(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82453768(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822AA6D0(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void __imp__sub_82442310(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_8227FD58(PPCContext& __restrict ctx, uint8_t* base);
+REXCVAR_DECLARE(bool, nfsmw_sin_posprocesado);  // game_hooks.cpp
 
 namespace {
 
@@ -850,3 +852,23 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
     MoveGroup(base, o, k * ax / s - ax, k * ay / s - ay, m);
   }
 }
+
+// Post-processing off (nfsmw_sin_posprocesado; game_hooks.cpp has the
+// history): sub_82442310 runs the frame's post chain, and the byte at +9 of
+// its argument (the view's "post-processing on") gates the bloom chain and
+// the visual treatment (colour filter, vignette); it reads 0 while the
+// function runs, so the game takes its path without them.
+extern "C" REX_FUNC(sub_82442310) {
+  const uint32_t view = ctx.r3.u32;
+  if (!REXCVAR_GET(nfsmw_sin_posprocesado) || !view) {
+    __imp__sub_82442310(ctx, base);
+    return;
+  }
+  const uint8_t before = REX_LOAD_U8(view + 9);
+  static int said = 0;
+  if (said++ < 2) REXLOG_INFO("[post] frame without post-processing: view byte +9 was {}", before);
+  REX_STORE_U8(view + 9, 0);
+  __imp__sub_82442310(ctx, base);
+  REX_STORE_U8(view + 9, before);
+}
+
