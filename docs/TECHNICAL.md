@@ -6367,3 +6367,32 @@ IPA84 (`ios/build/NFSMW-hud-overlays-84.ipa`, 30063250 bytes, SHA256 prefix
 the alpha hold removed (still logged); the rest of IPA83 kept. The bleed at
 the end of the loading screen (IPA82) is back; open: what hides the black
 screen (flags at +0x1C, the package's own state). Not yet run.
+
+IPA84 result (Stefan, Oct 26, iPad): all good apart from the short bleed at
+the end of the loading screen. Stefan: the HUD is finished for now
+(functional, not its final form; BACKLOG keeps the rest).
+
+### October 26: post-processing switch
+
+The switch (`postprocessing` -> `nfsmw_sin_posprocesado`) did nothing
+visible (Stefan). Reading the code: the byte 0x828F48B2 that the Xenia
+"Disable Post Processing" patch clears only chooses, in sub_822246F0, the
+technique "visualtreatment_branching" over "visualtreatment" (0x82075510,
+0x8207552C, in the image's strings next to the post chain's: downscale,
+blur, brightpass, bloom, calculate_luminance, finalhdrpass, UVESVIGNETTE),
+and sub_822241A0 also has to say the branch is needed; sub_82224380 passes
+it on as a shader bool. So the colour filter, bloom and vignette stay
+either way. The post chain is run by sub_82442310 (the same function that
+builds the HUD matrix): the byte at +9 of its argument gates the bloom chain
+(sub_82224C00) and the visual treatment (sub_822246F0 with r4 = 1); with it
+0 the function takes its other path.
+
+IPA85 (`ios/build/NFSMW-no-post-85.ipa`, 30063575 bytes, SHA256 prefix
+646f10859c651317, UUID FCCE461C-26AD-323F-A972-85077586777F, `unzip -t` ok):
+with the switch off, that byte reads 0 while sub_82442310 runs
+(game_scene_size.cpp, USA addresses: tools/ediciones refused a new address
+in game_hooks.cpp, which is translated from the reference edition); logged
+`[post] frame without post-processing: view byte +9 was N`. The switch is in
+the in-game menu, live (the cvar is read every frame). Risk: the other path
+may need pipelines not yet compiled (a few frames missing) or show the scene
+unexposed/too dark. Not yet run.

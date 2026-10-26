@@ -14,6 +14,9 @@
   speedometer and the race info (standings, laps, times) moved left, right,
   up or down on their own.
 
+- **Post-processing switch fixed.** Turning it off now really removes the
+  colour filter, bloom and vignette; it can also be changed while playing.
+
 - **Battery mode now caps the game at 30 fps**, along with its other savings.
 
 - **New setting: reflection and mirror resolution.** The reflections on the
