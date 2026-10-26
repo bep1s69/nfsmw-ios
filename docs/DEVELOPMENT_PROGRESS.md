@@ -206,7 +206,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (`NFSMW-swap-periods-90.ipa`): diagnostic `[native] swap periods`; counter
   back at screen scale.** IPA90: swap periods even; choppiness random through
   the race. **IPA91 (`NFSMW-120hz-at-60-91.ipa`): the 60 cap asks the display
-  for a steady 120 Hz (`ios_display_120_at_60`).** Not yet run.
+  for a steady 120 Hz (`ios_display_120_at_60`).** IPA91: delivery perfect
+  (every frame 16.7 ms apart), still "skipping frames": content-side. Next
+  (needs Stefan's OK): find the game's frame-time code. New D-006
+  (race-finish background letterboxed).
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

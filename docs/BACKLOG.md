@@ -98,8 +98,17 @@ counter into the game's frame: its pairs gone (IPA88). Left: the race
 start's choppiness (texture decode hitches and 33 ms misses); next: an
 Instruments trace of the race start (IPA89): the screen gets an even 60.
 Stefan: the whole screen judders. IPA90: the game's swap periods are even (sd ~0.45
-ms) and choppiness is random through the race. Next: IPA91, a steady 120
-Hz display at the 60 cap (as at 40).
+ms) and choppiness is random through the race. IPA91 (steady 120 Hz display): every
+frame shown on the 16.7 ms grid, still "skipping frames": the content's
+motion is uneven. Next: the game's frame-time code (fixed-step hypothesis).
+
+### D-006 Race-finish background letterboxed on the iPad — open
+
+Stefan, Oct 26 (IPA91): the asphalt-and-leaves picture behind the race
+results shows bars top and bottom on the iPad (it filled the screen
+before; on 19.5:9 iPhones it bled at the sides). Screenshot
+`Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
+from the HUD/scene-size work (IPA70-85); not investigated.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
