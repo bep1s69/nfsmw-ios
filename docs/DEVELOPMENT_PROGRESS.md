@@ -127,6 +127,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   minimap and speedometer position as settings (launcher and in-game, live);
   step 2 = a drag/pinch editor on screen. Built, not yet run. Next: Stefan's
   device test (TECHNICAL, Oct 26 HUD layout); then step 2.
+  IPA70 on device (Stefan): size and positions work and stay put across
+  races, but the size moved the sides inward/outward, and the race
+  position/progress element moves with the speedometer. **IPA71
+  (`NFSMW-hud-anchors-71.ipa`): each side now scales about its own middle;
+  logs the right group's layout** to find that race element. Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

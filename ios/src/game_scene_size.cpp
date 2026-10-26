@@ -142,6 +142,12 @@ void StoreF(uint8_t* base, uint32_t address, float v) {
   REX_STORE_U32(address, bits);
 }
 
+// nfsmw_hud_scale while driving (menus keep the game's size), else 1.
+float HudScale() {
+  const double scale = REXCVAR_GET(nfsmw_hud_scale);
+  return scale >= 0.5 && scale <= 1.5 && nfsmw::battery::InMenu() == 0 ? float(scale) : 1.0f;
+}
+
 // Set while sub_82440D80 runs: its call to sub_82453768 hands on the HUD's matrix.
 thread_local bool g_hud_matrix = false;
 
@@ -299,11 +305,9 @@ extern "C" REX_FUNC(sub_82453768) {
       sx /= safe_x;
       sy /= safe_y;
     }
-    const double scale = REXCVAR_GET(nfsmw_hud_scale);
-    if (scale >= 0.5 && scale <= 1.5 && nfsmw::battery::InMenu() == 0) {  // not the menus
-      sx *= float(scale);
-      sy *= float(scale);
-    }
+    const float scale = HudScale();
+    sx *= scale;
+    sy *= scale;
     StoreF(base, m, sx);
     StoreF(base, m + 20, sy);
     if (game_sx != 0 && game_sy != 0) {
@@ -323,6 +327,14 @@ constexpr uint32_t kRightGroup = 0x5D0101F1;
 // game's widescreen switch sets x (sub_8229C020).
 constexpr uint32_t kMinimapPivotX = 0x82A2C60C;
 constexpr uint32_t kMinimapPivotY = 0x82A2C610;
+
+// Where the middles of the two sides are, from the middle of the screen, in
+// HUD units before the matrix (left side; the right is the mirror image):
+// measured on Stefan's Oct 26 screenshots, 221 x 138 at 4:3 (the 4:3 layout),
+// 120 more across at 16:9 (the game's widescreen layout). The size scales
+// about the middle of the screen; the sides are moved by as much again, so
+// each grows or shrinks about its own middle and keeps its margins.
+constexpr float kSideX = 221.0f, kSideY = 138.0f, kWideSideX = 120.0f;
 
 // HUD units the sides go out beyond the game's own 16:9 layout.
 float ExtraHudOffset(uint32_t width) {
@@ -430,8 +442,16 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
-  const float lx = float(REXCVAR_GET(nfsmw_hud_left_x)) - extra, ly = float(REXCVAR_GET(nfsmw_hud_left_y));
-  const float rx = float(REXCVAR_GET(nfsmw_hud_right_x)) + extra, ry = float(REXCVAR_GET(nfsmw_hud_right_y));
+  // The game's own middle of a side (g), where it should be drawn (g + the
+  // offset), and what to add for that through a matrix scaled by s:
+  // s * (g + d) = g + offset.
+  const float s = HudScale();
+  const float gx = kSideX + (REX_LOAD_U8(hud + 816) ? kWideSideX : 0.0f);
+  auto d = [s](float g, float offset) { return (g + offset) / s - g; };
+  const float lx = d(-gx, float(REXCVAR_GET(nfsmw_hud_left_x)) - extra);
+  const float ly = d(kSideY, float(REXCVAR_GET(nfsmw_hud_left_y)));
+  const float rx = d(gx, float(REXCVAR_GET(nfsmw_hud_right_x)) + extra);
+  const float ry = d(kSideY, float(REXCVAR_GET(nfsmw_hud_right_y)));
   if (lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
     return;  // nothing to move, and nothing moved
   }
@@ -446,6 +466,21 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       said_right = right;
       REXLOG_INFO("[hud] left group {:08X} by {:.0f},{:.0f}; right group {:08X} by {:.0f},{:.0f} (wide {:.0f})",
                   left, lx, ly, right, rx, ry, extra);
+    }
+    static uint32_t dumped = 0;
+    if (right && right != dumped) {  // its layout, to find the race position/progress pieces
+      dumped = right;
+      const uint32_t data = REX_LOAD_U32(right + 44);
+      for (uint32_t o = 0; o < 0x80; o += 0x20) {
+        REXLOG_INFO("[hud] right group +{:02X}: {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X}", o,
+                    REX_LOAD_U32(right + o), REX_LOAD_U32(right + o + 4), REX_LOAD_U32(right + o + 8),
+                    REX_LOAD_U32(right + o + 12), REX_LOAD_U32(right + o + 16), REX_LOAD_U32(right + o + 20),
+                    REX_LOAD_U32(right + o + 24), REX_LOAD_U32(right + o + 28));
+      }
+      if (data) {
+        REXLOG_INFO("[hud] right group data pos {:.1f},{:.1f} size {:.2f},{:.2f}", LoadF(base, data + 28),
+                    LoadF(base, data + 32), LoadF(base, data + 56), LoadF(base, data + 60));
+      }
     }
     MoveGroup(base, left, lx, ly, g_left);
     MoveGroup(base, right, rx, ry, g_right);
