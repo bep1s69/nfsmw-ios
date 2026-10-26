@@ -122,6 +122,7 @@ extern "C" void __imp__sub_82440D80(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82453768(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822AA6D0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_8227FD58(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" bool nfsmw_fade_up;  // game_state.cpp
 
 namespace {
 
@@ -158,9 +159,10 @@ float HudScaleSetting() {
   return scale >= 0.5 && scale <= 1.5 ? float(scale) : 1.0f;
 }
 
-// The HUD matrix's: the setting while driving (menus keep the game's size),
-// else 1.
-float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
+// The HUD matrix's: the setting while driving (menus keep the game's size;
+// so do the full-screen fades, such as the black loading screen before a
+// race, which bled the picture through at the top and bottom), else 1.
+float HudScale() { return nfsmw::battery::InMenu() == 0 && !nfsmw_fade_up ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
