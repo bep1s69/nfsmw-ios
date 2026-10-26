@@ -159,6 +159,8 @@ float HudScaleSetting() {
 // else 1.
 float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
 
+float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
+
 // Set while sub_82440D80 runs: its call to sub_82453768 hands on the HUD's matrix.
 thread_local bool g_hud_matrix = false;
 
@@ -171,6 +173,9 @@ thread_local bool g_hud_matrix = false;
 extern "C" {
 float nfsmw_mirror_scale_x = 1.0f;
 float nfsmw_mirror_scale_y = 1.0f;
+// And moved down by this much (of the screen's half height), with the
+// mirror's frame (nfsmw_hud_*: kept at its top margin).
+float nfsmw_mirror_shift_y = 0.0f;
 }
 
 namespace {
@@ -319,6 +324,11 @@ extern "C" REX_FUNC(sub_82453768) {
     const float scale = HudScale();
     sx *= scale;
     sy *= scale;
+    // Of the screen's half height per HUD unit: 240 units at full size, in HD
+    // the title-safe 0.92 kept (HudSafeScale), in SD only with the cvar.
+    const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;
+    const float kept_y = hd ? LoadF(base, kHdSafeScale) : REXCVAR_GET(nfsmw_hud_title_safe) ? safe_y : 1.0f;
+    g_half_height_per_unit = (kept_y > 0.5f && kept_y <= 1.0f ? kept_y : 1.0f) * scale / 240.0f;
     StoreF(base, m, sx);
     StoreF(base, m + 20, sy);
     if (game_sx != 0 && game_sy != 0) {
@@ -485,17 +495,23 @@ constexpr uint32_t kRightInner = 0x5C7A5C8A;
 
 enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft };
 
-// Each element's middle as the game draws it (before the 19.5:9 extra), in
-// HUD units from the middle of the screen: x 221 from it at 4:3, 120 more in
-// the game's widescreen layout (the left ones at -x); y from IPA73's tree:
-// the minimap's map and ring at 139, the speedometer's dial ~141, the race
-// standings -123 (the top pieces taken at -150).
-struct Centre {
+// Each element's outer corner as the game draws it (before the 19.5:9
+// extra), in HUD units from the middle of the screen, kept at its place by
+// the size (IPA76: keeping the middles moved the edges): the middles x 221
+// from the middle at 4:3, 120 more in the game's widescreen layout (the left
+// ones at -x), y from IPA73's tree: the minimap's map and ring at 139 and
+// the speedometer's dial ~141, both ~76 in radius; the race info's top
+// pieces to ~-213 and ~76 past the middles. The mirror's frame (0x7FAC287B,
+// two 128x87 halves at y -176): its top at -220.
+struct Corner {
   float side;  // -1 left, 1 right
   float y;
 };
-constexpr Centre kCentres[] = {{-1, 139}, {1, 139}, {1, -150}, {-1, -150}};
-constexpr float kSideX = 221.0f, kWideSideX = 120.0f;
+constexpr Corner kCorners[] = {{-1, 215}, {1, 215}, {1, -213}, {-1, -213}};
+constexpr float kSideX = 221.0f, kWideSideX = 120.0f, kHalfWidth = 76.0f;
+constexpr uint32_t kMirrorFrame = 0x7FAC287B;
+constexpr float kMirrorTop = -220.0f;
+Moved g_mirror;
 
 struct Piece {
   uint32_t object;
@@ -563,10 +579,10 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
   // The player's offsets, then what each element's pieces are moved by: with
-  // the game's middle g (and the extra e, which the groups carry), the safe
+  // the element's corner g (and the extra e, which the groups carry), the safe
   // zone k and the size s (the HUD's matrix scales about the middle of the
   // screen), the middle is drawn at k * (g + e) + offset:
-  // s * (g + e + d) = k * (g + e) + offset.
+  // s * (g + e + d) = k * (g + e) + offset. The mirror's frame alike (y).
   const float user[4][2] = {
       {float(REXCVAR_GET(nfsmw_hud_left_x)), float(REXCVAR_GET(nfsmw_hud_left_y))},
       {float(REXCVAR_GET(nfsmw_hud_right_x)), float(REXCVAR_GET(nfsmw_hud_right_y))},
@@ -584,7 +600,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   float offset[4][2];
   static bool active = false;  // anything set or moved since the start
   for (int e = 0; e < 4; ++e) {
-    const float x = kCentres[e].side * (gx + extra), y = kCentres[e].y;
+    const float x = kCorners[e].side * (gx + kHalfWidth + extra), y = kCorners[e].y;
     offset[e][0] = (k * x + user[e][0]) / s - x;
     offset[e][1] = (k * y + user[e][1]) / s - y;
     active = active || std::abs(offset[e][0]) > 0.01f || std::abs(offset[e][1]) > 0.01f;
@@ -621,6 +637,12 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     MoveGroup(base, right, extra, 0, g_right);
     for (Piece& p : g_pieces) {
       MoveGroup(base, p.object, offset[p.element][0], offset[p.element][1], p.moved);
+    }
+    const float mirror_dy = (k * kMirrorTop) / s - kMirrorTop;
+    const uint32_t frame = active || std::abs(mirror_dy) > 0.01f ? FindObject(ctx, base, package, kMirrorFrame) : 0;
+    if (frame) {
+      MoveGroup(base, frame, 0, mirror_dy, g_mirror);
+      nfsmw_mirror_shift_y = mirror_dy * g_half_height_per_unit;
     }
   }
   ctx = saved;

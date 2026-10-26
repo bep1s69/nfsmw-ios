@@ -428,7 +428,7 @@ uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msa
   return std::max(samples, 1u);
 }
 
-extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y;  // game_scene_size.cpp
+extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y, nfsmw_mirror_shift_y;  // game_scene_size.cpp
 
 namespace {
 
@@ -6172,7 +6172,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const float mx = mirror ? nfsmw_mirror_scale_x : 1.0f, my = mirror ? nfsmw_mirror_scale_y : 1.0f;
       vp.originX = ox - std::fabs(sx) * mx + wx;
       vp.width = 2 * std::fabs(sx) * mx;
-      vp.originY = oy - std::fabs(sy) * my + wy;
+      vp.originY = oy - std::fabs(sy) * my + wy + (mirror ? nfsmw_mirror_shift_y * std::fabs(sy) : 0.0f);
       vp.height = 2 * std::fabs(sy) * my;
       vp.znear = oz;
       vp.zfar = oz + sz;

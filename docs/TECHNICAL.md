@@ -6233,3 +6233,18 @@ the offsets use the size setting at all times (the matrix still scales only
 while driving), so they are the same before and after a pause screen. If the
 still parts stay off, the next lead is the FEng object's "needs layout" flag
 (flags at +0x1C) after each offset change. Not yet run.
+
+IPA76 result (Stefan, Oct 26, iPad): the pieces stay together (no report of
+parts coming apart), so the pause-screen offsets were the cause. But at the
+smallest size the elements sit closer to the middle and at the largest
+slightly closer to the edges than at 100%: their middles were kept, so their
+outer edges moved. The mirror goes about half off the top at the largest.
+
+IPA77 (`ios/build/NFSMW-hud-corners-77.ipa`, 30046523 bytes, SHA256 prefix
+d9caf58e4a21feec, UUID 9F2A6248-D033-3655-9155-B24063E50C7D, `unzip -t` ok):
+the kept point is each element's outer corner: x = middle + 76 units, y 215
+(minimap, speedometer) or -213 (race info, top left). The mirror: its frame
+(0x7FAC287B, inferred from the tree) moved in y so its top (-220) keeps its
+margin (with the safe zone too), and the native renderer moves the mirror's
+picture by as much (`nfsmw_mirror_shift_y`, of the screen's half height:
+HUD units x 0.92/240 in HD, 1/240 at 4:3, x the size). Not yet run.
