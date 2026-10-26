@@ -6314,3 +6314,18 @@ divides the position and size of each top-level image 400 units wide or more
 (the black screen, inferred) by the HUD's size, so the matrix draws it as at
 size 1. Not yet run; if the log shows no list or no wide image, the black
 screen is elsewhere in the package.
+
+IPA81 result (Stefan, Oct 26, iPad; log
+`Debug/26 October 2026/nfsmw_ipa81_loading_hud.log`): the picture still shows
+through. `[hud] fade package BE909B60: objects list at +44, first BE909920`
+(found as expected), and its tree: top level 6A0831F6 (217,-148; the loading
+bar and its text, a 1200x46 bar in D2C6710F > B8AF84C3) and 027FF2DC
+(115.4,68.4) holding EB4CF244 and 54EB3AF6, two 1200x650 images at
+(-116,-69): the black screen, inside a group, which IPA81 did not look into.
+
+IPA82 (`ios/build/NFSMW-hud-fade-fit-82.ipa`, 30050588 bytes, SHA256 prefix
+86f78bbc4132e326, UUID DE47FEE5-3402-3037-8B6A-BBBD515242D5, `unzip -t` ok):
+images 400 units wide or more anywhere in the package (groups 4 deep) get
+position and size / s, and the groups holding them position / s (their size
+left: it may be a scale). Open risk: a still image may keep its old layout
+(as the HUD's still pieces did, IPA75). Not yet run.

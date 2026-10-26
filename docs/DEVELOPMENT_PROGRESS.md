@@ -169,7 +169,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA80 (Stefan): works as described, but the 3 s at full size do not look
   nice. **IPA81 (`NFSMW-hud-fade-fit-81.ipa`): no hold; the fade package's
   full-screen images are drawn at full size whatever the HUD's size.** Not
-  yet run.
+  yet run. IPA81 (Stefan): still bleeds; the log shows the black screen is
+  inside a group. **IPA82 (`NFSMW-hud-fade-fit-82.ipa`): wide images in
+  groups too.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

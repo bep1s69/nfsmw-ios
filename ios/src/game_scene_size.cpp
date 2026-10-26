@@ -673,10 +673,10 @@ struct Fitted {
 };
 std::unordered_map<uint32_t, Fitted> g_fitted;
 
-// Position (+28, +32) and size (+56, +60) of an object divided by s, so that
-// through the HUD's matrix (scaled by s about the middle of the screen) it is
-// drawn as without it.
-void Fit(uint8_t* base, uint32_t object, float s) {
+// Position (+28, +32) and, unless only_position, size (+56, +60) of an
+// object divided by s, so that through the HUD's matrix (scaled by s about
+// the middle of the screen) it is drawn as without it.
+void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
   const uint32_t data = REX_LOAD_U32(object + 44);
   if (!Plausible(data)) return;
   const uint32_t at[4] = {data + 28, data + 32, data + 56, data + 60};
@@ -686,9 +686,31 @@ void Fit(uint8_t* base, uint32_t object, float s) {
   Fitted& f = it->second;
   if (added || std::memcmp(now, f.written, sizeof(now)) != 0) std::memcpy(f.base, now, sizeof(now));
   for (int i = 0; i < 4; ++i) {
-    f.written[i] = f.base[i] / s;
+    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / s;
     if (f.written[i] != now[i]) StoreF(base, at[i], f.written[i]);
   }
+}
+
+// The full-screen images (400 units wide or more) in an object, groups
+// included: the images by position and size, the groups that hold them by
+// position (IPA81's log: FadeScreen.fng's black screen is two 1200x650
+// images in the group 0x027FF2DC). Whether any was found.
+bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
+  const uint32_t type = REX_LOAD_U32(object + 0x18), data = REX_LOAD_U32(object + 44);
+  if (type == 1) {
+    if (!Plausible(data) || std::abs(LoadF(base, data + 56)) < 400.0f) return false;
+    Fit(base, object, s, false);
+    return true;
+  }
+  if (type != 5 || depth >= 4 || REX_LOAD_U32(object + 0x5C) != kListVtable) return false;
+  bool any = false;
+  int n = 0;
+  for (uint32_t c = REX_LOAD_U32(object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+       c = REX_LOAD_U32(c + 4), ++n) {
+    any = FitWide(base, c, s, depth + 1) || any;
+  }
+  if (any) Fit(base, object, s, true);
+  return any;
 }
 
 }  // namespace
@@ -696,8 +718,8 @@ void Fit(uint8_t* base, uint32_t object, float s) {
 // A full-screen fade package that is up (game_state.cpp, every frame while
 // one is pushed in the world): the black loading screen before a race is
 // drawn through the HUD's matrix too, and at a smaller HUD size the picture
-// bled through at its top and bottom (IPA78). Its top-level pieces (images
-// 400 units wide or more: the black screen) are drawn as at size 1. The
+// bled through at its top and bottom (IPA78). Its full-screen images (400
+// units wide or more: the black screen) are drawn as at size 1. The
 // package's object list is found by its list header (vtable 0x82080030,
 // count, first), logged once.
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
@@ -720,10 +742,8 @@ extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
     if (first) DumpObjects(base, first, 0, budget);
   }
   const float s = HudScale();
-  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable; o = REX_LOAD_U32(o + 4)) {
-    const uint32_t data = REX_LOAD_U32(o + 44);
-    if (REX_LOAD_U32(o + 0x18) == 1 && Plausible(data) && std::abs(LoadF(base, data + 56)) >= 400.0f) {
-      Fit(base, o, s);
-    }
+  int n = 0;
+  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
+    FitWide(base, o, s, 0);
   }
 }
