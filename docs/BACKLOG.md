@@ -96,7 +96,9 @@ counter's 0.5 s text updates; with the counter off they are gone. IPA87
 (cheaper label updates) was worse and drew double text; IPA88 draws the
 counter into the game's frame: its pairs gone (IPA88). Left: the race
 start's choppiness (texture decode hitches and 33 ms misses); next: an
-Instruments trace of the race start (IPA89).
+Instruments trace of the race start (IPA89): the screen gets an even 60.
+Stefan: the whole screen judders. Next: IPA90's swap-period spread (uneven
+motion steps from the game's real-clock timing).
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 

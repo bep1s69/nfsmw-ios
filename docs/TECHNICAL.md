@@ -6531,3 +6531,19 @@ cap). So the screen gets an even 60 fps apart from a dropped frame every
 choppiness". Hypothesis to check with Stefan: the judder is in the content
 (e.g. other cars or parts of the scene updated at a lower rate than 60,
 as the Xbox 360 game ran at 30), which display timing cannot show.
+
+Stefan (Oct 26): the whole screen looks choppy in the race's first ~20 s,
+not just other cars. The game reads the real clock (it imports
+KeQueryPerformanceFrequency; the recompiled code reads the timebase), so if
+the game reaches its swaps unevenly, each frame's motion step is uneven
+even though the screen shows the frames 16.7 ms apart: a judder neither
+the display trace nor the fps counter can see.
+
+IPA90 (`ios/build/NFSMW-swap-periods-90.ipa`, 30066262 bytes, SHA256 prefix
+5cd6a575021d69bb, UUID 32A65BB5-F0A0-3409-B8C1-2B891862D43C, `unzip -t` ok,
+codesign ok, 208 metallib entries), diagnostic: every 300 swaps `[native]
+swap periods: mean, spread (sd), min-max | bands <12 ... 30+` (swap entry to
+swap entry). Even motion needs nearly all in 16.2-17.2. Also the counter
+bitmap is back at the screen's scale (IPA88; IPA89's frame resolution was
+blurrier). Test: one race; compare the race start's swap periods with the
+later, smooth part. Not yet run.
