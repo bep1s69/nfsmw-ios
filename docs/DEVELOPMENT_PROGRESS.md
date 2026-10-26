@@ -103,6 +103,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 26 (later): sun fix built as IPA63 (`NFSMW-sun-fix-63.ipa`), not
+  run.** The game ends each sun query at begin-0x20; answers were filed under
+  the begin address and some unmarked ends opened runaway queries. Test: sunny
+  weather, sun behind overpasses/buildings should hide it; the stats line
+  should show answers of 0. Halo around thin objects and the bus-terminal glass
+  are parked by Stefan (Vulkan shows them too; maybe the 360's own look).
+
 - **October 26: the environment cube is not black.** The rear-view mirror is
   the cube times a brightness (ps 8436534c) and shows the scene, so the black
   IPA60/61 snapshots are a readback artefact; the battery-switch A/B below is

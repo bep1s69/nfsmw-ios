@@ -5773,3 +5773,20 @@ frames read a cube or resolve (no `reflective draw` lines besides the stale-slot
 4fbaecfb/8c8b5358), so the glass draw is still unidentified (27d82ea0's blended
 draws, blend 07060706, are tree cards). Proposed with the sun fix (IPA63):
 `--nfsmw_native_test_skip_ps=<hex>` to skip one pixel shader and find the glass.
+
+### October 26, 2026 — IPA63: sun query answers filed under the end address
+
+Stefan: halo (also on Vulkan) and bus-terminal glass parked as likely the
+game's own look; fix the sun. Change (`ios/src/native_renderer.mm`, no switch;
+gated by `nfsmw_native_occlusion` as before): each recorded query keeps the
+address it ended at (`Frame::query_ends`); the GPU count is stored under that
+address, which is where the game reads its answer (begin minus 0x20). A ZPD at
+the open query's begin address minus 0x20 without the 0xFFFFFEED marker now
+closes the query instead of opening a runaway one (no answer is written for
+it; counted in the stats line as `(N ends without the marker)`). Snapshot
+query lines also print `ended at <address>`. Expected: answers of 0 behind
+geometry and counts no larger than the sun quad.
+IPA63 `ios/build/NFSMW-sun-fix-63.ipa`, SHA256
+`3be16d73ade549e73a78998b9c103b7380aa815b900e5d9793bfdc177a56206b`, NFSMW UUID
+`AC72C463-778A-3A66-8C38-EBC701644EFE`; 208 metallib entries, zip test and
+codesign OK. Not run on a device.
