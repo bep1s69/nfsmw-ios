@@ -5881,3 +5881,33 @@ Profiler (1x/40, 60 s, High Frequency, Deferred); compare `OnMainLoop`,
 `unordered_map` and `Record()`/`RenderFrame` ms/s and the attribute lookup
 miss ratio in the log. Old sizes for an A/B:
 `--nfsmw_native_gpu_lookup_slots_log2=12 --nfsmw_native_attribute_lookup_sets_log2=12`.
+
+### October 26, 2026 — IPA64 iPhone Time Profiler, police chase: caches work, runs not comparable in ms
+
+Stefan, iPhone 17 Pro Max, IPA64 (UUID `111B9391-F612-3460-936B-350557198BFB`),
+same settings as the IPA63 trace, no Extra Args
+(`26 October 2026/ipa64_time_profile_police_chase_iphone.trace`, 15:45:34-15:46:36;
+log `26 October 2026/nfsmw_ipa64_polica_chase_iphone.log`).
+
+Measured:
+- Not comparable in absolute ms/s: the IPA63 trace window was entirely in an
+  adaptive-QoS boost (User Initiated from 15:31:26; 76% of running samples on
+  P cores), the IPA64 window boosted only until 15:45:44 and then ran at
+  Utility (86% of samples on E cores). App total 1,358 ms/s vs 791 is the
+  slower E cores, not more work. Both held ~40 fps; IPA64 drew more
+  (2,400-4,200 draws/frame vs 2,500-3,100).
+- C: attribute lookup misses ~18% -> ~3% (log: 2,830,355 hits / 80,486
+  misses vs 2,493,136 / 539,758). `unordered_map<AttributeKey>` 5.8% -> 1.0%
+  of GPU Commands time.
+- B: `unordered_map<const void*, GpuBuffer>` 3.9% -> 1.8% of render-queue time.
+- A: `OnMainLoop` 5.6% -> 3.6% of Main XThread time. The `casal` is gone; the
+  remaining samples sit on the function's first instructions (guard and
+  Enabled loads), i.e. the cost of the call itself, which the deferred-call
+  runner makes extremely often (inference). Removing that needs fewer calls
+  (the main-loop spin), not a cheaper hook.
+- `Fingerprint` 6.1% -> 12.9% of GPU Commands (more draws in this window;
+  not explained further).
+Inference: B and C remove their lookups as intended; the battery effect is
+small and cannot be read from these traces (different cores). Whether the
+adaptive boost engages dominates CPU energy in a chase far more than these
+lookups.

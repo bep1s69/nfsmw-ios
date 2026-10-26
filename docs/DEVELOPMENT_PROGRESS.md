@@ -109,9 +109,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   left; top lines are per-draw cache lookups (attribute ~23 ms/s, GPU buffer
   ~17) and `adaptive_qos::OnMainLoop` 8 ms/s (an atomic per call). Proposals
   A-D in TECHNICAL (Oct 26, Time Profiler), together ~5-6% of app CPU.
-  **IPA64 (`NFSMW-lookup-caches-64.ipa`) built, not run:** A-C approved and
-  built (D dropped: no saving); see TECHNICAL "IPA64". Next: the same 60 s
-  chase Time Profiler on IPA64. Cool-start A/B (IPA53 vs IPA52) still open.
+  **IPA64 (`NFSMW-lookup-caches-64.ipa`): A-C built (D dropped, no saving)
+  and profiled:** attribute misses 18% -> 3%, both cache maps' shares halved
+  or better; `OnMainLoop` now only call overhead. ms/s not comparable (IPA63
+  window boosted on P cores, IPA64 mostly Utility on E cores). Next, if
+  wanted: the battery-% chase on IPA64; cool-start A/B (IPA53 vs IPA52) open.
 
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
