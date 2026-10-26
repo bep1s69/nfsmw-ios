@@ -9,7 +9,8 @@
   are marked "next launch".
 
 - **HUD size and position.** New HUD settings (launcher Graphics tab and the
-  options while playing): the race HUD's size, and the minimap, the
+  options while playing): the race HUD's size and safe zone (how close to
+  the screen's edges it sits), and the minimap, the
   speedometer and the race info (standings, laps, times) moved left, right,
   up or down on their own.
 

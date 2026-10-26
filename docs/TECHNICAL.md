@@ -6199,3 +6199,19 @@ minimap's map moves with the minimap offset (MoveMinimap). Size unchanged
 (IPA70: whole HUD about the middle; its summary now says to move the pieces
 back). Log: `[hud] package ...: pieces: minimap N, speedometer N, race info N`
 (expected 3, 7, 10 from IPA73's tree). Not yet run.
+
+IPA74 result (Stefan, Oct 26): the minimap, speedometer and race info move
+correctly on their own. Asked: the size should keep the default safe zone
+(margins), and the safe zone should be its own slider.
+
+IPA75 (`ios/build/NFSMW-hud-safe-zone-75.ipa`, 30046422 bytes, SHA256 prefix
+979884e7228f1fdb, UUID 0557CDF7-7E38-3F93-81FC-76EB30FD0AE9, `unzip -t` ok):
+every piece of an element gets one offset d with s * (g + e + d) =
+k * (g + e) + offset: g the element's middle as the game draws it (x 221,
++120 in the widescreen layout, left ones negative; y 139 minimap and
+speedometer, -150 race info and the top-left pieces, which are now an
+element of their own with no player offset), e the 19.5:9 extra (carried by
+the two groups), s the size, k the new safe zone (`nfsmw_hud_safe_zone`,
+`hud_safe_zone`, 0.80-1.10 by 0.02, 1.00; live). Unlike IPA71 every piece is
+moved, not the two groups. The centres are estimates (IPA73 tree): an
+element whose middle is off drifts a little with the size. Not yet run.

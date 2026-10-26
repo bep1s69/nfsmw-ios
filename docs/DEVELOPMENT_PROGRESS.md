@@ -144,7 +144,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   post-processing hook runs and clears the byte, yet nothing changes.
   **IPA74 (`NFSMW-hud-elements-74.ipa`): minimap, speedometer and race info
   (top right) move on their own; new Race info rows.** Size stays the whole
-  HUD about the middle (IPA70). Not yet run.
+  HUD about the middle (IPA70). Not yet run. IPA74 (Stefan): elements move
+  correctly; he wants the size to keep the default margins, and the safe
+  zone as its own slider. **IPA75 (`NFSMW-hud-safe-zone-75.ipa`): each
+  element scales about its own middle; new HUD safe zone (80-110%).** Not
+  yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

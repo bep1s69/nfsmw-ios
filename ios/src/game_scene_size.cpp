@@ -75,6 +75,7 @@
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
+#include <cmath>
 #include <cstring>
 #include <vector>
 
@@ -106,6 +107,8 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_x, 0.0, "Game", "Minimap side of the HUD mo
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_y, 0.0, "Game", "Minimap side of the HUD moved down by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_x, 0.0, "Game", "Speedometer side of the HUD moved right by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_y, 0.0, "Game", "Speedometer side of the HUD moved down by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_safe_zone, 1.0, "Game",
+                      "How far out the HUD's pieces sit, from the middle of the screen (1 = the game's)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_x, 0.0, "Game", "Race info (top right) moved right by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_y, 0.0, "Game", "Race info (top right) moved down by (HUD units)");
 REXCVAR_DEFINE_INT32(nfsmw_wide_scene_width, 0, "Game",
@@ -476,7 +479,19 @@ uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t h
 constexpr uint32_t kLeftOuter = 0x157C5B37;
 constexpr uint32_t kRightInner = 0x5C7A5C8A;
 
-enum Element { kMinimap, kSpeedometer, kRaceInfo };
+enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft };
+
+// Each element's middle as the game draws it (before the 19.5:9 extra), in
+// HUD units from the middle of the screen: x 221 from it at 4:3, 120 more in
+// the game's widescreen layout (the left ones at -x); y from IPA73's tree:
+// the minimap's map and ring at 139, the speedometer's dial ~141, the race
+// standings -123 (the top pieces taken at -150).
+struct Centre {
+  float side;  // -1 left, 1 right
+  float y;
+};
+constexpr Centre kCentres[] = {{-1, 139}, {1, 139}, {1, -150}, {-1, -150}};
+constexpr float kSideX = 221.0f, kWideSideX = 120.0f;
 
 struct Piece {
   uint32_t object;
@@ -543,12 +558,28 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
-  const float offset[3][2] = {
+  // The player's offsets, then what each element's pieces are moved by: with
+  // the game's middle g (and the extra e, which the groups carry), the safe
+  // zone k and the size s (the HUD's matrix scales about the middle of the
+  // screen), the middle is drawn at k * (g + e) + offset:
+  // s * (g + e + d) = k * (g + e) + offset.
+  const float user[4][2] = {
       {float(REXCVAR_GET(nfsmw_hud_left_x)), float(REXCVAR_GET(nfsmw_hud_left_y))},
       {float(REXCVAR_GET(nfsmw_hud_right_x)), float(REXCVAR_GET(nfsmw_hud_right_y))},
-      {float(REXCVAR_GET(nfsmw_hud_race_x)), float(REXCVAR_GET(nfsmw_hud_race_y))}};
+      {float(REXCVAR_GET(nfsmw_hud_race_x)), float(REXCVAR_GET(nfsmw_hud_race_y))},
+      {0, 0}};
+  const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
+  const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
+  const float s = HudScale();
+  const float gx = kSideX + (REX_LOAD_U8(hud + 816) ? kWideSideX : 0.0f);
+  float offset[4][2];
   static bool active = false;  // anything set or moved since the start
-  for (const auto& o : offset) active = active || o[0] != 0 || o[1] != 0;
+  for (int e = 0; e < 4; ++e) {
+    const float x = kCentres[e].side * (gx + extra), y = kCentres[e].y;
+    offset[e][0] = (k * x + user[e][0]) / s - x;
+    offset[e][1] = (k * y + user[e][1]) / s - y;
+    active = active || std::abs(offset[e][0]) > 0.01f || std::abs(offset[e][1]) > 0.01f;
+  }
   const uint32_t package = REX_LOAD_U32(hud + 36);
   static uint32_t dumped_package = 0;
   const bool dump = package && package != dumped_package;
@@ -564,14 +595,14 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       g_pieces.clear();
       const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
       const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);
-      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, -1);
+      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft);
       AddPieces(base, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo);
-      int counts[3] = {};
+      int counts[4] = {};
       for (const Piece& p : g_pieces) ++counts[p.element];
       REXLOG_INFO("[hud] package {:08X}: left group {:08X}, right group {:08X} ({:08X}); pieces: minimap {}, "
-                  "speedometer {}, race info {} (wide {:.0f})",
+                  "speedometer {}, race info {}, top left {} (wide {:.0f})",
                   package, left, right, right_inner, counts[kMinimap], counts[kSpeedometer], counts[kRaceInfo],
-                  extra);
+                  counts[kTopLeft], extra);
     }
     if (dump && right) {  // once per HUD package
       dumped_package = package;
