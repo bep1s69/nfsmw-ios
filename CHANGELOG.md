@@ -10,6 +10,10 @@
 
 - **Battery mode now caps the game at 30 fps**, along with its other savings.
 
+- **New setting: reflection and mirror resolution.** The reflections on the
+  cars and the rear-view mirror are drawn at the Xbox 360's size (the default,
+  lighter) or follow the render resolution (a sharper mirror).
+
 - **About a quarter less battery drain while playing**, with the same picture,
   resolution and frame rate: the game's threads ask iOS for a lower priority,
   so the CPU runs at cheaper speeds (measured on an iPad Pro M4 at 1.5x / 60 fps).

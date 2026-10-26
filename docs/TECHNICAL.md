@@ -6063,3 +6063,11 @@ IPA67 follow-up (Stefan, Oct 26): the "next launch" label shows on the 40/120
 fps and MSAA rows; closing the sheet with B does not reach the game's pause
 menu. Still unreported: the launcher showing the menu's values after a
 relaunch; IPA68 not yet run.
+
+IPA69 (`ios/build/NFSMW-reflection-size-69.ipa`, 30027403 bytes, SHA256
+prefix c0a118bffa4469b3, UUID 36230D8D-9618-3D01-B9A3-AF661E45D1C7, 208
+metallib, `unzip -t` ok; includes IPA68): new setting "Reflection and mirror
+resolution" (Stefan's request), launcher Graphics tab and in-game menu:
+`reflection_size` = `1x` (default, the IPA66 behaviour) or `scaled`, giving
+`--nfsmw_native_scale_reflections`. Live in game: the renderer decides it
+every frame (no static). Battery mode sets 1x. Build exit 0. Not yet run.

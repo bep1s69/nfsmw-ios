@@ -117,7 +117,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate", @"heat_scale", @"heat_scale_test" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate", @"reflection_size", @"heat_scale", @"heat_scale_test" ]];
   return [keys containsObject:key];
 }
 
@@ -448,6 +448,12 @@ const std::vector<Section>& Sections() {
             @"a frame in races, hard to notice.",
             @"full",
             {{@"Every frame", @"full"}, {@"Half each frame", @"half"}}},
+           {@"reflection_size", Type::kChoice, @"Reflection and mirror resolution",
+            @"Native renderer: the environment reflected on the cars and shown in the rear-view "
+            @"mirror, drawn at the Xbox 360's size or scaled with the render resolution. 1x: "
+            @"~1 ms less GPU work a frame above 1x, a softer mirror.",
+            @"1x",
+            {{@"1x (Xbox 360)", @"1x"}, {@"Render resolution", @"scaled"}}},
            {@"postprocessing", Type::kSwitch, @"Post-processing",
             @"The original game's color filter and blur. Off: less GPU work, but it no longer "
             @"looks like the original.",
@@ -635,6 +641,7 @@ NSString* BatteryValue(NSString* key) {
     @"scaling" : @"bilinear",
     @"shadow_scale" : @"0.5",
     @"reflection_rate" : @"half",
+    @"reflection_size" : @"1x",
     @"auto_cap" : @"true",
     @"menu_cap" : @"true",
     @"heat_scale" : @"true",
@@ -750,6 +757,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
     a.push_back("--nfsmw_native_half_rate_reflections=" + b([Value(s, @"reflection_rate") isEqualToString:@"half"]));
     a.push_back("--nfsmw_native_shadow_scale=" + str(@"shadow_scale"));
+    a.push_back("--nfsmw_native_scale_reflections=" + b([Value(s, @"reflection_size") isEqualToString:@"scaled"]));
     a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));

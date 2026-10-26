@@ -115,7 +115,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   options); then Extra Options in the menu once they are complete.
   IPA67 live settings confirmed by Stefan. **IPA68
   (`NFSMW-battery-30fps-68.ipa`): Battery mode also sets 30 fps** (his
-  request); not yet run.
+  request); not yet run. **IPA69 (`NFSMW-reflection-size-69.ipa`): adds the
+  "Reflection and mirror resolution" setting (launcher and in-game, live).**
+  Not yet run. Open check: launcher shows the menu's values after a relaunch.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
