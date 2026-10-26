@@ -118,6 +118,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   request); not yet run. **IPA69 (`NFSMW-reflection-size-69.ipa`): adds the
   "Reflection and mirror resolution" setting (launcher and in-game, live).**
   Not yet run. Open check: launcher shows the menu's values after a relaunch.
+  Stefan (Oct 26): the in-game menu is good enough for now; branch
+  `in-game-options` stays local (not merged or pushed). Next QoL items are
+  separate: movable HUD, save manager, pre-launch menu redesign.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
