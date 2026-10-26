@@ -6569,3 +6569,24 @@ asks 120 Hz (range 80-120; cvar `ios_display_120_at_60`, default on; off
 with `--ios_display_120_at_60=false`); the guest vblank stays 60 Hz,
 locked to every other refresh (display_rate.mm publishes every other tick
 with twice the period). Expect a little more display power. Not yet run.
+
+IPA91 result (Stefan, Oct 26, iPad, cap 60; log
+`Debug/26 October 2026/nfsmw_ipa91_race_Stutter_ipad.log`): "still looks
+like it's skipping frames". The display ran a steady 120 Hz (`refresh now
+120 Hz`), the guest vblank locked (16.67 ms), and every pacing window of
+the race is `0 of 300 off ... 2:300`: every frame shown exactly 16.7 ms
+after the one before. Swap periods sd 0.40-0.64 ms, the same ~15.7/~17.7 ms
+bimodal pattern as IPA90. So frame delivery is now perfect and the
+"skipped frames" must be in the content: the picture's motion does not
+advance evenly from frame to frame. Leading hypothesis (untested): the game
+steps its simulation in fixed ticks from the real clock (an accumulator);
+with frame periods jittering about +-1 ms around one tick, a frame
+sometimes gets no tick (a repeated picture) and the next two (a jump),
+in stretches that come and go as the accumulator's phase drifts. Next:
+find the game's frame-time code (its timebase / KeQuerySystemTime reads and
+any fixed step) and log ticks per frame, or remove the 1 ms jitter at its
+source. Also seen: the race-finish background (asphalt and leaves) is
+letterboxed top and bottom on the iPad (screenshot
+`ipa_91_finish_race_wrong_aspect_ratio.png`); Stefan: it filled the iPad
+screen before (on 19.5:9 iPhones it bled at the sides). Not investigated;
+likely from the HUD/scene-size work (IPA70-85).
