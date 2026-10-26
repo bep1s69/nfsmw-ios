@@ -6215,3 +6215,21 @@ the two groups), s the size, k the new safe zone (`nfsmw_hud_safe_zone`,
 `hud_safe_zone`, 0.80-1.10 by 0.02, 1.00; live). Unlike IPA71 every piece is
 moved, not the two groups. The centres are estimates (IPA73 tree): an
 element whose middle is off drifts a little with the size. Not yet run.
+
+IPA75 result (Stefan, Oct 26, iPad 4:3; log
+`Debug/26 October 2026/nfsmw_ipa75_hud_ipad.log`, ipa75_hud_min/max/default
+_ipad.png): `[hud] package ...: pieces: minimap 3, speedometer 9, race info 6`.
+At 70% and the largest size the parts that change while driving (needle,
+digits, nitrous arc, KM/H, the minimap's map) keep their margins, but the
+still ones (the dial's face with its numbers, the gray ring, the heat icon)
+sit exactly where the matrix alone puts them: (1690-1000)*0.7+1000 = 1483 px,
+seen ~1480. Inference: FEng keeps a laid-out position for objects that are
+not redrawn, taken when the pause screen closes; the offsets used HudScale(),
+which is 1 while a menu is up, so those objects kept the size-1 offsets.
+
+IPA76 (`ios/build/NFSMW-hud-scale-76.ipa`, 30046463 bytes, SHA256 prefix
+3101e048e6491840, UUID 251E5148-0C10-3DFD-A57E-2508B0FB6CDA, `unzip -t` ok):
+the offsets use the size setting at all times (the matrix still scales only
+while driving), so they are the same before and after a pause screen. If the
+still parts stay off, the next lead is the FEng object's "needs layout" flag
+(flags at +0x1C) after each offset change. Not yet run.
