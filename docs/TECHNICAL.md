@@ -5726,3 +5726,42 @@ IPA62 `ios/build/NFSMW-query-glass-62.ipa`, SHA256
 `c893bb527aaf6a2f4f2e731cbd76c37c4953cc3619e4f23dd513c2572f43941e`, NFSMW UUID
 `9350B67F-51B7-3C0E-B933-F679A01D2B87`; 208 metallib entries (same as IPA61),
 zip test and codesign OK. Not run on a device.
+
+### October 26, 2026 — IPA62 iPad run: the sun query's end goes to another address
+
+Stefan, iPad, IPA62 (`26 October 2026/nfsmw_ipad_sun_reflections.log`,
+`native_ipad_sun_reflections/` frames 3217, 3897, 4209, 5910; `extra_args.txt`:
+`--nfsmw_native_dump_manual=true --nfsmw_native_test_no_envcube_world=false`).
+(The log's `build Oct 22 2026 23:29:47` line is not the IPA62 build date; the new
+`query` lines prove IPA62.)
+
+Measured, snapshot query lines: each sun query is one 6-index quad, ps
+2d8bf2c6, colour mask 0, depth 00700732; most are drawn in the environment cube
+pass (000_320_0_d7c0) and one in the main picture. In frames 3217, 3897 and
+5910 every quad counted 0 or 91-98 guest pixels: the GPU count is right. The
+game's answers (`occlusion queries since` lines) are all given on addresses
+0x20 **below** the begin addresses (begin 066b75a0/7b20/6360/6620/7060, answers
+on 066B7580/7B00/6340/6600/7040), and still never 0. Frame 4209: begins at
+both 066b7de0 and 066b7dc0, 066b60a0 and 066b6080, 066b6620 and 066b6600:
+the end ZPD at X-0x20 was taken for a new begin (no 0xFFFFFEED marker seen),
+so that "query" stayed open and counted the next draws: 286 world draws,
+then 1114 main-pass draws plus the post effects (5,956,000 samples), until
+the next begin.
+
+Inferred cause (code read, `CpOcclusion` and the native ZPD override in the
+SDK's plugin_main.cpp): counts are stored under the begin address
+(`occlusion_counts[queries[q]]`) but looked up at the end under the end
+address (X-0x20), so the real counts (often 0) are never returned; the end
+address only gets a count when an unrecognized end opened a runaway query
+there, which explains the huge, never-zero answers. Proposed fix (native
+renderer only): store each query's count under the address of the end that
+closed it; a ZPD at the open query's begin address minus 0x20 without the
+marker closes it instead of opening a new query.
+
+Glass: this run had the black-cube switch off. Stefan: the terminal glass still
+looks wrong, worst inside the terminal. Halo: Stefan reports a halo around the
+gas price sign (frame 5910), the car's spoiler (worse when moving) and
+antennae, since the first Metal version. In the snapshot PNGs the sky is black,
+so the halo against the sky cannot be seen there. Candidate (inferred, not
+checked): the final composite ps 20710a9a (scene t0, bloom t1 390x180, blur t3
+195x90, this frame's depth t4) blends the low-resolution blur by depth.
