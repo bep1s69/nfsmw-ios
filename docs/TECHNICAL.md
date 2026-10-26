@@ -5790,3 +5790,14 @@ IPA63 `ios/build/NFSMW-sun-fix-63.ipa`, SHA256
 `3be16d73ade549e73a78998b9c103b7380aa815b900e5d9793bfdc177a56206b`, NFSMW UUID
 `AC72C463-778A-3A66-8C38-EBC701644EFE`; 208 metallib entries, zip test and
 codesign OK. Not run on a device.
+
+### October 26, 2026 — IPA63 run: sun fixed
+
+Stefan, iPad, IPA63 (`26 October 2026/nfsmw_ipa63_sun_fixed_ipad.log`,
+13:54-15:16, two runs): the sun glare now fades out when going into cover and
+back in when leaving it. Log: 145 `occlusion queries` lines, 8 answer
+addresses (all begin-0x20), ~127k answers, ~99k of them 0 (e.g. 066B7580:
+21298 of 21301); largest 921600 (the default before a first count, no more
+multi-frame counts); 46,774 ends without the marker closed by the new rule.
+11 watchdog groups (14:00-14:03, 15:09-15:10) while the renderer kept logging
+frames; Stefan reported no freeze (same as the earlier watchdog-only cases).
