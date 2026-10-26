@@ -6155,3 +6155,16 @@ the size compensation removed (as IPA70); new `[hud-tree]` log once per new
 HUD: every object of the HUD package, from the right group's first sibling,
 children of groups indented (hash, type, flags, position, size). Next: map
 hashes to elements and move them one by one. Not yet run.
+
+IPA72 result (Stefan, Oct 26, iPad, one race; log
+`Debug/26 October 2026/nfsmw_ipa72_hud_race_ipad.log`): no `[hud-tree]` and
+no `[hud] left group` lines: with every HUD setting 0/100% the hook returned
+before the dump. Stefan also reports the Post-processing switch does nothing
+(and is not in the in-game menu).
+
+IPA73 (`ios/build/NFSMW-hud-tree-73.ipa`, 30043163 bytes, SHA256 prefix
+6a376db45d6f8881, UUID AA0038A5-C0D7-319B-985E-2BEE9B869ABA, `unzip -t` ok):
+the tree is dumped once per HUD package whatever the settings; `[post] no
+post-processing: hook runs, byte 0x828F48B2 was N` (first two calls) shows
+whether the "Disable Post Processing" hooks run with the switch off and what
+the byte held. Not yet run.

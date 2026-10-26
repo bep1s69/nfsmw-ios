@@ -63,6 +63,7 @@
 #include "nfsmw_pch.h"
 
 #include <rex/cvar.h>
+#include <rex/logging.h>
 
 REXCVAR_DEFINE_INT32(ios_ring_wait_ms, 0, "Juego",
                      "iOS: longest sleep of the ring-space wait before re-reading the CP's read "
@@ -155,6 +156,10 @@ void WithoutPostProcessing(PPCContext& __restrict ctx, uint8_t* base) {
     return;
   }
   const uint8_t before = REX_LOAD_U8(kPostProcessingOn);
+  static std::atomic<int> said{0};
+  if (said.fetch_add(1) < 2) {  // whether this runs at all, and what the byte was
+    REXLOG_INFO("[post] no post-processing: hook runs, byte 0x828F48B2 was {}", before);
+  }
   REX_STORE_U8(kPostProcessingOn, 0);
   kOriginal(ctx, base);
   REX_STORE_U8(kPostProcessingOn, before);
