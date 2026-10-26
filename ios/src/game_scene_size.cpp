@@ -149,11 +149,15 @@ void StoreF(uint8_t* base, uint32_t address, float v) {
   REX_STORE_U32(address, bits);
 }
 
-// nfsmw_hud_scale while driving (menus keep the game's size), else 1.
-float HudScale() {
+// nfsmw_hud_scale (in range, else 1).
+float HudScaleSetting() {
   const double scale = REXCVAR_GET(nfsmw_hud_scale);
-  return scale >= 0.5 && scale <= 1.5 && nfsmw::battery::InMenu() == 0 ? float(scale) : 1.0f;
+  return scale >= 0.5 && scale <= 1.5 ? float(scale) : 1.0f;
 }
+
+// The HUD matrix's: the setting while driving (menus keep the game's size),
+// else 1.
+float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
 
 // Set while sub_82440D80 runs: its call to sub_82453768 hands on the HUD's matrix.
 thread_local bool g_hud_matrix = false;
@@ -570,7 +574,12 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       {0, 0}};
   const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
   const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
-  const float s = HudScale();
+  // The setting, not HudScale(): the pieces' offsets must not change when a
+  // pause screen comes and goes. Pieces the game does not redraw keep the
+  // position they had when last laid out (IPA75: the still parts, such as
+  // the dial's face and the minimap's ring, kept the offsets of the pause
+  // screen's size 1 and came out where the matrix alone put them).
+  const float s = HudScaleSetting();
   const float gx = kSideX + (REX_LOAD_U8(hud + 816) ? kWideSideX : 0.0f);
   float offset[4][2];
   static bool active = false;  // anything set or moved since the start

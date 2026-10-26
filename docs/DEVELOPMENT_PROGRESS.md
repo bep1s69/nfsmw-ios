@@ -148,7 +148,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   correctly; he wants the size to keep the default margins, and the safe
   zone as its own slider. **IPA75 (`NFSMW-hud-safe-zone-75.ipa`): each
   element scales about its own middle; new HUD safe zone (80-110%).** Not
-  yet run.
+  yet run. IPA75 (Stefan): still parts of each element (dial face, ring,
+  heat icon) do not keep the margins. **IPA76 (`NFSMW-hud-scale-76.ipa`):
+  the pieces' offsets no longer change when a pause screen comes and goes.**
+  Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
