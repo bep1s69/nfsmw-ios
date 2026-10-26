@@ -6042,3 +6042,12 @@ driving); change resolution, MetalFX (each mode and off/on), FXAA, 30/60 and
 Battery mode and watch the `[options]`, `[native] internal resolution now`
 and `[battery] cap` log lines; close with B and check that the pause menu did
 not take the B; relaunch and check the launcher shows the new values.
+
+IPA67 device result (Stefan, Oct 26, device not stated): live and working:
+render resolution, MetalFX, FXAA, 30<->60 cap, car reflection rate, shadow
+drawing size, Battery mode; the gear shows only in the pause and main menus.
+40/120 fps and MSAA did nothing while playing: expected, they are next-launch
+only (marked in the sheet). FXAA vs FXAA high looked the same to him: the
+two differ only in edge threshold (0.125 vs 0.063) and subpixel amount (0.75
+vs 1.0), the same as from the launcher; not a menu fault (inference). Not yet
+reported: whether B leaked into the pause menu, relaunch check.
