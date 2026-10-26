@@ -5989,3 +5989,56 @@ GPU frame) saved, with run-to-run spread. Stefan noticed the rear-view
 mirror is softer: expected, the mirror is the environment cube times a
 brightness (ps 8436534c, Oct 26 entry), so it is now 320 per face as on the
 360. `--nfsmw_native_scale_reflections=true` restores the scaled cube.
+
+
+## October 26, 2026 (night): in-game options menu (IPA67)
+
+Branch `in-game-options` (local, off `battery-optimization` at 6588d8e).
+Design approved by Stefan before coding: gear for touch, L3+R3 for
+controllers, graphics settings only (Extra Options not complete yet).
+
+What changed:
+- `ios/src/ingame_options.mm/.h` (new): a sheet over the game with the
+  launcher's rows for `scale`, `metalfx_mode`, `fps_cap`, `antialiasing`,
+  `shadow_scale`, `reflection_rate`, `auto_cap`, `menu_cap`, `heat_scale`,
+  `battery_mode` (native-only rows hidden without the native renderer). Opened
+  only while `battery::InMenu() == 1` (menus and pause screens) by a gear at
+  the top right or L3+R3 (GCController polled 10x/s, 30x/s while open; D-pad
+  moves/changes, A changes, B or L3+R3 closes). Each change saves
+  `Documents/settings.json`, recomputes the launcher's arguments and sets the
+  live cvars with `rex::cvar::SetFlagByName`. Rows show "next launch" for
+  40/120 fps (or from them) and MSAA; the footer says when anything else
+  launch-only differs from the start (e.g. values Battery mode sets).
+  `extra_args.txt` is not reapplied: a value changed in the menu wins until
+  the next launch.
+- Game input is blocked while the sheet is up and until every controller
+  button is released after it closes: `game_app.cpp` sets the input system's
+  active callback (it replaces the SDK's, used only by the ImGui overlays).
+- `native_renderer.mm`: `NativeResolutionScale()` and `MetalFxTemporal()`
+  re-read their cvars when `NativeSettingsChanged()` bumps a generation (they
+  were read once). The scale change uses the same rebuild path as 0.75x when
+  hot; MetalFX on/off is evaluated once per recorded frame (motion, jitter);
+  mode changes rebuild the scaler (requested size changes).
+- `battery.mm`: the watcher thread always runs (cvars read every 2 s, so the
+  switches work when turned on in game; turning 0.75x when hot off restores
+  the scale); a chosen cap (`ChooseCap`, 30 or 60) replaces the fixed 60;
+  caps handled when the game started at 30 or 60 (was 60 only).
+- `launcher.h/.mm`: `Rows`, `ReadSettings`, `WriteSettings`, `SettingValue`,
+  `SetByBatteryMode`, `ArgumentsFor` for the menu.
+
+Build: `cmake --build --preset ios --target ipa -j 6`, exit 0 (one
+deprecation warning, `UIScreen.mainScreen`, as in touch_controls.mm).
+`ios/build/NFSMW-ingame-options-67.ipa`, 30026877 bytes, SHA256 prefix
+a4e058869069787d, executable UUID 5B4C54E7-EA65-3FCB-A45C-9B8D06664A06,
+208 metallib entries, `unzip -t` no errors.
+
+Not yet tested on device. Untested risks (inferences): MetalFX off->on mid-
+game may stutter while motion shader variants compile; a scale change from
+1x to above 1x keeps `ios_retina=auto` until the next launch (the picture
+may be presented at fewer pixels on large screens); controller focus in
+the sheet is drawn with the table's selection only.
+Device checklist: open with the gear and L3+R3 in the pause menu (not while
+driving); change resolution, MetalFX (each mode and off/on), FXAA, 30/60 and
+Battery mode and watch the `[options]`, `[native] internal resolution now`
+and `[battery] cap` log lines; close with B and check that the pause menu did
+not take the B; relaunch and check the launcher shows the new values.

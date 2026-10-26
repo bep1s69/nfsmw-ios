@@ -1,7 +1,7 @@
 // NFSMW Recompiled - frame rate and resolution by the game's state and the
 // phone's heat (iOS)
 //
-// All three are at the launcher's 60 fps cap only (40 and 120 change the
+// The two caps are at the chosen 60 fps cap only (40 and 120 change the
 // console's screen refresh, which is not switched while playing):
 //   - 30 fps while Low Power Mode is on or the phone is warm (thermal state
 //     fair or above), 60 again once it is off and the phone is cool
@@ -14,7 +14,9 @@
 //     nfsmw_heat_scale. nfsmw_heat_scale_test pretends "serious" for 30 s of
 //     every minute, to see the switch without heating the phone.
 // The cap is the runtime's cvar ios_fps_cap, which its frame pacing reads
-// every frame. Every change is logged ("[battery]").
+// every frame. Every change is logged ("[battery]"). The in-game options menu
+// (launcher.mm) switches all three, and the cap between 30 and 60, while
+// playing: ChooseCap, SettingsChanged.
 
 #import <Foundation/Foundation.h>
 
@@ -53,7 +55,8 @@ std::atomic<int> in_menu{-1};
 std::atomic<float> heat_scale{0.0f};
 
 std::mutex cap_mutex;
-bool controlled = false;  // the launcher's cap is 60
+bool controlled = false;  // the launcher's cap is 30 or 60 (40 and 120 are left alone)
+int chosen = 60;          // the cap chosen (launcher, in-game menu): 30 or 60
 bool warm = false;        // Low Power Mode, or thermal state fair and above (with the way back at nominal)
 bool menu = false;
 int cap = 60;
@@ -63,7 +66,7 @@ void UpdateCap(const char* why) {
   if (!controlled) return;
   const bool auto_cap = REXCVAR_GET(nfsmw_battery_auto_cap) && warm;
   const bool menu_cap = REXCVAR_GET(nfsmw_menu_cap) && menu;
-  const int want = auto_cap || menu_cap ? 30 : 60;
+  const int want = chosen == 60 && (auto_cap || menu_cap) ? 30 : chosen;
   if (want == cap) return;
   cap = want;
   rex::cvar::SetFlagByName("ios_fps_cap", std::to_string(cap));
@@ -86,6 +89,18 @@ void SetInMenu(bool now) {
   UpdateCap(now ? "menu" : "driving");
 }
 
+void ChooseCap(int fps) {
+  std::lock_guard<std::mutex> lock(cap_mutex);
+  if (!controlled || (fps != 30 && fps != 60)) return;
+  chosen = fps;
+  UpdateCap("chosen in the options");
+}
+
+void SettingsChanged() {
+  std::lock_guard<std::mutex> lock(cap_mutex);
+  UpdateCap("options changed");
+}
+
 int InMenu() { return in_menu.load(std::memory_order_relaxed); }
 
 float HeatScale() { return heat_scale.load(std::memory_order_relaxed); }
@@ -95,13 +110,16 @@ void Start() {
   const bool hot_scale = REXCVAR_GET(nfsmw_heat_scale);
   {
     std::lock_guard<std::mutex> lock(cap_mutex);
-    controlled = rex::cvar::GetFlagByName("ios_fps_cap") == "60";
+    const std::string launched = rex::cvar::GetFlagByName("ios_fps_cap");
+    controlled = launched == "60" || launched == "30";
+    chosen = cap = launched == "30" ? 30 : 60;
   }
   REXLOG_INFO("[battery] 30 fps when warm {}, 30 fps in menus {}, 0.75x when hot {}{}",
               auto_cap ? "on" : "off", REXCVAR_GET(nfsmw_menu_cap) ? "on" : "off", hot_scale ? "on" : "off",
               controlled ? "" : " (the caps only at the 60 fps cap)");
-  if (!auto_cap && !hot_scale) return;
-  std::thread([auto_cap, hot_scale] {
+  // Always watching, as the in-game options can turn either on; each is
+  // read every 2 s.
+  std::thread([] {
     pthread_setname_np("nfsmw battery");
     using Clock = std::chrono::steady_clock;
     const auto start = Clock::now();
@@ -112,6 +130,8 @@ void Start() {
       NSProcessInfo* info = [NSProcessInfo processInfo];
       const bool low_power = info.lowPowerModeEnabled;
       const NSProcessInfoThermalState thermal = info.thermalState;
+      const bool auto_cap = REXCVAR_GET(nfsmw_battery_auto_cap);
+      const bool hot_scale = REXCVAR_GET(nfsmw_heat_scale);
       if (auto_cap) {
         std::lock_guard<std::mutex> lock(cap_mutex);
         // Back to 60 only once it is cool again (fair keeps 30): no flapping.
@@ -124,6 +144,11 @@ void Start() {
                       memory::ThermalState());
           UpdateCap(now ? "warm or Low Power Mode" : "cool, Low Power Mode off");
         }
+      }
+      if (!hot_scale && scaled) {
+        scaled = false;
+        heat_scale = 0.0f;
+        REXLOG_INFO("[battery] render resolution as chosen again: 0.75x when hot turned off");
       }
       if (hot_scale) {
         const auto now = Clock::now();

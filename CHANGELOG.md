@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Options while playing.** In a menu or the pause screen, tap the gear at
+  the top right (or press L3+R3 on a controller) to change the render
+  resolution, MetalFX, the 30/60 fps cap, anti-aliasing and the battery
+  settings without restarting. Settings that need a restart (40/120 fps, MSAA)
+  are marked "next launch".
+
 - **About a quarter less battery drain while playing**, with the same picture,
   resolution and frame rate: the game's threads ask iOS for a lower priority,
   so the CPU runs at cheaper speeds (measured on an iPad Pro M4 at 1.5x / 60 fps).

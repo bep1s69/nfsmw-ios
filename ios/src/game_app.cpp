@@ -21,6 +21,7 @@
 
 
 #include <rex/logging.h>
+#include <rex/input/input_system.h>
 #include <rex/runtime.h>
 #include <rex/system/interfaces/graphics.h>
 
@@ -28,6 +29,7 @@
 #include "audio/coreaudio_driver.h"
 #include "display_rate.h"
 #include "gpu_capture.h"
+#include "ingame_options.h"
 #include "boot_trace.h"
 #include "launcher.h"
 #include "lifecycle.h"
@@ -128,6 +130,13 @@ class IosNfsmwApp : public NfsmwApp {
     }
     // The display refresh rate for the frame rate cap (ProMotion).
     nfsmw::display::RequestRateForCap(REXCVAR_GET(ios_fps_cap));
+    // The options while playing (ingame_options.mm): the game gets no input
+    // while they are up. This replaces the SDK's own callback, which only
+    // the ImGui overlays (not shown on iOS) used.
+    if (auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system())) {
+      input->SetActiveCallback([] { return !nfsmw::options::BlocksGameInput(); });
+    }
+    nfsmw::options::Install();
     // Last, so it is on top of the touch controls.
     if (REXCVAR_GET(ios_gpu_capture)) {
       nfsmw::gpu_capture::InstallButton();

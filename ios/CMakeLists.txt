@@ -315,6 +315,7 @@ set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -g
         src/achievements_export.cpp
         src/battery.mm
         src/gpu_capture.mm
+        src/ingame_options.mm
         src/display_rate.mm
         src/lifecycle.mm
         src/memory_report.mm

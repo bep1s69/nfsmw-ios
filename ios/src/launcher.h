@@ -2,7 +2,12 @@
 
 #pragma once
 
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+#endif
+
 #include <filesystem>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -23,5 +28,28 @@ std::filesystem::path Run(const std::filesystem::path& documents);
 // replace the defaults with the same name; Documents/extra_args.txt comes
 // after them and wins.
 std::vector<std::string> SettingsArguments(const std::filesystem::path& documents);
+
+#ifdef __OBJC__
+// The in-game options menu (ingame_options.mm) shows some of the launcher's
+// own settings, with the same titles, choices and Battery mode rules, and
+// saves them to the same Documents/settings.json.
+struct MenuRow {
+  NSString* key;
+  NSString* title;
+  NSString* summary;
+  bool is_switch;
+  std::vector<std::pair<NSString*, NSString*>> choices;  // title, value
+};
+// The rows for these keys, in this order (unknown keys left out).
+std::vector<MenuRow> Rows(NSArray<NSString*>* keys);
+NSMutableDictionary<NSString*, NSString*>* ReadSettings(const std::filesystem::path& documents);
+void WriteSettings(const std::filesystem::path& documents, NSDictionary<NSString*, NSString*>* settings);
+// A setting's value as the game gets it (Battery mode's when it sets it).
+NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* key);
+// Battery mode is on and sets this one.
+bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key);
+// The game's arguments for these settings (as SettingsArguments).
+std::vector<std::string> ArgumentsFor(NSDictionary<NSString*, NSString*>* settings);
+#endif
 
 }  // namespace nfsmw::launcher
