@@ -328,14 +328,6 @@ constexpr uint32_t kRightGroup = 0x5D0101F1;
 constexpr uint32_t kMinimapPivotX = 0x82A2C60C;
 constexpr uint32_t kMinimapPivotY = 0x82A2C610;
 
-// Where the middles of the two sides are, from the middle of the screen, in
-// HUD units before the matrix (left side; the right is the mirror image):
-// measured on Stefan's Oct 26 screenshots, 221 x 138 at 4:3 (the 4:3 layout),
-// 120 more across at 16:9 (the game's widescreen layout). The size scales
-// about the middle of the screen; the sides are moved by as much again, so
-// each grows or shrinks about its own middle and keeps its margins.
-constexpr float kSideX = 221.0f, kSideY = 138.0f, kWideSideX = 120.0f;
-
 // HUD units the sides go out beyond the game's own 16:9 layout.
 float ExtraHudOffset(uint32_t width) {
   const float aspect = float(width) / 720.0f;
@@ -421,6 +413,46 @@ void MoveMinimap(uint8_t* base, uint32_t minimap, float dx, float dy, bool switc
   if (m.written_py != py) StoreF(base, kMinimapPivotY, m.written_py);
 }
 
+// The HUD package's objects, once per new HUD, to find its elements: walked
+// from a top-level object (the right group) to its first sibling and on.
+// Layout as read in IPA71's dump: +0 vtable, +4 next, +8 prev, +0C GUID,
+// +10 name hash, +18 type (5 = group), +1C flags, +2C data (+28 x, +32 y,
+// +56/+60 size); a group's children list at +5C (vtable 0x82080030), +60
+// count, +64 first.
+constexpr uint32_t kListVtable = 0x82080030;
+
+bool Plausible(uint32_t a) { return a >= 0x40000000 && a < 0xF0000000 && (a & 3) == 0; }
+
+void DumpObjects(uint8_t* base, uint32_t first, int depth, int& budget) {
+  for (uint32_t o = first; Plausible(o) && budget > 0; o = REX_LOAD_U32(o + 4)) {
+    if (REX_LOAD_U32(o) == kListVtable) break;
+    --budget;
+    const uint32_t type = REX_LOAD_U32(o + 0x18), data = REX_LOAD_U32(o + 0x2C);
+    float x = 0, y = 0, w = 0, h = 0;
+    if (Plausible(data)) {
+      x = LoadF(base, data + 28), y = LoadF(base, data + 32);
+      w = LoadF(base, data + 56), h = LoadF(base, data + 60);
+    }
+    REXLOG_INFO("[hud-tree] {:>{}}{:08X} hash {:08X} type {} flags {:08X} pos {:.1f},{:.1f} size {:.2f},{:.2f}", "",
+                depth * 2, o, REX_LOAD_U32(o + 0x10), type, REX_LOAD_U32(o + 0x1C), x, y, w, h);
+    if (type == 5 && REX_LOAD_U32(o + 0x5C) == kListVtable && REX_LOAD_U32(o + 0x60) < 200 && depth < 8) {
+      DumpObjects(base, REX_LOAD_U32(o + 0x64), depth + 1, budget);
+    }
+  }
+}
+
+void DumpTree(uint8_t* base, uint32_t object) {
+  uint32_t first = object;
+  for (int i = 0; i < 1000; ++i) {
+    const uint32_t prev = REX_LOAD_U32(first + 8);
+    if (!Plausible(prev) || REX_LOAD_U32(prev) == kListVtable) break;
+    first = prev;
+  }
+  int budget = 800;
+  REXLOG_INFO("[hud-tree] package objects from {:08X}:", first);
+  DumpObjects(base, first, 0, budget);
+}
+
 uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t hash) {
   ctx.r3.u64 = package;
   ctx.r4.u64 = hash;
@@ -442,16 +474,11 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
-  // The game's own middle of a side (g), where it should be drawn (g + the
-  // offset), and what to add for that through a matrix scaled by s:
-  // s * (g + d) = g + offset.
-  const float s = HudScale();
-  const float gx = kSideX + (REX_LOAD_U8(hud + 816) ? kWideSideX : 0.0f);
-  auto d = [s](float g, float offset) { return (g + offset) / s - g; };
-  const float lx = d(-gx, float(REXCVAR_GET(nfsmw_hud_left_x)) - extra);
-  const float ly = d(kSideY, float(REXCVAR_GET(nfsmw_hud_left_y)));
-  const float rx = d(gx, float(REXCVAR_GET(nfsmw_hud_right_x)) + extra);
-  const float ry = d(kSideY, float(REXCVAR_GET(nfsmw_hud_right_y)));
+  // (IPA71 also moved the sides to make up for the size: it broke them apart,
+  // as they are more objects than the two groups. Left out until the tree
+  // dump below shows them.)
+  const float lx = float(REXCVAR_GET(nfsmw_hud_left_x)) - extra, ly = float(REXCVAR_GET(nfsmw_hud_left_y));
+  const float rx = float(REXCVAR_GET(nfsmw_hud_right_x)) + extra, ry = float(REXCVAR_GET(nfsmw_hud_right_y));
   if (lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
     return;  // nothing to move, and nothing moved
   }
@@ -468,19 +495,9 @@ extern "C" REX_FUNC(sub_822AA6D0) {
                   left, lx, ly, right, rx, ry, extra);
     }
     static uint32_t dumped = 0;
-    if (right && right != dumped) {  // its layout, to find the race position/progress pieces
+    if (right && right != dumped) {
       dumped = right;
-      const uint32_t data = REX_LOAD_U32(right + 44);
-      for (uint32_t o = 0; o < 0x80; o += 0x20) {
-        REXLOG_INFO("[hud] right group +{:02X}: {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X}", o,
-                    REX_LOAD_U32(right + o), REX_LOAD_U32(right + o + 4), REX_LOAD_U32(right + o + 8),
-                    REX_LOAD_U32(right + o + 12), REX_LOAD_U32(right + o + 16), REX_LOAD_U32(right + o + 20),
-                    REX_LOAD_U32(right + o + 24), REX_LOAD_U32(right + o + 28));
-      }
-      if (data) {
-        REXLOG_INFO("[hud] right group data pos {:.1f},{:.1f} size {:.2f},{:.2f}", LoadF(base, data + 28),
-                    LoadF(base, data + 32), LoadF(base, data + 56), LoadF(base, data + 60));
-      }
+      DumpTree(base, right);
     }
     MoveGroup(base, left, lx, ly, g_left);
     MoveGroup(base, right, rx, ry, g_right);

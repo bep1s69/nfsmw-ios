@@ -6134,3 +6134,24 @@ left side's d. New log: `[hud] right group +00..+60` (raw words) and `right
 group data pos/size`, once per new HUD, to find the race position/progress
 objects inside the right group (next: split them off so they stay put).
 Not yet run.
+
+IPA71 result (Stefan, Oct 26, iPad, 4:3; log
+`Debug/26 October 2026/nfsmw_ipa71_hud_ipad.log`, IMG_0314-0316): at 80% and
+120% the speedometer's dial, arc, digits and KM/H, and the minimap's map,
+rings and heat icon come apart: only some of them are in the two groups, so
+the size compensation moved those and not the rest. Speedometer up (-80)
+also moves the race standings (top right) off the screen: they are in the
+right group; with left y -80 a ring piece of the minimap went much higher
+than the map (moved twice, inferred: by the group and as a minimap child).
+`[hud] matrix built` reached 1000 calls 21 s after start: the matrix is
+rebuilt every frame (size changes are live, as seen). Right group dump: +0
+vtable 82080070, +4/+8 next/prev, +0C GUID, +10 hash, +18 type 5, +1C flags,
++2C data (pos 209.7,49.8, size 1,1); lists with vtable 82080030 at +34 (2),
++44 (3) and +5C (1 entry: its child list, head = tail).
+
+IPA72 (`ios/build/NFSMW-hud-tree-72.ipa`, 30042673 bytes, SHA256 prefix
+d5cc50c6c7c4d482, UUID 837807C0-2EB9-3535-AFD3-50F99229C894, `unzip -t` ok):
+the size compensation removed (as IPA70); new `[hud-tree]` log once per new
+HUD: every object of the HUD package, from the right group's first sibling,
+children of groups indented (hash, type, flags, position, size). Next: map
+hashes to elements and move them one by one. Not yet run.
