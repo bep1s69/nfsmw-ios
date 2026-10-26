@@ -5977,3 +5977,15 @@ IPA66 `ios/build/NFSMW-reflections-1x-66.ipa`, SHA256
 `00aff81491845240decafd27a78215fb72060a4b00e2c5472c417b4735ba5702`, NFSMW UUID
 `08466B13-142E-3EC6-A762-31507638FE99`; 208 metallib entries, zip test and
 codesign OK. Same test as IPA65.
+
+### October 26, 2026 — IPA66 run: environment cube at 1x applied
+
+Stefan, iPad, IPA66, 1.5x/60 test race (`26 October 2026/nfsmw_ipa66_reflections_ipad.log`).
+Measured: `reflections at 1x: 1 environment cube target(s), e.g.
+000_320_0_d7c0_s1`; the six cube passes now 320x256, 1.0-1.5 ms per window
+(IPA64/65 at 480x384: 2.0-2.8 ms). GPU ms/frame mean 8.9 (median 9.4) vs
+10.2 (IPA64) and 11.4 (IPA65) at the same setting: ~1 ms/frame (~10% of the
+GPU frame) saved, with run-to-run spread. Stefan noticed the rear-view
+mirror is softer: expected, the mirror is the environment cube times a
+brightness (ps 8436534c, Oct 26 entry), so it is now 320 per face as on the
+360. `--nfsmw_native_scale_reflections=true` restores the scaled cube.
