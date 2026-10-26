@@ -136,7 +136,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   objects than the two groups), and speedometer up pushes the race standings
   off the top. **IPA72 (`NFSMW-hud-tree-72.ipa`): size back to IPA70's;
   logs the HUD package's whole object tree (`[hud-tree]`)** for per-element
-  positions. Not yet run.
+  positions. Not yet run. IPA72 log: no `[hud-tree]` (my bug: skipped
+  while every HUD setting is at default). **IPA73 (`NFSMW-hud-tree-73.ipa`):
+  the tree logged once per HUD package whatever the settings; `[post]` log
+  line for the post-processing switch** (Stefan: it does nothing, and it is
+  not in the in-game menu). Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

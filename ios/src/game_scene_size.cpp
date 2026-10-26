@@ -479,11 +479,13 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   // dump below shows them.)
   const float lx = float(REXCVAR_GET(nfsmw_hud_left_x)) - extra, ly = float(REXCVAR_GET(nfsmw_hud_left_y));
   const float rx = float(REXCVAR_GET(nfsmw_hud_right_x)) + extra, ry = float(REXCVAR_GET(nfsmw_hud_right_y));
-  if (lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
+  const uint32_t package = REX_LOAD_U32(hud + 36);
+  static uint32_t dumped_package = 0;
+  const bool dump = package && package != dumped_package;
+  if (!dump && lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
     return;  // nothing to move, and nothing moved
   }
   const PPCContext saved = ctx;
-  const uint32_t package = REX_LOAD_U32(hud + 36);
   if (package) {
     const uint32_t left = FindObject(ctx, base, package, kLeftGroup);
     const uint32_t right = FindObject(ctx, base, package, kRightGroup);
@@ -494,9 +496,8 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       REXLOG_INFO("[hud] left group {:08X} by {:.0f},{:.0f}; right group {:08X} by {:.0f},{:.0f} (wide {:.0f})",
                   left, lx, ly, right, rx, ry, extra);
     }
-    static uint32_t dumped = 0;
-    if (right && right != dumped) {
-      dumped = right;
+    if (dump && right) {  // once per HUD package
+      dumped_package = package;
       DumpTree(base, right);
     }
     MoveGroup(base, left, lx, ly, g_left);
