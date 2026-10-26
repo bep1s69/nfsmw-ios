@@ -188,6 +188,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   chain (bloom, colour filter, vignette); the switch is in the in-game menu
   too (live).** IPA85 on iPad (Stefan): looks as no post-processing should.
   Both QoL items of this branch done; branch stays local, not pushed.
+  Next (Stefan): the uneven 60 fps frame pacing, on local branch
+  `frame-pacing-60` (from this one). **IPA86 (`NFSMW-pacing-60-86.ipa`): the
+  60 cap's guest vblank locked to the display refresh like 30/40 (cvar
+  `ios_vblank_lock_60`, default on; A/B with Extra Args
+  `--ios_vblank_lock_60=false`) and a log line per off-grid frame.** Not yet
+  run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

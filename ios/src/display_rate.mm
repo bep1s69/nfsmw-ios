@@ -59,9 +59,9 @@ std::atomic<int> asked_hz{60};
   if (publish) {
     const double period = link.targetTimestamp - link.timestamp;
     if (period > 0) {
-      // The guest vblank's rate at the 30 and 40 caps: 60 and 120 Hz.
+      // The guest vblank's rate at the 30, 40 and 60 caps: 60, 120 and 60 Hz.
       const int cap = current_cap.load(std::memory_order_relaxed);
-      const double guest_hz = cap == 40 ? 120.0 : cap == 30 ? 60.0 : 0.0;
+      const double guest_hz = cap == 40 ? 120.0 : cap == 30 || cap == 60 ? 60.0 : 0.0;
       const long split = guest_hz > 0 ? std::lround(period * guest_hz) : 1;
       publish(uint64_t(link.timestamp * 1e9), uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)));
     }

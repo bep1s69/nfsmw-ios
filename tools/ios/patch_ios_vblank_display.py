@@ -30,10 +30,13 @@ refresh, computed from those timestamps (not from when the main thread's
 callback happened to run), and sleeps until the next one. The cap then counts
 real refreshes: frames are made and shown in step with the screen.
 
-Only at the 30 and 40 caps, where each frame has time to spare: there a frame
-that misses a refresh waits for the next, as on the console. At 60 and 120 the
-timer and its adaptive behaviour (a frame that is a little late is not held to
-the next vblank) stay. It locks only if the display's period is within 10 % of
+At the 30 and 40 caps, where each frame has time to spare, a frame that misses
+a refresh waits for the next, as on the console. October 26 (IPA86): the 60
+cap locks too (cvar ios_vblank_lock_60, default on). Its free-running timer
+showed the same drift: in iPad races 2-6 of every 300 frames came as a 25 ms +
+8 ms pair instead of two 16.7 ms frames, a small stutter every 1-3 s that the
+locked 40 cap did not have. The fps cap's rule that a late frame is shown at
+once (not held to the next vblank) is unchanged. At 120 the timer stays. It locks only if the display's period is within 10 % of
 the guest vblank interval (60 Hz for 30, 120 Hz for 40) and a refresh came in
 the last 250 ms; otherwise, the timer. Cvar ios_vblank_from_display, default on.
 """
@@ -58,6 +61,9 @@ TOP_NEW = '''REXCVAR_DECLARE(int32_t, ios_fps_cap);
 REXCVAR_DEFINE_BOOL(ios_vblank_from_display, true, "GPU",
                     "iOS: at the 30 and 40 fps caps, the guest vblank follows the display's "
                     "refresh instead of a timer of its own");
+REXCVAR_DEFINE_BOOL(ios_vblank_lock_60, true, "GPU",
+                    "iOS: at the 60 fps cap too, the guest vblank follows the display's "
+                    "refresh (needs ios_vblank_from_display)");
 namespace {
 std::atomic<uint64_t> ios_display_vsync_ns{0};
 std::atomic<uint64_t> ios_display_period_ns{0};
@@ -84,8 +90,8 @@ LOOP_ANCHOR = '''        while (vsync_worker_running_) {
 '''
 LOOP_NEW = '''        while (vsync_worker_running_) {
 #if REX_PLATFORM_IOS
-          // LOCAL PATCH - iOS: at the 30 and 40 caps, a guest vblank at each
-          // display refresh (tools/ios/patch_ios_vblank_display.py).
+          // LOCAL PATCH - iOS: at the 30, 40 and 60 caps, a guest vblank at
+          // each display refresh (tools/ios/patch_ios_vblank_display.py).
           {
             static uint64_t ios_last_fired_ns = 0;
             static bool ios_locked_said = false;
@@ -95,7 +101,8 @@ LOOP_NEW = '''        while (vsync_worker_running_) {
             const uint64_t now_ns = IosMachNs();
             const double guest_interval_ns = 1e9 / refresh_rate_hz;
             const bool lock =
-                (cap == 30 || cap == 40) && REXCVAR_GET(ios_vblank_from_display) &&
+                (cap == 30 || cap == 40 || (cap == 60 && REXCVAR_GET(ios_vblank_lock_60))) &&
+                REXCVAR_GET(ios_vblank_from_display) &&
                 REXCVAR_GET(vsync) && vsync_ns && period_ns && now_ns >= vsync_ns &&
                 now_ns - vsync_ns < 250000000ull &&
                 std::fabs(double(period_ns) - guest_interval_ns) < guest_interval_ns * 0.1;
