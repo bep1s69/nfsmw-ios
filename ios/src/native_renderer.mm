@@ -1129,6 +1129,9 @@ struct Frame {
   // Occlusion queries begun in the frame (their sample count addresses), and
   // the one open now (its draws are counted).
   std::vector<uint32_t> queries;
+  // The address each one ended at (the game reads its answer there: the
+  // begin's minus 0x20 in this game), or 0 while open or never ended.
+  std::vector<uint32_t> query_ends;
   int open_query = -1;
   // The frame's textures (indices in Draw::textures), shared with the
   // texture cache while their memory is unchanged.
@@ -1214,6 +1217,7 @@ constexpr size_t kVisibilitySlots = 64;
 constexpr int kVisibilityBuffers = 8;
 std::mutex occlusion_mutex;
 std::unordered_map<uint32_t, uint64_t> occlusion_counts;
+std::atomic<uint64_t> unmarked_query_ends{0};  // ends seen without the marker (see CpOcclusion)
 // The answers given since the last stats line (per query address: answers,
 // how many were 0, the largest, the last), to see whether the sun is ever
 // counted as visible. Under occlusion_mutex.
@@ -6986,7 +6990,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // The counts, once the GPU is done: per query, the sum of its slots at
       // the guest's resolution. A query whose draws were all left out keeps
       // its last count.
-      const std::vector<uint32_t> queries = frame->queries;
+      const std::vector<uint32_t> queries = frame->query_ends;
       const std::vector<VisibilitySlot> slots = visibility_slots;
       id<MTLBuffer> results = visibility;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
@@ -6999,7 +7003,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         std::lock_guard<std::mutex> lock(occlusion_mutex);
         for (size_t q = 0; q < queries.size(); ++q) {
-          if (sums[q] >= 0) occlusion_counts[queries[q]] = uint64_t(std::llround(sums[q]));
+          if (sums[q] >= 0 && queries[q]) occlusion_counts[queries[q]] = uint64_t(std::llround(sums[q]));
         }
       }];
     }
@@ -7126,7 +7130,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
             occlusion_answers.clear();
           }
-          REXLOG_INFO("[native] occlusion queries since the last line:{}", answers.empty() ? " none" : answers);
+          REXLOG_INFO("[native] occlusion queries since the last line ({} ends without the marker):{}",
+                      unmarked_query_ends.exchange(0), answers.empty() ? " none" : answers);
         }
         REXLOG_INFO("[native] depth: {} draws with a polygon offset ({}), {} with an equal depth test, since the "
                     "last line",
@@ -7343,7 +7348,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     if (visibility) {
       const uint64_t* counts = static_cast<const uint64_t*>(visibility.contents);
       for (size_t q = 0; q < frame->queries.size(); ++q) {
-        REXLOG_INFO("[native]   query {} at {:08x}", q, frame->queries[q]);
+        REXLOG_INFO("[native]   query {} at {:08x}, ended at {:08x}", q, frame->queries[q], frame->query_ends[q]);
       }
       for (const auto& [key, qn] : query_notes) {
         const int slot = std::atoi(key.second.substr(key.second.rfind(' ') + 1).c_str());
@@ -7641,14 +7646,27 @@ bool CpOcclusion(uint32_t address, bool end, uint64_t* samples) {
   if (!REXCVAR_GET(nfsmw_native_cp) || !REXCVAR_GET(nfsmw_native_occlusion)) {
     return false;
   }
-  if (!end) {
+  // The game's end goes to the begin's address minus 0x20; when its
+  // "finished" marker was not seen there (IPA62: the query then stayed open
+  // and counted the rest of the frame), that address still ends the query.
+  const bool unmarked_end = !end && recording && recording->open_query >= 0 &&
+                            address + 0x20 == recording->queries[recording->open_query];
+  if (!end && !unmarked_end) {
     if (recording && recording->queries.size() < kVisibilitySlots) {
       recording->open_query = int(recording->queries.size());
       recording->queries.push_back(address);
+      recording->query_ends.push_back(0);
     }
     return true;
   }
-  if (recording) recording->open_query = -1;
+  if (recording && recording->open_query >= 0) {
+    recording->query_ends[recording->open_query] = address;
+    recording->open_query = -1;
+  }
+  if (unmarked_end) {
+    ++unmarked_query_ends;
+    return true;  // not an end to the SDK: it writes no answer
+  }
   std::lock_guard<std::mutex> lock(occlusion_mutex);
   auto it = occlusion_counts.find(address);
   *samples = it != occlusion_counts.end() ? it->second : 1280u * 720u;
