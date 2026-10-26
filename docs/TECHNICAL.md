@@ -6168,3 +6168,34 @@ the tree is dumped once per HUD package whatever the settings; `[post] no
 post-processing: hook runs, byte 0x828F48B2 was N` (first two calls) shows
 whether the "Disable Post Processing" hooks run with the switch off and what
 the byte held. Not yet run.
+
+IPA73 result (Stefan, Oct 26, iPad 4:3, one race, Post-processing off; log
+`Debug/26 October 2026/nfsmw_ipa73_hud_race_ipad.log`):
+- `[post]`: the no-post-processing hooks run; the byte 0x828F48B2 was 1 at
+  the outer call (0 at the nested one, already cleared). Stefan: no visible
+  change, so the flag alone does not remove the look here (open).
+- `[hud-tree]`, 373 lines; HUD units are from the middle of the screen, y
+  down. Top level: 82D60021 (-72,173), 0F365871 (-221,139: the minimap's map,
+  four 128x128 quadrants), 4E4566E5, 157C5B37 (-226,7) > 1603009E (left
+  group), AB9C1D4D (middle), 5D0101F1 (209.7,49.8, right group) > 5C7A5C8A,
+  7FAC287B (0,-176: two 128x87 halves, the mirror's frame, inferred),
+  00A1A862 (minimap icons; DD9EF5FF at -222,139 the player arrow).
+  Left group: the minimap ring C46A80A9 (with the heat icon/multiplier),
+  382D2FC9, B0F63386 at y ~105-139 from the middle; the rest at -96..-197
+  (top left, not seen in a race). Right inner group: the speedometer's
+  pieces (5164D4EA dial and needle, 87C38E97, EDFB6D37, C5D551B7, 5DF2F5B4,
+  8991BD54, 941FFF09 digits) at y 83-165; three rows EA903012, 3F8644CA,
+  D60FC075 at -32, 2, 38; the race standings 5ED609A1 (4 rows of 175x18) at
+  -123, and DE89E070, B1C5ED0D, 9AFCE2B8, 2269D232 at the top right.
+  (Pieces' y: position plus the mean of their children's, recursively.)
+
+IPA74 (`ios/build/NFSMW-hud-elements-74.ipa`, 30051752 bytes, SHA256 prefix
+c6a78be1f6c38270, UUID CB3DD738-3A1B-3298-B6AD-A699EB189B9B, `unzip -t` ok):
+each child of the two inner groups is a piece; below 60 units under the
+middle it belongs to the minimap (left) or the speedometer (right), above
+on the right to the race info (new `nfsmw_hud_race_x/y`, rows "Race info"),
+top-left pieces stay. The two groups now only carry the 19.5:9 extra; the
+minimap's map moves with the minimap offset (MoveMinimap). Size unchanged
+(IPA70: whole HUD about the middle; its summary now says to move the pieces
+back). Log: `[hud] package ...: pieces: minimap N, speedometer N, race info N`
+(expected 3, 7, 10 from IPA73's tree). Not yet run.

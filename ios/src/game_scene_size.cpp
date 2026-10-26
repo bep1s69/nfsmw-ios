@@ -67,14 +67,16 @@
 //   - size: the HUD's matrix (above) scaled by nfsmw_hud_scale while driving
 //     (not in menus), about the middle of the screen; the mirror follows it
 //     (nfsmw_mirror_scale_*).
-//   - the two sides moved by nfsmw_hud_left_x/y and nfsmw_hud_right_x/y, in
-//     the same hook as the wide scene: the groups' x and y (object+44 -> +28,
-//     +32), and the minimap with them as the game moves it (sub_8229C020):
+//   - the minimap, the speedometer and the race info moved by
+//     nfsmw_hud_left_x/y, nfsmw_hud_right_x/y and nfsmw_hud_race_x/y, in the
+//     same hook as the wide scene: their pieces' x and y (object+44 -> +28,
+//     +32; see Piece below), and the minimap's map as the game moves it (sub_8229C020):
 //     its +184/+188, its children's x/y, and the map picture's offset
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "nfsmw_pch.h"
 
@@ -97,13 +99,15 @@ REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
 REXCVAR_DEFINE_BOOL(nfsmw_hud_title_safe, false, "Game",
                     "Shrink the HUD into the TV title-safe area like the Xbox 360 (off: full size, like the PS2)");
 // The player's HUD (live): its size about the middle of the screen while
-// driving, and the left (minimap, heat) and right (speedometer, nitrous)
-// sides moved, in HUD units (640 across at 4:3; y down).
+// driving, and the minimap, the speedometer and the race info (top right)
+// moved, in HUD units (640 across at 4:3; y down).
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_scale, 1.0, "Game", "HUD size while driving (1 = the game's)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_x, 0.0, "Game", "Minimap side of the HUD moved right by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_left_y, 0.0, "Game", "Minimap side of the HUD moved down by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_x, 0.0, "Game", "Speedometer side of the HUD moved right by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_right_y, 0.0, "Game", "Speedometer side of the HUD moved down by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_x, 0.0, "Game", "Race info (top right) moved right by (HUD units)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_y, 0.0, "Game", "Race info (top right) moved down by (HUD units)");
 REXCVAR_DEFINE_INT32(nfsmw_wide_scene_width, 0, "Game",
                      "Scene width for video modes wider than 16:9 (e.g. 1560 for 19.5:9); 0 = "
                      "the game's 1280 (experimental)")
@@ -460,11 +464,76 @@ uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t h
   return ctx.r3.u32;
 }
 
+// The HUD's elements, each moved on its own (IPA73's tree dump of the race
+// HUD, Oct 26): the left group 0x1603009E (in 0x157C5B37) holds the minimap's
+// rings and heat icon at the bottom and other pieces at the top; the right
+// group 0x5D0101F1 holds one group, 0x5C7A5C8A, with the speedometer's pieces
+// at the bottom and the race standings, laps and times at the top. Each child
+// of those two inner groups is one piece: low on the screen it belongs to the
+// minimap or the speedometer, higher (right side) to the race info; the top
+// left ones stay. The minimap's map and icons are moved by
+// MoveMinimap. Positions: HUD units from the middle of the screen, y down.
+constexpr uint32_t kLeftOuter = 0x157C5B37;
+constexpr uint32_t kRightInner = 0x5C7A5C8A;
+
+enum Element { kMinimap, kSpeedometer, kRaceInfo };
+
+struct Piece {
+  uint32_t object;
+  Element element;
+  Moved moved;
+};
+std::vector<Piece> g_pieces;
+uint32_t g_pieces_package = 0;
+
+float Y(uint8_t* base, uint32_t object) {
+  const uint32_t data = Plausible(object) ? REX_LOAD_U32(object + 44) : 0;
+  return Plausible(data) ? LoadF(base, data + 32) : 0.0f;
+}
+
+// Where a piece is drawn (y), from its group: its position plus the middle of
+// what it holds.
+float AnchorY(uint8_t* base, uint32_t object, int depth) {
+  float y = Y(base, object);
+  if (REX_LOAD_U32(object + 0x18) == 5 && REX_LOAD_U32(object + 0x5C) == kListVtable && depth < 8) {
+    float sum = 0;
+    int n = 0;
+    for (uint32_t c = REX_LOAD_U32(object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+         c = REX_LOAD_U32(c + 4)) {
+      sum += AnchorY(base, c, depth + 1);
+      ++n;
+    }
+    if (n) y += sum / float(n);
+  }
+  return y;
+}
+
+// The children of an inner group (at y0 from the middle of the screen) as
+// pieces: low on the screen `below`, the rest `above` (or left out). Low:
+// below 60 units under the middle; the speedometer's pieces were at 83-165,
+// the minimap's at 105-139, and three rows at the right's middle (-32, 2,
+// 38) go with the race info.
+constexpr float kBottom = 60.0f;
+void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above) {
+  if (!Plausible(group) || REX_LOAD_U32(group + 0x5C) != kListVtable) return;
+  int n = 0;
+  for (uint32_t c = REX_LOAD_U32(group + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+       c = REX_LOAD_U32(c + 4), ++n) {
+    const float y = y0 + AnchorY(base, c, 0);
+    if (y > kBottom) {
+      g_pieces.push_back({c, below, {}});
+    } else if (above >= 0) {
+      g_pieces.push_back({c, Element(above), {}});
+    }
+  }
+}
+
 }  // namespace
 
 // The HUD's update (sub_822AA6D0, every frame while there is a HUD): the
-// sides out for a wide scene, and the player's own HUD positions
-// (nfsmw_hud_left_x/y, nfsmw_hud_right_x/y, in HUD units: 640 across at 4:3).
+// sides out for a wide scene (the two groups), and the player's own
+// positions for the minimap, the speedometer and the race info
+// (nfsmw_hud_*_x/y), on their pieces.
 extern "C" REX_FUNC(sub_822AA6D0) {
   const uint32_t hud = ctx.r3.u32;
   const uint8_t was_wide = hud ? REX_LOAD_U8(hud + 816) : 0;
@@ -474,35 +543,47 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
-  // (IPA71 also moved the sides to make up for the size: it broke them apart,
-  // as they are more objects than the two groups. Left out until the tree
-  // dump below shows them.)
-  const float lx = float(REXCVAR_GET(nfsmw_hud_left_x)) - extra, ly = float(REXCVAR_GET(nfsmw_hud_left_y));
-  const float rx = float(REXCVAR_GET(nfsmw_hud_right_x)) + extra, ry = float(REXCVAR_GET(nfsmw_hud_right_y));
+  const float offset[3][2] = {
+      {float(REXCVAR_GET(nfsmw_hud_left_x)), float(REXCVAR_GET(nfsmw_hud_left_y))},
+      {float(REXCVAR_GET(nfsmw_hud_right_x)), float(REXCVAR_GET(nfsmw_hud_right_y))},
+      {float(REXCVAR_GET(nfsmw_hud_race_x)), float(REXCVAR_GET(nfsmw_hud_race_y))}};
+  static bool active = false;  // anything set or moved since the start
+  for (const auto& o : offset) active = active || o[0] != 0 || o[1] != 0;
   const uint32_t package = REX_LOAD_U32(hud + 36);
   static uint32_t dumped_package = 0;
   const bool dump = package && package != dumped_package;
-  if (!dump && lx == 0 && ly == 0 && rx == 0 && ry == 0 && !g_left.object && !g_right.object && !g_minimap.object) {
+  if (!dump && !active && extra == 0 && !g_left.object && !g_right.object) {
     return;  // nothing to move, and nothing moved
   }
   const PPCContext saved = ctx;
   if (package) {
     const uint32_t left = FindObject(ctx, base, package, kLeftGroup);
     const uint32_t right = FindObject(ctx, base, package, kRightGroup);
-    static uint32_t said_left = 0, said_right = 0;
-    if (left != said_left || right != said_right) {
-      said_left = left;
-      said_right = right;
-      REXLOG_INFO("[hud] left group {:08X} by {:.0f},{:.0f}; right group {:08X} by {:.0f},{:.0f} (wide {:.0f})",
-                  left, lx, ly, right, rx, ry, extra);
+    if (package != g_pieces_package) {
+      g_pieces_package = package;
+      g_pieces.clear();
+      const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
+      const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);
+      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, -1);
+      AddPieces(base, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo);
+      int counts[3] = {};
+      for (const Piece& p : g_pieces) ++counts[p.element];
+      REXLOG_INFO("[hud] package {:08X}: left group {:08X}, right group {:08X} ({:08X}); pieces: minimap {}, "
+                  "speedometer {}, race info {} (wide {:.0f})",
+                  package, left, right, right_inner, counts[kMinimap], counts[kSpeedometer], counts[kRaceInfo],
+                  extra);
     }
     if (dump && right) {  // once per HUD package
       dumped_package = package;
       DumpTree(base, right);
     }
-    MoveGroup(base, left, lx, ly, g_left);
-    MoveGroup(base, right, rx, ry, g_right);
+    MoveGroup(base, left, -extra, 0, g_left);
+    MoveGroup(base, right, extra, 0, g_right);
+    for (Piece& p : g_pieces) {
+      MoveGroup(base, p.object, offset[p.element][0], offset[p.element][1], p.moved);
+    }
   }
   ctx = saved;
-  MoveMinimap(base, REX_LOAD_U32(hud + 800), lx, ly, REX_LOAD_U8(hud + 816) != was_wide);
+  MoveMinimap(base, REX_LOAD_U32(hud + 800), offset[kMinimap][0] - extra, offset[kMinimap][1],
+              REX_LOAD_U8(hud + 816) != was_wide);
 }

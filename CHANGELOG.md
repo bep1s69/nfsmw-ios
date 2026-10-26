@@ -9,8 +9,9 @@
   are marked "next launch".
 
 - **HUD size and position.** New HUD settings (launcher Graphics tab and the
-  options while playing): the race HUD's size, and the minimap and speedometer
-  moved left, right, up or down on their own.
+  options while playing): the race HUD's size, and the minimap, the
+  speedometer and the race info (standings, laps, times) moved left, right,
+  up or down on their own.
 
 - **Battery mode now caps the game at 30 fps**, along with its other savings.
 

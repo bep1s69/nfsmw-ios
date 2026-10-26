@@ -276,8 +276,9 @@ Power Profiler or CPU investigations.
   and launch-only values Battery mode sets. Next: device test (TECHNICAL,
   Oct 26 in-game options); later Extra Options in it. Separate later items:
   Post-processing switch does nothing (Stefan, Oct 26, iPad; not in the
-  in-game menu either): IPA73 logs whether its hook runs (`[post]`); next:
-  fix, then add it to the in-game menu.
+  in-game menu either): IPA73 log shows the hook runs and clears byte
+  0x828F48B2 (1 before), yet the picture does not change (native renderer,
+  iPad); next: find what else draws the filter/bloom, then the in-game menu.
   movable/resizable HUD (step 1 in IPA70: size and two side positions as
   settings; step 2, a drag editor, after the device test), save manager, pre-launch menu redesign, trainer-style
   menu idea.

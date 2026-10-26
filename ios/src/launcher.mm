@@ -441,7 +441,8 @@ const std::vector<Section>& Sections() {
        {
            {@"hud_scale", Type::kChoice, @"HUD size",
             @"The size of the speedometer, minimap and the rest of the race HUD, about the middle "
-            @"of the screen (the mirror too). Menus keep their size.",
+            @"of the screen (the mirror too): smaller brings it inward, larger outward; move "
+            @"the pieces back with the rows below. Menus keep their size.",
             @"1.00", HudSizes()},
            {@"hud_left_x", Type::kChoice, @"Minimap: left / right",
             @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"←", @"→")},
@@ -453,6 +454,10 @@ const std::vector<Section>& Sections() {
            {@"hud_right_y", Type::kChoice, @"Speedometer: up / down",
             @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
             HudOffsets(@"↑", @"↓")},
+           {@"hud_race_x", Type::kChoice, @"Race info: left / right",
+            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"←", @"→")},
+           {@"hud_race_y", Type::kChoice, @"Race info: up / down",
+            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"↑", @"↓")},
        }, kTabGraphics},
       {@"Graphics", nil,
        {
@@ -774,6 +779,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_hud_left_y=" + str(@"hud_left_y"));
   a.push_back("--nfsmw_hud_right_x=" + str(@"hud_right_x"));
   a.push_back("--nfsmw_hud_right_y=" + str(@"hud_right_y"));
+  a.push_back("--nfsmw_hud_race_x=" + str(@"hud_race_x"));
+  a.push_back("--nfsmw_hud_race_y=" + str(@"hud_race_y"));
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
