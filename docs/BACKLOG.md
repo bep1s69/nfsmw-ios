@@ -266,7 +266,8 @@ Power Profiler or CPU investigations.
 ## Feature ideas
 
 - **In-game options menu (Stefan, Oct 26; 0.4.0 QoL). Status: built in IPA67
-  (`NFSMW-ingame-options-67.ipa`), not yet tested on device.** Graphics only
+  (`NFSMW-ingame-options-67.ipa`); live settings confirmed on device by
+  Stefan (Oct 26).** Graphics only
   for now (Extra Options are not complete yet, Stefan). Opened from menus and
   pause screens with a gear (top right) or L3+R3. Live: render resolution,
   MetalFX modes, 30/60 cap, FXAA, shadow drawing size, car reflections, auto
