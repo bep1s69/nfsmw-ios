@@ -103,6 +103,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 26: the environment cube is not black.** The rear-view mirror is
+  the cube times a brightness (ps 8436534c) and shows the scene, so the black
+  IPA60/61 snapshots are a readback artefact; the battery-switch A/B below is
+  dropped. Glass: the cube's real content is too strong. Sun: flicker fixed,
+  but never hidden (0 of ~860k answers are 0). Plane run: ~2+ h LPM, 72%->35%.
+  Proposed IPA62 (awaiting approval): SNAP-only per-query draw log; test switch
+  giving the glass shaders a black cube. TECHNICAL Oct 26.
+
 - **October 25 (late): billboard flicker and glass parked by Stefan.** Seen
   on Vulkan too and since the start. Negative: polygon offset (IPA56, kept),
   shader invariance (IPA57, removed), exact shader math (IPA58, kept: no GPU

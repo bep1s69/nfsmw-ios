@@ -5659,3 +5659,50 @@ ps 4fbaecfb, 8c8b5358, 8436534c, 20710a9a read the 195x90 blur 08734000 with
 the previous frame's depth). Next: A/B without the CPU-side experiments that
 change what the GPU receives (`--nfsmw_battery_optimizations=false
 --nfsmw_native_constant_copies=false --nfsmw_native_transform_copies=false`).
+
+### October 26, 2026 — the environment cube is not black; sun still never hidden
+
+No build, no source change. Inputs (Stefan, iPhone, build `Oct 22 2026 23:29:47`
+= IPA54 line, default arguments, battery group on, constant/transform copies on):
+`Most Wanted (2005) Debug/26 October 2026/25 October Long Playthrough Sun Issues/`
+(`nfsmw.2.log`, `nfsmw.1.log`, `nfsmw.log`; IMG_3975-3977, Oct 25 17:28-17:51).
+
+**Environment cube (refutes the IPA60/61 inference).** The rear-view mirror's
+picture shader ps 8436534c (`shaders/msl/ps_8436534cfafcc0eb.hlsl`, texture mask
+3) writes `tfetchCube(ENVIROMAP_SAMPLER) * RVMWorldBrightness`, tone-mapped; its
+cube slot t1 is 06fd4000 (IPA61 `reflective draw` lines), the same cube the
+glass shaders read. In IMG_3975/3977 the mirror shows the overpass, road and
+trees behind the car, and IPA53's IMG_3949/3950 showed the sun in the car's
+reflection. So on screen the cube has content; the all-zero pass_02, cube
+resolves and car_cube faces in the IPA60/61 snapshots are a snapshot/readback
+artefact (cause not checked; 3 of 56 IPA60 frames were not black). The glass
+roof panes showing trees is then the cube's real content (trees around the car)
+at a strength above the 360's faint look, not a black map. The planned A/B
+without the battery switches would not test anything about the cube; dropped.
+Also inferred from the texture masks: ps 4fbaecfb (mask 1) and 8c8b5358 (mask
+0) never sample the 195x90 buffer, so the `reflective draw` lines list stale
+fetch slots; only slots in a shader's mask are read.
+
+**Sun.** Stefan: in sunny weather the sun shows but is always visible, also
+behind buildings/overpasses (IMG_3975: glare drawn over the overpass; IMG_3977:
+through trees). 1003 `occlusion queries` lines over the runs of Oct 25 16:20 to
+21:04: 8 addresses (05D818C0 new, 19 lines), ~860k answers in all, **0 answers
+of 0**. Smallest answer per address: 05D81340 65536 (exactly 256x256),
+05D81080 65902, 05D82DC0 75089, 05D82B00 99223, 05D82580 109491, 05D81600
+2.74M (never under ~3 full frames), 05D82040/05D818C0 921600 (the default).
+Largest: 05D81600 28.8M (31 full 1280x720 frames), 05D82040 24.1M. Inferred:
+the counted draws of at least these two queries cover far more than a sun
+quad (many draws or passes inside one begin/end), and no query ever drops to
+0 behind geometry. Not known: which draws each query brackets, their pass and
+depth state.
+
+**Plane run (Stefan's report, not from the log):** ~2+ h of play in Low Power
+Mode, 72% to 35% (~17 %/h). The logs (rotated at 5 MB, so the start is lost)
+show runs 16:20-16:58, 19:26-19:53, 19:53-20:10, 20:11-21:01, 21:01-21:04;
+`Low Power Mode on` in 2614 lines, off in 19.
+
+**Hang, Oct 26 02:30 run:** 39 s after start, during loading (frame 1350), the
+watchdog logged `5 s sin que se mueva ni un registro en ninguno de los 17
+hilos` with the semaphore history; the log ends there. Same signature as the
+parked iPhone event-loading freeze (BACKLOG); whether the game froze for
+Stefan is unconfirmed.

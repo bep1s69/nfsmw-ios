@@ -129,6 +129,8 @@ energy wins. Free LiveContainer signing and ordinary user workflow are required;
 Game Mode currently needs shared-app +LiveContainer2 per Stefan, so do not make
 the main plan depend on that or a paid host entitlement. Full evidence, platform
 sources, proposal and gates in latest TECHNICAL/checkpoint.
+October 25 (Stefan, iPhone, plane): ~2+ h in Low Power Mode, 72% to 35%
+(~17 %/h), IPA54-line build, default settings. TECHNICAL Oct 26.
 
 ### iPad Pro M4 sun flickering — fix built (IPA54), untested (also iPhone, Oct 24)
 
@@ -160,6 +162,13 @@ October 25 (IPA54 run, `nfsmw_ipa54_sun_test.log`): 6-7 query addresses per
 frame, so overlapping draws/passes add up). The answer is not too low; if the
 sun still never shows in open sky, next check which address is the sun and how
 the game turns the count into glare (ratio or threshold). See TECHNICAL Oct 25.
+October 26 (long playthrough Oct 25, IMG_3975-3977): flicker gone; the sun
+shows in sunny weather but is never hidden (drawn over overpasses, through
+trees). ~860k answers on 8 addresses, still none 0; 05D81600 never under ~3
+full frames, up to 31. Status: flicker fixed, occlusion still wrong. Next
+(proposed): on SNAP frames, log each query's bracketed draws (pass, ps,
+depth state, draw count, GPU count) to find the sun's query and why it never
+reaches 0. See TECHNICAL Oct 26.
 
 ### Textures flashing — open (since the Vulkan renderer)
 
@@ -191,6 +200,13 @@ fast math, no contraction; 0.1.0 had dropped precise math from pixel shaders
 for speed): still the same. Parked Oct 25 by Stefan; state in
 DEVELOPMENT_PROGRESS (environment cube and 200x90 blur render black; A/B
 without the CPU-side experiments not yet done).
+October 26: the cube is **not** black on screen: the rear-view mirror's
+shader (ps 8436534c) is the environment cube times a brightness, and the mirror
+shows the scene behind (IMG_3975/3977). The black snapshots are a readback
+artefact. So the bus-terminal glass shows the cube's real content (trees) too
+strongly compared with the 360's faint reflection; the battery-switch A/B is
+dropped. Next (proposed): a test switch that gives the glass shaders a black
+cube, to see whether the harsh trees come from the cube term. TECHNICAL Oct 26.
 
 ### Red last frame when skipping a movie — open (known issue in 0.3.0)
 
