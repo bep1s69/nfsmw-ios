@@ -38,4 +38,13 @@ void nfsmw_native_draw(const NfsmwNativeDraw* draw);
 // packets).
 void nfsmw_native_resolve(const uint32_t* regs);
 
+// The FPS counter, drawn into the native frame itself (IPA88): a UIKit label
+// over the game's layer delayed the game's frame each time its text changed.
+// Whether the native layer is showing frames (then it draws the counter).
+bool nfsmw_native_overlay_active();
+// The counter's picture (BGRA, premultiplied over its dark box, w x h pixels)
+// and where it goes, as fractions of the window (x, y from the top left).
+// Null bgra: no counter.
+void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, float x, float y, float fw, float fh);
+
 }  // extern "C"

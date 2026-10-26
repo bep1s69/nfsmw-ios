@@ -50,6 +50,8 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "native_renderer.h"
+
 #include "battery.h"
 #include "touch_controls.h"
 
@@ -883,15 +885,11 @@ static std::atomic<float>* PluginCounter(const char* name) {
   if ((self = [super initWithFrame:CGRectZero])) {
     self.userInteractionEnabled = NO;
     self.textColor = UIColor.whiteColor;
-    // The rounded background is the layer's own (no masksToBounds, which
-    // makes the compositor redraw the label off screen whenever its text
-    // changes): each text change delayed the game's frame of that refresh
-    // by one 120 Hz refresh, a 25 + 8 ms stutter pair (IPA86 logs).
-    self.backgroundColor = nil;
-    self.layer.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6].CGColor;
+    self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
     self.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightBold];
     self.textAlignment = NSTextAlignmentCenter;
     self.layer.cornerRadius = 6;
+    self.layer.masksToBounds = YES;
     self.text = @"-- fps";
     __weak NFSFpsLabel* weak = self;
     _timer = [NSTimer scheduledTimerWithTimeInterval:0.5
@@ -913,11 +911,75 @@ static std::atomic<float>* PluginCounter(const char* name) {
   NSString* text = fps < 0 ? @"-- fps"
                    : ms > 0 ? [NSString stringWithFormat:@"%.0f fps · %.1f ms", fps, ms]
                             : [NSString stringWithFormat:@"%.0f fps", fps];
-  // Only a changed text, in a frame that stays the same size.
-  if (![text isEqualToString:self.text]) {
-    self.text = text;
+  if ([self drawIntoNativeFrame:text]) {
+    return;  // the label itself is left alone (hidden)
   }
-  [self layoutInSuperview];  // the safe area may change
+  self.text = text;
+  [self layoutInSuperview];
+}
+
+// With the native renderer the counter is drawn into the game's frame
+// (IPA88): as a label over the game's layer, each text change delayed the
+// game's frame of that refresh by one 120 Hz refresh (a 25 + 8 ms stutter
+// pair twice a second, IPA86 logs). The label stays, hidden and untouched.
+- (bool)drawIntoNativeFrame:(NSString*)text {
+  static NSString* drawn = nil;
+  const bool native = nfsmw_native_overlay_active();
+  if (self.hidden != native) {
+    self.hidden = native;
+    if (!native) {
+      nfsmw_native_set_fps_overlay(nullptr, 0, 0, 0, 0, 0, 0);
+      drawn = nil;
+    }
+  }
+  UIView* parent = self.superview;
+  if (!native || !parent) {
+    return false;
+  }
+  if ([text isEqualToString:drawn]) {
+    return true;
+  }
+  drawn = text;
+  const CGSize size = [text sizeWithAttributes:@{NSFontAttributeName : self.font}];
+  const UIEdgeInsets safe = parent.safeAreaInsets;
+  const CGRect frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(size.width) + 16,
+                                  std::ceil(size.height) + 6);
+  const CGRect bounds = parent.bounds;
+  const CGFloat scale = UIScreen.mainScreen.scale;
+  const int w = int(std::ceil(frame.size.width * scale)), h = int(std::ceil(frame.size.height * scale));
+  if (w <= 0 || h <= 0 || bounds.size.width <= 0 || bounds.size.height <= 0) {
+    return true;
+  }
+  std::vector<uint8_t> pixels(size_t(w) * size_t(h) * 4, 0);
+  CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+  CGContextRef context =
+      CGBitmapContextCreate(pixels.data(), size_t(w), size_t(h), 8, size_t(w) * 4, space,
+                            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);  // BGRA
+  CGColorSpaceRelease(space);
+  if (!context) {
+    return true;
+  }
+  // UIKit's top-left origin, in points.
+  CGContextTranslateCTM(context, 0, h);
+  CGContextScaleCTM(context, scale, -scale);
+  CGContextSetRGBFillColor(context, 0.08, 0.08, 0.08, 1.0);
+  CGContextFillRect(context, CGRectMake(0, 0, frame.size.width, frame.size.height));
+  UIGraphicsPushContext(context);
+  NSMutableParagraphStyle* centered = [NSMutableParagraphStyle new];
+  centered.alignment = NSTextAlignmentCenter;
+  [text drawInRect:CGRectMake(0, (frame.size.height - size.height) * 0.5, frame.size.width, size.height)
+         withAttributes:@{
+           NSFontAttributeName : self.font,
+           NSForegroundColorAttributeName : UIColor.whiteColor,
+           NSParagraphStyleAttributeName : centered
+         }];
+  UIGraphicsPopContext();
+  CGContextRelease(context);
+  nfsmw_native_set_fps_overlay(pixels.data(), w, h, float(frame.origin.x / bounds.size.width),
+                               float(frame.origin.y / bounds.size.height),
+                               float(frame.size.width / bounds.size.width),
+                               float(frame.size.height / bounds.size.height));
+  return true;
 }
 
 - (void)layoutInSuperview {
@@ -925,14 +987,10 @@ static std::atomic<float>* PluginCounter(const char* name) {
   if (!parent) {
     return;
   }
-  // Sized once for the widest text, so a new text never changes the frame.
-  const CGSize s = [@"000 fps · 000.0 ms" sizeWithAttributes:@{NSFontAttributeName : self.font}];
+  const CGSize s = [self.text sizeWithAttributes:@{NSFontAttributeName : self.font}];
   const UIEdgeInsets safe = parent.safeAreaInsets;
-  const CGRect frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(s.width) + 16,
-                                 std::ceil(s.height) + 6);
-  if (!CGRectEqualToRect(frame, self.frame)) {
-    self.frame = frame;
-  }
+  self.frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(s.width) + 16,
+                          std::ceil(s.height) + 6);
 }
 
 - (void)removeFromSuperview {

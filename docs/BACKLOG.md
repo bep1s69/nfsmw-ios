@@ -84,7 +84,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — cause found (FPS counter), fix built (IPA87), untested
+### D-005 Uneven 60 fps frame pacing (iPad) — cause found (FPS counter), fix built (IPA88), untested
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show
@@ -93,7 +93,8 @@ the free-running 60 Hz guest vblank drifts against the display (the drift
 fixed at 30/40 in `patch_ios_vblank_display`). IPA86 locks the 60 cap too
 (`ios_vblank_lock_60`): no change. The pairs follow the on-screen FPS
 counter's 0.5 s text updates; with the counter off they are gone. IPA87
-makes the counter's updates cheap; next: race with the counter on.
+(cheaper label updates) was worse and drew double text; IPA88 draws the
+counter into the game's frame. Next: race with the counter on.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 

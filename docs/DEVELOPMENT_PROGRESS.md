@@ -196,7 +196,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (Stefan): no change; the stutter pairs follow the FPS counter's 0.5 s text
   updates and vanish with the counter off. **IPA87
   (`NFSMW-fps-counter-87.ipa`): the counter no longer masks or re-frames on
-  each update.** Not yet run.
+  each update.** IPA87 (Stefan): worse, double text. **IPA88
+  (`NFSMW-fps-in-frame-88.ipa`): the counter drawn into the game's frame by
+  the native renderer; the label hidden.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
