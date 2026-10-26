@@ -6058,3 +6058,8 @@ cd838a3083b2032d, UUID B174EADB-7000-3A87-A186-A4615096AB48, 208 metallib,
 in the launcher (row greyed "Set by Battery mode") and in the in-game menu
 (applied live through `battery::ChooseCap` when the game started at 30 or 60;
 from 40/120 it waits for the next launch). Build exit 0. Not yet run.
+
+IPA67 follow-up (Stefan, Oct 26): the "next launch" label shows on the 40/120
+fps and MSAA rows; closing the sheet with B does not reach the game's pause
+menu. Still unreported: the launcher showing the menu's values after a
+relaunch; IPA68 not yet run.
