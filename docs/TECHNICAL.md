@@ -6512,3 +6512,22 @@ prefix 679c8ec782481a19, UUID 75B7CB51-68E9-3577-BFD3-0919B2531096, `unzip
 the shown frame's resolution (`nfsmw_native_drawable_width`), one bitmap
 pixel per frame pixel. At 1x it is still the frame's resolution, below the
 screen's. Not yet run.
+
+IPA89 result and Game Performance trace (Stefan, Oct 26, iPad, 1x, cap 60;
+`Debug/26 October 2026/ipa89_game_performance_ipad.trace` (73.6 s from
+18:52:50) and `nfsmw_ipa89_race_game_performance_ipad.log`): the counter
+looks even blurrier (one bitmap pixel per frame pixel at 1x is coarser than
+the screen-scale bitmap; the frame itself is below screen resolution), so
+an in-frame counter cannot be sharp at low render scales. Trace: thermal
+state Nominal throughout; no graphics-compiler activity (no shader
+compiles); the displayed surfaces (3200x2400, direct to display) are 16.67
+ms apart almost always: per 5 s, 0-4 frames held 33 ms and 0-2 pairs of
+8.3/25 ms, the most in 20-55 s (the race's first ~20-30 s, matching the
+log's 18:53:13-18:53:38 windows with 2-6 off-grid). One 166 ms gap at
+race start (frame 3534: 252 textures, 61.8 MiB decoded, 32.8 ms of
+uploads). The per-frame off-grid log was used up by loading (120-line
+cap). So the screen gets an even 60 fps apart from a dropped frame every
+1-3 s at the race start; that alone seems too little for "very bad
+choppiness". Hypothesis to check with Stefan: the judder is in the content
+(e.g. other cars or parts of the scene updated at a lower rate than 60,
+as the Xbox 360 game ran at 30), which display timing cannot show.
