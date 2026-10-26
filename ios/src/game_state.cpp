@@ -68,9 +68,11 @@ const char* const kMenuPackages[] = {
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 
 // Full-screen fades while in the world (the black loading screen before a
-// race is one): not menus (the driving goes on under them, and the touch
-// controls keep their layout), but the HUD's size is not applied while one is
-// up, as it would shrink the black screen too (game_scene_size.cpp).
+// race is FadeScreen.fng, IPA79): not menus (the driving goes on under them,
+// and the touch controls keep their layout). It stays pushed once it has
+// come (IPA79: no "gone" in a whole race), so only its coming is told to
+// game_scene_size.cpp, which holds the HUD's size back for a moment as it
+// would shrink the black screen too.
 const char* const kFadePackages[] = {"FadeScreen.fng", "FadeScreenNoLoadingBar.fng", "BLACK_BACKGROUND.fng",
                                      "BLACK_FADE_OUT.fng"};
 constexpr int kFadeCount = int(sizeof(kFadePackages) / sizeof(kFadePackages[0]));
@@ -122,10 +124,13 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 }  // namespace
 
-// Whether a full-screen fade is up in the world (kFadePackages); read by
+// Counts the world's starts and the fades' coming (kFadePackages); read by
 // game_scene_size.cpp on the game's thread.
 extern "C" {
-bool nfsmw_fade_up = false;
+uint32_t nfsmw_world_fades = 0;
+}
+namespace {
+bool fade_up = false;
 }
 
 extern "C" REX_FUNC(sub_823B4158) {
@@ -135,8 +140,10 @@ extern "C" REX_FUNC(sub_823B4158) {
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
   const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
   const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
-  if ((fade >= 0) != nfsmw_fade_up) {
-    nfsmw_fade_up = fade >= 0;
+  if ((state == kRacing) != (last_state == kRacing) || (fade >= 0 && !fade_up)) ++nfsmw_world_fades;
+  // Under a menu the fades are not asked about: kept as they were.
+  if ((menu < 0 || state != kRacing) && (fade >= 0) != fade_up) {
+    fade_up = fade >= 0;
     static int fade_lines = 40;
     if (fade_lines-- > 0) REXLOG_INFO("[game] fade {}", fade >= 0 ? kFadePackages[fade] : "gone");
   }

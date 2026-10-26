@@ -162,7 +162,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA78 (Stefan): works; at the smallest size the picture bleeds through
   the black loading screen before a race. **IPA79 (`NFSMW-hud-fade-79.ipa`):
   the size is not applied while a full-screen fade package is up.** Not yet
-  run.
+  run. IPA79 (Stefan): loading screen fine, but in the race the HUD was at
+  full size and pushed off the screen (FadeScreen.fng stays pushed).
+  **IPA80 (`NFSMW-hud-fade-hold-80.ipa`): the size is held back for 3 s
+  after the world starts, a fade comes or a new HUD is built.** Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s

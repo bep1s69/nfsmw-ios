@@ -75,6 +75,7 @@
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -122,7 +123,7 @@ extern "C" void __imp__sub_82440D80(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82453768(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822AA6D0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_8227FD58(PPCContext& __restrict ctx, uint8_t* base);
-extern "C" bool nfsmw_fade_up;  // game_state.cpp
+extern "C" uint32_t nfsmw_world_fades;  // game_state.cpp
 
 namespace {
 
@@ -159,10 +160,26 @@ float HudScaleSetting() {
   return scale >= 0.5 && scale <= 1.5 ? float(scale) : 1.0f;
 }
 
-// The HUD matrix's: the setting while driving (menus keep the game's size;
-// so do the full-screen fades, such as the black loading screen before a
-// race, which bled the picture through at the top and bottom), else 1.
-float HudScale() { return nfsmw::battery::InMenu() == 0 && !nfsmw_fade_up ? HudScaleSetting() : 1.0f; }
+// Until when the size is held back: for 3 s after the world starts, a fade
+// comes (game_state.cpp) or a new HUD is built, while the black loading
+// screen fades out (the matrix shrank it too and the picture bled through at
+// the top and bottom; IPA79 kept it back while FadeScreen.fng was pushed,
+// which is the whole race).
+std::chrono::steady_clock::time_point g_hold_until;
+uint32_t g_fades_seen = 0;
+
+void HoldSize() { g_hold_until = std::chrono::steady_clock::now() + std::chrono::seconds(3); }
+
+// The HUD matrix's: the setting while driving (menus keep the game's size),
+// else 1.
+float HudScale() {
+  if (nfsmw_world_fades != g_fades_seen) {
+    g_fades_seen = nfsmw_world_fades;
+    HoldSize();
+  }
+  return nfsmw::battery::InMenu() == 0 && std::chrono::steady_clock::now() >= g_hold_until ? HudScaleSetting()
+                                                                                          : 1.0f;
+}
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -628,6 +645,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       stale = stale || REX_LOAD_U32(p.object + 0x10) != p.hash || REX_LOAD_U32(p.object) != p.vtable;
     }
     if (stale) {
+      HoldSize();
       g_pieces_package = package;
       pieces_left = left;
       pieces_right = right;

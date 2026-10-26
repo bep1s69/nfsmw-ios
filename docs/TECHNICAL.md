@@ -6282,3 +6282,19 @@ those four fade packages is up (`nfsmw_fade_up`, logged `[game] fade ...`,
 40 lines at most); the HUD matrix keeps size 1 meanwhile. Not menus, so the
 frame cap and touch layout are unchanged. Inference to check in the log:
 which one is the pre-race black screen. Not yet run.
+
+IPA79 result (Stefan, Oct 26, iPad, 70%; log
+`Debug/26 October 2026/nfsmw_ipa_79_loading_screen_ipad.log`,
+ipa79_broken_race_min_hud.png): the loading screen was fine, but in the race
+the HUD was at full size with the 70% offsets, so its pieces sat off the
+screen. The log has `[game] fade FadeScreen.fng` as the world started and no
+"gone" afterwards: the package stays pushed for the whole race.
+
+IPA80 (`ios/build/NFSMW-hud-fade-hold-80.ipa`, 30058319 bytes, SHA256 prefix
+1142e3c516283122, UUID A0E6287A-3073-3ED5-BA26-052158A100FD, `unzip -t` ok):
+game_state.cpp counts the world's starts and ends and each coming of a fade
+package (`nfsmw_world_fades`; fades not asked about under a menu, so a pause
+does not count); the HUD matrix keeps size 1 for 3 s after a change of that
+count or a new HUD package (the pieces found again). Expected: the HUD shows
+at 100% for ~3 s at the start of a race, then takes the chosen size. Not
+yet run.
