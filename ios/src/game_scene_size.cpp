@@ -164,9 +164,13 @@ float HudScaleSetting() {
 
 // The HUD matrix's: the setting while driving (menus keep the game's size),
 // else 1.
-bool g_fade_opaque = false;  // a fade's black screen fully up (nfsmw_hud_fit_fade)
+// Whether a fade's black screen is fully up (alpha 255), logged only: IPA83
+// held the HUD's size at 1 meanwhile, but FadeScreen.fng's black images keep
+// alpha 255 for the whole race (hidden some other way), so the HUD stayed at
+// full size.
+bool g_fade_opaque = false;
 
-float HudScale() { return nfsmw::battery::InMenu() == 0 && !g_fade_opaque ? HudScaleSetting() : 1.0f; }
+float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -794,10 +798,6 @@ extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
     int budget = 60;
     if (first) DumpObjects(base, first, 0, budget);
   }
-  // While the black screen is fully up (alpha 255) the HUD's size is held at 1
-  // (nothing shows under it), so the black is drawn whole even before its
-  // images are laid out again (IPA82: the picture still showed through at
-  // the end of the loading screen, until the fade-out moved them).
   g_fade_alpha = 0;
   const float s = HudScaleSetting();
   int n = 0;
