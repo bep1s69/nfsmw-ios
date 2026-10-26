@@ -70,9 +70,8 @@ constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]))
 // Full-screen fades while in the world (the black loading screen before a
 // race is FadeScreen.fng, IPA79): not menus (the driving goes on under them,
 // and the touch controls keep their layout). It stays pushed once it has
-// come (IPA79: no "gone" in a whole race), so only its coming is told to
-// game_scene_size.cpp, which holds the HUD's size back for a moment as it
-// would shrink the black screen too.
+// come (IPA79: no "gone" in a whole race); while it is, game_scene_size.cpp
+// keeps its black screen at full size whatever the HUD's size.
 const char* const kFadePackages[] = {"FadeScreen.fng", "FadeScreenNoLoadingBar.fng", "BLACK_BACKGROUND.fng",
                                      "BLACK_FADE_OUT.fng"};
 constexpr int kFadeCount = int(sizeof(kFadePackages) / sizeof(kFadePackages[0]));
@@ -124,11 +123,9 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 }  // namespace
 
-// Counts the world's starts and the fades' coming (kFadePackages); read by
-// game_scene_size.cpp on the game's thread.
-extern "C" {
-uint32_t nfsmw_world_fades = 0;
-}
+extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);  // game_scene_size.cpp
+extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
+
 namespace {
 bool fade_up = false;
 }
@@ -140,7 +137,17 @@ extern "C" REX_FUNC(sub_823B4158) {
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
   const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
   const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
-  if ((state == kRacing) != (last_state == kRacing) || (fade >= 0 && !fade_up)) ++nfsmw_world_fades;
+  if (fade >= 0) {  // its black screen drawn full size whatever the HUD's size
+    const PPCContext saved = ctx;
+    const uint32_t name_at = saved.r1.u32 - 512;
+    ctx.r1.u64 = name_at - 64;
+    ctx.r3.u64 = REX_LOAD_U32(kFeng);
+    ctx.r4.u64 = PutName(ctx, base, kFadePackages[fade], name_at);
+    sub_82284CA8(ctx, base);
+    const uint32_t package = ctx.r3.u32;
+    ctx = saved;
+    nfsmw_hud_fit_fade(base, package);
+  }
   // Under a menu the fades are not asked about: kept as they were.
   if ((menu < 0 || state != kRacing) && (fade >= 0) != fade_up) {
     fade_up = fade >= 0;

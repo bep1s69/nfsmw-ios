@@ -6298,3 +6298,19 @@ does not count); the HUD matrix keeps size 1 for 3 s after a change of that
 count or a new HUD package (the pieces found again). Expected: the HUD shows
 at 100% for ~3 s at the start of a race, then takes the chosen size. Not
 yet run.
+
+IPA80 result (Stefan, Oct 26, iPad): as expected, the HUD shows at 100% for
+3 s at a race's start, then takes the size; Stefan: not nice looking.
+
+IPA81 (`ios/build/NFSMW-hud-fade-fit-81.ipa`, 30050240 bytes, SHA256 prefix
+e6806c410a5dfea7, UUID FAE1F971-36FD-3E1D-AC74-8DB3101E9630, `unzip -t` ok):
+the hold is gone. While a fade package
+is pushed in the world, game_state.cpp finds it (sub_82284CA8,
+FindPackage(cFEng, name); the HUD's own "package" at hud+36 is its name,
+0x8207BFC8 = "HUD_SingleRace.fng") and game_scene_size.cpp finds its object
+list by the list header (vtable 0x82080030, count, first) within its first
+0x200 bytes, logs it once (`[hud] fade package ...` and its objects), and
+divides the position and size of each top-level image 400 units wide or more
+(the black screen, inferred) by the HUD's size, so the matrix draws it as at
+size 1. Not yet run; if the log shows no list or no wide image, the black
+screen is elsewhere in the package.

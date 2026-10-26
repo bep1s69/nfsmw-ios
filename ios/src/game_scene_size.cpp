@@ -75,9 +75,9 @@
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
-#include <chrono>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 
 #include "nfsmw_pch.h"
@@ -123,7 +123,6 @@ extern "C" void __imp__sub_82440D80(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82453768(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822AA6D0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_8227FD58(PPCContext& __restrict ctx, uint8_t* base);
-extern "C" uint32_t nfsmw_world_fades;  // game_state.cpp
 
 namespace {
 
@@ -160,26 +159,9 @@ float HudScaleSetting() {
   return scale >= 0.5 && scale <= 1.5 ? float(scale) : 1.0f;
 }
 
-// Until when the size is held back: for 3 s after the world starts, a fade
-// comes (game_state.cpp) or a new HUD is built, while the black loading
-// screen fades out (the matrix shrank it too and the picture bled through at
-// the top and bottom; IPA79 kept it back while FadeScreen.fng was pushed,
-// which is the whole race).
-std::chrono::steady_clock::time_point g_hold_until;
-uint32_t g_fades_seen = 0;
-
-void HoldSize() { g_hold_until = std::chrono::steady_clock::now() + std::chrono::seconds(3); }
-
 // The HUD matrix's: the setting while driving (menus keep the game's size),
 // else 1.
-float HudScale() {
-  if (nfsmw_world_fades != g_fades_seen) {
-    g_fades_seen = nfsmw_world_fades;
-    HoldSize();
-  }
-  return nfsmw::battery::InMenu() == 0 && std::chrono::steady_clock::now() >= g_hold_until ? HudScaleSetting()
-                                                                                          : 1.0f;
-}
+float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -645,7 +627,6 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       stale = stale || REX_LOAD_U32(p.object + 0x10) != p.hash || REX_LOAD_U32(p.object) != p.vtable;
     }
     if (stale) {
-      HoldSize();
       g_pieces_package = package;
       pieces_left = left;
       pieces_right = right;
@@ -680,4 +661,69 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   ctx = saved;
   MoveMinimap(base, REX_LOAD_U32(hud + 800), offset[kMinimap][0] - extra, offset[kMinimap][1],
               REX_LOAD_U8(hud + 816) != was_wide);
+}
+
+namespace {
+
+// A fade package's full-screen pieces: their size and position as the game
+// set them, and as written here.
+struct Fitted {
+  float base[4];
+  float written[4];
+};
+std::unordered_map<uint32_t, Fitted> g_fitted;
+
+// Position (+28, +32) and size (+56, +60) of an object divided by s, so that
+// through the HUD's matrix (scaled by s about the middle of the screen) it is
+// drawn as without it.
+void Fit(uint8_t* base, uint32_t object, float s) {
+  const uint32_t data = REX_LOAD_U32(object + 44);
+  if (!Plausible(data)) return;
+  const uint32_t at[4] = {data + 28, data + 32, data + 56, data + 60};
+  float now[4];
+  for (int i = 0; i < 4; ++i) now[i] = LoadF(base, at[i]);
+  auto [it, added] = g_fitted.try_emplace(object);
+  Fitted& f = it->second;
+  if (added || std::memcmp(now, f.written, sizeof(now)) != 0) std::memcpy(f.base, now, sizeof(now));
+  for (int i = 0; i < 4; ++i) {
+    f.written[i] = f.base[i] / s;
+    if (f.written[i] != now[i]) StoreF(base, at[i], f.written[i]);
+  }
+}
+
+}  // namespace
+
+// A full-screen fade package that is up (game_state.cpp, every frame while
+// one is pushed in the world): the black loading screen before a race is
+// drawn through the HUD's matrix too, and at a smaller HUD size the picture
+// bled through at its top and bottom (IPA78). Its top-level pieces (images
+// 400 units wide or more: the black screen) are drawn as at size 1. The
+// package's object list is found by its list header (vtable 0x82080030,
+// count, first), logged once.
+extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
+  if (!Plausible(package)) return;
+  static uint32_t said = 0;
+  uint32_t first = 0, at = 0;
+  for (uint32_t off = 0; off < 0x200 && !first; off += 4) {
+    if (REX_LOAD_U32(package + off) != kListVtable) continue;
+    const uint32_t count = REX_LOAD_U32(package + off + 4), head = REX_LOAD_U32(package + off + 8);
+    if (count && count < 300 && Plausible(head) && REX_LOAD_U32(head) != kListVtable &&
+        REX_LOAD_U32(head + 0x18) >= 1 && REX_LOAD_U32(head + 0x18) <= 20) {
+      first = head;
+      at = off;
+    }
+  }
+  if (package != said) {
+    said = package;
+    REXLOG_INFO("[hud] fade package {:08X}: objects list at +{:X}, first {:08X}", package, at, first);
+    int budget = 60;
+    if (first) DumpObjects(base, first, 0, budget);
+  }
+  const float s = HudScale();
+  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable; o = REX_LOAD_U32(o + 4)) {
+    const uint32_t data = REX_LOAD_U32(o + 44);
+    if (REX_LOAD_U32(o + 0x18) == 1 && Plausible(data) && std::abs(LoadF(base, data + 56)) >= 400.0f) {
+      Fit(base, o, s);
+    }
+  }
 }
