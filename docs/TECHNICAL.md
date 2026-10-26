@@ -5801,3 +5801,58 @@ addresses (all begin-0x20), ~127k answers, ~99k of them 0 (e.g. 066B7580:
 multi-frame counts); 46,774 ends without the marker closed by the new rule.
 11 watchdog groups (14:00-14:03, 15:09-15:10) while the renderer kept logging
 frames; Stefan reported no freeze (same as the earlier watchdog-only cases).
+
+### October 26, 2026 — IPA63 iPhone Time Profiler, police chase: where the CPU goes
+
+Stefan, iPhone 17 Pro Max (iOS 27.0.1), IPA63 (NFSMW UUID
+`AC72C463-778A-3A66-8C38-EBC701644EFE`), 1.0x / cap 40, MetalFX and FXAA off,
+LPM off. Instruments Time Profiler attached to LiveContainer, High Frequency,
+Deferred, 61 s of a police chase
+(`26 October 2026/ipa_63_time_profile_chase_iphone.trace`, log
+`26 October 2026/nfsmw_ipa63_police_chase_iphone.log`). dSYM for line lookup:
+`ios/build/NFSMW-sun-fix-63.dSYM` (dsymutil of the IPA63 binary, same UUID).
+Log in the window: 37.8 frames/s on screen, 3,051 draws/frame, 26,054 vertex
+buffers cached, GPU 7.7-11.6 ms/frame.
+
+Measured (Running samples only, ms of CPU per second; app total 791 = ~0.8 core):
+
+| Thread | ms/s | Main content |
+|---|---|---|
+| Render queue (`NativeSwap` blocks, unnamed workqueue) | ~180 | `RenderFrame` 98 incl (32.6 self), Metal `drawIndexed` 16.6, Frame reset / `Draw::~Draw` 17 / 13, `gpu_buffers` map 8.9, encoder creation 5.8 |
+| GPU Commands | 155 | `Record()` 109 incl / 68 self, `Fingerprint` 9.5, attribute map 9.0, PM4 parsing ~25, `operator new` 10.7, `LoadShader` 4.3 |
+| Main XThread (game) | 145 | recompiled game code; `adaptive_qos::OnMainLoop` 8.1 self |
+| XThreadB91B (game worker) | 125 | recompiled game code |
+| XThreadE013 | 83 | game thread (XMA/WMA decode appears in it) |
+| Main Thread (UIKit/SDL pump) | 25 | `SDL_WaitEventTimeoutNS` / `UIKit_PumpEvents` |
+| Audio, XMA decoder, timers, others | ~30 | |
+
+Per frame at 37.8 fps: `Record()` ~2.9 ms, render-queue encode ~4.8 ms. Game
+simulation threads (~350 ms/s, ~45%) are recompiled guest code.
+
+Hottest lines (self, ms/s; `native_renderer.mm` at b2bb38e):
+- 2617 `AttributeEntryFor` (attribute cache lookup, inlined) 13.5, plus the
+  `unordered_map<AttributeKey>` fallback 9.7: ~23 total, the largest single
+  item in `Record()`. The front cache misses into a 26k-entry map.
+- 6453/6454 + map: `GpuBufferFor` slot misses into `unordered_map<const void*,
+  GpuBuffer>` 8.8 plus ~8 on the two lines.
+- 1366/1369 `Fingerprint` sample loop 8.7.
+- 1004 `Draw::~Draw` 5.7 self (13 incl): per-frame teardown of 3,051 draws.
+- 2499/2500 index cache key + `IndexFingerprint` 7.5; 2595 swizzle check 4.0;
+  2903 texture slot compare 4.1; 2658 memo lookup 3.4.
+- `adaptive_qos::OnMainLoop` 8.1: almost all on the `casal` of the owner
+  compare-exchange (plus `pthread_threadid_np`) that runs on every call
+  (disassembly of the IPA63 binary). The cost implies the deferred-call runner
+  `sub_823C8290` is called hundreds of thousands of times per second, i.e. the
+  main loop still spins through it (inference: Time Profiler gives no call
+  counts).
+- Unsymbolicated system code at `0x241cd8xxx` (~35 ms/s over all threads) and
+  `start_wqthread` self 16.2: not attributable from this trace.
+
+Conclusion: no single large waste left. The renderer's CPU work is spread
+across per-draw lookups; the candidates below together are ~40-50 ms/s
+(~5-6% of app CPU), a small battery effect (estimate, not measured). Proposals
+(not approved, not implemented): (A) `OnMainLoop` keeps the owner check in a
+thread_local after the first call (no atomic per call, ~8 ms/s); (B) larger or
+better-hashed GPU buffer slot table (needs `--nfsmw_native_gpu_lookup_stats=true`
+once to see the hit rate); (C) larger attribute front cache; (D) reuse `Draw`
+objects across frames instead of destroying 3,051 per frame.

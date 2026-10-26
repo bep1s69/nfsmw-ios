@@ -103,6 +103,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
+  App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
+  (`Record()` ~2.9 ms/frame), render queue ~180 ms/s. No single large waste
+  left; top lines are per-draw cache lookups (attribute ~23 ms/s, GPU buffer
+  ~17) and `adaptive_qos::OnMainLoop` 8 ms/s (an atomic per call). Proposals
+  A-D in TECHNICAL (Oct 26, Time Profiler), together ~5-6% of app CPU; await
+  Stefan's approval. Cool-start A/B (IPA53 vs IPA52) still open.
+
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
   the begin address and some unmarked ends opened runaway queries. Test: sunny

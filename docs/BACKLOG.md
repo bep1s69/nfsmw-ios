@@ -268,8 +268,9 @@ Power Profiler or CPU investigations.
 - **After IPA52 (Oct 24 night), ranked, none approved:** (1) repeat run + iPad
   check of IPA52; (2) frame-relative ring-wait cap (~half a frame; 70 timeouts/s
   left at 8 ms) - built in IPA53; (3) `Fingerprint`/`Record` encode cost (~35% of
-  GPU Commands) - IPA53 speeds up the index fingerprint; rest of `Record()` needs
-  a line-level profile;
+  GPU Commands) - IPA53 speeds up the index fingerprint; line-level profile done
+  Oct 26 (TECHNICAL, IPA63 Time Profiler): spread over per-draw lookups,
+  proposals A-D (~5-6% of app CPU together), not approved;
   (4) half-precision shaders; (5) re-test IPA49 Default-QoS boost and IPA50
   display match now that threads can idle; (6) main-loop 0.14 ms sleeps (only with
   care, game timing); (7) Low Power Mode hint text.
