@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 26: Stefan declared performance/battery solved for now (after the
+  IPA63/64 profiles and IPA66 1x reflections). Battery leads stay in the
+  backlog, parked; next work is QoL features (save manager, movable/resizable
+  HUD, extra and in-game options, live graphics settings, pre-launch menu).
 - October 24: Stefan records Instruments traces himself in the Instruments app,
   attached to LiveContainer (the plain one, not LiveContainer2/3), and sends the
   saved path; agents only analyze. Agent-driven `xctrace record` uses his usage
