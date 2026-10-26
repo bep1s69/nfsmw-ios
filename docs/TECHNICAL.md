@@ -6435,3 +6435,17 @@ the one before (the one before: Y ms)`. Test: one race with defaults, one
 with `--ios_vblank_lock_60=false`; compare off-grid counts and feel. Risk: a
 frame that misses its refresh now meets a refresh-aligned vblank; watch for
 more 33 ms gaps (`gaps ... 4:`) under load. Not yet run.
+
+IPA86 result (Stefan, Oct 26, iPad, one race, cap 60, FPS counter on; log
+`Debug/26 October 2026/nfsmw_ipa86_frame_pacing.log`): "didn't change much",
+prolonged choppy moments near the end that the counters did not show. The
+lock engaged (`[ios-vblank] cap 60: ... locked (16.67 ms)`), yet the race
+still has the 25 + 8.3 ms pairs (21 in the 120 logged off-grid lines). 19 of
+the 21 are shown at second fractions .023 or .523: a 0.5 s period. The
+on-screen FPS counter (`NFSFpsLabel`, touch_controls.mm) is a UILabel that a
+0.5 s NSTimer re-texts and re-frames; when the text changes (e.g. 16.6 ->
+16.8 ms) the UIKit commit evidently delays the Metal frame of that refresh by
+one 120 Hz refresh. Hypothesis, not yet isolated: the counter causes the
+stutter it is meant to show, and "choppy moments" are stretches where the
+ms text changes at every tick. The vblank lock is not what helps or hurts
+here. Next: one race with the FPS counter off (no build needed).
