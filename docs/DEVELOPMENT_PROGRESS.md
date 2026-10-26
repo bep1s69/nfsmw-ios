@@ -166,6 +166,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   full size and pushed off the screen (FadeScreen.fng stays pushed).
   **IPA80 (`NFSMW-hud-fade-hold-80.ipa`): the size is held back for 3 s
   after the world starts, a fade comes or a new HUD is built.** Not yet run.
+  IPA80 (Stefan): works as described, but the 3 s at full size do not look
+  nice. **IPA81 (`NFSMW-hud-fade-fit-81.ipa`): no hold; the fade package's
+  full-screen images are drawn at full size whatever the HUD's size.** Not
+  yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
