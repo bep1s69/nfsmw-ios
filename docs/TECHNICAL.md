@@ -6590,3 +6590,18 @@ letterboxed top and bottom on the iPad (screenshot
 `ipa_91_finish_race_wrong_aspect_ratio.png`); Stefan: it filled the iPad
 screen before (on 19.5:9 iPhones it bled at the sides). Not investigated;
 likely from the HUD/scene-size work (IPA70-85).
+
+Game timing, first look (Oct 26, Stefan approved digging into it): the
+game reads the timebase inline (`mftb` in ~80 places, mostly `>> 2`, e.g.
+sub_820E0008, a bare ticker; sub_8284DE88 is QueryPerformanceCounter with
+38 library callers). No single frame-time function found yet. Before
+reverse engineering further, a direct test of the fixed-step hypothesis:
+IPA92 (`ios/build/NFSMW-repeated-frames-92.ipa`, 30056278 bytes, SHA256
+prefix 73a8db35a8ee1fd6, UUID 2B42AB94-DB4B-35F1-BCE2-28E9ACF7CE6F, `unzip
+-t` ok, codesign ok, 208 metallib entries) sums, per frame, a hash of each
+draw's c0-c15 vertex constants (its matrices) and logs every 300 frames
+with over 100 draws `[native] content: N of 300 frames repeat the previous
+frame's picture (R times, longest L in a row)`. While driving, N > 0 means
+the game drew a frame without moving its world (the "skipped frames"); 0
+would rule the hypothesis out. Cost: 64 dwords hashed per draw. Not yet
+run.

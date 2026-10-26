@@ -208,7 +208,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   the race. **IPA91 (`NFSMW-120hz-at-60-91.ipa`): the 60 cap asks the display
   for a steady 120 Hz (`ios_display_120_at_60`).** IPA91: delivery perfect
   (every frame 16.7 ms apart), still "skipping frames": content-side. Next
-  (needs Stefan's OK): find the game's frame-time code. New D-006
+  (Stefan OK'd): find the game's frame-time code. **IPA92
+  (`NFSMW-repeated-frames-92.ipa`): logs frames that repeat the previous
+  picture (`[native] content`).** Not yet run. New D-006
   (race-finish background letterboxed).
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**

@@ -7830,6 +7830,8 @@ __attribute__((constructor)) void InstallCommandProcessorHooks() {
   rex_native_occlusion_hook.store(&CpOcclusion);
 }
 
+uint64_t content_sum = 0;  // repeated pictures (IPA92), see NativeDraw
+uint32_t content_draws = 0;
 bool NativeSwap() {
   // Resolves the renderer wrote back to guest memory: its copies stay valid.
   {
@@ -7850,6 +7852,26 @@ bool NativeSwap() {
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
+  {
+    static uint64_t previous_sum = 0;
+    static uint32_t frames = 0, repeats = 0, runs = 0, longest = 0, run = 0;
+    if (content_draws > 100) {  // a 3D scene, not a menu
+      const bool same = content_sum == previous_sum;
+      repeats += same;
+      run = same ? run + 1 : 0;
+      runs += same && run == 1;
+      longest = std::max(longest, run);
+      previous_sum = content_sum;
+      if (++frames == 300) {
+        REXLOG_INFO("[native] content: {} of 300 frames repeat the previous frame's picture ({} times, "
+                    "longest {} in a row)",
+                    repeats, runs, longest);
+        frames = repeats = runs = longest = 0;
+      }
+    }
+    content_sum = 0;
+    content_draws = 0;
+  }
   // How evenly the game reaches its swaps (IPA90): the game times its frames
   // with the real clock (mftb), so uneven swap-to-swap periods are uneven
   // motion even when the screen shows every frame 16.7 ms apart. Every 300
@@ -8011,9 +8033,20 @@ bool NativeSwap() {
   return true;
 }
 
+// Repeated pictures (IPA92): a sum over the frame's draws of a hash of each
+// draw's first 16 vertex constants (c0-c15: its matrices). A frame whose
+// sum equals the one before drew everything where it was: the game did not
+// move its world on that frame (with every frame shown 16.7 ms apart, a
+// "skipped frame" Stefan sees).
 void NativeDraw(const NfsmwNativeDraw* draw) {
   if (!recording) {
     return;
+  }
+  {
+    uint64_t h = 1469598103934665603ull;
+    for (uint32_t i = 0; i < 64; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
+    content_sum += h;
+    ++content_draws;
   }
   // Timed: one draw in eight (counted eight times). Reading the clock five
   // times for every draw cost ~1 ms per frame on its own.
