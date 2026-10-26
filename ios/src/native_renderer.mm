@@ -6929,9 +6929,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           if (before > 0 && gap_ms < 200.0) {
             ++gaps[std::clamp(int(std::lround(gap_ms * 0.12)), 1, 7)];
           }
+          static std::atomic<double> prev_gap_ms{0};
+          static std::atomic<int> off_lines{120};
+          const double prev_gap = prev_gap_ms.exchange(gap_ms);
           if (before > 0 && interval > 0 && gap_ms < 200.0) {
             const double off = std::fabs(gap_ms - interval * 1000.0);
             if (off > 4.0) ++off_grid;
+            // Each off-grid frame (first 120): a stutter pair shows as a long
+            // gap next to a short one (IPA86, 60 cap vblank lock).
+            if (off > 4.0 && gap_ms <= 50.0 && off_lines.fetch_sub(1) > 0) {
+              REXLOG_INFO("[native] off grid: frame {} shown {:.1f} ms after the one before "
+                          "(the one before: {:.1f} ms)",
+                          number, gap_ms, prev_gap);
+            }
             double w = worst_ms.load();
             while (off > w && !worst_ms.compare_exchange_weak(w, off)) {}
           }

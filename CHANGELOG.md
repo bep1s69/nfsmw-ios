@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Smoother 60 fps.** At the 60 fps cap frames are now made in step with the
+  screen's refresh, as at 30 and 40, which removes a small stutter every few
+  seconds.
+
 - **Options while playing.** In a menu or the pause screen, tap the gear at
   the top right (or press L3+R3 on a controller) to change the render
   resolution, MetalFX, the 30/60 fps cap, anti-aliasing and the battery

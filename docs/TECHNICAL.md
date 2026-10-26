@@ -6404,3 +6404,34 @@ vignette; Stefan: "looks just like no post processing should". `[post]` lines
 logged (the first two in the frontend, byte +9 already 0 there). A 5 s
 `[vigilante]` stall at 18:13:02, during startup/loading, not looked into
 (not seen as a problem by Stefan).
+
+### October 26: uneven 60 fps frame pacing (IPA86)
+
+Stefan (iPad): at the 60 cap the counter reads 60 and the frame time moves
+16.6-16.8 ms, but there are smooth moments and choppier ones; the 40 cap
+does not do it. The renderer's presented-time statistics (`[native] pacing`,
+every 300 shown frames, from `presentedTime`) already see this. iPad race
+logs `Debug/26 October 2026/nfsmw_ipa64_race{1,2,3}_ipad.log`,
+`nfsmw_ipa73_hud_race_ipad.log`, `nfsmw_ipa82_hud_ipad.log`: most 300-frame
+windows have 2-6 frames off the 16.7 ms grid, with gaps in 120 Hz refreshes
+like `1:1 2:298 3:1` / `1:2 2:296 3:2`, i.e. a frame held one 120 Hz refresh
+late (25 ms) followed by one 8.3 ms later: a stutter pair every 1-3 s,
+invisible in average fps and in the >40 ms hitch counts. (Odd refresh
+counts also mean the panel ran at 120 Hz although the link asked 60.)
+At 60 the guest vblank is the SDK timer, not the display (only 30/40 were
+locked, `patch_ios_vblank_display`): the same drift that made the 40 cap
+land a frame a refresh late before it was locked.
+
+IPA86 (`ios/build/NFSMW-pacing-60-86.ipa`, 30065097 bytes, SHA256 prefix
+b847ee93aafd1b78, UUID 9F0D1D4B-CC3C-3FA0-A88C-9069A643E1EC, `unzip -t` ok,
+codesign ok, 208 metallib entries): `patch_ios_vblank_display` locks the 60
+cap too (cvar `ios_vblank_lock_60`, default on; needs
+`ios_vblank_from_display`); `display_rate.mm` publishes the refresh period
+split to 60 Hz at the 60 cap (so a 120 Hz link still locks); the fps cap's
+"a late frame is shown at once" rule is unchanged. The log says
+`[ios-vblank] cap 60: guest vblank locked to the display refresh` and, for
+the first 120 off-grid frames, `[native] off grid: frame N shown X ms after
+the one before (the one before: Y ms)`. Test: one race with defaults, one
+with `--ios_vblank_lock_60=false`; compare off-grid counts and feel. Risk: a
+frame that misses its refresh now meets a refresh-aligned vblank; watch for
+more 33 ms gaps (`gaps ... 4:`) under load. Not yet run.
