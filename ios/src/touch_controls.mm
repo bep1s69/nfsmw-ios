@@ -945,11 +945,11 @@ static std::atomic<float>* PluginCounter(const char* name) {
   const CGRect frame = CGRectMake(safe.left + 8, safe.top + 6, std::ceil(size.width) + 16,
                                   std::ceil(size.height) + 6);
   const CGRect bounds = parent.bounds;
-  // At the frame's own resolution (below the screen's at low render scales),
-  // one bitmap pixel per frame pixel: a screen-resolution bitmap was
-  // shrunk into the frame and blurred (IPA88 at 1x).
   const int drawable_w = nfsmw_native_drawable_width();
-  const CGFloat scale = drawable_w > 0 ? CGFloat(drawable_w) / bounds.size.width : UIScreen.mainScreen.scale;
+  // IPA89 drew it at the frame's resolution: blurrier than IPA88's screen
+  // scale (Stefan), so the screen's scale again, with the frame's as a floor.
+  const CGFloat scale = std::max(UIScreen.mainScreen.scale,
+                                 drawable_w > 0 ? CGFloat(drawable_w) / bounds.size.width : 0.0);
   const int w = int(std::ceil(frame.size.width * scale)), h = int(std::ceil(frame.size.height * scale));
   if (w <= 0 || h <= 0 || bounds.size.width <= 0 || bounds.size.height <= 0) {
     return true;

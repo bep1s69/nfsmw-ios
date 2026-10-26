@@ -7850,6 +7850,41 @@ bool NativeSwap() {
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
+  // How evenly the game reaches its swaps (IPA90): the game times its frames
+  // with the real clock (mftb), so uneven swap-to-swap periods are uneven
+  // motion even when the screen shows every frame 16.7 ms apart. Every 300
+  // swaps: the periods' spread and how many fall in each band.
+  {
+    static std::chrono::steady_clock::time_point previous_start;
+    static double sum = 0, sum_sq = 0, low = 1e9, high = 0;
+    static uint32_t count = 0, bands[8] = {};
+    if (previous_start.time_since_epoch().count()) {
+      const double period = std::chrono::duration<double, std::milli>(swap_start - previous_start).count();
+      if (period < 200.0) {
+        sum += period;
+        sum_sq += period * period;
+        low = std::min(low, period);
+        high = std::max(high, period);
+        static const double edges[7] = {12.0, 15.0, 16.2, 17.2, 18.5, 22.0, 30.0};
+        int b = 0;
+        while (b < 7 && period >= edges[b]) ++b;
+        ++bands[b];
+        if (++count == 300) {
+          const double mean = sum / count;
+          REXLOG_INFO("[native] swap periods: mean {:.2f} ms, spread (sd) {:.2f} ms, {:.1f}-{:.1f} | <12:{} "
+                      "12-15:{} 15-16.2:{} 16.2-17.2:{} 17.2-18.5:{} 18.5-22:{} 22-30:{} 30+:{}",
+                      mean, std::sqrt(std::max(0.0, sum_sq / count - mean * mean)), low, high, bands[0], bands[1],
+                      bands[2], bands[3], bands[4], bands[5], bands[6], bands[7]);
+          sum = sum_sq = 0;
+          low = 1e9;
+          high = 0;
+          count = 0;
+          std::fill(std::begin(bands), std::end(bands), 0u);
+        }
+      }
+    }
+    previous_start = swap_start;
+  }
   struct {
     bool valid = false;
     size_t draws = 0;
