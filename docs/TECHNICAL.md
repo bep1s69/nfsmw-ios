@@ -5961,3 +5961,19 @@ IPA65 `ios/build/NFSMW-reflections-1x-65.ipa`, SHA256
 codesign OK. Test: iPad 1.5x/60 test race with the log; check the log line and
 the 320 passes in the `GPU profile` lines (should read 320x256), and that the
 car reflections look right.
+
+### October 26, 2026 — IPA65 run: did not apply; IPA66 fix (built, not run)
+
+Stefan, iPad, IPA65, 1.5x/60 test race (`26 October 2026/nfsmw_ipa65_r1.5x:60_ipad.log`,
+16:16-16:19). Measured: no `reflections at 1x` line; the six cube passes
+still 480x384 (2.78 ms in one late window); GPU 11.4 ms/frame mean (IPA64 run
+10.2: within run-to-run spread, not a regression claim). Cause: the race's
+cube is not filled by cube-slice resolves (`ev.array`) but by six 2D resolves
+at the face addresses of a cube the frame samples (the `cube_targets`
+assembly), so no source was recognised. IPA66 also counts a resolve whose
+destination is a face of a sampled placeholder cube (same address/stride rule
+as `cube_targets`).
+IPA66 `ios/build/NFSMW-reflections-1x-66.ipa`, SHA256
+`00aff81491845240decafd27a78215fb72060a4b00e2c5472c417b4735ba5702`, NFSMW UUID
+`08466B13-142E-3EC6-A762-31507638FE99`; 208 metallib entries, zip test and
+codesign OK. Same test as IPA65.

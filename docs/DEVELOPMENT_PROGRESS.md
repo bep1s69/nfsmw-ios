@@ -119,8 +119,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   higher clock (the heat). All held their cap. Lead: the six 320x256 passes
   scale with resolution (TECHNICAL, Oct 26 iPad race). They are the
   environment cube: **IPA65 (`NFSMW-reflections-1x-65.ipa`) keeps them at 1x**
-  (`--nfsmw_native_scale_reflections`, default false). Built, not run. Next:
-  iPad 1.5x/60 test race on IPA65.
+  (`--nfsmw_native_scale_reflections`, default false). IPA65 run: did not
+  apply (the cube is filled by 2D face resolves); fixed in **IPA66
+  (`NFSMW-reflections-1x-66.ipa`), built, not run.** Next: iPad 1.5x/60 race.
 
 - **October 26 (later): sun fixed in IPA63 (`NFSMW-sun-fix-63.ipa`),
   confirmed by Stefan on iPad (fades with cover).** The game ends each sun query at begin-0x20; answers were filed under
