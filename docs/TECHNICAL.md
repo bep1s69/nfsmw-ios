@@ -6547,3 +6547,25 @@ swap entry). Even motion needs nearly all in 16.2-17.2. Also the counter
 bitmap is back at the screen's scale (IPA88; IPA89's frame resolution was
 blurrier). Test: one race; compare the race start's swap periods with the
 later, smooth part. Not yet run.
+
+IPA90 result (Stefan, Oct 26, iPad, cap 60; log
+`Debug/26 October 2026/nfsmw_ipa90_race_stutter.log`): the choppiness comes
+at random through the race, not only at the start. Swap periods: mean 16.67
+ms, spread 0.40-0.55 ms in nearly every window (about 15% at ~15.7 and 15%
+at ~17.7 ms, the rest 16.2-17.2, in smooth and choppy parts alike); a few
+windows (19:55:23-19:55:53) have single 21-23 ms / 11-12 ms periods. The
+presented frames are on the 16.7 ms grid (0 off-grid) in most windows. So
+neither the game's frame timing nor frame delivery shows the random
+choppiness. Post-processing (motion blur) was on.
+
+Remaining lead: at the 60 cap the app asks the display for 60 Hz, and the
+120 Hz panel still ran at 120 at times (odd refresh counts and 8.3 ms
+displayed intervals in the IPA64-89 logs and the IPA89 trace), i.e. iOS
+switches the panel's rate while playing; the 40 cap (smooth, Stefan) asks
+a steady 120. IPA91 (`ios/build/NFSMW-120hz-at-60-91.ipa`, 30055878 bytes,
+SHA256 prefix cf377cd29f579200, UUID 01B30646-5594-3983-BE64-A38A361FC95D,
+`unzip -t` ok, codesign ok, 208 metallib entries): at the 60 cap the link
+asks 120 Hz (range 80-120; cvar `ios_display_120_at_60`, default on; off
+with `--ios_display_120_at_60=false`); the guest vblank stays 60 Hz,
+locked to every other refresh (display_rate.mm publishes every other tick
+with twice the period). Expect a little more display power. Not yet run.

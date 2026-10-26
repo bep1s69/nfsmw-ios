@@ -42,6 +42,10 @@ REXCVAR_DEFINE_BOOL(ios_display_match_cap, false, "GPU",
                     "iOS: ask the display for exactly the frame rate cap's refresh rate at 30, 40 "
                     "and 60 fps (instead of 60 / 120 / 60)");
 
+REXCVAR_DEFINE_BOOL(ios_display_120_at_60, true, "GPU",
+                    "iOS: at the 60 fps cap, ask the display for a steady 120 Hz (as at 40) "
+                    "instead of 60 Hz, which iOS may switch between 60 and 120 while playing");
+
 namespace {
 std::atomic<int> current_cap{60};
 std::atomic<int> asked_hz{60};
@@ -63,7 +67,15 @@ std::atomic<int> asked_hz{60};
       const int cap = current_cap.load(std::memory_order_relaxed);
       const double guest_hz = cap == 40 ? 120.0 : cap == 30 || cap == 60 ? 60.0 : 0.0;
       const long split = guest_hz > 0 ? std::lround(period * guest_hz) : 1;
-      publish(uint64_t(link.timestamp * 1e9), uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)));
+      if (guest_hz > 0 && period * guest_hz < 0.75) {
+        // A 60 Hz guest vblank on a 120 Hz link (60 cap, IPA91): every other
+        // refresh, with twice the period.
+        static bool odd = false;
+        odd = !odd;
+        if (odd) publish(uint64_t(link.timestamp * 1e9), uint64_t(2.0 * period * 1e9));
+      } else {
+        publish(uint64_t(link.timestamp * 1e9), uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)));
+      }
     }
   }
   // The rate iOS actually gives, when it changes (held for 30 refreshes).
@@ -85,7 +97,10 @@ namespace nfsmw::display {
 void RequestRateForCap(int fps_cap) {
   static CADisplayLink* link = nil;
   static NFSDisplayRate* target = nil;
-  const bool high = fps_cap == 40 || fps_cap == 120;
+  // 60 too (IPA91): asking 60 Hz, the 120 Hz panel still ran at 120 at
+  // times (odd refresh counts in the pacing lines); the 40 cap, at a steady
+  // 120, is the one Stefan found smooth.
+  const bool high = fps_cap == 40 || fps_cap == 120 || (fps_cap == 60 && REXCVAR_GET(ios_display_120_at_60));
   const bool match = REXCVAR_GET(ios_display_match_cap) && (fps_cap == 30 || fps_cap == 40 || fps_cap == 60);
   const float preferred = match ? float(fps_cap) : high ? 120.0f : 60.0f;
   current_cap.store(fps_cap);

@@ -97,8 +97,9 @@ counter's 0.5 s text updates; with the counter off they are gone. IPA87
 counter into the game's frame: its pairs gone (IPA88). Left: the race
 start's choppiness (texture decode hitches and 33 ms misses); next: an
 Instruments trace of the race start (IPA89): the screen gets an even 60.
-Stefan: the whole screen judders. Next: IPA90's swap-period spread (uneven
-motion steps from the game's real-clock timing).
+Stefan: the whole screen judders. IPA90: the game's swap periods are even (sd ~0.45
+ms) and choppiness is random through the race. Next: IPA91, a steady 120
+Hz display at the 60 cap (as at 40).
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
