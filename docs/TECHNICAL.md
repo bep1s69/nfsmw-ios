@@ -6605,3 +6605,15 @@ frame's picture (R times, longest L in a row)`. While driving, N > 0 means
 the game drew a frame without moving its world (the "skipped frames"); 0
 would rule the hypothesis out. Cost: 64 dwords hashed per draw. Not yet
 run.
+
+IPA92 result (Stefan, Oct 26 night, iPad, cap 60; log
+`Debug/26 October 2026/nfsmw_ipa92_race_stutter_ipad.log`; Stefan is sure
+of the choppiness in the race's last ~20 s): `[native] content: 0 of 300
+frames repeat` in every window of the race, including the last 20 s;
+pacing 0 off-grid (one window 2, a single 8.8/26 ms swap pair at 01:35:29);
+swap periods sd 0.40-0.52 ms. So the game draws a new picture every frame,
+reaches its swaps evenly and every frame is shown 16.7 ms apart: the
+fixed-step (repeated frame) hypothesis is ruled out. What the logs cannot
+see: unequal motion steps between distinct frames (a frame moving the world
+by 1.5 ticks and the next by 0.5) and perception (60 fps held for two
+refreshes on a 120 Hz panel). No measured delivery or timing fault remains.
