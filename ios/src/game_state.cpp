@@ -44,6 +44,7 @@
 
 extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284D70(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
 
 namespace {
 
@@ -100,6 +101,19 @@ uint32_t PutName(PPCContext& ctx, uint8_t* base, const char* name, uint32_t at) 
   return at;
 }
 
+// The package named (FindPackage(cFEng, name), sub_82284CA8), or 0.
+uint32_t FindPackage(PPCContext& ctx, uint8_t* base, const char* name) {
+  const PPCContext saved = ctx;
+  const uint32_t name_at = saved.r1.u32 - 512;
+  ctx.r1.u64 = name_at - 64;
+  ctx.r3.u64 = REX_LOAD_U32(kFeng);
+  ctx.r4.u64 = PutName(ctx, base, name, name_at);
+  sub_82284CA8(ctx, base);
+  const uint32_t package = ctx.r3.u32;
+  ctx = saved;
+  return package;
+}
+
 // The first of these packages up, or -1.
 int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, int count) {
   const uint32_t feng = REX_LOAD_U32(kFeng);
@@ -123,8 +137,8 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 }  // namespace
 
-extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);  // game_scene_size.cpp
-extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
+extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);     // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 
 namespace {
 bool fade_up = false;
@@ -137,16 +151,20 @@ extern "C" REX_FUNC(sub_823B4158) {
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
   const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
   const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
-  if (fade >= 0) {  // its black screen drawn full size whatever the HUD's size
-    const PPCContext saved = ctx;
-    const uint32_t name_at = saved.r1.u32 - 512;
-    ctx.r1.u64 = name_at - 64;
-    ctx.r3.u64 = REX_LOAD_U32(kFeng);
-    ctx.r4.u64 = PutName(ctx, base, kFadePackages[fade], name_at);
-    sub_82284CA8(ctx, base);
-    const uint32_t package = ctx.r3.u32;
-    ctx = saved;
-    nfsmw_hud_fit_fade(base, package);
+  if (state == kRacing && menu < 0) {
+    // Every fade up, its black screen drawn full size whatever the HUD's size
+    // (IPA82: the first one only, FadeScreen.fng, which stays pushed).
+    bool any = false;
+    for (int i = 0; i < kFadeCount; ++i) {
+      if (PushedPackage(ctx, base, &kFadePackages[i], 1) >= 0) {
+        nfsmw_hud_fit_fade(base, FindPackage(ctx, base, kFadePackages[i]));
+        any = true;
+      }
+    }
+    if (!any) nfsmw_hud_fit_fade(base, 0);
+    // The song's name, kept at the HUD's safe zone.
+    static const char* const kTrax[] = {"EA_Trax.fng"};
+    if (PushedPackage(ctx, base, kTrax, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, kTrax[0]));
   }
   // Under a menu the fades are not asked about: kept as they were.
   if ((menu < 0 || state != kRacing) && (fade >= 0) != fade_up) {

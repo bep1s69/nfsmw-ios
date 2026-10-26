@@ -6329,3 +6329,26 @@ images 400 units wide or more anywhere in the package (groups 4 deep) get
 position and size / s, and the groups holding them position / s (their size
 left: it may be a scale). Open risk: a still image may keep its old layout
 (as the HUD's still pieces did, IPA75). Not yet run.
+
+IPA82 result (Stefan, Oct 26, iPad; log
+`Debug/26 October 2026/nfsmw_ipa82_hud_ipad.log`, ipa82_hud_ipad.png): the
+picture still showed through, for less time, at the very end of the loading
+screen. New: the song's name (EA_Trax.fng, its own package over the HUD) keeps
+the matrix's scaling about the middle, not the safe zone; the radar
+detector's green arcs (the HUD's middle group 0xAB9C1D4D, child 062743F5 at
+y -141 from the middle, under the mirror) did not follow the mirror's frame.
+
+IPA83 (`ios/build/NFSMW-hud-overlays-83.ipa`, 30063553 bytes, SHA256 prefix
+aa46c7723c1cfa29, UUID BFC0BD9D-9763-3750-95B2-1F3143DE7B81, `unzip -t` ok):
+- every fade package that is up is fitted (not only the first), and while a
+  fitted black image's alpha (FEColor at data+0, a at +12, inferred) is 255
+  the HUD matrix keeps size 1 (logged `[hud] fade ...: black screen up /
+  fading`); no fade up clears it.
+- EA_Trax.fng, while pushed and driving: each top-level object's extent
+  (images by size, text as points, groups recursively) gives its outer
+  corner a, and it is moved by d with s * (a + d) = k * a (logged once with
+  its tree: `[hud] overlay package`).
+- the middle group's children become pieces: above -60 units with the
+  mirror (top edge -220), below +60 with the bottom edge (215), in between
+  left alone.
+Not yet run.

@@ -75,6 +75,7 @@
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
@@ -144,6 +145,8 @@ float LoadF(uint8_t* base, uint32_t address) {
   return v;
 }
 
+uint32_t LoadU(uint8_t* base, uint32_t address) { return REX_LOAD_U32(address); }
+
 // A guest heap pointer (the HUD's objects are at 0xBE......).
 bool Plausible(uint32_t a) { return a >= 0x40000000 && a < 0xF0000000 && (a & 3) == 0; }
 
@@ -161,7 +164,9 @@ float HudScaleSetting() {
 
 // The HUD matrix's: the setting while driving (menus keep the game's size),
 // else 1.
-float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
+bool g_fade_opaque = false;  // a fade's black screen fully up (nfsmw_hud_fit_fade)
+
+float HudScale() { return nfsmw::battery::InMenu() == 0 && !g_fade_opaque ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -495,7 +500,7 @@ uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t h
 constexpr uint32_t kLeftOuter = 0x157C5B37;
 constexpr uint32_t kRightInner = 0x5C7A5C8A;
 
-enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft };
+enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft, kTopCentre, kBottomCentre, kElements };
 
 // Each element's outer corner as the game draws it (before the 19.5:9
 // extra), in HUD units from the middle of the screen, kept at its place by
@@ -509,7 +514,12 @@ struct Corner {
   float side;  // -1 left, 1 right
   float y;
 };
-constexpr Corner kCorners[] = {{-1, 215}, {1, 215}, {1, -213}, {-1, -213}};
+// The middle group 0xAB9C1D4D's pieces (IPA82: the radar detector's arcs
+// under the mirror did not follow it) go with the mirror at the top (its top
+// edge, -220) and with the bottom edge at the bottom; those in the middle
+// ("GO!", messages) stay.
+constexpr Corner kCorners[] = {{-1, 215}, {1, 215}, {1, -213}, {-1, -213}, {0, -220}, {0, 215}};
+constexpr uint32_t kMiddleGroup = 0xAB9C1D4D;
 constexpr float kSideX = 221.0f, kWideSideX = 120.0f, kHalfWidth = 76.0f;
 constexpr uint32_t kMirrorFrame = 0x7FAC287B;
 constexpr float kMirrorTop = -220.0f;
@@ -547,22 +557,20 @@ float AnchorY(uint8_t* base, uint32_t object, int depth) {
 }
 
 // The children of an inner group (at y0 from the middle of the screen) as
-// pieces: low on the screen `below`, the rest `above` (or left out). Low:
+// pieces: low on the screen `below`, high `above`, in between `middle` (-1:
+// left out). Low:
 // below 60 units under the middle; the speedometer's pieces were at 83-165,
 // the minimap's at 105-139, and three rows at the right's middle (-32, 2,
 // 38) go with the race info.
 constexpr float kBottom = 60.0f;
-void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above) {
+void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above, int middle) {
   if (!Plausible(group) || REX_LOAD_U32(group + 0x5C) != kListVtable) return;
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(group + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
     const float y = y0 + AnchorY(base, c, 0);
-    if (y > kBottom) {
-      g_pieces.push_back({c, below, {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
-    } else if (above >= 0) {
-      g_pieces.push_back({c, Element(above), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
-    }
+    const int e = y > kBottom ? int(below) : y < -kBottom ? above : middle;
+    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
   }
 }
 
@@ -586,11 +594,11 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   // zone k and the size s (the HUD's matrix scales about the middle of the
   // screen), the middle is drawn at k * (g + e) + offset:
   // s * (g + e + d) = k * (g + e) + offset. The mirror's frame alike (y).
-  const float user[4][2] = {
+  const float user[kElements][2] = {
       {float(REXCVAR_GET(nfsmw_hud_left_x)), float(REXCVAR_GET(nfsmw_hud_left_y))},
       {float(REXCVAR_GET(nfsmw_hud_right_x)), float(REXCVAR_GET(nfsmw_hud_right_y))},
       {float(REXCVAR_GET(nfsmw_hud_race_x)), float(REXCVAR_GET(nfsmw_hud_race_y))},
-      {0, 0}};
+      {0, 0}, {0, 0}, {0, 0}};
   const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
   const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
   // The setting, not HudScale(): the pieces' offsets must not change when a
@@ -600,9 +608,9 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   // screen's size 1 and came out where the matrix alone put them).
   const float s = HudScaleSetting();
   const float gx = kSideX + (REX_LOAD_U8(hud + 816) ? kWideSideX : 0.0f);
-  float offset[4][2];
+  float offset[kElements][2];
   static bool active = false;  // anything set or moved since the start
-  for (int e = 0; e < 4; ++e) {
+  for (int e = 0; e < kElements; ++e) {
     const float x = kCorners[e].side * (gx + kHalfWidth + extra), y = kCorners[e].y;
     offset[e][0] = (k * x + user[e][0]) / s - x;
     offset[e][1] = (k * y + user[e][1]) / s - y;
@@ -633,14 +641,16 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       g_pieces.clear();
       const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
       const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);
-      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft);
-      AddPieces(base, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo);
-      int counts[4] = {};
+      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft, kTopLeft);
+      AddPieces(base, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo, kRaceInfo);
+      const uint32_t middle = FindObject(ctx, base, package, kMiddleGroup);
+      AddPieces(base, middle, Y(base, middle), kBottomCentre, kTopCentre, -1);
+      int counts[kElements] = {};
       for (const Piece& p : g_pieces) ++counts[p.element];
       REXLOG_INFO("[hud] package {:08X}: left group {:08X}, right group {:08X} ({:08X}); pieces: minimap {}, "
-                  "speedometer {}, race info {}, top left {} (wide {:.0f})",
+                  "speedometer {}, race info {}, top left {}, top centre {}, bottom centre {} (wide {:.0f})",
                   package, left, right, right_inner, counts[kMinimap], counts[kSpeedometer], counts[kRaceInfo],
-                  counts[kTopLeft], extra);
+                  counts[kTopLeft], counts[kTopCentre], counts[kBottomCentre], extra);
     }
     if (dump && right) {  // once per HUD package
       dumped_package = package;
@@ -651,7 +661,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     for (Piece& p : g_pieces) {
       MoveGroup(base, p.object, offset[p.element][0], offset[p.element][1], p.moved);
     }
-    const float mirror_dy = (k * kMirrorTop) / s - kMirrorTop;
+    const float mirror_dy = offset[kTopCentre][1];
     const uint32_t frame = active || std::abs(mirror_dy) > 0.01f ? FindObject(ctx, base, package, kMirrorFrame) : 0;
     if (frame) {
       MoveGroup(base, frame, 0, mirror_dy, g_mirror);
@@ -691,6 +701,53 @@ void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
   }
 }
 
+uint32_t g_fade_alpha = 0;  // the widest images' largest alpha this frame
+
+// A package's first top-level object, by its object list's header (vtable
+// 0x82080030, count, first) within its first 0x200 bytes (IPA81: at +0x44
+// in FadeScreen.fng); 0 if none. at: the header's offset.
+uint32_t FirstObject(uint8_t* base, uint32_t package, uint32_t& at) {
+  for (uint32_t off = 0; off < 0x200; off += 4) {
+    if (REX_LOAD_U32(package + off) != kListVtable) continue;
+    const uint32_t count = REX_LOAD_U32(package + off + 4), head = REX_LOAD_U32(package + off + 8);
+    if (count && count < 300 && Plausible(head) && REX_LOAD_U32(head) != kListVtable &&
+        REX_LOAD_U32(head + 0x18) >= 1 && REX_LOAD_U32(head + 0x18) <= 20) {
+      at = off;
+      return head;
+    }
+  }
+  return 0;
+}
+
+// An object's extent from its own position, groups included (images by their
+// size, text as a point).
+struct Box {
+  float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+  void Add(float ax0, float ax1, float ay0, float ay1) {
+    x0 = std::min(x0, ax0), x1 = std::max(x1, ax1), y0 = std::min(y0, ay0), y1 = std::max(y1, ay1);
+  }
+  bool Valid() const { return x0 <= x1 && y0 <= y1; }
+};
+
+void Extent(uint8_t* base, uint32_t object, float px, float py, int depth, Box& box) {
+  const uint32_t type = REX_LOAD_U32(object + 0x18), data = REX_LOAD_U32(object + 44);
+  if (!Plausible(data)) return;
+  if (type == 5) {
+    if (depth >= 6 || REX_LOAD_U32(object + 0x5C) != kListVtable) return;
+    int n = 0;
+    for (uint32_t c = REX_LOAD_U32(object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+         c = REX_LOAD_U32(c + 4), ++n) {
+      Extent(base, c, px + LoadF(base, LoadU(base, c + 44) + 28), py + LoadF(base, LoadU(base, c + 44) + 32),
+             depth + 1, box);
+    }
+  } else if (type == 2) {
+    box.Add(px, px, py, py);
+  } else {
+    const float hw = std::abs(LoadF(base, data + 56)) / 2, hh = std::abs(LoadF(base, data + 60)) / 2;
+    box.Add(px - hw, px + hw, py - hh, py + hh);
+  }
+}
+
 // The full-screen images (400 units wide or more) in an object, groups
 // included: the images by position and size, the groups that hold them by
 // position (IPA81's log: FadeScreen.fng's black screen is two 1200x650
@@ -700,6 +757,7 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
   if (type == 1) {
     if (!Plausible(data) || std::abs(LoadF(base, data + 56)) < 400.0f) return false;
     Fit(base, object, s, false);
+    g_fade_alpha = std::max(g_fade_alpha, REX_LOAD_U32(data + 12));  // FEColor b, g, r, a
     return true;
   }
   if (type != 5 || depth >= 4 || REX_LOAD_U32(object + 0x5C) != kListVtable) return false;
@@ -723,27 +781,72 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
 // package's object list is found by its list header (vtable 0x82080030,
 // count, first), logged once.
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
-  if (!Plausible(package)) return;
-  static uint32_t said = 0;
-  uint32_t first = 0, at = 0;
-  for (uint32_t off = 0; off < 0x200 && !first; off += 4) {
-    if (REX_LOAD_U32(package + off) != kListVtable) continue;
-    const uint32_t count = REX_LOAD_U32(package + off + 4), head = REX_LOAD_U32(package + off + 8);
-    if (count && count < 300 && Plausible(head) && REX_LOAD_U32(head) != kListVtable &&
-        REX_LOAD_U32(head + 0x18) >= 1 && REX_LOAD_U32(head + 0x18) <= 20) {
-      first = head;
-      at = off;
-    }
+  if (!Plausible(package)) {  // none up
+    g_fade_opaque = false;
+    return;
   }
+  static uint32_t said = 0;
+  uint32_t at = 0;
+  const uint32_t first = FirstObject(base, package, at);
   if (package != said) {
     said = package;
     REXLOG_INFO("[hud] fade package {:08X}: objects list at +{:X}, first {:08X}", package, at, first);
     int budget = 60;
     if (first) DumpObjects(base, first, 0, budget);
   }
-  const float s = HudScale();
+  // While the black screen is fully up (alpha 255) the HUD's size is held at 1
+  // (nothing shows under it), so the black is drawn whole even before its
+  // images are laid out again (IPA82: the picture still showed through at
+  // the end of the loading screen, until the fade-out moved them).
+  g_fade_alpha = 0;
+  const float s = HudScaleSetting();
   int n = 0;
   for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
     FitWide(base, o, s, 0);
+  }
+  const bool opaque = g_fade_alpha >= 255;
+  if (opaque != g_fade_opaque) {
+    g_fade_opaque = opaque;
+    static int lines = 40;
+    if (lines-- > 0) REXLOG_INFO("[hud] fade {:08X}: black screen {} (alpha {})", package, opaque ? "up" : "fading", g_fade_alpha);
+  }
+}
+
+namespace {
+std::unordered_map<uint32_t, Moved> g_overlay;
+}  // namespace
+
+// A package shown over the HUD while driving (game_state.cpp: EA_Trax.fng,
+// the song's name; IPA82: it kept the size's middle, not the safe zone):
+// each top-level object is moved so its outer corner (the corner of its
+// extent away from the middle of the screen) keeps its place as the HUD's
+// corners do: s * (a + d) = k * a.
+extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
+  if (!Plausible(package)) return;
+  uint32_t at = 0;
+  const uint32_t first = FirstObject(base, package, at);
+  static uint32_t said = 0;
+  if (package != said) {
+    said = package;
+    REXLOG_INFO("[hud] overlay package {:08X}: objects list at +{:X}, first {:08X}", package, at, first);
+    int budget = 60;
+    if (first) DumpObjects(base, first, 0, budget);
+  }
+  const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
+  const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
+  const float s = HudScaleSetting();
+  int n = 0;
+  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
+    const uint32_t data = REX_LOAD_U32(o + 44);
+    if (!Plausible(data)) continue;
+    Moved& m = g_overlay[o];
+    const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
+    const bool ours = m.object == o && x == m.written_x && y == m.written_y;
+    const float bx = ours ? m.base_x : x, by = ours ? m.base_y : y;
+    Box box;
+    Extent(base, o, bx, by, 0, box);
+    if (!box.Valid()) continue;
+    const float ax = (box.x0 + box.x1) < 0 ? box.x0 : box.x1, ay = (box.y0 + box.y1) < 0 ? box.y0 : box.y1;
+    MoveGroup(base, o, k * ax / s - ax, k * ay / s - ay, m);
   }
 }
