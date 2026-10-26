@@ -132,6 +132,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   position/progress element moves with the speedometer. **IPA71
   (`NFSMW-hud-anchors-71.ipa`): each side now scales about its own middle;
   logs the right group's layout** to find that race element. Not yet run.
+  IPA71 on iPad (Stefan): the size broke the sides apart (they are more
+  objects than the two groups), and speedometer up pushes the race standings
+  off the top. **IPA72 (`NFSMW-hud-tree-72.ipa`): size back to IPA70's;
+  logs the HUD package's whole object tree (`[hud-tree]`)** for per-element
+  positions. Not yet run.
 
 - **October 26 (evening): iPhone Time Profiler on IPA63 (police chase, 1x/40).**
   App CPU ~0.8 core at 37.8 fps: game threads ~45%, GPU Commands 155 ms/s
