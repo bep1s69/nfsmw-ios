@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 27: 0.5.0 PC-mod work (Stefan, via the coordinator) lives on its own
+  local branch `pc-mods-research`, made from `frame-pacing-60`; never commit
+  PC-related work to `frame-pacing-60`. No code changes for it without
+  Stefan's approval; no pushes.
 - October 27: Stefan: 120 Hz simulation did not fix the 60 fps judder; off by
   default, switch kept in Advanced. Order of work: finish the save manager,
   then the motion blur switch (suspected judder cause: the mirror, drawn
@@ -113,6 +117,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: 0.5.0 PC mods, research only, branch `pc-mods-research`.**
+  PC vs Xbox 360 file comparison done (TECHNICAL, Oct 27 PC vs Xbox 360
+  files; BACKLOG feature idea "PC mods"). No code changed. Next: Stefan
+  picks a direction from the proposal there.
 - **October 27: save manager rework, step 1, IPA98
   (`NFSMW-save-sync-98.ipa`), branch `frame-pacing-60` (local).** Stefan
   approved a 3-step plan: (1) the record-pool extras file is part of the save

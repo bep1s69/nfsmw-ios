@@ -6894,3 +6894,57 @@ with 6-62 off and 100-167 ms gaps (not matched to loading/race start here).
 So the screen got an even 60 most of the time; blur on vs off was not
 compared in pacing numbers.
 
+
+## October 27, 2026: PC vs Xbox 360 files, can PC mods work (0.5.0 research)
+
+Branch `pc-mods-research` (from `frame-pacing-60`, local). Research only, no
+code changed. Inputs: unmodded PC game at
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files`
+(1,398 files incl. 3 `.DS_Store`, 3,027,375,537 bytes) and
+`~/Downloads/Need for Speed - Most Wanted (USA).iso` (XGD2, game partition
+0x0FD90000, 49 files, 7,123,373,273 bytes). Scratch scripts and outputs
+(not tracked): `/private/tmp/claude-501/-Users-bep1s-Developer-GitHub-nfsmw-ios/d84def1f-d869-4310-adcd-cec68ea68012/scratchpad`
+(`scripts/`, `compare.tsv`); they reuse `tools/fase1_extraer.py`.
+
+**Disc layout (measured).** The Xbox disc has only `default.xex`, `Movies/*.wmv`
+(PC: `MOVIES/*.vp6`) and `NFS/`: `ZDIR.BIN` (33,360 bytes), `ZZDATA0-9.BIN`
+and padding `PADA1/2`, `PADB1/2.BIN`. ZDIR is 1,390 little-endian records of
+24 bytes, sorted by the first field: `{name hash, ZZDATA number, sector
+(x2048) in it, unknown, size, checksum?}`. The name hash is the EA string hash
+(h = 0xFFFFFFFF; h = h*33 + c) of the upper-case PC path with backslashes
+(`CARS\VIPER\TEXTURES.BIN`): 1,333 PC files match an entry; 51 entries match
+no PC name. PC-only: the 30 VP6 movies, `speed.exe`, `00000000.256`,
+`GLOBAL/INGAMEC.BUN`, five `FRONTEND/PLATFORMS` BINs, `LANGUAGES/agree.*` and
+`Languages.bml`, five extra MEMCARD locales, `SOUND/SPEECH/copspeech.*`.
+
+**Formats, per matched file (count / same size / same first 8 bytes).**
+BIN 684/122/48, ABK 301/0/301, GIN 160/97/160, BUN 100/36/39, SUBTITLES
+30/30/30, LOC 17/0/17, FX 15/12/12, CSI 8/8/8, LZC 4/0/4, MXB 4/4/0.
+- Chunk headers (`0xB3300000` texture pack, `0x80134000` geometry, ...) are
+  little-endian on both. Chunk trees of `CARS/VIPER/*` have the same shape.
+- VLT (`GLOBAL/attributes.bin`, `gameplay.bin`, `FE_ATTRIB.bin`): same `VPAK`
+  header, version and little-endian fields; sizes differ slightly (689,728 vs
+  697,856 attributes; 2,105,216 vs 2,113,536 gameplay), so the contents are
+  not byte-identical. Not checked: whether every field inside is the same
+  layout, and whether the 360 executable tolerates a PC-tool-saved file.
+- LZC files use `JDLZ` on both; language files share their `0x00039000`
+  chunk header.
+- Textures: texture-info records (names, hashes, width/height, the format
+  byte) have the same layout on both. Xbox data is padded (e.g. 128x32
+  texture 0x4000 vs 0x1000 bytes, offsets 4 KB-aligned), mip counts and some
+  format bytes differ (GENERIC_INFRACTION 0x24 PC, 0x26 Xbox), and the data
+  chunk id differs. Inference: Xenos tiled layout; PC DXT data would need
+  tiling and endian swap. Car TPKs keep each texture JDLZ-compressed (PC) and
+  JDLZ or HUFF (Xbox).
+- Geometry: Viper has 279 meshes on both, but 924 vertex-buffer chunks
+  (`0x134B01`) on Xbox vs 279 on PC; Xbox vertex floats read correctly only as
+  big-endian, PC ones as little-endian. PC car models are not drop-in.
+
+**How the port reads data.** `tools/parche_iso.py` mounts the ISO with the
+SDK's `DiscImageDevice`; the SDK also has `HostPathDevice` (a folder). So the
+game can in principle run from an extracted folder with a rebuilt
+ZZDATA/ZDIR, or from a new overlay device that serves replaced files first.
+Not tested: whether the game ever opens loose files outside ZZDATA.
+
+**What this does not prove.** No mod was loaded; no VLT tool (NFS-VltEd,
+Binary) was run on the 360 files.
