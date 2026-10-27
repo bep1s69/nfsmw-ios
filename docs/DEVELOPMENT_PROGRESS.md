@@ -116,6 +116,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: Stefan's tester confirmed Xbox 360 save import; Stefan
+  approved the push: `frame-pacing-60` pushed to origin (new branch). Not yet:
+  merge to `main`, version bump, tag, GitHub release (docs/RELEASING.md).**
 - **October 27: PC save import added to 0.4.0 (Stefan approved).**
   Brought over from `dev-0.5` (converter, Import hook, README credit) without
   the 0.5 Extra Options. IPA108 (`NFSMW-pc-save-import-108.ipa`). Build note:
