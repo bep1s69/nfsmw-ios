@@ -6881,3 +6881,16 @@ was absent. One short run, no log; suggests the post chain causes the
 judder but does not separate the blur from bloom/colour filter. Next: IPA103
 with Post-processing on and Motion blur off isolates the blur.
 
+IPA103 result (Stefan, Oct 27, iPad, Motion blur off; log
+`Debug/27 October 2026/nfsmw_ipa103_motion_blur_off_ipad.log`): no motion
+blur visible; Stefan could not tell whether the picture was fully smooth.
+`[blur]` lines: view 1, values 50000.5547 and 99998.8906 (8 lines, 4 per
+hooked function: each template copy has its own counter). The values are far
+above the 0.0001 threshold and look more like distances than blur amounts;
+what they are exactly is not known, but zeroing them removed the blur.
+`[native] pacing` (22 windows of 300 frames, 16:32:16-16:34:02): 11 windows
+with 0 frames off the 16.7 ms grid, 6 with 2-4 off (worst 4.2-16.7 ms), 5
+with 6-62 off and 100-167 ms gaps (not matched to loading/race start here).
+So the screen got an even 60 most of the time; blur on vs off was not
+compared in pacing numbers.
+
