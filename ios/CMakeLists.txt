@@ -277,7 +277,8 @@ if(NFSMW_WITH_GAME)
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/native_draw_census.cpp
-            src/native_metal_probe.mm src/native_renderer.mm)
+            src/native_metal_probe.mm src/native_renderer.mm
+            src/game_be_probe.cpp)  # TEMPORARY: BACKLOG D-007
 # Line tables for the native renderer (no code change): Time Profiler samples
 # from a device trace map to source lines (dsymutil the app's NFSMW).
 set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -gline-tables-only)
