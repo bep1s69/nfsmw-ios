@@ -119,7 +119,7 @@ before; on 19.5:9 iPhones it bled at the sides). Screenshot
 `Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
 from the HUD/scene-size work (IPA70-85); not investigated.
 
-### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fix built (IPA96), untested
+### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 
 Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13
 prints `[black-edition] bandera 0x82A2CE04 = 0x00000100`, and the career-start
@@ -183,6 +183,8 @@ reads 0 although the patch logged its write. The patch stores the host
 `uint32_t` 0x00000100 on a little-endian CPU, so guest bytes CE04..CE07 become
 00 01 00 00: it sets **CE05**, not CE06. Xenia's `be32` write gives 00 00 01 00.
 The comment in `nfsmw_app.h` ("memory is big-endian, write as is") is wrong.
+Result IPA96 (Stefan, iPad, Oct 27): all 70 Challenge Series events including
+the Camaro one, Black Edition cars in Quick Race, career starts. Probe removed.
 CE05 is a different game setting (read e.g. in `sub_822CB*` at 0x822CBD68
 while loading records): it, not Black Edition, is very likely what caused the
 84-record pool overflow and the on/off save incompatibility. Proposed fix:
