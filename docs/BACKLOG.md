@@ -62,7 +62,18 @@ Parked (Stefan, October 24: minor and inconsistent). When resumed: compare
 against the phone speaker, then a test build with a smoother limiter or a lower
 mix gain, then the XMA reset path if the crackles stay.
 
-### D-004 Engine sound almost disappears — reoccurred (IPA47)
+### D-004 Engine sound almost disappears — fix in 0.4.1 (IPA109), pending device test
+
+October 27, IPA109 (`release-0.4.1`): cause found by SpeedBreaker v0.1.8 (same
+USA disc): EA SND's mixer CPU budget (sub_82601528, mftb-timed, 3-block
+average against 90 % of a 256-sample block) calls sub_82601788 when over,
+which expels the lowest-priority voices for good (engine/turbo/skid loops
+restart only at a gear change). One late OS wake of the mixer thread trips it.
+`ios/src/game_audio_budget.cpp` makes sub_82601788 a no-op (cvar
+`nfsmw_ea_cpu_budget`, off; on calls the original) and logs `[ea-budget]` at
+most once a minute. Fits the XMA reset bursts below (inference). Next: Stefan's
+long race on IPA109; a `[ea-budget]` line at the time a fade used to happen
+would confirm.
 
 Stefan heard the engine sound fade almost completely again during an IPA47 run
 (October 24, no timestamp, no log). Nothing related stood out in the IPA48 log.
@@ -85,6 +96,11 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 whether 256 is a context limit the game runs into.
 
 ### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder not fixed by 120 Hz simulation (off by default again in IPA101); motion blur switch to test in IPA103
+
+October 27, IPA109 (0.4.1, pending device test): the guest vblank thread now
+has Mach real-time priority (`ios_vblank_realtime`, from SpeedBreaker v0.1.4,
+where that thread woke up to 9 ms late on macOS) and the present-at-time
+pacing has a session watchdog. See DEVELOPMENT_PROGRESS, October 27.
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show

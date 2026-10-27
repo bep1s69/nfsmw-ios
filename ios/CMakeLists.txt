@@ -142,8 +142,8 @@ endif()
 # -----------------------------------------------------------------------------
 #  The app
 # -----------------------------------------------------------------------------
-set(NFSMW_VERSION "0.4.0")
-set(NFSMW_VERSION_CODE "4")
+set(NFSMW_VERSION "0.4.1")
+set(NFSMW_VERSION_CODE "5")
 # The name under the icon: the full title does not fit on the home screen.
 set(NFSMW_DISPLAY_NAME "NFS Most Wanted")
 set(NFSMW_IOS_MIN "${CMAKE_OSX_DEPLOYMENT_TARGET}")
@@ -278,7 +278,7 @@ if(NFSMW_WITH_GAME)
                 "(${_extra}). Run: python3 tools/ios/patch_game_extra_options.py")
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
-            src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/native_draw_census.cpp
+            src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/native_draw_census.cpp
             src/native_metal_probe.mm src/native_renderer.mm)
 # Line tables for the native renderer (no code change): Time Profiler samples
 # from a device trace map to source lines (dsymutil the app's NFSMW).
