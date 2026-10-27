@@ -116,6 +116,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: README rewritten for 0.4.0 on `main` (Stefan asked; draft
+  approved before commit).** It still described 0.1.0 (MoltenVK only, no save
+  manager). Now: iOS 26+ stated at the top, native Metal renderer, save manager
+  and iCloud sync, Xbox 360/PC save import, launcher tabs and in-game options,
+  battery work, known issues from BACKLOG (D-003/4/5/6, red movie frame) and
+  0.5.0 plans. Build, How it works, Credits and Legal unchanged apart from the
+  pointer to AGENTS.md. No measured numbers added beyond those in CHANGELOG.
 - **October 27: 0.4.0 built and tagged (Stefan approved steps 1-4 of
   RELEASING; he publishes the GitHub release himself).**
   `ios/build/NFS-Most-Wanted-0.4.0.ipa`, SHA-256
