@@ -7007,3 +7007,28 @@ race; Apple A19 Pro, so the iPhone 17 Pro Max; 60 cap, Battery group on). Log
 - Not shown by this log: whether the engine sound stayed audible
   (Stefan's ears), and no A/B against `nfsmw_ea_cpu_budget=true` or
   `ios_vblank_realtime=false`.
+
+## October 27, 2026: IPA110, issue #5 and iOS 18 target
+
+- `common/src/nfsmw_app.h`: `PonerSiNadieLoPidio` checks
+  `rex::cvar::GetFlagSource(name) != Source::kDefault` instead of
+  `HasNonDefaultValue` (GitHub #5). The launcher passes
+  `--readback_resolve=` on the command line (`ios/src/launcher.mm`), source
+  kCommandLine, so Off now stays `none`. Not run yet.
+- iOS 18: `CMAKE_OSX_DEPLOYMENT_TARGET` 18.0. Shaders: `sh
+  tools/native/build_shaders.sh -` exit 0, 101 translated, the 3 `_dbg`
+  variants rebuilt, all 104 libraries `apple-ios18.0.0`;
+  constant_ranges, texture_masks, vertex_inputs, camera_constants identical
+  to the IPA109 set (so the same translated shaders). `cmake --preset ios`
+  then build exit 0 (899 steps): no unguarded-availability warnings, only
+  deprecations (UIScreen.screens/setScreen:/connect notifications for the
+  external display, CC_MD5 in save_convert). minos 18.0 for NFSMW,
+  librexgpu-xenos, librexruntime; MoltenVK 14.0. Metal 3.1 needs iOS 17,
+  residency sets iOS 18, MetalFX iOS 16; lodBias already behind
+  `@available(iOS 26.0)`.
+- `ios/build/NFSMW-0.4.1-ios18-110.ipa`, 30101026 bytes, SHA-256
+  f07918eda76d983728fd6c9954ea9fb6126cdd82bcd817cfde6633c83d905526, UUID
+  21164B43-FE9B-339D-899C-12545E646386, Info.plist MinimumOSVersion 18.0,
+  208 metallibs, `unzip -t` ok, codesign ok. Not run on any device; whether
+  it runs on iOS 18-25 is unknown (runtime-only failures, e.g. a shader
+  library the OS cannot load, would only show there).

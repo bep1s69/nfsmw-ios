@@ -134,6 +134,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `[ea-budget]` and `[ios-vblank] real-time priority ... set` in the log) and
   60 fps evenness on the iPad and iPhone 17 Pro Max; then release 0.4.1 per
   RELEASING.
+- **October 27: IPA109 iPhone run ok (TECHNICAL). Stefan approved two more
+  0.4.1 items: GitHub #5 (D-010) and iOS 18 support (D-011), in IPA110
+  (`ios/build/NFSMW-0.4.1-ios18-110.ipa`).** Build note: the build dir was
+  reconfigured with `cmake --preset ios` (target 18.0, full rebuild) and the
+  shader cache rebuilt with `sh tools/native/build_shaders.sh -` (IOS_MIN
+  default now 18.0); the iOS 26 libraries are kept in
+  `~/Library/Caches/nfsmw-ios/shaders/lib.ios26-ipa109`. Next: Stefan checks
+  IPA110 on iOS 27; iOS 18-25 testers from GitHub; README at release.
 - **October 27: README rewritten for 0.4.0 on `main` (Stefan asked; draft
   approved before commit).** It still described 0.1.0 (MoltenVK only, no save
   manager). Now: iOS 26+ stated at the top, native Metal renderer, save manager

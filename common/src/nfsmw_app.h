@@ -159,7 +159,7 @@ class NfsmwApp : public rex::ReXApp {
   //  Para que "NFS_Most_Wanted.exe" a secas, sin un solo argumento, arranque
   //  igual de bien que con la linea de comandos larga de siempre.
   //
-  //  Solo se tocan los que el usuario NO haya puesto: HasNonDefaultValue
+  //  Solo se tocan los que el usuario NO haya puesto: GetFlagSource
   //  distingue "esto viene de fabrica" de "esto lo pidio alguien". Asi la
   //  linea de comandos y nfsmw.toml siguen mandando.
   //
@@ -251,7 +251,10 @@ class NfsmwApp : public rex::ReXApp {
       REXLOG_DEBUG("Ajuste '{}' no registrado todavia; no lo toco.", nombre);
       return;
     }
-    if (rex::cvar::HasNonDefaultValue(nombre)) {
+    // Where the value came from, not whether it differs from the default: an
+    // explicit value equal to the default (Accurate exposure Off passes
+    // --readback_resolve=none) is still the user's (GitHub issue #5).
+    if (rex::cvar::GetFlagSource(nombre) != rex::cvar::Source::kDefault) {
       return;  // lo puso el usuario: no se le lleva la contraria.
     }
     if (rex::cvar::SetFlagByName(nombre, valor)) {
