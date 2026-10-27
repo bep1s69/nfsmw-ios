@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 28: AGENTS.md and CLAUDE.md are local only (Stefan): untracked
+  and in .gitignore, not on GitHub. Keep them on disk; never re-add them.
+  They remain in older history and on other branches (`dev-0.5`,
+  `frame-pacing-60`); a merge that touches them must keep them untracked.
 - October 27: post-0.4 work (0.5.0: Extra Options, Widescreen Fix features,
   PC mods) lives on the local branch `dev-0.5`; never commit it here. The
   exception, approved by Stefan: PC save import, in 0.4.0 because it works.
