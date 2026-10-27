@@ -7082,3 +7082,32 @@ IPA105 (`ios/build/NFSMW-pc-saves-105.ipa`, 30107270 bytes, SHA256 prefix
 build exit 0. Includes IPA104's Extra Options. Untested on device. Test:
 Import `~/Downloads/nfsmw_89cars.zip` (or `Speed/Speed`), load the career
 "Speed".
+
+### October 27: IPA105 crash on loading a PC save; IPA106 fix
+
+Stefan (iPad, IPA105): importing the 89-cars PC save and loading "Speed"
+crashed. Log: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa105_pc_save_crash_ipad.log`:
+`Unhandled guest access violation: write of guest 0x701F0000`, lr 0x822C2D38,
+r30 0x701F0000, r31/r11 0xAA3B5ADD/0xAA3B5ADE (pointers into the save
+buffer), 0.1 s after opening 'Speed'.
+
+Cause, from the Xbox loader (sub_822C3A60 -> sub_822C2998 ->
+sub_822C2D30): after the 16-byte profile id at 0x429D, sub_822C2D30 reads a
+u32 count at 0x42AD, clamps it with a signed compare to 300 and copies that
+many 16-byte records into a stack buffer. IPA105 copied 0x429D-0x42B9 as
+bytes, so the count (255, little-endian) read as a negative number: the copy
+ran past the stack. The loader order also showed: 57 x 8 bytes at 0x5571
+(raw), 63 x 12 at 0x5739, a word at 0x5A2D compared with one the game holds
+(different, the load returns failure), 32 bytes at 0x5A31, 240 bytes (30
+records u32 + byte) at 0x5A51, the options (140 bytes on the Xbox, 132 on PC)
+then FEPlayerCarDB (36,040 bytes) at 0x5BCD, then 1 + 3032 bytes and 11
+words (the tail).
+
+IPA106 converter: profile id 16 bytes; count and all 300 race records
+(u32, u32, u32, u16, u16) from 0x42AD; 0x5571 raw; 0x5A2D from the template;
+30 records at 0x5A51. Host test: count 255 on both the real Xbox save and the
+converted pc_Speed, record 0 key e9a57e0a on both. IPA106
+(`ios/build/NFSMW-pc-saves-106.ipa`, 30107207 bytes, SHA256 prefix
+9d7b58032b2cca70, UUID 94FEA2FE-C386-3388-BB12-CB237C6D4B81, `unzip -t` ok),
+build exit 0. Untested on device. Open question: if the 0x5A2D word is per
+profile, the template's may still be refused.

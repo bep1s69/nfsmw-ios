@@ -9,7 +9,8 @@
 // core/switch_format.py, which reads Xbox 360 saves of the Switch port of the
 // same recompilation), extended here to the whole FEPlayerCarDB (all 200 car
 // records and 75 customizations; FEPlayerCarDB layout from the dbalatoni13/nfsmw
-// decompilation) and the 25 records at 0x5A55. Parts with no known map (the
+// decompilation) and checked against the order the Xbox 360 loader reads
+// the file (sub_822C2998, sub_822C3A60). Parts with no known map (the
 // options block 0x5B41-, the Xbox-only tail after the car database) are taken
 // from an Xbox 360 save of this device, the template.
 
@@ -231,11 +232,12 @@ void Settings(uint8_t* p) {
   Reverse(p + 606, 2);
 }
 
-void RaceBelt(uint8_t* p) {
+// The race records after the profile id (read by sub_822C2D30): a u32 count
+// (at most 300) and 300 records of 16 bytes (u32 key, u32 flags, u32, u16,
+// u16).
+void RaceRecords(uint8_t* p) {
   Reverse(p, 4);
-  Reverse(p + 4, 2);
-  Reverse(p + 6, 2);
-  for (size_t pos = 8; pos <= 8 + 248 * 16; pos += 16) {
+  for (size_t pos = 4; pos < 4 + 300 * 16; pos += 16) {
     for (auto [rel, width] : {std::pair{0, 4}, {4, 4}, {8, 4}, {12, 2}, {14, 2}}) Reverse(p + pos + rel, width);
   }
 }
@@ -303,19 +305,26 @@ std::vector<uint8_t> ConvertPcSave(const std::vector<uint8_t>& pc, const std::ve
   copy(0x4038, 0x4038, 1);
   Words(copy(0x4039, 0x4039, 4), 4, 4);  // cash
   Settings(copy(0x403D, 0x403D, 608));
-  copy(0x429D, 0x429D, 0x1C);  // profile id (text)
-  RaceBelt(copy(0x42B9, 0x42B9, 0x5739 - 0x42B9));
+  // From here the order the game's loader reads (sub_822C2998, then
+  // sub_822C3A60): profile id, race records, 57 unlock records of bytes,
+  // 63 x 12 bytes of 32-bit values.
+  copy(0x429D, 0x429D, 16);  // profile id (text)
+  RaceRecords(copy(0x42AD, 0x42AD, 4 + 300 * 16));
+  copy(0x5571, 0x5571, 57 * 8);
   Words(copy(0x5739, 0x5739, 63 * 12), 63 * 12, 4);
-  Words(copy(0x5A2D, 0x5A2D, 4), 4, 4);  // unknown word (inference: one 32-bit value)
-  copy(0x5A31, 0x5A31, 0x24);             // alias and bytes
-  // 25 records of {byte, 3 pad, u32 id} from 0x5A55 (the ids go 1-25).
-  for (size_t i = 0; i < 25; ++i) {
-    uint8_t* r = copy(0x5A55 + 8 * i, 0x5A55 + 8 * i, 8);
-    for (int k = 1; k < 4; ++k) {
+  // 0x5A2D: a word the loader compares with one the game holds at run time
+  // (the load is refused when they differ): the template's stays.
+  copy(0x5A31, 0x5A31, 32);  // alias and bytes
+  // 240 bytes: 30 records {u32, byte, 3 pad}.
+  for (size_t i = 0; i < 30; ++i) {
+    uint8_t* r = copy(0x5A51 + 8 * i, 0x5A51 + 8 * i, 8);
+    Reverse(r, 4);
+    for (int k = 5; k < 8; ++k) {
       if (r[k] == 0xCD) r[k] = 0xAA;
     }
-    Reverse(r + 4, 4);
   }
+  // Then 140 bytes of options on the Xbox (132 on PC): the template's. Then
+  // the car database (FEPlayerCarDB, 36,040 bytes).
   CarRecords(copy(0x5BC5, 0x5BCD, 200 * 20), 200);
   Customizations(copy(0x6B65, 0x6B6D, 75 * 0x198), 75);
   CareerRecords(copy(0xE2ED, 0xE2F5, 25 * 0x38), 25);

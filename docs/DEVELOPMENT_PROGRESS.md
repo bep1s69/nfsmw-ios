@@ -126,7 +126,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   impound strikes, heat override (launcher Extras tab). Untested. Next:
   Stefan tests IPA104; starting cash and the bounty fixes still to find.
   IPA105 (`NFSMW-pc-saves-105.ipa`): PC save import (converter
-  `ios/src/save_convert.cpp`). Untested in game. Stefan (Oct 27): if it
+  `ios/src/save_convert.cpp`): crashed loading the save (wrong byte order
+  of a count); fixed in IPA106 (`NFSMW-pc-saves-106.ipa`), untested. Stefan (Oct 27): if it
   works, it goes into 0.4.0 too (bring those files and the import hook over
   to `frame-pacing-60` only then).
 - **October 27: save manager rework, step 1, IPA98
