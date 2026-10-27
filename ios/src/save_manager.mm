@@ -337,6 +337,25 @@ bool Download(const fs::path& docs, NSURL* cloud, const std::string& id) {
   return ok;
 }
 
+// The iCloud copy removed (its folder in "NFSMW Saves"), and its sync record.
+bool DeleteFromCloud(NSURL* cloud, const std::string& id) {
+  const fs::path dir = CloudSaves(cloud) / id;
+  __block bool ok = false;
+  NSFileCoordinator* fc = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+  [fc coordinateWritingItemAtURL:[NSURL fileURLWithPath:@(dir.c_str())]
+                         options:NSFileCoordinatorWritingForDeleting
+                           error:nil
+                      byAccessor:^(NSURL* u) {
+                        ok = [NSFileManager.defaultManager removeItemAtURL:u error:nil];
+                      }];
+  if (ok) {
+    NSMutableDictionary* d = [[NSUserDefaults.standardUserDefaults dictionaryForKey:kSyncedHashes] mutableCopy];
+    [d removeObjectForKey:@(id.c_str())];
+    if (d) [NSUserDefaults.standardUserDefaults setObject:d forKey:kSyncedHashes];
+  }
+  return ok;
+}
+
 enum class Sync { kNoCloud, kInSync, kLocalNewer, kCloudNewer, kConflict, kLocalOnly, kCloudOnly };
 
 Sync StateOf(const Save* local, const CloudInfo& c, uint64_t synced) {
@@ -543,7 +562,7 @@ NSString* Progress(const Save& s) {
   } else if (ip.section == 2) {
     c.image = [UIImage systemImageNamed:@"icloud.and.arrow.down"];
     c.text = @(NameOf(_cloudOnly[size_t(ip.row)]).c_str());
-    c.secondaryText = @"Tap to download it to this device";
+    c.secondaryText = @"Tap to download it or delete it from iCloud";
   } else {
     c.image = [UIImage systemImageNamed:@"square.and.arrow.down"];
     c.text = @"Import a save…";
@@ -734,6 +753,53 @@ NSString* Progress(const Save& s) {
   [self presentViewController:sheet animated:YES completion:nil];
 }
 
+// A save only in iCloud: download it, or delete the iCloud copy.
+- (void)cloudOnlyActionsFor:(const std::string&)id from:(UIView*)source {
+  const std::string copy = id;
+  NSString* name = @(NameOf(id).c_str());
+  UIAlertController* sheet = [UIAlertController alertControllerWithTitle:name
+                                                                 message:@"This save is only in iCloud."
+                                                          preferredStyle:UIAlertControllerStyleActionSheet];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Download to this device"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction*) {
+                                            NSURL* cloud = StartCloud();
+                                            const bool ok = cloud && Download(self->_docs, cloud, copy);
+                                            StopCloud(cloud);
+                                            [self reload];
+                                            if (!ok) [self alert:@"Download failed" message:nil];
+                                          }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Delete from iCloud…"
+                                            style:UIAlertActionStyleDestructive
+                                          handler:^(UIAlertAction*) {
+                                            [self confirmCloudDelete:copy];
+                                          }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  sheet.popoverPresentationController.sourceView = source;
+  sheet.popoverPresentationController.sourceRect = source.bounds;
+  [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)confirmCloudDelete:(const std::string&)id {
+  const std::string copy = id;
+  UIAlertController* a = [UIAlertController
+      alertControllerWithTitle:[NSString stringWithFormat:@"Delete %s from iCloud?", NameOf(id).c_str()]
+                       message:@"It is removed from your iCloud Drive folder and from every device's list. "
+                               @"Saves on your devices are not touched."
+                preferredStyle:UIAlertControllerStyleAlert];
+  [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  [a addAction:[UIAlertAction actionWithTitle:@"Delete"
+                                        style:UIAlertActionStyleDestructive
+                                      handler:^(UIAlertAction*) {
+                                        NSURL* cloud = StartCloud();
+                                        const bool ok = cloud && DeleteFromCloud(cloud, copy);
+                                        StopCloud(cloud);
+                                        [self reload];
+                                        if (!ok) [self alert:@"Delete failed" message:nil];
+                                      }]];
+  [self presentViewController:a animated:YES completion:nil];
+}
+
 - (void)confirmDelete:(const Save&)s {
   const Save copy = s;
   UIAlertController* a = [UIAlertController
@@ -773,12 +839,7 @@ NSString* Progress(const Save& s) {
   } else if (ip.section == 1) {
     if (!_saves.empty()) [self actionsFor:size_t(ip.row) from:source];
   } else if (ip.section == 2) {
-    const std::string id = _cloudOnly[size_t(ip.row)];
-    NSURL* cloud = StartCloud();
-    const bool ok = cloud && Download(_docs, cloud, id);
-    StopCloud(cloud);
-    [self reload];
-    if (!ok) [self alert:@"Download failed" message:nil];
+    [self cloudOnlyActionsFor:_cloudOnly[size_t(ip.row)] from:source];
   } else {
     [self pickFolder:NO];
   }
@@ -818,7 +879,7 @@ void SyncAfterGameSave() {
   // a row: only the last request, once things are quiet, syncs.
   static std::atomic<uint64_t> generation{0};
   const uint64_t mine = ++generation;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
     if (generation.load() != mine) return;
     @autoreleasepool {
       AutoSync(fs::path(NSHomeDirectory().UTF8String) / "Documents");
