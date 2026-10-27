@@ -185,6 +185,9 @@ reads 0 although the patch logged its write. The patch stores the host
 The comment in `nfsmw_app.h` ("memory is big-endian, write as is") is wrong.
 Result IPA96 (Stefan, iPad, Oct 27): all 70 Challenge Series events including
 the Camaro one, Black Edition cars in Quick Race, career starts. Probe removed.
+A save made with the switch off (BEPPY) also loads with it on and has all the
+content, so Stefan asked to remove the switch: the launcher always passes
+`--black_edition=true` (`extra_args.txt` can still override it).
 CE05 is a different game setting (read e.g. in `sub_822CB*` at 0x822CBD68
 while loading records): it, not Black Edition, is very likely what caused the
 84-record pool overflow and the on/off save incompatibility. Proposed fix:

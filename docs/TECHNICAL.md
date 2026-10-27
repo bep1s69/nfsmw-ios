@@ -6726,3 +6726,12 @@ IPA96 result (Stefan, iPad, Oct 27): fresh profile with Black Edition on, the
 Camaro challenge (event 70) shows, the Black Edition cars are in Quick Race and
 the career starts. The temporary probe (`game_be_probe.cpp`) is removed. Open:
 whether the record pool overflow still happens now that CE05 is no longer set.
+
+### October 27: IPA97 Black Edition always on
+
+Stefan: a save made with the switch off (BEPPY) loads with it on and has all
+the content, so the switch is gone. `ios/src/launcher.mm` no longer lists it
+and always passes `--black_edition=true` (`extra_args.txt` can still pass
+false). No temporary probe. Built `ios/build/NFSMW-be-always-on-97.ipa`, UUID
+B5067ADE-65F8-3178-A5B0-EB23EABC2C42, SHA256 e87187c039374a3f..., ZIP test
+OK, 208 metallibs. Untested on device.
