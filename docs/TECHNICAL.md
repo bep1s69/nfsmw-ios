@@ -7030,7 +7030,7 @@ race; Apple A19 Pro, so the iPhone 17 Pro Max; 60 cap, Battery group on). Log
   f07918eda76d983728fd6c9954ea9fb6126cdd82bcd817cfde6633c83d905526, UUID
   21164B43-FE9B-339D-899C-12545E646386, Info.plist MinimumOSVersion 18.0,
   208 metallibs, `unzip -t` ok, codesign ok. Not run on any device; whether
-  it runs on iOS 18-25 is unknown (runtime-only failures, e.g. a shader
+  it runs on iOS 18 is unknown (runtime-only failures, e.g. a shader
   library the OS cannot load, would only show there).
 
 IPA110 on the iPhone 17 Pro Max (iOS 27.2), Oct 27 23:50-23:53, two

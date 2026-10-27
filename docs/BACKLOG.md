@@ -246,7 +246,7 @@ default, so `PonerSiNadieLoPidio` (`common/src/nfsmw_app.h`), which tested
 (the reporter's fix; also covers `gpu_plugin`, `mnk_mode`). Next: a log with
 Accurate exposure Off should no longer show readback going to `fast`.
 
-### D-011 iOS 18-25 support — built in 0.4.1 (IPA110), untested
+### D-011 iOS 18 support — built in 0.4.1 (IPA110), untested
 
 Requested on GitHub. Deployment target 18.0 (`ios/CMakePresets.json`),
 shader libraries built for 18.0 (`tools/native/build_shaders.sh` default).

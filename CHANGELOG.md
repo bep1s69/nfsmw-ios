@@ -16,9 +16,8 @@
   was undone at startup (GitHub issue #5); settings you choose are now kept
   even when they match the default.
 
-- **iOS 18 to 25, experimental.** The app now installs on iOS / iPadOS 18
-  and later (it needed 26). Nobody has tested it on iOS 18 to 25 yet:
-  reports welcome.
+- **iOS 18, experimental.** The app now installs on iOS / iPadOS 18 (it
+  needed 26). Nobody has tested it on iOS 18 yet: reports welcome.
 
 ## 0.4.0
 

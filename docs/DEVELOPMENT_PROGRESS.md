@@ -121,7 +121,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `v0.4.1`, both pushed. Release IPA `ios/build/NFS-Most-Wanted-0.4.1.ipa`
   = IPA110 (no code change after it), SHA-256
   f07918eda76d983728fd6c9954ea9fb6126cdd82bcd817cfde6633c83d905526. README:
-  iOS 18-25 experimental. Next: Stefan publishes the GitHub release from
+  iOS 18 experimental. Next: Stefan publishes the GitHub release from
   the tag; 0.5 continues on `dev-0.5` (rebase or merge 0.4.1 into it, and
   build it with the iOS 18 target and shader set).
 - **October 27: 0.4.1 fixes on local branch `release-0.4.1` (off `main`,
@@ -149,7 +149,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   shader cache rebuilt with `sh tools/native/build_shaders.sh -` (IOS_MIN
   default now 18.0); the iOS 26 libraries are kept in
   `~/Library/Caches/nfsmw-ios/shaders/lib.ios26-ipa109`. Next: Stefan checks
-  IPA110 on iOS 27; iOS 18-25 testers from GitHub; README at release.
+  IPA110 on iOS 27; iOS 18 testers from GitHub; README at release.
 - **October 27: README rewritten for 0.4.0 on `main` (Stefan asked; draft
   approved before commit).** It still described 0.1.0 (MoltenVK only, no save
   manager). Now: iOS 26+ stated at the top, native Metal renderer, save manager
