@@ -2,7 +2,7 @@
 
 **Need for Speed: Most Wanted (2005), Xbox 360, running natively on iPhone and iPad.**
 
-**Requires iOS / iPadOS 26 or later.**
+**Requires iOS / iPadOS 26 or later; iOS / iPadOS 18 to 25 are experimental (untested).**
 
 This is not an emulator. The game's PowerPC code is translated ahead of time into
 C++ and compiled for Apple's arm64 chips with the
@@ -18,7 +18,7 @@ through MoltenVK, is still there as a fallback.
 > them from your own ISO of the USA Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-Version **0.4.0** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
+Version **0.4.1** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
 release). The game is playable start to finish, and we are getting closer to a
 1.0 release.
 
@@ -79,7 +79,9 @@ release). The game is playable start to finish, and we are getting closer to a
 edition** (title ID `454107D9`), dumped from your own disc. Other editions are
 not supported by the iOS build yet.
 
-**To play**: an iPhone or iPad on **iOS / iPadOS 26 or later**. Tested on an
+**To play**: an iPhone or iPad on **iOS / iPadOS 26 or later**. iOS / iPadOS 18 to
+25 are experimental since 0.4.1: the app installs there, but nobody has tested
+it yet; reports welcome. Tested on an
 iPad Pro M4 and an iPhone 17 Pro Max; A16 iPhones (iPhone 14 Pro / Pro Max) and
 M1 iPads also run it. Install with [SideStore](https://sidestore.io) and
 [LiveContainer](https://github.com/LiveContainer/LiveContainer), no paid
