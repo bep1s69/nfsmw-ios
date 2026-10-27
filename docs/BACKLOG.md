@@ -202,7 +202,7 @@ while loading records): it, not Black Edition, is very likely what caused the
 write the guest bytes explicitly (CE06 = 1, the rest 0), then retest the
 Challenge Series count, Quick Race cars and career start; the pool fix can stay.
 
-### D-009 Achievements do not follow the career to another device — fix built (IPA102), untested
+### D-009 Achievements do not follow the career to another device — fixed (IPA102; Vic restored by hand, confirmed Oct 27)
 
 Stefan, Oct 27: Blacklist rival beaten on the iPhone (Vic, #13), save moved to
 the iPad, the achievement stays locked there. Screenshot

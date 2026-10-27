@@ -127,7 +127,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   120 Hz simulation off by default, its switch in Advanced. Untested. Next:
   Stefan tests an imported internet save. IPA102
   (`NFSMW-achievement-sync-102.ipa`): achievements merged across devices
-  through the iCloud folder (D-009), untested. Then cars/career/challenge progress
+  through the iCloud folder (D-009), confirmed (Vic shows after the manual
+  restore). Import: Stefan's tester will test it. Save progress decoding
+  deferred by Stefan. Now: the motion blur switch. Then cars/career/challenge progress
   in the list; then the motion blur switch (Stefan's next suspect for the
   60 fps judder).
 - **October 26 (night): in-game options menu, IPA67
