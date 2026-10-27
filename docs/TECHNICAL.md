@@ -7032,3 +7032,15 @@ race; Apple A19 Pro, so the iPhone 17 Pro Max; 60 cap, Battery group on). Log
   208 metallibs, `unzip -t` ok, codesign ok. Not run on any device; whether
   it runs on iOS 18-25 is unknown (runtime-only failures, e.g. a shader
   library the OS cannot load, would only show there).
+
+IPA110 on the iPhone 17 Pro Max (iOS 27.2), Oct 27 23:50-23:53, two
+sessions (log `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa110_iphone.log`,
+which also holds the IPA109 run; screenshot `ipa110_metal_hud.png` there).
+Stefan: works. Log: build Oct 27 23:45, real-time vblank set, no shader
+library load failures, `[ea-budget]` once (23:53:03). Pacing after loading:
+0-5 of 300 off. GPU 13-15 ms/frame driving at 1x. Apple's Metal HUD agrees
+(GPU 13.70 ms, frame interval 16.95 ms) and shows the same small frame-interval
+spikes Stefan feels: missed frames, not a logging artefact.
+Stefan: Accurate exposure is greyed out with the native renderer (it only
+affects Vulkan); he plans to remove that option once older-iOS users confirm
+the native renderer works for them.
