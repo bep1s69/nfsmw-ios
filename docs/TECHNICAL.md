@@ -6704,3 +6704,8 @@ byte at `0x82A2CE06`. Built `ios/build/NFSMW-be-probe-95.ipa`, UUID
 84A1B7D7-4CD2-33DA-85BB-67B135FD8716, SHA256 2905095dba746485..., ZIP test
 OK, 208 metallibs. Test: Black Edition on, fresh profile, open Challenge
 Series and scroll to the end. Remove the probe once D-007 is understood.
+
+IPA95 result (Oct 27, iPad): 70 `[be-probe]` lines from the Challenge Series
+list (caller 0x8256AA50); 68 events -> 1, `19.8.31` and `19.9.70` -> 0, flag
+byte 0x82A2CE06 = 0 in every line. The Black Edition patch writes a host-endian
+uint32, which sets byte 0x82A2CE05 instead (see BACKLOG D-007).
