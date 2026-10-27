@@ -206,10 +206,12 @@ class NfsmwApp : public rex::ReXApp {
   //  la activaba con  data_write(be32, 0x82a2ce04, 0x00000100); aqui se pisa
   //  directamente la memoria del guest.
   //
-  //  La memoria gestionada por memoria::Memory se expone en big-endian: el
-  //  offset 0 es el byte mas significativo. Por eso basta escribir el valor
-  //  tal cual (0x00000100), sin endian-swap: es lo mismo que hacia la patch
-  //  .toml con el archivo del XEX parcheado.
+  //  La memoria del guest guarda los datos en big-endian, pero un uint32_t del
+  //  host se escribe en el orden del host (little-endian en ARM y x86). Por
+  //  eso se escriben los bytes uno a uno: 00 00 01 00, como el be32 de Xenia.
+  //  La bandera que lee el juego es el byte 0x82A2CE06. Antes se escribia el
+  //  uint32_t tal cual y quedaba 00 01 00 00: se activaba 0x82A2CE05, otro
+  //  ajuste del juego, y el contenido seguia oculto (BACKLOG D-007).
   //
   //  Se puede apagar desde el menu (Contenido > Black Edition), pero solo se
   //  aplica en la carga siguiente: esta funcion corre cada vez que se carga
@@ -652,16 +654,20 @@ class NfsmwApp : public rex::ReXApp {
       REXLOG_INFO("[black-edition] desactivado (black_edition=false).");
       return;
     }
-    auto* bandera = kernel->memory()->TranslateVirtual<uint32_t*>(kBlackEditionAddr);
+    auto* bandera = kernel->memory()->TranslateVirtual<uint8_t*>(kBlackEditionAddr);
     if (bandera == nullptr) {
       REXLOG_WARN("[black-edition] no se pudo traducir 0x{:08X}; el contenido "
                   "Black Edition seguira oculto.", kBlackEditionAddr);
       return;
     }
-    // La memoria del guest se expone en big-endian: el valor se escribe tal cual.
-    *bandera = 0x00000100u;
-    REXLOG_INFO("[black-edition] bandera 0x{:08X} = 0x{:08X} (contenido desbloqueado).",
-                kBlackEditionAddr, *bandera);
+    // be32 0x00000100: bytes 00 00 01 00 en el orden del guest.
+    bandera[0] = 0x00;
+    bandera[1] = 0x00;
+    bandera[2] = 0x01;
+    bandera[3] = 0x00;
+    REXLOG_INFO("[black-edition] bandera 0x{:08X} = {:02X} {:02X} {:02X} {:02X} "
+                "(contenido desbloqueado).", kBlackEditionAddr, bandera[0], bandera[1],
+                bandera[2], bandera[3]);
   }
 
   void AlternarMenu() {
