@@ -11,7 +11,8 @@ re-found in the Xbox 360 code and built in as a switch (launcher, in-game
 menu, Extra Args), as in `ios/src/game_extra_options.cpp`. File-based mods
 (VLT, textures, cars) are a separate step (BACKLOG, "PC mods on the port").
 
-**Effort is an estimate from the setting's description, not from looking at
+Done rows checked against the cvars in `ios/src` (October 27, after Stefan
+pointed out laps, opponents and always rain already existed). **Effort is an estimate from the setting's description, not from looking at
 the Xbox code**, except for the rows marked done. Easy = one constant or
 compare, like the marker count. Hard = new menu entries, a touch control for a
 PC hotkey, or a renderer change. Status changes go here, with evidence in
@@ -24,6 +25,13 @@ TECHNICAL.
 | Markers after a rival (1-6) | ExOpts SelectableMarkerCount | `game_extra_options.cpp` |
 | Cars you can buy (1-25) | ExOpts PurchasedCarLimit | same |
 | Old Bridge road | ExOpts RemoveOldBridgeBarrier | same |
+| Skip movies | ExOpts SkipMovies | same (`nfsmw_skip_movies`) |
+| Quick Race laps (max 1-127) | ExOpts LapControllers Maximum | same (`nfsmw_laps_max`) |
+| Quick Race opponents (max 1-6) | ExOpts OpponentControllers Maximum | same (`nfsmw_opponents_max`) |
+| Traffic density per level | ExOpts TrafficControllers Low/Medium/High | same (`nfsmw_traffic_*`) |
+| Rain values | ExOpts Weather GeneralRainAmount, RainSize, RainIntensity, RoadReflectionAmount | same (`nfsmw_rain_*`, `nfsmw_road_reflection`) |
+| Always rain | ExOpts AlwaysRain | same (`nfsmw_always_rain`) |
+| Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |
 | Frame rate cap | WSF FPSLimit | Display settings |
@@ -33,8 +41,8 @@ TECHNICAL.
 
 ## Easy (recommended first)
 
-- Race setup: LapControllers (min/max laps, KO laps), OpponentControllers
-  Minimum/Maximum/RandomRace, TrafficControllers Low/Medium/High.
+- Race setup leftovers: LapControllers Minimum, RandomRace, UnfreezeKO;
+  OpponentControllers Minimum, RandomRace.
 - Career numbers: StartingCash, ImpoundStrikesCount,
   MaximumImpoundStrikesCount.
 - Speedbreaker: SBRechargeTime, SBRechargeSpeedLimit, SBMassMultiplier.
@@ -43,8 +51,9 @@ TECHNICAL.
   ShowNonPursuitCops (minimap).
 - Fixes (first check the bug exists on the Xbox 360): HelicopterBountyFix,
   ZeroBountyFix, DDayFix, BustedNISFix.
-- World: GameSpeed, CarScale, WorldAnimationSpeed, AlwaysRain and the
-  Weather rain values, NosTrailRepeatCount, NoRevLimiter.
+- World: GameSpeed, CarScale, WorldAnimationSpeed, Weather RainCrossing,
+  RainSpeed, RainGravity (written at boot with the defaults, no setting yet),
+  NosTrailRepeatCount, NoRevLimiter.
 - HUD/misc: ShowHUDOnLookBack, ShowPercentOn1LapRaces,
   UnlockBurgerKingChallenge, SkipMovies, SkipCareerIntro, ReplayBlacklistRaces.
 - WSF: FOVFactor, GRAPHICS.RainDropletsScale, CAMERA.ReturnDelay/ReturnSpeed,
