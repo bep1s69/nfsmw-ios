@@ -6775,3 +6775,20 @@ coordinated delete and its synced hash; local saves untouched). Built
 `ios/build/NFSMW-save-cloud-delete-99.ipa`, UUID
 D33159B4-CCCC-31B1-81B5-701AD30B12B3, SHA256 d9d3bc4db88c2b40..., ZIP test OK,
 208 metallibs, build exit 0. Untested on device.
+
+IPA99 result (Stefan, Oct 27): deleting saves only in iCloud works.
+
+### October 27: IPA100 save manager redesign (step 2)
+
+`ios/src/save_manager.mm`: sections are now Careers (this device's saves, then
+those only in iCloud, in one list), iCloud Drive folder, Import. Each career:
+name, cash/bounty, "This device: saved <date>", and when the copies differ
+"iCloud: saved <date> on <device>" (device from info.plist, written by the
+uploading device). Badge "Newer on <device>". iCloud-only careers read
+cash/bounty from the iCloud copy with a coordinated read. Tap: for newer in
+iCloud or changed on both, "Use the save from <device>" and "Keep this
+device's save" come first; local-only/newer gets "Copy to iCloud now"; then
+Back up, Restore, Export, Delete. Sync now moved to the navigation bar.
+Built `ios/build/NFSMW-save-redesign-100.ipa`, UUID
+B65A01FE-83C7-3BD7-B683-B23770CF5722, SHA256 6c08e19052cf2be7..., ZIP test OK,
+208 metallibs, build exit 0. Not run on device or simulator.

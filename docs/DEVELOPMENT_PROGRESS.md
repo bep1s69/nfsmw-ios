@@ -116,7 +116,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (2) a simpler save screen; (3) import of .zip, Xenia folders and Xbox 360
   CON files. Step 1 confirmed by Stefan (sync works). IPA99
   (`NFSMW-save-cloud-delete-99.ipa`): sync 3 s after a save; delete for saves
-  only in iCloud. Untested. Next: step 2.
+  only in iCloud (confirmed by Stefan). IPA100
+  (`NFSMW-save-redesign-100.ipa`): step 2, one Careers list. Untested. Next:
+  Stefan's look at IPA100; then decode cars owned, career and Challenge Series
+  progress from the save (Stefan wants them for every save, iCloud-only too),
+  then step 3.
 - **October 26 (night): in-game options menu, IPA67
   (`NFSMW-ingame-options-67.ipa`), branch `in-game-options` (local, off
   `battery-optimization`; Stefan approved the design: gear for touch, L3+R3

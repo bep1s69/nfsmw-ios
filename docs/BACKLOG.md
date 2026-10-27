@@ -218,6 +218,11 @@ IPA98 (TECHNICAL, Oct 27): the extras file is now hashed, dated, backed up,
 exported, imported, uploaded, downloaded and deleted with its save, and a
 sync runs 10 s after the game writes a save. Stefan (Oct 27): works. IPA99:
 delay 3 s; saves only in iCloud can be deleted from iCloud in the app.
+IPA100: save screen redesign (step 2). Wanted next (Stefan, Oct 27): cars
+owned, career progress, Challenge Series progress and save date for every
+save, including ones only in iCloud. Only cash and bounty are decoded; the
+MC02 body has no readable section tags (a `Game` tag at 0x44, two `GrtB`), so
+the rest needs before/after comparisons of backups.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 

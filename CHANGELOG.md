@@ -12,6 +12,12 @@
 - **Delete saves from iCloud.** A save that is only in iCloud can now be
   deleted from the save manager (tap it), instead of only downloaded.
 
+- **Simpler save manager.** One list of careers. Each shows its cash, bounty
+  and when and on which device it was last saved, including careers only in
+  iCloud. When another device has a newer save, the career says so and
+  tapping it offers "Use the save from iPad" first. Sync now is the button
+  at the top right.
+
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick

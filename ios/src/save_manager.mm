@@ -404,8 +404,8 @@ NSString* DateText(std::time_t t) {
 //    saves, right after the key bytes 1C B2 90 8B E4 E2 55 47 33 00 31.
 // Shown only when the values look sane, so a save laid out differently shows
 // nothing rather than nonsense.
-NSString* Progress(const Save& s) {
-  NSData* d = [NSData dataWithContentsOfFile:@((s.Dir() / s.name).c_str())];
+NSString* Progress(const fs::path& file) {
+  NSData* d = [NSData dataWithContentsOfFile:@(file.c_str())];
   const auto* p = static_cast<const uint8_t*>(d.bytes);
   if (d.length < 0x4040 || std::memcmp(p, "MC02", 4) != 0) return nil;
   auto u32 = [&](size_t at) {
@@ -431,6 +431,32 @@ NSString* Progress(const Save& s) {
   return parts.count ? [parts componentsJoinedByString:@" · "] : nil;
 }
 
+NSString* Progress(const Save& s) { return Progress(s.Dir() / s.name); }
+
+// The same, from the iCloud copy (a coordinated read downloads it if needed).
+NSString* CloudProgress(NSURL* cloud, const std::string& id) {
+  const std::string name = NameOf(id);
+  const fs::path file = CloudSaves(cloud) / id / name / name;
+  __block NSString* out = nil;
+  NSFileCoordinator* fc = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+  [fc coordinateReadingItemAtURL:[NSURL fileURLWithPath:@(file.c_str())]
+                         options:0
+                           error:nil
+                      byAccessor:^(NSURL* u) {
+                        out = Progress(fs::path(u.path.UTF8String));
+                      }];
+  return out;
+}
+
+// "Saved <date> on <device>" for the iCloud copy.
+NSString* CloudSavedText(const CloudInfo& c) {
+  NSString* when = c.modified ? [NSDateFormatter localizedStringFromDate:c.modified
+                                                               dateStyle:NSDateFormatterMediumStyle
+                                                               timeStyle:NSDateFormatterShortStyle]
+                              : @"?";
+  return c.device.length ? [NSString stringWithFormat:@"%@ on %@", when, c.device] : when;
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -444,7 +470,10 @@ NSString* Progress(const Save& s) {
   fs::path _docs;
   std::vector<Save> _saves;
   std::vector<std::string> _cloudOnly;
-  std::vector<Sync> _state;  // per _saves
+  std::vector<CloudInfo> _cloudOnlyInfo;     // per _cloudOnly
+  NSMutableArray<NSString*>* _cloudOnlyProgress;  // per _cloudOnly ("" when unknown)
+  std::vector<Sync> _state;       // per _saves
+  std::vector<CloudInfo> _cloud;  // per _saves: its iCloud copy
   NSString* _cloudName;      // the folder's name, nil without one
   BOOL _pickingCloud;        // the document picker: the iCloud folder (else an import)
 }
@@ -453,6 +482,11 @@ NSString* Progress(const Save& s) {
   if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
     _docs = docs;
     self.title = @"Saves";
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.triangle.2.circlepath"]
+                                         style:UIBarButtonItemStylePlain
+                                        target:self
+                                        action:@selector(syncNow)];
   }
   return self;
 }
@@ -465,16 +499,22 @@ NSString* Progress(const Save& s) {
 - (void)reload {
   _saves = FindSaves(_docs);
   _state.assign(_saves.size(), Sync::kNoCloud);
+  _cloud.assign(_saves.size(), CloudInfo{});
   _cloudOnly.clear();
+  _cloudOnlyInfo.clear();
+  _cloudOnlyProgress = [NSMutableArray array];
   _cloudName = nil;
   if (NSURL* cloud = StartCloud()) {
     _cloudName = cloud.lastPathComponent;
     for (size_t i = 0; i < _saves.size(); ++i) {
-      _state[i] = StateOf(&_saves[i], ReadCloudInfo(cloud, _saves[i].id), SyncedHash(_saves[i].id));
+      _cloud[i] = ReadCloudInfo(cloud, _saves[i].id);
+      _state[i] = StateOf(&_saves[i], _cloud[i], SyncedHash(_saves[i].id));
     }
     for (const std::string& id : CloudIds(cloud)) {
       if (std::none_of(_saves.begin(), _saves.end(), [&](const Save& s) { return s.id == id; })) {
         _cloudOnly.push_back(id);
+        _cloudOnlyInfo.push_back(ReadCloudInfo(cloud, id));
+        [_cloudOnlyProgress addObject:CloudProgress(cloud, id) ?: @""];
       }
     }
     StopCloud(cloud);
@@ -482,91 +522,120 @@ NSString* Progress(const Save& s) {
   [self.tableView reloadData];
 }
 
-// 0: iCloud Drive, 1: saves on this device, 2: only in iCloud, 3: import.
+- (void)syncNow {
+  const int attention = nfsmw::saves::AutoSync(_docs);
+  [self reload];
+  if (!_cloudName) {
+    [self alert:@"No iCloud folder" message:@"Choose an iCloud Drive folder below first."];
+    return;
+  }
+  [self alert:@"Synced"
+      message:attention ? [NSString stringWithFormat:@"%d career(s) need you: tap them to choose which save "
+                                                     @"to keep.",
+                                                     attention]
+                        : @"Everything is in iCloud."];
+}
+
+// 0: careers (this device's, then those only in iCloud), 1: the iCloud
+// folder, 2: import.
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
-  return 4;
+  return 3;
+}
+
+- (size_t)careerCount {
+  return _saves.size() + _cloudOnly.size();
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
   switch (section) {
-    case 0: return _cloudName ? 2 : 1;
-    case 1: return std::max<NSInteger>(1, NSInteger(_saves.size()));
-    case 2: return NSInteger(_cloudOnly.size());
+    case 0: return std::max<NSInteger>(1, NSInteger([self careerCount]));
     default: return 1;
   }
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
   switch (section) {
-    case 0: return @"iCloud Drive";
-    case 1: return @"On this device";
-    case 2: return _cloudOnly.empty() ? nil : @"Only in iCloud";
+    case 0: return @"Careers";
+    case 1: return @"iCloud Drive";
     default: return nil;
   }
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
   if (section == 0) {
-    return @"Saves are copied to \"NFSMW Saves\" in this folder. Pick the same folder on your other "
-           @"devices to carry a career between them. Changes made only on this device are copied "
-           @"automatically when the launcher opens; anything newer in iCloud waits for you.";
+    return @"Tap a career to choose which save to keep, or for backups, export and delete. A backup is "
+           @"made whenever a save changes (the newest 10 are kept).";
   }
   if (section == 1) {
-    return @"Tap a save for backups, iCloud, export and delete. A backup is made automatically "
-           @"whenever a save changed (the newest 10 are kept).";
+    return @"Pick the same folder on each device. Saves are copied there a few seconds after the game "
+           @"saves; a newer save from another device waits for you to tap it.";
   }
   return nil;
+}
+
+// A small coloured label on the right of a career.
+static UILabel* Badge(NSString* text, UIColor* color) {
+  UILabel* badge = [[UILabel alloc] init];
+  badge.text = text;
+  badge.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
+  badge.textColor = color;
+  [badge sizeToFit];
+  return badge;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
   UIListContentConfiguration* c = UIListContentConfiguration.subtitleCellConfiguration;
+  c.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
   c.secondaryTextProperties.color = UIColor.secondaryLabelColor;
   c.secondaryTextProperties.numberOfLines = 0;
   if (ip.section == 0) {
-    if (ip.row == 0) {
-      c.image = [UIImage systemImageNamed:@"icloud"];
-      c.text = _cloudName ? _cloudName : @"Choose an iCloud Drive folder…";
-      c.secondaryText = _cloudName ? @"Tap to choose another folder" : nil;
-    } else {
-      c.image = [UIImage systemImageNamed:@"arrow.triangle.2.circlepath"];
-      c.text = @"Sync now";
-      c.secondaryText = @"Copies what changed only on this device to iCloud";
-    }
-    cell.accessoryType = UITableViewCellAccessoryNone;
-  } else if (ip.section == 1) {
-    if (_saves.empty()) {
+    const size_t row = size_t(ip.row);
+    if ([self careerCount] == 0) {
       c.text = @"No saves yet";
       c.secondaryText = @"Start a career in the game: its save appears here.";
       cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    } else {
-      const Save& s = _saves[size_t(ip.row)];
+    } else if (row < _saves.size()) {
+      const Save& s = _saves[row];
+      const Sync state = _state[row];
       c.image = [UIImage systemImageNamed:@"flag.checkered"];
       c.text = @(s.name.c_str());
       NSMutableArray* lines = [NSMutableArray array];
       if (NSString* p = Progress(s)) [lines addObject:p];
-      [lines addObject:[NSString stringWithFormat:@"Saved %@ · %llu KB", DateText(s.modified),
-                                                  (unsigned long long)(s.bytes + 1023) / 1024]];
+      [lines addObject:[NSString stringWithFormat:@"This device: saved %@", DateText(s.modified)]];
+      if (state == Sync::kCloudNewer || state == Sync::kConflict || state == Sync::kLocalNewer) {
+        [lines addObject:[NSString stringWithFormat:@"iCloud: saved %@", CloudSavedText(_cloud[row])]];
+      }
       c.secondaryText = [lines componentsJoinedByString:@"\n"];
-      if (_state[size_t(ip.row)] != Sync::kNoCloud) {
-        UILabel* badge = [[UILabel alloc] init];
-        badge.text = SyncText(_state[size_t(ip.row)]);
-        badge.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-        badge.textColor = SyncColor(_state[size_t(ip.row)]);
-        [badge sizeToFit];
-        cell.accessoryView = badge;
+      NSString* badge = SyncText(state);
+      if (state == Sync::kCloudNewer && _cloud[row].device.length) {
+        badge = [NSString stringWithFormat:@"Newer on %@", _cloud[row].device];
+      }
+      if (badge.length) {
+        cell.accessoryView = Badge(badge, SyncColor(state));
       } else {
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
       }
+    } else {
+      const size_t k = row - _saves.size();
+      c.image = [UIImage systemImageNamed:@"icloud"];
+      c.text = @(NameOf(_cloudOnly[k]).c_str());
+      NSMutableArray* lines = [NSMutableArray array];
+      if (_cloudOnlyProgress[k].length) [lines addObject:_cloudOnlyProgress[k]];
+      [lines addObject:[NSString stringWithFormat:@"iCloud: saved %@", CloudSavedText(_cloudOnlyInfo[k])]];
+      c.secondaryText = [lines componentsJoinedByString:@"\n"];
+      cell.accessoryView = Badge(SyncText(Sync::kCloudOnly), SyncColor(Sync::kCloudOnly));
     }
-  } else if (ip.section == 2) {
-    c.image = [UIImage systemImageNamed:@"icloud.and.arrow.down"];
-    c.text = @(NameOf(_cloudOnly[size_t(ip.row)]).c_str());
-    c.secondaryText = @"Tap to download it or delete it from iCloud";
+  } else if (ip.section == 1) {
+    c.image = [UIImage systemImageNamed:@"folder"];
+    c.text = _cloudName ? _cloudName : @"Choose an iCloud Drive folder…";
+    c.secondaryText = _cloudName ? @"Tap to choose another folder" : @"To carry careers between devices";
+    c.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
   } else {
     c.image = [UIImage systemImageNamed:@"square.and.arrow.down"];
     c.text = @"Import a save…";
     c.secondaryText = @"A save folder exported from this app (unzip it in Files first).";
+    c.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
   }
   cell.contentConfiguration = c;
   return cell;
@@ -694,10 +763,50 @@ NSString* Progress(const Save& s) {
 - (void)actionsFor:(size_t)i from:(UIView*)source {
   const Save s = _saves[i];
   const Sync state = _state[i];
-  UIAlertController* sheet =
-      [UIAlertController alertControllerWithTitle:@(s.name.c_str())
-                                          message:state == Sync::kNoCloud ? nil : SyncText(state)
-                                   preferredStyle:UIAlertControllerStyleActionSheet];
+  NSString* other = _cloud[i].device.length ? _cloud[i].device : @"iCloud";
+  NSString* message = nil;
+  if (state == Sync::kCloudNewer) {
+    message = [NSString stringWithFormat:@"A newer save from %@ is in iCloud.", other];
+  } else if (state == Sync::kConflict) {
+    message = [NSString stringWithFormat:@"This career changed here and on %@. Choose which save to keep; "
+                                         @"this device's is backed up either way.",
+                                         other];
+  } else if (state != Sync::kNoCloud) {
+    message = SyncText(state);
+  }
+  UIAlertController* sheet = [UIAlertController alertControllerWithTitle:@(s.name.c_str())
+                                                                 message:message
+                                                          preferredStyle:UIAlertControllerStyleActionSheet];
+  // The choice that matters first.
+  UIAlertAction* useCloud = [UIAlertAction
+      actionWithTitle:[NSString stringWithFormat:@"Use the save from %@", other]
+                style:UIAlertActionStyleDefault
+              handler:^(UIAlertAction*) {
+                NSURL* cloud = StartCloud();
+                const bool ok = cloud && Download(self->_docs, cloud, s.id);
+                StopCloud(cloud);
+                [self reload];
+                [self alert:ok ? @"Done" : @"Download failed"
+                    message:ok ? @"This device's save is kept as a backup." : nil];
+              }];
+  UIAlertAction* keepLocal = [UIAlertAction
+      actionWithTitle:state == Sync::kLocalNewer || state == Sync::kLocalOnly ? @"Copy to iCloud now"
+                                                                              : @"Keep this device's save"
+                style:UIAlertActionStyleDefault
+              handler:^(UIAlertAction*) {
+                NSURL* cloud = StartCloud();
+                const bool ok = cloud && Upload(cloud, s);
+                StopCloud(cloud);
+                [self reload];
+                if (!ok) [self alert:@"Upload failed" message:nil];
+              }];
+  if (state == Sync::kCloudNewer || state == Sync::kConflict) {
+    [sheet addAction:useCloud];
+    [sheet addAction:keepLocal];
+    sheet.preferredAction = useCloud;
+  } else if (state == Sync::kLocalNewer || state == Sync::kLocalOnly) {
+    [sheet addAction:keepLocal];
+  }
   [sheet addAction:[UIAlertAction actionWithTitle:@"Back up now"
                                             style:UIAlertActionStyleDefault
                                           handler:^(UIAlertAction*) {
@@ -709,34 +818,6 @@ NSString* Progress(const Save& s) {
                                           handler:^(UIAlertAction*) {
                                             [self chooseBackupFor:s];
                                           }]];
-  if (state != Sync::kNoCloud) {
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Copy this device's save to iCloud"
-                                              style:state == Sync::kCloudNewer || state == Sync::kConflict
-                                                        ? UIAlertActionStyleDestructive
-                                                        : UIAlertActionStyleDefault
-                                            handler:^(UIAlertAction*) {
-                                              NSURL* cloud = StartCloud();
-                                              const bool ok = cloud && Upload(cloud, s);
-                                              StopCloud(cloud);
-                                              [self reload];
-                                              if (!ok) [self alert:@"Upload failed" message:nil];
-                                            }]];
-  }
-  if (state == Sync::kCloudNewer || state == Sync::kConflict || state == Sync::kInSync ||
-      state == Sync::kLocalNewer) {
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Use the iCloud save here"
-                                              style:state == Sync::kLocalNewer || state == Sync::kConflict
-                                                        ? UIAlertActionStyleDestructive
-                                                        : UIAlertActionStyleDefault
-                                            handler:^(UIAlertAction*) {
-                                              NSURL* cloud = StartCloud();
-                                              const bool ok = cloud && Download(self->_docs, cloud, s.id);
-                                              StopCloud(cloud);
-                                              [self reload];
-                                              [self alert:ok ? @"Done" : @"Download failed"
-                                                  message:ok ? @"This device's save is kept as a backup." : nil];
-                                            }]];
-  }
   [sheet addAction:[UIAlertAction actionWithTitle:@"Export…"
                                             style:UIAlertActionStyleDefault
                                           handler:^(UIAlertAction*) {
@@ -825,21 +906,14 @@ NSString* Progress(const Save& s) {
   [tableView deselectRowAtIndexPath:ip animated:YES];
   UIView* source = [tableView cellForRowAtIndexPath:ip] ?: tableView;
   if (ip.section == 0) {
-    if (ip.row == 0) {
-      [self pickFolder:YES];
-    } else {
-      const int attention = nfsmw::saves::AutoSync(_docs);
-      [self reload];
-      [self alert:@"Synced"
-          message:attention ? [NSString stringWithFormat:@"%d save(s) are newer in iCloud or changed on both "
-                                                         @"sides: tap them to choose.",
-                                                         attention]
-                            : @"Everything changed on this device is in iCloud."];
+    const size_t row = size_t(ip.row);
+    if (row < _saves.size()) {
+      [self actionsFor:row from:source];
+    } else if (row - _saves.size() < _cloudOnly.size()) {
+      [self cloudOnlyActionsFor:_cloudOnly[row - _saves.size()] from:source];
     }
   } else if (ip.section == 1) {
-    if (!_saves.empty()) [self actionsFor:size_t(ip.row) from:source];
-  } else if (ip.section == 2) {
-    [self cloudOnlyActionsFor:_cloudOnly[size_t(ip.row)] from:source];
+    [self pickFolder:YES];
   } else {
     [self pickFolder:NO];
   }
