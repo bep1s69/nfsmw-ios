@@ -433,8 +433,10 @@ Power Profiler or CPU investigations.
   setting for the game's motion blur (launcher and in-game options menu).
   Built in IPA103 (`NFSMW-motion-blur-103.ipa`; TECHNICAL, Oct 27 motion
   blur switch): the view's blur amounts read 0 while the visual treatment
-  picks its technique and sets its blur. Untested; next: Stefan's on/off
-  judder comparison.
+  picks its technique and sets its blur. Untested. Stefan (Oct 27):
+  Post-processing off also removes motion blur, and in a quick test the
+  judder was gone; next: IPA103 with Post-processing on and Motion blur off,
+  to tell the blur from the rest of the post chain.
   Stefan (Oct 27): also his next suspect for the 60 fps judder (D-005): the
   mirror, which has no motion blur, stays smooth. Next after the save manager.
 

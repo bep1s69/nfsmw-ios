@@ -6875,3 +6875,9 @@ OK, 208 metallibs, codesign verify OK. Untested on device. Test: a race at
 60 fps with Motion blur on, then off (in-game menu): visible blur at speed
 gone, `[blur]` lines in the log, and whether the judder changes.
 
+Stefan (Oct 27, quick test, build before IPA103): turning Post-processing off
+also removes the motion blur, and the frame-skipping-like judder at 60 fps
+was absent. One short run, no log; suggests the post chain causes the
+judder but does not separate the blur from bloom/colour filter. Next: IPA103
+with Post-processing on and Motion blur off isolates the blur.
+
