@@ -24,6 +24,9 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 27: post-0.4 work (0.5.0: Extra Options, Widescreen Fix features,
+  PC mods) lives on the local branch `dev-0.5`; never commit it here. The
+  exception, approved by Stefan: PC save import, in 0.4.0 because it works.
 - October 27: Stefan: 120 Hz simulation did not fix the 60 fps judder; off by
   default, switch kept in Advanced. Order of work: finish the save manager,
   then the motion blur switch (suspected judder cause: the mirror, drawn
@@ -113,6 +116,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: PC save import added to 0.4.0 (Stefan approved).**
+  Brought over from `dev-0.5` (converter, Import hook, README credit) without
+  the 0.5 Extra Options. IPA108 (`NFSMW-pc-save-import-108.ipa`). Build note:
+  `ios/generated/` is shared by both branches; the 0.5 `heat` edit was taken
+  out of `nfsmw_recomp.51.cpp` for this build. Back on `dev-0.5`, run
+  `python3 tools/ios/patch_game_extra_options.py` before building.
 - **October 27: save manager rework, step 1, IPA98
   (`NFSMW-save-sync-98.ipa`), branch `frame-pacing-60` (local).** Stefan
   approved a 3-step plan: (1) the record-pool extras file is part of the save

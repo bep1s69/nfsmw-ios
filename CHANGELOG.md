@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Import PC saves.** The save manager's Import also takes a save from the
+  PC game (v1.3, the file inside the profile's folder, or a .zip of it): it
+  is converted to the Xbox 360 layout. Needs one career of this game on the
+  device already (its options are reused).
+
 - **Motion blur switch.** Motion blur can be turned off in the launcher and
   in the in-game options; off, the picture stays sharp when driving fast.
 
