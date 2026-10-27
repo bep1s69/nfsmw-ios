@@ -119,7 +119,7 @@ before; on 19.5:9 iPhones it bled at the sides). Screenshot
 `Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
 from the HUD/scene-size work (IPA70-85); not investigated.
 
-### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — open
+### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — cause found (IPA95), fix awaiting approval
 
 Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13
 prints `[black-edition] bandera 0x82A2CE04 = 0x00000100`, and the career-start
@@ -175,6 +175,19 @@ earlier) or a list builder that skips the event.
 Next (needs Stefan's OK, temporary code): log `sub_822EAA60` calls and
 results for `19.9.70` and its callers while opening the Challenge Series
 menu, to see whether the event is asked about at all and what is returned.
+
+**Cause (IPA95, iPad, Oct 27, `27 October 2026/nfsmw_ipa95_be_probe_ipad.log`):**
+the Challenge Series list (`sub_8256A940`, call at 0x8256AA50) asks about all
+70 events; `19.9.70` and `19.8.31` return 0, and the flag byte `0x82A2CE06`
+reads 0 although the patch logged its write. The patch stores the host
+`uint32_t` 0x00000100 on a little-endian CPU, so guest bytes CE04..CE07 become
+00 01 00 00: it sets **CE05**, not CE06. Xenia's `be32` write gives 00 00 01 00.
+The comment in `nfsmw_app.h` ("memory is big-endian, write as is") is wrong.
+CE05 is a different game setting (read e.g. in `sub_822CB*` at 0x822CBD68
+while loading records): it, not Black Edition, is very likely what caused the
+84-record pool overflow and the on/off save incompatibility. Proposed fix:
+write the guest bytes explicitly (CE06 = 1, the rest 0), then retest the
+Challenge Series count, Quick Race cars and career start; the pool fix can stay.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
