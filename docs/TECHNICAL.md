@@ -6671,3 +6671,21 @@ prefix 4ed4fcb54ecbf2b1, UUID D2CDAE1E-E4BB-3F4E-B44C-26DAAA5AE741, `unzip
 default (launcher switch "120 Hz simulation" on for new settings; cvar
 `nfsmw_sim_rate` default 120). Existing launcher settings keep their
 value. Needs a longer play test (game speed, physics, AI, pursuits).
+
+### October 27: what the Black Edition flag does (investigation, no code change)
+
+Static read of the generated USA code (`ios/generated/default`). The patch's
+32-bit write of 0x00000100 to `0x82A2CE04` sets byte `0x82A2CE06` to 1 (bytes
+CE04, CE05 and CE07 become 0). Readers of that byte (`lbz rX,-12794` after
+`lis rY,-32093`): `sub_8226A548`, `sub_82259408`, `sub_822C5CC0`,
+`sub_822C62D8`, `sub_822E8D48`, `sub_822EA0E8`, `sub_822EAA60`,
+`sub_822EAB88`, `sub_822EAC88`, `sub_823AF000`, `sub_8253C5F8`,
+`sub_82568690`, `sub_8257A420`. The game's initializer (`nfsmw_recomp.58.cpp`)
+writes CE00, CE01, CE02 and CE08, not CE06, so nothing resets the flag.
+`sub_822EAA60` returns 1 when the flag is set and the car passes the normal
+check; `sub_822EA0E8` ORs in `flag && sub_822EABD0(key)`, a hardcoded switch
+over 10 car keys (list in BACKLOG D-007). The flag only marks those cars as
+downloaded/owned; it adds no assets. Negative: the 10 keys match none of the PC
+`CARS` folder names under bStringHash (init 0 or 0xFFFFFFFF, x31/x33/x131) or
+Jenkins lookup2 with init 0xABCDEF00, with or without suffixes. The 360 ISO is
+not on the Mac, so the disc's car folders were not checked.

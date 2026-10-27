@@ -119,6 +119,34 @@ before; on 19.5:9 iPhones it bled at the sides). Screenshot
 `Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
 from the HUD/scene-size work (IPA70-85); not investigated.
 
+### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — open
+
+Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13
+prints `[black-edition] bandera 0x82A2CE04 = 0x00000100`, and the career-start
+pool overflow (fixed, see TECHNICAL) happens only with it on. What the flag
+gates (read from the generated USA code, Oct 27): the write sets the byte at
+`0x82A2CE06` to 1, part of a block of game option bytes at `0x82A2CE00`. About
+16 functions read it. The clearest, `sub_822EA0E8` and `sub_822EAA60`, unlock a
+car if it is normally unlocked OR (flag AND `sub_822EABD0(key)`), and
+`sub_822EABD0` is a hardcoded list of 10 keys (0x02D642B8, 0x03D3401A,
+0x03D8A6D1, 0x363A1FEA, 0x54653C71, 0x54655133, 0x582F21D9, 0x634D1BD2,
+0xE1075862, 0xE115EAD0), the cars sold as downloads. So the flag only marks
+those as owned; it adds no models. The keys did not match the PC car folder
+names under the string hashes tried (bStringHash, Jenkins with 0xABCDEF00), so
+which cars they are is not known yet. Likely why nothing shows: those cars are
+already unlocked in Stefan's save, they only appear in some lists (Quick Race,
+car lot), or their models are not on the disc (inferred, not checked).
+
+Street M3 GTR: the Xbox 360 ISO is not on the Mac (only the encrypted
+`default.xex`), so the disc's `CARS` folder was not checked. The street GTR is
+the prologue car in every edition, so its model is almost certainly on the 360
+disc (PC files have `CARS/BMWM3GTR` plus `CARS/BMWM3GTRE46`). Whether it can be
+picked is game data and unlock logic, not missing content.
+
+Next: (1) list the 360 ISO's `CARS` folder (ISO on the Mac, or a file listing);
+(2) Quick Race car list on a fresh profile with the switch on and off;
+(3) identify the 10 keys (try the attribute hash used for car records).
+
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
 Oct 22: the 3 iOS-27-only libraries were the stale `ps_af393d4c46af230c_dbg1-3`
