@@ -2,12 +2,15 @@
 
 **Need for Speed: Most Wanted (2005), Xbox 360, running natively on iPhone and iPad.**
 
+**Requires iOS / iPadOS 26 or later.**
+
 This is not an emulator. The game's PowerPC code is translated ahead of time into
 C++ and compiled for Apple's arm64 chips with the
 [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk). The SDK supplies everything
-around the game's code: the Xbox 360 kernel calls, the file system, audio, input,
-and a translation of the console's Xenos GPU to Vulkan, which runs on Metal
-through MoltenVK.
+around the game's code: the Xbox 360 kernel calls, the file system, audio and
+input. The picture is drawn by the game's own shaders translated to **Metal**
+(the native renderer, on by default); the SDK's emulated Xenos GPU on Vulkan,
+through MoltenVK, is still there as a fallback.
 
 > **You need your own copy of the game.** The app on the
 > [Releases](https://github.com/bep1s69/nfsmw-ios/releases) page contains no game
@@ -15,8 +18,9 @@ through MoltenVK.
 > them from your own ISO of the USA Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-Version **0.4.0** (see [CHANGELOG.md](CHANGELOG.md)). The game is playable start
-to finish, but there is a lot still to do before anything could be called 1.0.
+Version **0.4.0** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
+release). The game is playable start to finish, and we are getting closer to a
+1.0 release.
 
 ---
 
@@ -25,10 +29,11 @@ to finish, but there is a lot still to do before anything could be called 1.0.
 - [What it does](#what-it-does)
 - [Requirements](#requirements)
 - [Installing and first start](#installing-and-first-start)
+- [Saves](#saves)
 - [Building it yourself](#building-it-yourself)
-- [The settings screen](#the-settings-screen)
+- [The launcher and in-game options](#the-launcher-and-in-game-options)
 - [Controls](#controls)
-- [Performance](#performance)
+- [Performance and battery](#performance-and-battery)
 - [Known issues and limitations](#known-issues-and-limitations)
 - [Planned](#planned)
 - [Feedback](#feedback)
@@ -39,28 +44,34 @@ to finish, but there is a lot still to do before anything could be called 1.0.
 ## What it does
 
 - **The whole game**: career, quick races, challenge series, pursuits, free roam,
-  saves, achievements. **Black Edition content** is always on: its cars and
-  the 70th Challenge Series event (see [docs/TECHNICAL.md](docs/TECHNICAL.md)).
-- **60 fps** on an iPad Pro M4 in nearly all of the game at 16:9; frame rate caps
-  of **30, 40, 60 and 120** (40 and 120 use the 120 Hz ProMotion display; 120 is
-  experimental, see [Performance](#performance)).
-- **Aspect ratios**: 16:9; the game's own **4:3** mode, rendered at 960x720
-  instead of its 640x480; and **19.5:9** (iPhone) at 1560x720, with a wider
-  view and the HUD moved out to the screen edges.
-- **A settings screen before the game starts**: display, graphics, controls,
-  Extra Options, the achievement list, and the ISO to play.
-- **Extra Options**, ported from the PC mod: choose up to 6 markers after
-  beating a Blacklist rival, raise the number of cars you can buy, open the
-  road to the Old Bridge.
-- **Touch controls**: a full gamepad layout, and a driving layout (steering
-  wheel, gas and brake pedals, nitrous, speedbreaker, handbrake, gear shift,
-  camera, look back, reset, pause), switched with a button at the top. They
-  hide themselves when a controller connects.
-- **Controllers**: Xbox, PlayStation and MFi controllers through iOS.
-- **Achievements**: the game's 360 achievements, tracked and listed with
-  their icons on the settings screen.
-- Survives app switching, screenshots and Control Center (pauses the GPU in
-  the background, recovers the screen when you come back).
+  saves, achievements. **Black Edition content** is always on: its cars in
+  Quick Race and the 70th Challenge Series event.
+- **Native Metal renderer** with a render resolution setting (1x to 2x, or the
+  screen's own), **MetalFX** upscaling or anti-aliasing, FXAA and MSAA.
+- **Frame rate caps of 30, 40, 60 and 120** (40 and 120 use the 120 Hz
+  ProMotion display).
+- **Aspect ratios**: 16:9; the game's own **4:3** mode at 960x720 instead of
+  its 640x480; and **19.5:9** (iPhone) with a wider view and the HUD at the
+  screen edges.
+- **A launcher before the game starts** and **options while playing** (the gear
+  at the top right, or L3+R3): resolution, MetalFX, anti-aliasing, motion blur,
+  post-processing, HUD size and position, battery settings and more, many of
+  them changed without restarting.
+- **A save manager**: careers with their cash and bounty, backups, export and
+  import (including **Xbox 360 and PC saves**), and **iCloud Drive sync**
+  between your devices, achievements included.
+- **Extra Options**, ported from the PC mod: markers after beating a Blacklist
+  rival (1-6), cars you can buy (1-25), the Old Bridge road, Quick Race laps,
+  opponents, traffic and weather, skip movies.
+- **Touch controls**: a gamepad layout for menus and a driving layout, switched
+  automatically; every control can be moved and resized. They hide themselves
+  when a controller connects.
+- **Controllers** (Xbox, PlayStation, MFi) and **keyboards** (customizable).
+- **External displays** (HDMI, AirPlay): the game alone on the big screen, the
+  touch controls on the device.
+- **Battery mode** and automatic savings when the device is warm or on Low
+  Power Mode.
+- Survives app switching, screenshots and Control Center.
 
 ## Requirements
 
@@ -68,12 +79,12 @@ to finish, but there is a lot still to do before anything could be called 1.0.
 edition** (title ID `454107D9`), dumped from your own disc. Other editions are
 not supported by the iOS build yet.
 
-**To play**: an iPhone or iPad on **iOS / iPadOS 26 or later** with an Apple
-chip of the last few years (tested on an iPad Pro M4 and an iPhone 17 Pro
-Max), and [SideStore](https://sidestore.io) with
-[LiveContainer](https://github.com/LiveContainer/LiveContainer) to install the
-app without a paid developer account. Reports from other devices are very
-welcome (see [Feedback](#feedback)).
+**To play**: an iPhone or iPad on **iOS / iPadOS 26 or later**. Tested on an
+iPad Pro M4 and an iPhone 17 Pro Max; A16 iPhones (iPhone 14 Pro / Pro Max) and
+M1 iPads also run it. Install with [SideStore](https://sidestore.io) and
+[LiveContainer](https://github.com/LiveContainer/LiveContainer), no paid
+developer account needed. Reports from other devices are very welcome (see
+[Feedback](#feedback)).
 
 **To build it yourself** (optional; a Mac is required):
 
@@ -94,25 +105,37 @@ welcome (see [Feedback](#feedback)).
 3. Copy your **ISO** into the app's `Documents` folder with the Files app or
    Finder. Inside LiveContainer that is LiveContainer's folder,
    `Data/Application/<the app's folder>/Documents`.
-4. Open the app again: the settings screen shows the ISO it found. Press
-   **Play**.
+4. Open the app again: the launcher shows the ISO it found. Press **Play**.
 
 What the app keeps in its `Documents` folder:
 
 | | |
 |---|---|
-| `*.iso` | The game (with more than one, the settings screen lets you pick) |
+| `*.iso` | The game (with more than one, the launcher lets you pick) |
 | `data/` | Your saves and the game's settings |
-| `settings.json` | The settings screen's choices |
-| `achievements/` | The achievement list and icons the settings screen shows |
-| `logs/nfsmw.log`, `logs/boot.txt` | The log and the startup trace (Settings > Advanced > Logging) |
+| `settings.json` | The launcher's choices |
+| `achievements/` | The achievement list and icons the launcher shows |
+| `logs/nfsmw.log`, `logs/boot.txt` | The log and the startup trace (Advanced > Logging) |
 | `extra_args.txt` | Optional: extra options, one per line, for testing |
+
+## Saves
+
+The save manager (in the launcher) lists your careers with their cash, bounty,
+and when and on which device each was last saved.
+
+- **Sync between devices**: choose a folder in your iCloud Drive and saves are
+  copied there shortly after the game saves. When another device has a newer
+  save, the career says so and offers to use it. Achievements follow too.
+- **Import**: an Xbox 360 save file, a Xenia save folder or .zip, a .zip
+  exported from the app, or a **PC save** (v1.3, converted to the Xbox 360
+  layout; needs one career of this game on the device already).
+- **Backups and export**, and deleting saves, including ones only in iCloud.
 
 ## Building it yourself
 
-For the battery branch's current checkpoint, experiments, measurements and
-handoff instructions, read [Development progress](docs/DEVELOPMENT_PROGRESS.md).
-Update that document when continuing development so work can resume across sessions.
+To continue development, start with [AGENTS.md](AGENTS.md) and
+[Development progress](docs/DEVELOPMENT_PROGRESS.md): the current checkpoint,
+working rules, build procedure and backlog.
 
 Clone this repository next to where the SDK will go (the SDK is prepared in
 `../rexglue-sdk-ios`, beside the repository):
@@ -145,23 +168,20 @@ Drive tags files in `~/Documents` with attributes that `codesign` refuses).
 
 Everything the scripts do, and why, is in [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
-## The settings screen
+## The launcher and in-game options
 
-Every option has a short explanation on screen. The defaults suit normal play.
+The launcher has six tabs: **Game**, **Extras**, **Graphics**, **Controls**,
+**Audio** and **Advanced**. Every option has a short explanation on screen, and
+the defaults suit normal play. Settings only the emulated renderer uses are
+greyed out while the native one draws. **Advanced** holds the GPU and
+performance switches for testing; leave them at their defaults unless you are
+testing something.
 
-- **Game**: 120 Hz simulation.
-- **Extra Options**: markers after beating a rival (1-6), cars you can buy
-  (1-25), Old Bridge road, and an experimental 120 Hz simulation (see
-  [Known issues](#known-issues-and-limitations)).
-- **Display**: resolution (Retina or point resolution), frame rate cap
-  (30/40/60/120), aspect ratio (16:9, 4:3 HD, 4:3 SD, 19.5:9), sharper 4:3
-  scene, stretch to full screen, FPS counter.
-- **Touch controls**: on or off.
-- **Graphics**: anti-aliasing (off, MSAA 2x/4x), scaling filter,
-  post-processing, anisotropic filtering, internal resolution (1x/2x).
-- **Advanced**: GPU emulation switches that trade accuracy for speed, logging,
-  and tools for measuring performance. Leave them at their defaults unless you
-  are testing something.
+While playing, in a menu or the pause screen, tap the gear at the top right (or
+press L3+R3 on a controller) to change the render resolution, MetalFX, the
+30/60 fps cap, anti-aliasing, motion blur, post-processing, the HUD and the
+battery settings. Settings that need a restart (40/120 fps, MSAA) are marked
+"next launch".
 
 ## Controls
 
@@ -174,92 +194,75 @@ With a controller, the game's own Xbox 360 controls (control type 1):
 | Nitrous | B | E-brake | A |
 | Speedbreaker | X | Look back | LB |
 | Change camera | RB | Reset car | Back |
-| Pause | Start | | |
+| Pause | Start | Options while playing | L3+R3 |
 
-On the touch screen, the **DRIVE / PAD** button at the top switches between
-the driving layout and the full gamepad (menus need the gamepad), and
-**HIDE** hides the controls. The steering circle steers left and right only,
-and returns to the centre when you let go.
+On the touch screen the layout switches by itself: the gamepad in menus, the
+driving layout (steering, pedals, nitrous, speedbreaker, handbrake, gears,
+camera, look back, reset, pause) while driving, with a small D-pad in free
+roam. Every control can be moved and resized, with an overall size and
+opacity, in the Controls tab. Keyboard keys can be changed there too.
 
-## Performance
+## Performance and battery
 
-Measured on an **iPad Pro M4** (13", iPadOS 27):
+On an **iPad Pro M4** and an **iPhone 17 Pro Max** the game holds **60 fps**
+in nearly all of the game at 1x. The 30 and 40 fps
+caps are smooth and paced to the display. Higher render resolutions and the
+120 fps cap are heavier.
 
-| | |
-|---|---|
-| Menus | 60 fps (120 at the 120 cap) |
-| Races, free roam, pursuits, 16:9, 1x | 60 fps nearly everywhere; the heaviest police chases can dip into the 50s |
-| 4:3 (960x720), 120 cap | ~100-120 fps in lighter parts of a race, ~80-90 in the heaviest |
-| 30 and 40 fps caps | Smooth, paced to the display |
-| Internal resolution 2x | Much heavier: roughly 20-40 fps depending on the aspect ratio |
-
-On an iPhone 17 Pro Max the game also holds 60 fps at 19.5:9.
-
-The game was made for 30-60 fps on the Xbox 360. At 120 it runs its world at
-60 steps a second, so 120 is smoother to look at but not yet to drive; making
-120 stable and the simulation follow it is the main performance work planned.
+Battery work in 0.3.0 and 0.4.0: Battery mode (30 fps, lower resolution, lighter
+shadows and reflections), 30 fps in menus and pause, 30 fps when warm or on Low
+Power Mode, and lower thread priorities that cut the drain while playing by
+about a quarter on M-series iPads. On iPhones, the game's threads now sleep
+while they wait, so pursuits use less battery and run cooler.
 
 ## Known issues and limitations
 
 - **USA edition only** for now (the address tables for other editions exist in
   `tools/ediciones/`, but the iOS-specific game patches are written for USA).
-- **19.5:9**: the rear-view mirror's picture is wider than its frame, and the
-  intro and story videos are stretched to the full width instead of showing at
-  16:9.
+- **60 fps frame pacing** on the iPad is not perfectly even yet; turning off
+  motion blur or post-processing helps.
 - **120 fps cap**: not a stable 120 in heavy parts of races. The **120 Hz
-  simulation** option is an untested experiment: it changes a value the game
-  shares with other systems, and may make parts of the game run too fast or
-  too slow.
-- **Switching apps**: the game pauses its GPU work while in the background and
-  resumes when you return. This was reworked several times and is still being
-  tested; if you come back to a black screen or the app closes, please report
-  it with the log.
-- **Sun glare**: the occlusion queries behind it were made cheaper; whether the
-  glare still fades correctly when the sun is hidden is still being checked.
-- **Touch controls**: the layouts cannot be edited yet, and there is no tilt
-  steering.
+  simulation** switch (Advanced, off by default) did not remove the judder at
+  60 fps.
+- **HUD and scene size** can be wrong on the iPad in a few places (race finish,
+  some cutscene overlays and pop-ups).
+- **Audio**: small crackles on AirPods, mostly in police radio chatter; the
+  engine sound can occasionally almost disappear.
+- Skipping a movie can turn its last frame red for a moment.
 - **No Xbox Live** (online modes, leaderboards). The game's single-player modes
   are all there.
-- **Internal resolution 2x** is very demanding (the GPU emulation's resolves
-  scale with it).
 - English only (the language of the USA edition).
 
 ## Planned
 
 In no particular order, and without promises:
 
-- A stable **120 fps** in races: the GPU emulation still copies guest memory and
-  render targets more than it needs to; then a proper higher **simulation
-  rate** (like the PC Widescreen Fix's SimRate).
-- **19.5:9** polish: the mirror picture and the videos at their native 16:9.
-- **Customisable touch controls** (positions, sizes, opacity).
-- A **save manager** in the settings screen.
-- More **Extra Options** and **Widescreen Fix** features.
+- **0.5.0**: more **Extra Options** and **Widescreen Fix** features, and
+  features from PC mods.
+- Even **60 fps** frame pacing, then a stable **120 fps** and a proper higher
+  **simulation rate** (like the Widescreen Fix's SimRate).
+- More battery savings.
 - Support for more game **editions**.
-- Looking into whether a port of the PC version (see
-  [nfs-most-wanted-mac](https://github.com/elforeign/nfs-most-wanted-mac), a
-  native recompilation for macOS) could be a better base on iOS.
 
 ## Feedback
 
-This is a first release, and it has only been tested on two devices. Reports
-are what will make it better:
+Reports are what will make it better:
 
 - **Your device** (model, iOS version) and whether the game runs.
 - **Performance**: the frame rate in menus, races and pursuits, with the
-  settings you used (turn on Display > Show FPS).
+  settings you used (turn on the FPS counter).
 - **Problems**: what happened and where, ideally with the log
-  (`Documents/logs/nfsmw.log`, with Settings > Advanced > Logging on).
+  (`Documents/logs/nfsmw.log`, with Advanced > Logging on).
 
 Open an [issue](https://github.com/bep1s69/nfsmw-ios/issues) with them.
 
 ## How it works
 
-[docs/TECHNICAL.md](docs/TECHNICAL.md) describes the port in detail: how the
-SDK is prepared and patched for iOS (every patch, what it changes and why,
-with the measurements behind it), the guest memory on iOS, the app's
-lifecycle, the touch controls, the 4:3 and 19.5:9 modes, the Extra Options
-ports, and the Black Edition career fix.
+[docs/TECHNICAL.md](docs/TECHNICAL.md) describes the port in detail: how the SDK
+is prepared and patched for iOS (every patch, what it changes and why, with the
+measurements behind it), the guest memory on iOS, the app's lifecycle, the
+native Metal renderer, the touch controls, the 4:3 and 19.5:9 modes, the Extra
+Options ports, and the Black Edition career fix.
 
 Layout of this repository:
 
