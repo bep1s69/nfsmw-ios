@@ -54,6 +54,7 @@
 #include <vector>
 
 #include "nfsmw_pch.h"
+#include "save_manager.h"
 
 #include <rex/logging.h>
 #include <rex/system/kernel_state.h>
@@ -178,6 +179,7 @@ void OnSaveEvent(const char* name, bool created) {
   }
   const std::string path = SidecarPath(name);
   if (created) {
+    nfsmw::saves::SyncAfterGameSave();  // runs later, after the game has written it
     std::vector<Overflow> overflows;
     {
       std::lock_guard<std::mutex> lock(g_mutex);

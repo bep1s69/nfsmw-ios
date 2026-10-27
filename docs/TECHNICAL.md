@@ -6735,3 +6735,28 @@ and always passes `--black_edition=true` (`extra_args.txt` can still pass
 false). No temporary probe. Built `ios/build/NFSMW-be-always-on-97.ipa`, UUID
 B5067ADE-65F8-3178-A5B0-EB23EABC2C42, SHA256 e87187c039374a3f..., ZIP test
 OK, 208 metallibs. Untested on device.
+
+### October 27: IPA98 save manager, extras file and sync after saving (D-008)
+
+Stefan: a save that differs between iPad and iPhone only by a Challenge Series
+event is not seen as newer on the other device, which also shows an older
+date. Inference from the code (not reproduced): `game_pool.cpp` writes the
+record-pool overflow to `Documents/save_extras/<NAME>.pool` when the game
+creates a save; `save_manager.mm` hashed, dated and copied only the save
+folder and header, so that file was never compared, backed up, exported or
+synced. Second gap: uploads only ran at launcher start (`AutoSync`).
+
+Change (`ios/src/save_manager.mm`, `.h`, `ios/src/game_pool.cpp`): a save is
+now folder + header + extras (`Place`, `CopySave`; copies keep `<NAME>.pool`
+beside `<NAME>.header`). The extras file is hashed last under a fixed name, so
+saves without one keep their old hash; a save with one gets a new hash once
+(expect one "changed on both sides" prompt on the second device). Copying a
+save without extras removes stale extras at the destination. Delete removes it.
+`SyncAfterGameSave()` runs `AutoSync` (backups + iCloud upload) 10 s after the
+last save-create event, on a utility-QoS queue. No switch.
+
+Built `ios/build/NFSMW-save-sync-98.ipa`, UUID
+B5BE6635-9C17-3160-9861-89B132587E0F, SHA256 ed8009319e9ecf43..., ZIP test OK,
+208 metallibs. Build exit 0, only the pre-existing fpscr.h warning. Untested
+on device. Test: finish a challenge on device A, wait ~15 s in game, open the
+save manager on device B: the save should show "Newer in iCloud".

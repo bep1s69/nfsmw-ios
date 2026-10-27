@@ -25,4 +25,9 @@ namespace nfsmw::saves {
 // attention (newer in iCloud, or changed on both sides).
 int AutoSync(const std::filesystem::path& documents);
 
+// After the game writes a save (game_pool.cpp hears of it): AutoSync of
+// <HOME>/Documents ten seconds after the last write, off the game's threads,
+// so a save reaches iCloud without waiting for the next launch.
+void SyncAfterGameSave();
+
 }  // namespace nfsmw::saves
