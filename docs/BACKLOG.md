@@ -119,7 +119,7 @@ before; on 19.5:9 iPhones it bled at the sides). Screenshot
 `Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
 from the HUD/scene-size work (IPA70-85); not investigated.
 
-### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — cause found (IPA95), fix awaiting approval
+### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fix built (IPA96), untested
 
 Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13
 prints `[black-edition] bandera 0x82A2CE04 = 0x00000100`, and the career-start

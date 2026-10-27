@@ -6709,3 +6709,15 @@ IPA95 result (Oct 27, iPad): 70 `[be-probe]` lines from the Challenge Series
 list (caller 0x8256AA50); 68 events -> 1, `19.8.31` and `19.9.70` -> 0, flag
 byte 0x82A2CE06 = 0 in every line. The Black Edition patch writes a host-endian
 uint32, which sets byte 0x82A2CE05 instead (see BACKLOG D-007).
+
+### October 27: IPA96 Black Edition flag fix (D-007)
+
+`common/src/nfsmw_app.h` now writes the four guest bytes 00 00 01 00 at
+`0x82A2CE04` one by one (byte CE06 = 1, as Xenia's be32 write), instead of a
+host-endian uint32 that set CE05. The IPA95 probe stays in to show the flag.
+Built `ios/build/NFSMW-be-flag-fix-96.ipa`, UUID
+1A18D1C7-D979-36C6-AC68-2EEE5CCDCF93, SHA256 b3398d4913c80bd2..., ZIP test
+OK, 208 metallibs. To test: fresh profile with Black Edition on; expect
+`[be-probe] ... 19.9.70 ... -> 1 (flag 1` and 70 Challenge Series events,
+then Quick Race cars and starting a career (the record pool overflow may no
+longer happen).
