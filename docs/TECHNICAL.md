@@ -6897,7 +6897,7 @@ compared in pacing numbers.
 
 ## October 27, 2026: PC vs Xbox 360 files, can PC mods work (0.5.0 research)
 
-Branch `pc-mods-research` (from `frame-pacing-60`, local). Research only, no
+Branch `pc-mods-research`, later renamed `dev-0.5` (from `frame-pacing-60`, local). Research only, no
 code changed. Inputs: unmodded PC game at
 `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files`
 (1,398 files incl. 3 `.DS_Store`, 3,027,375,537 bytes) and
