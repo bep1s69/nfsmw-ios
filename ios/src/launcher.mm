@@ -504,6 +504,9 @@ const std::vector<Section>& Sections() {
             @"The original game's color filter and blur. Off: less GPU work, but it no longer "
             @"looks like the original.",
             @"true"},
+           {@"motion_blur", Type::kSwitch, @"Motion blur",
+            @"The original game's blur at speed. Off: the picture stays sharp when driving fast.",
+            @"true"},
            {@"scaling", Type::kChoice, @"Scaling to the screen",
             @"How the game image is taken to the screen size. FSR: sharper upscaling. CAS: "
             @"sharpening only.",
@@ -690,6 +693,7 @@ NSString* BatteryValue(NSString* key) {
     @"anisotropic" : @"3",
     @"shadow_size" : @"1600",
     @"postprocessing" : @"true",
+    @"motion_blur" : @"true",
     @"scaling" : @"bilinear",
     @"shadow_scale" : @"0.5",
     @"reflection_rate" : @"half",
@@ -809,6 +813,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
                                                    : "none"));
   a.push_back("--present_effect=" + str(@"scaling"));
   a.push_back("--nfsmw_sin_posprocesado=" + b(!On(s, @"postprocessing")));
+  a.push_back("--nfsmw_motion_blur=" + b(On(s, @"motion_blur")));
   a.push_back("--anisotropic_override=" + str(@"anisotropic"));
   // With the native renderer the scale is its own: the emulated renderer only
   // draws what the native one does not (videos) and stays at 1x. Scaled, it

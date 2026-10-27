@@ -124,8 +124,13 @@ extern "C" void __imp__sub_82440D80(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82453768(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_822AA6D0(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void __imp__sub_82442310(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void __imp__sub_822241A0(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" void __imp__sub_82224240(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_8227FD58(PPCContext& __restrict ctx, uint8_t* base);
 REXCVAR_DECLARE(bool, nfsmw_sin_posprocesado);  // game_hooks.cpp
+REXCVAR_DEFINE_BOOL(nfsmw_motion_blur, true, "Juego",
+                    "The game's motion blur (the visual treatment's blur at speed). Off: the "
+                    "picture stays sharp at speed");
 
 namespace {
 
@@ -872,3 +877,53 @@ extern "C" REX_FUNC(sub_82442310) {
   REX_STORE_U8(view + 9, before);
 }
 
+// Motion blur off (nfsmw_motion_blur): the visual treatment (sub_822246F0)
+// blurs the picture by the view's two blur amounts, floats at +144/+148 of
+// its entry in the view table 0x82C3F590 (384 bytes each, r4 = the view;
+// the byte at +4 says the view is used). Two globals override them when not
+// 0 (0x82A2C4E4/E8; 0 in the image). sub_822241A0 picks the
+// "visualtreatment_branching" technique when either is above 0.0001, and
+// sub_82224240 sets the shader's blur vector, binds the blur texture and
+// sets its "blur on" bool. While those two run, the amounts read 0: the
+// plain technique, the bool false, no blur texture. Inferred, not proven:
+// that this is the motion blur Stefan sees (the mirror's view has none).
+namespace {
+
+constexpr uint32_t kViewTable = 0x82C3F590;
+constexpr uint32_t kViewSize = 384;
+constexpr uint32_t kBlurOverride = 0x82A2C4E4;
+
+template <void (*kOriginal)(PPCContext&, uint8_t*)>
+void WithoutMotionBlur(PPCContext& __restrict ctx, uint8_t* base) {
+  if (REXCVAR_GET(nfsmw_motion_blur) || ctx.r4.u32 >= 8) {
+    kOriginal(ctx, base);
+    return;
+  }
+  const uint32_t view = kViewTable + ctx.r4.u32 * kViewSize;
+  const uint32_t at[4] = {view + 144, view + 148, kBlurOverride, kBlurOverride + 4};
+  uint32_t before[4];
+  for (int i = 0; i < 4; ++i) {
+    before[i] = REX_LOAD_U32(at[i]);
+    REX_STORE_U32(at[i], 0);
+  }
+  static int said = 0;
+  if (said < 4 && (before[0] | before[1])) {
+    ++said;
+    float x, y;
+    std::memcpy(&x, &before[0], 4);
+    std::memcpy(&y, &before[1], 4);
+    REXLOG_INFO("[blur] motion blur off: view {} blur amounts were {:.4f}, {:.4f}", ctx.r4.u32, x, y);
+  }
+  kOriginal(ctx, base);
+  for (int i = 0; i < 4; ++i) REX_STORE_U32(at[i], before[i]);
+}
+
+}  // namespace
+
+extern "C" REX_FUNC(sub_822241A0) {
+  WithoutMotionBlur<__imp__sub_822241A0>(ctx, base);
+}
+
+extern "C" REX_FUNC(sub_82224240) {
+  WithoutMotionBlur<__imp__sub_82224240>(ctx, base);
+}
