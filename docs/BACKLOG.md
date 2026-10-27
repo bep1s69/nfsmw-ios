@@ -202,7 +202,7 @@ while loading records): it, not Black Edition, is very likely what caused the
 write the guest bytes explicitly (CE06 = 1, the rest 0), then retest the
 Challenge Series count, Quick Race cars and career start; the pool fix can stay.
 
-### D-008 Save sync misses a newer save (iPad/iPhone) — fix built (IPA98), untested
+### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 
 Stefan, Oct 27: when the only difference between the iPad and iPhone saves is a
 Challenge Series event, the other device does not see the save as newer and
@@ -216,7 +216,8 @@ the save manager UI unintuitive; a redesign and import of downloaded Xbox 360 /
 Xenia saves are wanted (approved plan in DEVELOPMENT_PROGRESS, Oct 27).
 IPA98 (TECHNICAL, Oct 27): the extras file is now hashed, dated, backed up,
 exported, imported, uploaded, downloaded and deleted with its save, and a
-sync runs 10 s after the game writes a save. Next: two-device test.
+sync runs 10 s after the game writes a save. Stefan (Oct 27): works. IPA99:
+delay 3 s; saves only in iCloud can be deleted from iCloud in the app.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 

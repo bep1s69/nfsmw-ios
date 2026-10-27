@@ -9,6 +9,9 @@
   everywhere, and saves are copied to your iCloud Drive folder shortly after
   the game saves, not only when the launcher opens.
 
+- **Delete saves from iCloud.** A save that is only in iCloud can now be
+  deleted from the save manager (tap it), instead of only downloaded.
+
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick

@@ -6760,3 +6760,18 @@ B5BE6635-9C17-3160-9861-89B132587E0F, SHA256 ed8009319e9ecf43..., ZIP test OK,
 208 metallibs. Build exit 0, only the pre-existing fpscr.h warning. Untested
 on device. Test: finish a challenge on device A, wait ~15 s in game, open the
 save manager on device B: the save should show "Newer in iCloud".
+
+IPA98 result (Stefan, Oct 27): two-device sync works (a newer save is now seen
+as newer). He asked why the delay is 10 s and noted saves deleted on every
+device (NAME, TEST) stay listed as "Only in iCloud" with no way to delete them.
+
+### October 27: IPA99 shorter sync delay, delete from iCloud
+
+`SyncAfterGameSave` waits 3 s (was 10 s) after the last save-create event; the
+event comes when the game creates the save, before it writes it, and the
+debounce absorbs repeated saves. Tapping a save only in iCloud now offers
+Download or Delete from iCloud (confirmed; removes `NFSMW Saves/<id>` with a
+coordinated delete and its synced hash; local saves untouched). Built
+`ios/build/NFSMW-save-cloud-delete-99.ipa`, UUID
+D33159B4-CCCC-31B1-81B5-701AD30B12B3, SHA256 d9d3bc4db88c2b40..., ZIP test OK,
+208 metallibs, build exit 0. Untested on device.

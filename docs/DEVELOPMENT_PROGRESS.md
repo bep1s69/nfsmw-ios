@@ -114,8 +114,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   approved a 3-step plan: (1) the record-pool extras file is part of the save
   everywhere and saves go to iCloud right after the game writes them (D-008);
   (2) a simpler save screen; (3) import of .zip, Xenia folders and Xbox 360
-  CON files. Step 1 built, untested. Next: Stefan's two-device sync test, then
-  step 2.
+  CON files. Step 1 confirmed by Stefan (sync works). IPA99
+  (`NFSMW-save-cloud-delete-99.ipa`): sync 3 s after a save; delete for saves
+  only in iCloud. Untested. Next: step 2.
 - **October 26 (night): in-game options menu, IPA67
   (`NFSMW-ingame-options-67.ipa`), branch `in-game-options` (local, off
   `battery-optimization`; Stefan approved the design: gear for touch, L3+R3
