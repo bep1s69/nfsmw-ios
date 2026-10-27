@@ -6721,3 +6721,8 @@ OK, 208 metallibs. To test: fresh profile with Black Edition on; expect
 `[be-probe] ... 19.9.70 ... -> 1 (flag 1` and 70 Challenge Series events,
 then Quick Race cars and starting a career (the record pool overflow may no
 longer happen).
+
+IPA96 result (Stefan, iPad, Oct 27): fresh profile with Black Edition on, the
+Camaro challenge (event 70) shows, the Black Edition cars are in Quick Race and
+the career starts. The temporary probe (`game_be_probe.cpp`) is removed. Open:
+whether the record pool overflow still happens now that CE05 is no longer set.
