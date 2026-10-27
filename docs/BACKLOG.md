@@ -156,10 +156,25 @@ extra Challenge Series event, which is absent. `sub_822EAA60` also checks a
 profile bit (word at +180 of the object at `0x82A2C684`, mask 0x2000) before
 the flag, and compares against 6 keys built from strings in the encrypted XEX.
 
-Next: (1) with the switch on, start a brand-new profile and check the Quick
-Race car list and the Challenge Series count; (2) if still absent, read the
-decrypted XEX image to name the strings and the 10 keys and see what else
-gates the content.
+Oct 27, fresh profile with the switch on (Stefan): the Challenge Series
+event 69 (the Camaro one) is still missing. Decrypted XEX image
+(`tools/ediciones/imagen.py`) names the 6 keys in `sub_822EAA60` (event
+availability; keys are Jenkins hashes, init 0xABCDEF00, via `sub_8214AC28`):
+`99.1.1` is always hidden; `21.1.1`, `21.2.1`, `21.2.2` and `19.9.70` are shown
+only with the flag on; `19.8.31` needs `sub_823C5028(.., 3, 0)` and the profile
+bit clear. `19.9.70` is the Black Edition challenge (the regular ones are
+`19.8.1`..`19.8.69`), and it is in the 360 `GLOBAL\GAMEPLAY.LZC` (JDLZ; same
+event IDs as the PC copy's `gameplay.bin`). So the data is on the disc and the
+gate should pass with the flag on; something else drops it. Not identified:
+the 10 keys of `sub_822EABD0` (no match among any string in the XEX,
+attributes or gameplay files, Jenkins or bStringHash). Callers of the gate:
+`sub_8255E670`, `sub_8225DA28`, `sub_8255C238`, `sub_8256A940`,
+`sub_8226BBA0`. Hypothesis: a fixed-size table (like the record pool fixed
+earlier) or a list builder that skips the event.
+
+Next (needs Stefan's OK, temporary code): log `sub_822EAA60` calls and
+results for `19.9.70` and its callers while opening the Challenge Series
+menu, to see whether the event is asked about at all and what is returned.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
