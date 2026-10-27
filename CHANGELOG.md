@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - **Import PC saves.** The save manager's Import also takes a save from the
   PC game (v1.3, the file inside the profile's folder, or a .zip of it): it

@@ -15,7 +15,7 @@ through MoltenVK.
 > them from your own ISO of the USA Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-Version **0.3.0** (see [CHANGELOG.md](CHANGELOG.md)). The game is playable start
+Version **0.4.0** (see [CHANGELOG.md](CHANGELOG.md)). The game is playable start
 to finish, but there is a lot still to do before anything could be called 1.0.
 
 ---
