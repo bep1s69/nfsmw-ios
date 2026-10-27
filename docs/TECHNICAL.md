@@ -7012,3 +7012,28 @@ save's field list (to swap 2- and 4-byte values and drop/add the
 PC-only/Xbox-only parts), then the MD5 recomputed. The list is best taken from
 the game's own save reader in the generated code. Not started; no code
 changed.
+
+### October 27: PC save import, first look inside the format (no code)
+
+Stefan asked (Oct 27) to build PC save import now, for 0.4.0 if it works.
+Findings so far (scratch scripts `scripts/recs2.py` in the session
+scratchpad):
+- After the 0x44 `Game` block (words 8, 0x11 PC / 8 Xbox, 8, 0x1E, 0x37,
+  0x27, 0, 0x200, 0xA4), from 0xB4 there is a list of records `{key hash,
+  length, type hash, value}`: PC 18 records, Xbox 9, all 9 Xbox keys also on
+  PC (PC-only: 9, likely PC options). Type 0x32956993 holds a 16-bit value
+  (PC `03 00`, Xbox `00 03`); 0x28E9FA29, 0x904ECCE4 and 0x76F21CB8 /
+  0x2ABB39C2 (count u16, size u16, bytes) also occur. Some records are
+  followed by a zero word, not understood yet. The list stops being
+  parseable at the `cellusage`/`hurry` block (0x250 PC, 0x1D0 Xbox).
+- The profile id `MW-nnnn-NAME` is at 0x429D in all three files, so much of
+  the rest looks like fixed-layout structures (inference: in-memory structs
+  written as they are). Word-swapped matching between two different careers
+  (pc_beppy, x360_BEPPY) gives no clear offset map: fields are of mixed size,
+  so a 4-byte swap is not enough, and the two careers differ.
+- The save writer's MC02 header is built in sub_825AE158 (`lis 19779` =
+  'MC'); readers of the header in sub_825B05B0 and sub_825AF1D8. The data
+  layout itself is not mapped.
+Next if continued: take the field list from the game's career/profile
+serializer (the functions that fill the fixed structs), or convert only key
+values (cash, bounty, owned cars, progress) into an Xbox save template.
