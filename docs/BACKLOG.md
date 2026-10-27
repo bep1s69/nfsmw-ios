@@ -111,13 +111,21 @@ default; next: a longer play test. Alternative not tried: feed the game's
 60 Hz step exactly one tick per frame. Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
-### D-006 Race-finish background letterboxed on the iPad — open
+### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open
 
 Stefan, Oct 26 (IPA91): the asphalt-and-leaves picture behind the race
 results shows bars top and bottom on the iPad (it filled the screen
 before; on 19.5:9 iPhones it bled at the sides). Screenshot
 `Debug/26 October 2026/ipa_91_finish_race_wrong_aspect_ratio.png`. Likely
 from the HUD/scene-size work (IPA70-85); not investigated.
+
+Stefan, Oct 27: more screens look wrong since the HUD changes, probably only
+at 70% HUD size (the only value he tested on the iPad besides the default,
+which looks fine): the end-of-race screen, the TV-style
+overlay in the intro cutscene, the pursuit cutscenes, and the bounty and
+infraction pop-ups. Inference: the HUD size/safe-zone scale also reaches
+full-screen FNG elements that should stay at full size. Next: compare each
+at 100% and 70% HUD size, then exclude those screens from the HUD scale.
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 
@@ -374,6 +382,10 @@ capture freeze/crash separately; do not make it a prerequisite for ordinary
 Power Profiler or CPU investigations.
 
 ## Feature ideas
+
+- **VERY HIGH PRIORITY (Stefan, Oct 27): motion blur switch.** An on/off
+  setting for the game's motion blur (launcher and in-game options menu). Not
+  started; next: find the motion blur pass or its option byte.
 
 - **In-game options menu (Stefan, Oct 26; 0.4.0 QoL). Status: built in IPA67
   (`NFSMW-ingame-options-67.ipa`); live settings confirmed on device by
