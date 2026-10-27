@@ -6990,3 +6990,20 @@ Branch `release-0.4.1` off `main` (e0151ce). Source: SpeedBreaker
   5031C546-2A4A-3676-AA5C-F8A9765CB08E. Not run on a device: whether the fade
   is gone, whether `thread_policy_set` succeeds on iOS and whether pacing gets
   more even are untested.
+
+IPA109 first run (Oct 27, 23:16-23:20, Stefan: free roam and the test
+race; Apple A19 Pro, so the iPhone 17 Pro Max; 60 cap, Battery group on). Log
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa109_freeroam_race.log`.
+- `[ios-vblank] real-time priority (16.67 ms period): set` on both vblank
+  threads (boot and game); 60 cap locked to the display.
+- Pacing (paced, 50 windows of 300 frames): the first (loading) 255 off the
+  grid, then 0 off in 33 windows, 1-6 in 13, 8-21 in 4 (23:18:56-23:19:16).
+  The off frames are almost all 4-refresh (33 ms) gaps, i.e. missed frames,
+  not uneven presents. The watchdog did not fire. 48 screen gaps of 50+ ms,
+  clustered at loads and at 23:20:47 (texture decode hitch, 121 textures).
+- `[ea-budget]` once, at 23:20:40.677, 1 ms after `[coreaudio] sudden drop:
+  block peak -140.0 dB after -6.3 dB` (an end-of-race or scene change,
+  inference). Without the fix EA would have expelled voices there.
+- Not shown by this log: whether the engine sound stayed audible
+  (Stefan's ears), and no A/B against `nfsmw_ea_cpu_budget=true` or
+  `ios_vblank_realtime=false`.
