@@ -310,6 +310,10 @@ This port stands on a lot of other people's work.
   ([source](https://github.com/ExOptsTeam/NFSMWExOpts)).
 - [Widescreen Fix](https://github.com/ThirteenAG/WidescreenFixesPack) by
   ThirteenAG: the reference for the widescreen HUD and the simulation rate.
+- [NFS MW Save Editor](https://github.com/sprintstate/nfs-mw-save-editor) by
+  sprintstate (GPL-3.0): the PC and Xbox 360 save layouts behind PC save
+  import, with the [nfsmw decompilation](https://github.com/dbalatoni13/nfsmw)
+  (CC0) for the car database.
 
 **Installing**
 

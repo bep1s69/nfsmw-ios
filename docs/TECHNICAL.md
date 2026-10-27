@@ -7037,3 +7037,48 @@ scratchpad):
 Next if continued: take the field list from the game's career/profile
 serializer (the functions that fill the fixed structs), or convert only key
 values (cash, bounty, owned cars, progress) into an Xbox save template.
+
+### October 27: IPA105 PC save import (converter)
+
+Stefan (Oct 27): build the converter now; into 0.4.0 too if it works.
+
+Source of the field map: sprintstate/nfs-mw-save-editor (GPL-3.0, like this
+repository), `nfs_mw_save_editor/core/switch_format.py`, which reads and
+writes the raw 62,688-byte Xbox 360 saves of nfsmw-nx (the Switch port of the
+same recompilation) by translating named regions; its schema cites the
+dbalatoni13/nfsmw decompilation (CC0). Reimplemented in C++ in
+`ios/src/save_convert.cpp` (PC -> Xbox only), not copied. Regions:
+gameplay section 0x34-0x4034 (header words, persistent activities with their
+Lua tables, timers, milestone types/records, speed traps, gates, hiding
+spots, race-bin stats, SMS, footer; its own MD5), 0x4034/0x4039 (cash)
+words, settings 0x403D (608 bytes), profile id 0x429D (text), race belt
+0x42B9-0x5739, 63x12 words at 0x5739, then additions beyond the editor's map:
+the word at 0x5A2D (meaning unknown; swapped as one 32-bit value, a guess),
+25 records `{byte, 3 pad, u32}` at 0x5A55, the whole FEPlayerCarDB (200
+FECarRecord at PC 0x5BC5 / Xbox 0x5BCD, 75 FECustomizationRecord at 0x6B65 /
+0x6B6D, 25 FECareerRecord at 0xE2ED / 0xE2F5, sold history at 0xE865 /
+0xE86D). Unused bytes 0xCD become 0xAA. Taken from the template (the first
+career on the device): header prelude, the options block (PC 0x5B41-0x5BC5,
+Xbox 0x5B41-0x5BCD, 8 bytes longer), the Xbox tail after 0xE895. Header
+sizes, EA CRC32s (0x10, 0x14, 0x18) and the trailing MD5 are recomputed.
+
+Host test (`scripts`/`conv/test_convert.cpp` in the session scratchpad,
+compiled with clang++ on the Mac): recomputing header and MD5 reproduces
+x360_BEPPY and pc_Speed byte for byte; the gameplay MD5 checks on both;
+pc_beppy and pc_Speed convert (cash 554,100 and 1,000,249,999 as on PC); the
+converted car tables' 39 FE keys equal those of the real Xbox save (byte order
+right); the gameplay header reads 8 / 17 persistent / 8 / 30 / 55 / 39 / 0 /
+512 / 164 / 0 (Xbox BEPPY: 8 persistent). What this does not prove: that the
+game loads it, that unmapped template parts suit another career, and the
+guessed word at 0x5A2D.
+
+Import (`save_manager.mm`): a file starting `20CM` counts as a save; it is
+converted with the first local career as template (no career on the device:
+a message asks to start one), written as `<name>/<name>` and imported as
+usual (header written, no pool). Failure messages now say why.
+
+IPA105 (`ios/build/NFSMW-pc-saves-105.ipa`, 30107270 bytes, SHA256 prefix
+9ea77ca3458b482b, UUID 6CEBA288-DE7D-3861-9B0F-D0F47DE5308E, `unzip -t` ok),
+build exit 0. Includes IPA104's Extra Options. Untested on device. Test:
+Import `~/Downloads/nfsmw_89cars.zip` (or `Speed/Speed`), load the career
+"Speed".

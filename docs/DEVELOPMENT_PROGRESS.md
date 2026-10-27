@@ -125,6 +125,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA104 (`NFSMW-extra-options-104.ipa`): Speedbreaker, infraction speeds,
   impound strikes, heat override (launcher Extras tab). Untested. Next:
   Stefan tests IPA104; starting cash and the bounty fixes still to find.
+  IPA105 (`NFSMW-pc-saves-105.ipa`): PC save import (converter
+  `ios/src/save_convert.cpp`). Untested in game. Stefan (Oct 27): if it
+  works, it goes into 0.4.0 too (bring those files and the import hook over
+  to `frame-pacing-60` only then).
 - **October 27: save manager rework, step 1, IPA98
   (`NFSMW-save-sync-98.ipa`), branch `frame-pacing-60` (local).** Stefan
   approved a 3-step plan: (1) the record-pool extras file is part of the save
