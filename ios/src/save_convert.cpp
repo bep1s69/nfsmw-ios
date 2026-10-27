@@ -11,7 +11,7 @@
 // records and 75 customizations; FEPlayerCarDB layout from the dbalatoni13/nfsmw
 // decompilation) and checked against the order the Xbox 360 loader reads
 // the file (sub_822C2998, sub_822C3A60). Parts with no known map (the
-// options block 0x5B41-, the Xbox-only tail after the car database) are taken
+// options block 0x5B41-, the end of the tail) are taken
 // from an Xbox 360 save of this device, the template.
 
 #include "save_convert.h"
@@ -332,6 +332,18 @@ std::vector<uint8_t> ConvertPcSave(const std::vector<uint8_t>& pc, const std::ve
     uint8_t* h = copy(0xE865, 0xE86D, 40);  // sold-car history
     Reverse(h, 4);
     Words(h + 4, 36, 2);
+  }
+  // After the car database (sub_822C3A60): a byte, 3032 bytes of career
+  // stats (32-bit values from offset 1, with five 56-byte rival records at
+  // 0xA2D that start with a 12-byte "MW-..." name), then the current car's
+  // handle for each of 11 game modes. The rest (read by sub_822C6880) differs
+  // between the two and stays the template's.
+  {
+    uint8_t* t = copy(0xE88D, 0xE895, 1 + 3032 + 44);
+    for (size_t pos = 1; pos + 4 <= 1 + 3032 + 44; pos += 4) {
+      const bool name = pos >= 0xA2D && pos < 0xA2D + 5 * 56 && (pos - 0xA2D) % 56 < 12;
+      if (!name) Reverse(t + pos, 4);
+    }
   }
   Repair(out, true);
   return out;

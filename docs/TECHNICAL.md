@@ -7111,3 +7111,30 @@ converted pc_Speed, record 0 key e9a57e0a on both. IPA106
 9d7b58032b2cca70, UUID 94FEA2FE-C386-3388-BB12-CB237C6D4B81, `unzip -t` ok),
 build exit 0. Untested on device. Open question: if the 0x5A2D word is per
 profile, the template's may still be refused.
+
+### October 27: IPA106 result (loads; one career car, empty My Cars, crash); IPA107
+
+Stefan (iPad, IPA106): the PC save loaded. The career had one car, My Cars
+from the main menu showed none, and going back crashed. Log:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa106_pc_save_missing_cars_crash_ipad.log`:
+`read of guest 0x00000008`, lr 0x822CC344 (the car record lookup
+sub_822CC300, as in the old pool overflow), r4 0x55. The game also wrote
+the save once after loading (`create 'rmcsave' file 'Speed' (mode 2)`,
+pool: 75 extra entries kept beside it).
+
+Findings: 0x55 is the handle of a car of the template career (BEPPY); the
+converted file still held it 11 times at 0xF46E: the current car for each
+of 11 modes, read by sub_822C3A60 after a byte and a 3032-byte block that
+follow the car database. Those three have the same layout on both (PC
+0xE88D, Xbox 0xE895): the 3032 bytes are 32-bit values from offset 1 (career
+stats, five 56-byte records at +0xA2D starting with a 12-byte `MW-...` name).
+Car tables: the PC 89-cars save has one career car (handle 0x51, career slot
+0) and 58 records with filter bits 0xF0001 (inference: My Cars); the Xbox
+BEPPY has none with those bits, so how the Xbox lists My Cars is not
+confirmed.
+
+IPA107 converter: that byte, block and the 11 handles converted from the PC
+save (names kept as text). Host test: 11 handles now 0xC6 then 0x12345678.
+IPA107 (`ios/build/NFSMW-pc-saves-107.ipa`, 30107686 bytes, SHA256 prefix
+52f53598490ffe04, UUID 3976DF58-E91C-3C7C-B361-BD8E6F15024A, `unzip -t` ok),
+build exit 0. Untested. One career car may be what the PC save holds.
