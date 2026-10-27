@@ -34,6 +34,7 @@
 #include <system_error>
 #include <vector>
 
+#include "save_import.h"
 #include "save_manager.h"
 
 namespace fs = std::filesystem;
@@ -169,6 +170,20 @@ bool CopySave(const Place& from, const Place& to) {
     ec.clear();
   }
   return !ec;
+}
+
+// The emulator's content header (XCONTENT_AGGREGATE_DATA, 0x148 bytes,
+// big-endian) for a save that came without one: hard disk, saved game, its
+// name as display and file name, no profile, this title.
+bool WriteHeader(const fs::path& p, const std::string& name, uint32_t title_id) {
+  uint8_t h[0x148] = {};
+  h[3] = 1;  // device: the hard disk
+  h[7] = 1;  // content type: saved game
+  for (size_t i = 0; i < name.size() && i < 127; ++i) h[8 + 2 * i + 1] = uint8_t(name[i]);
+  std::memcpy(h + 0x108, name.data(), std::min<size_t>(name.size(), 42));
+  for (int i = 0; i < 4; ++i) h[0x140 + i] = uint8_t(title_id >> (24 - 8 * i));
+  NSData* d = [NSData dataWithBytes:h length:sizeof(h)];
+  return [d writeToFile:@(p.c_str()) atomically:YES];
 }
 
 // --- Backups -------------------------------------------------------------------
@@ -557,7 +572,7 @@ NSString* CloudSavedText(const CloudInfo& c) {
   switch (section) {
     case 0: return @"Careers";
     case 1: return @"iCloud Drive";
-    default: return nil;
+    default: return @"Import";
   }
 }
 
@@ -565,6 +580,11 @@ NSString* CloudSavedText(const CloudInfo& c) {
   if (section == 0) {
     return @"Tap a career to choose which save to keep, or for backups, export and delete. A backup is "
            @"made whenever a save changes (the newest 10 are kept).";
+  }
+  if (section == 2) {
+    return @"Accepts a .zip exported from this app, a save downloaded from the internet as an Xbox 360 "
+           @"save file (CON), a Xenia save folder or its .zip, or the bare save file. A save with the "
+           @"same name is backed up before it is replaced.";
   }
   if (section == 1) {
     return @"Pick the same folder on each device. Saves are copied there a few seconds after the game "
@@ -634,7 +654,7 @@ static UILabel* Badge(NSString* text, UIColor* color) {
   } else {
     c.image = [UIImage systemImageNamed:@"square.and.arrow.down"];
     c.text = @"Import a save…";
-    c.secondaryText = @"A save folder exported from this app (unzip it in Files first).";
+    c.secondaryText = nil;
     c.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
   }
   cell.contentConfiguration = c;
@@ -651,7 +671,8 @@ static UILabel* Badge(NSString* text, UIColor* color) {
 - (void)pickFolder:(BOOL)cloud {
   _pickingCloud = cloud;
   UIDocumentPickerViewController* p =
-      [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[ UTTypeFolder ]];
+      [[UIDocumentPickerViewController alloc]
+          initForOpeningContentTypes:cloud ? @[ UTTypeFolder ] : @[ UTTypeFolder, UTTypeZIP, UTTypeData ]];
   p.delegate = self;
   [self presentViewController:p animated:YES completion:nil];
 }
@@ -670,42 +691,91 @@ static UILabel* Badge(NSString* text, UIColor* color) {
     [self reload];
     return;
   }
-  // Import: a folder holding <NAME>/<NAME> (and <NAME>.header/.pool), as exported,
-  // or the save folder <NAME> itself.
   [url startAccessingSecurityScopedResource];
-  fs::path dir(url.path.UTF8String);
-  std::error_code ec;
-  std::string name = dir.filename().string();
-  fs::path save_dir = dir, header = dir.parent_path() / (name + ".header");
-  if (!fs::is_regular_file(dir / name, ec)) {
-    // An export: the one sub-folder with a same-named file inside.
-    for (auto& e : fs::directory_iterator(dir, ec)) {
-      const std::string n = e.path().filename().string();
-      if (e.is_directory(ec) && fs::is_regular_file(e.path() / n, ec)) {
-        name = n;
-        save_dir = e.path();
-        header = dir / (n + ".header");
-        break;
-      }
-    }
-  }
-  bool ok = fs::is_regular_file(save_dir / name, ec);
-  if (ok) {
-    Save target;
-    target.name = name;
-    target.root = _saves.empty() ? _docs / "data" / "B13EBABEBABEBABE" / "454107D9" : _saves.front().root;
-    target.id = target.root.parent_path().filename().string() + "_" + target.root.filename().string() + "_" + name;
-    if (fs::exists(target.Dir(), ec)) {
-      Measure(target);
-      Backup(_docs, target);
-    }
-    ok = CopySave({save_dir, header, header.parent_path() / (name + ".pool")}, Local(target));
-  }
+  std::string name;
+  const bool ok = [self importFrom:fs::path(url.path.UTF8String) name:&name];
   [url stopAccessingSecurityScopedResource];
   [self reload];
-  [self alert:ok ? @"Imported" : @"Not a save"
+  [self alert:ok ? @"Imported" : @"No save found"
       message:ok ? [NSString stringWithFormat:@"%s is on this device now.", name.c_str()]
-                 : @"Choose the folder you exported (unzipped in Files), or the save's own folder."];
+                 : @"Choose a .zip, a save folder, an Xbox 360 save file or the save file itself."];
+}
+
+// Import from what was picked: a folder, a .zip, an Xbox 360 package (STFS) or
+// the bare save file (MC02). Unpacked into a scratch folder, then the save is
+// the first MC02 file found: ideally <NAME>/<NAME> (this app's and Xenia's
+// layout), with <NAME>.header and <NAME>.pool beside its folder or, in Xenia's
+// layout, the header in <title>/Headers/00000001/. A missing header is written.
+- (BOOL)importFrom:(const fs::path&)picked name:(std::string*)out_name {
+  std::error_code ec;
+  const fs::path work = fs::path(NSTemporaryDirectory().UTF8String) / "nfsmw-import";
+  fs::remove_all(work, ec);
+  fs::create_directories(work, ec);
+  fs::path search = work;
+  std::string ext = picked.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return char(std::tolower(uint8_t(c))); });
+  if (fs::is_directory(picked, ec)) {
+    search = picked;
+  } else if (ext == ".zip") {
+    if (!nfsmw::saves::Unzip(picked, work)) return NO;
+  } else if (nfsmw::saves::IsStfs(picked)) {
+    if (!nfsmw::saves::ExtractStfs(picked, work / "package")) return NO;
+  } else {
+    fs::copy_file(picked, work / picked.filename(), ec);
+  }
+  auto isSave = [](const fs::path& f) {
+    char magic[4] = {};
+    if (FILE* fp = fopen(f.c_str(), "rb")) {
+      fread(magic, 1, 4, fp);
+      fclose(fp);
+    }
+    return std::memcmp(magic, "MC02", 4) == 0;
+  };
+  fs::path found;
+  for (auto it = fs::recursive_directory_iterator(search, ec); it != fs::recursive_directory_iterator();
+       it.increment(ec)) {
+    if (ec || it.depth() > 6) break;
+    if (!it->is_regular_file(ec) || !isSave(it->path())) continue;
+    const bool laidOut = it->path().filename() == it->path().parent_path().filename();
+    if (laidOut || found.empty()) found = it->path();
+    if (laidOut) break;
+  }
+  if (found.empty()) return NO;
+  std::string name = found.filename().string();
+  if (const size_t dot = name.find('.'); dot != std::string::npos && dot > 0 && found.parent_path().filename() != name) {
+    name = name.substr(0, dot);  // "BEPPY.sav" and the like
+  }
+  if (name.size() > 42) name.resize(42);
+  Place from;
+  if (found.parent_path().filename() == found.filename()) {
+    const fs::path dir = found.parent_path();
+    from = {dir, dir.parent_path() / (name + ".header"), dir.parent_path() / (name + ".pool")};
+    const fs::path xenia = dir.parent_path().parent_path() / "Headers" / "00000001" / (name + ".header");
+    if (!fs::exists(from.header, ec) && fs::exists(xenia, ec)) from.header = xenia;
+  } else {
+    // A bare file: put it in its own folder.
+    const fs::path dir = work / "bare" / name;
+    fs::create_directories(dir, ec);
+    fs::copy_file(found, dir / name, fs::copy_options::overwrite_existing, ec);
+    if (ec) return NO;
+    from = {dir, work / "bare" / (name + ".header"), work / "bare" / (name + ".pool")};
+  }
+  Save target;
+  target.name = name;
+  target.root = _saves.empty() ? _docs / "data" / "B13EBABEBABEBABE" / "454107D9" : _saves.front().root;
+  target.id = target.root.parent_path().filename().string() + "_" + target.root.filename().string() + "_" + name;
+  if (!fs::exists(from.header, ec)) {
+    from.header = work / (name + ".header.new");
+    if (!WriteHeader(from.header, name, uint32_t(strtoul(target.root.filename().c_str(), nullptr, 16)))) return NO;
+  }
+  if (fs::exists(target.Dir(), ec)) {
+    Measure(target);
+    Backup(_docs, target);
+  }
+  *out_name = name;
+  const bool ok = CopySave(from, Local(target));
+  fs::remove_all(work, ec);
+  return ok;
 }
 
 - (void)exportSave:(const Save&)s from:(UIView*)source {

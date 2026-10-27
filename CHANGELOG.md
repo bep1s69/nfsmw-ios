@@ -18,6 +18,10 @@
   tapping it offers "Use the save from iPad" first. Sync now is the button
   at the top right.
 
+- **Import saves from the internet.** The save manager's Import button takes
+  an Xbox 360 save file, a Xenia save folder or .zip, a .zip exported from
+  the app, or the bare save file.
+
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick
@@ -29,9 +33,9 @@
   drawn into the game's picture (a square dark box). At the 60 fps cap frames
   are also made in step with the screen's refresh, as at 30 and 40.
 
-- **120 Hz simulation is now on by default.** The game moves its world 120
-  times a second instead of 60, which removes the occasional judder of the
-  main picture at 60 fps. It can be turned off in the launcher's Game tab.
+- **120 Hz simulation switch.** The game can move its world 120 times a
+  second instead of 60 (Advanced tab, off by default; always on with the
+  120 fps cap).
 
 - **Options while playing.** In a menu or the pause screen, tap the gear at
   the top right (or press L3+R3 on a controller) to change the render

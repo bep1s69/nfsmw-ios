@@ -84,7 +84,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder fixed by 120 Hz simulation (IPA94 default), long play test pending
+### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder not fixed by 120 Hz simulation (off by default again in IPA101); motion blur suspected next
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show
@@ -223,6 +223,11 @@ owned, career progress, Challenge Series progress and save date for every
 save, including ones only in iCloud. Only cash and bounty are decoded; the
 MC02 body has no readable section tags (a `Game` tag at 0x44, two `GrtB`), so
 the rest needs before/after comparisons of backups.
+IPA100 confirmed by Stefan (a re-done race shows the new save time). IPA101:
+import accepts .zip, Xenia folders, Xbox 360 CON/LIVE/PIRS packages (the
+SDK's STFS reader) and bare MC02 files; writes a header when none comes
+with the save. Untested on device; no 360 package was available to test.
+Unknown: whether the game accepts a save made on another profile.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 
@@ -408,6 +413,8 @@ Power Profiler or CPU investigations.
 - **VERY HIGH PRIORITY (Stefan, Oct 27): motion blur switch.** An on/off
   setting for the game's motion blur (launcher and in-game options menu). Not
   started; next: find the motion blur pass or its option byte.
+  Stefan (Oct 27): also his next suspect for the 60 fps judder (D-005): the
+  mirror, which has no motion blur, stays smooth. Next after the save manager.
 
 - **In-game options menu (Stefan, Oct 26; 0.4.0 QoL). Status: built in IPA67
   (`NFSMW-ingame-options-67.ipa`); live settings confirmed on device by
