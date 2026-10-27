@@ -116,6 +116,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: 0.4.0 built and tagged (Stefan approved steps 1-4 of
+  RELEASING; he publishes the GitHub release himself).**
+  `ios/build/NFS-Most-Wanted-0.4.0.ipa`, SHA-256
+  685328f8ceb4c96fc2a2e9cace64ceacc1c0cd59926752071903f12efbee54ca. Next:
+  Stefan creates the release from tag v0.4.0; then 0.5 on `dev-0.5`.
 - **October 27: Stefan's tester confirmed Xbox 360 save import; Stefan
   approved the push: `frame-pacing-60` pushed to origin (new branch). Not yet:
   merge to `main`, version bump, tag, GitHub release (docs/RELEASING.md).**

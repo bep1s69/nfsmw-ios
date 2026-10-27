@@ -6933,3 +6933,27 @@ IPA108 (`ios/build/NFSMW-pc-save-import-108.ipa`, branch `frame-pacing-60`,
 79034B76-F201-3BD9-80B8-2B1DBF5257AC, `unzip -t` ok), build exit 0: IPA103
 plus PC save import; the binary has the import message and none of the 0.5
 Extra Options cvars (`strings`). Not run on a device yet.
+
+## October 27, 2026: 0.4.0 release build
+
+Stefan approved (Oct 27) RELEASING steps 1-4; he publishes the GitHub
+release himself. Version 0.4.0, code 4 (`ios/CMakeLists.txt`), CHANGELOG
+"Unreleased" became 0.4.0, README version line.
+- SDK `prepare_sdk.py --status` exit 0. Reported partial blocks, the same
+  SDK tree as the tested IPA103-108 builds: `ios_timing` 11 of 15,
+  `ios_ui_tick` 1 of 3, `ios_qos` 0 of 4 (replaced by `ios_utility_qos`,
+  applied), `ios_save_log` 2 of 3 (the save create/open lines do appear in
+  device logs). Not changed for the release.
+- `ios_resolve_stats` defaults to true in its patch script, as in v0.3.0
+  (RELEASING says diagnostics off); left as released before, noted here.
+- Game patches: pool 63 of 63, extra-options fully applied (0.4 set, no
+  `heat`).
+- Build exit 0 (existing build dir, its configuration kept), `codesign
+  --verify --deep --strict` ok, Info.plist com.bep1s.nfsmwios, 0.4.0 / 4,
+  208 metallibs, `unzip -t` ok, `git status --ignored`: ios/build,
+  ios/generated, assets ignored; nothing of the game tracked.
+- `ios/build/NFS-Most-Wanted-0.4.0.ipa`, 30093267 bytes, SHA-256
+  685328f8ceb4c96fc2a2e9cace64ceacc1c0cd59926752071903f12efbee54ca, UUID
+  D0F38C8B-8764-3CB5-8495-03BA3D561288. Same sources as IPA108 plus the
+  version bump; this exact file not installed on a device (RELEASING step 5's
+  fresh-container race is Stefan's).
