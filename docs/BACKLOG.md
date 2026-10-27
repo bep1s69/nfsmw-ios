@@ -210,8 +210,16 @@ the iPad, the achievement stays locked there. Screenshot
 per device (`Documents/data/achievements/<title>.toml`), not in the save.
 IPA102 keeps the union of every device's unlocks in `<iCloud folder>/NFSMW
 Achievements/` and merges both ways on every sync (launcher start, after a
-game save). Achievements are therefore per player, not per save. Next: Stefan
-opens the launcher on the iPhone, then on the iPad.
+game save). Achievements are therefore per player, not per save.
+IPA102 result (Stefan, Oct 27): Vic missing on both devices. The iPad's
+night-session log (`Debug/16 October 2026 - Battery Optimzation 2/
+nfsmw_night_session_ipad.log`, 03:20:49) shows `Achievement unlocked:
+00000003` on the iPad, but no device's file has id 3 now: the unlock was lost
+after it happened (cause unknown; LiveContainer's data container changed
+between Oct 16 and Oct 26 logs, 0066D757 -> 08BCB97E). Oct 27: id 3 added by
+hand to the iCloud union file with the logged time (backup of the old file in
+the session scratchpad). Lasting fix idea: re-derive the Blacklist
+achievements from the save once its Blacklist progress is decoded.
 
 ### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 

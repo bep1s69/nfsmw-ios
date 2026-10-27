@@ -6834,3 +6834,12 @@ SDK's memory, dropping entries merged after start until the next sync; the
 iCloud copy never loses one. Built `ios/build/NFSMW-achievement-sync-102.ipa`,
 UUID A9F1E193-308C-3B24-B6BF-5B4D0B6C9401, SHA256 8ad0984a11878fa3..., ZIP
 test OK, 208 metallibs, build exit 0. Untested on device.
+
+IPA102 result (Stefan, Oct 27): after both devices synced, Vic (id 3) is
+missing on both; the iCloud union file holds ids 1, 2, 4, 5 only. The Oct 16
+iPad log shows `XGIUserWriteAchievements: id=3` and `Achievement unlocked:
+00000003` at 03:20:49 (local, UTC+1 offset judged from id 5: log 16:43:06,
+filetime 15:43:06 UTC), so the unlock happened and was lost later; cause not
+found. Id 3 added by hand to `<iCloud folder>/NFSMW Achievements/454107D9.toml`
+with filetime 134365908494400000 (2026-10-16 02:20:49.44 UTC); the devices
+pick it up at their next sync.
