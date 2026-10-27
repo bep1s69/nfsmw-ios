@@ -327,6 +327,64 @@ const std::vector<Section>& Sections() {
            {@"old_bridge", Type::kSwitch, @"Open the road to the Old Bridge",
             @"Removes the barrier that closes the road to the Old Bridge.",
             @"false"},
+           {@"impound_strikes", Type::kChoice, @"Impound strikes of a new car",
+            @"How many times a car you buy can be busted before it is impounded. Cars you "
+            @"already have keep theirs. The game's is 3.",
+            @"3",
+            {{@"3 (game)", @"3"}, {@"4", @"4"}, {@"5", @"5"}, {@"10", @"10"}}},
+           {@"impound_strikes_max", Type::kChoice, @"Most impound strikes",
+            @"The most strikes a car can reach with impound markers. The game's is 5.",
+            @"5",
+            {{@"5 (game)", @"5"}, {@"10", @"10"}, {@"20", @"20"}}},
+       }, kTabExtras},
+      {@"Speedbreaker", nil,
+       {
+           {@"sb_recharge_time", Type::kChoice, @"Refill time",
+            @"How long the Speedbreaker takes to fill up again. The game's is 25 seconds.",
+            @"25",
+            {{@"10 s", @"10"}, {@"15 s", @"15"}, {@"25 s (game)", @"25"}, {@"40 s", @"40"}}},
+           {@"sb_recharge_speed", Type::kChoice, @"Refill speed",
+            @"How fast you must drive for the Speedbreaker to fill up. The game's is 100.",
+            @"100",
+            {{@"Any speed", @"0"}, {@"50", @"50"}, {@"75", @"75"}, {@"100 (game)", @"100"}}},
+           {@"sb_mass", Type::kChoice, @"Weight while slowed",
+            @"How much heavier your car is during the Speedbreaker, for ramming. The game's "
+            @"is 2x.",
+            @"2",
+            {{@"1x", @"1"}, {@"2x (game)", @"2"}, {@"3x", @"3"}, {@"5x", @"5"}}},
+       }, kTabExtras},
+      {@"Police", nil,
+       {
+           {@"heat_override", Type::kSwitch, @"Heat level override",
+            @"Keeps the pursuit heat between the two levels below in every event, as Extra "
+            @"Options' HeatLevelOverride.",
+            @"false"},
+           {@"heat_min", Type::kChoice, @"Lowest heat", @"With the override on: the heat never drops "
+            @"below this.",
+            @"1",
+            {{@"1", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"4", @"4"}, {@"5", @"5"}}},
+           {@"heat_max", Type::kChoice, @"Highest heat",
+            @"With the override on: the heat never goes above this. The game's is 5; 6 to 10 "
+            @"are experimental (more cops on PC; untested on the Xbox 360 game).",
+            @"5",
+            {{@"1", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"4", @"4"}, {@"5 (game)", @"5"},
+             {@"6", @"6"}, {@"8", @"8"}, {@"10", @"10"}}},
+           {@"speeding_limit", Type::kChoice, @"Speeding",
+            @"The speed at which the police can give you a Speeding infraction. The game's is "
+            @"241 km/h (150 mph).",
+            @"67",
+            {{@"180 km/h", @"50"}, {@"241 km/h (game)", @"67"}, {@"290 km/h", @"80.5"},
+             {@"Never", @"1000"}}},
+           {@"excessive_speeding_limit", Type::kChoice, @"Excessive speeding",
+            @"The speed for an Excessive Speeding infraction. The game's is 290 km/h (180 mph).",
+            @"80.5",
+            {{@"241 km/h", @"67"}, {@"290 km/h (game)", @"80.5"}, {@"322 km/h", @"89.4"},
+             {@"Never", @"1000"}}},
+           {@"reckless_driving_limit", Type::kChoice, @"Reckless driving",
+            @"The speed for a Reckless Driving infraction. The game's is 322 km/h (200 mph).",
+            @"89.4",
+            {{@"290 km/h", @"80.5"}, {@"322 km/h (game)", @"89.4"}, {@"360 km/h", @"100"},
+             {@"Never", @"1000"}}},
        }, kTabExtras},
       {@"Quick Race", nil,
        {
@@ -760,6 +818,17 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_rain_intensity=" + str(@"rain_intensity"));
   a.push_back("--nfsmw_rain_drop_size=" + str(@"rain_drop_size"));
   a.push_back("--nfsmw_road_reflection=" + str(@"road_reflection"));
+  a.push_back("--nfsmw_impound_strikes=" + str(@"impound_strikes"));
+  a.push_back("--nfsmw_impound_strikes_max=" + str(@"impound_strikes_max"));
+  a.push_back("--nfsmw_sb_recharge_time=" + str(@"sb_recharge_time"));
+  a.push_back("--nfsmw_sb_recharge_speed=" + str(@"sb_recharge_speed"));
+  a.push_back("--nfsmw_sb_mass=" + str(@"sb_mass"));
+  a.push_back("--nfsmw_heat_override=" + b(On(s, @"heat_override")));
+  a.push_back("--nfsmw_heat_min=" + str(@"heat_min"));
+  a.push_back("--nfsmw_heat_max=" + str(@"heat_max"));
+  a.push_back("--nfsmw_speeding_limit=" + str(@"speeding_limit"));
+  a.push_back("--nfsmw_excessive_speeding_limit=" + str(@"excessive_speeding_limit"));
+  a.push_back("--nfsmw_reckless_driving_limit=" + str(@"reckless_driving_limit"));
   const bool sim_120 = On(s, @"sim_120_hz") || [Value(s, @"fps_cap") isEqualToString:@"120"];
   a.push_back(std::string("--nfsmw_sim_rate=") + (sim_120 ? "120" : "60"));
   // The render scale: the native renderer's own (fractions, or the screen's

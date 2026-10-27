@@ -28,6 +28,7 @@ keeps a second run from touching anything.
                            subfic rD,r8,4 (x2)       nfsmw_opponents_max() + 1
   traffic    sub_822C4FB8: li r8,10 / li r9,30 / li r10,50
                                                      nfsmw_traffic_density(1/2/3)
+  heat       sub_82117950: lfs f0,220(r31) (x1)      nfsmw_heat_override(r31)
 """
 
 import argparse
@@ -56,6 +57,10 @@ extern "C" int32_t nfsmw_laps_max();
 extern "C" int32_t nfsmw_opponents_min();
 extern "C" int32_t nfsmw_opponents_max();
 extern "C" int32_t nfsmw_traffic_density(int32_t level);
+"""
+DECLS3_MARK = "nfsmw-extra-options-3"
+DECLS3 = f"""// LOCAL PATCH - iOS ({DECLS3_MARK}): Extra Options, 0.5.
+extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base);
 """
 
 
@@ -108,6 +113,15 @@ def load_or_edit(reg, base, offset, call, mark):
     return re.compile(rf"\t// lwz {reg},{offset}\({base}\)$"), edit
 
 
+def before_load_edit(freg, base, offset, call, mark):
+    """'lfs <freg>,<offset>(<base>)' -> <call> runs first."""
+    def edit(match, _):
+        old = ["\tctx.fpscr.disableFlushMode();"]
+        new = ["\tctx.fpscr.disableFlushMode();", f"\t{call};  // {mark}"]
+        return old, new
+    return re.compile(rf"\t// lfs {freg},{offset}\({base}\)$"), edit
+
+
 # feature -> [(function, (pattern, edit), expected count)]
 FEATURES = {
     "markers": [
@@ -154,11 +168,18 @@ FEATURES = {
         ("sub_822C4FB8", li_reg_edit("r9", 30, "nfsmw_traffic_density(2)", "nfsmw-traffic"), 1),
         ("sub_822C4FB8", li_reg_edit("r10", 50, "nfsmw_traffic_density(3)", "nfsmw-traffic"), 1),
     ],
+    # Heat level override (Extra Options' HeatLevelOverride): the pursuit's
+    # heat is clamped to the minimum and maximum at +220/+224 of its object
+    # in sub_82117950 (PC 0x443DC3, where the mod writes them first).
+    "heat": [
+        ("sub_82117950",
+         before_load_edit("f0", "r31", 220, "nfsmw_heat_override(ctx.r31.u32, base)", "nfsmw-heat"), 1),
+    ],
 }
 MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
          "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3),
          "laps": ("nfsmw-laps", 4), "opponents": ("nfsmw-opponents", 6),
-         "traffic": ("nfsmw-traffic", 3)}
+         "traffic": ("nfsmw-traffic", 3), "heat": ("nfsmw-heat", 1)}
 
 
 def fail(msg):
@@ -221,6 +242,8 @@ def main():
             if inc is None:
                 fail(f"{path.name}: no #include \"nfsmw_funcs.*.h\" for the declarations")
             head = "\n".join(lines[:120])
+            if DECLS3_MARK not in head:
+                lines.insert(inc + 1, "\n" + DECLS3.rstrip("\n"))
             if DECLS2_MARK not in head:
                 lines.insert(inc + 1, "\n" + DECLS2.rstrip("\n"))
             if "nfsmw_skip_movies();" not in head:

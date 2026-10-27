@@ -121,8 +121,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **October 27: 0.5.0, branch `dev-0.5` (local).** PC vs Xbox 360 file
   comparison done (TECHNICAL, Oct 27; BACKLOG "PC mods"). Stefan: Extra
   Options first. Feature list of both PC code mods with estimated effort:
-  [MOD_FEATURES.md](MOD_FEATURES.md). No code changed. Next: Stefan picks
-  features from its Easy list.
+  [MOD_FEATURES.md](MOD_FEATURES.md). Stefan approved the first batch.
+  IPA104 (`NFSMW-extra-options-104.ipa`): Speedbreaker, infraction speeds,
+  impound strikes, heat override (launcher Extras tab). Untested. Next:
+  Stefan tests IPA104; starting cash and the bounty fixes still to find.
 - **October 27: save manager rework, step 1, IPA98
   (`NFSMW-save-sync-98.ipa`), branch `frame-pacing-60` (local).** Stefan
   approved a 3-step plan: (1) the record-pool extras file is part of the save

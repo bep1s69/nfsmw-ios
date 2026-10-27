@@ -96,6 +96,42 @@
 // override at 0x82A2D6A0 if set, SetChanceOfRain's, else the weather
 // regions') is 1 while the setting is on.
 //
+// SPEEDBREAKER (Extra Options: Gameplay > SBRechargeTime,
+// SBRechargeSpeedLimit, SBMassMultiplier)
+//
+// The mod writes three floats in a row in .data (0x901AE4: 25, 100, 2); the
+// same three are at 0x828FB8D4 here, the only place they appear in a row.
+// Written at boot.
+//
+// INFRACTION SPEEDS (Extra Options: Pursuit > SpeedingLimit,
+// ExcessiveSpeedingLimit, RecklessDrivingLimit)
+//
+// In m/s, three floats in .rdata, in the PC order (0x8A380C: excessive 80.5,
+// speeding 67, reckless 89.4): 0x82061CC4 here, the only match. Written at
+// boot (read-only data, made writable for it).
+//
+// IMPOUND STRIKES (Extra Options: Gameplay > ImpoundStrikesCount,
+// MaximumImpoundStrikesCount)
+//
+// A new car's record (sub_822C9610, FEPlayerCarDB::CreateNewCareerRecord:
+// the first free one of 25 records of 56 bytes) is filled in by sub_822CE7D8,
+// which sets its strikes byte (+2) to 3, as the PC's 0x580DA7. It is wrapped
+// below and the byte rewritten. The most strikes a car can reach
+// (g_MaximumMaximumTimesBusted, 5; PC 0x8F4314 after the float 0.25) is the
+// word after 0.25 at 0x828FF1FC here. Written at boot.
+//
+// HEAT LEVEL OVERRIDE (Extra Options: Pursuit > HeatLevelOverride,
+// MinimumHeatLevel, MaximumHeatLevel)
+//
+// The pursuit's heat is clamped to a minimum and maximum (floats at +220 and
+// +224 of its object, set per event). On PC the mod writes its own two there
+// just before the clamp (0x443DC3: after the 0-14 clamp of an index, then
+// fld/fdiv/fadd, mov edx,[esi+E0], mov eax,[esi+DC]). On the 360 the same
+// clamp is in sub_82117950 (the 0-14 clamp, then lfs 220(r31), lfs
+// 224(r31)); nfsmw_heat_override() writes them first while the setting is on.
+// Only that clamp: the PC mod also raises the maximum heat in menus and in
+// SetHeatLevel (to 10), not ported, so heat above 5 is experimental.
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -136,6 +172,27 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_rain_intensity, 0.45, "Game", "Rain intensity (the g
 REXCVAR_DEFINE_DOUBLE(nfsmw_rain_drop_size, 0.01, "Game", "Size of the falling drops (the game's is 0.01)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_road_reflection, 1.0, "Game",
                       "How much the wet road reflects (the game's is 1)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_sb_recharge_time, 25.0, "Game",
+                      "Seconds the Speedbreaker takes to refill (the game's is 25)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_sb_recharge_speed, 100.0, "Game",
+                      "Speed above which the Speedbreaker refills (the game's is 100)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_sb_mass, 2.0, "Game",
+                      "Your car's mass multiplier during Speedbreaker (the game's is 2)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_speeding_limit, 67.0, "Game",
+                      "Speed in m/s for the Speeding infraction (the game's is 67)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_excessive_speeding_limit, 80.5, "Game",
+                      "Speed in m/s for the Excessive Speeding infraction (the game's is 80.5)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_reckless_driving_limit, 89.4, "Game",
+                      "Speed in m/s for the Reckless Driving infraction (the game's is 89.4)");
+REXCVAR_DEFINE_INT32(nfsmw_impound_strikes, 3, "Game",
+                     "Impound strikes a newly bought car has (1-127; the game's is 3)");
+REXCVAR_DEFINE_INT32(nfsmw_impound_strikes_max, 5, "Game",
+                     "Most impound strikes a car can reach with markers (1-127; the game's is 5)");
+REXCVAR_DEFINE_BOOL(nfsmw_heat_override, false, "Game",
+                    "Force the pursuit heat between nfsmw_heat_min and nfsmw_heat_max in every event");
+REXCVAR_DEFINE_INT32(nfsmw_heat_min, 1, "Game", "Lowest heat level with the override (1-10)");
+REXCVAR_DEFINE_INT32(nfsmw_heat_max, 5, "Game",
+                     "Highest heat level with the override (1-10; above 5 is experimental)");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -173,6 +230,48 @@ bool PatchGuestBytes(uint32_t address, const uint8_t* bytes, uint32_t count) {
   std::copy(bytes, bytes + count, host);
   heap->Protect(start, size, old_protect);
   return true;
+}
+
+uint32_t GuestWord(uint32_t address) {
+  const auto* p = rex::system::kernel_state()->memory()->TranslateVirtual<const uint8_t*>(address);
+  return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | uint32_t(p[3]);
+}
+
+bool PatchGuestWord(uint32_t address, uint32_t value) {
+  const uint8_t be[4] = {uint8_t(value >> 24), uint8_t(value >> 16), uint8_t(value >> 8),
+                         uint8_t(value)};
+  return PatchGuestBytes(address, be, 4);
+}
+
+uint32_t FloatBits(float v) {
+  uint32_t b;
+  std::memcpy(&b, &v, 4);
+  return b;
+}
+
+struct FloatTunable {
+  uint32_t address;
+  float game;
+  double value;
+  const char* name;
+};
+
+// Writes a group of floats, only when all of them still hold the game's
+// values (the right place in this build).
+template <size_t N>
+void PatchFloats(const char* group, const FloatTunable (&table)[N]) {
+  for (const FloatTunable& t : table) {
+    if (GuestWord(t.address) != FloatBits(t.game)) {
+      REXLOG_WARN("[extra-options] {}: the values are not where expected; not touched", group);
+      return;
+    }
+  }
+  for (const FloatTunable& t : table) {
+    const float v = float(t.value);
+    if (v == t.game) continue;
+    const bool ok = PatchGuestWord(t.address, FloatBits(v));
+    REXLOG_INFO("[extra-options] {} {}: {:.3f}{}", group, t.name, v, ok ? "" : " (COULD NOT PATCH)");
+  }
 }
 
 }  // namespace
@@ -240,48 +339,60 @@ extern "C" void nfsmw_extra_options_apply() {
   }
   // The rain's tunables (see RAIN above): only when they still hold the
   // game's defaults (the right table in this build).
+  PatchFloats("rain", {
+      {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
+      {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
+      {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
+      {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
+  });
+  if (REXCVAR_GET(nfsmw_always_rain)) {
+    REXLOG_INFO("[extra-options] always rain: on");
+  }
+  // SPEEDBREAKER and INFRACTION SPEEDS above.
+  PatchFloats("speedbreaker", {
+      {0x828FB8D4, 25.0f, REXCVAR_GET(nfsmw_sb_recharge_time), "recharge time"},
+      {0x828FB8D8, 100.0f, REXCVAR_GET(nfsmw_sb_recharge_speed), "recharge speed"},
+      {0x828FB8DC, 2.0f, REXCVAR_GET(nfsmw_sb_mass), "mass"},
+  });
+  PatchFloats("infraction", {
+      {0x82061CC4, 80.5f, REXCVAR_GET(nfsmw_excessive_speeding_limit), "excessive speeding"},
+      {0x82061CC8, 67.0f, REXCVAR_GET(nfsmw_speeding_limit), "speeding"},
+      {0x82061CCC, 89.4f, REXCVAR_GET(nfsmw_reckless_driving_limit), "reckless driving"},
+  });
+  // IMPOUND STRIKES above: the maximum, after the float 0.25.
   {
-    struct Tunable {
-      uint32_t address;
-      float game;
-      double value;
-      const char* name;
-    };
-    const Tunable rain[] = {
-        {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
-        {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
-        {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
-        {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
-    };
-    auto* memory = rex::system::kernel_state()->memory();
-    auto bits_of = [](float v) {
-      uint32_t b;
-      std::memcpy(&b, &v, 4);
-      return b;
-    };
-    auto guest_bits = [&](uint32_t address) {
-      const auto* p = memory->TranslateVirtual<const uint8_t*>(address);
-      return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | uint32_t(p[3]);
-    };
-    bool table_ok = true;
-    for (const Tunable& t : rain) {
-      table_ok &= guest_bits(t.address) == bits_of(t.game);
+    constexpr uint32_t kQuarter = 0x828FF1F8, kMaxStrikes = 0x828FF1FC;
+    const int32_t max = std::clamp(REXCVAR_GET(nfsmw_impound_strikes_max), 1, 127);
+    if (GuestWord(kQuarter) != FloatBits(0.25f) || GuestWord(kMaxStrikes) != 5) {
+      REXLOG_WARN("[extra-options] most impound strikes: not where expected; not touched");
+    } else if (max != 5) {
+      const bool ok = PatchGuestWord(kMaxStrikes, uint32_t(max));
+      REXLOG_INFO("[extra-options] most impound strikes: {}{}", max, ok ? "" : " (COULD NOT PATCH)");
     }
-    if (!table_ok) {
-      REXLOG_WARN("[extra-options] rain: the tunables are not where expected; not touched");
-    } else {
-      for (const Tunable& t : rain) {
-        const float v = float(t.value);
-        if (v == t.game) continue;
-        const uint32_t b = bits_of(v);
-        const uint8_t be[4] = {uint8_t(b >> 24), uint8_t(b >> 16), uint8_t(b >> 8), uint8_t(b)};
-        const bool ok = PatchGuestBytes(t.address, be, 4);
-        REXLOG_INFO("[extra-options] rain {}: {:.3f}{}", t.name, v, ok ? "" : " (COULD NOT PATCH)");
-      }
-    }
-    if (REXCVAR_GET(nfsmw_always_rain)) {
-      REXLOG_INFO("[extra-options] always rain: on");
-    }
+  }
+}
+
+// Before the pursuit's heat clamp (see HEAT LEVEL OVERRIDE above).
+extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
+  if (!REXCVAR_GET(nfsmw_heat_override)) {
+    return;
+  }
+  static std::atomic<bool> logged_min{false}, logged_max{false};
+  const int32_t lo = Setting(REXCVAR_GET(nfsmw_heat_min), 1, 10, "heat override minimum", logged_min);
+  const int32_t hi = std::max(lo, Setting(REXCVAR_GET(nfsmw_heat_max), 1, 10, "heat override maximum", logged_max));
+  REX_STORE_U32(object + 220, FloatBits(float(lo)));
+  REX_STORE_U32(object + 224, FloatBits(float(hi)));
+}
+
+// A new car's record (see IMPOUND STRIKES above). A leaf: r3 is still the
+// record afterwards.
+extern "C" void __imp__sub_822CE7D8(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_822CE7D8) {
+  __imp__sub_822CE7D8(ctx, base);
+  static std::atomic<bool> logged{false};
+  const int32_t strikes = Setting(REXCVAR_GET(nfsmw_impound_strikes), 1, 127, "impound strikes of a new car", logged);
+  if (strikes != 3) {
+    REX_STORE_U8(ctx.r3.u32 + 2, uint8_t(strikes));
   }
 }
 

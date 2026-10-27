@@ -6948,3 +6948,38 @@ Not tested: whether the game ever opens loose files outside ZZDATA.
 
 **What this does not prove.** No mod was loaded; no VLT tool (NFS-VltEd,
 Binary) was run on the 360 files.
+
+## October 27, 2026: Extra Options first batch (IPA104)
+
+Branch `dev-0.5`. Stefan approved (Oct 27) the batch proposed in
+`docs/MOD_FEATURES.md`. PC addresses from ExOptsTeam/NFSMWExOpts
+`ExtraOptionsStuff.h` and `CodeCaves.h` (master, read Oct 27). Xbox 360
+addresses found in the decrypted image written by `NFSMW_DUMP_IMAGE` on Oct 26
+(scratch copy, 13,434,880 bytes, base 0x82000000; path in the session's
+scratchpad, not kept) and in the generated code. Details in the comments of
+`ios/src/game_extra_options.cpp`.
+
+| Feature | PC | Xbox 360 (USA) | How |
+|---|---|---|---|
+| Speedbreaker 25/100/2 | 0x901AE4 (.data) | 0x828FB8D4 (only match of the three floats in a row) | boot write, checked against the game's values |
+| Infraction speeds 80.5/67/89.4 m/s | 0x8A380C (.rdata) | 0x82061CC4 (only match) | boot write (read-only page made writable) |
+| Most impound strikes 5 | 0x8F4314, after float 0.25 | 0x828FF1FC, after 0.25 at 0x828FF1F8 (only match) | boot write |
+| New car's strikes 3 | 0x580DA7 `mov byte [eax+2],3` | sub_822CE7D8 `li r6,3; stb r6,2(r3)`, called by sub_822C9610 (first free of 25 records, 56 bytes each) | wrapper rewrites +2 |
+| Heat override | 0x443DC3, writes +0xDC/+0xE0 before the clamp | sub_82117950: 0-14 clamp, then `lfs f0,220(r31)` / `lfs f1,224(r31)` (the only function with both and the 0-14 clamp) | patch script (`heat`, 1 mark) calls `nfsmw_heat_override` first |
+
+Not done: StartingCash. The PC function (`or [ecx+4],2`; if the argument,
+`add [ecx+0xC],10000`) is sub_822C26E0 on the 360, but nothing calls it (no
+`bl`, no pointer in the image, no lis/addi pair); the career default
+(sub_822C17F8, cash +12 = 0) has no direct caller either. sub_822C2348 is an
+inlined variant (flag 0x20000, +10000 cash after sub_823C5028(..., 5, 0)).
+Heat override ports only the clamp: the PC mod also writes the maximum heat
+(10) into menu sliders and SetHeatLevel, not found here; heat above 5 is
+experimental. Bounty fixes not started.
+
+IPA104 (`ios/build/NFSMW-extra-options-104.ipa`, 30105093 bytes, SHA256
+prefix 6d53b4dd6619a254, UUID 976E871C-24C0-3D0E-A808-4999D87D94EC,
+`unzip -t` ok). `patch_game_extra_options.py --status`: applied, heat 1/1.
+Build exit 0 (`cmake --build --preset ios --target ipa -j 6`). Not run on a
+device. Log lines to look for: `[extra-options] speedbreaker ...`,
+`infraction ...`, `most impound strikes`, `impound strikes of a new car`,
+`heat override minimum/maximum` (only for changed values).

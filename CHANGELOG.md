@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 (in development, branch dev-0.5)
+
+- **More Extra Options** (Extras tab): Speedbreaker refill time, refill
+  speed and weight; the speeds for Speeding, Excessive Speeding and Reckless
+  Driving; impound strikes of a new car and the most a car can reach; and a
+  heat level override (lowest and highest heat in every event).
+
 ## Unreleased
 
 - **Motion blur switch.** Motion blur can be turned off in the launcher and

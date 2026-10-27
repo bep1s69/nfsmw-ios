@@ -31,6 +31,10 @@ TECHNICAL.
 | Traffic density per level | ExOpts TrafficControllers Low/Medium/High | same (`nfsmw_traffic_*`) |
 | Rain values | ExOpts Weather GeneralRainAmount, RainSize, RainIntensity, RoadReflectionAmount | same (`nfsmw_rain_*`, `nfsmw_road_reflection`) |
 | Always rain | ExOpts AlwaysRain | same (`nfsmw_always_rain`) |
+| Speedbreaker (IPA104, untested) | ExOpts SBRechargeTime, SBRechargeSpeedLimit, SBMassMultiplier | `nfsmw_sb_*` |
+| Infraction speeds (IPA104, untested) | ExOpts SpeedingLimit, ExcessiveSpeedingLimit, RecklessDrivingLimit | `nfsmw_*_limit` |
+| Impound strikes (IPA104, untested) | ExOpts ImpoundStrikesCount, MaximumImpoundStrikesCount | `nfsmw_impound_strikes*` |
+| Heat override (IPA104, untested; clamp only) | ExOpts HeatLevelOverride, Minimum/MaximumHeatLevel | `nfsmw_heat_*` |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |
@@ -43,14 +47,14 @@ TECHNICAL.
 
 - Race setup leftovers: LapControllers Minimum, RandomRace, UnfreezeKO;
   OpponentControllers Minimum, RandomRace.
-- Career numbers: StartingCash, ImpoundStrikesCount,
-  MaximumImpoundStrikesCount.
-- Speedbreaker: SBRechargeTime, SBRechargeSpeedLimit, SBMassMultiplier.
-- Pursuit: HeatLevelOverride with Minimum/MaximumHeatLevel; SpeedingLimit,
-  ExcessiveSpeedingLimit, RecklessDrivingLimit; ShowPursuitCops,
-  ShowNonPursuitCops (minimap).
+- StartingCash: harder than expected. The PC's spot (a function that adds
+  10000 to the career's cash, +12) exists on the 360 (sub_822C26E0) but
+  nothing calls it; the career default (sub_822C17F8, cash 0) has no direct
+  caller either (inlined). A new-career hook is still to be found.
+- Pursuit: ShowPursuitCops, ShowNonPursuitCops (minimap).
 - Fixes (first check the bug exists on the Xbox 360): HelicopterBountyFix,
-  ZeroBountyFix, DDayFix, BustedNISFix.
+  ZeroBountyFix (heat 10 and above; matters only with the heat override
+  above 5), DDayFix, BustedNISFix.
 - World: GameSpeed, CarScale, WorldAnimationSpeed, Weather RainCrossing,
   RainSpeed, RainGravity (written at boot with the defaults, no setting yet),
   NosTrailRepeatCount, NoRevLimiter.
