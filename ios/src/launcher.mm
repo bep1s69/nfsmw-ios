@@ -301,10 +301,6 @@ const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
       {@"Game", nil,
        {
-           {@"black_edition", Type::kSwitch, @"Black Edition content",
-            @"The Black Edition extras that exist in the Xbox 360 game, like the Porsche 911 "
-            @"GT2 and the Corvette C6.R.",
-            @"true"},
            {@"sim_120", Type::kSwitch, @"120 Hz simulation",
             @"The game moves its world 60 times a second at any frame rate. On, 120 times: "
             @"smoother motion at 60 fps too, and needed for the 120 fps cap. Turn it off if the "
@@ -747,7 +743,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   auto b = [](bool v) { return std::string(v ? "true" : "false"); };
   auto str = [&](NSString* key) { return std::string(Value(s, key).UTF8String); };
   std::vector<std::string> a;
-  a.push_back("--black_edition=" + b(On(s, @"black_edition")));
+  // Black Edition content is always on: there is no switch for it any more.
+  a.push_back("--black_edition=true");
   a.push_back("--nfsmw_marker_count=" + str(@"marker_count"));
   a.push_back("--nfsmw_purchased_car_limit=" + str(@"car_limit"));
   a.push_back("--nfsmw_remove_old_bridge_barrier=" + b(On(s, @"old_bridge")));

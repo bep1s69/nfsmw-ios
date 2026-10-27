@@ -39,8 +39,8 @@ to finish, but there is a lot still to do before anything could be called 1.0.
 ## What it does
 
 - **The whole game**: career, quick races, challenge series, pursuits, free roam,
-  saves, achievements. **Black Edition content** is on by default (with a fix
-  for the career freeze it caused, see [docs/TECHNICAL.md](docs/TECHNICAL.md)).
+  saves, achievements. **Black Edition content** is always on: its cars and
+  the 70th Challenge Series event (see [docs/TECHNICAL.md](docs/TECHNICAL.md)).
 - **60 fps** on an iPad Pro M4 in nearly all of the game at 16:9; frame rate caps
   of **30, 40, 60 and 120** (40 and 120 use the 120 Hz ProMotion display; 120 is
   experimental, see [Performance](#performance)).
@@ -149,7 +149,7 @@ Everything the scripts do, and why, is in [docs/TECHNICAL.md](docs/TECHNICAL.md)
 
 Every option has a short explanation on screen. The defaults suit normal play.
 
-- **Game**: Black Edition content.
+- **Game**: 120 Hz simulation.
 - **Extra Options**: markers after beating a rival (1-6), cars you can buy
   (1-25), Old Bridge road, and an experimental 120 Hz simulation (see
   [Known issues](#known-issues-and-limitations)).

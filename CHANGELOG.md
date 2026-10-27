@@ -5,7 +5,8 @@
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick
-  Race appear, and starting a career works.
+  Race appear, and starting a career works. It is always on now: the
+  launcher no longer has a switch for it.
 
 - **Smoother frame pacing with the FPS counter on.** Each counter update
   delayed a frame, a small stutter up to twice a second; the counter is now
