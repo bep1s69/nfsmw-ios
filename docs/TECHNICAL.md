@@ -6629,3 +6629,24 @@ per-frame off-grid lines (first 120) and the in-frame counter at screen
 scale. Remaining choppiness unexplained (no delivery, timing or repeated
 frame fault measured); untested suggestion: compare with the 120 fps cap.
 Still to do: a sharp counter on its own layer.
+
+October 27: 120 fps and 120 Hz simulation (Stefan, iPad, IPA93; logs in
+`Debug/27 October 2026/`). 120 fps cap with 60 Hz simulation
+(`nfsmw_ipa93_120fps_race_ipad.log`): dips to ~100 fps (13:44:16-48, up to
+35 of 300 frames at two refreshes); CPU 118-160% of a core. 120 fps with
+120 Hz simulation (`nfsmw_ipa93_120fps_120hz_ipad.log`, Extra Args with the
+three Utility QoS switches off, adaptive QoS still on): "incredibly
+smooth", 3% battery in a ~1:10 lap; CPU 123-267%. 60 fps with 120 Hz
+simulation, without and with the QoS Extra Args
+(`nfsmw_ipa93_120hz_60fps_no_extra_args_ipad.log`, `..._extra_args_ipad.log`):
+both "felt amazing", i.e. the 60 fps choppiness gone; CPU in the race 65-84%
+and 62-80% of a core (the same within noise). Yesterday's 60 fps / 60 Hz
+races (IPA85-92) logged 134-176%, with every thread about twice as busy
+(GPU Commands 29% vs 11%, same ~2100 draws), which the simulation rate
+cannot explain: not a matched comparison (other day, battery 100% vs 65%).
+Explanation (consistent, not proven): NFSMW steps its world in fixed 1/60
+s ticks from the real clock; at 60 fps with frame periods jittering about
++-1 ms the number of ticks per frame occasionally changes, while with 1/120
+ticks each frame gets two and a change is half as large. Next: a matched
+IPA93 60 fps / 60 Hz run for CPU; check that 120 Hz simulation at 60 fps
+keeps normal game speed (lap times).
