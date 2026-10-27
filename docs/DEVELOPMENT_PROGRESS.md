@@ -28,6 +28,12 @@ input paths, test commands, outcomes and next action for each experiment.
   and in .gitignore, not on GitHub. Keep them on disk; never re-add them.
   They remain in older history and on other branches (`dev-0.5`,
   `frame-pacing-60`); a merge that touches them must keep them untracked.
+  Later on October 28 (Stefan approved): removed from all history with
+  `git filter-branch` on every local branch and tag, force-pushed `main`,
+  `release-0.4.1`, `frame-pacing-60` and tag `v0.4.0`. Commit hashes in
+  older records refer to the old history (v0.4.0 3e2a74b is now e24238c);
+  backup mirror and the broken "main 2" refs in
+  `/Users/bep1s/Developer/Debug/nfsmw-ios-history-backup-2026-10-28`.
 - October 27: post-0.4 work (0.5.0: Extra Options, Widescreen Fix features,
   PC mods) lives on the local branch `dev-0.5`; never commit it here. The
   exception, approved by Stefan: PC save import, in 0.4.0 because it works.
