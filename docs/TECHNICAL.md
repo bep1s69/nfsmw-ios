@@ -6792,3 +6792,31 @@ Back up, Restore, Export, Delete. Sync now moved to the navigation bar.
 Built `ios/build/NFSMW-save-redesign-100.ipa`, UUID
 B65A01FE-83C7-3BD7-B683-B23770CF5722, SHA256 6c08e19052cf2be7..., ZIP test OK,
 208 metallibs, build exit 0. Not run on device or simulator.
+
+IPA100 result (Stefan, Oct 27): the new screen is good; replaying a finished
+race shows the new save time (16:07), which the old manager missed. He said
+120 Hz simulation did not fix the 60 fps judder.
+
+### October 27: IPA101 save import, 120 Hz simulation off by default
+
+Import (`ios/src/save_manager.mm` `importFrom:`, new `ios/src/save_import.cpp`):
+the picker takes folders, .zip and any data file. A .zip is unpacked with a
+small reader (stored/deflate, zlib, `z` linked); a file starting `CON `,
+`LIVE` or `PIRS` is unpacked with the SDK's `StfsContainerDevice`; anything
+else is copied as is. The save is the first MC02 file found (depth 6),
+preferring `<NAME>/<NAME>`; the header is taken from beside its folder or
+Xenia's `<title>/Headers/00000001/`, otherwise written (0x148 bytes: HDD,
+saved game, name, xuid 0, the target title id; checked against BEPPY.header).
+Host check: `Unzip` on two zips of BEPPY (Finder-style and `zip -r`)
+extracted byte-identical files. STFS and the whole import are untested (no
+360 package at hand); whether the game takes another profile's save is
+unknown.
+
+120 Hz simulation: launcher switch moved to Advanced > Performance under a
+new key `sim_120_hz` (default off; the old `sim_120` value is ignored);
+the launcher passes 120 when it is on or the fps cap is 120. The cvar default
+`nfsmw_sim_rate` is 60 again.
+
+Built `ios/build/NFSMW-save-import-101.ipa`, UUID
+52310492-DF86-3C2A-8A19-C4C69ED03826, SHA256 0a08ef11c06fcd6a..., ZIP test OK,
+208 metallibs, build exit 0. Untested on device.

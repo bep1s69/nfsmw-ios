@@ -155,6 +155,7 @@ add_executable(nfsmw MACOSX_BUNDLE
     src/ios_main.mm
     src/launcher.mm
     src/save_manager.mm
+    src/save_import.cpp
     src/boot_trace.cpp
     src/probe.cpp
     src/probe_apple.mm
@@ -170,7 +171,7 @@ target_compile_options(nfsmw PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include")
 target_link_libraries(nfsmw PRIVATE rex::runtime nfsmw_headers
     "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework MetalFX" "-framework QuartzCore" "-framework CoreImage"
-    "-framework UniformTypeIdentifiers")
+    "-framework UniformTypeIdentifiers" z)
 # The Xbox 360 language and country of the edition. With the game, from
 # ios/generated/edicion.json (tools/ios/generate_code.py); without it, USA's,
 # the edition this port targets (tools/ediciones/ediciones.json).

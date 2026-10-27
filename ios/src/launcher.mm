@@ -299,14 +299,6 @@ NSString* ScaleSummary() {
 
 const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
-      {@"Game", nil,
-       {
-           {@"sim_120", Type::kSwitch, @"120 Hz simulation",
-            @"The game moves its world 60 times a second at any frame rate. On, 120 times: "
-            @"smoother motion at 60 fps too, and needed for the 120 fps cap. Turn it off if the "
-            @"game runs too fast or too slow.",
-            @"true"},
-       }, kTabGame},
       {@"Saves", nil,
        {
            {@"saves", Type::kLink, @"Save manager",
@@ -555,6 +547,12 @@ const std::vector<Section>& Sections() {
        }, kTabAudio},
       {@"Performance", @"To test what each thing costs on your device. The defaults are the recommended ones.",
        {
+           // A new key (was sim_120, on by default in IPA94-100): a value saved
+           // under the old one does not carry over.
+           {@"sim_120_hz", Type::kSwitch, @"120 Hz simulation",
+            @"The game moves its world 60 times a second. On, 120 times at any frame rate "
+            @"(always on with the 120 fps cap). It did not remove the judder at 60 fps.",
+            @"false"},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
             @"memory. Used automatically when mapping fails (devices with less address space); "
@@ -758,7 +756,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_rain_intensity=" + str(@"rain_intensity"));
   a.push_back("--nfsmw_rain_drop_size=" + str(@"rain_drop_size"));
   a.push_back("--nfsmw_road_reflection=" + str(@"road_reflection"));
-  a.push_back(std::string("--nfsmw_sim_rate=") + (On(s, @"sim_120") ? "120" : "60"));
+  const bool sim_120 = On(s, @"sim_120_hz") || [Value(s, @"fps_cap") isEqualToString:@"120"];
+  a.push_back(std::string("--nfsmw_sim_rate=") + (sim_120 ? "120" : "60"));
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).
   NSString* scale = Value(s, @"scale");

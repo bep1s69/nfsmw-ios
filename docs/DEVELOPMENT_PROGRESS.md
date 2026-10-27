@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 27: Stefan: 120 Hz simulation did not fix the 60 fps judder; off by
+  default, switch kept in Advanced. Order of work: finish the save manager,
+  then the motion blur switch (suspected judder cause: the mirror, drawn
+  without motion blur, stays smooth).
 - October 26: Stefan declared the movable/resizable HUD finished for now
   (IPA84): functional, not final; remaining items in BACKLOG.
 - October 26: Stefan declared performance/battery solved for now (after the
@@ -118,9 +122,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (`NFSMW-save-cloud-delete-99.ipa`): sync 3 s after a save; delete for saves
   only in iCloud (confirmed by Stefan). IPA100
   (`NFSMW-save-redesign-100.ipa`): step 2, one Careers list. Untested. Next:
-  Stefan's look at IPA100; then decode cars owned, career and Challenge Series
-  progress from the save (Stefan wants them for every save, iCloud-only too),
-  then step 3.
+  IPA100 confirmed by Stefan. IPA101 (`NFSMW-save-import-101.ipa`): step 3,
+  import of .zip, Xenia folders, Xbox 360 CON files and bare save files; and
+  120 Hz simulation off by default, its switch in Advanced. Untested. Next:
+  Stefan tests an imported internet save; then cars/career/challenge progress
+  in the list; then the motion blur switch (Stefan's next suspect for the
+  60 fps judder).
 - **October 26 (night): in-game options menu, IPA67
   (`NFSMW-ingame-options-67.ipa`), branch `in-game-options` (local, off
   `battery-optimization`; Stefan approved the design: gear for touch, L3+R3
