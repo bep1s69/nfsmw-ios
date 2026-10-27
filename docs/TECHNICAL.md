@@ -7138,3 +7138,8 @@ save (names kept as text). Host test: 11 handles now 0xC6 then 0x12345678.
 IPA107 (`ios/build/NFSMW-pc-saves-107.ipa`, 30107686 bytes, SHA256 prefix
 52f53598490ffe04, UUID 3976DF58-E91C-3C7C-B361-BD8E6F15024A, `unzip -t` ok),
 build exit 0. Untested. One career car may be what the PC save holds.
+
+IPA107 result (Stefan, iPad, Oct 27): "I think it worked": My Cars offers 89
+cars, as the PC save should (the name refers to My Cars, including the
+temporary 350 cars such as the helicopter). The one career car matches the PC
+save. No log sent.

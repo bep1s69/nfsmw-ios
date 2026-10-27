@@ -129,7 +129,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/src/save_convert.cpp`): crashed loading the save (wrong byte order
   of a count); IPA106 loaded it but
   crashed after My Cars (a template car handle left in); IPA107
-  (`NFSMW-pc-saves-107.ipa`) converts those too, untested. Stefan (Oct 27): if it
+  (`NFSMW-pc-saves-107.ipa`) converts those too: works (Stefan, first
+  look). Next: Stefan's go to bring it to `frame-pacing-60` for 0.4.0. Stefan (Oct 27): if it
   works, it goes into 0.4.0 too (bring those files and the import hook over
   to `frame-pacing-60` only then).
 - **October 27: save manager rework, step 1, IPA98
