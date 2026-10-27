@@ -135,7 +135,7 @@ and when and on which device each was last saved.
 
 ## Building it yourself
 
-To continue development, start with [AGENTS.md](AGENTS.md) and
+To continue development, start with
 [Development progress](docs/DEVELOPMENT_PROGRESS.md): the current checkpoint,
 working rules, build procedure and backlog.
 
