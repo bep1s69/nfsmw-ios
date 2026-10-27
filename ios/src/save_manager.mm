@@ -30,6 +30,9 @@
 #include <cstring>
 #include <chrono>
 #include <ctime>
+#include <fstream>
+#include <map>
+#include <set>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -369,6 +372,87 @@ bool DeleteFromCloud(NSURL* cloud, const std::string& id) {
     if (d) [NSUserDefaults.standardUserDefaults setObject:d forKey:kSyncedHashes];
   }
   return ok;
+}
+
+// --- Achievements ---------------------------------------------------------------
+// Unlocks are the emulator's, per device (Documents/data/achievements/<title>.
+// toml, "[unlocked.<id>]" then "filetime = <n>"), not part of a save, so a
+// Blacklist rival beaten on one device stayed locked on the other. Kept in
+// <folder>/NFSMW Achievements/ as the union of every device's unlocks (the
+// earliest time of each). The SDK reads its file at start and rewrites it
+// from memory on an unlock, which can drop merged entries until the next
+// sync puts them back; the iCloud copy only ever gains.
+
+std::map<uint32_t, uint64_t> ReadUnlocks(const fs::path& p) {
+  std::map<uint32_t, uint64_t> out;
+  std::ifstream in(p);
+  std::string line;
+  uint32_t current = 0;
+  bool in_entry = false;
+  while (std::getline(in, line)) {
+    if (line.rfind("[unlocked.", 0) == 0 && line.back() == ']') {
+      current = uint32_t(strtoull(line.c_str() + 10, nullptr, 10));
+      out.emplace(current, 0);
+      in_entry = true;
+    } else if (in_entry && line.rfind("filetime", 0) == 0) {
+      const size_t eq = line.find('=');
+      if (eq != std::string::npos) out[current] = strtoull(line.c_str() + eq + 1, nullptr, 10);
+    }
+  }
+  return out;
+}
+
+std::string UnlocksText(const std::map<uint32_t, uint64_t>& u) {
+  std::string out;
+  for (const auto& [id, filetime] : u) {
+    out += "[unlocked." + std::to_string(id) + "]\nfiletime = " + std::to_string(filetime) + "\n\n";
+  }
+  return out;
+}
+
+void SyncAchievements(const fs::path& docs, NSURL* cloud) {
+  const fs::path local_dir = docs / "data" / "achievements";
+  const fs::path cloud_dir = fs::path(cloud.path.UTF8String) / "NFSMW Achievements";
+  std::error_code ec;
+  std::set<std::string> names;
+  for (const fs::path& dir : {local_dir, cloud_dir}) {
+    for (auto& e : fs::directory_iterator(dir, ec)) {
+      if (e.path().extension() == ".toml") names.insert(e.path().filename().string());
+    }
+  }
+  NSFileCoordinator* fc = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+  for (const std::string& name : names) {
+    const fs::path local = local_dir / name, remote = cloud_dir / name;
+    __block std::map<uint32_t, uint64_t> theirs;
+    [fc coordinateReadingItemAtURL:[NSURL fileURLWithPath:@(remote.c_str())]
+                           options:0
+                             error:nil
+                        byAccessor:^(NSURL* u) {
+                          theirs = ReadUnlocks(u.path.UTF8String);
+                        }];
+    const auto mine = ReadUnlocks(local);
+    auto merged = mine;
+    for (const auto& [id, t] : theirs) {
+      auto [it, added] = merged.emplace(id, t);
+      if (!added && t && (!it->second || t < it->second)) it->second = t;
+    }
+    if (merged.empty()) continue;
+    const std::string text = UnlocksText(merged);
+    if (merged != mine) {
+      fs::create_directories(local_dir, ec);
+      std::ofstream(local) << text;
+    }
+    if (merged != theirs) {
+      [fc coordinateWritingItemAtURL:[NSURL fileURLWithPath:@(remote.c_str())]
+                             options:NSFileCoordinatorWritingForReplacing
+                               error:nil
+                          byAccessor:^(NSURL* u) {
+                            std::error_code e2;
+                            fs::create_directories(fs::path(u.path.UTF8String).parent_path(), e2);
+                            std::ofstream(u.path.UTF8String) << text;
+                          }];
+    }
+  }
 }
 
 enum class Sync { kNoCloud, kInSync, kLocalNewer, kCloudNewer, kConflict, kLocalOnly, kCloudOnly };
@@ -1003,6 +1087,7 @@ int AutoSync(const fs::path& documents) {
   for (const Save& s : saves) Backup(documents, s);
   NSURL* cloud = StartCloud();
   if (!cloud) return 0;
+  SyncAchievements(documents, cloud);
   for (const Save& s : saves) {
     const Sync state = StateOf(&s, ReadCloudInfo(cloud, s.id), SyncedHash(s.id));
     if (state == Sync::kLocalNewer || state == Sync::kLocalOnly) {

@@ -22,6 +22,10 @@
   an Xbox 360 save file, a Xenia save folder or .zip, a .zip exported from
   the app, or the bare save file.
 
+- **Achievements follow you between devices.** With an iCloud Drive folder
+  chosen, an achievement unlocked on one device now shows as unlocked on the
+  others too.
+
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick

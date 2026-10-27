@@ -202,6 +202,17 @@ while loading records): it, not Black Edition, is very likely what caused the
 write the guest bytes explicitly (CE06 = 1, the rest 0), then retest the
 Challenge Series count, Quick Race cars and career start; the pool fix can stay.
 
+### D-009 Achievements do not follow the career to another device — fix built (IPA102), untested
+
+Stefan, Oct 27: Blacklist rival beaten on the iPhone (Vic, #13), save moved to
+the iPad, the achievement stays locked there. Screenshot
+`Debug/27 October 2026/broken_achievements.png`. Cause: unlocks are the SDK's,
+per device (`Documents/data/achievements/<title>.toml`), not in the save.
+IPA102 keeps the union of every device's unlocks in `<iCloud folder>/NFSMW
+Achievements/` and merges both ways on every sync (launcher start, after a
+game save). Achievements are therefore per player, not per save. Next: Stefan
+opens the launcher on the iPhone, then on the iPad.
+
 ### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 
 Stefan, Oct 27: when the only difference between the iPad and iPhone saves is a

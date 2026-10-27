@@ -6820,3 +6820,17 @@ the launcher passes 120 when it is on or the fps cap is 120. The cvar default
 Built `ios/build/NFSMW-save-import-101.ipa`, UUID
 52310492-DF86-3C2A-8A19-C4C69ED03826, SHA256 0a08ef11c06fcd6a..., ZIP test OK,
 208 metallibs, build exit 0. Untested on device.
+
+### October 27: IPA102 achievements merged across devices (D-009)
+
+The SDK's `AchievementManager` loads `Documents/data/achievements/<title>.toml`
+at start and rewrites it from memory on each unlock (`[unlocked.<id>]`,
+`filetime = <n>`). The save manager's `AutoSync` now also merges that file with
+`<iCloud folder>/NFSMW Achievements/<title>.toml`: union of ids, earliest
+nonzero filetime, written to whichever side lacks something (coordinated
+access on the iCloud side). Kept outside `NFSMW Saves/` so it is not listed as
+a career. Limitation: an unlock during a run rewrites the local file from the
+SDK's memory, dropping entries merged after start until the next sync; the
+iCloud copy never loses one. Built `ios/build/NFSMW-achievement-sync-102.ipa`,
+UUID A9F1E193-308C-3B24-B6BF-5B4D0B6C9401, SHA256 8ad0984a11878fa3..., ZIP
+test OK, 208 metallibs, build exit 0. Untested on device.

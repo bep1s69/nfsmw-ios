@@ -125,7 +125,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA100 confirmed by Stefan. IPA101 (`NFSMW-save-import-101.ipa`): step 3,
   import of .zip, Xenia folders, Xbox 360 CON files and bare save files; and
   120 Hz simulation off by default, its switch in Advanced. Untested. Next:
-  Stefan tests an imported internet save; then cars/career/challenge progress
+  Stefan tests an imported internet save. IPA102
+  (`NFSMW-achievement-sync-102.ipa`): achievements merged across devices
+  through the iCloud folder (D-009), untested. Then cars/career/challenge progress
   in the list; then the motion blur switch (Stefan's next suspect for the
   60 fps judder).
 - **October 26 (night): in-game options menu, IPA67
