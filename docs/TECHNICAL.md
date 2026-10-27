@@ -6957,3 +6957,36 @@ release himself. Version 0.4.0, code 4 (`ios/CMakeLists.txt`), CHANGELOG
   D0F38C8B-8764-3CB5-8495-03BA3D561288. Same sources as IPA108 plus the
   version bump; this exact file not installed on a device (RELEASING step 5's
   fresh-container race is Stefan's).
+
+## October 27, 2026: 0.4.1 fixes from SpeedBreaker (IPA109)
+
+Branch `release-0.4.1` off `main` (e0151ce). Source: SpeedBreaker
+(github.com/SpeedBreakerProject/speedbreaker, GPL-3.0, same USA disc), v0.1.8
+`runtime/apu/ea_cpu_budget.*` and v0.1.4 `runtime/video/vblank_timer.cpp`,
+`presenter.cpp`; their findings, not re-measured here.
+
+- EA SND budget (D-004). Checked in `ios/generated/default`: sub_82601528
+  (`nfsmw_recomp.68.cpp`) computes f1 (fsubs, then fcmpu against a constant)
+  and calls sub_82601788 (`nfsmw_recomp.71.cpp`), which saves f1 and r3 and
+  calls sub_826016B8 (`.78`) and sub_825D04B8 (`.122`) in a loop: the same
+  structure SpeedBreaker describes, so the USA addresses match. Hook in
+  `ios/src/game_audio_budget.cpp` (USA addresses, not translated by
+  tools/ediciones); the object defines a strong `_sub_82601788` (nm `T`).
+- Vblank thread priority: `tools/ios/patch_ios_vblank_realtime.py`, applied to
+  the SDK's `src/graphics/graphics_system.cpp`; period = 1/guest vblank rate
+  at thread start, computation 1 ms, constraint 2 ms, preemptible.
+- Pacing watchdog in `ios/src/native_renderer.mm` (the existing
+  present-at-time grid; SpeedBreaker's present-after-vblank scheme was not
+  copied because ours already locks the 60 cap's vblank to the display and
+  paces on a presentedTime grid).
+- Build `cmake --build --preset ios --target ipa -j 6` exit 0 (existing
+  build dir; graphics_system.cpp, game_audio_budget.cpp, native_renderer.mm
+  rebuilt). Strings present: `[ea-budget]`, `nfsmw_ea_cpu_budget`, `[native]
+  pacing off`, and `[ios-vblank] real-time priority` / `ios_vblank_realtime`
+  in `librexgpu-xenos.dylib`. Info.plist 0.4.1 / 5, 208 metallibs, `unzip -t`
+  ok, `codesign --verify --deep --strict` ok.
+- `ios/build/NFSMW-0.4.1-audio-pacing-109.ipa`, 30103705 bytes, SHA-256
+  385ab46ee195aa5d708d0908894cdee2b5936a10935b5267fd45e6a86dcf37f3, UUID
+  5031C546-2A4A-3676-AA5C-F8A9765CB08E. Not run on a device: whether the fade
+  is gone, whether `thread_policy_set` succeeds on iOS and whether pacing gets
+  more even are untested.

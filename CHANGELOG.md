@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1
+
+- **Engine sound no longer fades.** The game's sound engine dropped the
+  engine, turbo and skid sounds when its mixing thread was held up for a
+  moment, and they only came back at the next gear change. That no longer
+  happens. Fix ported from SpeedBreaker (SpeedBreakerProject/speedbreaker).
+
+- **Steadier 60 fps.** The thread that keeps the game's 60 Hz timing now
+  runs at real-time priority, so it wakes on time; frame timing on 120 Hz
+  screens turns itself off if the screen does not keep to it. From
+  SpeedBreaker.
+
 ## 0.4.0
 
 - **Import PC saves.** The save manager's Import also takes a save from the

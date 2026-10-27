@@ -116,6 +116,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: 0.4.1 fixes on local branch `release-0.4.1` (off `main`,
+  e0151ce; Stefan approved both, ported from SpeedBreaker, GPL-3.0). Not
+  pushed. IPA109 (`ios/build/NFSMW-0.4.1-audio-pacing-109.ipa`, version
+  0.4.1 / 5) awaits Stefan's device test.** (1) D-004 engine sound fade:
+  `ios/src/game_audio_budget.cpp` stops EA SND's mixer CPU budget from
+  expelling voices (cvar `nfsmw_ea_cpu_budget`, default off = fix on).
+  (2) D-005 pacing: SDK patch `tools/ios/patch_ios_vblank_realtime.py`
+  (in `prepare_sdk.py`, applied) gives the "GPU VSync" thread Mach
+  real-time priority (cvar `ios_vblank_realtime`, default on); the existing
+  present-at-time pacing (`nfsmw_native_present_at_time`, already on at the
+  30/40/60 caps below the display rate, off at 120) gets a watchdog that
+  turns it off for the session when over 60 of 300 paced frames are shown
+  4 ms+ early or never. Unchanged: `ios_vblank_lock_60` (on),
+  `ios_display_120_at_60` (off); Battery mode only changes the cap, which the
+  pacing follows. Next: Stefan's long race (engine sound; look for
+  `[ea-budget]` and `[ios-vblank] real-time priority ... set` in the log) and
+  60 fps evenness on the iPad and iPhone 17 Pro Max; then release 0.4.1 per
+  RELEASING.
 - **October 27: README rewritten for 0.4.0 on `main` (Stefan asked; draft
   approved before commit).** It still described 0.1.0 (MoltenVK only, no save
   manager). Now: iOS 26+ stated at the top, native Metal renderer, save manager

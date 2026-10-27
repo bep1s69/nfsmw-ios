@@ -6957,12 +6957,30 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const double interval = cap > 0 ? 1.0 / double(cap) : 0.0;
         const double display_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
         static std::atomic<double> shown_at{0};  // the last frame really shown (presentedTime)
-        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 && shown_at.load() > 0 &&
-                           double(cap) < display_hz - 1.0;
+        // Watchdog (as SpeedBreaker v0.1.4's presenter.cpp,
+        // github.com/SpeedBreakerProject/speedbreaker, GPL-3.0): if the screen
+        // does not honour the target times (paced frames shown well before
+        // their time, or never shown), pacing is off for the session.
+        static std::atomic<bool> pacing_broken{false};
+        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && !pacing_broken.load() && interval > 0 &&
+                           shown_at.load() > 0 && double(cap) < display_hz - 1.0;
+        __block double frame_target = 0;  // set below when paced
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
           const double at = shown.presentedTime;
+          if (frame_target > 0) {
+            static std::atomic<uint32_t> paced_count{0}, bad{0};
+            if (at <= 0 || at < frame_target - 0.004) ++bad;
+            if (++paced_count % 300 == 0) {
+              const uint32_t n = bad.exchange(0);
+              if (n > 60 && !pacing_broken.exchange(true)) {
+                REXLOG_WARN("[native] pacing off for this session: {} of 300 paced frames shown early "
+                            "or never",
+                            n);
+              }
+            }
+          }
           if (at <= 0) return;  // dropped, not shown
           const double before = last_shown.exchange(at);
           shown_at = at;
@@ -7018,6 +7036,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             target = last_target + interval;
           }
           last_target = target;
+          frame_target = target - 0.002;
           [cb presentDrawable:drawable atTime:target - 0.002];
         } else {
           [cb presentDrawable:drawable];
