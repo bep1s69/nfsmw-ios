@@ -6983,3 +6983,32 @@ Build exit 0 (`cmake --build --preset ios --target ipa -j 6`). Not run on a
 device. Log lines to look for: `[extra-options] speedbreaker ...`,
 `infraction ...`, `most impound strikes`, `impound strikes of a new car`,
 `heat override minimum/maximum` (only for changed values).
+
+## October 27, 2026: PC vs Xbox 360 saves (can PC saves be imported)
+
+Files (copies in the session scratchpad, not tracked): PC
+`~/Downloads/Speed/Speed` (from `~/Downloads/nfsmw_89cars.zip`, 63,596 bytes),
+PC `iCloud Drive/Windows/Documents/NFS Most Wanted/beppy/beppy` (63,596 bytes),
+Xbox 360 `.../NFSMW Saves/B13EBABEBABEBABE_454107D9_BEPPY/BEPPY/BEPPY`
+(62,688 bytes).
+
+- Same container: PC starts `20CM`, Xbox `MC02`; every header word is the
+  same value byte-swapped (total size, 8, data size = total - 0x24, version
+  0x10D on both, the `Game` tag at 0x44 stored as `emaG` on the Xbox).
+  Strings are not swapped (`cellusage` 0x1F0/0x250 PC vs 0x1D0 Xbox; profile
+  id `MW-nnnn-NAME` at 0x429D on all three).
+- Checksum: the last 16 bytes are MD5 of [0x34, end - 16) on both (checked on
+  pc_Speed and x360_BEPPY). The 16 bytes at 0x34 and 12 at 0x10 are not that
+  MD5 (not identified).
+- Layout: PC files are 908 bytes longer; matching 16-byte windows of the
+  word-swapped PC file against the Xbox file shift by +64 and +128 bytes in
+  the first 0x230 bytes and by varying amounts later, so fields differ in
+  size or count in several places (inference: different struct sizes; PC
+  extras such as controller/video options). One differing header value: the
+  word at 0x4C is 0x11 on PC, 8 on the Xbox.
+
+Conclusion (inference): import is possible but needs a converter with the
+save's field list (to swap 2- and 4-byte values and drop/add the
+PC-only/Xbox-only parts), then the MD5 recomputed. The list is best taken from
+the game's own save reader in the generated code. Not started; no code
+changed.
