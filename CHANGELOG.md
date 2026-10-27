@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Save sync between devices fixed.** Part of a Black Edition career was
+  kept in a separate file the save manager ignored, so a newer save (for
+  example one more challenge event) did not show as newer on the other
+  device, and could arrive incomplete. That file now travels with the save
+  everywhere, and saves are copied to your iCloud Drive folder shortly after
+  the game saves, not only when the launcher opens.
+
 - **Black Edition content now actually turns on.** The switch set the wrong
   byte of the game's memory, so the content stayed hidden. Now the 70th
   Challenge Series event (the Camaro) and the Black Edition cars in Quick

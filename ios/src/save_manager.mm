@@ -3,7 +3,11 @@
 // The game's saves are content packages the SDK keeps as plain folders:
 //   Documents/data/<xuid>/<title id>/00000001/<NAME>/<NAME>   the save (MC02)
 //   Documents/data/<xuid>/<title id>/Headers/00000001/<NAME>.header
-// A save here is that pair, named <xuid>_<title>_<NAME> (its id).
+// plus the app's own Documents/save_extras/<NAME>.pool (game_pool.cpp: the
+// record-pool entries beyond the game's own, part of the career since the
+// larger pool). A save here is those three, named <xuid>_<title>_<NAME> (its
+// id). Copies elsewhere (backups, iCloud, export) keep them side by side:
+// <NAME>/<NAME>, <NAME>.header, <NAME>.pool.
 //
 // Backups: Documents/SaveBackups/<id>/<yyyy-MM-dd HH.mm.ss>/ (the folder and
 // the header), the newest 10 kept: one is made whenever a save changed since
@@ -22,6 +26,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <chrono>
 #include <ctime>
@@ -48,7 +53,21 @@ struct Save {
   uintmax_t bytes = 0;
   fs::path Dir() const { return root / "00000001" / name; }
   fs::path Header() const { return root / "Headers" / "00000001" / (name + ".header"); }
+  // Documents/save_extras/<NAME>.pool (root is Documents/data/<xuid>/<title>).
+  fs::path Extras() const { return root.parent_path().parent_path().parent_path() / "save_extras" / (name + ".pool"); }
 };
+
+// Where a save's three files are: its folder, header and pool extras.
+struct Place {
+  fs::path dir, header, extras;
+};
+
+Place Local(const Save& s) { return {s.Dir(), s.Header(), s.Extras()}; }
+
+// The side-by-side layout of backups, the iCloud folder and exports.
+Place Packed(const fs::path& base, const std::string& name) {
+  return {base / name, base / (name + ".header"), base / (name + ".pool")};
+}
 
 bool IsHex(const std::string& s, size_t n) {
   return s.size() == n && std::all_of(s.begin(), s.end(), [](char c) { return std::isxdigit(uint8_t(c)); });
@@ -76,11 +95,14 @@ void Measure(Save& s) {
   }
   if (fs::exists(s.Header(), ec)) files.push_back(s.Header());
   std::sort(files.begin(), files.end());
+  // Last, under a fixed name, so a save without extras keeps its old hash.
+  if (fs::exists(s.Extras(), ec)) files.push_back(s.Extras());
   uint64_t h = 0xCBF29CE484222325ull;
   s.bytes = 0;
   s.modified = 0;
   for (const fs::path& f : files) {
-    const std::string rel = f.lexically_relative(s.root).generic_string();
+    const std::string rel =
+        f == s.Extras() ? "save_extras/" + s.name + ".pool" : f.lexically_relative(s.root).generic_string();
     HashInto(h, rel.data(), rel.size());
     NSData* d = [NSData dataWithContentsOfFile:@(f.c_str())];
     HashInto(h, d.bytes, d.length);
@@ -126,18 +148,25 @@ std::string NameOf(const std::string& id) {
   return b == std::string::npos ? id : id.substr(b + 1);
 }
 
-// The pair (folder + header) copied from one layout to another, replacing.
-//   from_dir/from_header -> to_dir/to_header
-bool CopyPair(const fs::path& from_dir, const fs::path& from_header, const fs::path& to_dir,
-              const fs::path& to_header) {
+// A save's files copied from one place to another, replacing (extras the
+// source does not have are removed, so they never outlive their save).
+bool CopySave(const Place& from, const Place& to) {
   std::error_code ec;
-  fs::remove_all(to_dir, ec);
-  fs::create_directories(to_dir.parent_path(), ec);
-  fs::copy(from_dir, to_dir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+  fs::remove_all(to.dir, ec);
+  fs::create_directories(to.dir.parent_path(), ec);
+  fs::copy(from.dir, to.dir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
   if (ec) return false;
-  if (fs::exists(from_header)) {
-    fs::create_directories(to_header.parent_path(), ec);
-    fs::copy_file(from_header, to_header, fs::copy_options::overwrite_existing, ec);
+  if (fs::exists(from.header)) {
+    fs::create_directories(to.header.parent_path(), ec);
+    fs::copy_file(from.header, to.header, fs::copy_options::overwrite_existing, ec);
+    if (ec) return false;
+  }
+  if (fs::exists(from.extras)) {
+    fs::create_directories(to.extras.parent_path(), ec);
+    fs::copy_file(from.extras, to.extras, fs::copy_options::overwrite_existing, ec);
+  } else {
+    fs::remove(to.extras, ec);
+    ec.clear();
   }
   return !ec;
 }
@@ -180,7 +209,7 @@ bool Backup(const fs::path& docs, const Save& s, bool force = false) {
   const auto existing = ListBackups(docs, s.id);
   if (!force && !existing.empty() && ReadHashFile(existing.front() / "hash.txt") == s.hash) return false;
   const fs::path dest = BackupsOf(docs, s.id) / Stamp();
-  if (!CopyPair(s.Dir(), s.Header(), dest / s.name, dest / (s.name + ".header"))) return false;
+  if (!CopySave(Local(s), Packed(dest, s.name))) return false;
   WriteHashFile(dest / "hash.txt", s.hash);
   std::error_code ec;
   auto all = ListBackups(docs, s.id);
@@ -190,7 +219,7 @@ bool Backup(const fs::path& docs, const Save& s, bool force = false) {
 
 bool RestoreBackup(const fs::path& docs, const Save& s, const fs::path& backup) {
   Backup(docs, s);  // what is replaced is kept too
-  return CopyPair(backup / s.name, backup / (s.name + ".header"), s.Dir(), s.Header());
+  return CopySave(Packed(backup, s.name), Local(s));
 }
 
 // --- iCloud Drive folder -------------------------------------------------------
@@ -269,7 +298,7 @@ bool Upload(NSURL* cloud, const Save& s) {
                          options:NSFileCoordinatorWritingForReplacing
                            error:nil
                       byAccessor:^(NSURL*) {
-                        ok = CopyPair(s.Dir(), s.Header(), dest / s.name, dest / (s.name + ".header"));
+                        ok = CopySave(Local(s), Packed(dest, s.name));
                         NSDictionary* info = @{
                           @"hash" : [NSString stringWithFormat:@"%016llx", (unsigned long long)s.hash],
                           @"modified" : [NSDate dateWithTimeIntervalSince1970:s.modified],
@@ -299,7 +328,7 @@ bool Download(const fs::path& docs, NSURL* cloud, const std::string& id) {
                          options:0
                            error:nil
                       byAccessor:^(NSURL*) {
-                        ok = CopyPair(src / name, src / (name + ".header"), local.Dir(), local.Header());
+                        ok = CopySave(Packed(src, name), Local(local));
                       }];
   if (ok) {
     Measure(local);
@@ -553,7 +582,7 @@ NSString* Progress(const Save& s) {
     [self reload];
     return;
   }
-  // Import: a folder holding <NAME>/<NAME> (and <NAME>.header), as exported,
+  // Import: a folder holding <NAME>/<NAME> (and <NAME>.header/.pool), as exported,
   // or the save folder <NAME> itself.
   [url startAccessingSecurityScopedResource];
   fs::path dir(url.path.UTF8String);
@@ -582,7 +611,7 @@ NSString* Progress(const Save& s) {
       Measure(target);
       Backup(_docs, target);
     }
-    ok = CopyPair(save_dir, header, target.Dir(), target.Header());
+    ok = CopySave({save_dir, header, header.parent_path() / (name + ".pool")}, Local(target));
   }
   [url stopAccessingSecurityScopedResource];
   [self reload];
@@ -597,7 +626,7 @@ NSString* Progress(const Save& s) {
   fs::path out(tmp.UTF8String);
   std::error_code ec;
   fs::remove_all(out, ec);
-  CopyPair(s.Dir(), s.Header(), out / s.name, out / (s.name + ".header"));
+  CopySave(Local(s), Packed(out, s.name));
   __block NSURL* zip = nil;
   NSFileCoordinator* fc = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
   [fc coordinateReadingItemAtURL:[NSURL fileURLWithPath:tmp]
@@ -720,6 +749,7 @@ NSString* Progress(const Save& s) {
                                         std::error_code ec;
                                         fs::remove_all(copy.Dir(), ec);
                                         fs::remove(copy.Header(), ec);
+                                        fs::remove(copy.Extras(), ec);
                                         [self reload];
                                       }]];
   [self presentViewController:a animated:YES completion:nil];
@@ -781,6 +811,19 @@ int AutoSync(const fs::path& documents) {
   }
   StopCloud(cloud);
   return attention;
+}
+
+void SyncAfterGameSave() {
+  // The game creates the save before writing it, and may save several times in
+  // a row: only the last request, once things are quiet, syncs.
+  static std::atomic<uint64_t> generation{0};
+  const uint64_t mine = ++generation;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    if (generation.load() != mine) return;
+    @autoreleasepool {
+      AutoSync(fs::path(NSHomeDirectory().UTF8String) / "Documents");
+    }
+  });
 }
 
 }  // namespace nfsmw::saves
