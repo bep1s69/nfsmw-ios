@@ -116,6 +116,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 27: 0.4.1 released to GitHub (Stefan: "push it", iOS 18 marked
+  experimental).** `release-0.4.1` fast-forwarded into `main`, tagged
+  `v0.4.1`, both pushed. Release IPA `ios/build/NFS-Most-Wanted-0.4.1.ipa`
+  = IPA110 (no code change after it), SHA-256
+  f07918eda76d983728fd6c9954ea9fb6126cdd82bcd817cfde6633c83d905526. README:
+  iOS 18-25 experimental. Next: Stefan publishes the GitHub release from
+  the tag; 0.5 continues on `dev-0.5` (rebase or merge 0.4.1 into it, and
+  build it with the iOS 18 target and shader set).
 - **October 27: 0.4.1 fixes on local branch `release-0.4.1` (off `main`,
   e0151ce; Stefan approved both, ported from SpeedBreaker, GPL-3.0). Not
   pushed. IPA109 (`ios/build/NFSMW-0.4.1-audio-pacing-109.ipa`, version
