@@ -429,6 +429,12 @@ Power Profiler or CPU investigations.
 
 ## Feature ideas
 
+- **Import PC saves (Stefan Oct 27; 0.4.0). Status: works (IPA108 build of
+  this branch; the converter was developed and tested as IPA105-107 on
+  `dev-0.5`, Stefan iPad: My Cars has the PC save's 89 cars, races and saving
+  work).** Converter `ios/src/save_convert.cpp`; details and failed attempts
+  in TECHNICAL (Oct 27, PC save import).
+
 - **VERY HIGH PRIORITY (Stefan, Oct 27): motion blur switch.** An on/off
   setting for the game's motion blur (launcher and in-game options menu).
   Built in IPA103 (`NFSMW-motion-blur-103.ipa`; TECHNICAL, Oct 27 motion

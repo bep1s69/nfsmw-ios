@@ -6894,3 +6894,42 @@ with 6-62 off and 100-167 ms gaps (not matched to loading/race start here).
 So the screen got an even 60 most of the time; blur on vs off was not
 compared in pacing numbers.
 
+
+## October 27, 2026: PC save import (into 0.4.0)
+
+Developed on `dev-0.5` (full record there, in TECHNICAL: "PC vs Xbox 360
+saves", "IPA105 PC save import", "IPA105 crash ...", "IPA106 result ...")
+and brought here on Stefan's approval once it worked.
+
+`ios/src/save_convert.cpp` converts a PC v1.3 save (63,596 bytes, `20CM`) to
+the Xbox 360 layout (62,688 bytes, `MC02`, version 0x10D): every 2- and
+4-byte value byte-swapped field by field, Lua table flag bits reordered,
+0xCD fillers to 0xAA, header CRC32s and MD5s recomputed. The map follows the
+Xbox loader's read order (sub_822C3A60 -> sub_822C2998 -> sub_822C2D30):
+gameplay section 0x34-0x4034, cash and settings, profile id, race count and
+300 records (0x42AD), unlock bytes, 63x12 words, alias, 30 records at
+0x5A51, FEPlayerCarDB (PC 0x5BC5 / Xbox 0x5BCD, 36,040 bytes), then a byte,
+3032 bytes of career stats and the current car of 11 modes. Taken from a
+career on the device (the template): the header prelude, the check word at
+0x5A2D (the loader refuses a value that differs from the game's), the
+options block (132 bytes on PC, 140 on the Xbox) and the end of the tail.
+Field map source: sprintstate/nfs-mw-save-editor (GPL-3.0), the dbalatoni13
+nfsmw decompilation (CC0), the generated code.
+
+Failed attempts kept: IPA105 crashed on load (race count left
+little-endian: the loader's signed clamp let a negative count overrun a
+stack buffer); IPA106 loaded but crashed after My Cars (template car handles
+left in the 11 current-car slots). IPA107 (dev-0.5): works, Stefan on the
+iPad: My Cars shows the save's 89 cars, career, racing and saving work.
+Logs: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa105_pc_save_crash_ipad.log`,
+`nfsmw_ipa106_pc_save_missing_cars_crash_ipad.log`.
+
+Import (`ios/src/save_manager.mm`): files starting `20CM` count as saves and
+are converted with the first local career as template; none on the device
+gives a message. Import failures now say why.
+
+IPA108 (`ios/build/NFSMW-pc-save-import-108.ipa`, branch `frame-pacing-60`,
+30093277 bytes, SHA256 prefix 165a17bfde4427f6, UUID
+79034B76-F201-3BD9-80B8-2B1DBF5257AC, `unzip -t` ok), build exit 0: IPA103
+plus PC save import; the binary has the import message and none of the 0.5
+Extra Options cvars (`strings`). Not run on a device yet.

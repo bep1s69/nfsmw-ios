@@ -156,6 +156,7 @@ add_executable(nfsmw MACOSX_BUNDLE
     src/launcher.mm
     src/save_manager.mm
     src/save_import.cpp
+    src/save_convert.cpp
     src/boot_trace.cpp
     src/probe.cpp
     src/probe_apple.mm

@@ -37,6 +37,7 @@
 #include <system_error>
 #include <vector>
 
+#include "save_convert.h"
 #include "save_import.h"
 #include "save_manager.h"
 
@@ -60,6 +61,11 @@ struct Save {
   // Documents/save_extras/<NAME>.pool (root is Documents/data/<xuid>/<title>).
   fs::path Extras() const { return root.parent_path().parent_path().parent_path() / "save_extras" / (name + ".pool"); }
 };
+
+std::string ReadFile(const fs::path& p) {
+  std::ifstream in(p, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(in), {});
+}
 
 // Where a save's three files are: its folder, header and pool extras.
 struct Place {
@@ -568,6 +574,7 @@ NSString* CloudSavedText(const CloudInfo& c) {
 @implementation NFSSaveManagerController {
   fs::path _docs;
   std::vector<Save> _saves;
+  NSString* _importError;  // why the last import failed, when known
   std::vector<std::string> _cloudOnly;
   std::vector<CloudInfo> _cloudOnlyInfo;     // per _cloudOnly
   NSMutableArray<NSString*>* _cloudOnlyProgress;  // per _cloudOnly ("" when unknown)
@@ -777,12 +784,13 @@ static UILabel* Badge(NSString* text, UIColor* color) {
   }
   [url startAccessingSecurityScopedResource];
   std::string name;
+  _importError = nil;
   const bool ok = [self importFrom:fs::path(url.path.UTF8String) name:&name];
   [url stopAccessingSecurityScopedResource];
   [self reload];
   [self alert:ok ? @"Imported" : @"No save found"
       message:ok ? [NSString stringWithFormat:@"%s is on this device now.", name.c_str()]
-                 : @"Choose a .zip, a save folder, an Xbox 360 save file or the save file itself."];
+                 : (_importError ?: @"Choose a .zip, a save folder, an Xbox 360 or PC save file, or the save file itself.")];
 }
 
 // Import from what was picked: a folder, a .zip, an Xbox 360 package (STFS) or
@@ -813,7 +821,7 @@ static UILabel* Badge(NSString* text, UIColor* color) {
       fread(magic, 1, 4, fp);
       fclose(fp);
     }
-    return std::memcmp(magic, "MC02", 4) == 0;
+    return std::memcmp(magic, "MC02", 4) == 0 || std::memcmp(magic, "20CM", 4) == 0;  // Xbox 360 or PC
   };
   fs::path found;
   for (auto it = fs::recursive_directory_iterator(search, ec); it != fs::recursive_directory_iterator();
@@ -830,6 +838,27 @@ static UILabel* Badge(NSString* text, UIColor* color) {
     name = name.substr(0, dot);  // "BEPPY.sav" and the like
   }
   if (name.size() > 42) name.resize(42);
+  // A PC save (save_convert.cpp): converted to the Xbox 360 layout, with the
+  // parts it has no map for taken from a save already on this device.
+  if (ReadFile(found).substr(0, 4) == "20CM") {
+    if (_saves.empty()) {
+      *out_name = "";
+      _importError = @"A PC save needs a career of this game on the device first: start one, save, then import.";
+      return NO;
+    }
+    const std::string pc = ReadFile(found), tmpl = ReadFile(_saves.front().Dir() / _saves.front().name);
+    std::string error;
+    const auto xbox = nfsmw::saves::ConvertPcSave(std::vector<uint8_t>(pc.begin(), pc.end()),
+                                                  std::vector<uint8_t>(tmpl.begin(), tmpl.end()), &error);
+    if (xbox.empty()) {
+      _importError = [NSString stringWithFormat:@"This PC save could not be converted: %s.", error.c_str()];
+      return NO;
+    }
+    const fs::path dir = work / "pc" / name;
+    fs::create_directories(dir, ec);
+    std::ofstream(dir / name, std::ios::binary).write(reinterpret_cast<const char*>(xbox.data()), std::streamsize(xbox.size()));
+    found = dir / name;
+  }
   Place from;
   if (found.parent_path().filename() == found.filename()) {
     const fs::path dir = found.parent_path();
