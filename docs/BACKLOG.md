@@ -143,9 +143,23 @@ the prologue car in every edition, so its model is almost certainly on the 360
 disc (PC files have `CARS/BMWM3GTR` plus `CARS/BMWM3GTRE46`). Whether it can be
 picked is game data and unlock logic, not missing content.
 
-Next: (1) list the 360 ISO's `CARS` folder (ISO on the Mac, or a file listing);
-(2) Quick Race car list on a fresh profile with the switch on and off;
-(3) identify the 10 keys (try the attribute hash used for car records).
+Oct 27 (later), disc checked (`~/Downloads/Need for Speed - Most Wanted (USA).iso`):
+the 360 game packs its files in `NFS/ZZDATA*.BIN`, indexed by `NFS/ZDIR.BIN`
+(24-byte entries sorted by bStringHash of the uppercase path with
+backslashes). 1347 of the PC copy's 1420 paths are on the disc (missing: PC
+movies, installers, some frontend platforms, `GLOBAL\INGAMEC.BUN`, locales).
+All of `CARS\BMWM3GTR` (street), `CARS\BMWM3GTRE46` (race), `CAMARO`, `911GT2`
+and `CORVETTEC6R` geometry and textures are present, so the content is on the
+disc. Stefan (Oct 27): his normal save was only played with the switch off;
+saves are not compatible between on and off; with it on there should be an
+extra Challenge Series event, which is absent. `sub_822EAA60` also checks a
+profile bit (word at +180 of the object at `0x82A2C684`, mask 0x2000) before
+the flag, and compares against 6 keys built from strings in the encrypted XEX.
+
+Next: (1) with the switch on, start a brand-new profile and check the Quick
+Race car list and the Challenge Series count; (2) if still absent, read the
+decrypted XEX image to name the strings and the 10 keys and see what else
+gates the content.
 
 ### iOS 26 black screen with the native renderer on 0.3.0 — fix built (IPA43), untested
 

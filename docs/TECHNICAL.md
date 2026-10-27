@@ -6689,3 +6689,9 @@ downloaded/owned; it adds no assets. Negative: the 10 keys match none of the PC
 `CARS` folder names under bStringHash (init 0 or 0xFFFFFFFF, x31/x33/x131) or
 Jenkins lookup2 with init 0xABCDEF00, with or without suffixes. The 360 ISO is
 not on the Mac, so the disc's car folders were not checked.
+
+Disc layout (Oct 27): `NFS/ZDIR.BIN` is 24-byte entries (path hash, archive
+number, two offsets, size, checksum), sorted by hash; the hash is bStringHash
+(init 0xFFFFFFFF, x33) of the uppercase path with backslashes, e.g.
+`CARS\BMWM3GTRE46\GEOMETRY.BIN`. Every Black Edition car folder from the PC
+copy is on the USA 360 disc; see BACKLOG D-007.
