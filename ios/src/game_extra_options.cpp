@@ -115,9 +115,12 @@ REXCVAR_DEFINE_INT32(nfsmw_purchased_car_limit, 10, "Game",
                      "Cars you can buy at the car lot (1-25; the game's is 10)");
 REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
                     "Remove the barrier that closes the road to the Old Bridge");
-REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 60, "Game",
-                     "Gameplay simulation rate in Hz: 60 (the game's) or 120 (experimental, "
-                     "for the 120 fps cap)");
+// 120 by default since IPA94: at 60 fps the game's 60 Hz steps made the
+// main picture judder now and then (the mirror stayed smooth); 120 Hz
+// steps were smooth at no measurable CPU cost (docs/TECHNICAL.md, Oct 27).
+REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 120, "Game",
+                     "Gameplay simulation rate in Hz: 60 (the game's) or 120 (smoother at 60 fps, "
+                     "needed for the 120 fps cap)");
 REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
                     "Skip the game's movies (EA logo, intro, attract and story movies), as Extra Options' "
                     "SkipMovies");

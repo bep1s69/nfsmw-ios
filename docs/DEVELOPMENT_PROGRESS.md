@@ -213,7 +213,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   picture (`[native] content`).** IPA92: none repeat; the remaining
   choppiness is unexplained and parked. **IPA93
   (`NFSMW-pacing-cleanup-93.ipa`): counter fix kept; 120 Hz at 60 and the
-  frame-timing logs off by default.** Not yet run. Next: a sharp counter on
+  frame-timing logs off by default.** Oct 27: 120 Hz simulation removes the
+  judder at 60 fps at no measurable CPU cost. **IPA94
+  (`NFSMW-sim-120-default-94.ipa`): 120 Hz simulation by default.** Next: a
+  longer play test. Next: a sharp counter on
   its own layer (backlog D-005). New D-006
   (race-finish background letterboxed).
 

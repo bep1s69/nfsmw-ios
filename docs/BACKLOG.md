@@ -84,7 +84,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); remaining choppiness unexplained, parked
+### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder fixed by 120 Hz simulation (IPA94 default), long play test pending
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show
@@ -104,8 +104,12 @@ motion is uneven. IPA92: no repeated frames (fixed-step hypothesis ruled
 out). Parked Oct 26 (Stefan): IPA93 keeps the counter fix, turns the 120 Hz
 at 60 and diagnostics off. If resumed: race at the 120 cap to tell
 perception from content; then the game's timebase reads (~80 inline mftb,
-no frame-time function found yet). Also open: a sharp counter on its own
-layer (the in-frame one is soft at low render scales).
+no frame-time function found yet). Oct 27: 120 Hz simulation removes the judder at
+60 fps (Stefan) at no measurable CPU cost; only the chase-camera picture
+judders, the mirror stays smooth. IPA94 makes 120 Hz simulation the
+default; next: a longer play test. Alternative not tried: feed the game's
+60 Hz step exactly one tick per frame. Also open: a sharp counter on its
+own layer (the in-frame one is soft at low render scales).
 
 ### D-006 Race-finish background letterboxed on the iPad — open
 

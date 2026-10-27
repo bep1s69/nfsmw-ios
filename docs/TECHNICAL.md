@@ -6650,3 +6650,24 @@ s ticks from the real clock; at 60 fps with frame periods jittering about
 ticks each frame gets two and a change is half as large. Next: a matched
 IPA93 60 fps / 60 Hz run for CPU; check that 120 Hz simulation at 60 fps
 keeps normal game speed (lap times).
+
+Matched 60 fps / 60 Hz run (Stefan, Oct 27, iPad, IPA93; log
+`Debug/27 October 2026/nfsmw_ipa93_60hz_60fps_extra_args.log`): skipped-
+looking frames seen again at times. CPU in the race 64-82% of a core, the
+same as 120 Hz simulation at 60 fps (62-84%): no measurable CPU cost for
+120 Hz simulation. All of today's runs had the three Utility QoS switches
+off (Stefan had left the Extra Args in); yesterday's 134-176% had them on
+(Utility threads on efficiency cores read as more "% of a core", not
+necessarily more energy). Stefan: at 60 fps the QoS settings only helped.
+Clue (Stefan, Oct 26, doing donuts): only the main picture judders; the
+rear-view mirror stays smooth. The mirror view is fixed to the car, the
+main view is the chase camera, so the judder is the chase camera moving
+unevenly against the world at 60 Hz steps (its own real-time smoothing,
+presumably).
+
+IPA94 (`ios/build/NFSMW-sim-120-default-94.ipa`, 30056611 bytes, SHA256
+prefix 4ed4fcb54ecbf2b1, UUID D2CDAE1E-E4BB-3F4E-B44C-26DAAA5AE741, `unzip
+-t` ok, codesign ok, 208 metallib entries): 120 Hz simulation is the
+default (launcher switch "120 Hz simulation" on for new settings; cvar
+`nfsmw_sim_rate` default 120). Existing launcher settings keep their
+value. Needs a longer play test (game speed, physics, AI, pursuits).

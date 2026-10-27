@@ -305,10 +305,11 @@ const std::vector<Section>& Sections() {
             @"The Black Edition extras that exist in the Xbox 360 game, like the Porsche 911 "
             @"GT2 and the Corvette C6.R.",
             @"true"},
-           {@"sim_120", Type::kSwitch, @"120 Hz simulation (experimental)",
-            @"The game moves its world 60 times a second at any frame rate. On, 120 times: for "
-            @"the 120 fps cap. Under test; turn it off if the game runs too fast or too slow.",
-            @"false"},
+           {@"sim_120", Type::kSwitch, @"120 Hz simulation",
+            @"The game moves its world 60 times a second at any frame rate. On, 120 times: "
+            @"smoother motion at 60 fps too, and needed for the 120 fps cap. Turn it off if the "
+            @"game runs too fast or too slow.",
+            @"true"},
        }, kTabGame},
       {@"Saves", nil,
        {
