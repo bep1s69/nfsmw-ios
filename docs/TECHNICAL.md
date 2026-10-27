@@ -6695,3 +6695,12 @@ number, two offsets, size, checksum), sorted by hash; the hash is bStringHash
 (init 0xFFFFFFFF, x33) of the uppercase path with backslashes, e.g.
 `CARS\BMWM3GTRE46\GEOMETRY.BIN`. Every Black Edition car folder from the PC
 copy is on the USA 360 disc; see BACKLOG D-007.
+
+### October 27: IPA95 Black Edition event probe (temporary, D-007)
+
+`ios/src/game_be_probe.cpp` wraps `sub_822EAA60` (event availability) and logs
+each distinct (event key, caller, result) once as `[be-probe]`, with the flag
+byte at `0x82A2CE06`. Built `ios/build/NFSMW-be-probe-95.ipa`, UUID
+84A1B7D7-4CD2-33DA-85BB-67B135FD8716, SHA256 2905095dba746485..., ZIP test
+OK, 208 metallibs. Test: Black Edition on, fresh profile, open Challenge
+Series and scroll to the end. Remove the probe once D-007 is understood.
