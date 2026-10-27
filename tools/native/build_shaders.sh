@@ -24,7 +24,7 @@
 # Output (default ~/Library/Caches/nfsmw-ios/shaders): containers/, msl/,
 # air/, lib/. Nothing derived from the game goes into the repository.
 #
-# The libraries are built for the app's oldest iOS (IOS_MIN, default 26.0, as
+# The libraries are built for the app's oldest iOS (IOS_MIN, default 18.0, as
 # CMAKE_OSX_DEPLOYMENT_TARGET in ios/CMakePresets.json). Without it the metal
 # compiler targets its SDK's own iOS (Xcode 27: iOS 27), and iOS 26 cannot load
 # them: the movies (shaders compiled on the device) played, then nothing drew.
@@ -34,7 +34,7 @@ out=${2:-"$HOME/Library/Caches/nfsmw-ios/shaders"}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 sdk=${REXGLUE_SDK:-"$repo/../rexglue-sdk-ios"}
 tool="$out/bin/xenosrecomp"
-ios_min=${IOS_MIN:-26.0}
+ios_min=${IOS_MIN:-18.0}
 
 mkdir -p "$out/bin" "$out/msl" "$out/air" "$out/lib"
 clang++ -std=c++20 -O2 -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions \

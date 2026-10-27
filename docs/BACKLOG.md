@@ -237,6 +237,21 @@ hand to the iCloud union file with the logged time (backup of the old file in
 the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
+
+### D-010 Accurate exposure Off overwritten at startup (GitHub #5) — fixed in 0.4.1 (IPA110)
+
+`--readback_resolve=none` (Accurate exposure Off) equals the compiled
+default, so `PonerSiNadieLoPidio` (`common/src/nfsmw_app.h`), which tested
+`HasNonDefaultValue`, set it to `fast`. Now tests `GetFlagSource != kDefault`
+(the reporter's fix; also covers `gpu_plugin`, `mnk_mode`). Next: a log with
+Accurate exposure Off should no longer show readback going to `fast`.
+
+### D-011 iOS 18-25 support — built in 0.4.1 (IPA110), untested
+
+Requested on GitHub. Deployment target 18.0 (`ios/CMakePresets.json`),
+shader libraries built for 18.0 (`tools/native/build_shaders.sh` default).
+No device below iOS 27 available to Stefan: testing depends on the GitHub
+users who asked. README still says iOS 26: change it at release.
 ### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 
 Stefan, Oct 27: when the only difference between the iPad and iPhone saves is a

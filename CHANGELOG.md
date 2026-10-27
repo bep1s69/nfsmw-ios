@@ -12,6 +12,13 @@
   screens turns itself off if the screen does not keep to it. From
   SpeedBreaker.
 
+- **Accurate exposure Off is respected.** Turning it off in the launcher
+  was undone at startup (GitHub issue #5); settings you choose are now kept
+  even when they match the default.
+
+- **iOS 18 and later.** The app now installs on iOS / iPadOS 18 (it needed
+  26). Not yet tested on iOS 18 to 25: reports welcome.
+
 ## 0.4.0
 
 - **Import PC saves.** The save manager's Import also takes a save from the
