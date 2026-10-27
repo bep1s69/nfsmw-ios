@@ -129,9 +129,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (`NFSMW-achievement-sync-102.ipa`): achievements merged across devices
   through the iCloud folder (D-009), confirmed (Vic shows after the manual
   restore). Import: Stefan's tester will test it. Save progress decoding
-  deferred by Stefan. Now: the motion blur switch. Then cars/career/challenge progress
-  in the list; then the motion blur switch (Stefan's next suspect for the
-  60 fps judder).
+  deferred by Stefan. IPA103 (`NFSMW-motion-blur-103.ipa`): Motion blur
+  switch (launcher and in-game, live; key `motion_blur`, cvar
+  `nfsmw_motion_blur`, default on). Untested. Next: Stefan compares the
+  60 fps judder (D-005) with motion blur on and off; then cars/career/
+  challenge progress in the save list.
 - **October 26 (night): in-game options menu, IPA67
   (`NFSMW-ingame-options-67.ipa`), branch `in-game-options` (local, off
   `battery-optimization`; Stefan approved the design: gear for touch, L3+R3

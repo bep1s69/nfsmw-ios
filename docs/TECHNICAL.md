@@ -6843,3 +6843,35 @@ filetime 15:43:06 UTC), so the unlock happened and was lost later; cause not
 found. Id 3 added by hand to `<iCloud folder>/NFSMW Achievements/454107D9.toml`
 with filetime 134365908494400000 (2026-10-16 02:20:49.44 UTC); the devices
 pick it up at their next sync.
+
+### October 27: motion blur switch (IPA103)
+
+Where the blur is decided (read in the generated code, USA addresses): the
+visual treatment, sub_822246F0, picks "visualtreatment_branching" over
+"visualtreatment" when the post byte 0x828F48B2 is 0 or sub_822241A0 says
+so. sub_822241A0 reads the view's entry in the table 0x82C3F590 (384 bytes
+per view, index r4; byte +4 = view in use) and returns 1 when either float
+at +144/+148 exceeds 0.0001 (0x8290DBA0); two globals at 0x82A2C4E4/E8 (0.0 in
+the image) override those floats when not 0. sub_82224240 scales the same two
+values into the shader's blur vector (x, y, 1/y, 0), and when they are above
+that threshold binds the blur texture (r3+512) and sets the effect's blur
+bool. The shader also has MOTIONALPHA and IS_MOTIONBLUR_VIGNETTED parameters
+(ids 87 and 67 in sub_8244B888's table; their setters not found) and the
+image names `ENISMotionBlur` (cutscenes). Inference, not proven: the +144/+148
+amounts are the motion blur Stefan sees; the mirror is a different view.
+
+Change: cvar `nfsmw_motion_blur` (default true, game_scene_size.cpp). Off,
+sub_822241A0 and sub_82224240 run with the view's two amounts and the two
+override globals read 0 (restored after), so the plain technique is used, the
+bool is false and no blur texture is bound. Logs `[blur] motion blur off:
+view N blur amounts were x, y` (first 4 nonzero cases). Launcher switch
+"Motion blur" (key `motion_blur`, Graphics, after Post-processing); also in
+the in-game menu, live (cvar read on every call). Build exit 0; both hooks
+linked as strong symbols (`nm -m`).
+
+Built `ios/build/NFSMW-motion-blur-103.ipa`, 30093993 bytes, UUID
+B5E9F031-B498-3BAA-9362-ECBED0A55F0B, SHA256 239f27fa08d225ba..., `unzip -t`
+OK, 208 metallibs, codesign verify OK. Untested on device. Test: a race at
+60 fps with Motion blur on, then off (in-game menu): visible blur at speed
+gone, `[blur]` lines in the log, and whether the judder changes.
+

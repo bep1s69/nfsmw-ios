@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Motion blur switch.** Motion blur can be turned off in the launcher and
+  in the in-game options; off, the picture stays sharp when driving fast.
+
 - **Save sync between devices fixed.** Part of a Black Edition career was
   kept in a separate file the save manager ignored, so a newer save (for
   example one more challenge event) did not show as newer on the other

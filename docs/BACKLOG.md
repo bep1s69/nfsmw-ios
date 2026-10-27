@@ -84,7 +84,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder not fixed by 120 Hz simulation (off by default again in IPA101); motion blur suspected next
+### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder not fixed by 120 Hz simulation (off by default again in IPA101); motion blur switch to test in IPA103
 
 Stefan, Oct 26: at the 60 cap the counter stays at 60, but some moments feel
 choppier than others; 40 does not do it. iPad race logs (IPA64/73/82) show
@@ -430,8 +430,11 @@ Power Profiler or CPU investigations.
 ## Feature ideas
 
 - **VERY HIGH PRIORITY (Stefan, Oct 27): motion blur switch.** An on/off
-  setting for the game's motion blur (launcher and in-game options menu). Not
-  started; next: find the motion blur pass or its option byte.
+  setting for the game's motion blur (launcher and in-game options menu).
+  Built in IPA103 (`NFSMW-motion-blur-103.ipa`; TECHNICAL, Oct 27 motion
+  blur switch): the view's blur amounts read 0 while the visual treatment
+  picks its technique and sets its blur. Untested; next: Stefan's on/off
+  judder comparison.
   Stefan (Oct 27): also his next suspect for the 60 fps judder (D-005): the
   mirror, which has no motion blur, stays smooth. Next after the save manager.
 
