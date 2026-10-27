@@ -436,7 +436,9 @@ Power Profiler or CPU investigations.
   picks its technique and sets its blur. Untested. Stefan (Oct 27):
   Post-processing off also removes motion blur, and in a quick test the
   judder was gone; next: IPA103 with Post-processing on and Motion blur off,
-  to tell the blur from the rest of the post chain.
+  to tell the blur from the rest of the post chain. IPA103 with blur off
+  (Stefan, Oct 27): blur gone, smoothness unclear to him; pacing log mostly
+  0 of 300 frames off the grid. Switch works; judder link unproven.
   Stefan (Oct 27): also his next suspect for the 60 fps judder (D-005): the
   mirror, which has no motion blur, stays smooth. Next after the save manager.
 
