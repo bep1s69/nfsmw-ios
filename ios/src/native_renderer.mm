@@ -7789,6 +7789,9 @@ namespace nfsmw::adaptive_qos {
 void OnSwap(double interval_ms);  // adaptive_qos.cpp
 qos_class_t WorkersRaised();
 }
+namespace nfsmw::frame_clock {
+void OnSwap();  // frame_clock.cpp
+}
 
 namespace {
 bool NativeSwap();
@@ -8108,6 +8111,7 @@ bool NativeSwap() {
     }
   }
   last_swap = std::chrono::steady_clock::now();
+  nfsmw::frame_clock::OnSwap();
   if (hitch.valid && swap_interval_ms > 40.0 && hitch_lines_left.fetch_sub(1) > 0) {
     const double record_ms = hitch.record_ns / 1e6;
     REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms between swaps ({} draws): recording {:.1f} ms "
