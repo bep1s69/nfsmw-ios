@@ -133,7 +133,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `frame_clock.cpp`, cvar `nfsmw_frame_ticks`, IPA124 confirmed on iPad and
   iPhone), touch controls drawn into the native frame (IPA111), UTF-16
   extra_args.txt (IPA113). Day's dead ends removed (TECHNICAL Oct 28 cleanup).
-  Next: Stefan's go-ahead to merge into `main`, tag v0.4.2 and publish.
+  Later the same evening: 40 fps (120 Hz simulation, frames shown when
+  ready at the 40 cap), Battery mode 30/40, menu/warm 30 at the 40 cap,
+  Custom HUD switch; RC7 built. Stefan (via the coordinator): before 0.4.2
+  ships, the Black Edition save fix (thread "Repair saves damaged by Black
+  Edition change", same branch) is added and tested. Next: RC7 checks, then
+  that fix, then merge/tag/publish on Stefan's go.
 
 - **October 27: 0.4.1 released to GitHub (Stefan: "push it", iOS 18 marked
   experimental).** `release-0.4.1` fast-forwarded into `main`, tagged
