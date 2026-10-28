@@ -1230,7 +1230,7 @@ std::atomic<double> recent_gpu_seconds{0};
 // stage, to see where the 16.7 / 25 / 33 ms cycle at the 40 cap starts.
 struct FrameTrace {
   std::mutex m;
-  std::map<uint32_t, std::array<double, 4>> times;
+  std::map<uint32_t, std::array<double, 5>> times;  // 4: the paced target
 };
 FrameTrace frame_trace;
 void TraceFrame(uint32_t number, int stage, double t);  // average GPU time per frame (paced presentation)
@@ -7222,6 +7222,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             target = base + std::ceil((ready - base) / interval) * interval;  // (re)start from the screen
           }
           last_target = target;
+          TraceFrame(number, 4, target);
           frame_target = target - 0.002;
           [cb presentDrawable:drawable atTime:target - 0.002];
         } else {
@@ -8063,13 +8064,13 @@ void TraceFrame(uint32_t number, int stage, double t) {
   static bool said = false;
   if (!said) {
     said = true;
-    REXLOG_INFO("[frame-trace] on (IPA129): per-frame swap / hand-over / GPU end / shown times");
+    REXLOG_INFO("[frame-trace] on (IPA130): per-frame swap / hand-over / GPU end / shown times");
   }
   auto& times = frame_trace.times;
   times[number][size_t(stage)] = t;
   if (stage != 3) return;
   // Shown (or dropped, t <= 0): complete. Every 60 complete frames, the gaps.
-  static std::vector<std::array<double, 4>> done;
+  static std::vector<std::array<double, 5>> done;
   done.push_back(times[number]);
   times.erase(times.begin(), times.upper_bound(number));
   if (done.size() < 61) return;
@@ -8093,6 +8094,14 @@ void TraceFrame(uint32_t number, int stage, double t) {
                                       : std::string(" -");
     }
     REXLOG_INFO("[frame-trace] per frame swap->handed / ->gpu end / ->shown (ms):{}", latency);
+    std::string vs_target;
+    for (size_t i = 1; i < done.size(); ++i) {
+      const auto& f = done[i];
+      vs_target += f[4] > 0 && f[3] > 0 ? fmt::format(" {:+.1f}/{:.1f}", (f[3] - f[4]) * 1000.0,
+                                                      (f[4] - f[1]) * 1000.0)
+                                        : std::string(" -");
+    }
+    REXLOG_INFO("[frame-trace] per frame shown minus target / target minus handed (ms):{}", vs_target);
     --lines;
   }
   done.erase(done.begin(), done.end() - 1);
