@@ -7184,3 +7184,16 @@ UTF-16 LE file. Also has IPA112's frame clock and IPA111's touch fix.
 3fda5a78242583414519ea8c009141c212ce9164930e20eddc8f6758b3ea8cfd, UUID
 DB56663F-5840-3B84-AE44-3F52A7B37F20, 208 metallibs, `unzip -t` ok, codesign
 ok. Not run on a device.
+
+IPA113 run with the switch (Oct 28 14:26-14:27, iPhone, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa113_utf_fix.log`): `[frame-clock] on: main
+thread 17f88d, reads up to 8 ms` (the UTF-16 file was read). The main-loop
+thread reads the clock ~3 times per vblank, spread over the whole frame, and
+the spread drifts: 8-12 ms after the vblank at first (774 of 906), later
+4-8 ms (583 of 900); only 16-759 of ~900 reads per 300 vblanks snapped. So
+the game's loop is not in step with the vblank: its phase drifts against the
+display, and an 8 ms window snaps some frames' reads and not others. The
+swaps (`between swaps` lines) run on another thread (t1570948) than the
+main loop (1570957). Pacing 0-5 of 300 off. Inference: the snap as built
+cannot give equal steps; a clock that advances one period per swap (on the
+thread that swaps) would.
