@@ -1222,6 +1222,7 @@ uint64_t frame_counter = 0;
 
 // Timing, logged every 300 native frames.
 std::atomic<uint64_t> record_ns{0}, render_us{0}, presented{0};
+std::atomic<double> recent_gpu_seconds{0};  // average GPU time per frame (paced presentation)
 // For the hitch log (the renderer's queue only): this frame's texture uploads.
 uint32_t frame_uploads = 0, frame_new_buffers = 0;
 uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
@@ -7191,12 +7192,21 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }];
         static double last_target = 0;
         if (paced) {
-          // The first refresh of the grid from now on, and never the same
-          // refresh as the frame before (which may not be shown yet).
+          // A fixed grid (0.4.2): each frame takes the first slot after the
+          // previous frame's that it can make, i.e. at least its GPU time
+          // (recent average) plus 4 ms from now. The grid used to restart from
+          // the last frame actually shown, and frames finishing around that
+          // time were shown 16.7 / 25 / 33 ms apart at the 40 cap (Oct 28 logs:
+          // ~200 of 300 off the grid); a frame that cannot make its slot now
+          // shifts the grid by whole slots and keeps it.
           const double now = CACurrentMediaTime(), base = shown_at.load();
-          double target = base + std::ceil((now - base) / interval) * interval;
-          if (last_target + interval > target && last_target + interval < now + 2.0 * interval) {
+          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.004;
+          double target;
+          if (last_target > 0 && last_target > now - 4.0 * interval && last_target < now + 4.0 * interval) {
             target = last_target + interval;
+            while (target < ready) target += interval;
+          } else {
+            target = base + std::ceil((ready - base) / interval) * interval;  // (re)start from the screen
           }
           last_target = target;
           frame_target = target - 0.002;
@@ -7246,6 +7256,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           if (gpu_ms > 45.0) ++gpu_slow_frames;
+          {  // the recent GPU time, for the paced frames' slots
+            const double was = recent_gpu_seconds.load(std::memory_order_relaxed);
+            const double now_s = std::min(gpu_ms, 50.0) / 1000.0;
+            recent_gpu_seconds.store(was > 0 ? was + (now_s - was) * 0.1 : now_s, std::memory_order_relaxed);
+          }
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
             REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms on the GPU ({} draws, {} texture uploads, "
