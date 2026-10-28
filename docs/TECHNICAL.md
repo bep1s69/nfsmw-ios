@@ -7339,3 +7339,11 @@ spent reading per 5 s, slowest single read 11.9 ms (3.3-5 ms typical). The
 main loop thread did no disc reads. So in this run disc reads cost the game
 very little and not on its main thread; they do not explain the judder here.
 The restart observation (worse after a device restart) is not explained yet.
+
+Stefan (Oct 28 ~15:17): at the 30 fps cap too, some parts of a donut feel
+better paced than others. So the unevenness is not specific to 60 fps and
+seems to depend on where the car/camera points within the donut.
+Proposed next diagnostic: log the game's camera per frame from the world
+draws' view matrix (the renderer already sees c0-c15; IPA92 hashed them) and
+the per-frame change of its position and angle, to measure whether the
+game's own camera motion is uneven.
