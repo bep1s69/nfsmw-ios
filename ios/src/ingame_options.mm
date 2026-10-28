@@ -52,7 +52,7 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_scale", @"hud_safe_zone",
+            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom", @"hud_scale", @"hud_safe_zone",
             @"hud_left_x", @"hud_left_y", @"hud_right_x", @"hud_right_y", @"hud_race_x", @"hud_race_y" ];
 }
 
@@ -222,7 +222,7 @@ UIWindow* GameWindow() {
 }
 
 - (BOOL)locked:(const nfsmw::launcher::MenuRow&)r {
-  return nfsmw::launcher::SetByBatteryMode(_settings, r.key);
+  return nfsmw::launcher::SetByBatteryMode(_settings, r.key) || nfsmw::launcher::HudLocked(_settings, r.key);
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
@@ -250,7 +250,10 @@ UIWindow* GameWindow() {
   const bool locked = [self locked:r];
   NSString* value = nfsmw::launcher::SettingValue(_settings, r.key);
   c.text = [self waitsForLaunch:r.key] ? [r.title stringByAppendingString:@" · next launch"] : r.title;
-  c.secondaryText = locked ? [@"Set by Battery mode. " stringByAppendingString:r.summary] : r.summary;
+  c.secondaryText = !locked ? r.summary
+                    : nfsmw::launcher::HudLocked(_settings, r.key)
+                        ? [@"Turn on Custom HUD to change. " stringByAppendingString:r.summary]
+                        : [@"Set by Battery mode. " stringByAppendingString:r.summary];
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;

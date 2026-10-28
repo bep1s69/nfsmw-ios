@@ -16,6 +16,10 @@
 
 - **Battery mode lets you choose 30 or 40 fps** (it always forced 30).
 
+- **Custom HUD switch.** The HUD size and position settings now sit behind
+  one Custom HUD switch, off by default: the game's own HUD unless you turn
+  it on (your earlier changes come back when you do).
+
 - **No more stutter from the touch controls.** Steering or pressing the
   on-screen controls made a frame arrive one refresh late, so donuts and
   quick steering stuttered. The controls are now drawn as part of the game's

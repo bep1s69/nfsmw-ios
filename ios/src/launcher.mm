@@ -439,6 +439,9 @@ const std::vector<Section>& Sections() {
       {@"HUD", @"Also in the options while playing (the gear in pause screens, or L3+R3), where "
                @"they apply at once: the HUD shows them as soon as driving starts again.",
        {
+           {@"hud_custom", Type::kSwitch, @"Custom HUD",
+            @"Off: the game's own HUD size and layout. On: the size and positions below apply.",
+            @"false"},
            {@"hud_scale", Type::kChoice, @"HUD size",
             @"The size of the speedometer, minimap and the rest of the race HUD (the mirror "
             @"too). Each keeps its place. Menus keep their size.",
@@ -705,7 +708,27 @@ NSString* BatteryValue(NSString* key) {
   return values[key];
 }
 
+// The HUD settings that Custom HUD switches on (0.4.2, Stefan: a master
+// switch, so a player who never touches them gets the game's own HUD), with
+// the game's values used while it is off.
+NSString* HudDefault(NSString* key) {
+  static NSDictionary<NSString*, NSString*>* values = @{
+    @"hud_scale" : @"1.00",
+    @"hud_safe_zone" : @"1.00",
+    @"hud_left_x" : @"0",
+    @"hud_left_y" : @"0",
+    @"hud_right_x" : @"0",
+    @"hud_right_y" : @"0",
+    @"hud_race_x" : @"0",
+    @"hud_race_y" : @"0",
+  };
+  return values[key];
+}
+
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
+  if (NSString* game = HudDefault(key); game && ![s[@"hud_custom"] isEqualToString:@"true"]) {
+    return game;
+  }
   if (NSString* forced = BatteryValue(key);
       forced && [s[@"battery_mode"] isEqualToString:@"true"] && On(s, @"native_renderer")) {
     return forced;
@@ -1544,10 +1567,13 @@ NSString* AchievementSummary(const Achievements& a) {
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
   const bool battery_locked = native && On(_settings, @"battery_mode") && BatteryValue(o.key);
+  const bool hud_locked = HudDefault(o.key) && !On(_settings, @"hud_custom");
   const bool inactive =
-      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked;
+      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked || hud_locked;
   c.text = o.title;
-  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary] : o.summary;
+  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary]
+                    : hud_locked   ? [@"Turn on Custom HUD to change. " stringByAppendingString:o.summary]
+                                   : o.summary;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   NSString* key = o.key;
   NSString* value = Value(_settings, key);
@@ -1572,7 +1598,8 @@ NSString* AchievementSummary(const Achievements& a) {
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
             // The native renderer greys other settings out (or back in).
-            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"]) {
+            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"] ||
+                [key isEqualToString:@"hud_custom"]) {
               [self.tableView reloadData];
             }
           }]
@@ -1802,6 +1829,10 @@ NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* k
 
 bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
   return On(settings, @"native_renderer") && On(settings, @"battery_mode") && BatteryValue(key);
+}
+
+bool HudLocked(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
+  return HudDefault(key) && !On(settings, @"hud_custom");
 }
 
 std::vector<std::string> ArgumentsFor(NSDictionary<NSString*, NSString*>* settings) { return Arguments(settings); }
