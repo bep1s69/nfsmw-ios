@@ -7677,3 +7677,12 @@ Release candidate 2: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30115889 bytes,
 SHA-256 c67ac530a0d9f07a7b8e684db69292f3448ddf88014274b1055fd679dc85f485, UUID
 FD902E47-6A66-395E-986E-3FA0723B9B86, 208 metallibs, `unzip -t` ok, codesign
 --deep --strict ok. Not run on a device.
+
+0.4.2 RC2 test (Stefan, Oct 28 ~21:45, iPhone, fresh install; log
+`nfsmw_0.4.2rc2_tests_iphone.log`): Battery mode at 40: "great (not perfect)";
+`sim rate: 120 Hz set`, 39.3-40.0 fps; a race "just like I know it" (game
+speed normal with 120 Hz simulation, by feel); 60 fps checked on IPA124 ("99%
+perfect"). Camera log off in the release build. Pacing at 40: ~200 of 300 off
+the 25 ms grid, refresh gaps 2/3/4 in about equal parts, the same as IPA124:
+presentation at the 40 cap is uneven (pre-existing, BACKLOG). Minimap position
+bug reported (BACKLOG).

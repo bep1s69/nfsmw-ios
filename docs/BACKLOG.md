@@ -594,3 +594,23 @@ Power Profiler or CPU investigations.
 - Battery-mode-only savings still open (visual changes allowed only there):
   cheaper reflection cube, lower post-effect resolution. See
   `HANDOFF_CHATGPT.md` and the checkpoint before starting.
+
+### D-0xx 40 fps cap: frames shown 16.7 / 25 / 33 ms apart on the iPhone — open (0.4.3)
+
+Oct 28 (iPhone 17 Pro Max, 120 Hz, 40 cap; IPA124 `nfsmw_ipa124_30_40_fps_tests.log`
+and 0.4.2 RC2 `nfsmw_0.4.2rc2_tests_iphone.log`): `pacing: ~200 of 300 frames off
+the 25.0 ms grid`, gaps in 120 Hz refreshes about one third each 2 / 3 / 4
+(plus some 1). Every frame is new and the world steps are even since RC2
+(120 Hz simulation at the 40 cap), but presentation itself is uneven at 40.
+Stefan: 40 fps in Battery mode "great, not perfect". Same before RC2, so not
+caused by the 0.4.2 changes. Next: look at the present-at-time pacing at the
+40 cap (target from the last shown frame minus 2 ms; frames arriving around
+the target).
+
+### D-0xx Minimap in the wrong place after a menu change — open (0.4.3)
+
+Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
+wrong position after a menu change; fine in free roam and during the race,
+wrong after the race ended. Screenshot `Debug/28 October 2026/IMG_4038.png`.
+Likely in the movable/resizable HUD (game_scene_size.cpp, IPA70-85), not
+investigated.
