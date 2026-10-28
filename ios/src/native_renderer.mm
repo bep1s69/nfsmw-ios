@@ -8021,6 +8021,80 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_frame_timing_log, false, "GPU",
                     "Native renderer: log swap-period spread and repeated pictures every 300 frames");
 uint64_t content_sum = 0;  // repeated pictures (IPA92), see NativeDraw
 uint32_t content_draws = 0;
+
+// Camera motion (Oct 28 diagnostic, D-005): every frame new and on time, yet
+// the motion feels uneven, also at 30 fps and only in parts of a donut. The
+// frame's most common c0-c3 among its draws is taken as the camera's
+// view-projection (static world draws share it); its "w" row (or column) is
+// the camera's forward axis. Per frame: the angle it turned. Every 60 frames
+// of 3D scene: the mean, the spread, frames off their neighbours by over 25%,
+// and the 60 values. Cvar nfsmw_native_camera_log.
+REXCVAR_DEFINE_BOOL(nfsmw_native_camera_log, true, "GPU",
+                    "Native renderer: log how much the game's camera turns each frame (diagnostic)");
+struct CameraVote {
+  uint32_t count = 0;
+  float m[16] = {};
+};
+std::unordered_map<uint64_t, CameraVote> camera_votes;
+uint32_t camera_draws = 0;
+void CameraOnSwap() {
+  static bool have = false, use_row = true;
+  static float prev[3] = {};
+  static std::vector<float> turns;
+  static int lines = 600;
+  const uint32_t draws = camera_draws;
+  camera_draws = 0;
+  if (camera_votes.empty() || draws < 300) {
+    camera_votes.clear();
+    have = false;
+    turns.clear();
+    return;
+  }
+  const CameraVote* best = nullptr;
+  for (const auto& [k, v] : camera_votes) {
+    if (!best || v.count > best->count) best = &v;
+  }
+  const float* m = best->m;
+  // The forward axis: row 3 (c3.xyz) or column 3 (c0.w, c1.w, c2.w); the one
+  // of length ~1 (a rotation's row) when only one is.
+  float row[3] = {m[12], m[13], m[14]}, col[3] = {m[3], m[7], m[11]};
+  auto len = [](const float* v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); };
+  const float lr = len(row), lc = len(col);
+  const bool row_ok = lr > 0.8f && lr < 1.2f, col_ok = lc > 0.8f && lc < 1.2f;
+  if (row_ok != col_ok) use_row = row_ok;
+  float f[3];
+  const float* src = use_row ? row : col;
+  const float l = use_row ? lr : lc;
+  camera_votes.clear();
+  if (!(l > 1e-6f)) return;
+  for (int i = 0; i < 3; ++i) f[i] = src[i] / l;
+  if (have) {
+    const float dot = std::clamp(f[0] * prev[0] + f[1] * prev[1] + f[2] * prev[2], -1.0f, 1.0f);
+    turns.push_back(std::acos(dot) * 57.29578f);
+  }
+  std::copy(f, f + 3, prev);
+  have = true;
+  if (turns.size() < 60) return;
+  double sum = 0, sq = 0;
+  for (float t : turns) sum += t, sq += double(t) * t;
+  const double mean = sum / turns.size(), sd = std::sqrt(std::max(0.0, sq / turns.size() - mean * mean));
+  int off = 0;
+  std::string values;
+  for (size_t i = 0; i < turns.size(); ++i) {
+    if (i > 0 && i + 1 < turns.size()) {
+      const double around = (turns[i - 1] + turns[i + 1]) * 0.5;
+      if (around > 0.05 && std::fabs(turns[i] - around) > 0.25 * around) ++off;
+    }
+    values += fmt::format(" {:.2f}", turns[i]);
+  }
+  if (mean > 0.05 && lines-- > 0) {
+    REXLOG_INFO("[camera] 60 frames: turn {:.2f} deg/frame, spread {:.0f}%, {} off their neighbours by over 25% "
+                "({} axis, {} draws) |{}",
+                mean, mean > 0 ? 100.0 * sd / mean : 0.0, off, use_row ? "row" : "column", draws,
+                values);
+  }
+  turns.clear();
+}
 bool NativeSwap() {
   // Resolves the renderer wrote back to guest memory: its copies stay valid.
   {
@@ -8041,6 +8115,7 @@ bool NativeSwap() {
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
+  if (REXCVAR_GET(nfsmw_native_camera_log)) CameraOnSwap();
   if (REXCVAR_GET(nfsmw_native_frame_timing_log)) {
     static uint64_t previous_sum = 0;
     static uint32_t frames = 0, repeats = 0, runs = 0, longest = 0, run = 0;
@@ -8237,6 +8312,13 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
     for (uint32_t i = 0; i < 64; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
     content_sum += h;
     ++content_draws;
+  }
+  if (REXCVAR_GET(nfsmw_native_camera_log)) {
+    uint64_t h = 1469598103934665603ull;
+    for (uint32_t i = 0; i < 16; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
+    CameraVote& v = camera_votes[h];
+    if (v.count++ == 0) std::memcpy(v.m, draw->regs + kAluBase, sizeof(v.m));
+    ++camera_draws;
   }
   // Timed: one draw in eight (counted eight times). Reading the clock five
   // times for every draw cost ~1 ms per frame on its own.
