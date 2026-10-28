@@ -7191,7 +7191,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
         }];
         static double last_target = 0;
-        if (paced) {
+        if (paced && cap == 40) {
+          // The 40 cap on a 120 Hz screen (0.4.2 RC6): RC4/RC5's own grid of
+          // target times still came out 33 / 17 / 25 ms apart in turn on the
+          // iPhone (Oct 28 logs). Here the system keeps each frame on screen
+          // at least 21 ms after the one before, i.e. three refreshes (25 ms):
+          // Apple's frame pacing for rates that divide the refresh rate.
+          last_target = 0;
+          [cb presentDrawable:drawable afterMinimumDuration:interval - 0.004];
+        } else if (paced) {
           // A fixed grid (0.4.2): each frame takes the first slot after the
           // previous frame's that it can make, i.e. at least its GPU time
           // (recent average) plus 4 ms from now. The grid used to restart from

@@ -7730,3 +7730,18 @@ RC5: the margin is the recent longest GPU time (decaying max, x0.98 a frame)
 E649837C-FDBE-3D84-980B-7DB6BAA36692, 208 metallibs, codesign ok; copied to
 iCloud Drive Desktop as NFS-Most-Wanted-0.4.2-rc5.ipa (RC4's copy removed;
 RC4 is rebuildable from 1619e70). Not run on a device.
+
+RC5 test (Stefan, Oct 28 22:10, iPhone, 40 cap; log
+`nfsmw_0.4.2rc5_40fps_iphone.log`): frame-time counter "jumping all over the
+place"; pacing worse: 190-282 of 300 off, many 8.3 ms gaps (1:46-88) beside
+4:106-178, steady windows again 2:100 3:100 4:100. A wider margin does not
+help: presentAtTime targets do not control the 40 cap here.
+(ios_display_match_cap, asking the display for 40 Hz, was tried Oct 24: iOS
+ran a 60 Hz pattern.)
+RC6: at the 40 cap only, `presentDrawable:afterMinimumDuration:` 21 ms (the
+interval - 4 ms): the system keeps each frame at least 21 ms after the one
+before, i.e. three 120 Hz refreshes. Other paced caps keep RC5's grid (30 was
+clean in RC4). `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117012 bytes, SHA-256
+e2e500026ee635de4ee870641b3e87cb3a3caec3f160f26924678b858314c622, UUID
+6BED9CE3-879B-3256-A583-4ACDF0EA43C4, codesign ok; iCloud Desktop as
+NFS-Most-Wanted-0.4.2-rc6.ipa (RC5 copy removed). Not run on a device.
