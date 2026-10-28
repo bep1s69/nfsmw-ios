@@ -7309,3 +7309,24 @@ not the pipeline cache. Candidate: iOS' file cache of the game data (the
 game streams the city from the ISO; a reread area comes from memory).
 Proposed no-code check: restart the device (clears the file cache) and drive
 the "smooth" area again.
+
+Restart test (Stefan, Oct 28 ~15:08): after restarting the device, even
+leaving the safehouse "felt like 30 fps" with the counter at 60. Confirms
+the judder depends on iOS' file cache, i.e. on cold disc reads: the ISO is
+mapped (DiscImageFile::ReadSync = memcpy from the mapping), so a first read
+page-faults the data in from flash on the game thread that reads.
+
+IPA116: `tools/ios/patch_ios_iso_readahead.py` (in prepare_sdk.py), SDK
+`disc_image_file.cpp`. Cvar `ios_iso_readahead_mb`, default 16: after a read,
+madvise(MADV_WILLNEED) on the next 16 MB of the image (again only when reads
+have used up half the last advised stretch of that file), so the kernel
+reads ahead in the background. `[iso-read]` every 5 s per thread: reads,
+KiB, ms reading, slowest (first 400 lines). `nfsmw_native_repeat_log` now
+default false. Frame clock switches still default off.
+`ios/build/NFSMW-0.4.1-iso-readahead-116.ipa`, 30109492 bytes, SHA-256
+7387778bb6bbff8a8227c63ecd5aafe88ad7463d038187b4a9f30aa38444f40c, UUID
+8442B440-6748-3100-9622-A4D98599FA61, 208 metallibs, `unzip -t` ok,
+codesign ok. Copied to iCloud Drive/NFSMW (also zipped). Not run on a
+device. Test: empty extra_args.txt, restart the device, leave the
+safehouse; then the same with `--ios_iso_readahead_mb=0` after another
+restart; send both logs.
