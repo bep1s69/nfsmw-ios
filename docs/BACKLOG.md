@@ -128,7 +128,15 @@ default; next: a longer play test. Alternative not tried: feed the game's
 Oct 28 (iPhone, IPA110, 1x/60): with the touch overlay disabled, donuts give
 0 of 300 frames off the grid and no Metal HUD spikes, yet Stefan still feels
 the judder (TECHNICAL Oct 28). Touch-overlay redraws are a separate cause
-of real 33 ms spikes (fix proposed, not approved). Also open: a sharp counter on its
+of real 33 ms spikes (fixed in IPA111: drawn into the native frame).
+Oct 28 later (TECHNICAL Oct 28): measured with a camera log (IPA117,
+`nfsmw_native_camera_log`): in stretches the game's camera steps 2x / 0, or
+runs one step ahead for 1-3 frames; every frame is new and on time. Not
+fixed by: exact per-frame clock (IPA112-114, 118), swap waiting for the
+vblank (IPA119: halves the fps), tick remainder carry (IPA120, A/B no
+effect), ISO read-ahead (IPA116). Rate depends on the session's warm-up
+(12-22% of frames right after a device restart, ~0% an hour later). Next:
+find which thread updates the camera vs which draws it (ordering race?). Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
 ### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open

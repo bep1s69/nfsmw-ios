@@ -7473,3 +7473,18 @@ memory/paging state), though the measured disc reads are small and off the
 main loop. Next (proposed): an Instruments trace right after a device
 restart, during donuts, to see what the main loop thread does in the 2x/0
 stretches (camera log on to mark them).
+
+Time Profiler trace, waiting threads on (Stefan, Oct 28 18:35, iPad Pro M4,
+IPA120 mode 1, no restart; `Debug/28 October 2026/ipa120_stutters_time_profile_ipad.trace`
+runs 1 (18:35:50, 20.5 s) and 2 (18:36:42, 22.9 s), log
+`nfsmw_ipa120_stutters_time_profile_ipad.log`). Camera log: run 1 mostly
+clean (0-4 pairs per second, single ones), run 2 with stretches of 4-11
+pairs per second (t = 7.5-13.5 s). The pattern is often not adjacent: a
+double step, then one to three normal steps, then a zero (4.3 2.2 0.0,
+3.8 1.9 1.9 0.0): the drawn camera runs one step ahead for a few frames and
+then falls back in line. That looks like the drawing picking up the camera
+already advanced for the next frame (an ordering between the update and the
+drawing that varies), rather than uneven time steps. Main XThread in the
+trace: no different activity within 50 ms before the judder frames than
+elsewhere (most stack frames unsymbolicated, `?`); it runs almost all the
+time (the main loop polls the clock). Not conclusive.
