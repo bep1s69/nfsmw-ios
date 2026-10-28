@@ -7330,3 +7330,12 @@ codesign ok. Copied to iCloud Drive/NFSMW (also zipped). Not run on a
 device. Test: empty extra_args.txt, restart the device, leave the
 safehouse; then the same with `--ios_iso_readahead_mb=0` after another
 restart; send both logs.
+
+IPA116 result (Stefan, Oct 28 15:13-15:14, iPad, no device restart, no
+extra args; log `Debug/28 October 2026/nfsmw_ipa116_ipad.log`): "just
+driving around was pretty bad". `[iso-read]`: all disc reads on one thread
+(XThread10713, a loader, not the main loop), 8-71 reads per 5 s, 0.5-40 ms
+spent reading per 5 s, slowest single read 11.9 ms (3.3-5 ms typical). The
+main loop thread did no disc reads. So in this run disc reads cost the game
+very little and not on its main thread; they do not explain the judder here.
+The restart observation (worse after a device restart) is not explained yet.
