@@ -7441,3 +7441,15 @@ elapsed x rate by band and the ticks run. Camera log and read-ahead stay on.
 `ios/build/NFSMW-0.4.1-frame-ticks-120.ipa`, 30116964 bytes, SHA-256 d554629c46ace70ed32fe3d6d7d28ed56d78b2748c4324290f7952ae9eab9d78, UUID F7A7C868-6ECD-3C64-B92D-A4767158E5A4, 208 metallibs, `unzip -t`
 ok, codesign ok. Not run on a device. Test: empty extra_args.txt; donuts;
 then `--nfsmw_frame_ticks=0` to compare.
+
+IPA120 result (Stefan, Oct 28 16:15-16:16, iPad, no extra args, mode 1;
+log `Debug/28 October 2026/nfsmw_ipa20_camera_ipad.log`): "seems much
+better although maybe it was just luck". Constants logged: rate 65536
+ticks/s (the "ticks" are 1/65536 s units: ~1092 a frame), wait constant
+0.25, clamp 32000. So the truncation loses under 1/65536 s per frame and the
+carry (mode 1) changes the step by at most that: numerically almost a no-op;
+the tick-truncation explanation is wrong as stated. Camera log, counted the
+same way (a value 1-10 deg followed by <0.05): IPA117 113 pairs in 960
+frames, IPA118 197 in 900, IPA120 6 in 2400 (isolated zeros 117 / 206 / 4).
+The measured judder dropped ~40x in this run, but the change cannot explain
+it; needs an A/B with `--nfsmw_frame_ticks=0` in the same conditions.
