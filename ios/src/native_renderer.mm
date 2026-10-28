@@ -7221,10 +7221,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           } else {
             target = base + std::ceil((ready - base) / interval) * interval;  // (re)start from the screen
           }
+          // On the screen's own refreshes (IPA131 trace: the grid sat 4.5 ms
+          // off them; shown 4.5 or 12.8 ms after the target, in turn, so the
+          // 40 cap came out 25 / 17 / 33): the target moved to the nearest
+          // refresh of the last frame shown, and asked for half a refresh
+          // before it.
+          const double refresh = display_hz > 0 ? 1.0 / display_hz : interval;
+          if (base > 0) target = base + std::round((target - base) / refresh) * refresh;
           last_target = target;
           TraceFrame(number, 4, target);
-          frame_target = target - 0.002;
-          [cb presentDrawable:drawable atTime:target - 0.002];
+          frame_target = target - refresh * 0.5;
+          [cb presentDrawable:drawable atTime:target - refresh * 0.5];
         } else {
           [cb presentDrawable:drawable];
         }
@@ -8064,7 +8071,7 @@ void TraceFrame(uint32_t number, int stage, double t) {
   static bool said = false;
   if (!said) {
     said = true;
-    REXLOG_INFO("[frame-trace] on (IPA130): per-frame swap / hand-over / GPU end / shown times");
+    REXLOG_INFO("[frame-trace] on (IPA131): per-frame swap / hand-over / GPU end / shown times");
   }
   auto& times = frame_trace.times;
   times[number][size_t(stage)] = t;

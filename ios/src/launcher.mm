@@ -415,12 +415,12 @@ const std::vector<Section>& Sections() {
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
            {@"auto_cap", Type::kSwitch, @"30 fps when warm or on Low Power",
-            @"At the 60 cap: 30 fps while Low Power Mode is on or the phone is warm, back to 60 "
+            @"At the 40 and 60 caps: 30 fps while Low Power Mode is on or the phone is warm, back "
             @"once it is off and cool again.",
             @"false"},
            {@"menu_cap", Type::kSwitch, @"30 fps in menus and pause",
-            @"At the 60 cap: 30 fps in menus, pause screens and loading, which redraw much the "
-            @"same picture; 60 again as soon as driving starts.",
+            @"At the 40 and 60 caps: 30 fps in menus, pause screens and loading, which redraw much "
+            @"the same picture; back as soon as driving starts.",
             @"false"},
            {@"heat_scale", Type::kSwitch, @"0.75x when hot",
             @"Native renderer: the render resolution drops to 0.75x while the phone is hot (iOS "
