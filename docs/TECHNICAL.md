@@ -7755,3 +7755,13 @@ minimum duration): the unevenness is upstream of presentation (when the
 frames are produced or committed at the 40 cap), not how they are scheduled.
 Not solved for 0.4.2; needs a per-frame diagnostic (CP swap time, commit,
 target, shown) at the 40 cap.
+
+Stefan (Oct 28): not in a rush; fix 40 fps before releasing. IPA126
+frame-trace diagnostic (cvar `nfsmw_native_frame_trace`, default TRUE in
+this build): per frame, CACurrentMediaTime at the renderer's swap (NativeSwap,
+after the cap wait), at the hand-over to Metal (present call), the GPU end
+(GPUEndTime) and shown (presentedTime). Every 60 shown frames: four lines of
+gaps between consecutive frames per stage and one line of per-frame
+latencies (swap->handed / handed->GPU end / GPU end->shown). RC6's 40-cap
+minimum-duration present still in. `ios/build/NFSMW-0.4.2-frame-trace-126.ipa`, 30120996 bytes, SHA-256 57071e301dc149af161a39356bd4b4da238901512d2deee65b04666a866e6bfe,
+UUID B208FD8F-3000-3DA0-BB17-DEEABA5C8587, codesign ok; iCloud Desktop copy. Not run on a device.

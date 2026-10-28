@@ -1222,7 +1222,18 @@ uint64_t frame_counter = 0;
 
 // Timing, logged every 300 native frames.
 std::atomic<uint64_t> record_ns{0}, render_us{0}, presented{0};
-std::atomic<double> recent_gpu_seconds{0};  // average GPU time per frame (paced presentation)
+std::atomic<double> recent_gpu_seconds{0};
+// Frame trace (Oct 28 diagnostic, 40 fps pacing): per frame, when the game's
+// swap reached the renderer (0), when the frame was handed to Metal (1), when
+// the GPU finished it (2) and when it was shown (3), in CACurrentMediaTime
+// seconds. Each 60 shown frames: the gaps between consecutive frames at each
+// stage, to see where the 16.7 / 25 / 33 ms cycle at the 40 cap starts.
+struct FrameTrace {
+  std::mutex m;
+  std::map<uint32_t, std::array<double, 4>> times;
+};
+FrameTrace frame_trace;
+void TraceFrame(uint32_t number, int stage, double t);  // average GPU time per frame (paced presentation)
 // For the hitch log (the renderer's queue only): this frame's texture uploads.
 uint32_t frame_uploads = 0, frame_new_buffers = 0;
 uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
@@ -7145,6 +7156,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               }
             }
           }
+          TraceFrame(number, 3, at);
           if (at <= 0) return;  // dropped, not shown
           const double before = last_shown.exchange(at);
           shown_at = at;
@@ -7191,6 +7203,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
         }];
         static double last_target = 0;
+        TraceFrame(number, 1, CACurrentMediaTime());
         if (paced && cap == 40) {
           // The 40 cap on a 120 Hz screen (0.4.2 RC6): RC4/RC5's own grid of
           // target times still came out 33 / 17 / 25 ms apart in turn on the
@@ -7241,6 +7254,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const size_t drawn_count = drawn;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
         (void)in_use;
+        TraceFrame(number, 2, done.GPUEndTime);
         if (done.error) {
           REXLOG_WARN("[native] GPU error: {}", done.error.localizedDescription.UTF8String);
         } else {
@@ -8052,6 +8066,43 @@ uint32_t content_draws = 0;
 // the camera's forward axis. Per frame: the angle it turned. Every 60 frames
 // of 3D scene: the mean, the spread, frames off their neighbours by over 25%,
 // and the 60 values. Cvar nfsmw_native_camera_log.
+REXCVAR_DEFINE_BOOL(nfsmw_native_frame_trace, true, "GPU",
+                    "Native renderer: log each frame's swap, hand-over, GPU end and shown times (diagnostic)");
+void TraceFrame(uint32_t number, int stage, double t) {
+  if (!REXCVAR_GET(nfsmw_native_frame_trace)) return;
+  std::lock_guard<std::mutex> lock(frame_trace.m);
+  auto& times = frame_trace.times;
+  times[number][size_t(stage)] = t;
+  if (stage != 3) return;
+  // Shown (or dropped, t <= 0): complete. Every 60 complete frames, the gaps.
+  static std::vector<std::array<double, 4>> done;
+  done.push_back(times[number]);
+  times.erase(times.begin(), times.upper_bound(number));
+  if (done.size() < 61) return;
+  static int lines = 400;
+  if (lines > 0) {
+    static const char* names[4] = {"swap", "handed", "gpu end", "shown"};
+    for (int k = 0; k < 4; ++k) {
+      std::string text;
+      for (size_t i = 1; i < done.size(); ++i) {
+        const double a = done[i - 1][size_t(k)], b = done[i][size_t(k)];
+        text += a > 0 && b > 0 ? fmt::format(" {:.1f}", (b - a) * 1000.0) : std::string(" -");
+      }
+      REXLOG_INFO("[frame-trace] {} gaps (ms):{}", names[k], text);
+      --lines;
+    }
+    std::string latency;
+    for (size_t i = 1; i < done.size(); ++i) {
+      const auto& f = done[i];
+      latency += f[0] > 0 && f[3] > 0 ? fmt::format(" {:.1f}/{:.1f}/{:.1f}", (f[1] - f[0]) * 1000.0,
+                                                    (f[2] - f[1]) * 1000.0, (f[3] - f[2]) * 1000.0)
+                                      : std::string(" -");
+    }
+    REXLOG_INFO("[frame-trace] per frame swap->handed / ->gpu end / ->shown (ms):{}", latency);
+    --lines;
+  }
+  done.erase(done.begin(), done.end() - 1);
+}
 REXCVAR_DEFINE_BOOL(nfsmw_native_camera_log, false, "GPU",
                     "Native renderer: log how much the game's camera turns each frame (diagnostic)");
 struct CameraVote {
@@ -8239,6 +8290,7 @@ bool NativeSwap() {
     } else {
       ++in_flight;
       const uint32_t number = ++dump_number;
+      TraceFrame(number, 0, CACurrentMediaTime());
       const bool dump = recording_dumps;
       static dispatch_queue_t queue = [] {
         const bool utility = NativeRenderUtility();
