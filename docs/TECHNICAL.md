@@ -7607,3 +7607,51 @@ locations judder-free; the test race's usual judder spot "buttery smooth";
 at new places in IPA121/122. fps lines: 23 of 27 windows 60.0, the rest
 57.6-59.9. First fix that removes the measured judder at new places. Next:
 iPhone test; then remove the failed experiments and decide defaults.
+
+IPA124 on the iPhone (Stefan, Oct 28 ~19:16; log
+`nfsmw_ipa124_possible_fix_iphone.log`): no judder driving or doing donuts at
+three spots that had it before; camera 0 pairs in 4080 frames; 60 fps (one
+30.1 window: loading). Stefan: ship it in 0.4.2 with the touch fix and UTF-16.
+
+### 0.4.2 cleanup (Oct 28)
+
+Kept: touch controls in the native frame (IPA111), UTF-16 extra_args.txt
+(IPA113), the even frame time (`tools/ios/patch_game_frame_ticks.py` +
+`ios/src/frame_clock.cpp`, cvar `nfsmw_frame_ticks` 2 default / 0 off; the
+remainder-carry mode 1 removed), the camera log and repeat log as off-by-
+default diagnostics (`nfsmw_native_camera_log`, `nfsmw_native_repeat_log`).
+Removed (reverted from the SDK / generated code, scripts deleted, results
+kept above): frame clock v1/v2/v3 (`patch_ios_frame_clock.py`, cvars
+nfsmw_frame_clock_ms/_swap/_hold), swap vsync (nfsmw_native_swap_vsync),
+main-loop pacing (nfsmw_frame_pace), render hand-off switch
+(`patch_game_render_handoff.py`), ISO read-ahead and read timing
+(`patch_ios_iso_readahead.py`), the frame-steps log. Version 0.4.2 (code 6).
+
+30 / 40 fps check (Stefan, Oct 28 19:25-19:29, iPhone, IPA124; log
+`nfsmw_ipa124_30_40_fps_tests.log`): no judder, even pacing, but at 40 fps
+"the mirror picture, the map rotation etc. seem much higher fps than the main
+game". Camera log at 40: per-frame turns alternate 2.26 / 4.52 deg (1 and 2
+world ticks) through whole seconds: the world steps in fixed 1/60 s ticks and
+a 25 ms frame is 1.5 ticks, so frames alternate 16.7 / 33.3 ms of world
+motion (a 30 fps-like cadence in a 40 fps picture), while the mirror and map
+follow the frame's real time. At 30: mostly 4.6 (2 ticks) with occasional
+6.9 / 2.3. Proposed: 120 Hz simulation (`nfsmw_sim_rate` 120, exactly 3 ticks
+per 25 ms frame) automatically at the 40 cap, as already at the 120 cap; to
+be tested (game speed at 120 Hz simulation was never checked).
+
+Battery mode (Stefan, Oct 28): keeps the frame rate cap at 30 or 40 as
+chosen (60 and 120 become 30), instead of forcing 30: launcher.mm Value()
+and the setting texts; `fps_cap` removed from BatteryValue (no longer
+greyed out). For 0.4.2.
+
+Power Profiler, iPhone 17 Pro Max, IPA124, 1x/60, test race (Oct 28 19:22,
+`ipa124_test_race_power_profile_iphone.trace`, 140.7 s, log
+`nfsmw_ipa124_test_race_power_profile_iphone.log`): not charging, brightness
+33%, thermal Nominal throughout. Duration-weighted: estimated system drain
+40.6 pp/h; LiveContainer CPU impact 8.88, GPU 1.75, display 0.67, CPU
+instructions ~2.97 G/s; log 59.6-60.0 fps, CPU 76-97% of a core. Oct 21
+iPhone baseline (549 s, brightness 47%, no Utility QoS): drain 37.6, CPU impact
+21.0, display 1.99, 9.85 G instr/s. CPU work is far lower now; the drain
+estimate is not comparable (140 s, race start and loading included, Power
+Profiler's estimate swings 22-62 per second here). A longer (10 min) run is
+needed for a drain figure.

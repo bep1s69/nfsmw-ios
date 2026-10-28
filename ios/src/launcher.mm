@@ -409,7 +409,8 @@ const std::vector<Section>& Sections() {
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
             @"they run the console's screen refresh at 120 Hz, which the game was not made "
-            @"for, so some things may run too fast.",
+            @"for, so some things may run too fast. With Battery mode: 30 or 40 (60 and 120 "
+            @"become 30).",
             @"60",
             {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
              {@"120 (experimental)", @"120"}}},
@@ -427,10 +428,10 @@ const std::vector<Section>& Sections() {
             @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
-            @"marked \"Set by Battery mode\" (0.85x, 30 fps, no MetalFX, FXAA, half-size shadows, car "
+            @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
             @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
-            @"menus and pause, 0.75x when hot). Each can also be chosen on its own with Battery "
-            @"mode off.",
+            @"menus and pause, 0.75x when hot) and keeps the frame rate cap at 30 or 40 (60 and 120 "
+            @"become 30). Each can also be chosen on its own with Battery mode off.",
             @"false"},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
@@ -687,7 +688,6 @@ bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"scale" : @"0.85",
-    @"fps_cap" : @"30",
     @"metalfx_mode" : @"off",
     @"antialiasing" : @"fxaa",
     @"anisotropic" : @"3",
@@ -711,6 +711,12 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
     return forced;
   }
   NSString* v = s[key];
+  // Battery mode keeps the cap at 30 or 40, as chosen (Stefan, Oct 28; it
+  // forced 30 before 0.4.2): 60 and 120 become 30.
+  if ([key isEqualToString:@"fps_cap"] && [s[@"battery_mode"] isEqualToString:@"true"] &&
+      On(s, @"native_renderer") && !([v isEqualToString:@"30"] || [v isEqualToString:@"40"])) {
+    return @"30";
+  }
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
     if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
     if ([v isEqualToString:@"1560x720"]) return @"wide";
