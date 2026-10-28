@@ -58,6 +58,9 @@
 REXCVAR_DEFINE_BOOL(ios_touch_auto_layout, true, "Input",
                     "Touch controls: the DRIVE layout while driving, the PAD layout in menus and pause "
                     "screens, switched by themselves");
+REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
+                    "Touch controls drawn into the game's frame with the native renderer. Off: a "
+                    "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
 
 extern "C" void NativeRequestDump();  // native_renderer.mm
 
@@ -201,6 +204,14 @@ struct Control {
   BOOL _editing;
   int _selected;
   CGPoint _grab;  // the finger's offset from the selected control's centre
+  // Drawn into the native frame (ios_touch_native, IPA111): the picture kept
+  // here, redrawn where it changed, at most once per run loop turn.
+  BOOL _nativeMode;
+  BOOL _drawingNative;
+  BOOL _nativeQueued;
+  CGRect _nativeDirty;
+  std::vector<uint8_t> _nativePixels;
+  int _nativeW, _nativeH;
 }
 
 // The player's layout (NSUserDefaults, set in the editor): per control
@@ -241,6 +252,20 @@ static CGFloat TouchOpacity() {
     // The drawing is recorded here and rasterized on Core Animation's own
     // thread, not on the main thread (~10 ms a second while driving).
     self.layer.drawsAsynchronously = YES;
+    _nativeDirty = CGRectNull;
+    // Native drawing starts and stops with the native layer (checked twice a
+    // second, as the FPS counter does).
+    __weak NFSTouchView* weak = self;
+    [NSTimer scheduledTimerWithTimeInterval:0.5
+                                    repeats:YES
+                                      block:^(NSTimer* timer) {
+                                        NFSTouchView* view = weak;
+                                        if (!view) {
+                                          [timer invalidate];
+                                          return;
+                                        }
+                                        [view syncNativeMode];
+                                      }];
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
            selector:@selector(controllerConnected:)
@@ -726,7 +751,102 @@ static CGFloat TouchOpacity() {
       withAttributes:attrs];
 }
 
+// With the native renderer the controls are drawn into the game's frame: a
+// redraw of this view's layer delayed the game's frame of that refresh by one
+// refresh (33 ms spikes while steering, Oct 28 donut traces), as the FPS
+// label did (IPA86-88). The view stays for the touches; its own layer is left
+// empty and untouched.
+- (BOOL)wantsNative {
+  static const bool on = rex::cvar::Query<bool>("ios_touch_native");
+  return on && !_editing && nfsmw_native_overlay_active();
+}
+
+- (void)syncNativeMode {
+  const BOOL want = [self wantsNative];
+  if (want == _nativeMode) return;
+  _nativeMode = want;
+  REXLOG_INFO("[touch] drawn {}", want ? "into the native frame" : "by UIKit");
+  if (want) {
+    _nativePixels.clear();  // a full picture first
+    [self queueNative:self.bounds];
+  } else {
+    nfsmw_native_set_touch_overlay(nullptr, 0, 0, 0, 0, 0, 0);
+  }
+  [super setNeedsDisplay];  // the layer: emptied, or drawn again
+}
+
+- (void)setNeedsDisplay {
+  [self setNeedsDisplayInRect:self.bounds];
+}
+
+- (void)setNeedsDisplayInRect:(CGRect)rect {
+  if (_nativeMode != [self wantsNative]) [self syncNativeMode];
+  if (_nativeMode) {
+    [self queueNative:rect];
+    return;
+  }
+  [super setNeedsDisplayInRect:rect];
+}
+
+- (void)queueNative:(CGRect)rect {
+  _nativeDirty = CGRectUnion(_nativeDirty, rect);
+  if (_nativeQueued) return;
+  _nativeQueued = YES;
+  __weak NFSTouchView* weak = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [weak drawNative];
+  });
+}
+
+- (void)drawNative {
+  _nativeQueued = NO;
+  CGRect dirty = _nativeDirty;
+  _nativeDirty = CGRectNull;
+  if (!_nativeMode) return;
+  const CGRect bounds = self.bounds;
+  const CGFloat scale = UIScreen.mainScreen.scale;
+  const int w = int(std::ceil(bounds.size.width * scale)), h = int(std::ceil(bounds.size.height * scale));
+  if (w <= 0 || h <= 0) return;
+  if (int(_nativePixels.size()) != w * h * 4 || _nativeW != w || _nativeH != h) {
+    _nativePixels.assign(size_t(w) * size_t(h) * 4, 0);
+    _nativeW = w;
+    _nativeH = h;
+    dirty = bounds;
+  }
+  dirty = CGRectIntersection(dirty, bounds);
+  if (CGRectIsEmpty(dirty)) return;
+  // Whole pixels around the rectangle, then back to points.
+  const int px = int(std::floor(dirty.origin.x * scale)), py = int(std::floor(dirty.origin.y * scale));
+  const int pw = std::min(w, int(std::ceil(CGRectGetMaxX(dirty) * scale))) - px;
+  const int ph = std::min(h, int(std::ceil(CGRectGetMaxY(dirty) * scale))) - py;
+  if (pw <= 0 || ph <= 0) return;
+  dirty = CGRectMake(px / scale, py / scale, pw / scale, ph / scale);
+  CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+  CGContextRef context =
+      CGBitmapContextCreate(_nativePixels.data(), size_t(w), size_t(h), 8, size_t(w) * 4, space,
+                            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);  // BGRA
+  CGColorSpaceRelease(space);
+  if (!context) return;
+  // UIKit's top-left origin, in points.
+  CGContextTranslateCTM(context, 0, h);
+  CGContextScaleCTM(context, scale, -scale);
+  CGContextClearRect(context, dirty);
+  CGContextClipToRect(context, dirty);
+  // The view's opacity, which its layer would have applied.
+  CGContextSetAlpha(context, self.alpha);
+  CGContextBeginTransparencyLayer(context, nullptr);
+  UIGraphicsPushContext(context);
+  _drawingNative = YES;
+  [self drawRect:dirty];
+  _drawingNative = NO;
+  UIGraphicsPopContext();
+  CGContextEndTransparencyLayer(context);
+  CGContextRelease(context);
+  nfsmw_native_set_touch_overlay(_nativePixels.data(), w, h, px, py, pw, ph);
+}
+
 - (void)drawRect:(CGRect)dirty {
+  if (_nativeMode && !_drawingNative) return;  // drawn into the native frame instead
   UIColor* fill = [UIColor colorWithWhite:0.05 alpha:0.40];
   UIColor* pressed = [UIColor colorWithRed:0.44 green:0.45 blue:0.20 alpha:0.75];
   UIColor* stroke = [UIColor colorWithWhite:1 alpha:0.55];
