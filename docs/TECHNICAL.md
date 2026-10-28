@@ -7877,3 +7877,25 @@ was never run before. Built `ios/build/NFSMW-legacy-records-132.ipa`, UUID
 06F495E4-2656-365D-B1BD-F177AE237DCE, SHA256 564f2a4d0787ef71..., ZIP test OK,
 208 metallibs. To test: the issue 8 save loads; a toggle-off career still
 loads (log shows byte = 0).
+
+IPA132 result (Stefan, iPad, Oct 28): BEPPY loads; NAME still "damaged" although
+the log shows `13 entries past 75 ... byte 82A2CE05 = 1` at its open, before
+the load. Stefan's device has no `save_extras/NAME.pool` (no "wait" line for
+NAME). A copy of NAME with the 13 slots >= 75 cleared (free slot pattern) and
+the header recomputed, imported, is also "damaged". Offline checks of NAME, all
+pass: header size, three CRC32s, trailing MD5, the gameplay section's own MD5
+(0x34) and its structure (8 persistent activities, timers, types, milestones,
+traps, hiding bits, bin bytes as `save_convert.cpp` parses them). So CE05 alone
+and the missing overflow alone are not the cause (negative results).
+
+### October 28: IPA133 save loader probe (temporary, D-010)
+
+The career loader `sub_822C3A60(profile, buffer, size, r6, mode)` fails (r3 =
+0) in two places: the word after the gameplay section (mode 0: where
+`sub_822C2998` stopped; else buffer+16+23033) differs from word +8 of the
+object at `0x82A2C684`, or `sub_822C3718` returns 0. `ios/src/game_load_probe.cpp`
+wraps the three and logs `[load-probe]` lines (inputs, the compared words,
+results). IPA132's CE05 change is still in. Built
+`ios/build/NFSMW-load-probe-133.ipa`, UUID 4EE16A65-4732-3F06-960F-15BC4CAA9596,
+SHA256 8907165e892d19a9..., ZIP test OK, 208 metallibs. Test: load NAME and
+BEPPY, send the log.
