@@ -7453,3 +7453,8 @@ same way (a value 1-10 deg followed by <0.05): IPA117 113 pairs in 960
 frames, IPA118 197 in 900, IPA120 6 in 2400 (isolated zeros 117 / 206 / 4).
 The measured judder dropped ~40x in this run, but the change cannot explain
 it; needs an A/B with `--nfsmw_frame_ticks=0` in the same conditions.
+IPA120 on the iPhone (Oct 28 ~16:19; log
+`Debug/28 October 2026/nfsmw_ipa120_camera_iphone.log`, mode 1): Stefan:
+better than before. Camera: 94 pairs in 3420 frames (2.7%), isolated zeros
+113. No iPhone camera log before IPA120 to compare with (iPad IPA117/118:
+12-22%).
