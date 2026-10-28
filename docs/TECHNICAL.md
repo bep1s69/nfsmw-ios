@@ -7700,3 +7700,18 @@ Release candidate 3: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30116322 bytes,
 SHA-256 b8618590cb2770ed3fcad7b884f5d73ba35443228801c6ce96ec1632199f2960, UUID
 D78B1872-D3E4-3516-95D1-7196DF28628D, 208 metallibs, `unzip -t` ok, codesign
 --deep --strict ok. Not run on a device.
+
+40 fps presentation fix (Stefan, Oct 28: before the final 0.4.2 tests):
+native_renderer.mm paced presentation (caps below the display rate, e.g.
+40 on 120 Hz) now keeps a fixed grid: each frame's target is the previous
+target + one interval, moved on by whole intervals until it is at least the
+recent GPU time (EMA of the frame GPU time, `recent_gpu_seconds`) + 4 ms
+from now; restart from the last shown frame only when the previous target is
+more than 4 intervals away. Before, the grid restarted from the last frame
+actually shown each time, and frames finishing near their target were shown
+16.7 / 25 / 33 ms apart (~200 of 300 off the grid at 40 on the iPhone). Cost:
+up to one interval of extra latency when frames cannot make the next slot.
+Release candidate 4: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117907 bytes,
+SHA-256 83c4a791fd8890ed12629517e49ef346bc0addf3314c0aaafabeafd47f75a3c8, UUID 62DD5A51-C3B3-3292-A332-492D65743636, 208 metallibs, `unzip -t` ok, codesign --deep --strict
+ok. Not run on a device. Test: 40 cap (and 30) on the iPhone; pacing lines
+should read mostly `3:` (40) / `4:` (30) and few off the grid.
