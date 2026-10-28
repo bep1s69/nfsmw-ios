@@ -7918,3 +7918,16 @@ The IPA132 CE05 change is reverted (game_pool.cpp as at 7af8dc0). Built
 SHA256 296129a8f4c39cca..., ZIP test OK, 208 metallibs. To test: NAME loads
 (cars visible; without its .pool the 13 overflow records may be empty), saves,
 reloads; BEPPY unchanged.
+
+IPA134 result (Stefan, Oct 28): `[save-id] career saved with player ID
+2C9B8528, this device has 55ADA3B6: loaded with the device's ID -> 0`: the
+rerun after the failed load also fails (the first pass probably changes the
+buffer or the profile). Negative result.
+
+### October 28: IPA135 replace the ID before the loader runs (D-010)
+
+`game_save_id.cpp` now writes the device's ID at buffer+16+23033 (the
+gameplay read was 23033 bytes for NAME and BEPPY) before the only call of
+`sub_822C3A60`, and logs `sub_822C3718`'s result (temporary). Built
+`ios/build/NFSMW-save-id-135.ipa`, UUID D321BE83-F4A8-3DE4-A087-89608083B2DF,
+SHA256 b187ec7a818b06d1..., ZIP test OK, 208 metallibs.
