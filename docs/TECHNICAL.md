@@ -7283,3 +7283,12 @@ switched 48 -> 60 Hz when it started) or only happen on the iPhone is open.
 Remaining explanation: uneven motion between distinct frames (content), or
 perception. Next: a motion-per-frame measurement from a recording (the
 first script's shift estimate failed; needs a 2D estimate).
+
+IPA115 on the iPhone (Oct 28 ~14:55-14:58; log
+`Debug/28 October 2026/nfsmw_ipa115_stutters_iphone.log`): Stefan saw the
+judder. 0 repeated pictures in 20 of 21 windows; one burst of 4 at
+14:57:02.82-.87 (frames 1690-1693, 12-17 ms apart, final resolve alternating
+09222000 / 08DBB000). Same as the iPad: the judder comes with new pictures on
+time. So the screen recording's every-other-frame repeats (14:37) were most
+likely made by the recorder (the display went 48 -> 60 Hz when it started),
+not by the game. Remaining: uneven motion between distinct frames.
