@@ -7204,15 +7204,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }];
         static double last_target = 0;
         TraceFrame(number, 1, CACurrentMediaTime());
-        if (paced && cap == 40) {
-          // The 40 cap on a 120 Hz screen (0.4.2 RC6): RC4/RC5's own grid of
-          // target times still came out 33 / 17 / 25 ms apart in turn on the
-          // iPhone (Oct 28 logs). Here the system keeps each frame on screen
-          // at least 21 ms after the one before, i.e. three refreshes (25 ms):
-          // Apple's frame pacing for rates that divide the refresh rate.
-          last_target = 0;
-          [cb presentDrawable:drawable afterMinimumDuration:interval - 0.004];
-        } else if (paced) {
+        if (paced) {
           // A fixed grid (0.4.2): each frame takes the first slot after the
           // previous frame's that it can make, i.e. at least its GPU time
           // (recent average) plus 4 ms from now. The grid used to restart from
@@ -7221,10 +7213,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // ~200 of 300 off the grid); a frame that cannot make its slot now
           // shifts the grid by whole slots and keeps it.
           const double now = CACurrentMediaTime(), base = shown_at.load();
-          // RC4 (average GPU time + 4 ms) still missed one slot in three by a
-          // refresh at the 40 cap (gaps 33 / 17 / 25 ms in turn): the recent
-          // longest GPU time and one 120 Hz refresh more for the compositor.
-          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.0125;
+          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.004;
           double target;
           if (last_target > 0 && last_target > now - 4.0 * interval && last_target < now + 4.0 * interval) {
             target = last_target + interval;
@@ -7281,10 +7270,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           if (gpu_ms > 45.0) ++gpu_slow_frames;
-          {  // the recent longest GPU time (decaying), for the paced frames' slots
+          {  // the recent GPU time, for the paced frames' slots
             const double was = recent_gpu_seconds.load(std::memory_order_relaxed);
             const double now_s = std::min(gpu_ms, 50.0) / 1000.0;
-            recent_gpu_seconds.store(std::max(now_s, was * 0.98), std::memory_order_relaxed);
+            recent_gpu_seconds.store(was > 0 ? was + (now_s - was) * 0.1 : now_s, std::memory_order_relaxed);
           }
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
@@ -8074,7 +8063,7 @@ void TraceFrame(uint32_t number, int stage, double t) {
   static bool said = false;
   if (!said) {
     said = true;
-    REXLOG_INFO("[frame-trace] on (IPA128): per-frame swap / hand-over / GPU end / shown times");
+    REXLOG_INFO("[frame-trace] on (IPA129): per-frame swap / hand-over / GPU end / shown times");
   }
   auto& times = frame_trace.times;
   times[number][size_t(stage)] = t;
