@@ -7686,3 +7686,17 @@ perfect"). Camera log off in the release build. Pacing at 40: ~200 of 300 off
 the 25 ms grid, refresh gaps 2/3/4 in about equal parts, the same as IPA124:
 presentation at the 40 cap is uneven (pre-existing, BACKLOG). Minimap position
 bug reported (BACKLOG).
+
+Custom HUD master switch (Stefan, Oct 28, for 0.4.2): launcher key
+`hud_custom` (switch "Custom HUD", default off) at the top of the HUD section
+and in the in-game options. While off, Value() returns the game's values for
+hud_scale / hud_safe_zone / hud_left_x/_y / hud_right_x/_y / hud_race_x/_y
+(1.00, 1.00, 0...), so the launcher passes those and the in-game menu applies
+them live; the rows are greyed out ("Turn on Custom HUD to change.", new
+`HudLocked`); saved choices are kept for when it is on. Whether this avoids
+the minimap bug is not known (the bug may also happen at the game's values:
+the wide-scene HUD offset is not part of this switch).
+Release candidate 3: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30116322 bytes,
+SHA-256 b8618590cb2770ed3fcad7b884f5d73ba35443228801c6ce96ec1632199f2960, UUID
+D78B1872-D3E4-3516-95D1-7196DF28628D, 208 metallibs, `unzip -t` ok, codesign
+--deep --strict ok. Not run on a device.

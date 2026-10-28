@@ -48,6 +48,8 @@ void WriteSettings(const std::filesystem::path& documents, NSDictionary<NSString
 NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* key);
 // Battery mode is on and sets this one.
 bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key);
+// A HUD size/position setting while Custom HUD is off (the game's value used).
+bool HudLocked(NSDictionary<NSString*, NSString*>* settings, NSString* key);
 // The game's arguments for these settings (as SettingsArguments).
 std::vector<std::string> ArgumentsFor(NSDictionary<NSString*, NSString*>* settings);
 #endif
