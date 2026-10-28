@@ -7385,3 +7385,25 @@ log and read-ahead still on.
 ok, codesign ok. Not run on a device. Test: extra_args.txt
 `--nfsmw_frame_clock_swap=true` and `--nfsmw_frame_clock_hold=true`, donuts;
 the camera lines should show no 2x/0 pairs.
+
+IPA118 result (Stefan, Oct 28 15:26, iPad, frame clock swap + hold on; log
+`Debug/28 October 2026/nfsmw_ipa118_camera_ipad.log`): still the 30 fps
+feeling; camera lines still full of 2x/0 pairs (163 pairs of 3-9 deg then
+~0 in 18 lines, e.g. 15:26:28 four-plus seconds of 4.4/0). v2 reported 300
+of 300 swaps one period. So the camera's steps do not come from the main
+loop/swap threads' clock reads. New explanation (inference): the world and
+camera update on the guest vblank (display-locked), while the game's drawing
+loop runs at its own ~60 (paced only by our in-flight limit, the swap
+returning at once); two unlocked 60 Hz loops drift, and when they line up
+badly a frame draws the camera state the previous frame drew, the next one
+a state two vblanks on.
+
+IPA119: `nfsmw_native_swap_vsync` (default false): NativeSwap returns 0.5
+ms after the display refresh at or after the swap (the 360's swap waits for
+the vblank), keeping the drawing loop in step with the vblank. Logs
+`[native] swap vsync on`. Camera log, read-ahead stay on.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: extra_args.txt only
+`--nfsmw_native_swap_vsync=true`; donuts; camera lines should show no 2x/0
+pairs. Risk: a frame over 16.7 ms waits to the next refresh (33 ms), as on
+the 360.

@@ -71,6 +71,8 @@
 
 #include "battery.h"
 #include "native_renderer.h"
+#include "display_rate.h"
+#include <mach/mach_time.h>
 #include "memory_report.h"
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
@@ -8029,6 +8031,16 @@ uint32_t content_draws = 0;
 // the camera's forward axis. Per frame: the angle it turned. Every 60 frames
 // of 3D scene: the mean, the spread, frames off their neighbours by over 25%,
 // and the 60 values. Cvar nfsmw_native_camera_log.
+// The swap waits for the next display refresh, as the 360's does (Oct 28):
+// the camera log (IPA117/118) shows the game's camera stepping 2x, 0, 2x, 0
+// in stretches even with an exact clock: the world updates on the vblank
+// and the game's drawing loop ran at its own ~60, the two drifting against
+// each other, so a frame sometimes drew the same camera state as the one
+// before and the next skipped one. Waiting here keeps the drawing loop in
+// step with the vblank.
+REXCVAR_DEFINE_BOOL(nfsmw_native_swap_vsync, false, "GPU",
+                    "Native renderer: the game's swap returns just after the next display refresh "
+                    "(as on the 360), keeping its drawing in step with its vblank");
 REXCVAR_DEFINE_BOOL(nfsmw_native_camera_log, true, "GPU",
                     "Native renderer: log how much the game's camera turns each frame (diagnostic)");
 struct CameraVote {
@@ -8255,6 +8267,25 @@ bool NativeSwap() {
       os_sync_wait_on_address_with_timeout(
           &frames_left, before, sizeof(uint32_t), OS_SYNC_WAIT_ON_ADDRESS_NONE, OS_CLOCK_MACH_ABSOLUTE_TIME,
           uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(left).count()));
+    }
+  }
+  if (REXCVAR_GET(nfsmw_native_swap_vsync)) {
+    uint64_t vblank_ns = 0, period_ns = 0;
+    nfsmw::display::LatestVblank(vblank_ns, period_ns);
+    static const mach_timebase_info_data_t tb = [] {
+      mach_timebase_info_data_t t{};
+      mach_timebase_info(&t);
+      return t;
+    }();
+    const uint64_t now_ns = mach_absolute_time() * tb.numer / tb.denom;
+    if (vblank_ns && period_ns && now_ns >= vblank_ns && now_ns - vblank_ns < 250000000ull) {
+      static int said = 0;
+      if (!said++) REXLOG_INFO("[native] swap vsync on: the swap returns just after the next refresh ({:.2f} ms)",
+                               period_ns / 1e6);
+      // Just after the next refresh: the vblank thread has marked it by then.
+      const uint64_t latest = vblank_ns + ((now_ns - vblank_ns) / period_ns) * period_ns;
+      const uint64_t next = latest + 500000 > now_ns ? latest + 500000 : latest + period_ns + 500000;
+      mach_wait_until((next * tb.denom) / tb.numer);
     }
   }
   last_swap = std::chrono::steady_clock::now();
