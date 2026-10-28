@@ -7536,3 +7536,14 @@ single-threaded draw, or something else). Camera log and read-ahead on.
 `ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
 , codesign . Not run on a device. Test: extra_args
 `--nfsmw_render_single_thread=true`; check the picture, fps and camera pairs.
+
+IPA121 result (Stefan, Oct 28 18:54-18:55, iPad, extra_args
+`--nfsmw_render_single_thread=true`; log `nfsmw_ipa121_judder_ipad.log`):
+picture and 60 fps fine; "still juddered like crazy" at a new location (end
+of the log). Camera: 18:55:06-19 10-18 pairs per second (2.2 2.2 4.4 0.0 ...),
+pacing 0-1 of 300 off. No `[render-handoff]` line at all: the switch's
+function is only called when the state-6 test passes, so in this run
+gameplay frames never took the hand-off path (sub_82441EF0); the hypothesis
+"render thread reads the next frame's camera" is not what happens here (the
+hand-off is not used, or not in this state). Note: judder strongest at a
+place visited for the first time.
