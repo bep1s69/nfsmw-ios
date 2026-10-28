@@ -139,6 +139,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   ships, the Black Edition save fix (thread "Repair saves damaged by Black
   Edition change", same branch) is added and tested. Next: RC7 checks, then
   that fix, then merge/tag/publish on Stefan's go.
+  Oct 28, Black Edition save fix (GitHub issue 8, BACKLOG D-010): IPA132
+  `ios/build/NFSMW-legacy-records-132.ipa` sets byte 0x82A2CE05 again when
+  a career whose save uses record entries past 75 is opened. Next: Stefan
+  tests the issue 8 save and a toggle-off career on it.
 
 - **October 27: 0.4.1 released to GitHub (Stefan: "push it", iOS 18 marked
   experimental).** `release-0.4.1` fast-forwarded into `main`, tagged

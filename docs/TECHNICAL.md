@@ -7854,3 +7854,26 @@ display link 120-120 Hz at the 40 cap kept; menu/warm 30 at the 40 cap kept;
 frame trace kept as a diagnostic, default off. `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30121346 bytes,
 SHA-256 2ba5875914bbe2b4ca4d6345e0be7f310f97121485ac05c733458595abde1496, UUID 5B410821-DFE9-321E-9B90-3326194FC25C, 208 metallibs, codesign --deep --strict ok; iCloud
 Desktop as NFS-Most-Wanted-0.4.2-rc7.ipa. Not run on a device.
+
+### October 28: IPA132 careers from the old Black Edition switch (GitHub issue 8)
+
+Report: 0.4.0/0.4.1 show "NAME appears to be damaged and cannot be used" for a
+career (user's `data.zip`; Stefan reproduced it with the same save). Not file
+corruption: the MC02 header size, the three EA CRC32s and the trailing MD5 all
+match. The first record table (file offset 0x5BCD, slot 0 = 0x12345678) has 88
+slots in use with pool indices up to 85, 13 of them >= 75; Stefan's toggle-off
+`MF` save uses 44, max 43. Cause (inferred from code): the pre-0.4 switch set
+byte 0x82A2CE05 (see D-007); in `sub_822CBC00`'s loop, at 0x822CBD68
+(`lbz r4,-12795`), CE05 != 0 makes it create an extra record
+(`bl sub_822CB458`). 0.4 never sets CE05, so those records are missing when
+the career loads. Fix, `ios/src/game_pool.cpp`: when the game opens a save
+(save hook, Open), count slots with an index >= 75 in the file
+(`Documents/data/*/454107D9/00000001/<name>/<name>`); set CE05 = 1 if any,
+else 0, and log `[pool] save '...': N entries past 75 (old Black Edition
+switch); byte 82A2CE05 = 0|1`. CE06 (Black Edition) is untouched. Untested
+assumption: the records are built after the save is opened (if they are built
+at boot, the byte comes too late and the error stays). Both bytes on together
+was never run before. Built `ios/build/NFSMW-legacy-records-132.ipa`, UUID
+06F495E4-2656-365D-B1BD-F177AE237DCE, SHA256 564f2a4d0787ef71..., ZIP test OK,
+208 metallibs. To test: the issue 8 save loads; a toggle-off career still
+loads (log shows byte = 0).

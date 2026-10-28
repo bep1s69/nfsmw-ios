@@ -270,6 +270,12 @@ Requested on GitHub. Deployment target 18.0 (`ios/CMakePresets.json`),
 shader libraries built for 18.0 (`tools/native/build_shaders.sh` default).
 No device below iOS 27 available to Stefan: testing depends on the GitHub
 users who asked. README still says iOS 26: change it at release.
+### D-010 "Appears to be damaged" for careers started with the old Black Edition switch (GitHub issue 8) — fix in IPA132, to test
+
+The save is intact (checksums match) but uses record pool entries past 75,
+created only when byte 0x82A2CE05 was set by the pre-0.4 switch. IPA132 sets
+CE05 again while such a career is opened. Details: TECHNICAL, October 28.
+
 ### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 
 Stefan, Oct 27: when the only difference between the iPad and iPhone saves is a

@@ -42,6 +42,7 @@
 // saved ones is used (the save's data has been loaded into it), the saved
 // overflow is put back.
 
+#include <dirent.h>
 #include <sys/stat.h>
 
 #include <atomic>
@@ -171,6 +172,64 @@ std::string SidecarPath(const char* name) {
   return dir + "/" + file + ".pool";
 }
 
+// --- Careers from the old Black Edition switch ---------------------------
+//
+// Before 0.4 the Black Edition switch set the game option byte 0x82A2CE05
+// instead of 0x82A2CE06. CE05 makes the record loader (sub_822CBC00, at
+// 0x822CBD68) create extra records, so careers started with it on have more
+// than 75 entries in use. Without CE05 those records are not created and the
+// game says the career "appears to be damaged" (GitHub issue 8). So CE05 is
+// set again while such a career is opened, and cleared for any other.
+
+constexpr uint32_t kLegacyRecordsFlag = 0x82A2CE05u;
+constexpr size_t kSaveTableOffset = 0x5BCD;  // the first table in the save file
+constexpr uint32_t kSlotMagic = 0x12345678u;  // its first slot
+
+// Entries past the original 75 in use in the save file `name`, or -1 if the
+// file was not found or does not look like a career.
+int LegacyEntriesInSave(const char* name) {
+  const char* home = getenv("HOME");
+  const std::string data = std::string(home ? home : ".") + "/Documents/data";
+  DIR* users = opendir(data.c_str());
+  if (!users) {
+    return -1;
+  }
+  std::vector<uint8_t> b;
+  while (dirent* u = readdir(users)) {
+    if (u->d_name[0] == '.') continue;
+    const std::string path = data + "/" + u->d_name + "/454107D9/00000001/" + name + "/" + name;
+    if (FILE* f = fopen(path.c_str(), "rb")) {
+      b.resize(kSaveTableOffset + kSlotBytes);
+      const size_t got = fread(b.data(), 1, b.size(), f);
+      fclose(f);
+      if (got != b.size()) b.clear();
+      break;
+    }
+  }
+  closedir(users);
+  if (b.size() < 4 || memcmp(b.data(), "MC02", 4) != 0) {
+    return -1;
+  }
+  const uint8_t* t = &b[kSaveTableOffset];
+  if ((uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | t[3]) != kSlotMagic) {
+    return -1;
+  }
+  int legacy = 0;
+  for (uint32_t i = 0; i < kSlots; ++i) {
+    const uint8_t index = t[i * kSlotSize + 16];
+    if (index != 0xFF && index >= kPoolOriginal) ++legacy;
+  }
+  return legacy;
+}
+
+void SetLegacyRecords(const char* name) {
+  const int legacy = LegacyEntriesInSave(name);
+  const uint8_t on = legacy > 0 ? 1 : 0;
+  *Guest(kLegacyRecordsFlag) = on;
+  REXLOG_INFO("[pool] save '{}': {} entries past {} (old Black Edition switch); byte {:08X} = {}",
+              name, legacy, kPoolOriginal, kLegacyRecordsFlag, on);
+}
+
 // The game created a save (to write it): every table's slots and overflow.
 // Opened one (to read it): its file kept aside until its data is loaded.
 void OnSaveEvent(const char* name, bool created) {
@@ -208,6 +267,7 @@ void OnSaveEvent(const char* name, bool created) {
     }
     return;
   }
+  SetLegacyRecords(name);
   FILE* f = fopen(path.c_str(), "rb");
   if (!f) {
     return;  // saved before this, or with nothing outside
