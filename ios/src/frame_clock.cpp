@@ -269,3 +269,21 @@ extern "C" double nfsmw_frame_ticks(double ticks, double seconds, double rate, d
   return out;
 }
 
+// The render hand-off (tools/ios/patch_game_render_handoff.py): in gameplay
+// the game hands each frame to its render thread, which draws it while the
+// main loop already updates the next one. With this on, gameplay frames take
+// the game's own single-threaded path (drawn on the main loop thread), so the
+// drawing cannot see the next frame's camera. Read once (restart required).
+REXCVAR_DEFINE_BOOL(nfsmw_render_single_thread, false, "Game",
+                    "Experimental: gameplay frames drawn on the game's main loop thread instead of "
+                    "handed to its render thread (restart required)");
+extern "C" bool nfsmw_render_single_thread() {
+  static const bool on = [] {
+    const bool v = REXCVAR_GET(nfsmw_render_single_thread);
+    REXLOG_INFO("[render-handoff] gameplay frames {}", v ? "drawn on the main loop thread (single-threaded)"
+                                                          : "handed to the render thread (the game's)");
+    return v;
+  }();
+  return on;
+}
+

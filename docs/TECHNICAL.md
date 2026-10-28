@@ -7513,3 +7513,26 @@ and RenderFrame on the render queue. Constants arrive as type-0 register
 writes copied into the ring by the game (Oct 22 census: no LOAD_ALU_CONSTANT
 traffic listed), so the CP cannot read a newer camera than the game wrote:
 the step-ahead pattern is in what the game itself emitted.
+
+Render hand-off found (Oct 28, from the trace's stacks): the main loop thread
+(XThread9793, entry sub_8284FE40) spends its idle time in sub_823B0008 >
+sub_823AFE20 > sub_823AFC68 > sub_82441050 > sub_82441DB0 > Sleep(0) (100 us
+sleeps, KeDelayExecutionThread): waiting for the render state 0x82A2CF40 to
+leave 1. sub_82441050 picks the frame's drawing path: if [0x82912F50+32] == 6
+(and 0x82A2D1B4 == 0), flag 0x828FBB50 = 1 and sub_82441EF0 sets state 1 and
+hands the frame to the render thread (Main XThread, entry sub_82593A58, busy
+most of the time), and the main loop goes on to update the next frame while
+it is drawn; otherwise sub_82441E70 (no hand-off). Hypothesis: the render
+thread reads camera data that the main loop is already updating for the next
+frame, so the drawn camera is one update ahead for 1-3 frames whenever the
+two threads' timing lines up that way (varies with load, warm-up, cores).
+
+IPA121: `tools/ios/patch_game_render_handoff.py` (generated code; also in
+generate_code.py) and cvar `nfsmw_render_single_thread` (default false,
+read once, logs `[render-handoff] gameplay frames ...`): the state-6 test
+in sub_82441050 fails, so gameplay frames take the sub_82441E70 path.
+Unknown whether that path draws gameplay correctly (it may be the
+single-threaded draw, or something else). Camera log and read-ahead on.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: extra_args
+`--nfsmw_render_single_thread=true`; check the picture, fps and camera pairs.
