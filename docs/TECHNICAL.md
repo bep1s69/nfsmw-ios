@@ -7597,3 +7597,13 @@ world should advance one refresh per frame.
 , codesign . Not run on a device. Test: empty extra_args; new location,
 donuts; camera pairs should vanish, fps unchanged. Off:
 `--nfsmw_frame_ticks=0`.
+
+IPA124 result (Stefan, Oct 28 ~19:10-19:14, iPad, no extra args; log
+`Debug/28 October 2026/nfsmw_ipa124_possible_fix_ipad.log`): "a bit of
+judder" once ~15 s after leaving the safehouse; donuts at several new
+locations judder-free; the test race's usual judder spot "buttery smooth";
+60 fps throughout. Camera log: 3 pairs in 6120 frames (0.05%; 19:12:13,
+:14, :36), versus 113-197 per ~900 frames in IPA117/118 and 10-18 per second
+at new places in IPA121/122. fps lines: 23 of 27 windows 60.0, the rest
+57.6-59.9. First fix that removes the measured judder at new places. Next:
+iPhone test; then remove the failed experiments and decide defaults.

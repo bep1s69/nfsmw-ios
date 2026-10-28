@@ -136,7 +136,13 @@ fixed by: exact per-frame clock (IPA112-114, 118), swap waiting for the
 vblank (IPA119: halves the fps), tick remainder carry (IPA120, A/B no
 effect), ISO read-ahead (IPA116). Rate depends on the session's warm-up
 (12-22% of frames right after a device restart, ~0% an hour later). Next:
-find which thread updates the camera vs which draws it (ordering race?). Also open: a sharp counter on its
+find which thread updates the camera vs which draws it (ordering race?).
+IPA122 found the cause: the game's main loop runs frames of 13.5/19.5 ms
+alternating and 30-45 ms stalls with quick catch-up frames (paced by GPU
+queue back-pressure), and the world steps by those times while the screen
+shows one frame per refresh. IPA124 (`nfsmw_frame_ticks` 2, default) gives the
+world one display period per frame: iPad camera judder 0.05% of frames, Stefan
+"buttery smooth". Pending: iPhone test, cleanup, release. Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
 ### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open
