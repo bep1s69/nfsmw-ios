@@ -237,8 +237,27 @@ void OnSaveEvent(const char* name, bool created) {
   }
 }
 
+// Whether `table` holds the save's data: every slot of it that points into the
+// overflow is the saved one, and there is at least one. Not the whole table:
+// the side file is written when the game creates the save file, and a career
+// can differ from it in a slot outside the overflow (GitHub issue 8: one
+// record more in the side file than in the save), which kept it from being
+// put back at all.
+bool HoldsSave(uint32_t table, const std::vector<uint8_t>& slots) {
+  const uint8_t* now = Guest(table);
+  int overflow = 0;
+  for (uint32_t i = 0; i < kSlots; ++i) {
+    const uint8_t index = now[i * kSlotSize + 16];
+    if (index == 0xFF || index < kPoolOriginal || index >= kPoolTotal) continue;
+    if (memcmp(now + i * kSlotSize, slots.data() + i * kSlotSize, kSlotSize) != 0) return false;
+    ++overflow;
+  }
+  return overflow > 0;
+}
+
 // The overflow of `table` from the save opened last, once its slots are the
 // saved ones (the save's data is in it). Before any use of the overflow.
+// Entries no slot of the table points to are left free.
 void RestoreIfLoaded(uint32_t table) {
   if (!g_have_pending.load(std::memory_order_acquire)) {
     return;
@@ -248,7 +267,7 @@ void RestoreIfLoaded(uint32_t table) {
   {
     std::lock_guard<std::mutex> lock(g_saves_mutex);
     for (size_t i = 0; i < g_pending.size(); ++i) {
-      if (!memcmp(Guest(table), g_pending[i].slots.data(), kSlotBytes)) {
+      if (HoldsSave(table, g_pending[i].slots)) {
         extra = std::move(g_pending[i].extra);
         g_pending.erase(g_pending.begin() + i);
         name = g_pending_name;
@@ -263,7 +282,22 @@ void RestoreIfLoaded(uint32_t table) {
   uint8_t* base = rex::system::kernel_state()->memory()->virtual_membase();
   if (const uint32_t entries = OverflowFor(base, table)) {
     memcpy(Guest(entries), extra.data(), kExtraBytes);
-    REXLOG_INFO("[pool] save '{}': extra entries of table {:08X} put back", name, table);
+    bool used[kPoolTotal] = {};
+    const uint8_t* slots = Guest(table);
+    for (uint32_t i = 0; i < kSlots; ++i) {
+      const uint8_t index = slots[i * kSlotSize + 16];
+      if (index < kPoolTotal) used[index] = true;
+    }
+    uint32_t freed = 0;
+    for (uint32_t i = kPoolOriginal; i < kPoolTotal; ++i) {
+      const uint32_t entry = ExtraEntry(entries, i);
+      if (!used[i] && REX_LOAD_U8(entry + kIndexOffset) != 0xFF) {
+        InitEntry(base, entry);
+        ++freed;
+      }
+    }
+    REXLOG_INFO("[pool] save '{}': extra entries of table {:08X} put back ({} unused freed)", name,
+                table, freed);
   }
 }
 
