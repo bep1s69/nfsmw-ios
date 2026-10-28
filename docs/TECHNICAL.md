@@ -7407,3 +7407,15 @@ the vblank), keeping the drawing loop in step with the vblank. Logs
 `--nfsmw_native_swap_vsync=true`; donuts; camera lines should show no 2x/0
 pairs. Risk: a frame over 16.7 ms waits to the next refresh (33 ms), as on
 the 360.
+
+IPA119 result (Stefan, Oct 28 15:29, iPad; log
+`Debug/28 October 2026/nfsmw_ipa119_lag_ipad.log`): `swap vsync on`; the
+game ran at 18-25 fps (20.1 frames/s, pacing 217 of 300 off, gaps of 2-7+
+refreshes). So the game already waits for the guest vblank itself after its
+swap: our wait made it miss that vblank and wait for the next. The drawing
+loop is therefore already in step with the vblank, and the "two unlocked
+loops" explanation is wrong as stated. Switch stays default off (do not
+use). Open: where the camera's 2x/0 steps come from (main loop and swap
+threads have exact per-frame time, frames are drawn once per vblank). Next
+lead: find the camera/world update in the game code and log its time step
+and caller thread.
