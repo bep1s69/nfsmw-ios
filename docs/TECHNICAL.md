@@ -7814,3 +7814,18 @@ IPA130: the trace also logs each paced frame's target (shown minus target,
 target minus hand-over), to see whether those frames are shown before their
 target. `ios/build/NFSMW-0.4.2-frame-trace-130.ipa`, 30120133 bytes, SHA-256 7be63fc5ebd1282921d807c045b8ec4a2197a9880702d9295947b81b250a2b1d, UUID E2CE10C7-0C6F-3D45-B395-67815BEDAD3F, codesign ok; iCloud
 Desktop copy replaces 129.
+
+IPA130 test (Stefan, Oct 28 22:45, iPhone, 40 cap; log
+`nfsmw_ipa130_frame_trace_40fps_iphone.log`): shown gaps the exact cycle
+16.7 / 33.3 / 25.0; shown minus target +4.5 / +12.8 / +12.8 ms in turn,
+target 36-45 ms after the hand-over (plenty of time). So no frame is shown
+before its target; the grid sits ~4.5 ms off the screen's refreshes and two
+frames in three come one refresh later than the nearest one.
+IPA131: (1) paced targets snapped to the refresh grid of the last frame shown
+(base + round((target - base) * hz) / hz) and asked half a refresh early;
+(2) "30 fps in menus" / "30 fps when warm" at the 40 cap too (Stefan): battery.mm
+controls 30/40/60; new SDK patch `tools/ios/patch_ios_cap_30_at_120.py` (in
+prepare_sdk.py): the vblank thread records a 120 Hz rate (`nfsmw_vblank_120`,
+in librexgpu-xenos) and the 30 cap then counts 4 vblanks; texts updated.
+`ios/build/NFSMW-0.4.2-frame-trace-131.ipa`, 30120635 bytes, SHA-256 fd2c0b3327810291dda96e50a88296c6772d3b9b5a6fcc459d486c29079a3c44, UUID 5CDA82B8-0258-3E7B-9D96-0258A2D6D9E7, codesign ok; iCloud Desktop
+copy replaces 130. Not run on a device.

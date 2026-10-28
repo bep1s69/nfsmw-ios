@@ -155,6 +155,7 @@ IOS_PATCHES = [
     "patch_ios_cp_fast_runs",
     "patch_ios_cp_idle_wait",
     "patch_ios_vblank_realtime",
+    "patch_ios_cap_30_at_120",
 ]
 
 
