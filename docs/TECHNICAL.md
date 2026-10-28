@@ -7971,3 +7971,13 @@ visible.
 IPA137 result (Stefan, iPad, Oct 29): the user's original NAME with its
 NAME.pool imported loads, with the Black Edition cars visible and upgraded
 (screenshot). D-010 fixed.
+
+### October 29: 0.4.2 release build
+
+`touch-overlay-native` (RC7 pacing, D-010 save fixes, Lunquell credit)
+fast-forwarded into `main` at b933b6a. Temporary probes removed (load probe,
+`sub_822C3718` log); frame trace default off. `ios/build/NFS-Most-Wanted-0.4.2.ipa`,
+30121770 bytes, SHA-256 f872797da3eadcf028aa5fa2b7dfb9cf383d9ffe84437f92b15f93dc60411ed7,
+UUID 1C6B1AAE-39A4-3916-BAE2-9FEB126DAAC6, 208 metallibs, ZIP test OK,
+codesign --deep --strict ok; copied to the iCloud Desktop. No tag or GitHub
+release (Stefan).
