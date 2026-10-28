@@ -7362,3 +7362,26 @@ and its log stay on.
 `ios/build/NFSMW-0.4.1-camera-log-117.ipa`, 30113544 bytes, SHA-256 32a62a90cda67b0a91e6a7def931736533eb4638235710573ee18429d5696338, UUID F12C371A-F27F-3346-8864-755D7B112877, 208 metallibs, `unzip -t`
 ok, codesign ok. Not run on a device. Test: donuts (any cap), note roughly
 when it feels uneven; send the log.
+
+IPA117 result (Stefan, Oct 28 15:22, iPad, no extra args, judder clearly
+visible; log `Debug/28 October 2026/nfsmw_ipa117_camera_ipad.log`): 16
+`[camera]` lines. The camera turns a steady ~2.0-2.3 deg/frame in donuts,
+but in stretches the values go 4.40 0.00 4.40 0.00 ... (e.g. 15:22:36,
+15:22:42: 20-30 frames in a row), single pairs elsewhere (4.17 0.02, 3.96
+0.00). So the game's camera moves only every other frame in those stretches:
+its world/camera steps 0 or 2 fixed ticks per frame. This is the judder,
+measured in the game's own data. (Isolated 85-88 / 178 deg values: another
+camera's matrix, probably the mirror's, won the vote for one frame.)
+Explanation: the fixed 1/60 step accumulator, with the frame's clock reads
+right at a tick boundary. IPA114's v2 clock let the clock run within a frame
+(base + real time since the swap), so reads on either side of a boundary
+remained possible.
+
+IPA118: `nfsmw_frame_clock_hold` (default false, with
+`nfsmw_frame_clock_swap`): within a frame the clock stands still at the
+swap's virtual time (runs again after two periods without a swap). Camera
+log and read-ahead still on.
+`ios/build/NFSMW-0.4.1-frame-clock-hold-118.ipa`, 30115297 bytes, SHA-256 165eb6f58fdafc6b4c277eeed9d418d958d97def59a25abc443c947e1739817c, UUID 09457470-1622-38D1-A232-5ACC39C83AEF, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: extra_args.txt
+`--nfsmw_frame_clock_swap=true` and `--nfsmw_frame_clock_hold=true`, donuts;
+the camera lines should show no 2x/0 pairs.

@@ -45,6 +45,9 @@ REXCVAR_DEFINE_INT32(nfsmw_frame_clock_ms, 0, "Game",
                      "vblank read the vblank's time, so each frame advances exactly one vblank "
                      "(0: off)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_frame_clock_hold, false, "Game",
+                    "Experimental, with nfsmw_frame_clock_swap: the clock stands still within a frame "
+                    "(each frame reads its swap's time; runs again after two periods without a swap)");
 REXCVAR_DEFINE_BOOL(nfsmw_frame_clock_swap, false, "Game",
                     "Experimental: on the game's main loop and swap threads the clock advances one "
                     "refresh period per swap (even steps at 60 fps)");
@@ -95,7 +98,10 @@ uint64_t SwapClock(uint64_t ticks) {
   const uint64_t since = ticks - base_real;
   uint64_t result;
   if (since < period) {
-    result = base_virtual + since;
+    // v3 (nfsmw_frame_clock_hold): the camera log (IPA117) showed the game's
+    // camera turning 2x, 0, 2x, 0 in stretches: a fixed 1/60 step counted
+    // from the clock, with reads inside the frame on either side of a step.
+    result = REXCVAR_GET(nfsmw_frame_clock_hold) ? base_virtual : base_virtual + since;
   } else if (since < 2 * period) {
     result = base_virtual + period - 1;  // held until the swap
   } else {
