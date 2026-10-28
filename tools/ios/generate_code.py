@@ -202,6 +202,11 @@ def main():
             "patch_game_deferred_queue.py")), "--dir", str(out)])
         if queue.returncode:
             fail("patch_game_deferred_queue.py failed. See its output above.")
+        print("\n== Main loop tick count")
+        ticks = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
+            "patch_game_frame_ticks.py")), "--dir", str(out)])
+        if ticks.returncode:
+            fail("patch_game_frame_ticks.py failed. See its output above.")
 
     # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
     # language and country, and whether the hooks need translating).
