@@ -7237,3 +7237,17 @@ other frame repeats (11.10-12.24 s: 26 repeats in 1.1 s; 15.57-16.30 s:
 screen gets 60 refreshes but only 30 distinct pictures in those stretches.
 Whether the game swaps identical frames, or the renderer presents a frame
 twice, needs the game log of the same run (none sent yet).
+Game log of the recorded run (`nfsmw_ipa114_screen_recording_iphone.log`,
+frame clock v2 on): the display went 48 -> 60 Hz at 14:37:39.67 (the
+recording starting). Over 14:37:45-14:38:05, which covers the video's
+repeat stretches (11-12 s, 15.6-16.3 s), every window is `pacing: 0 of 300
+off`, 60.0 frames/s on screen and 300 of 300 swaps one period. So the game
+swapped and the renderer presented 60 frames a second, each 16.7 ms apart,
+yet every other picture was identical in those stretches. IPA92 (iPad) found
+no frame repeating the previous one's vertex constants. Inference: the
+picture repeats although the frame is new: the displayed texture (the
+frame's last colour resolve, or a resolve kept from an earlier frame,
+`1 resolves from earlier frames` in every gameplay line) is at times the
+previous frame's picture. Next (proposed): a diagnostic that compares a row
+of the displayed picture with the previous frame's and logs each repeat
+with the final resolve's address and source.
