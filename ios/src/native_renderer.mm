@@ -8074,7 +8074,7 @@ void TraceFrame(uint32_t number, int stage, double t) {
   static bool said = false;
   if (!said) {
     said = true;
-    REXLOG_INFO("[frame-trace] on (IPA127): per-frame swap / hand-over / GPU end / shown times");
+    REXLOG_INFO("[frame-trace] on (IPA128): per-frame swap / hand-over / GPU end / shown times");
   }
   auto& times = frame_trace.times;
   times[number][size_t(stage)] = t;
