@@ -7967,3 +7967,7 @@ SHA256 ce225cf032dcae14..., ZIP test OK, 208 metallibs. Test: import
 `~/Desktop/NAME-original` (the user's original NAME, header and NAME.pool),
 load it, expect `[save-id] ... -> 1` and `put back (1 unused freed)`, cars
 visible.
+
+IPA137 result (Stefan, iPad, Oct 29): the user's original NAME with its
+NAME.pool imported loads, with the Black Edition cars visible and upgraded
+(screenshot). D-010 fixed.
