@@ -7210,3 +7210,15 @@ the virtual clock is behind the real one. Other threads untouched.
 ok, codesign ok. Not run on a device. Test: extra_args.txt
 `--nfsmw_frame_clock_swap=true` (drop `--nfsmw_frame_clock_ms`), donuts at
 1x/60, then without.
+
+IPA114 result (Stefan, Oct 28 14:32-14:33, iPhone, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa114_clock_v2_iphone.log`): `[frame-clock] v2
+on`; in gameplay 296-300 of every 300 swaps advanced exactly one period (the
+main loop and swap threads saw an exact 1/60 per frame); pacing 0-4 of 300
+off (14 in the last window). The virtual clock fell behind the real one by
+up to 312 ms near the end (late frames counted as one period). Stefan: the
+judder "still seems to be there", can't tell better or worse (it varies by
+itself). So exact per-frame time on those two threads does not visibly fix
+it: the uneven-step hypothesis is weakened (other threads' clock reads, e.g.
+physics or camera on a worker, are not covered). No objective judder
+measure yet.
