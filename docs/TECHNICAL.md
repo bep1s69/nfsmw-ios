@@ -7222,3 +7222,18 @@ itself). So exact per-frame time on those two threads does not visibly fix
 it: the uneven-step hypothesis is weakened (other threads' clock reads, e.g.
 physics or camera on a worker, are not covered). No objective judder
 measure yet.
+
+Screen recording (Stefan, Oct 28 14:37, iPhone, 1x/60, Motion blur and
+Post-processing off, donuts; `Debug/28 October 2026/ScreenRecording_10-28-2026
+14-37-39_1.MP4`, 37.4 s, 1320x2868, 2226 frames). Measured with an
+AVFoundation script (per-frame mean luma difference on a 64x36 grid;
+scratch tool, not in the repo). Recorder frame intervals: 2192 of 2225 at
+16.6-16.7 ms. During motion a frame normally differs from the one before by
+~4-6 (grey levels); 133 frames are near-identical (< 0.15) to the previous
+one: an exact repeat of the picture. They come as stretches where every
+other frame repeats (11.10-12.24 s: 26 repeats in 1.1 s; 15.57-16.30 s:
+18), i.e. 30 fps motion shown at 60, plus scattered single repeats
+(3.3-5.2 s, 6.3, 8.4, 25.7, 26.0 s). This is the judder, measured: the
+screen gets 60 refreshes but only 30 distinct pictures in those stretches.
+Whether the game swaps identical frames, or the renderer presents a frame
+twice, needs the game log of the same run (none sent yet).
