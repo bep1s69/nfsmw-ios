@@ -142,7 +142,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Oct 28, damaged-career fix (GitHub issue 8, BACKLOG D-010): cause is a
   player ID check in the save loader, not Black Edition. IPA134
   `ios/build/NFSMW-save-id-136.ipa` loads such careers with the device's ID;
-  the CE05 change (IPA132) is reverted. Next: Stefan tests NAME and BEPPY.
+  the CE05 change (IPA132) is reverted. IPA137 also puts the side file
+  back when only the overflow slots match. Confirmed by Stefan (Oct 29):
+  the user's NAME loads with its cars. Next: 0.4.2 release on Stefan's go.
 
 - **October 27: 0.4.1 released to GitHub (Stefan: "push it", iOS 18 marked
   experimental).** `release-0.4.1` fast-forwarded into `main`, tagged

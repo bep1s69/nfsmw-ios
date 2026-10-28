@@ -7,6 +7,12 @@
   although the file was fine. It now loads, and is saved with this device's
   ID from then on.
 
+- **Black Edition cars no longer invisible after loading a career.** The
+  extra car records kept beside a save were only put back if the career
+  matched them exactly, so one changed record left the cars invisible and
+  without their upgrades. They now come back whenever the records that need
+  them match.
+
 - **Smooth motion at 60 fps.** The game world and camera could judder, as if
   running at 30 fps, even though the fps counter showed a steady 60: worst in
   places you visit for the first time and right after restarting the device.
