@@ -7419,3 +7419,25 @@ use). Open: where the camera's 2x/0 steps come from (main loop and swap
 threads have exact per-frame time, frames are drawn once per vblank). Next
 lead: find the camera/world update in the game code and log its time step
 and caller thread.
+
+Main loop found (Oct 28): sub_823B0008 polls mftb>>2, converts the time
+since the last frame to seconds (scale at 0x82A2BEF8), waits until it is over
+a constant (0x820624E8), clamps it (0x82062824), and runs the frame
+sub_823AFE20 with r3 = fctiwz(elapsed * rate (0x82062DAC)), i.e. truncated,
+then restarts its count from now (the remainder is lost). sub_823AFE20 turns
+r3 back into a time step (r3 * 0x820AFE00 * 0x82062AD0) for the world
+(sub_823C6500) and calls World_Service (sub_824CE048). Inference: frame
+periods jitter around a whole number of ticks, so truncation sometimes gives
+one tick less (remainder lost) and the frames around it more: the camera's
+2x/0 steps.
+
+IPA120: `tools/ios/patch_game_frame_ticks.py` (generated code, USA; also run
+by generate_code.py): before that fctiwz, f9 goes through
+`nfsmw_frame_ticks` (frame_clock.cpp). Cvar `nfsmw_frame_ticks` default 1:
+the remainder is carried to the next frame (ticks add up to elapsed time);
+0 = the game's truncation. Logs the constants once (`[frame-ticks] main
+loop: rate ..., waits for over ..., clamps at ...`) and every 300 frames
+elapsed x rate by band and the ticks run. Camera log and read-ahead stay on.
+`ios/build/NFSMW-0.4.1-frame-ticks-120.ipa`, 30116964 bytes, SHA-256 d554629c46ace70ed32fe3d6d7d28ed56d78b2748c4324290f7952ae9eab9d78, UUID F7A7C868-6ECD-3C64-B92D-A4767158E5A4, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: empty extra_args.txt; donuts;
+then `--nfsmw_frame_ticks=0` to compare.

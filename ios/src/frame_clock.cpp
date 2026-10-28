@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 
 #include <rex/chrono/clock.h>
@@ -222,3 +223,49 @@ void OnMainLoop() {
 }
 
 }  // namespace nfsmw::frame_clock
+
+// The main loop's tick count (tools/ios/patch_game_frame_ticks.py): sub_823B0008
+// runs each frame with (int)(elapsed * rate), truncated, throwing the rest
+// away. Logged every 300 frames: elapsed * rate by band, and the constants.
+// nfsmw_frame_ticks 1: the remainder is carried to the next frame, so the
+// ticks add up to the time that passed (an even 1 a frame at a steady 60).
+REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 1, "Game",
+                     "Main loop tick count: 0 the game's (truncated, remainder lost), 1 the remainder "
+                     "carried to the next frame");
+extern "C" double nfsmw_frame_ticks(double ticks, double seconds, double rate, double wait, double clamp) {
+  static double carry = 0;
+  static uint32_t bands[8] = {}, frames = 0, results[4] = {};
+  static int lines = 120;
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[frame-ticks] main loop: rate {:.4f} ticks/s, waits for over {:.6f} s, clamps at {:.6f} s; mode {}",
+                rate, wait, clamp, REXCVAR_GET(nfsmw_frame_ticks));
+  }
+  const double t = ticks;
+  ++bands[t < 0.5 ? 0 : t < 0.9 ? 1 : t < 1.0 ? 2 : t < 1.1 ? 3 : t < 1.5 ? 4 : t < 1.9 ? 5 : t < 2.1 ? 6 : 7];
+  double out = ticks;
+  if (REXCVAR_GET(nfsmw_frame_ticks) == 1) {
+    const double sum = ticks + carry;
+    const double whole = std::floor(sum + 1e-6);
+    carry = std::clamp(sum - whole, 0.0, 0.999);
+    out = whole;
+  } else {
+    carry = 0;
+  }
+  ++results[std::min(3, std::max(0, int(out)))];
+  if (++frames >= 300) {
+    if (lines-- > 0) {
+      REXLOG_INFO("[frame-ticks] 300 frames: elapsed x rate <0.5 {}, 0.5-0.9 {}, 0.9-1.0 {}, 1.0-1.1 {}, 1.1-1.5 {}, "
+                  "1.5-1.9 {}, 1.9-2.1 {}, 2.1+ {} | ticks run 0: {}, 1: {}, 2: {}, 3+: {} (mode {})",
+                  bands[0], bands[1], bands[2], bands[3], bands[4], bands[5], bands[6], bands[7], results[0],
+                  results[1], results[2], results[3], REXCVAR_GET(nfsmw_frame_ticks));
+    }
+    std::fill(std::begin(bands), std::end(bands), 0);
+    std::fill(std::begin(results), std::end(results), 0);
+    frames = 0;
+  }
+  (void)seconds;
+  return out;
+}
+
