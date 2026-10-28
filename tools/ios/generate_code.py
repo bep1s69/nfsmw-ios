@@ -207,11 +207,6 @@ def main():
             "patch_game_frame_ticks.py")), "--dir", str(out)])
         if ticks.returncode:
             fail("patch_game_frame_ticks.py failed. See its output above.")
-        print("\n== Render hand-off switch")
-        handoff = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
-            "patch_game_render_handoff.py")), "--dir", str(out)])
-        if handoff.returncode:
-            fail("patch_game_render_handoff.py failed. See its output above.")
 
     # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
     # language and country, and whether the hooks need translating).

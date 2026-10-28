@@ -236,11 +236,7 @@ void OnMainLoop() {
 // The game's deferred-call runner, from its main loop (see
 // tools/ios/patch_game_deferred_queue.py): the main thread's QoS, then the original.
 extern "C" void __imp__sub_823C8290(PPCContext& __restrict ctx, uint8_t* base);
-namespace nfsmw::frame_clock {
-void OnMainLoop();  // frame_clock.cpp
-}
 extern "C" REX_FUNC(sub_823C8290) {
-  nfsmw::frame_clock::OnMainLoop();
   nfsmw::adaptive_qos::OnMainLoop();
   __imp__sub_823C8290(ctx, base);
 }
