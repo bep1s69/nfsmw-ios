@@ -320,12 +320,6 @@ This port stands on a lot of other people's work.
   import, with the [nfsmw decompilation](https://github.com/dbalatoni13/nfsmw)
   (CC0) for the car database.
 
-**Testing and bug reports**
-
-- [Lunquell](https://github.com/Lunquell): reported the "appears to be
-  damaged" career bug ([issue 8](https://github.com/bep1s69/nfsmw-ios/issues/8))
-  and sent the save, its side file and the logs that found it.
-
 **Installing**
 
 - [SideStore](https://sidestore.io) and
