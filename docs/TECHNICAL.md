@@ -7945,3 +7945,25 @@ buffer+16..size-16 into the last 16 bytes (CC_MD5); the temporary
 `sub_822C3718` log is removed. Built `ios/build/NFSMW-save-id-136.ipa`, UUID
 268EAF62-8265-36D5-B8ED-A9225D7145DD, SHA256 ef8387d5714f6f03..., ZIP test OK,
 208 metallibs.
+
+IPA136 result (Stefan, Oct 28): NAME loads (`[save-id] ... -> 1`); its Black
+Edition cars invisible and upgrades missing on the iPad (no NAME.pool there).
+With the user's `NAME.pool` (Oct 29, 34612 bytes, 1 table, overflow entries
+75-86 in use) still invisible: no `put back` line in any run. Offline: its
+slots differ from the save's table in one slot (138: the side file has a
+record, index 86, that the save has free), so the exact 4000-byte comparison
+in `RestoreIfLoaded` never matched. Also, the 00:43 run has no `[save-id]`
+line, so the NAME imported then was the copy resaved on the iPad, not the
+original.
+
+### October 29: IPA137 put the side file back when the overflow slots match (D-010)
+
+`game_pool.cpp`: `RestoreIfLoaded` matches a table when every slot of it that
+points into the overflow (index 75-149) equals the saved slot and there is at
+least one, instead of all 200 slots; after copying the saved overflow, entries
+no slot points to are freed (`... put back (N unused freed)`). Built
+`ios/build/NFSMW-pool-match-137.ipa`, UUID BF0AEB20-7548-3421-81A5-C131C56ADDF5,
+SHA256 ce225cf032dcae14..., ZIP test OK, 208 metallibs. Test: import
+`~/Desktop/NAME-original` (the user's original NAME, header and NAME.pool),
+load it, expect `[save-id] ... -> 1` and `put back (1 unused freed)`, cars
+visible.
