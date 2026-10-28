@@ -7200,7 +7200,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // ~200 of 300 off the grid); a frame that cannot make its slot now
           // shifts the grid by whole slots and keeps it.
           const double now = CACurrentMediaTime(), base = shown_at.load();
-          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.004;
+          // RC4 (average GPU time + 4 ms) still missed one slot in three by a
+          // refresh at the 40 cap (gaps 33 / 17 / 25 ms in turn): the recent
+          // longest GPU time and one 120 Hz refresh more for the compositor.
+          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.0125;
           double target;
           if (last_target > 0 && last_target > now - 4.0 * interval && last_target < now + 4.0 * interval) {
             target = last_target + interval;
@@ -7256,10 +7259,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           if (gpu_ms > 45.0) ++gpu_slow_frames;
-          {  // the recent GPU time, for the paced frames' slots
+          {  // the recent longest GPU time (decaying), for the paced frames' slots
             const double was = recent_gpu_seconds.load(std::memory_order_relaxed);
             const double now_s = std::min(gpu_ms, 50.0) / 1000.0;
-            recent_gpu_seconds.store(was > 0 ? was + (now_s - was) * 0.1 : now_s, std::memory_order_relaxed);
+            recent_gpu_seconds.store(std::max(now_s, was * 0.98), std::memory_order_relaxed);
           }
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
