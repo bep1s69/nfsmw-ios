@@ -8071,6 +8071,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_frame_trace, true, "GPU",
 void TraceFrame(uint32_t number, int stage, double t) {
   if (!REXCVAR_GET(nfsmw_native_frame_trace)) return;
   std::lock_guard<std::mutex> lock(frame_trace.m);
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[frame-trace] on (IPA127): per-frame swap / hand-over / GPU end / shown times");
+  }
   auto& times = frame_trace.times;
   times[number][size_t(stage)] = t;
   if (stage != 3) return;

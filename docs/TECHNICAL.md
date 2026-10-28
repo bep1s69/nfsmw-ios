@@ -7765,3 +7765,12 @@ gaps between consecutive frames per stage and one line of per-frame
 latencies (swap->handed / handed->GPU end / GPU end->shown). RC6's 40-cap
 minimum-duration present still in. `ios/build/NFSMW-0.4.2-frame-trace-126.ipa`, 30120996 bytes, SHA-256 57071e301dc149af161a39356bd4b4da238901512d2deee65b04666a866e6bfe,
 UUID B208FD8F-3000-3DA0-BB17-DEEABA5C8587, codesign ok; iCloud Desktop copy. Not run on a device.
+IPA126 run (Stefan, Oct 28 22:21, iPhone, 40 cap; log
+`nfsmw_ipa126_frame_trace_40fps_iphone.log`): no `[frame-trace]` line at all
+(13 pacing lines), so the trace did not run: most likely an earlier build
+was installed (the log has no build marker that tells them apart; the
+dylibs are unchanged since RC1). IPA127 adds a startup line `[frame-trace] on
+(IPA127)`: `ios/build/NFSMW-0.4.2-frame-trace-127.ipa`, 30119905 bytes, SHA-256
+43c78cb9c49d663b6b4527ef121555881cfb4d8142c1c43968330abbf6071ec6, UUID
+6B21ED6E-72D6-3F15-A435-1890D6E374DC, codesign ok; iCloud Desktop copy
+replaces IPA126's.
