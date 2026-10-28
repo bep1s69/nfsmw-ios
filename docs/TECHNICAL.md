@@ -7788,3 +7788,16 @@ ask for at least 21 ms (RC6). Menus: 33.3 cadence.
 IPA128: at the 40 cap the display link's range is 120-120 Hz (was 80-120),
 startup marker IPA128. `ios/build/NFSMW-0.4.2-frame-trace-128.ipa`, 30120373 bytes, SHA-256 5a966291f8d8caf28531f6a74c819a34243562c87d3e188b12d9d3e7d3b3975c, UUID 3B2066B4-9A0F-3524-9F7D-BEE641781EE3,
 codesign ok; iCloud Desktop copy replaces 127. Not run on a device.
+
+IPA128 test (Stefan, Oct 28 22:34-22:37, iPhone, 40 cap; log
+`nfsmw_ipa128_frame_trace_40fps_iphone.log`): "fps randomly drops to 32",
+since one or two builds. Windows at 32.8-36.2 fps: swap -> hand-over 37-58
+ms (frames waiting in the render queue), hand-over gaps 33 / 33 / 25 (three
+frames per 91.7 ms), GPU 15-16 ms/frame; 40.0 windows show 2:100 3:100 4:100
+again. Reading: RC5/RC6 (later targets, minimum-duration presents) hold
+drawables longer; the renderer waits for a free drawable and the pipeline
+backs up to ~33 fps. The 120 Hz minimum did not remove the 16.7/33.3 cycle.
+IPA129: RC4's presentation restored (fixed grid, average GPU time + 4 ms; no
+minimum-duration path), 120-120 Hz display range at the 40 cap kept, trace
+on, marker IPA129. `ios/build/NFSMW-0.4.2-frame-trace-129.ipa`, 30120043 bytes, SHA-256 c0e5d333405705feac48a3f75934d316164058fcfaa077db0aaaa9e13d5b461e, UUID 014D557F-264C-3FF7-987F-4F13E0C500D3, codesign
+ok; iCloud Desktop copy replaces 128. Not run on a device.
