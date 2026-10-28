@@ -232,9 +232,14 @@ void OnMainLoop() {
 // away. Logged every 300 frames: elapsed * rate by band, and the constants.
 // nfsmw_frame_ticks 1: the remainder is carried to the next frame, so the
 // ticks add up to the time that passed (an even 1 a frame at a steady 60).
-REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 1, "Game",
-                     "Main loop tick count: 0 the game's (truncated, remainder lost), 1 the remainder "
-                     "carried to the next frame");
+// 2 (IPA124, default): the frame's time is one display period (two when real
+// time has run a period ahead, i.e. a frame was missed on screen too): the
+// screen shows one game frame per refresh, so motion matches it. IPA123's
+// pacing of the loop itself cost frame rate (waits stacking on the GPU
+// queue's back-pressure: 82-128 ms frames).
+REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
+                     "Main loop frame time: 0 the game's, 1 remainder carried, 2 one display period "
+                     "per frame (kept in step with real time)");
 extern "C" double nfsmw_frame_ticks(double ticks, double seconds, double rate, double wait, double clamp) {
   static double carry = 0;
   static uint32_t bands[8] = {}, frames = 0, results[4] = {};
@@ -248,7 +253,22 @@ extern "C" double nfsmw_frame_ticks(double ticks, double seconds, double rate, d
   const double t = ticks;
   ++bands[t < 0.5 ? 0 : t < 0.9 ? 1 : t < 1.0 ? 2 : t < 1.1 ? 3 : t < 1.5 ? 4 : t < 1.9 ? 5 : t < 2.1 ? 6 : 7];
   double out = ticks;
-  if (REXCVAR_GET(nfsmw_frame_ticks) == 1) {
+  if (REXCVAR_GET(nfsmw_frame_ticks) == 2 && seconds > 0 && seconds < 250) {
+    // seconds: the frame's elapsed time in ms (f0); ticks = f0 * rate.
+    uint64_t vblank_ns = 0, period_ns = 0;
+    nfsmw::display::LatestVblank(vblank_ns, period_ns);
+    const double period = period_ns ? period_ns / 1e6 : 1000.0 / 60.0;
+    static double debt = 0;  // real time not yet given to the game (ms)
+    debt += seconds - period;
+    double give = period;
+    while (debt > period * 0.75 && give < period * 4) {  // missed refreshes: catch up
+      give += period;
+      debt -= period;
+    }
+    if (debt < -2 * period || debt > 4 * period) debt = 0;  // far off (loading): resync
+    out = ticks * (give / seconds);
+    carry = 0;
+  } else if (REXCVAR_GET(nfsmw_frame_ticks) == 1) {
     const double sum = ticks + carry;
     const double whole = std::floor(sum + 1e-6);
     carry = std::clamp(sum - whole, 0.0, 0.999);
@@ -310,7 +330,7 @@ extern "C" bool nfsmw_render_single_thread() {
 // cap only) the next frame starts just after the next display refresh, as
 // on the 360, unless this frame ended less than 2 ms after one (late: start
 // now, no 33 ms frame for a hair).
-REXCVAR_DEFINE_BOOL(nfsmw_frame_pace, true, "Game",
+REXCVAR_DEFINE_BOOL(nfsmw_frame_pace, false, "Game",
                     "At the 60 fps cap, each game frame starts just after a display refresh (even "
                     "frame times, as on the 360)");
 extern "C" void nfsmw_frame_pace() {
