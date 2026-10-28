@@ -555,7 +555,7 @@ const std::vector<Section>& Sections() {
            // under the old one does not carry over.
            {@"sim_120_hz", Type::kSwitch, @"120 Hz simulation",
             @"The game moves its world 60 times a second. On, 120 times at any frame rate "
-            @"(always on with the 120 fps cap). It did not remove the judder at 60 fps.",
+            @"(always on with the 40 and 120 fps caps, where 60 does not divide evenly).",
             @"false"},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
@@ -766,7 +766,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_rain_intensity=" + str(@"rain_intensity"));
   a.push_back("--nfsmw_rain_drop_size=" + str(@"rain_drop_size"));
   a.push_back("--nfsmw_road_reflection=" + str(@"road_reflection"));
-  const bool sim_120 = On(s, @"sim_120_hz") || [Value(s, @"fps_cap") isEqualToString:@"120"];
+  // 120 Hz simulation at the 40 cap too (0.4.2): a 25 ms frame is 1.5 of the
+  // game's 1/60 s world steps, so frames alternated 1 and 2 steps (camera log,
+  // Oct 28); at 120 Hz each frame is exactly 3.
+  NSString* cap = Value(s, @"fps_cap");
+  const bool sim_120 = On(s, @"sim_120_hz") || [cap isEqualToString:@"120"] || [cap isEqualToString:@"40"];
   a.push_back(std::string("--nfsmw_sim_rate=") + (sim_120 ? "120" : "60"));
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).

@@ -9,6 +9,13 @@
   steps while the screen showed the frames evenly. Each frame now moves the
   world by exactly one screen refresh.
 
+- **Smoother 40 fps.** At the 40 fps cap the world moved in alternating short
+  and long steps (the game's 60 Hz steps do not divide into 40), so it looked
+  closer to 30 than the mirror and the map. The 40 cap now runs the game's
+  simulation at 120 Hz: three even steps per frame.
+
+- **Battery mode lets you choose 30 or 40 fps** (it always forced 30).
+
 - **No more stutter from the touch controls.** Steering or pressing the
   on-screen controls made a frame arrive one refresh late, so donuts and
   quick steering stuttered. The controls are now drawn as part of the game's

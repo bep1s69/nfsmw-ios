@@ -7665,3 +7665,15 @@ Contains: even frame time (nfsmw_frame_ticks 2), touch controls in the native
 frame, UTF-16 extra_args.txt, Battery mode 30/40 choice; diagnostics off.
 Not yet run on a device as a release build (fresh container). Branch
 `touch-overlay-native`, not merged, tagged or pushed.
+
+120 Hz simulation at the 40 cap (Stefan wants it in 0.4.2): launcher.mm
+passes `--nfsmw_sim_rate=120` when the cap is 40 (as at 120) or the switch is
+on; the 120 Hz simulation switch text updated. With nfsmw_frame_ticks 2 the
+period at the 40 cap is the 120 Hz guest grid (8.33 ms), so a 25 ms frame gets
+exactly 3 periods. Game speed at 120 Hz simulation still unverified (check a
+lap / speedometer against 60). The sim rate is set at startup: changing the
+cap to 40 in the in-game menu does not switch it until a restart.
+Release candidate 2: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30115889 bytes,
+SHA-256 c67ac530a0d9f07a7b8e684db69292f3448ddf88014274b1055fd679dc85f485, UUID
+FD902E47-6A66-395E-986E-3FA0723B9B86, 208 metallibs, `unzip -t` ok, codesign
+--deep --strict ok. Not run on a device.
