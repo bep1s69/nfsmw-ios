@@ -7557,3 +7557,26 @@ IPA121 (all experiments default off; frame_ticks carry 1, negligible).
 `ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
 , codesign . Not run on a device. Test: empty extra_args; drive to a new
 place and do donuts.
+
+IPA122 result (Stefan, Oct 28 ~19:00, iPad, new location, no extra args;
+log `nfsmw_ipa122_judders_ipad.log`): the main loop's per-frame elapsed
+time (`[frame-steps]`, in ms: f0 is milliseconds) alternates ~13.5 / ~19.5
+ms nearly every frame, and has stalls of 30-45 ms followed by quick frames of
+4.5-6.8, 6, 9-12 ms (e.g. 44.35 6.23 6.50 9.04; 30.65 4.53 11.68). The camera
+in the same seconds: steady 2.2 deg except 4.4/0 and 6.6/0/0 sequences, i.e.
+the world steps fixed 1/60 ticks from these elapsed times, a 44 ms frame 2-3
+ticks, the quick ones 0. Presentation stays on the 16.7 ms grid (frames
+buffered), so the motion is uneven while the frame timing is perfect.
+Cause (inference, well supported): the game's main loop is not paced by the
+refresh; it runs until the GPU queue pushes back (pacing wait / ring space),
+in bursts.
+
+IPA123: `nfsmw_frame_pace` (default TRUE, 60 cap only): patch_game_frame_ticks.py
+now also inserts `nfsmw_frame_pace()` right after the frame call in
+sub_823B0008; it waits until 0.3 ms after the next display refresh unless the
+frame ended under 2 ms after one. Logs `[frame-pace] on` and every 300
+frames how many waited / started at once. Frame steps and camera logs stay.
+`ios/build/NFSMW-0.4.1-frame-pace-123.ipa`, 30119960 bytes, SHA-256 3c2cdff4f7a8d3ff4d96830c683849b4c2ce21b4eb9386d0ed77e1d895bacff6, UUID FD2AC64E-830C-37F7-AD92-3438710F85DD, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: empty extra_args; new location,
+donuts; frame steps should sit near 16.7 and camera pairs vanish. Off:
+`--nfsmw_frame_pace=false`.
