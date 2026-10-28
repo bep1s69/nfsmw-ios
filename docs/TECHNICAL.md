@@ -7715,3 +7715,18 @@ Release candidate 4: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117907 bytes,
 SHA-256 83c4a791fd8890ed12629517e49ef346bc0addf3314c0aaafabeafd47f75a3c8, UUID 62DD5A51-C3B3-3292-A332-492D65743636, 208 metallibs, `unzip -t` ok, codesign --deep --strict
 ok. Not run on a device. Test: 40 cap (and 30) on the iPhone; pacing lines
 should read mostly `3:` (40) / `4:` (30) and few off the grid.
+
+RC4 test (Stefan, Oct 28 22:02-22:07, iPhone, a lap of the test race each;
+logs `nfsmw_0.4.2rc4_40fps_race_iphone.log`, `nfsmw_0.4.2rc4_30fps_race_iphone.log`):
+30 fps clean (0-5 of 300 off, gaps 4:293-300). 40 fps not fixed: steady
+windows exactly `2:100 3:100 4:100` (shown 16.7 / 25 / 33.3 ms apart in a
+repeating cycle), others 130-291 of 300 off. Reading: on the fixed grid, one
+frame in three still misses its slot by one refresh (33.3) and the next two
+are on time (16.7, then 25): the margin (average GPU time + 4 ms) is too
+small for the compositor at 40.
+RC5: the margin is the recent longest GPU time (decaying max, x0.98 a frame)
++ 12.5 ms. `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117858 bytes, SHA-256
+683c4105882c5180fdf03c09d82757c796e6f2cf8034d67665e8f6680f28c98b, UUID
+E649837C-FDBE-3D84-980B-7DB6BAA36692, 208 metallibs, codesign ok; copied to
+iCloud Drive Desktop as NFS-Most-Wanted-0.4.2-rc5.ipa (RC4's copy removed;
+RC4 is rebuildable from 1619e70). Not run on a device.
