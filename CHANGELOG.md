@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.4.2
+
+- **Smooth motion at 60 fps.** The game world and camera could judder, as if
+  running at 30 fps, even though the fps counter showed a steady 60: worst in
+  places you visit for the first time and right after restarting the device.
+  The game timed each frame unevenly and moved the world by those uneven
+  steps while the screen showed the frames evenly. Each frame now moves the
+  world by exactly one screen refresh.
 
 - **No more stutter from the touch controls.** Steering or pressing the
   on-screen controls made a frame arrive one refresh late, so donuts and
