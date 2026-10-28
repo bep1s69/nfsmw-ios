@@ -7829,3 +7829,14 @@ prepare_sdk.py): the vblank thread records a 120 Hz rate (`nfsmw_vblank_120`,
 in librexgpu-xenos) and the 30 cap then counts 4 vblanks; texts updated.
 `ios/build/NFSMW-0.4.2-frame-trace-131.ipa`, 30120635 bytes, SHA-256 fd2c0b3327810291dda96e50a88296c6772d3b9b5a6fcc459d486c29079a3c44, UUID 5CDA82B8-0258-3E7B-9D96-0258A2D6D9E7, codesign ok; iCloud Desktop
 copy replaces 130. Not run on a device.
+
+IPA131 test (Stefan, Oct 28 23:13-23:15, iPhone, 40 cap, Battery mode; log
+`nfsmw_ipa131_frame_trace_40fps_iphone.log`, also holds the IPA130 session):
+menu 30 at the 40 cap works (`[battery] cap 30 fps: menu`, 24-30 fps in
+menus, back to `cap 40 fps: driving`). 40 fps: targets now on the refresh
+grid (shown minus target exactly +8.3 / +8.3 / +0.0, target 35-38 ms after
+the hand-over), but iOS still shows two frames in three one refresh after
+their target: the same 33.3 / 25 / 16.7 cycle. iOS does not honour
+presentAtTime at 40 on this panel. Next test without a build:
+`--nfsmw_native_present_at_time=false` (present when ready; the GPU ends
+are an even 25 +- 2 ms).
