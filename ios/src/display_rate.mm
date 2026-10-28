@@ -118,9 +118,12 @@ void RequestRateForCap(int fps_cap) {
     link = [CADisplayLink displayLinkWithTarget:target selector:@selector(tick:)];
     [link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   }
+  // The 40 cap: 120 Hz as the minimum too (0.4.2). With 80-120 the frame
+  // trace (IPA127) showed every frame finished on an even 25 ms, but shown
+  // 16.7 / 33.3 ms apart in stretches: the screen at 60 Hz there.
   link.preferredFrameRateRange =
       match ? CAFrameRateRangeMake(preferred, preferred, preferred)
-            : CAFrameRateRangeMake(high ? 80.0f : 30.0f, preferred, preferred);
+            : CAFrameRateRangeMake(fps_cap == 40 ? 120.0f : high ? 80.0f : 30.0f, preferred, preferred);
   REXLOG_INFO("[display] cap {} fps: asking for {:.0f} Hz{} (screen max {} Hz)", fps_cap, preferred,
               match ? ", the cap's rate" : "", int(UIScreen.mainScreen.maximumFramesPerSecond));
 }

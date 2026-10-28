@@ -7774,3 +7774,17 @@ dylibs are unchanged since RC1). IPA127 adds a startup line `[frame-trace] on
 43c78cb9c49d663b6b4527ef121555881cfb4d8142c1c43968330abbf6071ec6, UUID
 6B21ED6E-72D6-3F15-A435-1890D6E374DC, codesign ok; iCloud Desktop copy
 replaces IPA126's.
+
+IPA127 frame trace (Stefan, Oct 28 22:28-22:30, iPhone, 40 cap; log
+`nfsmw_ipa127_frame_trace_40fps_iphone.log`, 241 trace lines; Stefan
+stopped early, "it started dropping frames": one 809 ms gap in the log).
+In gameplay the renderer's swap, the hand-over to Metal and the GPU end are
+all an even ~25 ms apart (24-26), but the shown times alternate 16.7 / 33.3
+in stretches (e.g. "16.7 33.3" x4, then 25.0 x11, then x7 again), with GPU
+end -> shown alternating ~12 / ~20 ms. Everything up to the GPU is even: the
+unevenness is in the display stage, a 60 Hz pattern (only multiples of 16.7)
+in those stretches, although the display link reports 120 Hz and the frames
+ask for at least 21 ms (RC6). Menus: 33.3 cadence.
+IPA128: at the 40 cap the display link's range is 120-120 Hz (was 80-120),
+startup marker IPA128. `ios/build/NFSMW-0.4.2-frame-trace-128.ipa`, 30120373 bytes, SHA-256 5a966291f8d8caf28531f6a74c819a34243562c87d3e188b12d9d3e7d3b3975c, UUID 3B2066B4-9A0F-3524-9F7D-BEE641781EE3,
+codesign ok; iCloud Desktop copy replaces 127. Not run on a device.
