@@ -103,7 +103,7 @@ extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hoo
 // shown on time. Each frame copies a strip of the displayed picture and
 // compares it with the previous frame's; each repeat is logged with where
 // the picture came from.
-REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_log, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_log, false, "GPU",
                     "Native renderer: log frames whose displayed picture repeats the previous one's");
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
