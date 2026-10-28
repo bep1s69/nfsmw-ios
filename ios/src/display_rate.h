@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace nfsmw::display {
 
 // Tells iOS which refresh rate suits the frame rate cap (ProMotion): 120 Hz
@@ -11,5 +13,9 @@ void RequestRateForCap(int fps_cap);
 
 // --ios_display_match_cap: the display follows cap changes (Battery mode's 30).
 bool MatchesCap();
+
+// The guest vblank's grid as last published (mach_absolute_time ns): a
+// refresh time and the period; 0, 0 before the first. Any thread.
+void LatestVblank(uint64_t& time_ns, uint64_t& period_ns);
 
 }  // namespace nfsmw::display
