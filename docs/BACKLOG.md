@@ -124,7 +124,11 @@ no frame-time function found yet). Oct 27: 120 Hz simulation removes the judder 
 60 fps (Stefan) at no measurable CPU cost; only the chase-camera picture
 judders, the mirror stays smooth. IPA94 makes 120 Hz simulation the
 default; next: a longer play test. Alternative not tried: feed the game's
-60 Hz step exactly one tick per frame. Also open: a sharp counter on its
+60 Hz step exactly one tick per frame.
+Oct 28 (iPhone, IPA110, 1x/60): with the touch overlay disabled, donuts give
+0 of 300 frames off the grid and no Metal HUD spikes, yet Stefan still feels
+the judder (TECHNICAL Oct 28). Touch-overlay redraws are a separate cause
+of real 33 ms spikes (fix proposed, not approved). Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
 ### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open

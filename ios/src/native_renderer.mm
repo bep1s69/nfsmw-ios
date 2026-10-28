@@ -4156,6 +4156,48 @@ int fps_overlay_w = 0, fps_overlay_h = 0;
 float fps_overlay_rect[4] = {};
 bool fps_overlay_changed = false;
 std::atomic<int> shown_drawable_width{0};
+// The touch controls' picture (nfsmw_native_set_touch_overlay): one texture,
+// updated where it changed (a knob moving redraws a small rectangle).
+std::mutex touch_overlay_mutex;
+std::vector<uint8_t> touch_overlay_pixels;
+int touch_overlay_w = 0, touch_overlay_h = 0;
+int touch_overlay_dirty[4] = {0, 0, 0, 0};  // x0, y0, x1, y1
+bool touch_overlay_changed = false;
+// The touch overlay: the texture as it is (premultiplied), blended over the
+// picture.
+id<MTLRenderPipelineState> OverlayPipeline(id<MTLDevice> device) {
+  static id<MTLRenderPipelineState> pso;
+  if (pso) {
+    return pso;
+  }
+  NSString* source = @"#include <metal_stdlib>\n"
+                      "using namespace metal;\n"
+                      "struct V { float4 p [[position]]; float2 uv; };\n"
+                      "vertex V vs(uint id [[vertex_id]]) {\n"
+                      "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                      "  V v; v.p = float4(uv * 2.0 - 1.0, 0.0, 1.0); v.uv = float2(uv.x, 1.0 - uv.y); return v; }\n"
+                      "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]]) {\n"
+                      "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+                      "  return t.sample(s, in.uv); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  if (!library) {
+    REXLOG_WARN("[native] touch overlay shader: {}", error.localizedDescription.UTF8String);
+    return nil;
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+  desc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+  desc.colorAttachments[0].blendingEnabled = YES;
+  desc.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
+  desc.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+  desc.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+  desc.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+  pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+  if (!pso) REXLOG_WARN("[native] touch overlay pipeline: {}", error.localizedDescription.UTF8String);
+  return pso;
+}
 id<MTLRenderPipelineState> PresentPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -6864,6 +6906,55 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
         [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        // The touch controls, over the whole drawable (the window's size).
+        {
+          static id<MTLTexture> touch;
+          {
+            std::lock_guard<std::mutex> lock(touch_overlay_mutex);
+            if (touch_overlay_changed) {
+              touch_overlay_changed = false;
+              if (touch_overlay_pixels.empty()) {
+                touch = nil;
+              } else {
+                if (!touch || touch.width != NSUInteger(touch_overlay_w) ||
+                    touch.height != NSUInteger(touch_overlay_h)) {
+                  MTLTextureDescriptor* td =
+                      [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                         width:NSUInteger(touch_overlay_w)
+                                                                        height:NSUInteger(touch_overlay_h)
+                                                                     mipmapped:NO];
+                  td.usage = MTLTextureUsageShaderRead;
+                  td.storageMode = MTLStorageModeShared;
+                  touch = [device newTextureWithDescriptor:td];
+                  touch_overlay_dirty[0] = touch_overlay_dirty[1] = 0;
+                  touch_overlay_dirty[2] = touch_overlay_w;
+                  touch_overlay_dirty[3] = touch_overlay_h;
+                }
+                const int* d = touch_overlay_dirty;
+                if (touch && d[2] > d[0] && d[3] > d[1]) {
+                  // Written while an earlier frame may still read it: at
+                  // worst a knob half-moved for one frame.
+                  [touch replaceRegion:MTLRegionMake2D(NSUInteger(d[0]), NSUInteger(d[1]), NSUInteger(d[2] - d[0]),
+                                                       NSUInteger(d[3] - d[1]))
+                           mipmapLevel:0
+                             withBytes:touch_overlay_pixels.data() + (size_t(d[1]) * size_t(touch_overlay_w) + size_t(d[0])) * 4
+                           bytesPerRow:NSUInteger(touch_overlay_w) * 4];
+                }
+                touch_overlay_dirty[0] = touch_overlay_dirty[1] = touch_overlay_dirty[2] = touch_overlay_dirty[3] = 0;
+              }
+            }
+          }
+          if (touch) {
+            if (id<MTLRenderPipelineState> overlay_pso = OverlayPipeline(device)) {
+              [e setViewport:(MTLViewport){0, 0, double(dw), double(dh), 0.0, 1.0}];
+              [e setScissorRect:(MTLScissorRect){0, 0, NSUInteger(dw), NSUInteger(dh)}];
+              [e setRenderPipelineState:overlay_pso];
+              [e setFragmentTexture:touch atIndex:0];
+              [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+              [e setRenderPipelineState:present_pso];
+            }
+          }
+        }
         // The FPS counter, over the picture, in its own small viewport.
         shown_drawable_width.store(int(drawable.texture.width), std::memory_order_relaxed);
         {
@@ -8183,6 +8274,35 @@ extern "C" void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, 
     fps_overlay_pixels.clear();
   }
   fps_overlay_changed = true;
+}
+
+extern "C" void nfsmw_native_set_touch_overlay(const uint8_t* bgra, int w, int h, int x, int y, int dw, int dh) {
+  std::lock_guard<std::mutex> lock(touch_overlay_mutex);
+  touch_overlay_changed = true;
+  if (!bgra || w <= 0 || h <= 0) {
+    touch_overlay_pixels.clear();
+    touch_overlay_w = touch_overlay_h = 0;
+    return;
+  }
+  if (w != touch_overlay_w || h != touch_overlay_h) {
+    touch_overlay_pixels.assign(size_t(w) * size_t(h) * 4, 0);
+    touch_overlay_w = w;
+    touch_overlay_h = h;
+    x = 0, y = 0, dw = w, dh = h;
+  }
+  const int x0 = std::clamp(x, 0, w), y0 = std::clamp(y, 0, h);
+  const int x1 = std::clamp(x + dw, 0, w), y1 = std::clamp(y + dh, 0, h);
+  if (x1 <= x0 || y1 <= y0) return;
+  for (int row = y0; row < y1; ++row) {
+    const size_t at = (size_t(row) * size_t(w) + size_t(x0)) * 4;
+    std::memcpy(touch_overlay_pixels.data() + at, bgra + at, size_t(x1 - x0) * 4);
+  }
+  int* d = touch_overlay_dirty;
+  if (d[2] <= d[0] || d[3] <= d[1]) {
+    d[0] = x0, d[1] = y0, d[2] = x1, d[3] = y1;
+  } else {
+    d[0] = std::min(d[0], x0), d[1] = std::min(d[1], y0), d[2] = std::max(d[2], x1), d[3] = std::max(d[3], y1);
+  }
 }
 
 extern "C" int nfsmw_native_drawable_width() {

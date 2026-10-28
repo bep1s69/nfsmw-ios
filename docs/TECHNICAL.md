@@ -7044,3 +7044,98 @@ spikes Stefan feels: missed frames, not a logging artefact.
 Stefan: Accurate exposure is greyed out with the native renderer (it only
 affects Vulkan); he plans to remove that option once older-iOS users confirm
 the native renderer works for them.
+
+## October 28, 2026: IPA110 donut-stutter trace (iPhone)
+
+iPhone 17 Pro Max, iOS 27.2, IPA110, 1x/60. Stefan's Game Performance trace
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/28 October 2026/ipa110_i-think_donut_stutters_game_performance_iphone.trace`
+(12:54:45, 31.2 s) and log `nfsmw_ipa110_i_think_donut_stutters_iphone.log`
+there (session from 12:53:51). Stutters expected after 0:15 (donuts).
+- Trace: presents stop for 1.23 s (4.7 s), 3.47 s (9.0 s), 7.56 s (15.5 s) and
+  0.98 s (23.1 s); Instruments flags them as main-thread hangs. Over those
+  13 s the time profile has ~100 samples from all threads instead of ~1300/s.
+  The game log shows the game running normally then (300 frames every 5 s,
+  `pacing: 0 of 300` through 12:54:51-12:55:17), so these are gaps in the
+  recording (the Mac's disk was nearly full, the Instruments temp file
+  9.3 GB), not freezes. They cover most of the donut period.
+- Captured parts: present interval median 16.67 ms, one frame over 20 ms
+  (25.8 ms at 2.7 s).
+- Log during donuts: 2100-3050 draws per frame (vs ~380 in normal driving), GPU
+  7.4-7.7 ms/frame, 0 over 45 ms, no `hitch:` lines (>40 ms), pacing 4 frames
+  one refresh late in 12:54:42-46, then 0-1 per 300. Renderer
+  `rendering` 15.8-15.9 ms/frame while RenderFrame is ~8% of a core in the
+  profile, so that time is mostly waiting, not encoding.
+- Inference: at 1x/60 the donuts did not drop frames on screen. Whatever
+  Stefan felt is not a present-timing hitch at 1x; untested whether it is
+  content-side (uneven game steps) or only at 1.5x MetalFX, where the GPU is
+  ~13.7 ms. Next: short re-trace with free disk space, or at 1.5x.
+
+Second trace, same day: `ipa110_donut_stutters_game_performance_iphone.trace`
+(13:19:04.75, 30.0 s, 1x/60) and `nfsmw_ipa110_donut_stutters_iphone.log`,
+same folder. Disk had 86 GB free and the trace still has two gaps (5.5 s at
+6.3 s, 9.1 s at 16.35 s), so the gaps are not (only) disk space.
+- Log: during donuts before the trace (13:18:03-13:19:03, 2400-4500 draws)
+  pacing 0-2 of 300 off; from 13:19:04 4-8 of 300 off per 5 s, each one 120 Hz
+  refresh pair late ("4:" gaps = 33 ms), matching Stefan's Metal HUD spikes.
+  GPU 12.5-14.8 ms/frame average at 1x, game-thread recording 6-7.5 ms.
+- Trace: GPU frame span median 12.7 ms, p90 15.4 ms. 13 frames span 19-37 ms
+  but their GPU busy time is normal (12-15.6 ms): the GPU sits idle ~15 ms
+  (one refresh) inside them, right after an in-process
+  `coreanimation.command-buffer` (assembly encoder). Command buffers are
+  committed on time (~every 16 ms) around them.
+- All 13 slow frames coincide with one of the 35 in-process Core Animation
+  commits in the trace (0.64-0.69, 2.06-2.83 burst, 12.11, 13.08, 13.54,
+  15.43, 15.64, 28.68, 29.35 s). This is the IPA86/IPA88 FPS-label mechanism:
+  a UIKit layer change over the game's layer delays that refresh's frame.
+- Source of the commits (inference, not yet proven): the touch overlay,
+  `touch_controls.mm` `sendState` calls `setNeedsDisplayInRect:` whenever a
+  control's look changes (stick knob moves, presses/releases), which donuts
+  do constantly. The FPS counter already draws into the native frame.
+- Proposed: a no-code check (donuts with a controller, touch overlay hidden),
+  then draw the touch controls into the native frame like the FPS counter, or
+  stop redrawing them on press/knob moves. Not approved or built yet.
+
+Touch overlay check, same day (log uploaded by Stefan,
+`nfsmw_ipa110_touch_controls_off_iphone.log`; two sessions, 1x/60,
+DualShock 4). Run 1 (13:33, touch controls hidden): two windows with 22-24
+frames shown as 25 + 8 ms pairs (`3:` gaps), otherwise 0. Run 2 (13:34:46,
+touch controls disabled): donuts 13:35:16-13:35:46 with 0 of 300 off in every
+window; Stefan saw 0 Metal HUD spikes. Driving afterwards: 1 late frame in
+13:35:51-56 (58 ms hitch at 13:35:57, 52 ms outside the recording, i.e. the
+game side; adaptive QoS had been on Utility since 13:35:26 and boosted
+again) and 1 in 13:35:56-36:01. GPU 11.5-14.8 ms/frame while driving at 1x.
+Result: the touch overlay's redraws cause the HUD spikes during donuts
+(hidden is not enough; disabled removes them). Stefan still feels the game
+stutter with an even screen, donuts and driving: that is D-005's judder
+(content motion uneven, swaps even), not a frame-timing miss.
+
+### IPA111: touch controls drawn into the native frame
+
+Stefan approved (Oct 28). Branch `touch-overlay-native` (off `main`).
+`touch_controls.mm`: with the native layer showing and not editing, the
+touch view's `setNeedsDisplay`/`setNeedsDisplayInRect:` no longer touch its
+layer; the changed rectangle is redrawn (same `drawRect:`, view opacity as a
+transparency layer) into a kept BGRA bitmap at the screen scale, at most once
+per run loop turn, and handed to `nfsmw_native_set_touch_overlay`. The layer
+is emptied once. The mode follows the native layer (0.5 s check, and on each
+redraw request); `[touch] drawn into the native frame / by UIKit` logged.
+`native_renderer.mm`: one shared texture, updated only in the changed
+rectangle, blended (premultiplied) over the whole drawable before the FPS
+counter. Known limit: the texture is written while an earlier frame may read
+it (at worst a knob half-moved for one frame). Cvar `ios_touch_native`,
+default true (Extra Args `--ios_touch_native=false` restores the UIKit layer).
+Built `ios/build/NFSMW-0.4.1-touch-native-111.ipa`, 30106035 bytes, SHA-256
+beaf16d0f4719a07cb423e7ae112aa90bd3c068b7c9f6dac8ee49c69f1b537e4, UUID
+B2072EDF-FFA9-31F1-A567-AD08C7E5EDE4, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device. Test: donuts at 1x/60 with touch controls on: no
+Metal HUD spikes, `pacing` 0 of 300 off as with them disabled; the controls
+look the same (opacity, pressed colours, knob) and still respond.
+
+Colour filter switch (Stefan, Oct 28: turn off only the yellow filter, keep
+bloom/blur): not built. The filter is part of the visual treatment
+(sub_822246F0): it binds five textures (scene r5, effect params at view+332
+/+340/+344 with globals 0x82A2C4B8/0x82A2C4C4, r6) and sets constants in
+sub_82223D40/sub_82223BB8 (a 3x3-looking matrix times a scalar, likely the
+colour transform) before sub_82224240 (blur) and sub_82224380. Which constant
+or texture carries the tint is not identified yet; the translated pixel
+shaders have no names (cache `shaders/msl`).

@@ -49,5 +49,11 @@ bool nfsmw_native_overlay_active();
 // counter is drawn at that resolution, not the screen's (IPA89).
 int nfsmw_native_drawable_width();
 void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, float x, float y, float fw, float fh);
+// The touch controls, drawn into the native frame the same way (IPA111): the
+// overlay view's redraws (stick moves, presses) delayed the game's frame by a
+// refresh, like the counter did (Oct 28 donut traces). bgra is the whole
+// overlay (w x h, premultiplied, covering the window); only the rectangle
+// x, y, dw, dh (pixels, from the top left) changed. Null bgra: no overlay.
+void nfsmw_native_set_touch_overlay(const uint8_t* bgra, int w, int h, int x, int y, int dw, int dh);
 
 }  // extern "C"

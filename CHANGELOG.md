@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **No more stutter from the touch controls.** Steering or pressing the
+  on-screen controls made a frame arrive one refresh late, so donuts and
+  quick steering stuttered. The controls are now drawn as part of the game's
+  picture.
+
 ## 0.4.1
 
 - **Engine sound no longer fades.** The game's sound engine dropped the
