@@ -7267,3 +7267,19 @@ frames; every 300 frames a count. Frame clock switches stay off by default.
 CDBB8433-2F60-3150-958D-B83BAF2E9C0F, 208 metallibs, `unzip -t` ok, codesign
 ok. Not run on a device. Test: no extra_args needed; donuts until the
 judder shows; send the log (a screen recording too if easy).
+
+IPA115 result (Stefan, Oct 28 14:51-14:53, iPad, 60 cap, extra_args still
+with `--nfsmw_frame_clock_swap=true`; log
+`Debug/28 October 2026/nfsmw_ipa115_stutters_ipad.log`): Stefan saw the
+judder ("plenty"). The repeat diagnostic found 0 repeated pictures in every
+300-frame window of gameplay except one: 4 frames at 14:52:31 (frames
+1453-1456, a burst of quick frames, the final resolve alternating 092DA000 /
+0958C000, all 2165 draws drawn). Pacing 0 of 300 off in every window, 60.0
+frames/s, frame clock 300 of 300 one period. So on the iPad the judder comes
+with every displayed picture new and on time: it is not repeated frames.
+The iPhone recording's every-other-frame repeats (11-12 s, 15.6-16.3 s) did
+not show up here; whether they came from the screen recorder (the display
+switched 48 -> 60 Hz when it started) or only happen on the iPhone is open.
+Remaining explanation: uneven motion between distinct frames (content), or
+perception. Next: a motion-per-frame measurement from a recording (the
+first script's shift estimate failed; needs a 2D estimate).
