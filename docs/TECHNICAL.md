@@ -7347,3 +7347,18 @@ Proposed next diagnostic: log the game's camera per frame from the world
 draws' view matrix (the renderer already sees c0-c15; IPA92 hashed them) and
 the per-frame change of its position and angle, to measure whether the
 game's own camera motion is uneven.
+
+IPA117: camera-motion diagnostic (Stefan approved, Oct 28). Cvar
+`nfsmw_native_camera_log`, default TRUE in this build. In NativeDraw each
+draw's c0-c3 is hashed; at the swap the frame's most common one (static
+world draws share the view-projection) is the camera; its w row (c3.xyz) or
+column (c0-c2 .w), whichever has length ~1, is the forward axis. Per frame
+the angle turned; every 60 frames of 3D scene (over 300 draws, turning over
+0.05 deg/frame): `[camera] 60 frames: turn X deg/frame, spread Y%, N off
+their neighbours by over 25%` and the 60 values (first 600 lines). Same
+thread as IPA92's content hash. Unknown whether the most common matrix is
+the world's in every scene (HUD matrices could win). ISO read-ahead (16 MB)
+and its log stay on.
+`ios/build/NFSMW-0.4.1-camera-log-117.ipa`, 30113544 bytes, SHA-256 32a62a90cda67b0a91e6a7def931736533eb4638235710573ee18429d5696338, UUID F12C371A-F27F-3346-8864-755D7B112877, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: donuts (any cap), note roughly
+when it feels uneven; send the log.
