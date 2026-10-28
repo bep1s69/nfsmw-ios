@@ -7488,3 +7488,11 @@ drawing that varies), rather than uneven time steps. Main XThread in the
 trace: no different activity within 50 ms before the judder frames than
 elsewhere (most stack frames unsymbolicated, `?`); it runs almost all the
 time (the main loop polls the clock). Not conclusive.
+
+Next test (proposed to Stefan, Oct 28 ~18:45, no build): the ordering-race
+idea. Our Utility QoS placement (guest threads on efficiency cores; iPad
+log: 4 efficiency cores, main/GPU off, other guest threads on, adaptive on;
+iPhone log: main/GPU on, guest on, adaptive off) changes the threads' relative
+timing versus the 360. extra_args: `--ios_utility_qos=false`,
+`--ios_utility_qos_guest=false`, `--ios_adaptive_qos=false`; device restart,
+donuts as in run 2; compare camera-log pairs.
