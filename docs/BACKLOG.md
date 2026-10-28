@@ -95,7 +95,7 @@ at ~00:12 and many glitches with the engine bug at ~00:15 (Low Power Mode on fro
 300+ resets/s per 5 s. Inference: every XMA context in use at once; check
 whether 256 is a context limit the game runs into.
 
-### D-005 Uneven 60 fps frame pacing (iPad) — FPS counter stutter fixed (IPA88); judder not fixed by 120 Hz simulation (off by default again in IPA101); motion blur switch to test in IPA103
+### D-005 Uneven 60 fps frame pacing / world judder — FIXED in 0.4.2 (even game frame time, IPA124; touch-control spikes IPA111; FPS counter IPA88)
 
 October 27, IPA109 (0.4.1, pending device test): the guest vblank thread now
 has Mach real-time priority (`ios_vblank_realtime`, from SpeedBreaker v0.1.4,
@@ -141,8 +141,8 @@ IPA122 found the cause: the game's main loop runs frames of 13.5/19.5 ms
 alternating and 30-45 ms stalls with quick catch-up frames (paced by GPU
 queue back-pressure), and the world steps by those times while the screen
 shows one frame per refresh. IPA124 (`nfsmw_frame_ticks` 2, default) gives the
-world one display period per frame: iPad camera judder 0.05% of frames, Stefan
-"buttery smooth". Pending: iPhone test, cleanup, release. Also open: a sharp counter on its
+world one display period per frame: iPad camera judder 0.05% of frames, iPhone
+0 in 4080, Stefan: no judder at any of the old spots. Fixed in 0.4.2. Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
 ### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open

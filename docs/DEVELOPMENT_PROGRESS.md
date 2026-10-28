@@ -126,6 +126,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 28: 0.4.2 prepared on local branch `touch-overlay-native` (off
+  `main`), not merged, tagged or pushed (waiting for Stefan).** Fixes: the
+  60 fps world judder (D-005: the game's main loop timed frames unevenly; each
+  frame now gets one display period, `patch_game_frame_ticks.py` +
+  `frame_clock.cpp`, cvar `nfsmw_frame_ticks`, IPA124 confirmed on iPad and
+  iPhone), touch controls drawn into the native frame (IPA111), UTF-16
+  extra_args.txt (IPA113). Day's dead ends removed (TECHNICAL Oct 28 cleanup).
+  Next: Stefan's go-ahead to merge into `main`, tag v0.4.2 and publish.
+
 - **October 27: 0.4.1 released to GitHub (Stefan: "push it", iOS 18 marked
   experimental).** `release-0.4.1` fast-forwarded into `main`, tagged
   `v0.4.1`, both pushed. Release IPA `ios/build/NFS-Most-Wanted-0.4.1.ipa`
