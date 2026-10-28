@@ -16,6 +16,16 @@
 //
 // Every 300 vblanks the main thread's reads are logged by how long after
 // the vblank they came: `[frame-clock]`.
+//
+// That snap could not work (IPA113): the main loop reads the clock about 3
+// times a frame at every point of it, and its phase drifts against the
+// vblank. Version 2, nfsmw_frame_clock_swap: on the main loop thread and the
+// thread that swaps, the clock advances by whole refresh periods at each
+// swap (as many as really passed, normally one) and runs on the real clock
+// in between, held just short of the next period. A read at the same point
+// of every frame then steps by exactly one period. Waits that poll the clock
+// still finish: past two periods without a swap (loading) it runs again,
+// one period behind until the next swap catches up.
 
 #include <mach/mach_time.h>
 #include <pthread.h>
@@ -35,10 +45,16 @@ REXCVAR_DEFINE_INT32(nfsmw_frame_clock_ms, 0, "Game",
                      "vblank read the vblank's time, so each frame advances exactly one vblank "
                      "(0: off)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_frame_clock_swap, false, "Game",
+                    "Experimental: on the game's main loop and swap threads the clock advances one "
+                    "refresh period per swap (even steps at 60 fps)");
+
 namespace nfsmw::frame_clock {
 namespace {
 
 thread_local bool on_main = false;
+thread_local bool on_swap = false;
+thread_local bool raw = false;  // OnSwap reading the real clock
 thread_local uint64_t last_returned = 0;
 
 uint64_t MachNs() {
@@ -57,7 +73,42 @@ uint64_t window_vblank = 0;
 uint32_t window_count = 0;
 int lines = 60;
 
+// Version 2's state, written at each swap: the virtual and real clocks then
+// (guest ticks) and the period. The swap thread writes, two threads read.
+std::atomic<uint64_t> swap_virtual{0}, swap_real{0}, swap_period{0};
+uint32_t steps_hist[4] = {};  // periods per swap: 1, 2, 3, more
+uint32_t swaps = 0;
+
+uint64_t PeriodTicks() {
+  uint64_t vblank_ns = 0, period_ns = 0;
+  nfsmw::display::LatestVblank(vblank_ns, period_ns);
+  if (!period_ns) period_ns = 16666667;
+  return uint64_t(double(period_ns) * double(rex::chrono::Clock::guest_tick_frequency()) *
+                  rex::chrono::Clock::guest_time_scalar() / 1e9);
+}
+
+uint64_t SwapClock(uint64_t ticks) {
+  const uint64_t base_real = swap_real.load(std::memory_order_acquire);
+  const uint64_t base_virtual = swap_virtual.load(std::memory_order_relaxed);
+  const uint64_t period = swap_period.load(std::memory_order_relaxed);
+  if (!base_real || !period || ticks < base_real) return std::max(ticks, last_returned);
+  const uint64_t since = ticks - base_real;
+  uint64_t result;
+  if (since < period) {
+    result = base_virtual + since;
+  } else if (since < 2 * period) {
+    result = base_virtual + period - 1;  // held until the swap
+  } else {
+    result = base_virtual + since - period;  // no swap for a while: the clock runs again
+  }
+  result = std::max(result, last_returned);
+  last_returned = result;
+  return result;
+}
+
 uint64_t Filter(uint64_t ticks) {
+  if (raw) return ticks;
+  if ((on_main || on_swap) && REXCVAR_GET(nfsmw_frame_clock_swap)) return SwapClock(ticks);
   if (!on_main) return ticks;
   const int32_t ms = REXCVAR_GET(nfsmw_frame_clock_ms);
   if (ms <= 0) return ticks;
@@ -98,6 +149,50 @@ uint64_t Filter(uint64_t ticks) {
 
 }  // namespace
 
+// At each frame's swap (native_renderer.mm, on the thread that swaps).
+void OnSwap() {
+  if (!REXCVAR_GET(nfsmw_frame_clock_swap)) return;
+  if (!on_swap) {
+    on_swap = true;
+    rex::chrono::Clock::set_guest_tick_filter(&Filter);
+    REXLOG_INFO("[frame-clock] v2 on: one refresh period per swap (main loop and swap threads)");
+  }
+  raw = true;
+  const uint64_t now = rex::chrono::Clock::QueryGuestTickCount();
+  raw = false;
+  const uint64_t period = PeriodTicks();
+  const uint64_t base_real = swap_real.load(std::memory_order_relaxed);
+  uint64_t next_virtual;
+  if (!base_real || now < base_real || !period) {
+    next_virtual = now;
+  } else {
+    const uint64_t steps = std::max<uint64_t>(1, (now - base_real + period / 2) / period);
+    ++steps_hist[std::min<uint64_t>(steps, 4) - 1];
+    const uint64_t old_virtual = swap_virtual.load(std::memory_order_relaxed);
+    // Never behind what was handed out (a frame over two periods ran the clock).
+    const uint64_t since = now - base_real;
+    const uint64_t handed = since < 2 * period ? old_virtual + std::min(since, period - 1)
+                                               : old_virtual + since - period;
+    next_virtual = std::max(old_virtual + steps * period, handed + 1);
+    if (++swaps >= 300) {
+      static int said = 60;
+      if (said-- > 0) {
+        REXLOG_INFO("[frame-clock] v2: last 300 swaps advanced 1 period {}, 2 {}, 3 {}, more {}; "
+                    "virtual clock {:.1f} ms behind the real one",
+                    steps_hist[0], steps_hist[1], steps_hist[2], steps_hist[3],
+                    double(int64_t(now) - int64_t(next_virtual)) * 1000.0 /
+                        (double(rex::chrono::Clock::guest_tick_frequency()) *
+                         rex::chrono::Clock::guest_time_scalar()));
+      }
+      std::fill(std::begin(steps_hist), std::end(steps_hist), 0);
+      swaps = 0;
+    }
+  }
+  swap_virtual.store(next_virtual, std::memory_order_relaxed);
+  swap_period.store(period, std::memory_order_relaxed);
+  swap_real.store(now, std::memory_order_release);
+}
+
 // The game's main thread, once per loop (adaptive_qos.cpp's deferred-call
 // hook): the first thread to call it is the main thread.
 void OnMainLoop() {
@@ -110,7 +205,9 @@ void OnMainLoop() {
   uint64_t expected = 0;
   if (owner.compare_exchange_strong(expected, self) || expected == self) {
     on_main = true;
-    rex::chrono::Clock::set_guest_tick_filter(&Filter);
+    if (REXCVAR_GET(nfsmw_frame_clock_ms) > 0 || REXCVAR_GET(nfsmw_frame_clock_swap)) {
+      rex::chrono::Clock::set_guest_tick_filter(&Filter);
+    }
     if (REXCVAR_GET(nfsmw_frame_clock_ms) > 0) {
       REXLOG_INFO("[frame-clock] on: main thread {:x}, reads up to {} ms after a vblank read its time", self,
                   REXCVAR_GET(nfsmw_frame_clock_ms));

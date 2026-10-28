@@ -7197,3 +7197,16 @@ swaps (`between swaps` lines) run on another thread (t1570948) than the
 main loop (1570957). Pacing 0-5 of 300 off. Inference: the snap as built
 cannot give equal steps; a clock that advances one period per swap (on the
 thread that swaps) would.
+
+IPA114: frame clock v2 (`nfsmw_frame_clock_swap`, default false). On the
+main loop thread and the thread that swaps (native renderer swap), the guest
+clock advances by whole refresh periods at each swap (as many as really
+passed, normally 1) and runs on the real clock in between, held at one tick
+short of the next period; past two periods without a swap it runs again
+(one period behind until the next swap). Never backwards per thread. Logs
+`[frame-clock] v2 on` and every 300 swaps the periods per swap and how far
+the virtual clock is behind the real one. Other threads untouched.
+`ios/build/NFSMW-0.4.1-frame-clock-v2-114.ipa`, 30111876 bytes, SHA-256 f5090d2bd341a49b93f53db9e1b4a39c6748c2ec1fa8a4746fa71c12e1c25a1d, UUID FA7EB3D8-FF71-3E6D-9C53-B8D8466FAA53, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: extra_args.txt
+`--nfsmw_frame_clock_swap=true` (drop `--nfsmw_frame_clock_ms`), donuts at
+1x/60, then without.
