@@ -256,7 +256,7 @@ the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
 
-### D-010 Career "appears to be damaged" (GitHub issue 8) — fix in IPA135, to test
+### D-010 Career "appears to be damaged" (GitHub issue 8) — fix in IPA136, to test
 
 Not Black Edition and not file damage (checksums and structure fine). The
 loader `sub_822C3A60` compares the player ID saved after the gameplay section

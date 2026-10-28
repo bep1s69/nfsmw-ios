@@ -7931,3 +7931,17 @@ gameplay read was 23033 bytes for NAME and BEPPY) before the only call of
 `sub_822C3A60`, and logs `sub_822C3718`'s result (temporary). Built
 `ios/build/NFSMW-save-id-135.ipa`, UUID D321BE83-F4A8-3DE4-A087-89608083B2DF,
 SHA256 b187ec7a818b06d1..., ZIP test OK, 208 metallibs.
+
+IPA135 result (Stefan, Oct 28): NAME: `sub_822C3718 -> 0`, load -> 0 (BEPPY
+-> 1). The ID check now passes. `sub_822C3718` is an MD5 (constants
+0x67452301...) over buffer+16, size-32 bytes, compared with the 16 bytes at
+r5: the buffer is the file from 0x24 (size 62652 = 62688-0x24), so it is the
+file's trailing MD5 of [0x34, end-16), which includes the ID we changed.
+
+### October 28: IPA136 recompute the MD5 after changing the ID (D-010)
+
+After writing the device's ID, `game_save_id.cpp` recomputes the MD5 of
+buffer+16..size-16 into the last 16 bytes (CC_MD5); the temporary
+`sub_822C3718` log is removed. Built `ios/build/NFSMW-save-id-136.ipa`, UUID
+268EAF62-8265-36D5-B8ED-A9225D7145DD, SHA256 ef8387d5714f6f03..., ZIP test OK,
+208 metallibs.
