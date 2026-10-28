@@ -7580,3 +7580,20 @@ frames how many waited / started at once. Frame steps and camera logs stay.
 ok, codesign ok. Not run on a device. Test: empty extra_args; new location,
 donuts; frame steps should sit near 16.7 and camera pairs vanish. Off:
 `--nfsmw_frame_pace=false`.
+
+IPA123 result (Stefan, Oct 28 19:05, iPad; log `nfsmw_ipa123_lowfps_ipad.log`):
+"crazy low fps everywhere, menu included": 27-55 frames/s; frame steps 0.3
+... 166 ms (many 80-130 ms). Pacing the loop itself stacks with the GPU
+queue's back-pressure. nfsmw_frame_pace now default false (do not use).
+
+IPA124: `nfsmw_frame_ticks` mode 2, default: in the existing hook before the
+main loop's fctiwz, the frame's elapsed time f0 (ms) is replaced by one
+display period (16.67 ms at 60 Hz), or more periods when real time has run
+over 0.75 of a period ahead (frames missed on screen too); a debt beyond -2
+or +4 periods resyncs (loading). The loop itself is not slowed. Rationale:
+the screen shows one game frame per refresh (pacing 0 of 300 off), so the
+world should advance one refresh per frame.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: empty extra_args; new location,
+donuts; camera pairs should vanish, fps unchanged. Off:
+`--nfsmw_frame_ticks=0`.
