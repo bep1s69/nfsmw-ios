@@ -7801,3 +7801,16 @@ IPA129: RC4's presentation restored (fixed grid, average GPU time + 4 ms; no
 minimum-duration path), 120-120 Hz display range at the 40 cap kept, trace
 on, marker IPA129. `ios/build/NFSMW-0.4.2-frame-trace-129.ipa`, 30120043 bytes, SHA-256 c0e5d333405705feac48a3f75934d316164058fcfaa077db0aaaa9e13d5b461e, UUID 014D557F-264C-3FF7-987F-4F13E0C500D3, codesign
 ok; iCloud Desktop copy replaces 128. Not run on a device.
+
+IPA129 test (Stefan, Oct 28 22:39-22:41, iPhone, 40 cap, Battery mode; log
+`nfsmw_ipa129_frame_trace_40fps_iphone.log`): no fps drops (39.7-40.0), but
+the shown gaps settle into an exact repeating 25.0 / 16.7 / 33.3 cycle while
+swap, hand-over and GPU end stay ~25 ms (+-2): GPU end -> shown alternates
+~37 / ~28 / ~37 ms, i.e. one frame in three is shown a refresh earlier than
+its neighbours. Stefan also asked whether "30 fps in menus" still works: the
+log says `(the caps only at the 60 fps cap)`: menus/warm 30 apply only at
+the 60 cap, so not at Battery mode's 40.
+IPA130: the trace also logs each paced frame's target (shown minus target,
+target minus hand-over), to see whether those frames are shown before their
+target. `ios/build/NFSMW-0.4.2-frame-trace-130.ipa`, 30120133 bytes, SHA-256 7be63fc5ebd1282921d807c045b8ec4a2197a9880702d9295947b81b250a2b1d, UUID E2CE10C7-0C6F-3D45-B395-67815BEDAD3F, codesign ok; iCloud
+Desktop copy replaces 129.
