@@ -7292,3 +7292,20 @@ judder. 0 repeated pictures in 20 of 21 windows; one burst of 4 at
 time. So the screen recording's every-other-frame repeats (14:37) were most
 likely made by the recorder (the display went 48 -> 60 Hz when it started),
 not by the game. Remaining: uneven motion between distinct frames.
+
+Stefan's clue (Oct 28 15:00): an area gets smoother the more he does donuts
+there, and stays smoother in later runs (after relaunching). iPad recording
+`ScreenRecording_10-28-2026 15-00-44_1.mov` (3200x2400, 25.4 s) and log
+`nfsmw_ipa115_dnuts_ipad.log`. Second measurement script (block matching on
+a 384x216 luma grid, upper picture): 162 recorded repeats, in stretches
+where every other recorded frame repeats (6.95-7.81 s, 13.43-14.06 s, ...)
+and single double-steps then zero-steps (5.20-5.23 s). The game log for the
+same seconds: 0 repeated pictures, pacing 0 of 300 off, display 60 Hz
+throughout. So the screen recorder's frames are not a faithful record of
+what was shown (it repeats/skips frames by itself); recordings cannot measure
+this judder. Pipelines in that log: all 163 made from the cache (23 ms in
+all), no draws left out after the first frame, so the across-runs cache is
+not the pipeline cache. Candidate: iOS' file cache of the game data (the
+game streams the city from the ISO; a reread area comes from memory).
+Proposed no-code check: restart the device (clears the file cache) and drive
+the "smooth" area again.
