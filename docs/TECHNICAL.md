@@ -7745,3 +7745,13 @@ clean in RC4). `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117012 bytes, SHA-256
 e2e500026ee635de4ee870641b3e87cb3a3caec3f160f26924678b858314c622, UUID
 6BED9CE3-879B-3256-A583-4ACDF0EA43C4, codesign ok; iCloud Desktop as
 NFS-Most-Wanted-0.4.2-rc6.ipa (RC5 copy removed). Not run on a device.
+
+RC6 test (Stefan, Oct 28 22:15, iPhone, 40 cap; log
+`nfsmw_0.4.2rc6_40fps_iphone.log`, also holds the RC5 session): "still not
+it". Pacing in the RC6 session: steady windows `2:100 3:100 4:100` again,
+others 3:~100 4:98-167 5:18-80. The same 16.7 / 25 / 33.3 ms cycle with
+three different presentation methods (shown-anchored target, fixed grid,
+minimum duration): the unevenness is upstream of presentation (when the
+frames are produced or committed at the 40 cap), not how they are scheduled.
+Not solved for 0.4.2; needs a per-frame diagnostic (CP swap time, commit,
+target, shown) at the 40 cap.
