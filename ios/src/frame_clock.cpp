@@ -34,6 +34,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <string>
 
 #include <rex/chrono/clock.h>
 #include <rex/cvar.h>
@@ -254,6 +255,18 @@ extern "C" double nfsmw_frame_ticks(double ticks, double seconds, double rate, d
     carry = 0;
   }
   ++results[std::min(3, std::max(0, int(out)))];
+  // Per frame, the main loop's step in frames (1.00 = 1/60 s), 60 values a
+  // line, to set beside the camera log (Oct 28).
+  {
+    static std::string steps;
+    static int count = 0, step_lines = 900;
+    steps += fmt::format(" {:.2f}", ticks / rate);
+    if (++count >= 60) {
+      if (step_lines-- > 0) REXLOG_INFO("[frame-steps] 60 frames |{}", steps);
+      steps.clear();
+      count = 0;
+    }
+  }
   if (++frames >= 300) {
     if (lines-- > 0) {
       REXLOG_INFO("[frame-ticks] 300 frames: elapsed x rate <0.5 {}, 0.5-0.9 {}, 0.9-1.0 {}, 1.0-1.1 {}, 1.1-1.5 {}, "

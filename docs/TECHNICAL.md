@@ -7547,3 +7547,13 @@ gameplay frames never took the hand-off path (sub_82441EF0); the hypothesis
 "render thread reads the next frame's camera" is not what happens here (the
 hand-off is not used, or not in this state). Note: judder strongest at a
 place visited for the first time.
+
+IPA122: `[frame-steps] 60 frames | ...`: per main-loop frame, the elapsed
+value it runs with (f0 = the r3 ticks / 65536, expected ~1.00 per 1/60 s if
+f0 counts frames), 60 a line, beside the camera log. Tests "a slow frame
+gives a double step, the next a near-zero one, while presentation stays
+even" (judder worst at places seen for the first time). Same switches as
+IPA121 (all experiments default off; frame_ticks carry 1, negligible).
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: empty extra_args; drive to a new
+place and do donuts.
