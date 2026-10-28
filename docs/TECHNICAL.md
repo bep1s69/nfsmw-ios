@@ -7496,3 +7496,20 @@ iPhone log: main/GPU on, guest on, adaptive off) changes the threads' relative
 timing versus the 360. extra_args: `--ios_utility_qos=false`,
 `--ios_utility_qos_guest=false`, `--ios_adaptive_qos=false`; device restart,
 donuts as in run 2; compare camera-log pairs.
+
+QoS-off result (Stefan, Oct 28 18:45, iPad restarted, IPA120, extra_args
+`--ios_utility_qos=false --ios_utility_qos_guest=false
+--ios_adaptive_qos=false`, logged `main/GPU threads off, other guest threads
+off, adaptive off (Extra Args)`; log
+`nfsmw_ipa120_stutters_after_restart_qos_off_ipad.log`): Stefan: donuts still
+stuttered, but leaving the safehouse no longer stuttered "like crazy".
+Camera: 75 pairs in 1440 frames (5.2%), in the donut seconds 18:45:34-46
+(2-16 per second). So Utility QoS is not the cause of the donut judder
+(maybe of the worse post-restart driving).
+Threads (time profile, run 2): the game's main loop sub_823B0008 and its
+frame sub_823AFE20 run on one guest thread (XThread9793); draws reach the
+native renderer on the CP thread ("GPU Commands", NativeDraw/NativeSwap),
+and RenderFrame on the render queue. Constants arrive as type-0 register
+writes copied into the ring by the game (Oct 22 census: no LOAD_ALU_CONSTANT
+traffic listed), so the CP cannot read a newer camera than the game wrote:
+the step-ahead pattern is in what the game itself emitted.
