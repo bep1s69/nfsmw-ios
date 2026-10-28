@@ -7139,3 +7139,10 @@ sub_82223D40/sub_82223BB8 (a 3x3-looking matrix times a scalar, likely the
 colour transform) before sub_82224240 (blur) and sub_82224380. Which constant
 or texture carries the tint is not identified yet; the translated pixel
 shaders have no names (cache `shaders/msl`).
+
+IPA111 result (Stefan, Oct 28, iPhone 17 Pro Max, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa111_touch_controls_iphone.log`, runtime build
+BA87D48F-...): `[touch] drawn into the native frame` logged; Metal HUD
+"virtually stutter free" during donuts with the touch controls on; pacing 0-4
+of 300 off per window after loading. Fixed for the touch overlay. The game
+world still judders at random moments (D-005), with an even screen.
