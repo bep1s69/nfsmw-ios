@@ -7899,3 +7899,22 @@ results). IPA132's CE05 change is still in. Built
 `ios/build/NFSMW-load-probe-133.ipa`, UUID 4EE16A65-4732-3F06-960F-15BC4CAA9596,
 SHA256 8907165e892d19a9..., ZIP test OK, 208 metallibs. Test: load NAME and
 BEPPY, send the log.
+
+IPA133 result (Stefan, iPad, Oct 28): NAME: `load -> 0 | word at buffer+23049
+= 2C9B8528, game expects 55ADA3B6 (DIFFERENT)`, sub_822C3718 never reached.
+BEPPY: sub_822C3718 -> 1, word 55ADA3B6 = expected, load -> 1. The word is the
+ID just before the profile name (file offset 0x5A2D); Stefan's MF save from
+Xenia in August has 55ADA3B6 too. Cause: the career's player ID, not Black
+Edition and not damage. The gameplay section was 23033 bytes in both.
+
+### October 28: IPA134 load careers saved under another player ID (D-010)
+
+`ios/src/game_save_id.cpp` (replaces the probe): when `sub_822C3A60` returns 0
+in mode 0 and the 4 bytes where `sub_822C2998` stopped differ from word +8 of
+the object at 0x82A2C684, they are replaced by that value in the load buffer
+and the loader runs again from the same entry registers; logs `[save-id]`.
+The IPA132 CE05 change is reverted (game_pool.cpp as at 7af8dc0). Built
+`ios/build/NFSMW-save-id-134.ipa`, UUID FF5B5C60-7ED0-3D5B-80B7-3E0238CE916C,
+SHA256 296129a8f4c39cca..., ZIP test OK, 208 metallibs. To test: NAME loads
+(cars visible; without its .pool the 13 overflow records may be empty), saves,
+reloads; BEPPY unchanged.
