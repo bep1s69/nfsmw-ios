@@ -7458,3 +7458,18 @@ IPA120 on the iPhone (Oct 28 ~16:19; log
 better than before. Camera: 94 pairs in 3420 frames (2.7%), isolated zeros
 113. No iPhone camera log before IPA120 to compare with (iPad IPA117/118:
 12-22%).
+
+IPA120 A/B (Stefan, Oct 28 ~16:25-16:30, iPad, same spot, warmed up first,
+force-quit between runs): mode 1 (`nfsmw_ipa120_on_ipad.log`) 18 pairs in
+3960 frames; mode 0 (`nfsmw_ipa120_off_ipad.log`, the game's truncation) 0
+pairs in 2040 frames; Stefan: "off was very smooth too". So the tick carry
+does nothing (as its numbers said). The judder rate tracks the session's
+state, not any switch: 12-22% of frames in the runs after the 15:08 device
+restart (IPA117/118, 15:22-15:26), 0-0.25% an hour later on the same iPad
+(16:15-16:30), 2.7% on the iPhone. Consistent with Stefan's observations
+(worse after a device restart, better the more an area is driven), i.e.
+something that warms up over time across launches (iOS file cache, or
+memory/paging state), though the measured disc reads are small and off the
+main loop. Next (proposed): an Instruments trace right after a device
+restart, during donuts, to see what the main loop thread does in the 2x/0
+stretches (camera log on to mark them).
