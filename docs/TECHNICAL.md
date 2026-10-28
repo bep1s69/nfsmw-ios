@@ -7840,3 +7840,17 @@ their target: the same 33.3 / 25 / 16.7 cycle. iOS does not honour
 presentAtTime at 40 on this panel. Next test without a build:
 `--nfsmw_native_present_at_time=false` (present when ready; the GPU ends
 are an even 25 +- 2 ms).
+
+No-pacing test at 40 (Stefan, Oct 28 23:18-23:19, iPhone, IPA131 with
+`--nfsmw_native_present_at_time=false`; log
+`nfsmw_ipa131_no_present_at_time_40fps_iphone.log`): 40.0 fps; shown gaps
+mostly 25.0 with occasional 29.2 / 20.8 pairs (gaps in 120 Hz refreshes
+3:147-237 of 300, the rest 4 or 2, from those pairs), versus the paced exact
+33.3 / 25 / 16.7 cycle. Menus at 30 unpaced: 4:273-291.
+RC7 (final candidate): no present-at-time pacing at the 40 cap (`cap != 40`
+in `paced`); the other paced caps use RC4's grid again (the refresh
+snapping of IPA131 removed: untested at 30, RC4's 30 was 0-5 of 300 off);
+display link 120-120 Hz at the 40 cap kept; menu/warm 30 at the 40 cap kept;
+frame trace kept as a diagnostic, default off. `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30121346 bytes,
+SHA-256 2ba5875914bbe2b4ca4d6345e0be7f310f97121485ac05c733458595abde1496, UUID 5B410821-DFE9-321E-9B90-3326194FC25C, 208 metallibs, codesign --deep --strict ok; iCloud
+Desktop as NFS-Most-Wanted-0.4.2-rc7.ipa. Not run on a device.

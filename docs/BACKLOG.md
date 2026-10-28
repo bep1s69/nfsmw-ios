@@ -595,7 +595,7 @@ Power Profiler or CPU investigations.
   cheaper reflection cube, lower post-effect resolution. See
   `HANDOFF_CHATGPT.md` and the checkpoint before starting.
 
-### D-0xx 40 fps cap: frames shown 16.7 / 25 / 33 ms apart on the iPhone — open (0.4.3)
+### D-0xx 40 fps cap: frames shown 16.7 / 25 / 33 ms apart on the iPhone — improved in 0.4.2 (no present-at-time pacing at 40; RC7), confirm
 
 Oct 28 (iPhone 17 Pro Max, 120 Hz, 40 cap; IPA124 `nfsmw_ipa124_30_40_fps_tests.log`
 and 0.4.2 RC2 `nfsmw_0.4.2rc2_tests_iphone.log`): `pacing: ~200 of 300 frames off
