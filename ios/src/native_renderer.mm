@@ -98,6 +98,13 @@ extern std::atomic<void (*)()> rex_native_swap_hook;
 // address, query end, count out) -> handled.
 extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
 
+// Oct 28 diagnostic (D-005): a screen recording showed every other picture
+// repeated in ~1 s stretches while 60 new frames a second were swapped and
+// shown on time. Each frame copies a strip of the displayed picture and
+// compares it with the previous frame's; each repeat is logged with where
+// the picture came from.
+REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_log, true, "GPU",
+                    "Native renderer: log frames whose displayed picture repeats the previous one's");
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
 REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
@@ -5152,6 +5159,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     id<MTLTexture> final_texture = nil;
     CGRect final_rect = CGRectZero;
+    uint32_t final_dest = 0;      // the displayed resolve's guest address
+    uint32_t final_index = 0;     // and which resolve of the frame it was
+    uint32_t color_resolves = 0;
     int32_t final_guest_width = 0, final_guest_height = 0;  // the displayed resolve's size in guest pixels
     std::vector<std::string> diagnostics;
     if (dump) {  // textures read with an exp_adjust (values * 2^n)
@@ -5609,6 +5619,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         [resolved_textures addObject:dest];
         if (!ev.depth) {  // the frame's last colour resolve: what is displayed
+          final_dest = ev.dest_base;
+          final_index = resolves_done;
+          ++color_resolves;
           final_texture = dest;
           final_rect = CGRectMake(x0, y0, w, h);
           final_guest_width = std::max(ev.x1 - ev.x0, 0);
@@ -6884,6 +6897,65 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 REXLOG_INFO("[native] FXAA ({}) over the {}x{} picture", now, w, h);
               }
             }
+          }
+        }
+        // Repeated pictures (nfsmw_native_repeat_log): a strip across the
+        // middle of the displayed picture, compared when the GPU is done.
+        if (REXCVAR_GET(nfsmw_native_repeat_log) && final_texture && !dump) {
+          NSUInteger bpp = 0;
+          switch (final_texture.pixelFormat) {
+            case MTLPixelFormatBGRA8Unorm: case MTLPixelFormatRGBA8Unorm: case MTLPixelFormatBGRA8Unorm_sRGB:
+            case MTLPixelFormatRGBA8Unorm_sRGB: case MTLPixelFormatRGB10A2Unorm: case MTLPixelFormatBGR10A2Unorm:
+            case MTLPixelFormatRG11B10Float: case MTLPixelFormatRGB9E5Float:
+              bpp = 4;
+              break;
+            case MTLPixelFormatRGBA16Float: case MTLPixelFormatRGBA16Unorm:
+              bpp = 8;
+              break;
+            default:
+              break;
+          }
+          const NSUInteger sx = NSUInteger(final_rect.origin.x), sw_px = std::min<NSUInteger>(NSUInteger(final_rect.size.width), 1024);
+          const NSUInteger sy = NSUInteger(final_rect.origin.y + final_rect.size.height * 0.5);
+          if (bpp && sw_px > 0 && final_texture.storageMode != MTLStorageModeMemoryless &&
+              sy + 2 <= final_texture.height && sx + sw_px <= final_texture.width) {
+            id<MTLBuffer> strip = [device newBufferWithLength:sw_px * bpp * 2 options:MTLResourceStorageModeShared];
+            id<MTLBlitCommandEncoder> sb = [cb blitCommandEncoder];
+            [sb copyFromTexture:final_texture sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(sx, sy, 0)
+                     sourceSize:MTLSizeMake(sw_px, 2, 1) toBuffer:strip destinationOffset:0
+                destinationBytesPerRow:sw_px * bpp destinationBytesPerImage:sw_px * bpp * 2];
+            [sb endEncoding];
+            const uint32_t r_dest = final_dest, r_index = final_index, r_colors = color_resolves,
+                           r_kept = kept_used, r_drawn = drawn, r_draws = uint32_t(frame->draws.size()),
+                           r_number = number;
+            const NSUInteger r_w = NSUInteger(final_texture.width), r_h = NSUInteger(final_texture.height);
+            [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
+              static std::mutex m;
+              static std::vector<uint8_t> previous;
+              static uint32_t previous_dest = 0, frames = 0, repeats = 0;
+              static int lines = 200;
+              std::lock_guard<std::mutex> lock(m);
+              const auto* bytes = static_cast<const uint8_t*>(strip.contents);
+              const bool same = previous.size() == strip.length && std::memcmp(previous.data(), bytes, strip.length) == 0;
+              // Gameplay only: menus and pause screens repeat by design.
+              if (same && r_draws > 300) {
+                ++repeats;
+                if (lines-- > 0) {
+                  REXLOG_INFO("[native] repeat: frame {} shows the same picture as the one before: resolve {} of "
+                              "the frame (colour {} of {}) to {:08X}{} ({}x{}), {} of {} draws, {} resolves from "
+                              "earlier frames",
+                              r_number, r_index, r_colors, r_colors, r_dest,
+                              r_dest == previous_dest ? ", the same address as before" : ", another address",
+                              r_w, r_h, r_drawn, r_draws, r_kept);
+                }
+              }
+              if (++frames >= 300) {
+                REXLOG_INFO("[native] repeat: {} of the last 300 pictures repeated the one before", repeats);
+                frames = repeats = 0;
+              }
+              previous.assign(bytes, bytes + strip.length);
+              previous_dest = r_dest;
+            }];
           }
         }
         if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
