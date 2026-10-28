@@ -7251,3 +7251,19 @@ frame's last colour resolve, or a resolve kept from an earlier frame,
 previous frame's picture. Next (proposed): a diagnostic that compares a row
 of the displayed picture with the previous frame's and logs each repeat
 with the final resolve's address and source.
+
+IPA115: repeated-picture diagnostic (Stefan approved, Oct 28). Cvar
+`nfsmw_native_repeat_log`, default TRUE in this diagnostic build (turn off
+or remove before a release). Each frame blits a 2-row strip (up to 1024
+pixels) across the middle of the displayed picture (`final_texture`, before
+MetalFX/FXAA) to a shared buffer; on GPU completion it is compared with the
+previous frame's strip. In gameplay (over 300 draws) each byte-identical
+repeat logs `[native] repeat: frame N ...` (first 200): which resolve of the
+frame was displayed, how many colour resolves, the address and whether it
+is the previous frame's, draws drawn of total, resolves kept from earlier
+frames; every 300 frames a count. Frame clock switches stay off by default.
+`ios/build/NFSMW-0.4.1-repeat-log-115.ipa`, 30104610 bytes, SHA-256
+075ef8096767bc4ef718d30163407bf7d52aa9045a766c8e8fe029e9df20bf31, UUID
+CDBB8433-2F60-3150-958D-B83BAF2E9C0F, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device. Test: no extra_args needed; donuts until the
+judder shows; send the log (a screen recording too if easy).
