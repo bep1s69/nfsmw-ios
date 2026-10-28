@@ -256,25 +256,16 @@ the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
 
-### D-010 Accurate exposure Off overwritten at startup (GitHub #5) — fixed in 0.4.1 (IPA110)
+### D-010 Career "appears to be damaged" (GitHub issue 8) — fix in IPA134, to test
 
-`--readback_resolve=none` (Accurate exposure Off) equals the compiled
-default, so `PonerSiNadieLoPidio` (`common/src/nfsmw_app.h`), which tested
-`HasNonDefaultValue`, set it to `fast`. Now tests `GetFlagSource != kDefault`
-(the reporter's fix; also covers `gpu_plugin`, `mnk_mode`). Next: a log with
-Accurate exposure Off should no longer show readback going to `fast`.
-
-### D-011 iOS 18 support — built in 0.4.1 (IPA110), untested
-
-Requested on GitHub. Deployment target 18.0 (`ios/CMakePresets.json`),
-shader libraries built for 18.0 (`tools/native/build_shaders.sh` default).
-No device below iOS 27 available to Stefan: testing depends on the GitHub
-users who asked. README still says iOS 26: change it at release.
-### D-010 "Appears to be damaged" for careers started with the old Black Edition switch (GitHub issue 8) — fix in IPA132, to test
-
-The save is intact (checksums match) but uses record pool entries past 75,
-created only when byte 0x82A2CE05 was set by the pre-0.4 switch. IPA132 sets
-CE05 again while such a career is opened. Details: TECHNICAL, October 28.
+Not Black Edition and not file damage (checksums and structure fine). The
+loader `sub_822C3A60` compares the player ID saved after the gameplay section
+(NAME: 2C9B8528) with word +8 of the object at 0x82A2C684 (Stefan's devices:
+55ADA3B6) and fails if they differ (IPA133 probe). IPA134
+(`ios/src/game_save_id.cpp`) writes the device's ID into the load buffer and
+reruns the loader. Negative: setting CE05 (IPA132) and clearing the 13 record
+slots past 75 did not help. Open: why the user's own device rejected a save
+it wrote (ID changed between installs/versions?). Details: TECHNICAL, Oct 28.
 
 ### D-008 Save sync misses a newer save (iPad/iPhone) — fixed (IPA98, confirmed by Stefan Oct 27)
 

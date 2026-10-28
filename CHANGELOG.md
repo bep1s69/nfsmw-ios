@@ -2,11 +2,10 @@
 
 ## 0.4.2
 
-- **Careers from the old Black Edition switch load again.** Before 0.4 the
-  switch turned on a different game setting, which gave those careers extra
-  car records. 0.4 no longer set it, so the game said the career "appears to
-  be damaged". It is now turned back on while such a career is opened
-  (Black Edition stays on).
+- **"Appears to be damaged" careers load.** A career saved on another device
+  or install carries another player ID, and the game refused it as damaged
+  although the file was fine. It now loads, and is saved with this device's
+  ID from then on.
 
 - **Smooth motion at 60 fps.** The game world and camera could judder, as if
   running at 30 fps, even though the fps counter showed a steady 60: worst in
