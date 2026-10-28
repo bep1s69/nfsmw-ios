@@ -11,7 +11,8 @@
   extra car records kept beside a save were only put back if the career
   matched them exactly, so one changed record left the cars invisible and
   without their upgrades. They now come back whenever the records that need
-  them match.
+  them match. Thanks to Lunquell for reporting both (issue 8) and sending
+  the save files and logs that found them.
 
 - **Smooth motion at 60 fps.** The game world and camera could judder, as if
   running at 30 fps, even though the fps counter showed a steady 60: worst in
