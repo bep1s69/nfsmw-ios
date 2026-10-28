@@ -157,6 +157,8 @@ uint64_t Filter(uint64_t ticks) {
 
 }  // namespace
 
+uint64_t MachNsPublic() { return MachNs(); }
+
 // At each frame's swap (native_renderer.mm, on the thread that swaps).
 void OnSwap() {
   if (!REXCVAR_GET(nfsmw_frame_clock_swap)) return;
@@ -298,5 +300,52 @@ extern "C" bool nfsmw_render_single_thread() {
     return v;
   }();
   return on;
+}
+
+// Main loop pacing (tools/ios/patch_game_frame_ticks.py, after the frame): the
+// game's main loop is paced only by back-pressure from the GPU queue, in
+// bursts (IPA122: frames of 13.5 / 19.5 ms alternating, 40-45 ms stalls then
+// 6, 6, 9 ms catch-up frames), and the world steps by those times while the
+// screen shows the frames evenly: uneven motion. With nfsmw_frame_pace (60
+// cap only) the next frame starts just after the next display refresh, as
+// on the 360, unless this frame ended less than 2 ms after one (late: start
+// now, no 33 ms frame for a hair).
+REXCVAR_DEFINE_BOOL(nfsmw_frame_pace, true, "Game",
+                    "At the 60 fps cap, each game frame starts just after a display refresh (even "
+                    "frame times, as on the 360)");
+extern "C" void nfsmw_frame_pace() {
+  static int said = 0;
+  static uint32_t frames = 0, waited = 0, late = 0;
+  static double wait_ms = 0;
+  if (!REXCVAR_GET(nfsmw_frame_pace) || rex::cvar::Query<int32_t>("ios_fps_cap") != 60) return;
+  uint64_t vblank_ns = 0, period_ns = 0;
+  nfsmw::display::LatestVblank(vblank_ns, period_ns);
+  const uint64_t now = nfsmw::frame_clock::MachNsPublic();
+  if (!vblank_ns || !period_ns || now < vblank_ns || now - vblank_ns > 250000000ull) return;
+  if (!said++) REXLOG_INFO("[frame-pace] on: each game frame starts just after a refresh ({:.2f} ms)", period_ns / 1e6);
+  const uint64_t latest = vblank_ns + ((now - vblank_ns) / period_ns) * period_ns;
+  if (now - latest < 2000000ull) {
+    ++late;
+  } else {
+    const uint64_t target = latest + period_ns + 300000ull;
+    static const mach_timebase_info_data_t tb = [] {
+      mach_timebase_info_data_t t{};
+      mach_timebase_info(&t);
+      return t;
+    }();
+    mach_wait_until(target * tb.denom / tb.numer);
+    ++waited;
+    wait_ms += double(target - now) / 1e6;
+  }
+  if (++frames >= 300) {
+    static int lines = 120;
+    if (lines-- > 0) {
+      REXLOG_INFO("[frame-pace] 300 frames: {} waited for the next refresh ({:.1f} ms each), {} started at once "
+                  "(ended under 2 ms after a refresh)",
+                  waited, waited ? wait_ms / waited : 0.0, late);
+    }
+    frames = waited = late = 0;
+    wait_ms = 0;
+  }
 }
 
