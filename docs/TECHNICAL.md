@@ -7655,3 +7655,13 @@ iPhone baseline (549 s, brightness 47%, no Utility QoS): drain 37.6, CPU impact
 estimate is not comparable (140 s, race start and loading included, Power
 Profiler's estimate swings 22-62 per second here). A longer (10 min) run is
 needed for a drain figure.
+
+0.4.2 release candidate (Oct 28): `ios/build/NFS-Most-Wanted-0.4.2.ipa`,
+30115301 bytes, SHA-256
+95d3897cbbbc821c59b9c858aec22009bee96c29b9b17d0cfa096f6033bfab32, NFSMW UUID
+F597DB27-A2D6-38B1-99FF-ABBA29E5F173, 208 metallibs, `unzip -t` ok,
+`codesign --verify --deep --strict` ok, bundle com.bep1s.nfsmwios 0.4.2 (6).
+Contains: even frame time (nfsmw_frame_ticks 2), touch controls in the native
+frame, UTF-16 extra_args.txt, Battery mode 30/40 choice; diagnostics off.
+Not yet run on a device as a release build (fresh container). Branch
+`touch-overlay-native`, not merged, tagged or pushed.
