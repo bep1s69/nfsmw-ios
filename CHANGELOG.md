@@ -7,6 +7,10 @@
   quick steering stuttered. The controls are now drawn as part of the game's
   picture.
 
+- **extra_args.txt saved as UTF-16 now works.** A file that went through
+  the Mac (TextEdit, the clipboard) could be UTF-16, and every argument in it
+  was ignored.
+
 ## 0.4.1
 
 - **Engine sound no longer fades.** The game's sound engine dropped the

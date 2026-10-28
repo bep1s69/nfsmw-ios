@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -219,12 +220,31 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
 
 // Documents/extra_args.txt: one argument per line; blank lines and lines
 // starting with '#' are ignored. Each replaces any argument with the same
-// option name already in `args`.
+// option name already in `args`. UTF-8, or UTF-16 with its byte-order mark
+// (a file passed through the Mac's clipboard/TextEdit came as UTF-16 LE and
+// every argument was ignored, Oct 28).
 void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
-  std::ifstream in(file);
-  if (!in) {
+  NSData* data = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:file.c_str()]];
+  if (!data) {
     return;
   }
+  NSString* text = nil;
+  const auto* bytes = static_cast<const uint8_t*>(data.bytes);
+  if (data.length >= 2 && ((bytes[0] == 0xFF && bytes[1] == 0xFE) || (bytes[0] == 0xFE && bytes[1] == 0xFF))) {
+    text = [[NSString alloc] initWithData:data encoding:NSUTF16StringEncoding];  // the mark picks the order
+    nfsmw::boot::Trace("extra_args.txt: UTF-16, converted");
+  }
+  if (!text) {
+    text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  }
+  if (!text) {
+    nfsmw::boot::Trace("extra_args.txt: not UTF-8 or UTF-16; ignored");
+    return;
+  }
+  if ([text hasPrefix:@"\uFEFF"]) {
+    text = [text substringFromIndex:1];  // a UTF-8 byte-order mark
+  }
+  std::istringstream in(text.UTF8String);
   std::string line;
   while (std::getline(in, line)) {
     const auto a = line.find_first_not_of(" \t");

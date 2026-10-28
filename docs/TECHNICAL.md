@@ -7169,3 +7169,18 @@ d5e2bde35bf5d219caf5cf594aec0bd508c6a4e128ff705ae97f9d400835c0cf, UUID
 8BDD84C4-5899-3DDC-84DF-0534275C8503, 208 metallibs, `unzip -t` ok,
 codesign ok. Not run on a device. Test (1x/60): donuts/driving with
 `--nfsmw_frame_clock_ms=8`, then without, same spot; send the log.
+
+IPA112 first test (Oct 28): no `[frame-clock] on` in either session
+(`nfsmw_ipa112_60hz_clock_iphone.log`, 14:14 and 14:18): boot.txt shows the
+14:18 run's `extra_args.txt` was UTF-16 LE with a byte-order mark (copied via
+the Mac), so the argument reached the parser as garbage and the switch was
+off. Not a frame-clock result.
+
+IPA113: `ios_main.mm` `ApplyExtraArguments` reads `extra_args.txt` as UTF-16
+(either order, by its mark) or UTF-8 (a UTF-8 mark is dropped); boot.txt says
+`extra_args.txt: UTF-16, converted`. Checked the decoding on the Mac with a
+UTF-16 LE file. Also has IPA112's frame clock and IPA111's touch fix.
+`ios/build/NFSMW-0.4.1-frame-clock-utf16-113.ipa`, 30099717 bytes, SHA-256
+3fda5a78242583414519ea8c009141c212ce9164930e20eddc8f6758b3ea8cfd, UUID
+DB56663F-5840-3B84-AE44-3F52A7B37F20, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device.
