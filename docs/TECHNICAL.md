@@ -7146,3 +7146,26 @@ BA87D48F-...): `[touch] drawn into the native frame` logged; Metal HUD
 "virtually stutter free" during donuts with the touch controls on; pacing 0-4
 of 300 off per window after loading. Fixed for the touch overlay. The game
 world still judders at random moments (D-005), with an even screen.
+
+### IPA112: frame-step clock (experiment for D-005)
+
+Stefan approved (Oct 28). Hypothesis: the main thread's clock reads jitter
+~1 ms around the vblank they follow, so each frame's world/camera step is
+slightly uneven at 60 fps while the screen gets an even 60. SDK hook
+`tools/ios/patch_ios_frame_clock.py` (in prepare_sdk.py): a filter on
+`Clock::QueryGuestTickCount` (all mftb/KeQueryPerformanceCounter reads).
+`ios/src/frame_clock.cpp`: cvar `nfsmw_frame_clock_ms` (default 0 = off).
+On the game's main thread only (first caller of the deferred-call hook
+sub_823C8290), reads less than that many ms after the latest guest vblank
+(the display refresh display_rate.mm publishes) return the vblank's time;
+later reads stay real; never backwards. Logs `[frame-clock] on` and, every
+300 vblanks, the main thread's reads by time after the vblank (<1, 1-2, 2-4,
+4-8, 8-12, 12+ ms) and how many were snapped. Risks: a wait that polls the
+clock right after a vblank waits up to the window longer; if the frame's
+read sits near the window's edge, steps of 0/2 vblanks (worse). Also has
+IPA111's touch fix.
+Built `ios/build/NFSMW-0.4.1-frame-clock-112.ipa`, 30098542 bytes, SHA-256
+d5e2bde35bf5d219caf5cf594aec0bd508c6a4e128ff705ae97f9d400835c0cf, UUID
+8BDD84C4-5899-3DDC-84DF-0534275C8503, 208 metallibs, `unzip -t` ok,
+codesign ok. Not run on a device. Test (1x/60): donuts/driving with
+`--nfsmw_frame_clock_ms=8`, then without, same spot; send the log.

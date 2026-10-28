@@ -49,6 +49,8 @@ REXCVAR_DEFINE_BOOL(ios_display_120_at_60, false, "GPU",
 namespace {
 std::atomic<int> current_cap{60};
 std::atomic<int> asked_hz{60};
+// What was last published to the SDK (frame_clock.cpp reads it).
+std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
 }  // namespace
 
 @interface NFSDisplayRate : NSObject
@@ -72,8 +74,14 @@ std::atomic<int> asked_hz{60};
         // refresh, with twice the period.
         static bool odd = false;
         odd = !odd;
-        if (odd) publish(uint64_t(link.timestamp * 1e9), uint64_t(2.0 * period * 1e9));
+        if (odd) {
+          published_period_ns.store(uint64_t(2.0 * period * 1e9), std::memory_order_relaxed);
+          published_ns.store(uint64_t(link.timestamp * 1e9), std::memory_order_release);
+          publish(uint64_t(link.timestamp * 1e9), uint64_t(2.0 * period * 1e9));
+        }
       } else {
+        published_period_ns.store(uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)), std::memory_order_relaxed);
+        published_ns.store(uint64_t(link.timestamp * 1e9), std::memory_order_release);
         publish(uint64_t(link.timestamp * 1e9), uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)));
       }
     }
@@ -118,5 +126,10 @@ void RequestRateForCap(int fps_cap) {
 }
 
 bool MatchesCap() { return REXCVAR_GET(ios_display_match_cap); }
+
+void LatestVblank(uint64_t& time_ns, uint64_t& period_ns) {
+  time_ns = published_ns.load(std::memory_order_acquire);
+  period_ns = published_period_ns.load(std::memory_order_relaxed);
+}
 
 }  // namespace nfsmw::display
