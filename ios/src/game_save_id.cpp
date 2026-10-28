@@ -10,16 +10,21 @@
 // The gameplay section read is 23033 bytes for every save seen (IPA133: NAME,
 // BEPPY), so the ID is at buffer+16+23033. Before the loader runs, a
 // different ID there is replaced by the device's (rerunning the loader after
-// a failure did not work: IPA134). The next save writes the device's ID.
+// a failure did not work: IPA134), and the MD5 that sub_822C3718 checks
+// (buffer+16 to size-16, stored in the last 16 bytes: the file's trailing MD5)
+// is computed again. The next save writes the device's ID.
 
 #include <cstdint>
+
+#include <CommonCrypto/CommonDigest.h>
 
 #include "nfsmw_pch.h"
 
 #include <rex/logging.h>
+#include <rex/system/kernel_state.h>
+#include <rex/system/xmemory.h>
 
 extern "C" void __imp__sub_822C3A60(PPCContext& __restrict ctx, uint8_t* base);
-extern "C" void __imp__sub_822C3718(PPCContext& __restrict ctx, uint8_t* base);
 
 namespace {
 
@@ -33,12 +38,6 @@ uint32_t LoadBytesBE(uint8_t* base, uint32_t p) {
 
 }  // namespace
 
-// TEMPORARY: the loader's other check, for the D-010 test.
-extern "C" REX_FUNC(sub_822C3718) {
-  __imp__sub_822C3718(ctx, base);
-  REXLOG_INFO("[save-id] sub_822C3718 -> {}", ctx.r3.u32 & 0xFF);
-}
-
 extern "C" REX_FUNC(sub_822C3A60) {
   const uint32_t buffer = ctx.r4.u32, size = ctx.r5.u32;
   const uint32_t object = REX_LOAD_U32(kPlayerObject);
@@ -49,6 +48,8 @@ extern "C" REX_FUNC(sub_822C3A60) {
       for (int i = 0; i < 4; ++i) {
         REX_STORE_U8(at + i, uint8_t(device >> (24 - 8 * i)));
       }
+      uint8_t* data = rex::system::kernel_state()->memory()->TranslateVirtual<uint8_t*>(buffer);
+      CC_MD5(data + 16, CC_LONG(size - 32), data + size - 16);
       __imp__sub_822C3A60(ctx, base);
       REXLOG_INFO("[save-id] career saved with player ID {:08X}, this device has {:08X}: "
                   "loaded with the device's ID -> {}", saved, device, ctx.r3.u32);
