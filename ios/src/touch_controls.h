@@ -20,7 +20,8 @@ void InstallFpsCounter();
 // What the HUD shows while driving (game_scene_size.cpp, twice a second, on
 // the game's thread): the DRIVE layout's D-pad buttons follow it.
 constexpr int kInCircle = 1;  // an event, shop or safehouse circle: ENTER
-constexpr int kInRace = 2;    // a race: no MAP or SMS
+constexpr int kInRace = 2;    // a race or another event (a pursuit challenge): STATS only
+constexpr int kInPursuit = 4;  // a pursuit: STATS, and MAP outside events
 void SetDriveContext(int bits);
 
 #ifdef __OBJC__

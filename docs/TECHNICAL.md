@@ -8648,3 +8648,36 @@ IPA158 (touch_controls.mm):
 `ios/build/NFSMW-touch-pursuit-158.ipa` SHA-256
 5c9c75155e04637ec35803124c4ea18469cc9dd63e0a5064d2509efb2910b901, 30150624
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA157. Not run.
+
+### October 29: IPA158 runs; pursuit context, grouped D-pad buttons (IPA159)
+
+Stefan (IPA158): `nfsmw_ipa158_a_iphone.log` (Custom HUD on, a free-roam
+pursuit, map opened at 20:44:34 during it) and `nfsmw_ipa158_b_iphone.log`
+(the same run plus a challenge pursuit with Custom HUD off, 20:46:43-).
+- Free-roam pursuit: context stayed "free roam". At 20:44:26 the pursuit
+  HUD came up; after a 0.4 s flash of the whole set, FD9152B1 (group at
+  73,8, the pursuit panel on the right) with 951092B5-BA, 6A144066,
+  8E3653A6 stayed shown. Not shown in the IPA154 race. Used: FD9152B1
+  shown = kInPursuit.
+- Challenge pursuit: "race" (markers); the map does not open there (10
+  MAP presses, no WorldMapMain.fng); STATS (up) opened
+  PostRace_Pursuit.fng... (20:46:51, the details screen).
+- Infraction ring: Stefan, Custom HUD off: the ring, the infractions icon
+  and its text are all at that place: the game's own layout. Nothing to
+  fix; with Custom HUD the infractions text moves and the ring does not.
+- `[hud] layout: --ios_gpu_capture=false` with Custom HUD off: the
+  launcher passed `--nfsmw_hud_layout=` (empty) and the parser took the
+  next argument as its value, so ios_gpu_capture was not set. Now
+  `none` when empty (no colon: no element).
+IPA159:
+- touch_controls.mm: up = STATS in an event or a pursuit, ENTER in a
+  circle otherwise; MAP outside events (free roam and its pursuits); SMS
+  and LIST in free roam without a pursuit. The four are `grouped`: placed
+  around `drive.ACTIONS` (position and size from the layout, times the
+  overall size); the editor shows one D-pad "ACTIONS" for them, which
+  applyCustomLayout places; individual saves from IPA154-158 are ignored.
+- game_scene_size.cpp: kInPursuit (touch_controls.h), logged as ", pursuit".
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-actions-159.ipa` SHA-256
+df60db91e2eb5c354ca388c612e3ca6331ffd69609709366ce720289939d2704, 30151321
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA158. Not run.

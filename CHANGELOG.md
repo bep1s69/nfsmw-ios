@@ -36,9 +36,10 @@
   layout's small D-pad is now four buttons, one for each thing the game
   puts on it: enter a shop / engage an event, the world map, SMS messages,
   and the Blacklist. Each shows only when it does something: Enter inside
-  an event, shop or safehouse circle; in races and pursuit events the up
-  button opens the race's or pursuit's details instead; SMS and Blacklist
-  in free roam only. Buttons held while the set changes stay held, and the
+  an event, shop or safehouse circle; in races, pursuits and pursuit
+  events the up button opens the details instead; Map in free roam and
+  free-roam pursuits; SMS and Blacklist in free roam only. In Customize
+  touch controls the four move and resize together. Buttons held while the set changes stay held, and the
   driving buttons no longer flash up for a moment when the game starts.
 
 - **Custom HUD: the circle prompt stays put.** The icon over the road in
@@ -49,6 +50,9 @@
 - **Extra arguments in the launcher.** Advanced tab › Extra arguments:
   options for testing (e.g. `--nfsmw_hud_watch=true`), separated by
   spaces, without editing Documents/extra_args.txt. They win over both.
+
+- **Custom HUD off: one setting no longer lost.** The empty HUD layout
+  took the next launch option (GPU frame capture) as its value.
 
 - **Smaller logs.** Two of the HUD's overlays took turns being logged in
   full every frame, which filled several 5 MB logs in a few minutes. Each

@@ -802,7 +802,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
   // The HUD editor's layout (it replaced the per-side offsets of 0.4.2).
-  a.push_back("--nfsmw_hud_layout=" + str(@"hud_layout"));
+  // Never empty: "--nfsmw_hud_layout=" took the next argument as its value
+  // (IPA158 log, Custom HUD off: "[hud] layout: --ios_gpu_capture=false").
+  a.push_back("--nfsmw_hud_layout=" + (str(@"hud_layout").empty() ? std::string("none") : str(@"hud_layout")));
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
