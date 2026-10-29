@@ -32,6 +32,11 @@
   they dim so they hide less of the road (Touch controls › Dim when not
   touched; any touch brings them back).
 
+- **Map, SMS, Blacklist and Enter buttons while driving.** The Drive
+  layout's small D-pad is now four buttons, one for each thing the game
+  puts on it: enter a shop / engage an event, the world map, SMS messages,
+  and the Blacklist (or the race's / pursuit's details).
+
 - **Swipe and tap in menus.** In menus and pause screens the on-screen
   gamepad is gone: swipe to move through the menu, tap to accept, tap with
   two fingers to go back. The PAD button still brings the full gamepad

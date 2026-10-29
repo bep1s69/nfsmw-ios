@@ -618,10 +618,16 @@ static CGFloat TouchOpacity() {
   round(@"CAM", P(.455, .17), unit * .36, kDriveCamera);
   round(@"PAUSE", P(.545, .17), unit * .36, kDrivePause);
   round(@"RESET", P(.5, .86), unit * .36, kDriveReset);
-  // The D-pad, for what free roam puts on it (shops and safehouses, the
-  // Blacklist, the map, messages) and for menus.
-  Control dpad{Kind::kDpad, @"", P(.11, .27), unit * .72};
-  _controls.push_back(dpad);
+  // What the game puts on the D-pad while driving (its controls screen):
+  // up enters a shop or engages an event, left the world map, right the
+  // SMS messages, down the Blacklist (or the race's / pursuit's details).
+  // One button each, around where the D-pad was.
+  const CGPoint pad = P(.11, .27);
+  const CGFloat off = unit * .62, r = unit * .36;
+  round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
+  round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
+  round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
+  round(@"LIST", CGPointMake(pad.x, pad.y + off), r, kDown);
   [self applyCustomLayout];
   // Last, so the buttons inside its zone (nitrous, look back) come first.
   if (!CGRectIsEmpty(_steerZone) && !_editing) {
@@ -785,6 +791,9 @@ static CGFloat TouchOpacity() {
       c.fade = 0;
     }
     c.pressed = true;
+    if (_driving && c.bit & (kUp | kDown | kLeft | kRight)) {
+      REXLOG_INFO("[touch] {}", c.label.UTF8String);  // marks the [hud-watch] log
+    }
     [self updateControl:c at:p];
     haptic = haptic || c.kind == Kind::kRoundButton || c.kind == Kind::kRectButton;
   }
@@ -1049,6 +1058,10 @@ static NSString* SymbolFor(NSString* label) {
     @"CAM" : @"camera.fill",
     @"PAUSE" : @"pause.fill",
     @"RESET" : @"arrow.counterclockwise",
+    @"ENTER" : @"flag.checkered",
+    @"MAP" : @"map.fill",
+    @"SMS" : @"message.fill",
+    @"LIST" : @"list.number",
     @"UP" : @"chevron.up",
     @"DOWN" : @"chevron.down",
     @"◀" : @"arrowtriangle.left.fill",
