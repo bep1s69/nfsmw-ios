@@ -909,17 +909,12 @@ extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool dri
   if (!Plausible(package)) return;
   float sx, sy;
   FullScreenScale(base, driving, sx, sy);
-  // IPA147: the picture is 1018 units across, the iPhone's screen about
-  // 1040 at full size, and Stefan's screenshots (IPA144-146) show about 5% margins
-  // at each side: 15% larger.
-  g_fit_grow = 1.15f;
   uint32_t at = 0;
   int n = 0;
   for (uint32_t o = FirstObject(base, package, at); Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300;
        o = REX_LOAD_U32(o + 4), ++n) {
     if (REX_LOAD_U32(o + 0x18) == 5) Fit(base, o, sx, sy, false);
   }
-  g_fit_grow = 1.0f;
 }
 
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
