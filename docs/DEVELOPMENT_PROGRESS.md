@@ -136,6 +136,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: fresh 14 Pro Max 40 trace analyzed; design review pending.**
+  Archived full three-launch log as
+  `Debug/29 October 2026/nfsmw_iphone_14pm_3_40fps_trace.log`.
+  Previous Balanced/60 chase confirmed 59.7-60.0 fps in 10 full windows.
+  Latest 40 run holds 39.9-40.0 fps, 120 Hz reported, QoS boosted; 2220
+  measured swap gaps mean 25.027 ms (sd .747), shown 25.020 (sd 2.870),
+  recurring 20.8/20.9 and 29.2 ms pairs. Proposed default-off 40-only
+  CAMetalDisplayLink drawable/timestamp integration. Stefan chose
+  "Review the design first"; next: review/approval before any 40 source
+  change or build. Detailed lifecycle, latency, isolation and validation
+  design in TECHNICAL. No further 60 change; 0.5.1 scope unchanged.
+
 - **October 30: D-014 default fix confirmed on iPhone 14 Pro Max.**
   Stefan ran a ~1 min chase at Balanced on the new IPA without issues;
   previously the cycling appeared sooner. User-reported result, no log
