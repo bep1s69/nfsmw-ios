@@ -51,7 +51,8 @@
 
 - **Drag race touch controls.** In a drag race the touch controls switch
   to their own layout: lane change left and right, shift up and down,
-  nitrous, gas and brake, with camera and pause at the top. It has its
+  nitrous over the gas, and the brake beside it, with camera and pause at
+  the top. It has its
   own tab (Drag) in Customize touch controls.
 
 - **Touch controls editor while playing.** The options sheet (the gear)

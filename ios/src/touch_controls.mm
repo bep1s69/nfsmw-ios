@@ -110,6 +110,14 @@ SDL_Joystick* g_pad = nullptr;
 int g_buttons = 0;
 Sint16 g_axes[kAxes] = {};
 
+// A menu tap waiting for the game's thread (nfsmw::touch::TakeMenuTap /
+// MenuTapResult): its serial (0: none) and place.
+std::atomic<int> g_tap_pending{0};
+int g_tap_serial = 0;
+std::atomic<float> g_tap_x{0}, g_tap_y{0};
+
+void PressMenuButton(int button);
+
 // nfsmw::touch::SetDragRace, from the game's thread.
 std::atomic<bool> g_drag{false};
 
@@ -156,6 +164,14 @@ void SetPadState(int buttons, float lx, float ly, float rx, float ry, float lt, 
       g_axes[i] = axes[i];
     }
   }
+}
+
+// Pressed for 0.1 s (a menu's tap).
+void PressMenuButton(int button) {
+  SetPadState(button, 0, 0, 0, 0, 0, 0);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (g_buttons == button) SetPadState(0, 0, 0, 0, 0, 0, 0);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -660,8 +676,10 @@ static CGFloat TouchOpacity() {
     };
     shift(@"DOWN", P(.07, .50), unit * .5, kDriveShiftDown);
     shift(@"UP", P(.20, .50), unit * .62, kDriveShiftUp);
-    round(@"NOS", P(.765, .80), unit * .62, kDriveNitrous);
-    Control brake{Kind::kTrigger, @"BRAKE", P(.765, .50), 0, CGSizeMake(unit * .9, unit * 1.1)};
+    // Nitrous over the gas, the brake (hardly used in a drag) beside it
+    // (Stefan, IPA163).
+    round(@"NOS", P(.9, .45), unit * .62, kDriveNitrous);
+    Control brake{Kind::kTrigger, @"BRAKE", P(.765, .80), 0, CGSizeMake(unit * .9, unit * 1.1)};
     brake.axis = 0;
     _controls.push_back(brake);
     Control accel{Kind::kTrigger, @"GAS", P(.9, .74), 0, CGSizeMake(unit * 1.05, unit * 1.9)};
@@ -968,12 +986,28 @@ static CGFloat TouchOpacity() {
   SetPadState(0, 0, 0, 0, 0, 0, 0);
   // A tap: short and still. One finger A, two B.
   if (_gSwiping || NSDate.timeIntervalSinceReferenceDate - _gTime > 0.4) return;
-  const int button = _gFingers >= 2 ? kB : kA;
-  REXLOG_INFO("[touch] menu tap: {}", button == kB ? "B" : "A");
   [_haptic impactOccurred];
-  SetPadState(button, 0, 0, 0, 0, 0, 0);
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    if (g_buttons == button) SetPadState(0, 0, 0, 0, 0, 0, 0);
+  if (_gFingers >= 2) {
+    REXLOG_INFO("[touch] menu tap: B (two fingers)");
+    PressMenuButton(kB);
+    return;
+  }
+  // One finger: the game's thread looks for a button hint under it
+  // (game_state.cpp, nfsmw_menu_hint_at) and answers with MenuTapResult;
+  // none (or no answer in 0.2 s): A. In the package's units: 480 / 0.92
+  // tall (the HD title-safe area), from the middle of the screen
+  // (measured on the iPhone's SMS screen, IPA159).
+  const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+  const CGFloat s = h * 0.92 / 480.0;
+  g_tap_x.store(float((_gStart.x - w / 2) / s));
+  g_tap_y.store(float((_gStart.y - h / 2) / s));
+  const int serial = ++g_tap_serial;
+  g_tap_pending.store(serial);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (g_tap_pending.exchange(0) == serial) {
+      REXLOG_INFO("[touch] menu tap: A (no answer)");
+      PressMenuButton(kA);
+    }
   });
 }
 
@@ -1812,6 +1846,30 @@ UIViewController* MakeLayoutEditor(NSString* steering) {
 void SetDriveContext(int bits) { g_drive_context.store(bits); }
 
 void SetDragRace(bool on) { g_drag.store(on); }
+
+bool TakeMenuTap(int& serial, float& x, float& y) {
+  serial = g_tap_pending.load();
+  if (!serial) return false;
+  x = g_tap_x.load();
+  y = g_tap_y.load();
+  return true;
+}
+
+void MenuTapResult(int serial, int button) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    int expected = serial;
+    if (!g_tap_pending.compare_exchange_strong(expected, 0)) return;  // answered by the 0.2 s fallback
+    // A hint whose button is not known yet (-1): nothing, rather than a
+    // wrong button.
+    if (button < 0) {
+      REXLOG_INFO("[touch] menu tap: a hint, button not known yet");
+      return;
+    }
+    const int bits = button ? button : kA;
+    REXLOG_INFO("[touch] menu tap: {}", bits == kA ? "A" : bits == kB ? "B" : bits == kX ? "X" : "Y");
+    PressMenuButton(bits);
+  });
+}
 
 UIView* LiveView() { return g_view; }
 

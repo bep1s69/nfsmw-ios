@@ -29,6 +29,12 @@ void SetDriveContext(int bits);
 // DRAG layout.
 void SetDragRace(bool on);
 
+// A one-finger tap in a menu, for the game's thread to look for a button
+// hint under it (package units from the middle of the screen); answered
+// with MenuTapResult(serial, button bits, 0 none, -1 a hint not known).
+bool TakeMenuTap(int& serial, float& x, float& y);
+void MenuTapResult(int serial, int button);
+
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen
 // in landscape from the launcher. `steering`: the launcher's touch_steering
