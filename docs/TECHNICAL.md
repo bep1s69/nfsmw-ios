@@ -8371,3 +8371,17 @@ bottom; 1.625 at 1560x720, 1 on the iPad); nfsmw_hud_fit_overlay runs under
 menus too with the HUD size 1 there. `cmake --build --preset ios --target
 ipa -j 6` exit 0; `ios/build/NFSMW-hud-photo-147.ipa` SHA-256 062d567384c8b7dd2820eeadc67b7edbc9b4b10a0319e36256915843c5d0e9bb, 30132806
 bytes, `unzip -tq` ok. Not run yet.
+
+IPA147 result (Stefan, Oct 29, iPhone, log `Debug/29 October 2026/
+nfsmw_ipa147_iphone.log`): the leaves picture is unchanged although the log
+shows 0xBCC00F05 fitted (1377.72 x 847.83): it is not that picture (it is
+hidden 3 s later, flags 40000000). The leaves picture's package is still
+unknown (PostRace_Results.fng is the remaining candidate; not checked).
+Under the pause menu the song box's spinning part is in the right place but
+drawn at full size, as everything is under menus (HUD size 1).
+
+IPA148: the photo fit removed (no effect, nothing gained); the song box's
+fit under menus kept. Known issues: the leaves picture's side margins on
+the iPhone, the song box at full size under the pause menu, the loading
+screen's slight twitch. `cmake --build --preset ios --target ipa -j 6` exit
+0; `ios/build/NFSMW-hud-148.ipa` SHA-256 88fb432d53bcddaf1e8a4c481af9050ed380eec9ba68f7144f9ff1001c53d254, 30121834 bytes, `unzip -tq` ok.
