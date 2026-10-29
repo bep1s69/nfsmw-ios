@@ -17,48 +17,54 @@
   Game Mode when it is sideloaded with a certificate (LiveContainer has its
   own Game Mode handling).
 
-- **Steering choice for the touch controls.** A new Steering setting in
-  the launcher's Touch controls section and in the in-game options:
-  a dynamic joystick (the new default) that comes up wherever your thumb
-  lands in the bottom-left quarter of the screen and fades out when you
-  lift it, the fixed steering circle as before, or two buttons for left
-  and right. The touch layout editor shows the dynamic joystick's area
-  and lets you move and resize the two buttons.
+- **Touch controls, redesigned.** Built with the Android port as the
+  model, and tested by playing through free roam, races, pursuits, drag
+  races and every kind of menu.
 
-- **Cleaner driving controls.** The Drive layout's buttons show icons
-  (flame for nitrous, pedals, stopwatch for speedbreaker...) instead of
-  words, take touches further around what they draw, and a touch between
-  two buttons goes to the nearer one. After 3 seconds without a touch
-  they dim so they hide less of the road (Touch controls › Dim when not
-  touched; any touch brings them back).
-
-- **Map, SMS, Blacklist and Enter buttons while driving.** The Drive
-  layout's small D-pad is now four buttons, one for each thing the game
-  puts on it: enter a shop / engage an event, the world map, SMS messages,
-  and the Blacklist. Each shows only when it does something: Enter inside
-  an event, shop or safehouse circle; in races, pursuits and pursuit
-  events the up button opens the details instead; Map in free roam and
-  free-roam pursuits; SMS and Blacklist in free roam only. In Customize
-  touch controls the four are shown as they are, and move and resize
-  together. The SMS screens count as menus (no driving controls over
-  them). Up shows a flag in an event's circle and a door in a shop's or
-  safehouse's.
-
-- **A new default touch layout.** Nitrous and look back above
-  speedbreaker and handbrake, the D-pad buttons above the shift buttons,
-  and camera and pause in one row with the PAD and HIDE buttons along the
-  top edge, above the rear-view mirror (on iPhone and iPad alike). A layout you saved stays.
-
-- **Drag race touch controls.** In a drag race the touch controls switch
-  to their own layout: lane change left and right, shift up and down,
-  nitrous over the gas, and the brake beside it, with camera and pause at
-  the top. It has its
-  own tab (Drag) in Customize touch controls.
-
-- **Touch controls editor while playing.** The options sheet (the gear)
-  has a Touch controls button next to Customize HUD; changes apply when
-  you close it. Buttons held while the set changes stay held, and the
-  driving buttons no longer flash up for a moment when the game starts.
+  - **Menus without buttons in the way.** In menus and pause screens the
+    on-screen gamepad is gone. Swipe to move through a menu (it works like
+    pushing the stick that way, for as long as your finger stays down),
+    tap anywhere to accept (A) and tap with two fingers to go back (B).
+    Tap one of the game's own button hints, such as "B Back", "A Read",
+    "Y Delete" or "X Toggle Icon Visibility", and that button is pressed.
+    On the world map a swipe moves the cursor, the LT / RT pictures zoom
+    and the arrows next to the category change it. The PAD button brings
+    the full gamepad back for that menu if you need it, and Touch controls
+    › Swipe and tap in menus turns all of this off.
+  - **Steering your way.** A new Steering setting (launcher and in-game
+    options): a dynamic joystick, the new default, that appears wherever
+    your thumb lands in the bottom-left quarter of the screen and fades out
+    when you lift it; the fixed steering circle as before; or two buttons
+    for left and right.
+  - **The D-pad's actions as buttons, only when they apply.** The small
+    D-pad is now up to four buttons, shown only when the game would do
+    something with them. In free roam: the world map, SMS messages and the
+    Blacklist, plus a button to enter (a flag in a race's circle, a door
+    in a shop's or safehouse's) while you are in one. In a free-roam
+    pursuit: the pursuit's details and the map. In races and pursuit
+    challenges: the details only. They follow what the HUD shows, so they
+    appear and disappear on their own; anything you are holding (gas,
+    steering) stays held when they change.
+  - **A drag race layout.** In a drag race the controls switch to their
+    own layout: lane change left and right and shift down and up on the
+    left, the gas with nitrous above it on the right, the brake beside
+    them.
+  - **A cleaner look and a new default layout.** Icons instead of words
+    (a flame for nitrous, pedals, a stopwatch for speedbreaker...), touch
+    areas larger than what is drawn (a touch between two buttons goes to
+    the nearer one), and the controls dim after 3 seconds without a touch
+    so they hide less of the road (Touch controls › Dim when not touched).
+    By default nitrous and look back sit above speedbreaker and handbrake,
+    the D-pad buttons above the shift buttons, and camera and pause share
+    the top row with PAD and HIDE, above the rear-view mirror. The same
+    layout scales to the iPad. A layout you saved is kept.
+  - **Customize touch controls, also while playing.** The editor has
+    Pad, Drive and Drag tabs; the four D-pad buttons move and resize
+    together, and the dynamic joystick's area is shown. It opens from the
+    launcher and from the in-game options (the gear), where changes apply
+    as soon as you close it.
+  - **Fixes.** The driving controls no longer flash up while the game
+    starts, and SMS screens count as menus.
 
 - **Custom HUD: the circle prompt stays put.** The icon over the road in
   an event, shop or safehouse circle (and its spinning ring) moved with
@@ -75,15 +81,6 @@
 - **Smaller logs.** Two of the HUD's overlays took turns being logged in
   full every frame, which filled several 5 MB logs in a few minutes. Each
   is now logged once.
-
-- **Swipe and tap in menus.** In menus and pause screens the on-screen
-  gamepad is gone: swipe to move through the menu, tap to accept, tap with
-  two fingers to go back. Tapping one of the game's button hints ("B Back",
-  "Y Delete"...) presses that button. On the world map a swipe moves the
-  cursor, the LT / RT pictures zoom and the arrows at the top change the
-  category. The PAD button still brings the full gamepad
-  back for that menu. Can be turned off (Touch controls › Swipe and tap in
-  menus).
 
 - **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
   in the in-game options) shows the HUD's parts as outlines on a screen of

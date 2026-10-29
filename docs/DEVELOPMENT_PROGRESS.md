@@ -240,8 +240,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Stefan's IPA164 taps (`nfsmw_ipa164_hint_taps_iphone.log`) gave the
   table; IPA165 `ios/build/NFSMW-touch-hints-165.ipa`: "most if not all
   work" (Stefan). World map unusable (no cursor, zoom, categories): IPA166
-  `ios/build/NFSMW-touch-map-166.ipa` (iCloud Desktop), built, not run.
-  Then: the on-screen touch controls, then
+  `ios/build/NFSMW-touch-map-166.ipa`: works (Stefan). Stefan (Oct 29):
+  touch controls done for now; CHANGELOG 0.4.3 touch entries merged into
+  one "Touch controls, redesigned" entry and README Features / Controls
+  rewritten. Open from this thread: the missing menu backdrop with Custom
+  HUD on (BACKLOG). Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
