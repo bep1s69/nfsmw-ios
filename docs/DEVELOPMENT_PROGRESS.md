@@ -133,8 +133,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   pushed.** Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
   is now 0.6.0. `ios/build/NFS-Most-Wanted-0.5.0.ipa` (SHA-256 1f2bae93...),
   also on the iCloud Desktop. Remaining visual bugs (D-006 leaves picture,
-  loading twitch, race-end HUD zoom; D-013 post-race touch) deferred to a
-  later session. Next: Stefan's check, then tag/push/release on his go
+  loading twitch, race-end HUD zoom) deferred to a later session; D-013
+  (post-race photo: controls stayed, no touch) fixed for 0.5.0 at Stefan's
+  request, untested. Next: Stefan's check, then tag/push/release on his go
   (docs/RELEASING.md).
 
 - **October 29: 0.4.3 Performance setting (D-012), local main, not pushed.**
