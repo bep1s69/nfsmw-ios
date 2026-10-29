@@ -357,7 +357,8 @@ equal); Oct 21 IPA27 pair: drain -23.6%, CPU impact -57%; default on from IPA28;
 Await approval; no new source/build/test. GPR prototype remains held. Native
 Metal display-link pacing and versioned copy removal are candidates, not proven
 energy wins. Free LiveContainer signing and ordinary user workflow are required;
-Game Mode currently needs shared-app +LiveContainer2 per Stefan, so do not make
+Game Mode currently needs shared-app +LiveContainer2 per Stefan (0.4.3 adds
+LSSupportsGameMode for certificate sideloading), so do not make
 the main plan depend on that or a paid host entitlement. Full evidence, platform
 sources, proposal and gates in latest TECHNICAL/checkpoint.
 October 25 (Stefan, iPhone, plane): ~2+ h in Low Power Mode, 72% to 35%

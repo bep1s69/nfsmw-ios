@@ -286,9 +286,6 @@ void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
 // from GetWindowedAppCreator(), as on desktop.
 int RunGame(int argc, char* argv[], const fs::path& docs) {
   namespace boot = nfsmw::boot;
-  // The audio session, activated off the game's threads while the rest starts
-  // (coreaudio_driver.mm: setActive can block).
-  rex::audio::ios::PrepareAudioSession();
   boot::Trace("game: parsing the arguments");
   std::vector<std::string> experiment_args(argv, argv + argc);
   ApplyBatteryExperiment(experiment_args);
@@ -298,6 +295,10 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   experiment_argv.push_back(nullptr);
   auto leftovers = rex::cvar::Init(int(experiment_args.size()), experiment_argv.data());
   rex::cvar::ApplyEnvironment();
+  // The audio session, activated off the game's threads while the rest starts
+  // (coreaudio_driver.mm: setActive can block). After the arguments: its
+  // category follows ios_audio_silent_mode.
+  rex::audio::ios::PrepareAudioSession();
   rex::InitLoggingEarly();
   // Before OnInitialize, which loads MoltenVK: it reads its settings from the
   // environment when it starts.

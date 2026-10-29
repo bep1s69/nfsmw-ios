@@ -97,6 +97,9 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- Game Mode when installed directly (LiveContainer has its own). -->
+	<key>LSSupportsGameMode</key>
+	<true/>
 
 	<key>UILaunchScreen</key>
 	<dict/>

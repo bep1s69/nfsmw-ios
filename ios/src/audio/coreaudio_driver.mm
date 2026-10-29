@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL_events.h>
 
+#include <rex/cvar.h>
 #include <rex/logging.h>
 #include <rex/system/xmemory.h>
 
@@ -21,6 +22,10 @@
 #include <time.h>
 
 #include "../boot_trace.h"
+
+// The launcher's "Play sound in silent mode" (Audio tab).
+REXCVAR_DEFINE_BOOL(ios_audio_silent_mode, false, "Audio",
+                    "Play the game's sound with the phone's silent switch on (Playback session category)");
 
 namespace rex::audio::ios {
 
@@ -77,8 +82,12 @@ void ActivateSessionOnce() {
       AVAudioSession* session = AVAudioSession.sharedInstance;
       NSError* error = nil;
       // SoloAmbient, the iOS default for games: it respects the silent switch
-      // and stops other apps' audio.
-      [session setCategory:AVAudioSessionCategorySoloAmbient error:&error];
+      // and stops other apps' audio. Playback (the launcher switch): sound
+      // with the silent switch on too; it also stops other apps' audio.
+      const bool silent_mode = REXCVAR_GET(ios_audio_silent_mode);
+      [session setCategory:silent_mode ? AVAudioSessionCategoryPlayback : AVAudioSessionCategorySoloAmbient
+                     error:&error];
+      nfsmw::boot::Trace(silent_mode ? "audio: Playback (sound in silent mode)" : "audio: SoloAmbient");
       [session setPreferredSampleRate:kSampleRate error:nil];
       // ~5 ms per callback, one game block's worth (256 / 48000).
       [session setPreferredIOBufferDuration:256.0 / kSampleRate error:nil];

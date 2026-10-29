@@ -9,6 +9,14 @@
   iOS 26 ([issue 4](https://github.com/bep1s69/nfsmw-ios/issues/4),
   [issue 7](https://github.com/bep1s69/nfsmw-ios/issues/7)).
 
+- **Sound in silent mode, if you want it.** A new switch in the Audio tab,
+  "Play sound in silent mode". Off (the default) keeps the usual behaviour:
+  the game is quiet when the phone's silent switch is on.
+
+- **Game Mode for directly installed copies.** The app now asks iOS for
+  Game Mode when it is sideloaded with a certificate (LiveContainer has its
+  own Game Mode handling).
+
 ## 0.4.2
 
 - **"Appears to be damaged" careers load.** A career saved on another device
