@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 30 (Stefan): archive all logs, photos and other test evidence he
+  sends in `~/Developer/Debug/Most Wanted (2005) Debug/`, under the relevant
+  test folder with names similar to the previous evidence (device and test
+  suffix). Preserve originals, never overwrite earlier evidence; record
+  archived paths in TECHNICAL so the full test history remains available.
 - October 28: AGENTS.md and CLAUDE.md are local only (Stefan): untracked
   and in .gitignore, not on GitHub. Keep them on disk; never re-add them.
   They remain in older history and on other branches (`dev-0.5`,
@@ -128,6 +133,15 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 30: D-014 workaround confirmed by Stefan and follow-up log.**
+  Disabling scheduled presentation removed the iPhone 14 Pro Max cycling:
+  Max, native 1x/60, eleven full steady-world windows at 59.6-60.0 fps.
+  Archived as `Debug/29 October 2026/nfsmw_iphone_14pm_2_present_at_time_off.log`.
+  Presentation pacing is now the leading cause; no permanent source fix or
+  default change made. Next if resumed: design a scoped presentation fix;
+  keep the working Extra Args workaround meanwhile. Full evidence below
+  in TECHNICAL. New standing rule: archive supplied test evidence.
 
 - **October 30: iPhone 14 Pro Max 60/~40 cycling investigated (D-014),
   no source change.** Supplied log proves it happens with Max (adaptive

@@ -17,7 +17,7 @@ unnumbered entries below, instead of opening duplicates.
 
 ## Open bugs
 
-### D-014 iPhone 14 Pro Max cycles between 60 and ~40 fps — open (October 30)
+### D-014 iPhone 14 Pro Max cycles between 60 and ~40 fps — workaround confirmed (October 30)
 
 Stefan reports repeated 20-30 s cycles at native 1x/60 on this phone only,
 including Balanced and Max. Log: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm.log`;
@@ -34,6 +34,13 @@ stationary if reproducible, cold launch with only
 `--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`
 added, 2-3 min; compare with this log. No source change approved or made.
 Details: TECHNICAL October 30 D-014 analysis.
+
+October 30 follow-up: Stefan says the issue is fixed with the proposed
+arguments. Archived `nfsmw_iphone_14pm_2_present_at_time_off.log` beside the
+original (same Debug/29 October folder). Max; 11 full steady-world frame
+windows 59.6-60.0 fps, no ~40 plateau, presentation summaries unpaced.
+This strongly implicates scheduled presentation; no permanent code fix.
+Next: retain workaround, then scoped pacing-fix design if requested.
 
 ### D-001 Null call crash near the first safehouse (iPhone) — monitor
 
