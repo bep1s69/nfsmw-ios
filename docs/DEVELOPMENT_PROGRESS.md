@@ -130,8 +130,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   not pushed), not yet run.** Stefan approved 120 Hz simulation by default
   with its switch removed (camera logs: at sim 60 the first ~15 s of a
   pursuit moved the world on 2 of 3 frames; TECHNICAL Oct 29) and the
-  pursuit heat ring moved with the heat badge. Next: his iPad pursuit at
-  70% and a circle prompt check.
+  pursuit heat ring moved with the heat badge. Ring and circle prompt
+  confirmed by Stefan on iPad and iPhone (IPA168); iPad layout his (IPA170).
+  Done for now; not pushed.
 - **October 29: D-011 diagnostic build `ios/build/NFS-Most-Wanted-0.4.2-diag1.ipa`
   on local branch `diag-ios26-native-crash` (off `main` 0.4.2; not for
   `main`, not pushed).** For the iOS 26 crash in AGX `drawIndexedPrimitives`
