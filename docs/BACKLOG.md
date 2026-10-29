@@ -557,6 +557,19 @@ infractions (-8,+100); 3345911D was "placed again by the game" and went
 by_children, the ring's frames alternating. IPA156 leaves them out of the
 pieces.
 
+### D-0xx Custom HUD on: no darkened backdrop under the map, Blacklist and SMS — open
+
+Stefan, Oct 29 (IPA159/160, iPhone): with Custom HUD on, the world map,
+Blacklist (InGameReputationOverview) and SMS screens lack the dark layer
+over the game (`ipa159_IMG_4068-4070.png`); the pause menu has it
+(`_4072`). With Custom HUD off the SMS screen is darkened
+(`ipa160_customhud_off_IMG_4073.png`). IPA159 ui-tree: WorldMapMain.fng's
+dump at BE8D11C0 (the address InGameBackground.fng had) holds type 9
+pictures (C51113EB, A8DE2158, C6AFDD7E, 254/510 x 540) like
+InGameBackground's; the darkening is probably InGameBackground.fng (or a
+HUD piece), changed by nfsmw_hud_fit_backdrop or the HUD's pieces when
+Custom HUD is on. Not investigated.
+
 ## Parked investigations
 
 ### iPhone event-loading freeze — monitor

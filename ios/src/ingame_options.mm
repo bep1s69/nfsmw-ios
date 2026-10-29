@@ -43,6 +43,7 @@
 #include "ingame_options.h"
 #include "launcher.h"
 #include "hud_editor.h"
+#include "touch_controls.h"
 
 extern "C" void NativeSettingsChanged();  // native_renderer.mm
 
@@ -149,16 +150,29 @@ UIWindow* GameWindow() {
                                                     target:self
                                                     action:@selector(close)];
   // The HUD editor (the launcher's Customize HUD), while Custom HUD is on.
-  self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Customize HUD"
-                                                                           style:UIBarButtonItemStylePlain
-                                                                          target:self
-                                                                          action:@selector(customizeHud)];
+  // And the touch controls' editor (Stefan, Oct 29).
+  self.navigationItem.leftBarButtonItems = @[
+    [[UIBarButtonItem alloc] initWithTitle:@"Customize HUD"
+                                     style:UIBarButtonItemStylePlain
+                                    target:self
+                                    action:@selector(customizeHud)],
+    [[UIBarButtonItem alloc] initWithTitle:@"Touch controls"
+                                     style:UIBarButtonItemStylePlain
+                                    target:self
+                                    action:@selector(customizeTouch)]
+  ];
   [self updateHudButton];
 }
 
 - (void)updateHudButton {
   self.navigationItem.leftBarButtonItem.enabled =
       [nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"];
+}
+
+- (void)customizeTouch {
+  [self presentViewController:nfsmw::touch::MakeLayoutEditor(nfsmw::launcher::SettingValue(_settings, @"touch_steering"))
+                     animated:YES
+                   completion:nil];
 }
 
 - (void)customizeHud {
