@@ -9261,3 +9261,48 @@ Most Wanted (2005) Debug with descriptive names similar to the preceding
 log, retaining the full test history. Recorded in working rules. Preserve
 pre-existing issue 11 checkpoint note and untracked HANDOFF_CHATGPT.md;
 commit only this session's documentation, no push/release.
+
+### October 30: presentation defaults recommendation and remaining 40 fps work
+
+Stefan asked whether the two Extra Args should be removed/defaults changed,
+and how to fix 40 fps pacing. Read current native_renderer.mm cvars and
+presentation/trace code, display_rate.mm and October 28 RC4-RC7 evidence.
+Read-only inspection completed; no source change/build/device test.
+
+Clarification: nfsmw_native_present_at_time defaults true but current
+`paced` explicitly excludes cap 40 (since RC7). nfsmw_native_frame_trace
+already defaults false; remove its diagnostic true override after testing.
+The successful D-014 log has no [frame-trace] lines, so trace activation
+was not demonstrated. Its unpaced summaries and Stefan's observation
+support the presentation-off workaround. Keep that false override until a
+build changes the default behavior. Recommendation (not implemented):
+disable scheduled presentation at 60 by default, retain opt-in for A/B;
+leave the separately tested 30 path initially unchanged, validate 30/60
+and menu transitions on Stefan's other devices before broadening scope.
+World-step fix (nfsmw_frame_ticks=2) and 120 Hz simulation are separate
+from scheduled presentation and should stay enabled.
+
+Historical 40 evidence: RC4/5/6 and IPA130/131 tried fixed targets, larger
+margins, afterMinimumDuration, 120 Hz minimum and refresh snapping; none
+solved the recurring 16.7/25/33.3 cycle, some starved drawables (~32 fps).
+RC7 bypasses scheduled presentation at 40 after IPA131's unpaced test
+improved to mostly 25 ms with occasional 20.8/29.2 pairs. Therefore the
+current residual 40 issue needs a fresh current-build trace, not repetition
+of those failed changes: cold launch at 40, Low Power Mode off, trace true,
+present_at_time false; compare swap/handed/GPU-end/shown intervals. Desired
+presentation is every third 120 Hz refresh (25 ms), with enough GPU headroom;
+40 on a 60 Hz output cannot be evenly spaced. If only shown intervals are
+uneven, investigate display/drawable/compositor scheduling rather than
+world time or QoS. If earlier stages are uneven, fix that stage first.
+
+Potential larger experiment, not an established fix: CAMetalDisplayLink
+for Metal-layer drawable delivery and system presentation timestamps,
+while preserving guest vblank and PM4 order. Consulted primary Apple docs:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframeraterange
+Apple describes variable-display timing control and best-effort frame-rate
+requests affected by hardware/system policies; no guarantee of perfect
+40 fps. No migration, new flag or source work approved by this discussion.
+Next: agreed 60-default source change or current 40-cap trace; avoid
+claiming the 60 test already validates a 40 fix. Existing private/uncommitted
+issue 11 note and HANDOFF_CHATGPT.md preserved.

@@ -792,6 +792,15 @@ caused by the 0.4.2 changes. Next: look at the present-at-time pacing at the
 40 cap (target from the last shown frame minus 2 ms; frames arriving around
 the target).
 
+
+October 30 follow-up for the 40 fps cap entry above: current source already
+excludes cap 40 from scheduled presentation (RC7). The D-014 60 fps success
+does not fix/validate residual 40 pacing. Next: cold current-build 40 run,
+Low Power Mode off, `--nfsmw_native_frame_trace=true` (and presentation
+false), to locate unevenness before/after GPU completion. Preserve the
+RC4-RC7 negative results; do not repeat wider target margins or
+minimum-duration presentation as an assumed fix. TECHNICAL October 30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

@@ -140,7 +140,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Archived as `Debug/29 October 2026/nfsmw_iphone_14pm_2_present_at_time_off.log`.
   Presentation pacing is now the leading cause; no permanent source fix or
   default change made. Next if resumed: design a scoped presentation fix;
-  keep the working Extra Args workaround meanwhile. Full evidence below
+  keep the working Extra Args workaround meanwhile. October 30 discussion:
+  recommend disabling scheduled presentation at 60 by default, initially
+  retaining tested 30 behavior; not implemented. Trace already defaults
+  off. Current 40 cap already bypasses scheduled presentation: next is a
+  fresh current-build 40 trace before another pacing change. Full evidence below
   in TECHNICAL. New standing rule: archive supplied test evidence.
 
 - **October 30: iPhone 14 Pro Max 60/~40 cycling investigated (D-014),
