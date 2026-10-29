@@ -9406,3 +9406,88 @@ Stefan selected the iPhone 14 Pro Max for the pending 40 fps run. Test
 instructions: same Balanced/1x, choose 40 before cold launch, Low Power
 Mode off, frame_trace true; force-quit LiveContainer first (startup guest
 vblank rate matters). Result/log not yet received.
+
+### October 30: latest 14 Pro Max 40 fps trace; CAMetalDisplayLink design review
+
+Input `/Users/bep1s/Downloads/nfsmw 3.log` archived byte-for-byte, exclusive
+create (no overwrite), source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_3_40fps_trace.log`.
+1993511 bytes, 11724 lines; SHA-256
+5e201f8df8325ee0f29b5513bf8755962a86cb1ca8f1682c0f2e412d232dd2af.
+Copy and equality verification exit 0. Last line truncated; last complete
+timestamp 00:51:18.482. File contains three launches, parsed separately:
+line 1 00:33:07 (prior Max/60 run); line 3904 00:44:19.626
+Balanced/60; line 8097 includes a partial prior line then new launch
+00:49:40.080 Balanced/40. Log startup build timestamp remains Oct 29
+22:38:47 (ios_main object unchanged); user was testing the new IPA, exact
+IPA identity from previous entry, not independently echoed in this file.
+Device iPhone 14 Pro Max per Stefan, OS not supplied.
+
+Balanced/60 run: world entered 00:45:37.081, 10 complete subsequent frame
+windows 4501-7201 00:45:42.543-00:46:27.604 at 59.7-60.0 fps, no ~40
+plateau. The result now has log corroboration. No other-device regression
+test established by this file.
+
+Latest 40 run: native 1x, MetalFX/FXAA/MSAA off, Balanced; Low Power Mode
+off, thermal nominal in CPU samples. Display requested/reported 120 Hz,
+guest vblank real-time 8.33 ms and locked to display; frame trace on at
+00:49:41.377. World at 00:50:13.526, driving boost held; steady render
+QoS samples User Initiated 300/300. 300-frame windows 1501-3601 show
+39.9-40.0 fps, GPU 11.46-22.41 ms, recording 2.67-3.87 ms, encoding
+2.62-3.54 ms. Presentation is unpaced as expected.
+
+Parsed trace gap rows emitted at/after 00:50:23.000 (the first such row
+includes the preceding 60 gaps; no claim of frame-perfect cutoff):
+2220 numeric gaps per stage, rounded as logged:
+- swap mean 25.027 ms, population sd .747; 2200 within 1 ms of 25.
+- handed mean 25.028, sd 1.192; 1671 within 1 ms.
+- GPU end mean 25.033, sd 1.583; 1512 within 1 ms.
+- shown mean 25.020, sd 2.870; 1613 within 1 ms. Bins 25.0:1613,
+  29.2:214, 20.9:170, 20.8:116, 33.4:62, 16.7:35,
+  37.5:7, 12.5:2, 62.6:1.
+Shows stable production with jitter increasing through GPU/display; about
+27% of shown gaps differ from 25 ms by >1 ms. No 60/~40 cycling mechanism
+or QoS transition. No exact physical scanout/clock measurement; timestamp
+quantization alone does not prove panel refresh changes. GPU can approach
+25 ms budget, so presentation scheduling cannot cure genuinely late frames.
+
+Inspected iOS 27.1 SDK CAMetalDisplayLink.h: API available iOS 17+, below
+project target 18; update supplies drawable, targetTimestamp and
+targetPresentationTimestamp; link exposes preferredFrameLatency and
+preferredFrameRateRange. Re-read layer setup, nextDrawable placement and
+serial render/in-flight control. Read/analysis commands exit 0.
+
+Proposed an isolated default-off 40-only CAMetalDisplayLink experiment.
+Stefan selected "Review the design first": NO 40 source edits authorized
+by that response; no experiment code/build made. Review design:
+1. Attach Metal display link to primary layer only under a new test flag
+   and effective cap 40. Keep existing CADisplayLink/guest 120 Hz timing,
+   even world-frame time and simulation intact.
+2. On system callbacks, pass the supplied drawable + presentation timestamp
+   to the existing serial native renderer via a bounded handoff. Acquire
+   before encoding each experimental frame, rather than late nextDrawable;
+   never render/wait on the main thread. One frame per callback, preserve
+   ordering, existing in-flight limit, resource/writeback lifetimes.
+3. Present against system timing, not the old EMA GPU-time+4 ms target
+   grid. Start with bounded/default two-frame latency, measure actual
+   input-to-display/queue latency (possible tradeoff; not guaranteed lower).
+4. Lifecycle/cap switch: invalidate/pause link and wake waits on background,
+   layer loss or leave-40; discard stale updates with a generation marker.
+   Never acquire from nextDrawable while the Metal display link owns that
+   layer's acquisition. Restore legacy acquisition only after handoff is
+   stopped. 30/menu transition, 60/120 and external-display legacy paths
+   preserved; off switch restores current implementation.
+5. Logs: active path, callback cadence, system target, missed deadlines,
+   acquisition/queue wait; retain existing frame trace for comparable
+   before/after results. Test at same 1x/40 Balanced on this phone, then
+   30 menus/pause-resume/background and other owned ProMotion device.
+   Success = mostly 25 ms shown gaps, sustained ~40 without extra queue
+   growth or unacceptable latency; no rollout if not improved.
+
+This is a candidate API integration, not proven fix; requesting 40 via
+CADisplayLink alone was already tried and failed in older tests. The new
+part is system drawable delivery coordinated with the Metal layer. Prior
+RC4-RC7 failed target-delay/minimum-duration experiments stay rejected.
+Next: Stefan reviews/approves design before implementation. 0.5.1 still
+only D-014 and 40 pacing; no unrelated changes, version bump or release.
+Pre-existing issue 11 checkpoint text and HANDOFF_CHATGPT.md preserved.

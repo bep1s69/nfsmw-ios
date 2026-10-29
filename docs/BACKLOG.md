@@ -815,6 +815,16 @@ false), to locate unevenness before/after GPU completion. Preserve the
 RC4-RC7 negative results; do not repeat wider target margins or
 minimum-duration presentation as an assumed fix. TECHNICAL October 30.
 
+October 30 latest 40 test: archived
+`Debug/29 October 2026/nfsmw_iphone_14pm_3_40fps_trace.log`. Latest launch
+isolated from two preceding runs. iPhone 14 Pro Max, Balanced/1x/40,
+Low Power Mode off, nominal; ~40 maintained, display/guest 120 Hz, boosted
+render QoS. 2220 gaps: swap sd .747 ms, shown sd 2.870 ms, mean ~25;
+shown bins 25.0:1613, 29.2:214, 20.9:170, 20.8:116, others 107.
+Candidate: default-off 40-only CAMetalDisplayLink integration; Stefan
+requested design review first. No 40 source change/build yet; next is
+design approval. Full evidence/design in TECHNICAL October 30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
