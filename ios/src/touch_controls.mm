@@ -696,6 +696,12 @@ static CGFloat TouchOpacity() {
     [self applyCustomLayout];
     return;
   }
+  // A 4:3 screen (iPad): the same arrangement drawn closer to the bottom
+  // corners, where the thumbs reach (Stefan's sketch, Oct 29,
+  // ipa168_ipad_thumb_zones.jpeg): left below y .62 and left of x .35,
+  // right below y .62 and right of x .70.
+  const bool tablet = w < h * 1.6;
+  auto T = [&](CGFloat fx, CGFloat fy, CGFloat tx, CGFloat ty) { return tablet ? P(tx, ty) : P(fx, fy); };
   // Steering (ios_touch_steering): the circle where it is, the same
   // circle under the thumb anywhere in the bottom-left quarter (not in the
   // editor: it has no place of its own), or two buttons.
@@ -708,31 +714,32 @@ static CGFloat TouchOpacity() {
     right.left_x = 1;
     _controls.push_back(right);
   } else if ([_steering isEqualToString:@"fixed"]) {
-    Control steer{Kind::kStick, @"", P(.115, .78), unit * 1.15};
+    Control steer{Kind::kStick, @"", T(.115, .78, .13, .86), unit * 1.15};
     steer.axis = 0;
     steer.horizontal = true;
     _controls.push_back(steer);
   } else {
-    _steerZone = CGRectMake(0, h * .5, w * .5, h * .5);
+    _steerZone = tablet ? CGRectMake(0, h * .62, w * .37, h * .38) : CGRectMake(0, h * .5, w * .5, h * .5);
   }
   auto shift = [&](NSString* l, CGPoint c, float y) {
     Control k{Kind::kRoundButton, l, c, unit * .42};
     k.right_y = y;
     _controls.push_back(k);
   };
-  shift(@"DOWN", P(.075, .52), kDriveShiftDown);
-  shift(@"UP", P(.165, .52), kDriveShiftUp);
+  shift(@"DOWN", T(.075, .52, .045, .70), kDriveShiftDown);
+  shift(@"UP", T(.165, .52, .115, .68), kDriveShiftUp);
   // Nitrous and look back above speedbreaker and handbrake, the D-pad
   // buttons above the shift buttons: Stefan's layout (IPA160 editor
   // screenshot, Oct 29), the default since.
-  round(@"NOS", P(.9, .38), unit * .42, kDriveNitrous);
-  round(@"LOOK\nBACK", P(.765, .38), unit * .42, kDriveLookBack);
-  round(@"SPEED\nBREAKER", P(.765, .58), unit * .8, kDriveSpeedbreaker);
-  round(@"HAND\nBRAKE", P(.9, .58), unit * .8, kDriveHandbrake);
-  Control brake{Kind::kTrigger, @"BRAKE", P(.765, .84), 0, CGSizeMake(unit * 1.05, unit * 1.75)};
+  round(@"NOS", T(.9, .38, .915, .665), unit * .42, kDriveNitrous);
+  round(@"LOOK\nBACK", T(.765, .38, .795, .665), unit * .42, kDriveLookBack);
+  round(@"SPEED\nBREAKER", T(.765, .58, .795, .775), unit * (tablet ? .6 : .8), kDriveSpeedbreaker);
+  round(@"HAND\nBRAKE", T(.9, .58, .915, .775), unit * (tablet ? .6 : .8), kDriveHandbrake);
+  const CGSize pedal = CGSizeMake(unit * 1.05, unit * (tablet ? 1.35 : 1.75));
+  Control brake{Kind::kTrigger, @"BRAKE", T(.765, .84, .795, .92), 0, pedal};
   brake.axis = 0;
   _controls.push_back(brake);
-  Control accel{Kind::kTrigger, @"GAS", P(.9, .84), 0, CGSizeMake(unit * 1.05, unit * 1.75)};
+  Control accel{Kind::kTrigger, @"GAS", T(.9, .84, .915, .92), 0, pedal};
   accel.axis = 1;
   _controls.push_back(accel);
   const CGFloat top = h * .02 + unit * .25;  // the pills' middle
@@ -754,7 +761,7 @@ static CGFloat TouchOpacity() {
   _context = g_drive_context.load();
   const bool event = _context & nfsmw::touch::kInRace;
   const bool pursuit = _context & nfsmw::touch::kInPursuit;
-  CGPoint pad = P(.11, .36);
+  CGPoint pad = T(.11, .36, .245, .72);
   CGFloat k = TouchSize();
   NSArray* saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][@"drive.ACTIONS"];
   if (saved.count == 3) {
@@ -762,7 +769,7 @@ static CGFloat TouchOpacity() {
     k *= CGFloat([saved[2] doubleValue]);
   }
   if (_editing) {
-    Control group{Kind::kDpad, @"ACTIONS", P(.11, .36), unit * .98};
+    Control group{Kind::kDpad, @"ACTIONS", T(.11, .36, .245, .72), unit * .98};
     _controls.push_back(group);  // placed by applyCustomLayout
   } else {
     const CGFloat off = unit * .62 * k, r = unit * .36 * k;
@@ -784,7 +791,7 @@ static CGFloat TouchOpacity() {
   [self applyCustomLayout];
   // Last, so the buttons inside its zone (nitrous, look back) come first.
   if (!CGRectIsEmpty(_steerZone) && !_editing) {
-    Control steer{Kind::kStick, @"", P(.115, .78), unit * 1.15 * TouchSize()};
+    Control steer{Kind::kStick, @"", T(.115, .78, .13, .86), unit * 1.15 * TouchSize()};
     steer.axis = 0;
     steer.horizontal = true;
     steer.dynamic = true;

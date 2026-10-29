@@ -8964,3 +8964,24 @@ ReapplyHudPieces (after the game's last placement, before drawing).
 bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA167.
 Not run. Watch for flashing (IPA154) and for the ring following a moved
 infractions element in the Customize HUD editor.
+
+### October 29: IPA168 confirmed; iPad DRIVE layout in the thumb zones (IPA169)
+
+Stefan: IPA168's heat ring and circle prompt are right on the iPad and the
+iPhone. He asked to keep the DRIVE layout but condense it into the zones his
+thumbs reach (`Debug/29 October 2026/ipa168_ipad_thumb_zones.jpeg`, red
+lines; read as fractions of the screen: left below ~.62 and left of
+~.35-.38, right below ~.62 and right of ~.62-.72).
+- touch_controls.mm layoutDriving: on a screen under 1.6:1 (`tablet`) the
+  same arrangement at new defaults: DOWN (.045,.70), UP (.115,.68), D-pad
+  middle (.245,.72), steering thumb zone x 0-.37 / y .62-1 (fixed stick
+  at (.13,.86)); LOOK BACK (.795,.665), NOS (.915,.665), SPEEDBREAKER /
+  HANDBRAKE (.795/.915,.775) at radius .6 unit (was .8), BRAKE / GAS
+  (.795/.915,.92) 1.35 units tall (was 1.75). CAM, PAUSE, RESET unchanged.
+  iPhone unchanged. Positions saved in the editor still override them
+  (editor Reset gives the new defaults).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-ipad-thumbs-169.ipa` SHA-256
+b0112f47c72c57053248cc6ef1685dd70bddb2128b44460ce8011658768e2c6e, 30169886
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA168.
+Not run.

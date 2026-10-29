@@ -126,7 +126,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-- **October 29: IPA168 `ios/build/NFSMW-hud-ring-168.ipa` (IPA167 plus a ring fix; local main,
+- **October 29: IPA169 `ios/build/NFSMW-ipad-thumbs-169.ipa` (IPA167, the ring fix confirmed in IPA168, iPad DRIVE layout in the thumb zones; local main,
   not pushed), not yet run.** Stefan approved 120 Hz simulation by default
   with its switch removed (camera logs: at sim 60 the first ~15 s of a
   pursuit moved the world on 2 of 3 frames; TECHNICAL Oct 29) and the
