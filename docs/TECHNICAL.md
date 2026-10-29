@@ -9088,3 +9088,20 @@ since 67cc815. `ios/build/NFS-Most-Wanted-0.5.0.ipa`, 30161271 bytes, SHA-256
 1f2bae93d8fee7dac3dcd370307a77f4c7a0c21e37d0bdd500ec73a2a62ea7ef, UUID
 CB57E7C1-B00C-3D00-9492-83EC07AB39B5, 208 metallibs, ZIP test OK, codesign
 --deep --strict ok; on the iCloud Desktop. No tag, push or GitHub release.
+
+### October 29: D-013, the race-finished photo counts as a menu (0.5.0)
+
+Stefan's 0.4.3 log: the end-of-race photo screen (Continue / Race Stats /
+Restart, screenshot `race_finished_screen.png`) is `InGamePhotoMaster.fng`,
+pushed alone over the HUD (22:52:47.998) and not in `kMenuPackages`, so the
+game counted as "driving" and the DRIVE controls stayed. `game_state.cpp`:
+added last to `kMenuPackages` (PushedPackage returns the lowest index, so
+other menus still win), and the full-size drawing it had while "driving"
+kept when it is the only menu up. Effects as for other menus: PAD layout
+with menu taps on button hints, `[game] menu: InGamePhotoMaster.fng`,
+menu cap (if on), adaptive QoS `driving stopped`. Rebuilt
+`ios/build/NFS-Most-Wanted-0.5.0.ipa` (0.5.0 / 8), 30161686 bytes, SHA-256
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f, UUID
+BCE7DE85-E64A-3893-9ACB-EF8FBAE520B4, 208 metallibs, ZIP test OK, codesign
+ok; on the iCloud Desktop. Not run yet: check that the taps hit the photo's
+prompts and that the photo still fills the screen.

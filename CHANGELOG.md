@@ -5,6 +5,10 @@
 Everything planned for 0.4.3, released as 0.5.0 because of how much it
 changed (the earlier 0.5.0 plans are now 0.6.0).
 
+- **Touch on the race-finished photo.** The driving controls no longer
+  stay over the winner's photo at the end of a race; it now counts as a menu,
+  so its Continue, Race Stats and Restart prompts can be tapped.
+
 - **Smoother start to races and pursuits.** For the first seconds of a
   race or chase the world could move on only two of every three frames,
   so it looked like 40 fps while the counter said 60. The game now always

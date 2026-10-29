@@ -72,6 +72,9 @@ const char* const kMenuPackages[] = {
     "SixDaysLater.fng",
     // The SMS screens (IPA159, Stefan: the DRIVE controls stayed over them).
     "SMS_Message.fng",         "SMS_MailBoxes.fng",          "SMS_Mailboxes.fng",
+    // The race's end photo with Continue / Race Stats / Restart (D-013, Stefan:
+    // the DRIVE controls stayed over it). Last: other menus are found first.
+    "InGamePhotoMaster.fng",
 };
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 
@@ -195,7 +198,10 @@ extern "C" REX_FUNC(sub_823B4158) {
   // full size while they are up.
   {
     static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng"};
-    nfsmw_hud_full_size(state == kRacing && menu < 0 && PushedPackage(ctx, base, kFullSize, 2) >= 0);
+    // The photo is a menu itself now (D-013): still drawn full size when it
+    // is the only one up.
+    const bool photo_only = menu == kMenuCount - 1;
+    nfsmw_hud_full_size(state == kRacing && (menu < 0 || photo_only) && PushedPackage(ctx, base, kFullSize, 2) >= 0);
   }
   // A tap in a menu: the button hint under it, if any.
   {

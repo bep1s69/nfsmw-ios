@@ -312,13 +312,14 @@ the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
 
-### D-013 Race-finished screen keeps the driving controls; no touch navigation — open
+### D-013 Race-finished screen keeps the driving controls; no touch navigation — fix in 0.5.0, untested
 
 Stefan, Oct 29 (0.4.3, iPhone, screenshot in `.../29 October 2026/0.4.3
 Stefan iPhone 15min balanced/race_finished_screen.png`): the touch driving
 controls stay up on the race-finished screen; they should go and the screen
 be navigated by touch (its prompts: A Continue, X Race Stats, Y Restart,
-like the menu taps in the touch-controls plan). Not investigated.
+like the menu taps in the touch-controls plan). Cause: the photo screen,
+`InGamePhotoMaster.fng`, was not in the menu list; added (TECHNICAL Oct 29).
 
 ### D-012 Frame rate sinks to 40 mid-race when adaptive QoS returns to Utility — fix in 0.4.3, untested
 
