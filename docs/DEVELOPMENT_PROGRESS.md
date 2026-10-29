@@ -141,6 +141,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test3 still has perceived stuck frames about every 5 s.**
+  Archived nfsmw_iphone_14pm_6_metal_display_40_test3_stuck_frames.log in
+  Debug/29 October. Guest grid ~8.34 ms confirmed; 1437/1440 selected
+  shown gaps 25 ms, no repeating 5 s presentation stalls established.
+  Camera rotation unevenness is inconclusive for full-frame freezes.
+  Next: SAME test3 IPA/40 settings/diagnostic flags, add only
+  `--nfsmw_frame_ticks=0`, cold launch, same ~1 min chase to isolate
+  world-frame clock correction. Temporary trial only; preserve default2
+  and confirmed 60 fix globally. No new source/build this turn. 40 still
+  unaccepted/default off, 0.5.1 not ready for release.
+
 - **October 30: 40 test2 starts but feels worse; guest-clock correction
   built as test3 (default off).** Archived
   `Debug/29 October 2026/nfsmw_iphone_14pm_5_metal_display_40_test2_worse.log`.

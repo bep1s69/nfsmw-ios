@@ -855,6 +855,15 @@ passed, no device result yet. Next: same run + camera log. Stefan accepts
 ~one frame extra input delay for truly smooth motion; cadence alone is
 not success. 40 fix remains unaccepted/default off; details in TECHNICAL.
 
+October 30 test3: Stefan still feels a few stuck frames about every 5 s.
+Archived nfsmw_iphone_14pm_6_metal_display_40_test3_stuck_frames.log.
+Guest grid confirmed8.34 ms, 1437/1440 shown intervals25 ms; no recurring
+5 s display-gap sequence established, camera rotation not conclusive for
+full-picture freeze. Next existing-switch test: same test3/40/diagnostics,
+add nfsmw_frame_ticks=0, cold same chase, then restore default2. Isolates
+world timing, not a global reversal of the 60 fix. No new code/build and
+no accepted 40 fix; see TECHNICAL October30 for measured limits.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
