@@ -2,133 +2,182 @@
 
 ## 0.5.0
 
+> **Please read this before playing.** This is the biggest update so far, and
+> **the touch controls work differently now**: menus are driven by swiping
+> and tapping instead of an on-screen gamepad, steering uses a joystick that
+> appears under your thumb, and the D-pad's actions show up as buttons only
+> when they do something. Everything is explained under "Touch controls,
+> redesigned" below. If you were on iOS 26 and only got a crash or a black
+> screen with the native renderer, try it again: that is fixed too.
+
 Everything planned for 0.4.3, released as 0.5.0 because of how much it
-changed (the earlier 0.5.0 plans are now 0.6.0).
+changed (the earlier 0.5.0 plans, more Extra Options, Widescreen Fix
+features and PC mods, are now 0.6.0). Most important first.
 
-- **Touch on the race-finished photo.** The driving controls no longer
-  stay over the winner's photo at the end of a race; it now counts as a menu,
-  so its Continue, Race Stats and Restart prompts can be tapped.
+### No more crash on iOS 26 with the native renderer
 
-- **Smoother start to races and pursuits.** For the first seconds of a
-  race or chase the world could move on only two of every three frames,
-  so it looked like 40 fps while the counter said 60. The game now always
-  moves its world 120 times a second, which removes it; the "120 Hz
-  simulation" switch is gone from Advanced.
+The game crashed a second or two after Play on iOS 26 with the native Metal
+renderer. iOS 26 reuses an internal ID the renderer relied on to tell its
+drawing steps apart, so some steps were left without their settings and the
+graphics driver crashed. They are now always set up. Confirmed on an iPhone
+17 Pro Max with iOS 26.7.2. This likely also fixes the native black screen on
+iOS 26 ([issue 4](https://github.com/bep1s69/nfsmw-ios/issues/4),
+[issue 7](https://github.com/bep1s69/nfsmw-ios/issues/7)): please report
+back if it does not.
 
+Thanks to [Vipe95](https://github.com/Vipe95) for running the diagnostic
+builds and sending the logs that found it.
+
+### Touch controls, redesigned
+
+Built with the Android port as the model, and tested by playing through free
+roam, races, pursuits, drag races and every kind of menu.
+
+**In menus: swipe and tap, no gamepad in the way.**
+
+- In menus, pause screens, the post-race screens and SMS screens the
+  on-screen gamepad is gone.
+- **Swipe** to move through a menu: it works like pushing the stick that
+  way, for as long as your finger stays down.
+- **Tap anywhere** to accept (A). **Tap with two fingers** to go back (B).
+- **Tap one of the game's own button hints** ("B Back", "A Read", "Y Delete",
+  "X Toggle Icon Visibility"...) and that button is pressed. This also works
+  on the photo at the end of a race: tap Continue, Race Stats or Restart.
+- **World map:** a swipe moves the cursor, the LT / RT pictures zoom, and the
+  arrows next to the category change it.
+- The **PAD** button brings the full gamepad back for that menu if you need
+  it. Touch controls › Swipe and tap in menus turns all of this off.
+
+**Steering your way.** A new Steering setting, in the launcher and in the
+in-game options:
+
+- **Dynamic joystick** (the new default): it appears wherever your thumb
+  lands in the bottom-left quarter of the screen and fades out when you lift
+  it.
+- **Fixed steering circle**, as before.
+- **Two buttons** for left and right.
+
+**The D-pad's actions as buttons, only when they apply.** The small D-pad is
+now up to four buttons, shown only when the game would do something with
+them:
+
+- In free roam: the world map, SMS messages and the Blacklist, plus a button
+  to enter (a flag in a race's circle, a door in a shop's or safehouse's)
+  while you are in one.
+- In a free-roam pursuit: the pursuit's details and the map.
+- In races and pursuit challenges: the details only.
+
+They follow what the HUD shows, so they appear and disappear on their own;
+anything you are holding (gas, steering) stays held when they change.
+
+**A drag race layout.** In a drag race the controls switch to their own
+layout: lane change left and right and shift down and up on the left, the
+gas with nitrous above it on the right, the brake beside them.
+
+**A cleaner look and a new default layout.**
+
+- Icons instead of words (a flame for nitrous, pedals, a stopwatch for
+  speedbreaker...).
+- Touch areas larger than what is drawn: a touch between two buttons goes to
+  the nearer one.
+- The controls dim after 3 seconds without a touch, so they hide less of the
+  road (Touch controls › Dim when not touched).
+- By default nitrous and look back sit above speedbreaker and handbrake, the
+  D-pad buttons above the shift buttons, and camera and pause share the top
+  row with PAD and HIDE, above the rear-view mirror. The same layout scales
+  to the iPad, where the driving controls are gathered into the bottom
+  corners, within thumb reach.
+- A layout you saved before is kept.
+
+**Customize touch controls, also while playing.** The editor has Pad, Drive
+and Drag tabs; the four D-pad buttons move and resize together, and the
+dynamic joystick's area is shown. It opens from the launcher and from the
+in-game options (the gear in pause screens, or L3+R3), where changes apply as
+soon as you close it.
+
+**Fixes.** The driving controls no longer flash up while the game starts,
+and no longer stay over the race-finished photo.
+
+### Smoother play
+
+- **Steadier frame rate while driving.** The game moved its threads to the
+  phone's efficient CPU cores once frames had been on time for a while, and
+  on some iPhones the frame rate then sank from 60 to 40 in the middle of a
+  race. They now stay on the fast cores while you drive; menus and loading
+  still save power.
+- **New Performance setting** (Graphics tab), which CPU cores the game's
+  threads ask for:
+  - **Eco**: the efficient cores always, for battery life over smoothness.
+    The default when Battery mode is on.
+  - **Balanced** (the default): efficient cores in menus and loading, fast
+    cores while driving. On iPads with 6 or more efficient cores (M-series)
+    Balanced keeps their original, tested behaviour.
+  - **Max**: the fast cores always, for the steadiest frame rate.
+
+  Sound and the screen's timing keep their own priority in every mode, and
+  iOS takes the setting as a hint, not a fixed choice of cores.
+- **Smoother start to races and pursuits.** For the first seconds of a race
+  or chase the world could move on only two of every three frames, so it
+  looked like 40 fps while the counter said 60. The game now always moves
+  its world 120 times a second, which removes it; the "120 Hz simulation"
+  switch is gone from Advanced.
+
+### Customize HUD
+
+With Custom HUD on, a new editor (in the launcher and in the in-game options)
+shows the HUD's parts as outlines on a screen of your device's shape: drag
+each where you want it, make it smaller or bigger, and set the whole HUD's
+size and safe zone, with separate tabs for races and pursuits. It replaces
+the HUD size, safe zone and position settings.
+
+### HUD fixes
+
+- **Minimap stays in place.** After leaving the safe house again, finishing
+  or restarting a race, the map and its icons could be drawn inward from the
+  minimap's ring. Fixed (also with Custom HUD off).
+- **Full-screen overlays at full size.** With a smaller HUD, the TV-style
+  picture when you're busted and at the end of a race was shrunk with it;
+  both are full size again, and the autosave icon stays in the HUD's corner.
+  In chases, the pursuit points stay above the speedometer and the
+  infraction list stays under its badge. On the iPhone the loading screen
+  fills the screen.
 - **Heat ring back around the heat badge.** In pursuits with a smaller HUD
   size, the spinning ring (and the shop / event circle prompt) sat off to
   the side of the heat level badge.
+- **The circle prompt stays put.** With Custom HUD, the icon over the road in
+  an event, shop or safehouse circle (and its spinning ring) moved with the
+  infractions list, and the ring flashed between two places. It now stays
+  where the game puts it, at the top middle.
 
-- **iPad driving controls within thumb reach.** The same layout, gathered
-  into the bottom corners of the iPad screen.
+### Other additions
 
-- **No more crash on Play on iOS 26 with the native renderer.** iOS 26
-  reuses an internal ID the renderer relied on, so some drawing steps were
-  left without their settings and the graphics driver crashed. They are
-  now always set up. This likely also fixes the native black screen on
-  iOS 26 ([issue 4](https://github.com/bep1s69/nfsmw-ios/issues/4),
-  [issue 7](https://github.com/bep1s69/nfsmw-ios/issues/7)).
-
-- **Steadier frame rate while driving, and a Performance setting.** The
-  game used to move its threads to the phone's efficient CPU cores once
-  frames had been on time for a while, and on some phones the frame rate
-  then sank from 60 to 40 in the middle of a race. Now they stay on the fast
-  cores while you drive (menus and loading still save power). A new
-  Graphics option, "Performance", chooses: Eco (efficient cores always; the
-  default with Battery mode on), Balanced (the default) or Max (fast cores
-  always). iOS takes it as a hint. On iPads with 6 or more efficient cores
-  (M-series), Balanced keeps their original, tested behaviour.
-
-- **Sound in silent mode, if you want it.** A new switch in the Audio tab,
-  "Play sound in silent mode". Off (the default) keeps the usual behaviour:
-  the game is quiet when the phone's silent switch is on.
-
-- **Game Mode for directly installed copies.** The app now asks iOS for
-  Game Mode when it is sideloaded with a certificate (LiveContainer has its
-  own Game Mode handling).
-
-- **Touch controls, redesigned.** Built with the Android port as the
-  model, and tested by playing through free roam, races, pursuits, drag
-  races and every kind of menu.
-
-  - **Menus without buttons in the way.** In menus and pause screens the
-    on-screen gamepad is gone. Swipe to move through a menu (it works like
-    pushing the stick that way, for as long as your finger stays down),
-    tap anywhere to accept (A) and tap with two fingers to go back (B).
-    Tap one of the game's own button hints, such as "B Back", "A Read",
-    "Y Delete" or "X Toggle Icon Visibility", and that button is pressed.
-    On the world map a swipe moves the cursor, the LT / RT pictures zoom
-    and the arrows next to the category change it. The PAD button brings
-    the full gamepad back for that menu if you need it, and Touch controls
-    › Swipe and tap in menus turns all of this off.
-  - **Steering your way.** A new Steering setting (launcher and in-game
-    options): a dynamic joystick, the new default, that appears wherever
-    your thumb lands in the bottom-left quarter of the screen and fades out
-    when you lift it; the fixed steering circle as before; or two buttons
-    for left and right.
-  - **The D-pad's actions as buttons, only when they apply.** The small
-    D-pad is now up to four buttons, shown only when the game would do
-    something with them. In free roam: the world map, SMS messages and the
-    Blacklist, plus a button to enter (a flag in a race's circle, a door
-    in a shop's or safehouse's) while you are in one. In a free-roam
-    pursuit: the pursuit's details and the map. In races and pursuit
-    challenges: the details only. They follow what the HUD shows, so they
-    appear and disappear on their own; anything you are holding (gas,
-    steering) stays held when they change.
-  - **A drag race layout.** In a drag race the controls switch to their
-    own layout: lane change left and right and shift down and up on the
-    left, the gas with nitrous above it on the right, the brake beside
-    them.
-  - **A cleaner look and a new default layout.** Icons instead of words
-    (a flame for nitrous, pedals, a stopwatch for speedbreaker...), touch
-    areas larger than what is drawn (a touch between two buttons goes to
-    the nearer one), and the controls dim after 3 seconds without a touch
-    so they hide less of the road (Touch controls › Dim when not touched).
-    By default nitrous and look back sit above speedbreaker and handbrake,
-    the D-pad buttons above the shift buttons, and camera and pause share
-    the top row with PAD and HIDE, above the rear-view mirror. The same
-    layout scales to the iPad. A layout you saved is kept.
-  - **Customize touch controls, also while playing.** The editor has
-    Pad, Drive and Drag tabs; the four D-pad buttons move and resize
-    together, and the dynamic joystick's area is shown. It opens from the
-    launcher and from the in-game options (the gear), where changes apply
-    as soon as you close it.
-  - **Fixes.** The driving controls no longer flash up while the game
-    starts, and SMS screens count as menus.
-
-- **Custom HUD: the circle prompt stays put.** The icon over the road in
-  an event, shop or safehouse circle (and its spinning ring) moved with
-  the infractions list, and the ring flashed between two places. It now
-  stays where the game puts it, at the top middle.
-
+- **Sound in silent mode, if you want it.** Audio tab › "Play sound in
+  silent mode". Off (the default) keeps the usual behaviour: the game is
+  quiet when the phone's silent switch is on.
+- **Game Mode for directly installed copies.** The app now asks iOS for Game
+  Mode when it is sideloaded with a certificate (LiveContainer has its own
+  Game Mode handling).
 - **Extra arguments in the launcher.** Advanced tab › Extra arguments:
-  options for testing (e.g. `--nfsmw_hud_watch=true`), separated by
-  spaces, without editing Documents/extra_args.txt. They win over both.
+  options for testing (e.g. `--nfsmw_hud_watch=true`), separated by spaces,
+  without editing Documents/extra_args.txt. They win over both.
+- **Bug and performance report templates** on GitHub: they ask for your
+  device, iOS version, how the app is installed, your settings and the log,
+  so problems can be found faster.
 
-- **Custom HUD off: one setting no longer lost.** The empty HUD layout
-  took the next launch option (GPU frame capture) as its value.
+### Smaller fixes
 
+- **Custom HUD off: one setting no longer lost.** The empty HUD layout took
+  the next launch option (GPU frame capture) as its value.
 - **Smaller logs.** Two of the HUD's overlays took turns being logged in
-  full every frame, which filled several 5 MB logs in a few minutes. Each
-  is now logged once.
+  full every frame, which filled several 5 MB logs in a few minutes. Each is
+  now logged once.
 
-- **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
-  in the in-game options) shows the HUD's parts as outlines on a screen of
-  your device's shape: drag each where you want it, make it smaller or
-  bigger, and set the whole HUD's size and safe zone, with separate tabs
-  for races and pursuits. It replaces the HUD size, safe zone and
-  position settings.
+### Known issues
 
-- **Custom HUD: full-screen overlays at full size.** With a smaller HUD,
-  the TV-style picture when you're busted and at the end of a race was
-  shrunk with it; both are full size again, and the autosave icon stays in
-  the HUD's corner. In chases, the pursuit points stay above the
-  speedometer and the infraction list stays under its badge. On the iPhone
-  the loading screen fills the screen.
-
-- **Minimap stays in place.** After leaving the safe house again, finishing
-  or restarting a race, the map and its icons could be drawn inward from
-  the minimap's ring. Fixed (also with Custom HUD off).
+- On the iPhone the asphalt-and-leaves picture behind the race results does
+  not reach the screen's sides.
+- The loading screen's pieces twitch slightly.
+- At the end of a race some HUD elements zoom in (most visible on the iPad).
 
 ## 0.4.2
 

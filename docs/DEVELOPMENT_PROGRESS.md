@@ -129,14 +129,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-- **October 29: 0.5.0 (build 8) prepared on local `main`, not tagged or
-  pushed.** Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
+- **October 29: 0.5.0 (build 8) released: `main` pushed, tag v0.5.0,
+  GitHub release with `NFS-Most-Wanted-0.5.0.ipa` (Stefan's go).** Earlier: Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
   is now 0.6.0. `ios/build/NFS-Most-Wanted-0.5.0.ipa` (SHA-256 1f2bae93...),
   also on the iCloud Desktop. Remaining visual bugs (D-006 leaves picture,
   loading twitch, race-end HUD zoom) deferred to a later session; D-013
   (post-race photo: controls stayed, no touch) fixed for 0.5.0 at Stefan's
-  request, untested. Next: Stefan's check, then tag/push/release on his go
-  (docs/RELEASING.md).
+  request, untested. Next: issue replies (Stefan), then 0.6.0 on `dev-0.5`.
 
 - **October 29: 0.4.3 Performance setting (D-012), local main, not pushed.**
   Threads stay boosted while driving (no Utility in the world), faster late
