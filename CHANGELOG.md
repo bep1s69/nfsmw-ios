@@ -25,6 +25,13 @@
   and right. The touch layout editor shows the dynamic joystick's area
   and lets you move and resize the two buttons.
 
+- **Cleaner driving controls.** The Drive layout's buttons show icons
+  (flame for nitrous, pedals, stopwatch for speedbreaker...) instead of
+  words, take touches further around what they draw, and a touch between
+  two buttons goes to the nearer one. After 3 seconds without a touch
+  they dim so they hide less of the road (Touch controls › Dim when not
+  touched; any touch brings them back).
+
 - **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
   in the in-game options) shows the HUD's parts as outlines on a screen of
   your device's shape: drag each where you want it, make it smaller or

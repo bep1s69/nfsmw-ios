@@ -8475,3 +8475,29 @@ Stefan's plan (BACKLOG "Touch controls overhaul"), step 1, approved Oct 29.
 `ios/build/NFSMW-touch-steering-151.ipa` SHA-256
 4453294ac42817cc68796cec724b3dc2a033285e13d4d50a684f02b809e802e8, 30134292
 bytes, `unzip -tq` ok. Not run on a device.
+
+### October 29: touch controls step 2, look and hit areas (IPA152)
+
+Stefan asked for step 2 before testing step 1 (both in IPA152).
+- Hit areas (`Control::Distance`, 1 at the edge of what a control takes):
+  round buttons 1.45 x radius + 6 pt (was 1.15 x), sticks 1.4 x (was
+  1.35 x), rectangles 18 pt slack (was 8). `controlAt` takes the nearest
+  control under the touch (was the first in the list); the dynamic
+  joystick only where no other control is.
+- Icons: in the DRIVE layout, SF Symbols for the buttons (`SymbolFor`:
+  flame.fill nitrous, eye.fill look back, stopwatch.fill speedbreaker,
+  exclamationmark.brakesignal handbrake, pedal.accelerator.fill /
+  pedal.brake.fill, camera.fill, pause.fill, arrow.counterclockwise reset,
+  chevrons for shifting, triangles for the steering buttons); text when a
+  symbol is missing. PAD layout unchanged.
+- Idle dimming: cvar `ios_touch_idle_opacity` (default 0.35, 1 = off):
+  in the DRIVE layout, 3 s after the last touch with no finger down, the
+  view's alpha eases to opacity x that over ~0.3 s (30 Hz timer, a full
+  redraw per step); a touch brings it back at twice the speed. Checked
+  with the 2 Hz native-mode timer. Launcher Touch controls › Dim when not
+  touched (Off / Half / Low / Very low), live in the in-game options.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-look-152.ipa` SHA-256
+bc94c957d7928bceaee5890c74e67ff958ccd7186232016b88937ef01c738072, 30136879
+bytes, `unzip -tq` ok; copied to iCloud Desktop (Stefan away). Not run on
+a device.

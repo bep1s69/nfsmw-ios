@@ -66,6 +66,9 @@ REXCVAR_DEFINE_STRING(ios_touch_steering, "dynamic", "Input",
                       "Touch controls, DRIVE layout: how to steer. dynamic: a joystick wherever the "
                       "thumb lands in the bottom-left quarter, fading out when it lifts; fixed: the "
                       "steering circle in its place; buttons: two buttons, left and right");
+REXCVAR_DEFINE_DOUBLE(ios_touch_idle_opacity, 0.35, "Input",
+                      "Touch controls, DRIVE layout: their opacity after 3 s without a touch, as a "
+                      "share of the chosen opacity (1 = no dimming)");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "
                     "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
@@ -175,14 +178,20 @@ struct Control {
     if (dynamic) {
       return CGRectContainsPoint(zone, p);
     }
+    return Distance(p) <= 1;
+  }
+
+  // How far p is from the control, 1 at the edge of what it takes: more
+  // than it draws, for thumbs (touches between two controls go to the
+  // nearer, controlAt).
+  CGFloat Distance(CGPoint p) const {
     if (kind == Kind::kRectButton || kind == Kind::kTrigger) {
-      // A little slack around the rectangle, easier to hit with a thumb.
-      return std::fabs(p.x - center.x) <= size.width * 0.5 + 8 &&
-             std::fabs(p.y - center.y) <= size.height * 0.5 + 8;
+      const CGFloat slack = 18;
+      return std::max(std::fabs(p.x - center.x) / (size.width * 0.5 + slack),
+                      std::fabs(p.y - center.y) / (size.height * 0.5 + slack));
     }
-    // Sticks take touches a bit beyond their ring.
-    const CGFloat r = kind == Kind::kStick ? radius * 1.35 : radius * 1.15;
-    return std::hypot(p.x - center.x, p.y - center.y) <= r;
+    const CGFloat r = kind == Kind::kStick ? radius * 1.4 : radius * 1.45 + 6;
+    return std::hypot(p.x - center.x, p.y - center.y) / r;
   }
 
   // What it covers on screen (with its outline and label), for redrawing
@@ -232,6 +241,11 @@ struct Control {
   BOOL _editing;
   NSString* _steering;  // ios_touch_steering the layout was made with
   NSTimer* _fadeTimer;  // the dynamic joystick fading out
+  // Dimmed after 3 s without a touch while driving (ios_touch_idle_opacity).
+  NSTimeInterval _lastTouch;
+  CGFloat _dim;         // 1 full .. ios_touch_idle_opacity
+  CGFloat _dimTarget;
+  NSTimer* _dimTimer;
   CGRect _steerZone;    // editor: where the dynamic joystick works, outlined
   int _selected;
   CGPoint _grab;  // the finger's offset from the selected control's centre
@@ -283,6 +297,8 @@ static CGFloat TouchOpacity() {
     _driving = [NSUserDefaults.standardUserDefaults boolForKey:@"nfsmw.touch.driving"];
     _haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     _selected = -1;
+    _dim = _dimTarget = 1;
+    _lastTouch = NSDate.timeIntervalSinceReferenceDate;
     self.alpha = TouchOpacity();
     // The drawing is recorded here and rasterized on Core Animation's own
     // thread, not on the main thread (~10 ms a second while driving).
@@ -301,6 +317,7 @@ static CGFloat TouchOpacity() {
                                         }
                                         [view syncNativeMode];
                                         [view syncSteering];
+                                        [view syncDim];
                                       }];
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
@@ -364,6 +381,38 @@ static CGFloat TouchOpacity() {
     REXLOG_INFO("[touch] steering: {}", [self steeringMode].UTF8String);
     [self setNeedsLayout];
   }
+}
+
+// Dimmed after 3 s without a touch in the DRIVE layout; back at once on a
+// touch. Eased over ~0.3 s (the whole overlay redrawn 10 times).
+- (void)syncDim {
+  const CGFloat idle = CGFloat(std::clamp(REXCVAR_GET(ios_touch_idle_opacity), 0.1, 1.0));
+  const bool resting = _driving && !_editing && _owners.count == 0 &&
+                       NSDate.timeIntervalSinceReferenceDate - _lastTouch > 3.0;
+  [self dimTo:resting ? idle : 1];
+}
+
+- (void)dimTo:(CGFloat)target {
+  if (target == _dimTarget) return;
+  _dimTarget = target;
+  if (_dimTimer) return;
+  __weak NFSTouchView* weak = self;
+  _dimTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 / 30
+                                              repeats:YES
+                                                block:^(NSTimer* timer) {
+                                                  [weak dimTick:timer];
+                                                }];
+}
+
+- (void)dimTick:(NSTimer*)timer {
+  const CGFloat step = 0.07;
+  _dim = _dim < _dimTarget ? std::min(_dimTarget, _dim + step * 2) : std::max(_dimTarget, _dim - step);
+  if (_dim == _dimTarget) {
+    [timer invalidate];
+    if (_dimTimer == timer) _dimTimer = nil;
+  }
+  self.alpha = _editing ? 1.0 : TouchOpacity() * _dim;
+  [self setNeedsDisplay];
 }
 
 - (void)controllerConnected:(NSNotification*)note {
@@ -462,7 +511,7 @@ static CGFloat TouchOpacity() {
     c.radius *= scale;
     c.size = CGSizeMake(c.size.width * scale, c.size.height * scale);
   }
-  self.alpha = _editing ? 1.0 : TouchOpacity();
+  self.alpha = _editing ? 1.0 : TouchOpacity() * _dim;
 }
 
 - (void)saveControl:(const Control&)c scale:(CGFloat)scale {
@@ -581,13 +630,24 @@ static CGFloat TouchOpacity() {
   return nil;
 }
 
+// The nearest control that takes p; the dynamic joystick only where no
+// other does.
 - (int)controlAt:(CGPoint)p {
+  int best = -1, zone = -1;
+  CGFloat nearest = 1;
   for (size_t i = 0; i < _controls.size(); ++i) {
-    if (_controls[i].Contains(p)) {
-      return int(i);
+    const Control& c = _controls[i];
+    if (c.dynamic) {
+      if (c.Contains(p)) zone = int(i);
+      continue;
+    }
+    const CGFloat d = c.Distance(p);
+    if (d <= nearest) {
+      nearest = d;
+      best = int(i);
     }
   }
-  return -1;
+  return best >= 0 ? best : zone;
 }
 
 - (void)updateControl:(Control&)c at:(CGPoint)p {
@@ -638,6 +698,8 @@ static CGFloat TouchOpacity() {
     [self setControlsVisible:YES];
     return;
   }
+  _lastTouch = NSDate.timeIntervalSinceReferenceDate;
+  [self dimTo:1];
   bool haptic = false;
   for (UITouch* t in touches) {
     const CGPoint p = [t locationInView:self];
@@ -701,6 +763,7 @@ static CGFloat TouchOpacity() {
 }
 
 - (void)endTouches:(NSSet<UITouch*>*)touches {
+  _lastTouch = NSDate.timeIntervalSinceReferenceDate;
   for (UITouch* t in touches) {
     NSNumber* owner = [_owners objectForKey:t];
     if (!owner) {
@@ -867,6 +930,48 @@ static CGFloat TouchOpacity() {
   }
   [text drawInRect:CGRectMake(p.x - s.width / 2, p.y - s.height / 2, s.width, s.height)
       withAttributes:attrs];
+}
+
+// The DRIVE layout's buttons drawn as symbols (SF Symbols, iOS 18); a label
+// without one stays text.
+static NSString* SymbolFor(NSString* label) {
+  static NSDictionary<NSString*, NSString*>* symbols = @{
+    @"NOS" : @"flame.fill",
+    @"LOOK\nBACK" : @"eye.fill",
+    @"SPEED\nBREAKER" : @"stopwatch.fill",
+    @"HAND\nBRAKE" : @"exclamationmark.brakesignal",
+    @"GAS" : @"pedal.accelerator.fill",
+    @"BRAKE" : @"pedal.brake.fill",
+    @"CAM" : @"camera.fill",
+    @"PAUSE" : @"pause.fill",
+    @"RESET" : @"arrow.counterclockwise",
+    @"UP" : @"chevron.up",
+    @"DOWN" : @"chevron.down",
+    @"◀" : @"arrowtriangle.left.fill",
+    @"▶" : @"arrowtriangle.right.fill",
+  };
+  return symbols[label];
+}
+
+// A control's label: its symbol in the DRIVE layout, `size` points tall,
+// or the text.
+- (void)drawIcon:(NSString*)label at:(CGPoint)p size:(CGFloat)size fit:(CGFloat)fit {
+  NSString* name = _driving ? SymbolFor(label) : nil;
+  UIImage* image = nil;
+  if (name) {
+    UIImageSymbolConfiguration* config =
+        [UIImageSymbolConfiguration configurationWithPointSize:size weight:UIImageSymbolWeightSemibold];
+    image = [[UIImage systemImageNamed:name withConfiguration:config]
+        imageWithTintColor:[UIColor colorWithWhite:1 alpha:0.9]
+             renderingMode:UIImageRenderingModeAlwaysOriginal];
+  }
+  if (!image) {
+    [self drawLabel:label at:p size:size * 0.88 fit:fit];
+    return;
+  }
+  CGSize s = image.size;
+  if (s.width > fit) s = CGSizeMake(fit, s.height * fit / s.width);
+  [image drawInRect:CGRectMake(p.x - s.width / 2, p.y - s.height / 2, s.width, s.height)];
 }
 
 // With the native renderer the controls are drawn into the game's frame: a
@@ -1090,7 +1195,7 @@ static CGFloat TouchOpacity() {
         [stroke setStroke];
         path.lineWidth = 1.5;
         [path stroke];
-        [self drawLabel:c.label at:c.center size:c.radius * 0.8 fit:c.radius * 1.6];
+        [self drawIcon:c.label at:c.center size:c.radius * 0.9 fit:c.radius * 1.4];
         break;
       }
       case Kind::kRectButton:
@@ -1104,10 +1209,10 @@ static CGFloat TouchOpacity() {
         [stroke setStroke];
         path.lineWidth = 1.5;
         [path stroke];
-        [self drawLabel:c.label
-                     at:c.center
-                   size:std::min(c.size.width, c.size.height) * 0.38
-                    fit:c.size.width * 0.85];
+        [self drawIcon:c.label
+                    at:c.center
+                  size:std::min(c.size.width, c.size.height) * 0.45
+                   fit:c.size.width * 0.75];
         break;
       }
     }
