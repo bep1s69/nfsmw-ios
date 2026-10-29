@@ -25,6 +25,10 @@ constexpr int kInPursuit = 4;  // a pursuit: STATS, and MAP outside events
 constexpr int kRaceCircle = 8;  // the circle is an event's (not a shop's or safehouse's)
 void SetDriveContext(int bits);
 
+// A drag race (game_state.cpp: HUD_Drag.fng up), on the game's thread: the
+// DRAG layout.
+void SetDragRace(bool on);
+
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen
 // in landscape from the launcher. `steering`: the launcher's touch_steering

@@ -49,6 +49,11 @@
   and camera and pause in one row with the PAD and HIDE buttons along the
   top edge, above the rear-view mirror (on iPhone and iPad alike). A layout you saved stays.
 
+- **Drag race touch controls.** In a drag race the touch controls switch
+  to their own layout: lane change left and right, shift up and down,
+  nitrous, gas and brake, with camera and pause at the top. It has its
+  own tab (Drag) in Customize touch controls.
+
 - **Touch controls editor while playing.** The options sheet (the gear)
   has a Touch controls button next to Customize HUD; changes apply when
   you close it. Buttons held while the set changes stay held, and the

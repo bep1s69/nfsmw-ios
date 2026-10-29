@@ -538,7 +538,8 @@ steps, one IPA each, each approved:
    IPA155: ENTER only in a circle, MAP/SMS only outside races (TECHNICAL
    Oct 29); pursuits not identified yet (no pursuit in the IPA154 run).
 4. Drag race layout: gas, shift up/down, nitrous, two lane-change buttons
-   (how Android does it). Needs the race type from the game (not read yet).
+   (how Android does it). IPA163: HUD_Drag.fng pushed = drag race (PC
+   name, unverified on X360), DRAG layout; not run.
 
 ### D-0xx Circle prompt's spinning ring jumps below its icon — fix in IPA156, not tested
 
