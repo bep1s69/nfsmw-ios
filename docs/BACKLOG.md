@@ -189,7 +189,10 @@ tested). The asphalt picture's iPhone side margins stay open (fitting it
 broke the pause menu, which uses the same package). IPA146 scales its
 groups whole instead (pause fixed); IPA147 covers the iPhone screen with
 the results' leaves picture (InGamePhotoMaster.fng) and fixes the song box
-under the pause menu (not yet tested). Known issue: the loading screen's
+under the pause menu: wrong picture, removed in IPA148. Known issues: the
+leaves picture's iPhone side margins (package unknown, perhaps
+PostRace_Results.fng), the song box at full size under the pause menu, the
+loading screen's slight twitch. Known issue: the loading screen's
 pieces twitch slightly since IPA145. Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 

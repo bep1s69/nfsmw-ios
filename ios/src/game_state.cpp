@@ -140,7 +140,6 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
-extern "C" void nfsmw_hud_fit_photo(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 extern "C" void nfsmw_hud_full_size(bool on);                              // game_scene_size.cpp
 
@@ -183,9 +182,6 @@ extern "C" REX_FUNC(sub_823B4158) {
         nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay), menu < 0);
       }
     }
-    // The picture behind the race's results (IPA146).
-    static const char* const kPhoto[] = {"InGamePhotoMaster.fng"};
-    if (PushedPackage(ctx, base, kPhoto, 1) >= 0) nfsmw_hud_fit_photo(base, FindPackage(ctx, base, kPhoto[0]));
   }
   // The TV-style overlays of a bust and of a race's end (IPA139), drawn at
   // full size while they are up.
