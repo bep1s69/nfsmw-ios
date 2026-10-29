@@ -747,7 +747,10 @@ void ReapplyHudPieces(uint8_t* base) {
     if (!Plausible(data)) continue;
     const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
     if (p.by_children || p.moved.object != p.object || (x == p.moved.written_x && y == p.moved.written_y)) continue;
-    const bool group = REX_LOAD_U32(p.object + 0x18) == 5 && REX_LOAD_U32(p.object + 0x5C) == kListVtable;
+    // Only the top left's (IPA143, iPhone: given to the game, the
+    // busted/evade bar's group kept its marker unmoved, off the bottom).
+    const bool group = p.element == kTopLeft && REX_LOAD_U32(p.object + 0x18) == 5 &&
+                       REX_LOAD_U32(p.object + 0x5C) == kListVtable;
     if (lines > 0) {
       --lines;
       REXLOG_INFO("[hud] piece {:08X} placed again by the game ({:.1f},{:.1f}): {}", p.hash, x, y,
@@ -776,7 +779,7 @@ std::unordered_map<uint32_t, Fitted> g_fitted;
 // Position (+28, +32) and, unless only_position, size (+56, +60) of an
 // object divided by s, so that through the HUD's matrix (scaled by s about
 // the middle of the screen) it is drawn as without it.
-void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
+void Fit(uint8_t* base, uint32_t object, float sx, float sy, bool only_position) {
   const uint32_t data = REX_LOAD_U32(object + 44);
   if (!Plausible(data)) return;
   const uint32_t at[4] = {data + 28, data + 32, data + 56, data + 60};
@@ -786,7 +789,7 @@ void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
   Fitted& f = it->second;
   if (added || std::memcmp(now, f.written, sizeof(now)) != 0) std::memcpy(f.base, now, sizeof(now));
   for (int i = 0; i < 4; ++i) {
-    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / s;
+    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / (i % 2 ? sy : sx);
     if (f.written[i] != now[i]) StoreF(base, at[i], f.written[i]);
   }
 }
@@ -842,11 +845,11 @@ void Extent(uint8_t* base, uint32_t object, float px, float py, int depth, Box& 
 // included: the images by position and size, the groups that hold them by
 // position (IPA81's log: FadeScreen.fng's black screen is two 1200x650
 // images in the group 0x027FF2DC). Whether any was found.
-bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
+bool FitWide(uint8_t* base, uint32_t object, float sx, float sy, int depth) {
   const uint32_t type = REX_LOAD_U32(object + 0x18), data = REX_LOAD_U32(object + 44);
-  if (type == 1) {
+  if (type == 1 || type == 9) {  // 9: InGameBackground.fng's pictures
     if (!Plausible(data) || std::abs(LoadF(base, data + 56)) < 400.0f) return false;
-    Fit(base, object, s, false);
+    Fit(base, object, sx, sy, false);
     g_fade_alpha = std::max(g_fade_alpha, REX_LOAD_U32(data + 12));  // FEColor b, g, r, a
     return true;
   }
@@ -855,9 +858,9 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
-    any = FitWide(base, c, s, depth + 1) || any;
+    any = FitWide(base, c, sx, sy, depth + 1) || any;
   }
-  if (any) Fit(base, object, s, true);
+  if (any) Fit(base, object, sx, sy, true);
   return any;
 }
 
@@ -869,8 +872,14 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
 // bled through at its top and bottom (IPA78). Its full-screen images (400
 // units wide or more: the black screen) are drawn as at size 1. The
 // package's object list is found by its list header (vtable 0x82080030,
-// count, first), logged once.
-extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
+// count, first), logged once. IPA143 (Stefan, iPhone): the loading screen
+// and the asphalt picture behind the post-race screens let the game show on
+// all four sides: in HD the matrix keeps the title-safe 0.92 and, on a wide
+// scene, x is narrowed by 1280/width. Those are taken out too, and the
+// asphalt picture (InGameBackground.fng) is fitted the same way. Called in
+// every game state and under menus (driving: the HUD's size is in the
+// matrix).
+extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) {  // none up
     g_fade_opaque = false;
     return;
@@ -885,10 +894,19 @@ extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package) {
     if (first) DumpObjects(base, first, 0, budget);
   }
   g_fade_alpha = 0;
-  const float s = HudScaleSetting();
+  float safe_x, safe_y;
+  HudSafeScale(base, safe_x, safe_y);  // 1 in HD (kept there), the SD scale
+  const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;
+  const float hd_safe = LoadF(base, kHdSafeScale);
+  const bool kept = hd || REXCVAR_GET(nfsmw_hud_title_safe);
+  const float keep_x = !kept ? 1.0f : hd ? (hd_safe > 0.75f && hd_safe <= 1.0f ? hd_safe : 1.0f) : safe_x;
+  const float keep_y = !kept ? 1.0f : hd ? keep_x : safe_y;
+  const uint32_t width = WideWidth();
+  const float s = driving ? HudScaleSetting() : 1.0f;
+  const float sx = s * keep_x * (width ? 1280.0f / float(width) : 1.0f), sy = s * keep_y;
   int n = 0;
   for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
-    FitWide(base, o, s, 0);
+    FitWide(base, o, sx, sy, 0);
   }
   const bool opaque = g_fade_alpha >= 255;
   if (opaque != g_fade_opaque) {

@@ -160,7 +160,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   moved again after the game's script). Next: Stefan tests the chase at
   70%. IPA142: PURSUIT CTS right, infraction rows flash; IPA143
   `ios/build/NFSMW-hud-rows-143.ipa` moves such rows' children instead
-  (confirmed by Stefan).
+  (confirmed by Stefan). On the iPhone it lost the busted/evade marker and
+  the loading screen / asphalt picture bled on all sides (HD title-safe and
+  wide scene); IPA144 `ios/build/NFSMW-hud-fit-safe-144.ipa` fixes both
+  (not yet tested).
   Still open: iPhone side bars on the bust overlay and asphalt
   picture, the iPad loading screen's short bleed, the judder Stefan felt
   (not in the pacing log) (TECHNICAL Oct 29, D-006).
