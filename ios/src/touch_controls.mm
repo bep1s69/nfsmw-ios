@@ -653,8 +653,11 @@ static CGFloat TouchOpacity() {
   };
   shift(@"DOWN", P(.075, .52), kDriveShiftDown);
   shift(@"UP", P(.165, .52), kDriveShiftUp);
-  round(@"NOS", P(.235, .86), unit * .5, kDriveNitrous);
-  round(@"LOOK\nBACK", P(.235, .62), unit * .42, kDriveLookBack);
+  // Nitrous and look back above speedbreaker and handbrake, the D-pad
+  // buttons above the shift buttons: Stefan's layout (IPA160 editor
+  // screenshot, Oct 29), the default since.
+  round(@"NOS", P(.9, .38), unit * .42, kDriveNitrous);
+  round(@"LOOK\nBACK", P(.765, .38), unit * .42, kDriveLookBack);
   round(@"SPEED\nBREAKER", P(.765, .58), unit * .8, kDriveSpeedbreaker);
   round(@"HAND\nBRAKE", P(.9, .58), unit * .8, kDriveHandbrake);
   Control brake{Kind::kTrigger, @"BRAKE", P(.765, .84), 0, CGSizeMake(unit * 1.05, unit * 1.75)};
@@ -681,7 +684,7 @@ static CGFloat TouchOpacity() {
   _context = g_drive_context.load();
   const bool event = _context & nfsmw::touch::kInRace;
   const bool pursuit = _context & nfsmw::touch::kInPursuit;
-  CGPoint pad = P(.11, .27);
+  CGPoint pad = P(.11, .36);
   CGFloat k = TouchSize();
   NSArray* saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][@"drive.ACTIONS"];
   if (saved.count == 3) {
@@ -689,7 +692,7 @@ static CGFloat TouchOpacity() {
     k *= CGFloat([saved[2] doubleValue]);
   }
   if (_editing) {
-    Control group{Kind::kDpad, @"ACTIONS", P(.11, .27), unit * .98};
+    Control group{Kind::kDpad, @"ACTIONS", P(.11, .36), unit * .98};
     _controls.push_back(group);  // placed by applyCustomLayout
   } else {
     const CGFloat off = unit * .62 * k, r = unit * .36 * k;
@@ -1612,6 +1615,10 @@ UIWindow* GameWindow() {
 @interface NFSTouchLayoutEditor : UIViewController
 @end
 
+namespace nfsmw::touch {
+UIView* LiveView();
+}
+
 @implementation NFSTouchLayoutEditor {
   NFSTouchView* _touch;
   UISegmentedControl* _mode;
@@ -1735,11 +1742,17 @@ UIWindow* GameWindow() {
 
 - (void)done {
   [self dismissViewControllerAnimated:YES completion:nil];
+  // Opened while playing (the options' Touch controls): the controls over
+  // the game take the new layout, size and opacity at once.
+  [nfsmw::touch::LiveView() setNeedsLayout];
 }
 
 @end
 
 namespace nfsmw::touch {
+
+// The controls over the game (Install), told when the editor closes.
+static __weak NFSTouchView* g_view = nil;
 
 UIViewController* MakeLayoutEditor(NSString* steering) {
   g_editor_steering = steering.length ? steering : @"dynamic";
@@ -1749,6 +1762,8 @@ UIViewController* MakeLayoutEditor(NSString* steering) {
 }
 
 void SetDriveContext(int bits) { g_drive_context.store(bits); }
+
+UIView* LiveView() { return g_view; }
 
 void InstallFpsCounter() {
   static bool installed = false;
@@ -1775,6 +1790,7 @@ void Install() {
   }
   NFSTouchView* view = [[NFSTouchView alloc] initWithFrame:window.bounds];
   [window addSubview:view];
+  g_view = view;
   if (REXCVAR_GET(ios_touch_auto_layout)) {
     [view followGame];
   }
