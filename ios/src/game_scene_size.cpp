@@ -81,16 +81,19 @@
 #include <cstring>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "nfsmw_pch.h"
+
+#include "touch_controls.h"
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
 #include "battery.h"
 
-REXCVAR_DEFINE_BOOL(nfsmw_hud_watch, true, "Game",
+REXCVAR_DEFINE_BOOL(nfsmw_hud_watch, false, "Game",
                     "Diagnostic: log the HUD objects whose flags change ([hud-watch]), twice a second");
 REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
                     "4:3 (SD) scene at 960x720 without MSAA instead of 640x480 with 2x MSAA "
@@ -585,6 +588,46 @@ void WatchTree(uint8_t* base, uint32_t object) {
   WatchObjects(base, first, 0, budget, seen, logged);
 }
 
+// What the HUD shows, for the touch controls' D-pad buttons (IPA154's
+// [hud-watch] log, Oct 29): the prompt over the road in an event, shop or
+// safehouse circle (3B1B624A, and its D-pad picture 0A729B1B), and the
+// race's position markers on the left (4FDDD64C-4FDDD64F, one shown in a
+// race, none in free roam). Shown: flag 0x00800000 (43800000 shown,
+// 40000000 / 42000000 hidden).
+constexpr uint32_t kShown = 0x00800000;
+
+void ScanContext(uint8_t* base, uint32_t first, int depth, int& budget, int& bits) {
+  for (uint32_t o = first; Plausible(o) && budget > 0; o = REX_LOAD_U32(o + 4)) {
+    if (REX_LOAD_U32(o) == kListVtable) break;
+    --budget;
+    const uint32_t hash = REX_LOAD_U32(o + 0x10), type = REX_LOAD_U32(o + 0x18);
+    const bool shown = (REX_LOAD_U32(o + 0x1C) & kShown) != 0;
+    if (shown && (hash == 0x3B1B624A || hash == 0x0A729B1B)) bits |= nfsmw::touch::kInCircle;
+    if (shown && hash >= 0x4FDDD64C && hash <= 0x4FDDD64F) bits |= nfsmw::touch::kInRace;
+    if (type == 5 && REX_LOAD_U32(o + 0x5C) == kListVtable && REX_LOAD_U32(o + 0x60) < 200 && depth < 8) {
+      ScanContext(base, REX_LOAD_U32(o + 0x64), depth + 1, budget, bits);
+    }
+  }
+}
+
+void UpdateDriveContext(uint8_t* base, uint32_t object) {
+  uint32_t first = object;
+  for (int i = 0; i < 1000; ++i) {
+    const uint32_t prev = REX_LOAD_U32(first + 8);
+    if (!Plausible(prev) || REX_LOAD_U32(prev) == kListVtable) break;
+    first = prev;
+  }
+  int budget = 1500, bits = 0;
+  ScanContext(base, first, 0, budget, bits);
+  static int last = -1;
+  if (bits != last) {
+    last = bits;
+    REXLOG_INFO("[hud] drive context: {}{}", bits & nfsmw::touch::kInRace ? "race" : "free roam",
+                bits & nfsmw::touch::kInCircle ? ", in a circle" : "");
+  }
+  nfsmw::touch::SetDriveContext(bits);
+}
+
 uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t hash) {
   ctx.r3.u64 = package;
   ctx.r4.u64 = hash;
@@ -818,11 +861,15 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   const uint32_t package = REX_LOAD_U32(hud + 36);
   static int watch_tick = 0;
-  if (REXCVAR_GET(nfsmw_hud_watch) && package && ++watch_tick % 30 == 0) {
+  // Four times a second: the touch controls' context, and the diagnostic.
+  if (package && ++watch_tick % 15 == 0) {
     const PPCContext saved_watch = ctx;
     const uint32_t right = FindObject(ctx, base, package, kRightGroup);
     ctx = saved_watch;
-    if (right) WatchTree(base, right);
+    if (right) {
+      UpdateDriveContext(base, right);
+      if (REXCVAR_GET(nfsmw_hud_watch)) WatchTree(base, right);
+    }
   }
   static uint32_t dumped_package = 0;
   const bool dump = package && package != dumped_package;
@@ -1072,16 +1119,21 @@ extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool dri
   }
 }
 
+// A package's objects logged once (two overlays up at once took turns and
+// were logged every frame: 5 MB logs in minutes, IPA154).
+static bool FirstTime(uint32_t package) {
+  static std::unordered_set<uint32_t> said;
+  return said.size() < 256 && said.insert(package).second;
+}
+
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) {  // none up
     g_fade_opaque = false;
     return;
   }
-  static uint32_t said = 0;
   uint32_t at = 0;
   const uint32_t first = FirstObject(base, package, at);
-  if (package != said) {
-    said = package;
+  if (FirstTime(package)) {
     REXLOG_INFO("[hud] fade package {:08X}: objects list at +{:X}, first {:08X}", package, at, first);
     int budget = 60;
     if (first) DumpObjects(base, first, 0, budget);
@@ -1119,9 +1171,7 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driv
   if (!Plausible(package)) return;
   uint32_t at = 0;
   const uint32_t first = FirstObject(base, package, at);
-  static uint32_t said = 0;
-  if (package != said) {
-    said = package;
+  if (FirstTime(package)) {
     REXLOG_INFO("[hud] overlay package {:08X}: objects list at +{:X}, first {:08X}", package, at, first);
     int budget = 60;
     if (first) DumpObjects(base, first, 0, budget);

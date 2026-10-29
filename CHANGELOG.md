@@ -35,7 +35,13 @@
 - **Map, SMS, Blacklist and Enter buttons while driving.** The Drive
   layout's small D-pad is now four buttons, one for each thing the game
   puts on it: enter a shop / engage an event, the world map, SMS messages,
-  and the Blacklist (or the race's / pursuit's details).
+  and the Blacklist (or the race's / pursuit's details). Enter shows only
+  inside an event, shop or safehouse circle, and Map and SMS only outside
+  races.
+
+- **Smaller logs.** Two of the HUD's overlays took turns being logged in
+  full every frame, which filled several 5 MB logs in a few minutes. Each
+  is now logged once.
 
 - **Swipe and tap in menus.** In menus and pause screens the on-screen
   gamepad is gone: swipe to move through the menu, tap to accept, tap with

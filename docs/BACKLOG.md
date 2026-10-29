@@ -535,6 +535,8 @@ steps, one IPA each, each approved:
    always shown; `[hud-watch]` log to find what tells the states apart (no
    separate HUD package for free roam or pursuits; HUD_Drag.fng for drag
    races). Screenshot: `ipa153_controls_screen_dpad_IMG_4065.png`.
+   IPA155: ENTER only in a circle, MAP/SMS only outside races (TECHNICAL
+   Oct 29); pursuits not identified yet (no pursuit in the IPA154 run).
 4. Drag race layout: gas, shift up/down, nitrous, two lane-change buttons
    (how Android does it). Needs the race type from the game (not read yet).
 
