@@ -30,6 +30,8 @@
 // to encode it (OnRendered), and 3 late frames in the last 60 (about 1 s)
 // boost. Performance "Max" (ios_main.mm) turns all Utility QoS off instead;
 // "Eco" (the default with Battery mode) keeps them all at Utility, no boost.
+// Balanced with 6+ efficiency cores (nfsmw_adaptive_qos_original) keeps the
+// original rules here, as it keeps the main/GPU threads' fixed Utility.
 //
 // The boost is tunable: --ios_adaptive_qos_level (user_initiated or default),
 // the longest hold --ios_adaptive_qos_max_hold (seconds) and
@@ -72,6 +74,9 @@ REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 0, "Kernel",
 REXCVAR_DEFINE_STRING(nfsmw_performance_mode, "balanced", "Kernel",
                       "eco: game and render threads always at Utility QoS; balanced: Utility only outside "
                       "driving (adaptive); max: no Utility QoS for any game or render thread (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_adaptive_qos_original, false, "Kernel",
+                    "Adaptive QoS with the rules before 0.4.3 (2 of 120 frames over 1.2x, no driving boost); "
+                    "Balanced on devices with 6+ efficiency cores (restart required)");
 REXCVAR_DEFINE_STRING(nfsmw_performance_source, "default", "Kernel",
                       "Why that Performance mode (launcher): setting, battery_mode or default");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
@@ -190,7 +195,9 @@ void OnRendered(double ms) {
 void OnSwap(double interval_ms) {
   if (!Enabled()) return;
   static int applied = -1;
-  static bool late[60] = {};
+  static bool late[120] = {};
+  static const bool original = REXCVAR_GET(nfsmw_adaptive_qos_original);
+  const int window = original ? 120 : 60, threshold = original ? 2 : 3;
   static int at = 0, late_count = 0;
   static Clock::time_point hold_until, eco_since = Clock::now();
   static double hold_s = 20.0;
@@ -209,12 +216,13 @@ void OnSwap(double interval_ms) {
   }
   const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
   const double budget = 1000.0 / cap;
-  const bool rendered_late = render_late.exchange(0, std::memory_order_relaxed) > 0;
-  const bool is_late = (interval_ms > budget * 1.1 && interval_ms < 250.0) || rendered_late;  // not loading stalls
+  const bool rendered_late = render_late.exchange(0, std::memory_order_relaxed) > 0 && !original;
+  const bool is_late = (interval_ms > budget * (original ? 1.2 : 1.1) && interval_ms < 250.0) ||
+                       rendered_late;  // not loading stalls
   late_count += int(is_late) - int(late[at]);
   late[at] = is_late;
-  at = (at + 1) % 60;
-  const bool drive = driving.load(std::memory_order_relaxed);
+  at = (at + 1) % window;
+  const bool drive = driving.load(std::memory_order_relaxed) && !original;
   static bool was_driving = false;
   if (drive != was_driving) {
     was_driving = drive;
@@ -228,13 +236,13 @@ void OnSwap(double interval_ms) {
     }
     hold_until = now + std::chrono::seconds(5);
     hold_s = 20.0;
-  } else if (m == 0 && late_count >= 3) {
+  } else if (m == 0 && late_count >= threshold) {
     const double eco_s = std::chrono::duration<double>(now - eco_since).count();
     hold_s = eco_s < 10.0 ? std::min(hold_s * 2.0, Settings().max_hold_s) : eco_s > 60.0 ? 20.0 : hold_s;
     hold_s = std::min(hold_s, Settings().max_hold_s);
     hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
     m = 1;
-    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} for {:.0f} s ({} late frames of 60, {:.0f} s on Utility)", Settings().name, hold_s, late_count, eco_s);
+    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} for {:.0f} s ({} late frames of {}, {:.0f} s on Utility)", Settings().name, hold_s, late_count, window, eco_s);
   } else if (m == 1 && now >= hold_until) {
     m = 0;
     eco_since = now;

@@ -29,7 +29,8 @@
   cores while you drive (menus and loading still save power). A new
   Graphics option, "Performance", chooses: Eco (efficient cores always; the
   default with Battery mode on), Balanced (the default) or Max (fast cores
-  always). iOS takes it as a hint.
+  always). iOS takes it as a hint. On iPads with 6 or more efficient cores
+  (M-series), Balanced keeps their original, tested behaviour.
 
 - **Sound in silent mode, if you want it.** A new switch in the Audio tab,
   "Play sound in silent mode". Off (the default) keeps the usual behaviour:
