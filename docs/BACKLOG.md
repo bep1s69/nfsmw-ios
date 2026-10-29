@@ -144,6 +144,9 @@ shows one frame per refresh. IPA124 (`nfsmw_frame_ticks` 2, default) gives the
 world one display period per frame: iPad camera judder 0.05% of frames, iPhone
 0 in 4080, Stefan: no judder at any of the old spots. Fixed in 0.4.2. Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
+Oct 29: Stefan reports a low-frame-rate feel for the first 20-30 s of races
+and pursuits; logs show even 60 fps presentation then (TECHNICAL Oct 29,
+"race/pursuit start"). Next: camera-log run at a race start.
 
 ### Customize HUD editor — in progress (IPA150)
 

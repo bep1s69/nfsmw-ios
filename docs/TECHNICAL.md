@@ -8851,3 +8851,30 @@ with the arrows by its name; none were reachable.
 `ios/build/NFSMW-touch-map-166.ipa` SHA-256
 a377bfe4b39914923b9986023451df74a3a0c4e218600afd144555a936e93918, 30169927
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA165. Not run.
+
+### October 29: race/pursuit start feels low frame rate at 60 fps (logs only, no change)
+
+Stefan: for roughly the first 20-30 s of races and pursuits (and the
+transition into them) the world feels like a low frame rate while the
+counter shows 60. Logs `Debug/29 October 2026/nfsmw_ipa141_pursuit_race_70pct_ipad.log`
+and `nfsmw_ipa142_pursuit_70pct_ipad.log` (iPad, cap 60, Low Power Mode off,
+thermal nominal). Measured:
+- Display steady at 60 Hz (`[display] refresh now 60 Hz`, no change later).
+- After `game flow state 6`: one load hitch (IPA142 frame 1656, 193 ms,
+  327 textures decoded), then pacing 0-2 of 300 frames off the 16.7 ms grid,
+  worst 8-33 ms; frame numbers advance 300 per 5 s, so the main loop runs
+  at 60 and each frame is shown once, on time, from the first seconds on.
+- `[cpu]` rises from 89% to 179% of a core between the first and second
+  10 s of the IPA142 pursuit.
+- iPad: adaptive QoS off (6 E cores), every game thread on Utility the whole
+  time. iPhone logs (e.g. IPA159): adaptive boost is on from boot for 40 s
+  and runs out about 19 s into the world ("back to Utility"), then returns
+  after late frames: the first seconds are boosted, not slowed.
+Inference (not measured): the presentation side is not the cause; what is
+left is the content's motion, as in D-005 before IPA124 (frame_clock.cpp
+gives the world one period per frame; raw frames >= 250 ms bypass it and a
+far-off debt resyncs). QoS cannot explain the iPad case. No camera log was
+on in these runs, so the world's step per frame at the start is unknown.
+Proposed next (existing switches, no build): a start-of-race run with
+`--nfsmw_native_camera_log=true`, then the same with `--nfsmw_frame_ticks=0`,
+and on the iPad `--ios_utility_qos=false --ios_utility_qos_guest=false`.
