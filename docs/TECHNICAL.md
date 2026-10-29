@@ -9117,3 +9117,10 @@ a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f. RELEASING
 checks: prepare_sdk --status all applied, pool 63/63 and extra-options
 applied, `git status --ignored` shows no game files, generated code or IPAs
 tracked. `main` pushed, tag v0.5.0, GitHub release with the IPA.
+
+README: "Tested devices" table under Performance and battery (Stefan
+approved), first row from the Oct 29 performance report (iPhone 17 Pro Max,
+iOS 27, LiveContainer2, Balanced, ~60 fps, ~28 %/h). GitHub Discussions is
+not enabled on the repository (has_discussions false, Oct 29); the text
+points to an issue until it is. Committed locally, not pushed (Stefan
+approves the push separately).

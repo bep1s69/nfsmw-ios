@@ -242,6 +242,18 @@ Power Mode, and lower thread priorities that cut the drain while playing by
 about a quarter on M-series iPads. On iPhones, the game's threads now sleep
 while they wait, so pursuits use less battery and run cooler.
 
+### Tested devices
+
+| Device | iOS | Installed with | Version | Settings | fps | Battery per hour |
+|---|---|---|---|---|---|---|
+| iPhone 17 Pro Max | 27 | LiveContainer2 | 0.5.0 (pre-release build, same performance code) | Native renderer, 1x, cap 60, MetalFX / FXAA / MSAA off, Performance: Balanced | ~60 (lowest 5 s window: 56) | ~28 % (15 min of career races, free roam and a chase: 40 % to 33 %) |
+
+Your own results are welcome: share them in a "Performance reports"
+discussion on GitHub, or in an issue while Discussions is not open. If the
+game runs badly on your device, use the
+[Performance report](https://github.com/bep1s69/nfsmw-ios/issues/new?template=performance.yml)
+issue template: it asks for what is needed to find out why.
+
 ## Known issues and limitations
 
 - **USA edition only** for now (the address tables for other editions exist in
