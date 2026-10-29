@@ -18,7 +18,7 @@ through MoltenVK, is still there as a fallback.
 > them from your own ISO of the USA Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-Version **0.4.2** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
+Version **0.5.0** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
 release). The game is playable start to finish, and we are getting closer to a
 1.0 release.
 
@@ -264,7 +264,7 @@ while they wait, so pursuits use less battery and run cooler.
 
 In no particular order, and without promises:
 
-- **0.5.0**: more **Extra Options** and **Widescreen Fix** features, and
+- **0.6.0**: more **Extra Options** and **Widescreen Fix** features, and
   features from PC mods.
 - Even **60 fps** frame pacing, then a stable **120 fps** and a proper higher
   **simulation rate** (like the Widescreen Fix's SimRate).
