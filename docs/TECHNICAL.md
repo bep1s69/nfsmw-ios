@@ -9875,3 +9875,91 @@ with raw/given world steps and screen cadence over~1min; diagnostic work
 has overhead, not an energy comparison. This will discriminate irregular
 world time from repeated captured content, without changing game timing
 behavior again. Preserve issue11 checkpoint note, HANDOFF and SDK work.
+
+### October 30: log8 exposes unequal world steps; whole-frame 40 driving trial
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 8.log and asked what frame_ticks=2
+means, thinking it was new. Clarified: 2 is an algorithm selector, not a
+number of ticks/frames/FPS. It has been the compiled default since IPA124 /
+0.4.2 (October28); explicitly setting2 restores that default after the
+previous temporary0 trial. 0 uses original elapsed-time calculation. No
+new mode introduced by the diagnostic. This log explicitly confirms mode2.
+No new subjective outcome was stated with log8.
+
+Archived byte-for-byte, exclusive create, original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_8_metal_display_40_world_diagnostic.log`.
+755120 bytes,3171 lines,SHA-256
+482824cfdfd865f73f390ddadb5540665f8eedb6323d11341e99c1f75ca0b865.
+Copy/verify/read analysis exit0. One launch01:29:29.685,world01:30:00.448,
+stop/120Hz return~01:31:02.470,partial final line. Device14 Pro Max per
+test context,OS not supplied,test4 identity from handoff68e859cd...,
+542EEA4F-55E5-35D4-9FD7-A407F0100234 (not echoed independently). Balanced,
+native1x/40, no MetalFX/FXAA/MSAA; managed link active,ordinary80Hz. New
+world logger58 batches explicitly mode2,rate65536,wait.25,clamp32000.
+
+Selected emitted rows >=01:30:04.000 and <01:31:01.000 (each batch covers
+preceding60 updates/gaps, rounded values):2280 world-update records and
+2280 numeric shown gaps. Shown all25.0ms. World given-time bins:
+25.02:1901,33.36:180,16.68:160,8.34:37,25.05:2. Raw interval3.002-74.437ms,
+mean25.0218ms; mean given24.8225ms. Thus~16.5% of observed world updates
+receive8.34/16.68/33.36ms instead of a full~25ms step while output cadence is even. This
+is a concrete timing discrepancy, not a proof that every such step caused
+a particular perceived stall; world and renderer counters have different
+startup offsets and are not aligned frame-for-frame by this aggregation.
+Repeat-strip diagnostics: only3 repeats immediately after entering world
+(frames1037-1039,01:30:00.569-.615), then every steady300-picture summary
+reports0 repeats. Sampled strip changes, not proof of entire-image state.
+
+Inference/target: mode2 at40 quantizes/catches debt in guest-vblank8.34ms
+units. Main thread can stall then catch up behind a presentation queue
+that still shows one frame every25ms. Feeding those frames1/2/4 rather
+than3 simulation-tick-sized durations can make content move unevenly.
+Previous mode0 trial worsened perceived motion. Next isolated trial is one
+complete frame duration per world update only while driving under the
+managed40 path, preserving stable screen presentation.
+
+Implementation:
+- display_rate publishes atomic ManagedFramePeriodNs (3*managed guest
+  period) with the managed grid; resets to0 on valid legacy ticks. New
+  C++ declaration in display_rate.h avoids ObjC dependencies in clock.
+- frame_clock mode2,valid ordinary elapsed time,positive managed period,
+  battery::InMenu()==0 and effective cap40: give exactly that full frame
+  duration (~25.02ms),clear debt. No intra-frame8.34ms catch-up corrections
+  in this specific experimental driving branch. Existing mode0/loading
+  bypasses,menus,legacy40,30/60/120 code paths stay unchanged. No new flag;
+  still gated by default-off Metal experiment through managed grid.
+- Diagnostic logs remain to verify distribution; no new graphics/QoS/
+  shader or SDK source change, no promotion/default change.
+
+Validation: host source differential against pre-change45784ba clock,
+separate namespaces with cvar/display/menu stubs and formatting no-op.
+24000 cases: managed period0/positive but non-driving or cap30/60/120,
+clock modes0/1/2,log on/off,period changes,elapsed jitter and bypass values:
+returns bit-identical. Replay actual2280 raw intervals above through new
+managed40 driving branch: all return25.02ms within1e-9ms; loading/bypass
+and mode0 guards passed. xcrun clang++ -std=c++17 -O2 on generated
+/tmp/nfsmw_world_40_step_test.cpp exit0. Test recipe/limits captured here;
+not runtime evidence or actual game speed verification. git diff --check0.
+`cmake --build --preset ios --target ipa -j 6` in ios/ exit0, saved ignored
+`ios/build/metal-display-40-world-step-build.log`; usual fpcr compile /
+duplicate -lz link warnings.
+
+New ignored IPA ios/build/NFSMW-0.5.0-metal-display-40-test5-world-step.ipa,
+30174076bytes,version0.5.0/build8,SHA-256
+f918c1dfd21a9286fb0af94c73691c9dbd209600f0b5e2f387abec29d04254b9,
+UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5. ZIP CRC/testzip passed,
+codesign --verify --deep --strict exit0,dwarfdump --uuid0.104 payload
+metallibs and both SDK dylibs byte-identical to test4. No test5 device run.
+
+Next same14 Pro Max Balanced/1x/40,cold LiveContainer,Low Power Mode off,
+keep test4's five arguments unchanged: metal_display_40=true,
+frame_trace=true,frame_ticks=2,frame_ticks_log=true,native_repeat_log=true
+(all full nfsmw_ prefixes from previous entry). Same~1min chase; observe
+world smoothness and normal game speed; inspect given times and cadence.
+Before any default rollout, must assess real elapsed game speed, genuine
+missed-display/under40 behavior, menus/background and other devices:
+constant per-frame stepping can slow simulation if sustained FPS is below
+40. Do not silently ship that limitation as a complete generic cap fix;
+actual missed-frame compensation would need separate evidence/design if
+required. This is a narrow steady40 diagnostic trial, not an accepted0.5.1
+fix. No release/version bump/push/tag; issue11/HANDOFF/SDK work preserved.
