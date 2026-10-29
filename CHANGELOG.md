@@ -17,6 +17,11 @@
   Game Mode when it is sideloaded with a certificate (LiveContainer has its
   own Game Mode handling).
 
+- **Custom HUD: full-screen overlays at full size.** With a smaller HUD,
+  the TV-style picture when you're busted and at the end of a race was
+  shrunk with it; both are full size again, and the autosave icon stays in
+  the HUD's corner.
+
 - **Minimap stays in place.** After leaving the safe house again, finishing
   or restarting a race, the map and its icons could be drawn inward from
   the minimap's ring. Fixed (also with Custom HUD off).

@@ -169,6 +169,11 @@ overlay), Infractions.fng, BUSTED_OVERLAY.fng, InGameBackground.fng. Also
 latent: the fade fit uses the setting, not the size in effect. Stefan also
 sees misplaced pieces during chases. IPA139 logs every screen and its
 pieces (TECHNICAL Oct 29); the fix follows its log.
+IPA139 log: the bust and race-end TV overlays (BUSTED_OVERLAY.fng,
+InGamePhotoMaster.fng) were drawn at 70%; IPA140 draws them at full size and
+keeps the autosave icon at the corner (not yet tested). Still open: pieces
+misplaced in chases and the bounty/infraction pop-ups (inside the HUD
+package).
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 

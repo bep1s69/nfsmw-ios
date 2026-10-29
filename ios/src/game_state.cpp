@@ -140,6 +140,7 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);     // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
+extern "C" void nfsmw_hud_full_size(bool on);                              // game_scene_size.cpp
 
 namespace {
 bool fade_up = false;
@@ -163,9 +164,18 @@ extern "C" REX_FUNC(sub_823B4158) {
       }
     }
     if (!any) nfsmw_hud_fit_fade(base, 0);
-    // The song's name, kept at the HUD's safe zone.
-    static const char* const kTrax[] = {"EA_Trax.fng"};
-    if (PushedPackage(ctx, base, kTrax, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, kTrax[0]));
+    // The song's name and the autosave icon (IPA139), kept at the HUD's
+    // safe zone.
+    static const char* const kOverlays[] = {"EA_Trax.fng", "Autosave_Overlay.fng"};
+    for (const char* overlay : kOverlays) {
+      if (PushedPackage(ctx, base, &overlay, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay));
+    }
+  }
+  // The TV-style overlays of a bust and of a race's end (IPA139), drawn at
+  // full size while they are up.
+  {
+    static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng"};
+    nfsmw_hud_full_size(state == kRacing && menu < 0 && PushedPackage(ctx, base, kFullSize, 2) >= 0);
   }
   // Every screen up in the world logged, with its pieces (D-006).
   if (state == kRacing) {

@@ -149,8 +149,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   Custom HUD (D-006, Stefan approved the log-first plan Oct 29): IPA139
   `ios/build/NFSMW-ui-log-139.ipa` logs every screen up in the world
   (`[ui] screens:`) and each one's object tree (`[ui-tree]`). Next: Stefan
-  runs it at 70% HUD size (intro, a pursuit, a race finish), then the fix:
-  those screens kept at full size (TECHNICAL Oct 29, D-006).
+  ran it on iPad (bust TV overlay = BUSTED_OVERLAY.fng, race-end one =
+  InGamePhotoMaster.fng). IPA140 `ios/build/NFSMW-hud-full-size-140.ipa`:
+  both at full size, autosave icon at the HUD corner. Next: Stefan tests
+  it; chase pieces and pursuit pop-ups still open (TECHNICAL Oct 29, D-006).
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.
