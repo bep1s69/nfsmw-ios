@@ -9059,3 +9059,22 @@ original behavior`. Rebuilt `ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30161274
 bytes, SHA-256 5f467ae57e84f2056c242e91b6fcf3082aee554ea23562f3081d5f8a366ae129,
 UUID A4AD715B-9069-3574-B1EB-0395719DBF59, 208 metallibs, ZIP test OK,
 codesign ok; on the iCloud Desktop. Not run yet.
+
+### October 29: first performance report, 0.4.3 Balanced on the iPhone (D-012)
+
+Stefan, iPhone 17 Pro Max (iOS 27), 0.4.3 Performance build (log: build Oct
+29 22:38:47, `[performance] balanced (default): ... boosted while driving`),
+cap 60, 1.0x, no MetalFX/FXAA/MSAA, Battery options off. ~15 min: mostly
+career races, ~2 min free roam, a short chase. Battery 40% -> 33% (7% in 15
+min, about 28 %/h; one run, no matched A/B yet). Log and the race-finished
+screenshot in `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29
+October 2026/0.4.3 Stefan iPhone 15min balanced/`. Measured (the `[native]
+frame` lines, 300 frames each): 60.0 fps in nearly every window in the
+world (lowest 56-57 at loading edges); rendering ~12-15 ms/frame, GPU
+~12-15 ms/frame while driving (so the GPU is near the 16.7 ms budget at 1x);
+pacing 0 of 300 off the grid in steady driving. `[adaptive-qos]`: boosted at
+each driving start, `driving stopped` at menus/results, `back to Utility`
+5 s later, 2 late boosts in menus/loading; no `back to Utility` while
+driving. Thermal: nominal 237 lines, fair 30. Inference: the 60 -> 40 drops
+seen before (D-012) did not occur in this run; the drain is not comparable
+to the iPad's or earlier iPhone numbers without the A/B on the same route.
