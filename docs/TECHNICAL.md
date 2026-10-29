@@ -8948,3 +8948,19 @@ off the heat badge in his iPad screenshot
 bytes, 208 metallib, `unzip -tq` ok. Not run. To check: pursuit on the iPad
 at 70% (ring on the badge), an event / shop circle (prompt still at the
 top middle), start smoothness at 60.
+
+### October 29: IPA167 ring unchanged; IPA168 moves it before drawing
+
+Stefan (IPA167): ring still in the same place in the chase, and the shop
+circle's icon and ring are off too; both belong where the heat badge is.
+IPA141's -124.3,-280.3 was IPA141's own written position, not the game's:
+the game puts the ring at 3,-189 / -5,-89 always, so IPA167's x < -60 test
+never matched (no change). IPA168: the ring pieces (3B1B624A, 3345911D) are
+always top-left pieces, moved in the HUD update and again in
+ReapplyHudPieces (after the game's last placement, before drawing).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-ring-168.ipa` SHA-256
+2d6386defbe0558ba0deccb1851947cf484c37a74e9498ac922507b46d5314a3, 30169579
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA167.
+Not run. Watch for flashing (IPA154) and for the ring following a moved
+infractions element in the Customize HUD editor.
