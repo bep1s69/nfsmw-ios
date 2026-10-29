@@ -9306,3 +9306,48 @@ requests affected by hardware/system policies; no guarantee of perfect
 Next: agreed 60-default source change or current 40-cap trace; avoid
 claiming the 60 test already validates a 40 fix. Existing private/uncommitted
 issue 11 note and HANDOFF_CHATGPT.md preserved.
+
+### October 30: D-014 default fix approved and built
+
+Stefan: fix the iPhone 14 Pro Max issue permanently first, then tackle
+40 fps pacing. Isolated implementation in ios/src/native_renderer.mm:
+- Existing nfsmw_native_present_at_time stays true, description updated.
+- New nfsmw_native_present_at_time_60 defaults false; cap eligibility is
+  30, or 60 with that opt-in. The master, watchdog and display-rate checks
+  still apply. Default 60 takes plain presentDrawable like the successful
+  manual workaround. Set both controls true for the previous 60 path.
+- No change to 30, 40, 120, QoS, world-frame timing, simulation or shaders.
+  Trace remains false by default. CHANGELOG Unreleased entry added.
+
+Initial combined edit/build command used ios/ cwd for repository-relative
+paths: edit failed FileNotFoundError (no mutation), ordinary build failed
+ninja lock/cache write permission (exit 1). Corrected edit at repository
+root, git diff --check exit 0; build with authorized cache access:
+`cmake --build --preset ios --target ipa -j 6` in ios/, exit 0. Five compiler
+warnings (existing fpcr operand width and UIKit screen API deprecations),
+linker duplicate -lz warning. No SDK source edit or regenerated game code.
+An ancillary ps check was denied by the sandbox; cache inspection succeeded.
+
+Copied ignored local artifact (exclusive name):
+`ios/build/NFSMW-0.5.0-14pm-60fps-fix.ipa`, 30172940 bytes, SHA-256
+d56bcfeab2324b41b0d7632999067444cfeed6ad2f12288c01be3d5eb3699208,
+UUID D7D325E7-784F-36DD-94BA-96D226418869, version 0.5.0 build 8
+(test filename distinguishes it; no release/version bump).
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+xcrun dwarfdump --uuid exit 0; git diff --check exit 0.
+Initial shader equality assertion included __MACOSX/._ AppleDouble entries
+and failed because their metadata differs. Corrected comparison filters
+Payload/: all 104 actual shader libraries byte-identical to released
+NFS-Most-Wanted-0.5.0.ipa. Both ZIPs have 208 names ending metallib when
+metadata is counted; earlier records' 208 count includes that metadata.
+No shader rebuild. No runtime claim from these packaging checks.
+
+Device test pending: cold launch 1x/60, remove
+--nfsmw_native_present_at_time=false and --nfsmw_native_frame_trace=true
+from both launcher Extra Args and extra_args.txt if present; Max first,
+then Balanced. Check cycling does not return, then short 30/menu transition
+check and other owned devices. Do not enable new 60 opt-in for normal play.
+Keep 40 source unchanged until the 60 fix is validated, then collect current
+40 trace and localize residual pacing (prior negative experiments retained).
+Pre-existing uncommitted issue 11 note, HANDOFF_CHATGPT.md and SDK work
+preserved. Local commit only; no push/tag/release or new device run.

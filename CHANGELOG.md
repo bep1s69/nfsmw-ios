@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Steady 60 fps on iPhone 14 Pro Max.** Removed extra presentation
+  scheduling at 60 fps that could repeatedly pull the game down to about
+  40 fps. The existing 30 fps presentation behavior is preserved.
+
 ## 0.5.0
 
 > **Please read this before playing.** This update changes how you play:
