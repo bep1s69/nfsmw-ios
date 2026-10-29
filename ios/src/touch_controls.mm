@@ -69,6 +69,10 @@ REXCVAR_DEFINE_STRING(ios_touch_steering, "dynamic", "Input",
 REXCVAR_DEFINE_DOUBLE(ios_touch_idle_opacity, 0.35, "Input",
                       "Touch controls, DRIVE layout: their opacity after 3 s without a touch, as a "
                       "share of the chosen opacity (1 = no dimming)");
+REXCVAR_DEFINE_BOOL(ios_touch_menu_gestures, true, "Input",
+                    "Touch controls in menus and pause screens (with ios_touch_auto_layout): no "
+                    "overlay; a swipe pushes the left stick that way, a tap presses A, a two-finger "
+                    "tap B. The PAD pill brings the full gamepad back until the next layout change");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "
                     "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
@@ -246,6 +250,15 @@ struct Control {
   CGFloat _dim;         // 1 full .. ios_touch_idle_opacity
   CGFloat _dimTarget;
   NSTimer* _dimTimer;
+  // Menus without the overlay (ios_touch_menu_gestures): one gesture at a
+  // time, from its first finger down to the last one up.
+  BOOL _gestures;
+  BOOL _padOverride;  // the PAD pill: the full gamepad in this menu
+  CGPoint _gStart;
+  NSTimeInterval _gTime;
+  BOOL _gSwiping;
+  int _gFingers;   // the most fingers down at once
+  int _gDown;      // fingers down now
   CGRect _steerZone;    // editor: where the dynamic joystick works, outlined
   int _selected;
   CGPoint _grab;  // the finger's offset from the selected control's centre
@@ -366,6 +379,7 @@ static CGFloat TouchOpacity() {
   if (driving == _driving) return;
   [self releaseAll];  // nothing stays pressed from the other layout
   _driving = driving;
+  _padOverride = NO;
   [self setNeedsLayout];
   REXLOG_INFO("[touch] {} layout", driving ? "DRIVE" : "PAD");
 }
@@ -455,9 +469,18 @@ static CGFloat TouchOpacity() {
   static const bool snap = rex::cvar::Query<bool>("nfsmw_native_dump_manual");
   _snap = snap ? CGRectOffset(_toggle, _toggle.size.width + unit * .3, 0) : CGRectZero;
   if (_driving) {
+    _gestures = NO;
     [self layoutDriving:w height:h unit:unit];
     [self releaseAll];
     return;
+  }
+  static const bool gestures =
+      rex::cvar::Query<bool>("ios_touch_menu_gestures") && rex::cvar::Query<bool>("ios_touch_auto_layout");
+  _gestures = gestures && !_editing && !_padOverride;
+  if (_gestures) {
+    _gDown = 0;
+    [self releaseAll];
+    return;  // nothing drawn but the pills
   }
   auto round = [&](NSString* l, CGPoint c, CGFloat r, int bit) {
     Control k{Kind::kRoundButton, l, c, r};
@@ -622,6 +645,17 @@ static CGFloat TouchOpacity() {
   if (CGRectContainsPoint(_toggle, p) || CGRectContainsPoint(_modeToggle, p) || CGRectContainsPoint(_snap, p)) {
     return self;
   }
+  if (_gestures) {
+    // The whole screen, but what is over the game besides us (the options
+    // gear) keeps its touches.
+    for (UIView* v in self.superview.subviews) {
+      if (v == self || v.hidden || v.alpha < 0.01 || !v.userInteractionEnabled ||
+          CGRectEqualToRect(v.frame, self.superview.bounds))
+        continue;
+      if ([v hitTest:[self convertPoint:p toView:v] withEvent:event]) return nil;
+    }
+    return self;
+  }
   for (const Control& c : _controls) {
     if (c.Contains(p)) {
       return self;
@@ -700,6 +734,18 @@ static CGFloat TouchOpacity() {
   }
   _lastTouch = NSDate.timeIntervalSinceReferenceDate;
   [self dimTo:1];
+  if (_gestures) {
+    bool on_pill = false;
+    for (UITouch* t in touches) {
+      const CGPoint p = [t locationInView:self];
+      on_pill = on_pill || CGRectContainsPoint(_toggle, p) || CGRectContainsPoint(_modeToggle, p) ||
+                CGRectContainsPoint(_snap, p);
+    }
+    if (!on_pill) {
+      [self gestureBegan:touches];
+      return;
+    }
+  }
   bool haptic = false;
   for (UITouch* t in touches) {
     const CGPoint p = [t locationInView:self];
@@ -711,6 +757,12 @@ static CGFloat TouchOpacity() {
       NativeRequestDump();
       REXLOG_INFO("[touch] snapshot requested");
       [_haptic impactOccurred];
+      return;
+    }
+    if (CGRectContainsPoint(_modeToggle, p) && _gestures) {
+      _padOverride = YES;  // the full gamepad, until the next layout change
+      [_haptic impactOccurred];
+      [self setNeedsLayout];
       return;
     }
     if (CGRectContainsPoint(_modeToggle, p)) {
@@ -742,7 +794,55 @@ static CGFloat TouchOpacity() {
   [self sendState];
 }
 
+// ---------------------------------------------------------------------------
+//  Menus: swipe and tap (as on Android)
+// ---------------------------------------------------------------------------
+- (void)gestureBegan:(NSSet<UITouch*>*)touches {
+  if (_gDown == 0) {
+    _gStart = [touches.anyObject locationInView:self];
+    _gTime = NSDate.timeIntervalSinceReferenceDate;
+    _gSwiping = NO;
+    _gFingers = 0;
+  }
+  _gDown += int(touches.count);
+  _gFingers = std::max(_gFingers, _gDown);
+}
+
+// The first finger's way from where it went down: past 14 points the left
+// stick goes that way (the larger of across and down, so a menu moves one
+// way), all the way at 40.
+- (void)gestureMoved:(UITouch*)touch {
+  if (_gFingers > 1) return;
+  const CGPoint p = [touch locationInView:self];
+  const CGFloat dx = p.x - _gStart.x, dy = p.y - _gStart.y;
+  const CGFloat d = std::hypot(dx, dy);
+  if (d < 14 && !_gSwiping) return;
+  _gSwiping = YES;
+  const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
+  const bool across = std::fabs(dx) >= std::fabs(dy);
+  SetPadState(0, across ? (dx > 0 ? k : -k) : 0, across ? 0 : (dy > 0 ? k : -k), 0, 0, 0, 0);
+}
+
+- (void)gestureEnded:(NSSet<UITouch*>*)touches {
+  _gDown = std::max(0, _gDown - int(touches.count));
+  if (_gDown > 0) return;
+  SetPadState(0, 0, 0, 0, 0, 0, 0);
+  // A tap: short and still. One finger A, two B.
+  if (_gSwiping || NSDate.timeIntervalSinceReferenceDate - _gTime > 0.4) return;
+  const int button = _gFingers >= 2 ? kB : kA;
+  REXLOG_INFO("[touch] menu tap: {}", button == kB ? "B" : "A");
+  [_haptic impactOccurred];
+  SetPadState(button, 0, 0, 0, 0, 0, 0);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (g_buttons == button) SetPadState(0, 0, 0, 0, 0, 0, 0);
+  });
+}
+
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  if (_gestures && !_editing) {
+    [self gestureMoved:touches.anyObject];
+    return;
+  }
   if (_editing) {
     if (_selected >= 0) {
       Control& c = _controls[size_t(_selected)];
@@ -764,6 +864,10 @@ static CGFloat TouchOpacity() {
 
 - (void)endTouches:(NSSet<UITouch*>*)touches {
   _lastTouch = NSDate.timeIntervalSinceReferenceDate;
+  if (_gestures) {
+    [self gestureEnded:touches];
+    return;
+  }
   for (UITouch* t in touches) {
     NSNumber* owner = [_owners objectForKey:t];
     if (!owner) {
@@ -1119,7 +1223,7 @@ static NSString* SymbolFor(NSString* label) {
   [stroke setStroke];
   mode.lineWidth = 1;
   [mode stroke];
-  [self drawLabel:(_driving ? @"PAD" : @"DRIVE")
+  [self drawLabel:(_driving || _gestures ? @"PAD" : @"DRIVE")
                at:CGPointMake(CGRectGetMidX(_modeToggle), CGRectGetMidY(_modeToggle))
              size:_modeToggle.size.height * 0.42];
   if (!CGRectIsEmpty(_snap)) {
