@@ -8211,3 +8211,31 @@ exit 0; `ios/build/NFSMW-hud-full-size-140.ipa` SHA-256 3864f4b821468a8f4e7e969a
 `unzip -tq` ok. Not run yet. Open: the misplaced pieces during chases and
 the bounty/infraction pop-ups (in HUD_SingleRace; need a screenshot to
 match them to the tree).
+
+IPA140 result (Stefan, Oct 29, iPad, 70%, log `Debug/29 October 2026/
+nfsmw_ipa140_pursuit_70pct_ipad.log`, screenshots `ipa140_70pct_IMG_0330-0332.png`):
+the bust overlay is right (`[hud] full-screen overlay up: HUD size 1` while
+BUSTED_OVERLAY.fng is up); the asphalt picture is right; at a race's end the
+HUD shows for about half a second at size 1 with its pieces still moved for
+0.7 (off screen) while InGamePhotoMaster.fng comes up. Stefan: on the iPhone
+the bust overlay and the asphalt picture let the game show at the sides
+(the IPA91 note). Pursuit pieces misplaced at 70% (IMG_0330/0331): the
+infraction list ("Ramming a Police Vehicle") sits mid-left, away from the
+INFRACTIONS badge in the corner, and "PURSUIT CTS" sits mid-right below the
+bounty box. The HUD tree logged 3 s after the HUD came up has the infraction
+text groups at about (-349, -222) HUD units, but drawn they are at about
+(-224, -114) in the matrix's units: the HUD's script places them when the
+pursuit starts (inference), so the tree must be logged during a pursuit.
+
+IPA141: the size-1 override of IPA140 is gone. nfsmw_hud_fit_full
+(game_scene_size.cpp, called by game_state.cpp every frame in the world,
+under menus too) divides every object's position (at any depth) and every
+non-group's size in BUSTED_OVERLAY.fng, InGamePhotoMaster.fng and
+InGameBackground.fng by the matrix's scale (s = the HUD size while driving,
+else 1; x also by 1280/width on a wide scene), so they are drawn at size 1
+and the screen's width while the HUD keeps its size. Fit takes x and y
+scales now. The screen log also logs each package's tree every 600 frames
+while driving. `cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fit-full-141.ipa` SHA-256 e4bb63ea2af27a05c9cfe2ebb3dcac0a6c986b6e9eba9a94d442d0d8b7a22028, 30118885 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that widening is right for the iPhone (text in
+those packages is stretched as well).

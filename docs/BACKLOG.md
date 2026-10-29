@@ -174,6 +174,10 @@ InGamePhotoMaster.fng) were drawn at 70%; IPA140 draws them at full size and
 keeps the autosave icon at the corner (not yet tested). Still open: pieces
 misplaced in chases and the bounty/infraction pop-ups (inside the HUD
 package).
+IPA140 (Stefan): bust fixed; at a race's end the HUD flashed at size 1.
+IPA141 fits those packages and InGameBackground.fng instead (size 1, full
+width on the iPhone); pursuit pieces (infraction list mid-left, "PURSUIT
+CTS" mid-right at 70%) wait for its log.
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 

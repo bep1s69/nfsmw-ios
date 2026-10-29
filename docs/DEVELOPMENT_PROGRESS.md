@@ -150,9 +150,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-ui-log-139.ipa` logs every screen up in the world
   (`[ui] screens:`) and each one's object tree (`[ui-tree]`). Next: Stefan
   ran it on iPad (bust TV overlay = BUSTED_OVERLAY.fng, race-end one =
-  InGamePhotoMaster.fng). IPA140 `ios/build/NFSMW-hud-full-size-140.ipa`:
-  both at full size, autosave icon at the HUD corner. Next: Stefan tests
-  it; chase pieces and pursuit pop-ups still open (TECHNICAL Oct 29, D-006).
+  InGamePhotoMaster.fng). IPA140 (size 1 while they are up): bust fixed,
+  HUD flashes at size 1 at a race's end. IPA141
+  `ios/build/NFSMW-hud-fit-full-141.ipa`: those packages and the asphalt
+  picture drawn at size 1 and the full width (iPhone) while the HUD keeps
+  its size; HUD tree logged every 600 frames. Next: Stefan runs it on iPad
+  and iPhone (pursuit with infractions, a race end); the pursuit pieces'
+  fix follows that log (TECHNICAL Oct 29, D-006).
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.
