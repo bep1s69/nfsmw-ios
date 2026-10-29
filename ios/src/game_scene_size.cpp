@@ -711,6 +711,7 @@ struct Piece {
   // moved instead, which the game leaves alone.
   bool by_children;
   uint32_t parents[2];  // the groups it is in (0: none), for its parent's place
+  bool ring;  // the circle prompt's ring, moved only while at the heat badge (RingAtBadge)
 };
 std::vector<Piece> g_pieces;
 std::unordered_map<uint32_t, Moved> g_child_moved;
@@ -811,22 +812,49 @@ float AnchorY(uint8_t* base, uint32_t object, int depth) {
 // at size 1 (IPA141, Stefan's 100% screenshot): they go with it (they went
 // with the race info until IPA141 and floated mid-screen at 70%).
 constexpr float kBottom = 60.0f;
-// Left where the game puts them: the prompt over the road in an event,
-// shop or safehouse circle (its icon and its group with the spinning ring),
-// in the left group but drawn at the top middle. As top-left pieces they
+// The prompt over the road in an event, shop or safehouse circle (its icon
+// and its group with the spinning ring), in the left group but drawn at the
+// top middle: left where the game puts it there. As top-left pieces they
 // went with the infractions (Stefan, IPA154: moved 100 units down with his
-// infractions, the ring flashing between there and lower still).
-bool NotAPiece(uint32_t hash) { return hash == 0x3B1B624A || hash == 0x3345911D; }
+// infractions, the ring flashing between there and lower still). In a
+// pursuit the game puts the same two around the heat badge (-124,-280 in
+// the left group, IPA141's tree; the prompt at 3,-189 or -5,-89): left
+// alone there they sat off the moved badge (Stefan, Oct 29, iPad at 70%).
+// So they are top-left pieces moved only while the game has them at the
+// badge (x left of -60).
+bool IsRing(uint32_t hash) { return hash == 0x3B1B624A || hash == 0x3345911D; }
+constexpr float kRingBadgeX = -60.0f;
+
+// The ring at the heat badge: true to move it; false (at the circle prompt's
+// place) gives a position written here back to the game.
+bool RingAtBadge(uint8_t* base, Piece& p) {
+  const uint32_t data = REX_LOAD_U32(p.object + 44);
+  if (!Plausible(data)) return false;
+  const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
+  const bool ours = p.moved.object == p.object && x == p.moved.written_x && y == p.moved.written_y;
+  if ((ours ? p.moved.base_x : x) < kRingBadgeX) return true;
+  if (ours) {
+    StoreF(base, data + 28, p.moved.base_x);
+    StoreF(base, data + 32, p.moved.base_y);
+    if (p.moved.scaled) {
+      StoreF(base, data + 56, p.moved.base_w);
+      StoreF(base, data + 60, p.moved.base_h);
+    }
+  }
+  p.moved = {};
+  return false;
+}
 
 void AddPieces(uint8_t* base, uint32_t outer, uint32_t group, float y0, Element below, int above, int middle) {
   if (!Plausible(group) || REX_LOAD_U32(group + 0x5C) != kListVtable) return;
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(group + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
-    if (NotAPiece(REX_LOAD_U32(c + 0x10))) continue;
+    const bool ring = IsRing(REX_LOAD_U32(c + 0x10));
     const float y = y0 + AnchorY(base, c, 0);
-    const int e = y > kBottom ? int(below) : y < -kBottom ? above : middle;
-    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false, {outer, group}});
+    const int e = ring ? above : y > kBottom ? int(below) : y < -kBottom ? above : middle;
+    if (e >= 0)
+      g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false, {outer, group}, ring});
   }
 }
 
@@ -947,6 +975,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     MoveGroup(base, left, -extra, 0, g_left);
     MoveGroup(base, right, extra, 0, g_right);
     for (Piece& p : g_pieces) {
+      if (p.ring && !RingAtBadge(base, p)) continue;
       MovePiece(base, p, offset[p.element][0], offset[p.element][1]);
     }
     g_pieces_moved = true;
@@ -980,7 +1009,7 @@ void ReapplyHudPieces(uint8_t* base) {
     const uint32_t data = REX_LOAD_U32(p.object + 44);
     if (!Plausible(data)) continue;
     const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
-    if (p.by_children || p.moved.object != p.object || (x == p.moved.written_x && y == p.moved.written_y)) continue;
+    if (p.ring || p.by_children || p.moved.object != p.object || (x == p.moved.written_x && y == p.moved.written_y)) continue;
     // Only the top left's (IPA143, iPhone: given to the game, the
     // busted/evade bar's group kept its marker unmoved, off the bottom).
     const bool group = p.element == kTopLeft && REX_LOAD_U32(p.object + 0x18) == 5 &&

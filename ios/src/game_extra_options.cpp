@@ -117,7 +117,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
                     "Remove the barrier that closes the road to the Old Bridge");
 // 120 by default in IPA94-100 against the judder at 60 fps; back to 60 in
 // IPA101: Stefan found it did not fix the judder (docs/TECHNICAL.md, Oct 27).
-REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 60, "Game",
+// 120 again from IPA167: at 60 the world moved on 2 of 3 frames for the
+// first ~15 s of a pursuit (camera logs, Oct 29). The launcher passes 120.
+REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 120, "Game",
                      "Gameplay simulation rate in Hz: 60 (the game's) or 120 (smoother at 60 fps, "
                      "needed for the 120 fps cap)");
 REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
