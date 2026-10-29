@@ -485,6 +485,11 @@ const std::vector<Section>& Sections() {
             @"in its place. Buttons: one button for left, one for right.",
             @"dynamic",
             {{@"Dynamic joystick", @"dynamic"}, {@"Fixed joystick", @"fixed"}, {@"Two buttons", @"buttons"}}},
+           {@"touch_idle_opacity", Type::kChoice, @"Dim when not touched",
+            @"Drive layout: after 3 seconds without a touch the controls fade to this share of their "
+            @"opacity, so they hide less of the road. Any touch brings them back.",
+            @"0.35",
+            {{@"Off", @"1"}, {@"Half", @"0.5"}, {@"Low", @"0.35"}, {@"Very low", @"0.2"}}},
            {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
             @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
             @"DRIVE/PAD button still switches by hand.",
@@ -793,6 +798,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
   a.push_back("--ios_touch_steering=" + str(@"touch_steering"));
+  a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);

@@ -179,7 +179,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (Oct 29): HUD done for now. Touch controls (Stefan's plan, Oct 29, 4
   steps, each its own IPA; BACKLOG "Touch controls overhaul"): step 1,
   steering modes, IPA151 `ios/build/NFSMW-touch-steering-151.ipa`, built,
-  not run (TECHNICAL Oct 29). Then: the on-screen touch controls, then
+  not run; step 2, icons / hit areas / idle dimming, IPA152
+  `ios/build/NFSMW-touch-look-152.ipa` (also on iCloud Desktop), built,
+  not run; Stefan tests both together (TECHNICAL Oct 29). Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

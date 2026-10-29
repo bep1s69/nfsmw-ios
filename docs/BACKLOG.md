@@ -505,7 +505,7 @@ scaled small post-effect target's last column (rounding, inferred). Evidence:
 `~/Desktop/debug/14 October 2026/12th_run_small_gray_bar.png` and
 `nfsmw_12_th_run_battery_0.75x.log`. Investigate with `nfsmw_native_dump`.
 
-### D-0xx Touch controls overhaul — step 1 built (IPA151), not tested
+### D-0xx Touch controls overhaul — steps 1-2 built (IPA151, IPA152), not tested
 
 Stefan, Oct 29, with a video of the Android port (also an Xbox 360
 recompilation; `Debug/29 October 2026/android_touch_controls.mp4`). Four
@@ -514,7 +514,8 @@ steps, one IPA each, each approved:
    quarter, fades out on release, not placed in the editor), fixed
    joystick, or two buttons. IPA151, not run yet.
 2. Driving look: bigger hit areas than the drawn buttons, cleaner icons,
-   controls dimmed while not touched (haptics and opacity exist).
+   controls dimmed while not touched (haptics and opacity exist). IPA152
+   (with step 1), not run yet.
 3. Menus without an overlay, as on Android: a swipe moves the left stick
    in that direction; a tap where the screen shows a button prompt
    ("B Back", "A Accept"...) presses that button. No separate Back button.
