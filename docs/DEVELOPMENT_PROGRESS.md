@@ -129,6 +129,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: Codex catch-up complete; no source change or device test.**
+  Reviewed release history through `main` 4e2ac87, the checkpoint, backlog,
+  technical evidence, release procedure, implementation changes and the
+  local `dev-0.5` feature inventory. Latest release evidence (TECHNICAL,
+  October 29 "0.5.0 published") supersedes older pending paragraphs:
+  D-013 was confirmed by Stefan before publication; the final released IPA
+  SHA-256 begins `a3e285c8`, not the earlier `1f2bae93` build. No new source
+  work approved in this catch-up. Next: Stefan's chosen task; existing plan
+  remains issue follow-up and 0.6.0 work on `dev-0.5`, with the visual bugs
+  deferred. Preserved pre-existing uncommitted issue 11 analysis immediately
+  below (belongs to another session; intentionally excluded from this
+  session's commit), untracked `HANDOFF_CHATGPT.md`, and all sibling SDK
+  modifications/submodule state. No build, push, tag or release performed.
+
 - **October 29: 0.5.0 (build 8) released: `main` pushed, tag v0.5.0,
   GitHub release with `NFS-Most-Wanted-0.5.0.ipa` (Stefan's go).** Earlier: Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
   is now 0.6.0. `ios/build/NFS-Most-Wanted-0.5.0.ipa` (SHA-256 1f2bae93...),

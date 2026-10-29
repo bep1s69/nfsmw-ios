@@ -9124,3 +9124,39 @@ iOS 27, LiveContainer2, Balanced, ~60 fps, ~28 %/h). GitHub Discussions is
 not enabled on the repository (has_discussions false, Oct 29); the text
 points to an issue until it is. Committed locally, not pushed (Stefan
 approves the push separately).
+
+### October 30: Codex familiarization with the port since the battery work
+
+Stefan requested a catch-up only. Reviewed AGENTS.md, DEVELOPMENT_PROGRESS,
+BACKLOG, CHANGELOG, recent TECHNICAL evidence, RELEASING, commit history
+(`git log --oneline -15`, expanded history), branch tips, the implementation
+diff from battery-optimization to main, relevant current source, and
+`dev-0.5:docs/MOD_FEATURES.md`. Read-only Git/source inspection commands
+completed with exit 0. Current main: 4e2ac87, tracking origin/main at the
+same commit; 0.5.0 build 8 is published per the existing release record.
+
+Caught up on QoS/polling/cache/GPR/CP optimizations and their measurement
+limits; sun occlusion; live options and HUD editing; save sidecar and
+achievement sync, Xbox/PC imports and player-ID repair; audio budget and
+real-time vblank; in-frame FPS/touch overlays, even world frame timing and
+120 Hz simulation; iOS 26 encoder-state reset; redesigned menu/driving/drag
+touch controls; Performance profiles, silent-mode audio and report templates.
+The dev-0.5 branch targets 0.6.0: extra Speedbreaker/infraction/impound/heat
+options remain untested there; PC import was already brought to main.
+
+Status reconciliation: the final October 29 publication entry confirms
+D-013 was device-tested before release (older checkpoint/backlog says
+untested); released IPA SHA-256 is
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f.
+D-012 has one successful ~15 min iPhone Balanced run, no matched battery
+A/B. Remaining visual work includes results-picture margins, loading
+twitch, race-end HUD zoom and missing menu dimming with Custom HUD.
+The iPhone 11 kill/memory hypothesis remains unconfirmed pending evidence
+and is preserved as another session's uncommitted checkpoint note.
+
+Startup status: modified docs/DEVELOPMENT_PROGRESS.md (that issue 11 note),
+untracked HANDOFF_CHATGPT.md. Sibling rexglue-sdk-ios has extensive existing
+source, untracked and submodule modifications; all preserved. Only this
+session's documentation is committed. No source change, build, test run,
+push or release; this review adds no runtime validation. Next action is
+Stefan's chosen task; the existing 0.6.0 plan and deferred bugs remain.
