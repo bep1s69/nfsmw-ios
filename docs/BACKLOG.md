@@ -834,6 +834,15 @@ Balanced/1x/40 cold test with experiment + frame_trace true, then compare
 pacing/latency before rollout. No claim of a 40 fix yet. Build identity,
 failed compile and exact checks in TECHNICAL October 30.
 
+October 30: experiment test1 failed twice before gameplay (archived
+nfsmw_iphone_14pm_4_metal_display_40_crash.log). Found documented API error:
+timed presentation asserts with CAMetalDisplayLink drawables. Corrected
+to plain command-buffer present and proper submission-deadline filtering;
+`ios/build/NFSMW-0.5.0-metal-display-40-test2.ipa` built, not run. Same
+experiment/trace flags; next startup check then pacing/latency run.
+Need .ips/boot.txt if termination persists. No 40 improvement validated;
+keep experimental default off. Full evidence in TECHNICAL October 30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

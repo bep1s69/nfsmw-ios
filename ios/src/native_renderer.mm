@@ -7235,12 +7235,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         static double last_target = 0;
         TraceFrame(number, 1, CACurrentMediaTime());
         if (display_frame.managed) {
-          // Use the system's target directly: no guessed GPU-time margin or
-          // rounding against the previous frame. A lifecycle/cap transition
-          // invalidates this lease; still commit world work and its writebacks.
+          // CAMetalDisplayLink forbids atTime/afterMinimumDuration (assert).
+          // The plain command-buffer convenience method calls drawable.present
+          // only after Metal schedules this buffer, preserving GPU dependencies.
+          // The display link owns timing; its estimate is diagnostic only.
           if (display_frame.Current()) {
             TraceFrame(number, 4, system_target);
-            [cb presentDrawable:drawable atTime:system_target];
+            [cb presentDrawable:drawable];
+            const double deadline = display_frame.present_deadline;
+            [cb addScheduledHandler:^(id<MTLCommandBuffer>) {
+              nfsmw::metal_pacer::Scheduled(deadline);
+            }];
             ++presented;
           }
         } else if (paced) {

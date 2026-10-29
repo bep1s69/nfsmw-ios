@@ -9571,3 +9571,78 @@ background/resume, other owned ProMotion device; only then consider default
 and 0.5.1. Off switch restores baseline. No new device run, release, push
 or tag. Existing issue 11 checkpoint note, HANDOFF_CHATGPT.md and sibling
 SDK source/submodule work preserved; only session changes committed.
+
+### October 30: 40 fps Metal display-link test crashes twice; API error corrected
+
+Stefan: tried twice, crashed both times. Supplied
+`/Users/bep1s/Downloads/nfsmw 4.log`, archived byte-for-byte without overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_4_metal_display_40_crash.log`.
+53692 bytes, 361 lines, SHA-256
+3c8d6650f3a74d13d096fbc7c650453a920a90ab73a7ff69b590d884571fc80a.
+Copy/equality check exit 0. Input retained. Two launches only, lines 1/182:
+01:03:21.572 and 01:03:28.617. Link starts at 01:03:22.672 / 01:03:29.521;
+trace on and frame-1 renderer summaries follow. Logs end at 01:03:23.006 /
+01:03:29.909, both at "pipelines: 13 draws left out while theirs compiled".
+No gameplay or pacing sample reached. Balanced, cap40/display120, native
+1x, same 14 Pro Max per test context; OS not supplied. User tested artifact
+bad106dc... (UUID 4A2222D3-4733-3082-B290-16B8A8309473), exact installed
+file not independently echoed. No fatal signal, exception or crash stack in
+nfsmw.log; do not infer the exact faulting instruction from buffered logs.
+
+Source/API investigation found a concrete defect introduced by this
+experiment: its managed-drawable branch called
+[cb presentDrawable:drawable atTime:system_target]. Apple explicitly warns
+that time-targeted presentation methods assert with CAMetalDisplayLink:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylinkdelegate/metaldisplaylink(_:needsupdate:)
+Strong match to startup termination around initial presentation, but no
+.ips/boot.txt supplied to prove these exact crash stacks. Correcting a
+known API violation is justified without claiming stack-level confirmation.
+
+Corrected managed branch uses plain [cb presentDrawable:drawable], which
+calls drawable.present after Metal schedules the rendering buffer. This
+preserves GPU-write dependencies; never call atTime or minimumDuration on
+system-supplied drawables. targetPresentationTimestamp now diagnostic only.
+Apple plain drawable API and scheduling recommendation:
+https://developer.apple.com/documentation/metal/mtldrawable/present()
+Apple commit/present deadline is targetTimestamp, not the later estimated
+targetPresentationTimestamp:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/update/targettimestamp
+Stale update filtering corrected to use targetTimestamp. Added scheduled-
+handler deadline diagnostics, protected against concurrent callbacks.
+Existing 30/60/120, game/QoS behavior and default-off test flag unchanged.
+
+An intermediate commit-then-direct-drawable.present implementation compiled
+(exit 0, ios/build/metal-display-40-plain-present-build.log), but was not
+copied/delivered: further primary-doc review selected the plain command-
+buffer convenience method to guarantee rendering is scheduled first.
+This intermediate build is not a device result. Final build/check evidence
+and device-test next step follow. No new crash-log capture requested until
+this documented API defect is corrected; if it persists, .ips and boot.txt
+are needed rather than guessing from nfsmw.log. Existing unrelated issue
+11 checkpoint note, HANDOFF_CHATGPT.md and SDK work preserved.
+
+Final corrected build: `cmake --build --preset ios --target ipa -j 6`
+(ios/, authorized cache access), exit 0; saved ignored log
+`ios/build/metal-display-40-plain-scheduled-build.log`. Existing fpcr/UIKit
+warnings (5 in native renderer), duplicate -lz linker warning. Plain
+managed branch has no timed API call; legacy 30 timing remains separate.
+New artifact `ios/build/NFSMW-0.5.0-metal-display-40-test2.ipa`,
+30172251 bytes, version 0.5.0 build 8, SHA-256
+87ea6d83729966b2704889271de251a4e2a315ce5700fcf801337b04dd8778f5,
+UUID 9AC76DA4-519A-3A7D-91A6-146C0DEBE6D7.
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+dwarfdump --uuid exit 0; git diff --check exit 0. All 104 payload shaders
+and both SDK dylibs byte-identical to failed test1. No SDK source mutation.
+These checks do not prove crash removal or smoother 40 fps on device.
+
+Next: install test2, same Balanced/1x/40 and Low Power Mode off, cold
+LiveContainer launch, nfsmw_native_metal_display_40=true and
+nfsmw_native_frame_trace=true. Confirm it starts before running the chase;
+then compare shown gaps and input latency, plus menu/background transitions
+if promising. If still crashes, request .ips and Documents/logs/boot.txt
+for actual failure stack/type. Do not promote or claim a 40 fix without
+runtime evidence. Default remains off; 60 fix unchanged. Local commit only,
+no push/tag/release. All source/log analysis commands completed exit 0;
+one broad Apple search returned no results, markdown doc fetch failed
+(unsupported type), a guessed WWDC URL was unrelated and discarded;
+primary delegate/present/deadline pages above supplied the API evidence.
