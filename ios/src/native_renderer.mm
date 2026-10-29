@@ -71,6 +71,7 @@
 
 #include "battery.h"
 #include "native_renderer.h"
+#include "metal_display_pacer.h"
 #include "memory_report.h"
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
@@ -4398,6 +4399,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                 std::chrono::steady_clock::now() - t0).count());
     }
   } render_timer{render_start};
+  nfsmw::metal_pacer::Frame display_frame(present ? present_layer : nil);
   gpu_pool.Reclaim(number);
   // This frame's pooled buffers and textures: retired when it ends.
   struct FrameResources {
@@ -4416,7 +4418,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
   frame_new_buffers = 0;
   frame_upload_bytes = 0;
   frame_upload_us = 0;
-  double drawable_wait_ms = 0;
+  double drawable_wait_ms = display_frame.wait_ms;
   @autoreleasepool {
     id<MTLDevice> device = store.device;
     static id<MTLCommandQueue> queue = [device newCommandQueue];
@@ -6668,9 +6670,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLRenderPipelineState> present_pso = present ? PresentPipeline(device) : nil;
     if (present && layer && final_texture && present_pso) {
       const auto drawable_start = std::chrono::steady_clock::now();
-      id<CAMetalDrawable> drawable = [layer nextDrawable];
-      drawable_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drawable_start).count();
-      if (drawable) {
+      id<CAMetalDrawable> drawable = display_frame.managed ? display_frame.drawable : [layer nextDrawable];
+      drawable_wait_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drawable_start).count();
+      if (drawable && display_frame.Current()) {
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         rp.colorAttachments[0].texture = drawable.texture;
         rp.colorAttachments[0].loadAction = MTLLoadActionClear;
@@ -7165,8 +7167,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const bool schedule_cap = cap == 30 || (cap == 60 && REXCVAR_GET(nfsmw_native_present_at_time_60));
         const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && !pacing_broken.load() && interval > 0 &&
                            shown_at.load() > 0 && double(cap) < display_hz - 1.0 && schedule_cap;
-        __block double frame_target = 0;  // set below when paced
+        __block double frame_target = 0;  // set below when legacy pacing is used
+        const double system_target = display_frame.managed ? display_frame.presentation_time : 0;
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
+          if (system_target > 0) nfsmw::metal_pacer::Presented(system_target, shown.presentedTime);
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
           const double at = shown.presentedTime;
@@ -7230,7 +7234,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }];
         static double last_target = 0;
         TraceFrame(number, 1, CACurrentMediaTime());
-        if (paced) {
+        if (display_frame.managed) {
+          // Use the system's target directly: no guessed GPU-time margin or
+          // rounding against the previous frame. A lifecycle/cap transition
+          // invalidates this lease; still commit world work and its writebacks.
+          if (display_frame.Current()) {
+            TraceFrame(number, 4, system_target);
+            [cb presentDrawable:drawable atTime:system_target];
+            ++presented;
+          }
+        } else if (paced) {
           // A fixed grid (0.4.2): each frame takes the first slot after the
           // previous frame's that it can make, i.e. at least its GPU time
           // (recent average) plus 4 ms from now. The grid used to restart from
@@ -7254,7 +7267,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         } else {
           [cb presentDrawable:drawable];
         }
-        ++presented;
+        if (!display_frame.managed) ++presented;
       }
     }
     // Without PNGs nothing waits for the GPU: the next frame is encoded while
@@ -7904,6 +7917,8 @@ void EnsurePresentLayer() {
     }
     [view setNeedsLayout];
     [view layoutIfNeeded];
+    // Establish acquisition ownership before the render queue can see it.
+    nfsmw::metal_pacer::Attach(layer);
     present_layer = layer;
     present_view = view;
     WatchExternalScreens(device);

@@ -136,6 +136,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: approved 40 fps Metal display-link experiment built,
+  default off; device test pending.** Stefan: worth trying after design
+  review. New `--nfsmw_native_metal_display_40=true` (restart required)
+  enables system drawables and presentation timestamps on the primary
+  layer at cap 40 only. Existing guest display link/vblank, world timing,
+  QoS and 60 fix retained. Bounded mailbox and render-frame leases protect
+  drawable ownership; main thread does not wait for rendering, acquisition
+  wait on render queue is bounded to 100 ms (no nextDrawable fallback while
+  link owns layer). Cap/background transitions invalidate updates and wake
+  waits. Test IPA `ios/build/NFSMW-0.5.0-metal-display-40-test.ipa`, 0.5.0/8,
+  SHA-256 bad106dc1a6ee3707710c3a83df4abd8bbde2424bde09fa5c03ef7cc9cf62f43,
+  UUID 4A2222D3-4733-3082-B290-16B8A8309473. Build/ZIP/deep strict
+  signature passed, 104 payload shader libraries unchanged. Next: iPhone
+  14 Pro Max, Balanced/1x/40, Low Power Mode off, cold launch with that
+  flag and `--nfsmw_native_frame_trace=true`; 1-2 min same chase. Compare
+  shown gaps/latency and [metal-display-40] logs. If improved, test menu
+  30, pause/background/resume and another ProMotion device. No runtime
+  validation, 40 default change, version bump, push/tag/release yet.
+
 - **October 30: fresh 14 Pro Max 40 trace analyzed; design review pending.**
   Archived full three-launch log as
   `Debug/29 October 2026/nfsmw_iphone_14pm_3_40fps_trace.log`.

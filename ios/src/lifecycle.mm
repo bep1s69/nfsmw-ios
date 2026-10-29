@@ -38,6 +38,7 @@
 #include <rex/logging.h>
 
 #include "lifecycle.h"
+#include "metal_display_pacer.h"
 
 namespace nfsmw::lifecycle {
 namespace {
@@ -50,6 +51,7 @@ void Pause(const char* why) {
     return;
   }
   g_paused = true;
+  nfsmw::metal_pacer::SetActive(false);
   REXLOG_INFO("[ios] to the background ({}): pausing the GPU emulation", why);
   g_pause();
 }
@@ -59,6 +61,7 @@ void Resume(const char* why) {
     return;
   }
   g_paused = false;
+  nfsmw::metal_pacer::SetActive(true);
   REXLOG_INFO("[ios] back on screen ({}): resuming the GPU emulation", why);
   g_resume();
 }

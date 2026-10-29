@@ -37,6 +37,7 @@
 
 #include "display_rate.h"
 #include "lifecycle.h"
+#include "metal_display_pacer.h"
 
 REXCVAR_DEFINE_BOOL(ios_display_match_cap, false, "GPU",
                     "iOS: ask the display for exactly the frame rate cap's refresh rate at 30, 40 "
@@ -60,6 +61,7 @@ std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
 @implementation NFSDisplayRate
 - (void)tick:(CADisplayLink*)link {
   nfsmw::lifecycle::OnDisplayTick();
+  nfsmw::metal_pacer::Tick();
   using Publish = void (*)(uint64_t, uint64_t);
   static Publish publish = reinterpret_cast<Publish>(dlsym(RTLD_DEFAULT, "nfsmw_display_vsync"));
   if (publish) {
