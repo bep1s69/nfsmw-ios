@@ -8167,3 +8167,21 @@ ok, codesign --deep --strict ok. Not run on a device yet.
 IPA138 result (Stefan, Oct 29, iPhone, Custom HUD off): exiting the safe
 house twice and finishing a race no longer move the minimap out of place.
 Race restart not separately reported.
+
+Screen log for the Custom HUD (Oct 29, D-006, approved by Stefan: log first).
+Cause found by reading the code: the HUD size scales the frontend's single
+shared matrix (sub_82453768 while sub_82440D80 runs, rebuilt about every
+frame: `[hud] matrix built (1000)` 28 s in, IPA129 log) whenever
+battery::InMenu() is 0, so any package drawn while driving is scaled too.
+The engine's pushed packages: IsPackagePushed (sub_82284D70) reads
+FEngine = *cFEng, then sub_822F5A98 walks the list at FEngine+216, first at
++8; each node (the package) has +4 next, +12 name pointer, +16 name hash.
+IPA139 (game_state.cpp -> nfsmw_ui_log in game_scene_size.cpp, game flow
+state 6 only): `[ui] screens: <names> (HUD size, menu)` whenever the list
+changes; `[ui-tree] <name> <address> (up | 3 s later)` with DumpObjects
+(400 objects at most) when a package comes up and 180 frames later.
+Diagnostic only, no behaviour change. `cmake --build --preset ios --target
+ipa -j 6` exit 0; `ios/build/NFSMW-ui-log-139.ipa` SHA-256
+90f6c8006dbd052fa8f7e2bd814104d3a4f8fb577ee2910b42dbbb7dad749dfd, 30118882
+bytes, `unzip -tq` ok. Not run yet. Not proven: that +216 holds every
+drawn package (sub_82284D70 has a second path through sub_822D71A0).
