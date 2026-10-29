@@ -32,6 +32,12 @@
   they dim so they hide less of the road (Touch controls › Dim when not
   touched; any touch brings them back).
 
+- **Swipe and tap in menus.** In menus and pause screens the on-screen
+  gamepad is gone: swipe to move through the menu, tap to accept, tap with
+  two fingers to go back. The PAD button still brings the full gamepad
+  back for that menu. Can be turned off (Touch controls › Swipe and tap in
+  menus).
+
 - **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
   in the in-game options) shows the HUD's parts as outlines on a screen of
   your device's shape: drag each where you want it, make it smaller or

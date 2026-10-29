@@ -8501,3 +8501,27 @@ Stefan asked for step 2 before testing step 1 (both in IPA152).
 bc94c957d7928bceaee5890c74e67ff958ccd7186232016b88937ef01c738072, 30136879
 bytes, `unzip -tq` ok; copied to iCloud Desktop (Stefan away). Not run on
 a device.
+
+### October 29: touch controls step 3, first part: menus by swipe and tap (IPA153)
+
+Stefan asked for step 3 before testing (all in IPA153).
+- cvar `ios_touch_menu_gestures` (default true; launcher Touch controls ›
+  Swipe and tap in menus), with `ios_touch_auto_layout`: in the PAD layout
+  (menus, pause screens) no controls are built or drawn, only the pills.
+  The view takes every touch (hitTest), except where another view over the
+  game takes it (the options gear).
+- One gesture from the first finger down to the last up. The first
+  finger's way past 14 pt pushes the left stick along the larger of across
+  and down (one axis, so a menu moves one way), full at 40 pt; released
+  when the fingers lift. No swipe, under 0.4 s: A (one finger) or B (two
+  fingers at once) for 0.1 s, haptic tap, `[touch] menu tap: A/B` logged.
+- The PAD pill shows the full gamepad in that menu (until the next layout
+  change).
+- Not done: a tap on a prompt ("B Back", "Y Restart"...) pressing that
+  button, as on Android. The prompts are in different places per screen
+  (BACKLOG); they need finding in the FE packages first.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-menus-153.ipa` SHA-256
+1ac5737f720356cb07c9ef1f47f8607a8a0b5fe8a42237e53050283db48869fb, 30155729
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA152. Not run on a
+device; the game's menus following the left stick is assumed, not checked.

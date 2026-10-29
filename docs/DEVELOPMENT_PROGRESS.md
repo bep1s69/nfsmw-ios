@@ -181,7 +181,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   steering modes, IPA151 `ios/build/NFSMW-touch-steering-151.ipa`, built,
   not run; step 2, icons / hit areas / idle dimming, IPA152
   `ios/build/NFSMW-touch-look-152.ipa` (also on iCloud Desktop), built,
-  not run; Stefan tests both together (TECHNICAL Oct 29). Then: the on-screen touch controls, then
+  not run; step 3 first part, menu swipe/tap, IPA153
+  `ios/build/NFSMW-touch-menus-153.ipa` (steps 1-3; on iCloud Desktop
+  instead of IPA152), built, not run; Stefan tests them together
+  (TECHNICAL Oct 29). Step 3 still open: a tap on a prompt presses that
+  button (needs each screen's prompt positions). Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

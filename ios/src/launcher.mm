@@ -490,6 +490,11 @@ const std::vector<Section>& Sections() {
             @"opacity, so they hide less of the road. Any touch brings them back.",
             @"0.35",
             {{@"Off", @"1"}, {@"Half", @"0.5"}, {@"Low", @"0.35"}, {@"Very low", @"0.2"}}},
+           {@"touch_menu_gestures", Type::kSwitch, @"Swipe and tap in menus",
+            @"With layouts switching by themselves: no buttons in menus and pause screens. Swipe to "
+            @"move (the left stick that way), tap to accept (A), tap with two fingers to go back (B). "
+            @"The PAD button brings the full gamepad back for that menu.",
+            @"true"},
            {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
             @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
             @"DRIVE/PAD button still switches by hand.",
@@ -798,6 +803,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
   a.push_back("--ios_touch_steering=" + str(@"touch_steering"));
+  a.push_back("--ios_touch_menu_gestures=" + b(On(s, @"touch_menu_gestures")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   for (const KeyBind& kb : KeyBinds()) {
