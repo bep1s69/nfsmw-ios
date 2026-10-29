@@ -2,6 +2,15 @@
 
 ## 0.4.3
 
+- **Smoother start to races and pursuits.** For the first seconds of a
+  race or chase the world could move on only two of every three frames,
+  so it looked like 40 fps while the counter said 60. The game now always
+  moves its world 120 times a second, which removes it; the "120 Hz
+  simulation" switch is gone from Advanced.
+
+- **Heat ring back around the heat badge.** In pursuits with a smaller HUD
+  size, the spinning ring sat off to the side of the heat level badge.
+
 - **No more crash on Play on iOS 26 with the native renderer.** iOS 26
   reuses an internal ID the renderer relied on, so some drawing steps were
   left without their settings and the graphics driver crashed. They are

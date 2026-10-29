@@ -8924,3 +8924,27 @@ Inference: something feeding the camera updates at a 20 Hz cadence for the
 first ~15 s of the pursuit; with 60 world steps a second that shows as a
 missing step every third frame, with 120 only as unevenness. Cause not
 identified. Runs 3/4 (frame_ticks 0, QoS off) skipped by Stefan's choice.
+
+### October 29: IPA167, 120 Hz simulation by default; pursuit heat ring
+
+Stefan (after the start judder runs): make 120 Hz simulation permanent,
+hide the option; and fix the heat ring (with its spinning circle) that sat
+off the heat badge in his iPad screenshot
+(`start_judder_ipad/run2_2_IMG_0337.png`, HUD 70%).
+- launcher.mm: "120 Hz simulation" switch removed, always
+  `--nfsmw_sim_rate=120`; cvar default 120 (game_extra_options.cpp).
+  `--nfsmw_sim_rate=60` in Extra Args still selects 60.
+- game_scene_size.cpp: the circle prompt's ring and its group
+  (3B1B624A / 3345911D) were left out of the HUD pieces since IPA156 so the
+  circle prompt stays at the top middle. In a pursuit the game puts the
+  same two at the heat badge (-124.3,-280.3 in the left group, IPA141's
+  `[hud-tree]`), so they stayed while the badge moved. Now top-left pieces
+  moved only while the game has them left of x -60 (the prompt sits at
+  3,-189 or -5,-89); otherwise a position written here is given back.
+  Not in ReapplyHudPieces.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-sim120-ring-167.ipa` SHA-256
+80a0f2fa4e24e109d50482a2d4105069706b4b0921fe75141b7a439df5f28f43, 30169009
+bytes, 208 metallib, `unzip -tq` ok. Not run. To check: pursuit on the iPad
+at 70% (ring on the badge), an event / shop circle (prompt still at the
+top middle), start smoothness at 60.
