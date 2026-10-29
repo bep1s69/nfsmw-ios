@@ -200,7 +200,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA155), built, not run. Stefan asked for an Extra arguments field in
   the launcher: IPA157 `ios/build/NFSMW-extra-args-157.ipa` (iCloud
   Desktop, includes IPA156), built, not run. Next: his pursuit run with
-  `--nfsmw_hud_watch=true`. Then: the on-screen touch controls, then
+  `--nfsmw_hud_watch=true`. Stefan's IPA157 pursuit run (challenge
+  series; `nfsmw_ipa157_pursuit_iphone.log`, `ipa157_pursuit_IMG_4066/67`):
+  context "race" in the pursuit (only LIST shown, which does nothing
+  there), map missing, DRIVE controls flashed at start; up = details in
+  races and pursuits. IPA158 `ios/build/NFSMW-touch-pursuit-158.ipa`
+  (iCloud Desktop): STATS on up in race/pursuit events, MAP always, held
+  controls kept through context changes, PAD layout at start. Open: the
+  infraction ring at the top middle (where the game puts it; to compare
+  with Custom HUD off), free-roam pursuits untested. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

@@ -35,9 +35,11 @@
 - **Map, SMS, Blacklist and Enter buttons while driving.** The Drive
   layout's small D-pad is now four buttons, one for each thing the game
   puts on it: enter a shop / engage an event, the world map, SMS messages,
-  and the Blacklist (or the race's / pursuit's details). Enter shows only
-  inside an event, shop or safehouse circle, and Map and SMS only outside
-  races.
+  and the Blacklist. Each shows only when it does something: Enter inside
+  an event, shop or safehouse circle; in races and pursuit events the up
+  button opens the race's or pursuit's details instead; SMS and Blacklist
+  in free roam only. Buttons held while the set changes stay held, and the
+  driving buttons no longer flash up for a moment when the game starts.
 
 - **Custom HUD: the circle prompt stays put.** The icon over the road in
   an event, shop or safehouse circle (and its spinning ring) moved with
