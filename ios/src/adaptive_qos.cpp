@@ -20,6 +20,17 @@
 // set their own QoS, so the command thread starts an override on each one
 // (pthread_override_qos_class_start_np) and ends it on the way back to Utility.
 //
+// Since 0.4.3 (Performance "Balanced", the default; docs/TECHNICAL.md, Oct 29):
+// while driving (in the world, no menu up: game_state.cpp) the threads stay
+// boosted, never at Utility: a GitHub tester's iPhone 17 Pro Max went from 60
+// to a flat 40 fps the moment it went back to Utility in the world, and the
+// old late test (2 of 120 frames over 1.2x the cap's interval) did not see a
+// steady 40 for 36 s. Outside driving a frame is late when its swap interval
+// is over 1.1x the cap's budget or the renderer took longer than the budget
+// to encode it (OnRendered), and 3 late frames in the last 60 (about 1 s)
+// boost. Performance "Max" (ios_main.mm) turns all Utility QoS off instead;
+// "Eco" (the default with Battery mode) keeps them all at Utility, no boost.
+//
 // The boost is tunable: --ios_adaptive_qos_level (user_initiated or default),
 // the longest hold --ios_adaptive_qos_max_hold (seconds) and
 // --ios_adaptive_qos_workers_count (the busiest guest threads by CPU time; 0
@@ -58,6 +69,11 @@ REXCVAR_DEFINE_INT32(ios_adaptive_qos_max_hold, 240, "Kernel",
 REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 0, "Kernel",
                      "Adaptive QoS: how many guest threads a boost raises, busiest first by CPU time; "
                      "0 raises all (restart required)");
+REXCVAR_DEFINE_STRING(nfsmw_performance_mode, "balanced", "Kernel",
+                      "eco: game and render threads always at Utility QoS; balanced: Utility only outside "
+                      "driving (adaptive); max: no Utility QoS for any game or render thread (restart required)");
+REXCVAR_DEFINE_STRING(nfsmw_performance_source, "default", "Kernel",
+                      "Why that Performance mode (launcher): setting, battery_mode or default");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -65,6 +81,8 @@ REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
 namespace {
 
 std::atomic<int> mode{-1};  // 0 Utility, 1 boosted
+std::atomic<bool> driving{false};       // game_state.cpp
+std::atomic<int> render_late{0};        // frames the renderer took over the budget to encode
 using Clock = std::chrono::steady_clock;
 
 struct Boost {
@@ -158,11 +176,21 @@ qos_class_t WorkersRaised() {
                                                                                : QOS_CLASS_UNSPECIFIED;
 }
 
+// From the game's thread when driving starts or stops (game_state.cpp).
+void SetDriving(bool on) { driving.store(on, std::memory_order_relaxed); }
+
+// From the native render queue, per frame: its encoding time (no drawable wait).
+void OnRendered(double ms) {
+  if (!Enabled()) return;
+  const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
+  if (ms > 1000.0 / cap && ms < 250.0) render_late.fetch_add(1, std::memory_order_relaxed);
+}
+
 // On the GPU command thread, once per swap.
 void OnSwap(double interval_ms) {
   if (!Enabled()) return;
   static int applied = -1;
-  static bool late[120] = {};
+  static bool late[60] = {};
   static int at = 0, late_count = 0;
   static Clock::time_point hold_until, eco_since = Clock::now();
   static double hold_s = 20.0;
@@ -181,17 +209,32 @@ void OnSwap(double interval_ms) {
   }
   const int32_t cap = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
   const double budget = 1000.0 / cap;
-  const bool is_late = interval_ms > budget * 1.2 && interval_ms < 250.0;  // not loading stalls
+  const bool rendered_late = render_late.exchange(0, std::memory_order_relaxed) > 0;
+  const bool is_late = (interval_ms > budget * 1.1 && interval_ms < 250.0) || rendered_late;  // not loading stalls
   late_count += int(is_late) - int(late[at]);
   late[at] = is_late;
-  at = (at + 1) % 120;
-  if (m == 0 && late_count >= 2) {
+  at = (at + 1) % 60;
+  const bool drive = driving.load(std::memory_order_relaxed);
+  static bool was_driving = false;
+  if (drive != was_driving) {
+    was_driving = drive;
+    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {}", drive ? "driving: boosted until driving stops" : "driving stopped: Utility allowed again");
+  }
+  if (drive) {
+    // Never Utility while driving; a short hold after it stops (pause, results).
+    if (m == 0) {
+      m = 1;
+      if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} (driving)", Settings().name);
+    }
+    hold_until = now + std::chrono::seconds(5);
+    hold_s = 20.0;
+  } else if (m == 0 && late_count >= 3) {
     const double eco_s = std::chrono::duration<double>(now - eco_since).count();
     hold_s = eco_s < 10.0 ? std::min(hold_s * 2.0, Settings().max_hold_s) : eco_s > 60.0 ? 20.0 : hold_s;
     hold_s = std::min(hold_s, Settings().max_hold_s);
     hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
     m = 1;
-    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} for {:.0f} s ({} late frames of 120, {:.0f} s on Utility)", Settings().name, hold_s, late_count, eco_s);
+    if (lines++ < 60) REXLOG_INFO("[adaptive-qos] {} for {:.0f} s ({} late frames of 60, {:.0f} s on Utility)", Settings().name, hold_s, late_count, eco_s);
   } else if (m == 1 && now >= hold_until) {
     m = 0;
     eco_since = now;

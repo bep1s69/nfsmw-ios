@@ -1,0 +1,75 @@
+name: Performance report
+description: Low frame rate, stutter or heat. The log lets us see where the time goes.
+title: "[Performance] "
+labels: ["performance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before playing, turn on **Logging** (Advanced > Diagnostics) and
+        **Show FPS** (Graphics). Play for a few minutes, including a race, then attach
+        `Documents/logs/nfsmw.log` (Files app > On My iPhone > the app, or
+        LiveContainer's folder). Every 300 frames the log records the CPU and
+        GPU time and the frame pacing, so we can tell what limits your device.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in the launcher, for example 0.4.3.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and iOS version
+      placeholder: iPhone 16 Pro, iOS 26.6.1
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - LiveContainer
+        - LiveContainer2 (or another with Game Mode)
+        - Sideloaded with a certificate (AltStore, SideStore, Sideloadly, ...)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      options:
+        - Native (Metal, the default)
+        - Emulated (Vulkan)
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: Renderer, frame rate cap, resolution scale, MetalFX, anti-aliasing/MSAA, Battery mode and its options, Performance (Eco / Balanced / Max), anything else you changed. "Defaults" is fine.
+    validations:
+      required: true
+  - type: checkboxes
+    id: conditions
+    attributes:
+      label: While playing
+      options:
+        - label: Low Power Mode was on
+        - label: The phone was charging or felt hot
+  - type: textarea
+    id: what
+    attributes:
+      label: What you see
+      description: The fps you get and where (menus, free roam, races, pursuits), and what you expected. Screenshots with the FPS counter help.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Drag Documents/logs/nfsmw.log here, from a run that includes a race (zip it if GitHub refuses the file).
+    validations:
+      required: true

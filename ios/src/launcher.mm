@@ -403,6 +403,14 @@ const std::vector<Section>& Sections() {
             @"menus and pause, 0.75x when hot) and keeps the frame rate cap at 30 or 40 (60 and 120 "
             @"become 30). Each can also be chosen on its own with Battery mode off.",
             @"false"},
+           {@"performance_mode", Type::kChoice, @"Performance",
+            @"Which CPU cores the game's threads ask for. Eco: the efficient ones always (the "
+            @"default with Battery mode on), for battery life over smoothness. Balanced: the "
+            @"efficient ones in menus and loading, the fast ones while driving. Max: always the "
+            @"fast ones, for the steadiest frame rate. Sound and the screen's timing keep their "
+            @"own priority in every mode. iOS takes this as a hint, not a fixed choice of cores.",
+            @"balanced",
+            {{@"Eco", @"eco"}, {@"Balanced", @"balanced"}, {@"Max", @"max"}}},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
        }, kTabGraphics},
@@ -712,6 +720,10 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
       On(s, @"native_renderer") && !([v isEqualToString:@"30"] || [v isEqualToString:@"40"])) {
     return @"30";
   }
+  // Performance: Eco by default with Battery mode on; a choice made wins.
+  if (!v && [key isEqualToString:@"performance_mode"] && [s[@"battery_mode"] isEqualToString:@"true"]) {
+    return @"eco";
+  }
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
     if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
     if ([v isEqualToString:@"1560x720"]) return @"wide";
@@ -793,6 +805,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
+  a.push_back("--nfsmw_performance_mode=" + str(@"performance_mode"));
+  a.push_back(std::string("--nfsmw_performance_source=") +
+              (s[@"performance_mode"].length ? "setting"
+               : [s[@"battery_mode"] isEqualToString:@"true"] ? "battery_mode"
+                                                              : "default"));
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
   // The HUD editor's layout (it replaced the per-side offsets of 0.4.2).

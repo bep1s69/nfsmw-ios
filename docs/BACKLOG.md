@@ -306,6 +306,16 @@ the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
 
+### D-012 Frame rate sinks to 40 mid-race when adaptive QoS returns to Utility — fix in 0.4.3, untested
+
+GitHub tester (iPhone 17 Pro Max, iOS 26): 60 fps until `[adaptive-qos] back
+to Utility`, then a flat 40 for 36 s before the next boost; Stefan's logs
+show the same returns. 0.4.3 keeps the threads boosted while driving, detects
+late frames by the cap's budget within ~1 s, and adds Performance Eco /
+Balanced / Max (TECHNICAL, Oct 29). Next: Stefan's A/B (fps and battery),
+then the tester's log. Open question: iPad battery without its fixed
+Utility default.
+
 ### D-011 iOS 26: native renderer crashes on Play (GitHub report, 0.4.2) — fixed (0.4.3; diag2 confirmed on iOS 26 Oct 29)
 
 iPhone 17 Pro Max, iOS 26.7.2: SIGSEGV at 0x9a0 inside AGX
