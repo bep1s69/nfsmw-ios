@@ -8442,3 +8442,10 @@ Customize HUD editor (Oct 29, approved by Stefan: outlines for now).
 ok. Not run yet: the editor has not been seen on a device, and the boxes'
 match with the game's drawn HUD at other sizes, safe zones and screens is
 untested.
+
+IPA150 result (Stefan, Oct 29, iPhone: "seems to work fine";
+`ipa150_iphone_editor_IMG_4064.png`, `ipa150_iphone_ingame_IMG_4063.png`):
+at 70% with the minimap and mirror moved to the bottom middle, the game draws
+the minimap, mirror and speedometer where their outlines were (mirror box
+848-1103 x 570-660 screenshot points, drawn about 870-1130 x 565-640).
+Pursuit elements and per-element sizes not shown in these screenshots.
