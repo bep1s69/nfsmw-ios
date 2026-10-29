@@ -129,6 +129,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: iPhone 14 Pro Max 60/~40 cycling investigated (D-014),
+  no source change.** Supplied log proves it happens with Max (adaptive
+  and Utility off), and Balanced stays boosted during driving. GPU time
+  crosses the 16.67 ms budget; exact 40 is alternating 16.7/33.3 ms
+  presentation. Neither an intentional 40 cap nor D-012's return to
+  Utility. Proposed next: Max, same stationary scene if possible,
+  `--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`,
+  cold launch, 2-3 min and log to isolate presentation feedback from GPU
+  cost/clock variation. Existing switches; no build required. GPU clocks
+  and thermal throttling remain unmeasured. Evidence in TECHNICAL/BACKLOG.
+
 - **October 30: Codex catch-up complete; no source change or device test.**
   Reviewed release history through `main` 4e2ac87, the checkpoint, backlog,
   technical evidence, release procedure, implementation changes and the

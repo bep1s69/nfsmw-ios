@@ -9160,3 +9160,69 @@ source, untracked and submodule modifications; all preserved. Only this
 session's documentation is committed. No source change, build, test run,
 push or release; this review adds no runtime validation. Next action is
 Stefan's chosen task; the existing 0.6.0 plan and deferred bugs remain.
+
+### October 30: D-014 iPhone 14 Pro Max 60/~40 cycling, log analysis
+
+Input (read only): `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm.log`,
+23,976 lines, concatenated launches from Oct 13/26/30. Relevant build
+Oct 29 22:38:47. Stefan: native 1x/60, cycling every ~20-30 s, previously
+absent on this phone; tried Balanced and Max. OS and install method not
+confirmed. Inspected recent launches, display/game/QoS transitions, frame
+summaries, presentation gaps, GPU pass profiles and native_renderer.mm
+presentation/timing code; no new execution/device test or build.
+
+Balanced 00:16:21 launch: 4 E cores, adaptive on, User Initiated boost at
+00:16:23.039, driving at 00:16:55.688. All steady driving render-entry
+summaries User Initiated 300/300; no Utility transition before pause
+00:18:02.331 (Utility only at 00:18:07.331). Yet at 00:17:57.801 frame
+5101: 40.0 fps, GPU 17.58 ms; presentation: 150 gaps of 16.7 ms and 150
+of 33.3 ms. Another 40.0 window at 00:19:44.489, GPU 20.31 ms. This is
+not a steady 25 ms display cadence despite the perceived evenness.
+
+Max launch 00:22:32.187: performance max (setting), main/GPU Utility off,
+guest Utility off, adaptive off. Renderer Utility requested off; Default
+300/300 entries throughout. 1x, MetalFX/FXAA/MSAA off, cap 60; menu/warm
+caps and hot resolution reduction off, Low Power Mode off. Frame windows:
+- 00:23:18.712: 60.0 fps, GPU 14.75 ms, render 14.48 ms, pacing 0/300.
+- 00:23:25.784: 42.4 fps, GPU 17.75 ms, render 21.29 ms, gaps 175 x
+  16.7 / 125 x 33.3 ms (125/300 off the 60 grid).
+- 00:23:31.956: 48.6 fps, GPU 17.52 ms.
+- 00:23:36.960: 60.0 fps, GPU 14.86 ms, pacing 0/300.
+Thermal nominal in CPU samples through 00:23:32.353, fair by
+00:23:42.355. Balanced also drops well before fair. Nominal does not
+measure clocks or prove absence of power/thermal clock limits.
+
+Individual GPU profiles support actual pass-cost variation, not just CPU
+waiting: 00:23:16.208 frame 2250: 47 passes/blits, 14.20 ms incremental,
+14.90 ms span; 00:23:22.017 frame 2550: same count, 18.35 / 19.07 ms;
+00:23:29.456 frame 2850: 18.73 / 19.41 ms; 00:23:34.456 frame 3150:
+14.16 / 14.87 ms. Cube faces 1.97 -> 2.65 -> 2.76 -> 2.02 ms; shadow
+passes 1.09 -> 1.73 -> 1.98 -> 1.63; resolve blits .63 -> .90 -> .92 ->
+.77. Same pass counts do not establish identical draw/shader workloads.
+GPU span is GPUEndTime-GPUStartTime (earlier buffer start if early commits);
+render time includes drawable waits, so higher render time is not proof
+of slower CPU encoding. Exact physical GPU clocks were not captured.
+
+Inference: D-012's adaptive return-to-Utility mechanism is excluded for
+these Max drops and does not align with Balanced drops. GPU cost crossing
+16.67 ms is associated with lost refreshes. GPU operating-point variation
+and changing scene cost remain candidates. Presentation may amplify it:
+native_renderer.mm ~7235 estimates readiness from recent GPU span plus
+4 ms, chooses the next whole 60 Hz slot and presents 2 ms early; no frame
+target trace was enabled, so a pacing/power feedback cycle is unproven.
+No stable in-game 40 cap or regular QoS timer explains these observations.
+
+Next diagnostic (existing switches, no source/build): Max, otherwise same
+settings, cold quit/relaunch with
+`--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`.
+Hold the camera/car stationary where possible for 2-3 min, keep Low Power
+Mode off, supply log. Removes scheduled presentation while tracing submit,
+GPU completion and display times. If cycling persists with pass-time
+swings, focus on GPU work/operating point; if it disappears, presentation
+feedback becomes the leading target. This is a proposed test, not a result.
+
+Git status/log checked; preserved pre-existing issue 11 checkpoint note,
+untracked HANDOFF_CHATGPT.md and sibling SDK work. Analysis commands exited
+0 except a final rg for guessed QoS label spellings (exit 1: no match);
+subsequent exact `render scheduling` extraction found the samples above.
+Only documentation changed; no push/tag/release.
