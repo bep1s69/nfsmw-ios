@@ -8323,3 +8323,18 @@ nfsmw_hud_title_safe), x also by 1280/width on a wide scene. On the iPad
 `ios/build/NFSMW-hud-fit-safe-144.ipa` SHA-256 996345e70b8c01f069e5873e583ad46b614232edf88901349a939777d2ca00ab, 30130938 bytes, `unzip -tq`
 ok. Not run yet. Not proven: that the asphalt picture's pieces are static
 (IPA141 showed fitting animated pieces compounds).
+
+IPA144 result (Stefan, Oct 29, iPhone, logs `Debug/29 October 2026/
+nfsmw_ipa144_iphone_part1.log` and `_part2.log`, screenshots
+`ipa144_iphone_IMG_4055, 4057, 4058.png`): the busted/evade bar works; the
+loading screen's black box now covers about 1970 of 2000 and 875 of 921
+screenshot pixels (thin edges left); the asphalt picture behind the results
+is closer to full but still shows the game at the sides; the pause menu
+shows two dark vertical bands (InGameBackground.fng is also the pause
+menu's dimmed backdrop; its fitted pieces no longer line up).
+
+IPA145: InGameBackground.fng no longer fitted (back to its old edges on
+the iPhone); fade images drawn 10% larger on top of the fit (g_fit_grow).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fade-grow-145.ipa` SHA-256 f755d286daf36645555bf7c3de99984fdd3f3047e521a475dca562320a876c1d, 30131166 bytes, `unzip -tq`
+ok. Not run yet.

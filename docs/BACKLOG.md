@@ -184,7 +184,9 @@ re-moves the infraction lines after the script places them (not yet
 tested). IPA142: PURSUIT CTS fixed, the rows flashed; IPA143 moves the
 rows' children instead (Stefan: fixed). iPhone: marker of the
 busted/evade bar lost, loading screen and asphalt picture bleed on all
-sides; IPA144 addresses both (not yet tested). Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
+sides; IPA144 fixed the bar; IPA145 fills the loading screen (not yet
+tested). The asphalt picture's iPhone side margins stay open (fitting it
+broke the pause menu, which uses the same package). Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
