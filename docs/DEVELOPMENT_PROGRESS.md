@@ -141,6 +141,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: test5 steady40 successful on14 Pro Max (log9).** Stefan:
+  "felt like heaven in terms of everything". Archived
+  nfsmw_iphone_14pm_9_metal_display_40_test5_smooth.log in Debug/29October.
+  Selected1980 world steps full~25.02ms,1978/1980 shown gaps25ms;given/
+  raw elapsed ratio99.95%,no steady repeat-strip samples. Known-good IPA
+  remains test5-world-step,f918c1df...,UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5.
+  Next before default0.5.1: short heavier-resolution run to assess genuine
+  below40/game-speed behavior (fixed steps may slow simulation there),
+  menu30/pause/background-resume and another owned ProMotion40/60 check.
+  Then enable intended40 defaults,diagnostics off,0.5.1/build9 and verified
+  clean candidate; no push/tag/release without explicit go. No source/build
+  changes or promotion this turn. 60 fix confirmed;0.5.1 scope only2 fixes.
+
 - **October30: log8 confirms world-step mismatch; test5 built.**
   Archived nfsmw_iphone_14pm_8_metal_display_40_world_diagnostic.log.
   mode2 confirmed (existing default since0.4.2,not2ticks).2280 shown gaps

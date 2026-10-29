@@ -9963,3 +9963,62 @@ constant per-frame stepping can slow simulation if sustained FPS is below
 actual missed-frame compensation would need separate evidence/design if
 required. This is a narrow steady40 diagnostic trial, not an accepted0.5.1
 fix. No release/version bump/push/tag; issue11/HANDOFF/SDK work preserved.
+
+### October 30: test5 steady 40 succeeds on 14 Pro Max (log9)
+
+Stefan: "felt like heaven in terms of everything". Input
+/Users/bep1s/Downloads/nfsmw 9.log archived byte-for-byte (exclusive create,
+no overwrite; source retained):
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_9_metal_display_40_test5_smooth.log`.
+878561bytes,3791lines,SHA-256
+dab08fa9187cb8a432b6fbe449309dd46b9291b727d3c3151af3bc516ea48fca.
+Copy/verify/read analysis exit0. One launch01:37:49.886;world01:38:28.608;
+link stop and ordinary120Hz return~01:39:30.119;partial final line.
+14 Pro Max per ongoing test,OS not supplied;test5 identity from handoff
+f918c1df...,UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5 (not independently
+echoed by runtime). Balanced/native1x/40,no MetalFX/FXAA/MSAA;managed link,
+world-clock logger mode2,trace and repeat-strip diagnostics active. Same
+five arguments as previous entry, default-off experiment explicitly on.
+
+Numeric trace/world rows emitted >=01:38:40.000 and <01:39:29.000 (each
+batch covers preceding60 entries; rounded values),1980 per stage:
+- world given1978x25.02ms +2x25.05;raw mean25.03346ms,given25.02003ms,
+  sum given/raw=.999464 (~99.95%). No8.34/16.68/33.36 world-step pairs
+  in this selected driving interval. This approximates pacing relative to
+  elapsed main-loop time, not an independent game/lap timer verification.
+- swap mean25.033ms,sd.894;handed25.033,sd1.000;GPU end25.035,sd1.520.
+- shown mean25.013ms,sd.420:1978x25.0,1x41.7,1x33.4.
+  One39.8fps300-frame window,others steady40.0fps. No recurring large
+  world-time discontinuities like log8; initial loading transients excluded.
+- trace latency swap->handed / ->GPU end / ->shown11.53/20.30/25.99ms,
+  sum57.82ms;renderer handoff latency,not input-to-photon or a controlled
+  latency A/B. Accepted subjective feel for this run, not a universal
+  latency guarantee. GPU after warm-up~17-21ms,below25ms budget.
+- Only2 repeated-strip samples at initial world entry01:38:28.748/.758,
+  frames1322/1323. All steady300-picture summaries0 repeats. Strip samples
+  are partial image evidence,not a full-image equality proof.
+
+Outcome: steady managed40 driving trial successful by user and diagnostics
+on this device/settings. Keep test5 as known-good comparison. No source or
+build change this turn, no default promotion/version bump/release yet.
+60fps D-014 fix remains confirmed separately. 0.5.1 scope still just these
+2 fixes; do not silently add other features or diagnostics to normal use.
+
+Remaining before final default/release candidate:
+1. Genuine under40 behavior: constant per-frame world step can slow the
+   simulation if GPU cannot sustain40. Need a short deliberately heavier
+   current-build run (briefly raise render resolution then restore1x) and
+   compare world given-time/elapsed ratio,not only frame pacing. This
+   is a correctness boundary,not a new feature or battery experiment.
+   If confirmed, compensate actual missed output slots without restoring
+   raw-loop-driven8.34ms corrections that caused the observed judder.
+2. Pause/menu30 and background/resume transitions, then40 again; and short
+   40/60 check on another owned ProMotion device. Keep same known-good
+   build/arguments until those results indicate a required change.
+3. Only after correctness checks, enable intended40 behavior by default,
+   diagnostics off,update0.5.1/build9 and changelog,build/verify clean IPA,
+   device smoke then await Stefan's explicit push/tag/release permission.
+
+No claim that sustained under40 is solved or that other devices are
+validated. Preserve pre-existing issue11 checkpoint note,HANDOFF_CHATGPT.md
+and sibling SDK source/submodule state. Session changes documentation only.
