@@ -65,6 +65,8 @@ const char* const kMenuPackages[] = {
     "GameWon.fng",             "WorldMapMain.fng",           "EngageEventDialog.fng",
     "ControllerUnplugged.fng", "Loading.fng",                "WS_Loading.fng",
     "SixDaysLater.fng",
+    // The SMS screens (IPA159, Stefan: the DRIVE controls stayed over them).
+    "SMS_Message.fng",         "SMS_MailBoxes.fng",          "SMS_Mailboxes.fng",
 };
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 

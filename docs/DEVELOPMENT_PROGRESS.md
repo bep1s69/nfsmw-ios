@@ -215,7 +215,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   same place with Custom HUD off (the game's own). IPA159
   `ios/build/NFSMW-touch-actions-159.ipa` (iCloud Desktop): pursuit
   detection (FD9152B1), map rules, the four D-pad buttons as one group in
-  the touch editor, hud_layout never empty. Built, not run. Then: the on-screen touch controls, then
+  the touch editor, hud_layout never empty. Stefan's IPA159 run
+  (`nfsmw_ipa159_pursuit_iphone.log`, `ipa159_IMG_4068-4072.png`): editor
+  showed a plain D-pad, SMS screens kept DRIVE controls, free-roam pursuit
+  not detected (FD9152B1 not shown in it), same icon for race and shop
+  circles, no darkened backdrop on map / Blacklist / SMS (pause has it).
+  IPA160 `ios/build/NFSMW-touch-actions-160.ipa` (iCloud Desktop): editor
+  draws the four, SMS packages as menus, `[hud] circle prompt` words
+  logged for the icon. Asked Stefan: a free-roam pursuit with
+  `--nfsmw_hud_watch=true`, and the backdrop with Custom HUD off. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

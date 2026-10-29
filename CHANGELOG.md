@@ -39,7 +39,9 @@
   an event, shop or safehouse circle; in races, pursuits and pursuit
   events the up button opens the details instead; Map in free roam and
   free-roam pursuits; SMS and Blacklist in free roam only. In Customize
-  touch controls the four move and resize together. Buttons held while the set changes stay held, and the
+  touch controls the four are shown as they are, and move and resize
+  together. The SMS screens count as menus (no driving controls over
+  them). Buttons held while the set changes stay held, and the
   driving buttons no longer flash up for a moment when the game starts.
 
 - **Custom HUD: the circle prompt stays put.** The icon over the road in

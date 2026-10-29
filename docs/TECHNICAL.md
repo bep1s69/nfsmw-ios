@@ -8681,3 +8681,30 @@ IPA159:
 `ios/build/NFSMW-touch-actions-159.ipa` SHA-256
 df60db91e2eb5c354ca388c612e3ca6331ffd69609709366ce720289939d2704, 30151321
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA158. Not run.
+
+### October 29: IPA159 run; editor, SMS, prompt diagnostic (IPA160)
+
+Stefan (IPA159, `Debug/29 October 2026/nfsmw_ipa159_pursuit_iphone.log`,
+`ipa159_IMG_4068.png` SMS with DRIVE controls, `_4069` Blacklist, `_4070`
+map, `_4071` circle, `_4072` pause):
+- The touch editor drew drive.ACTIONS as a D-pad (Stefan wants the
+  buttons): now drawn as the four (ENTER, MAP, SMS, LIST) at
+  layoutDriving's places for its radius.
+- SMS (20:52:44, 20:54:29): no `[game] menu` line; SMS_Message.fng /
+  SMS_MailBoxes.fng / SMS_Mailboxes.fng (PC names) added to the menu
+  packages (game_state.cpp). Unverified that the X360 names match.
+- Free-roam pursuit (from ~20:54:23, infraction hint at that time): context
+  stayed "free roam"; FD9152B1 is not a steady pursuit sign (no hud-watch
+  this run). Needs a run with `--nfsmw_hud_watch=true` and a longer pursuit
+  without menus.
+- Circle icon: one ENTER icon for event and shop/safehouse circles.
+  Diagnostic: on entering a circle, `[hud] circle prompt <obj>: <0x60
+  bytes of the object> | data <0x60 bytes of its data>` once, to find the
+  icon's texture.
+- Darkened backdrop: present in the pause menu, absent in the world map,
+  Blacklist (InGameReputationOverview / bio) and SMS. Not investigated;
+  asked whether it is the same with Custom HUD off.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-actions-160.ipa` SHA-256
+b286078f68686f7f07e25aea5e1f17df6ebc3f5cb8d3b88b259d7eb968b14ea0, 30151842
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA159. Not run.

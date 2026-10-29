@@ -1361,6 +1361,26 @@ static NSString* SymbolFor(NSString* label) {
         break;
       }
       case Kind::kDpad: {
+        if ([c.label isEqualToString:@"ACTIONS"]) {
+          // The editor's handle for the four D-pad buttons: drawn as them
+          // (the same places and sizes as layoutDriving's).
+          const CGFloat off = c.radius * (.62 / .98), r = c.radius * (.36 / .98);
+          const struct {
+            NSString* l;
+            CGFloat dx, dy;
+          } actions[] = {{@"ENTER", 0, -1}, {@"MAP", -1, 0}, {@"SMS", 1, 0}, {@"LIST", 0, 1}};
+          for (const auto& a : actions) {
+            const CGPoint p = CGPointMake(c.center.x + a.dx * off, c.center.y + a.dy * off);
+            UIBezierPath* path = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(p.x - r, p.y - r, r * 2, r * 2)];
+            [fill setFill];
+            [path fill];
+            [stroke setStroke];
+            path.lineWidth = 1.5;
+            [path stroke];
+            [self drawIcon:a.l at:p size:r * 0.9 fit:r * 1.4];
+          }
+          break;
+        }
         const CGFloat arm = c.radius * 0.36, len = c.radius;
         const struct {
           int bit;

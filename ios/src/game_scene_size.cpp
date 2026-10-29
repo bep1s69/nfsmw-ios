@@ -597,6 +597,7 @@ void WatchTree(uint8_t* base, uint32_t object) {
 // IPA158 log a, 20:44:26). Shown: flag 0x00800000 (43800000 shown,
 // 40000000 / 42000000 hidden).
 constexpr uint32_t kShown = 0x00800000;
+bool g_log_prompt = false;  // the next scan logs the prompt's words
 
 void ScanContext(uint8_t* base, uint32_t first, int depth, int& budget, int& bits) {
   for (uint32_t o = first; Plausible(o) && budget > 0; o = REX_LOAD_U32(o + 4)) {
@@ -605,6 +606,14 @@ void ScanContext(uint8_t* base, uint32_t first, int depth, int& budget, int& bit
     const uint32_t hash = REX_LOAD_U32(o + 0x10), type = REX_LOAD_U32(o + 0x18);
     const bool shown = (REX_LOAD_U32(o + 0x1C) & kShown) != 0;
     if (shown && (hash == 0x3B1B624A || hash == 0x0A729B1B)) bits |= nfsmw::touch::kInCircle;
+    if (g_log_prompt && hash == 0x3B1B624A) {
+      const uint32_t data = REX_LOAD_U32(o + 0x2C);
+      std::string words;
+      for (uint32_t i = 0; i < 0x60; i += 4) words += fmt::format(" {:08X}", REX_LOAD_U32(o + i));
+      words += " | data";
+      for (uint32_t i = 0; Plausible(data) && i < 0x60; i += 4) words += fmt::format(" {:08X}", REX_LOAD_U32(data + i));
+      REXLOG_INFO("[hud] circle prompt {:08X}:{}", o, words);
+    }
     if (shown && hash >= 0x4FDDD64C && hash <= 0x4FDDD64F) bits |= nfsmw::touch::kInRace;
     if (shown && hash == 0xFD9152B1) bits |= nfsmw::touch::kInPursuit;
     if (type == 5 && REX_LOAD_U32(o + 0x5C) == kListVtable && REX_LOAD_U32(o + 0x60) < 200 && depth < 8) {
@@ -622,8 +631,14 @@ void UpdateDriveContext(uint8_t* base, uint32_t object) {
   }
   int budget = 1500, bits = 0;
   ScanContext(base, first, 0, budget, bits);
+  g_log_prompt = false;
   static int last = -1;
   if (bits != last) {
+    // Diagnostic: the circle prompt's icon, to tell an event's circle from a
+    // shop's or safehouse's (one icon for both so far, Stefan, IPA159).
+    if ((bits & nfsmw::touch::kInCircle) && !(last & nfsmw::touch::kInCircle) && last >= 0) {
+      g_log_prompt = true;
+    }
     last = bits;
     REXLOG_INFO("[hud] drive context: {}{}{}", bits & nfsmw::touch::kInRace ? "race" : "free roam",
                 bits & nfsmw::touch::kInPursuit ? ", pursuit" : "", bits & nfsmw::touch::kInCircle ? ", in a circle" : "");
