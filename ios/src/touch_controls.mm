@@ -703,7 +703,7 @@ static CGFloat TouchOpacity() {
     if (event || pursuit) {
       action(@"STATS", 0, -1, kUp);
     } else if (_context & nfsmw::touch::kInCircle) {
-      action(@"ENTER", 0, -1, kUp);
+      action((_context & nfsmw::touch::kRaceCircle) ? @"RACE" : @"ENTER", 0, -1, kUp);
     }
     if (!event) action(@"MAP", -1, 0, kLeft);
     if (!event && !pursuit) {
@@ -1141,7 +1141,8 @@ static NSString* SymbolFor(NSString* label) {
     @"CAM" : @"camera.fill",
     @"PAUSE" : @"pause.fill",
     @"RESET" : @"arrow.counterclockwise",
-    @"ENTER" : @"flag.checkered",
+    @"ENTER" : @"door.left.hand.open",
+    @"RACE" : @"flag.checkered",
     @"STATS" : @"chart.bar.fill",
     @"MAP" : @"map.fill",
     @"SMS" : @"message.fill",

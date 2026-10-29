@@ -223,7 +223,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   IPA160 `ios/build/NFSMW-touch-actions-160.ipa` (iCloud Desktop): editor
   draws the four, SMS packages as menus, `[hud] circle prompt` words
   logged for the icon. Asked Stefan: a free-roam pursuit with
-  `--nfsmw_hud_watch=true`, and the backdrop with Custom HUD off. Then: the on-screen touch controls, then
+  `--nfsmw_hud_watch=true`, and the backdrop with Custom HUD off. Stefan:
+  backdrop present with Custom HUD off (BACKLOG, ours); his layout as the
+  default for all, adapted to iPad; editor in the in-game options. His
+  IPA160 run (`nfsmw_ipa160_circles_pursuit_iphone.log`): pursuit sign =
+  the busted/evade bar labels, circle icon word. IPA161
+  `ios/build/NFSMW-touch-defaults-161.ipa` (iCloud Desktop), built, not
+  run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

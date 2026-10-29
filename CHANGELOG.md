@@ -41,7 +41,16 @@
   free-roam pursuits; SMS and Blacklist in free roam only. In Customize
   touch controls the four are shown as they are, and move and resize
   together. The SMS screens count as menus (no driving controls over
-  them). Buttons held while the set changes stay held, and the
+  them). Up shows a flag in an event's circle and a door in a shop's or
+  safehouse's.
+
+- **A new default touch layout.** Nitrous and look back above
+  speedbreaker and handbrake, the D-pad buttons above the shift buttons
+  (on iPhone and iPad alike). A layout you saved stays.
+
+- **Touch controls editor while playing.** The options sheet (the gear)
+  has a Touch controls button next to Customize HUD; changes apply when
+  you close it. Buttons held while the set changes stay held, and the
   driving buttons no longer flash up for a moment when the game starts.
 
 - **Custom HUD: the circle prompt stays put.** The icon over the road in

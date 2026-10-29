@@ -8708,3 +8708,36 @@ map, `_4071` circle, `_4072` pause):
 `ios/build/NFSMW-touch-actions-160.ipa` SHA-256
 b286078f68686f7f07e25aea5e1f17df6ebc3f5cb8d3b88b259d7eb968b14ea0, 30151842
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA159. Not run.
+
+### October 29: IPA160 run; pursuit sign, circle icons, defaults (IPA161)
+
+Stefan: with Custom HUD off the SMS screen is darkened
+(`ipa160_customhud_off_IMG_4073.png`): the missing backdrop is ours
+(BACKLOG). His editor screenshot (`ipa160_customhud_off_IMG_4074.png`)
+gave the new default DRIVE layout: NOS (.9,.38) and LOOK BACK (.765,.38),
+both unit x .42, above speedbreaker / handbrake; drive.ACTIONS at
+(.11,.36) above UP/DOWN; the rest as before. Positions are fractions of
+the view and sizes in `unit` (min(w/16, h/9)), so the same layout fits the
+iPad without overlaps (checked on paper at 1180 x 820). In-game options:
+a "Touch controls" bar button opens MakeLayoutEditor (the launcher's
+steering setting); Done relayouts the live view (LiveView, g_view).
+
+IPA160 run (`Debug/29 October 2026/nfsmw_ipa160_circles_pursuit_iphone.log`,
+`--nfsmw_hud_watch=true`): an event circle 21:06:07, then shop /
+safehouse circles 21:06:33, 21:06:41; a free-roam pursuit 21:07:12-38
+(PostRace_Pursuit.fng at 21:07:39).
+- `[hud] circle prompt`: word +24 of 3B1B624A (its texture) E9638D3E in
+  the event's circle, 0ED39F69 in the others (and at rest).
+- Pursuit: FD9152B1 and the race markers only flash at its start (0.4 s,
+  context "race, pursuit"). Steady for the whole pursuit: the bar's labels
+  FC39CB0A / 875E92EB (texts at 45,259 / 65,261), 40000002 before,
+  43800002 / 43000002 / 42000002 during, 40000002 after; the same in the
+  IPA158 log a. The 0x03000000 bits, not 0x00800000, are used for them
+  (42000002 is shown, after the fade in).
+IPA161: kInPursuit from those labels (mask 0x03000000); kRaceCircle from
+the prompt's word; up = RACE (flag.checkered) in an event's circle, ENTER
+(door.left.hand.open) in the others.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-defaults-161.ipa` SHA-256
+bb7a53daf04665a7903246bf34235982057fd128e15b62f5caad7083017332b1, 30152560
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA160. Not run.
