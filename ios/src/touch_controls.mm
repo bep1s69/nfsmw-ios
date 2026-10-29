@@ -481,8 +481,11 @@ static CGFloat TouchOpacity() {
   [_fadeTimer invalidate];
   _fadeTimer = nil;
   _steerZone = CGRectZero;
-  _toggle = CGRectMake(w * .5 - unit * .9, h * .02, unit * 1.8, unit * .5);
-  _modeToggle = CGRectOffset(_toggle, -(_toggle.size.width + unit * .3), 0);
+  // One row along the top edge, above the rear-view mirror (Stefan, IPA161:
+  // CAM and PAUSE sat on the mirror): PAD, then CAM and PAUSE in the
+  // middle, then HIDE.
+  _toggle = CGRectMake(w * .54 + unit * .6, h * .02, unit * 1.8, unit * .5);
+  _modeToggle = CGRectMake(w * .46 - unit * .6 - unit * 1.8, h * .02, unit * 1.8, unit * .5);
   static const bool snap = rex::cvar::Query<bool>("nfsmw_native_dump_manual");
   _snap = snap ? CGRectOffset(_toggle, _toggle.size.width + unit * .3, 0) : CGRectZero;
   if (_driving) {
@@ -666,8 +669,9 @@ static CGFloat TouchOpacity() {
   Control accel{Kind::kTrigger, @"GAS", P(.9, .84), 0, CGSizeMake(unit * 1.05, unit * 1.75)};
   accel.axis = 1;
   _controls.push_back(accel);
-  round(@"CAM", P(.455, .17), unit * .36, kDriveCamera);
-  round(@"PAUSE", P(.545, .17), unit * .36, kDrivePause);
+  const CGFloat top = h * .02 + unit * .25;  // the pills' middle
+  round(@"CAM", CGPointMake(w * .46, top), unit * .36, kDriveCamera);
+  round(@"PAUSE", CGPointMake(w * .54, top), unit * .36, kDrivePause);
   round(@"RESET", P(.5, .86), unit * .36, kDriveReset);
   // What the game puts on the D-pad while driving (its controls screen):
   // up enters a shop or engages an event, left the world map, right the

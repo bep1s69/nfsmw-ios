@@ -8741,3 +8741,17 @@ the prompt's word; up = RACE (flag.checkered) in an event's circle, ENTER
 `ios/build/NFSMW-touch-defaults-161.ipa` SHA-256
 bb7a53daf04665a7903246bf34235982057fd128e15b62f5caad7083017332b1, 30152560
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA160. Not run.
+
+### October 29: IPA161 confirmed; top row (IPA162)
+
+Stefan (IPA161): pursuit buttons, circle icons and the new defaults work.
+CAM and PAUSE covered the rear-view mirror (`ipa161_mirror_cam_pause_IMG_4075.png`);
+the top right holds the race / pursuit info, so (his choice) one row
+along the top edge: PAD pill right edge at w x .46 - unit x .6, CAM at
+w x .46 and PAUSE at w x .54 (centred on the pills' middle, h x .02 +
+unit x .25), HIDE from w x .54 + unit x .6. A saved CAM / PAUSE position
+still wins.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-top-row-162.ipa` SHA-256
+e950565bbd5b0bef27743b22ce3e6856961476a3a3123419eadc7202737e5438, 30152472
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA161. Not run.

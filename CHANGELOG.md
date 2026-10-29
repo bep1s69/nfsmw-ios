@@ -45,8 +45,9 @@
   safehouse's.
 
 - **A new default touch layout.** Nitrous and look back above
-  speedbreaker and handbrake, the D-pad buttons above the shift buttons
-  (on iPhone and iPad alike). A layout you saved stays.
+  speedbreaker and handbrake, the D-pad buttons above the shift buttons,
+  and camera and pause in one row with the PAD and HIDE buttons along the
+  top edge, above the rear-view mirror (on iPhone and iPad alike). A layout you saved stays.
 
 - **Touch controls editor while playing.** The options sheet (the gear)
   has a Touch controls button next to Customize HUD; changes apply when
