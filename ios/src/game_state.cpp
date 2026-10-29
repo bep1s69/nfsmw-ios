@@ -139,7 +139,8 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
-extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_photo(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 extern "C" void nfsmw_hud_full_size(bool on);                              // game_scene_size.cpp
 
@@ -173,13 +174,18 @@ extern "C" REX_FUNC(sub_823B4158) {
       nfsmw_hud_fit_backdrop(base, FindPackage(ctx, base, kBackdrop[0]), state == kRacing && menu < 0);
     }
   }
-  if (state == kRacing && menu < 0) {
+  if (state == kRacing) {
     // The song's name and the autosave icon (IPA139), kept at the HUD's
-    // safe zone.
+    // safe zone; under menus too (IPA146).
     static const char* const kOverlays[] = {"EA_Trax.fng", "Autosave_Overlay.fng"};
     for (const char* overlay : kOverlays) {
-      if (PushedPackage(ctx, base, &overlay, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay));
+      if (PushedPackage(ctx, base, &overlay, 1) >= 0) {
+        nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay), menu < 0);
+      }
     }
+    // The picture behind the race's results (IPA146).
+    static const char* const kPhoto[] = {"InGamePhotoMaster.fng"};
+    if (PushedPackage(ctx, base, kPhoto, 1) >= 0) nfsmw_hud_fit_photo(base, FindPackage(ctx, base, kPhoto[0]));
   }
   // The TV-style overlays of a bust and of a race's end (IPA139), drawn at
   // full size while they are up.

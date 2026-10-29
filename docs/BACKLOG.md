@@ -187,7 +187,9 @@ busted/evade bar lost, loading screen and asphalt picture bleed on all
 sides; IPA144 fixed the bar; IPA145 fills the loading screen (not yet
 tested). The asphalt picture's iPhone side margins stay open (fitting it
 broke the pause menu, which uses the same package). IPA146 scales its
-groups whole instead (not yet tested). Known issue: the loading screen's
+groups whole instead (pause fixed); IPA147 covers the iPhone screen with
+the results' leaves picture (InGamePhotoMaster.fng) and fixes the song box
+under the pause menu (not yet tested). Known issue: the loading screen's
 pieces twitch slightly since IPA145. Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 

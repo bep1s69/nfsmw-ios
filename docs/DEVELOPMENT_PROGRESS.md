@@ -167,8 +167,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-hud-fade-grow-145.ipa`: asphalt picture left alone,
   fades 10% larger: no bleed on either device, the loading pieces twitch
   a little (known issue). IPA146 `ios/build/NFSMW-hud-backdrop-146.ipa`:
-  the pause backdrop and asphalt picture scaled as whole groups (not yet
-  tested). Next after the HUD (Stefan): each HUD element movable from the
+  the pause backdrop scaled as whole groups (pause fixed). IPA147
+  `ios/build/NFSMW-hud-photo-147.ipa`: the results' leaves picture
+  (InGamePhotoMaster image) covers the iPhone screen; the song box is put
+  back under the pause menu (not yet tested). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
   controls.
   Still open: iPhone side bars on the bust overlay and asphalt
