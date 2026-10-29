@@ -917,6 +917,27 @@ extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool dri
   }
 }
 
+// The asphalt-and-leaves picture behind the race's results (IPA146, Stefan:
+// still with the game at its sides on the iPhone) is InGamePhotoMaster.fng's
+// 640x480 image 0xBCC00F05 (IPA139's tree), 4:3: drawn full size and made
+// to cover a wider screen, keeping its shape (cut at the top and bottom).
+// The HUD's size is 1 while the package is up (nfsmw_hud_full_size).
+extern "C" void nfsmw_hud_fit_photo(uint8_t* base, uint32_t package) {
+  if (!Plausible(package)) return;
+  float sx, sy;
+  FullScreenScale(base, false, sx, sy);
+  const uint32_t width = WideWidth();
+  const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;
+  const float aspect = hd ? float(width ? width : 1280) / 720.0f : 4.0f / 3.0f;
+  const float cover = std::max(1.0f, aspect / (4.0f / 3.0f));
+  uint32_t at = 0;
+  int n = 0;
+  for (uint32_t o = FirstObject(base, package, at); Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300;
+       o = REX_LOAD_U32(o + 4), ++n) {
+    if (REX_LOAD_U32(o + 0x10) == 0xBCC00F05 && REX_LOAD_U32(o + 0x18) == 1) Fit(base, o, sx / cover, sy / cover, false);
+  }
+}
+
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) {  // none up
     g_fade_opaque = false;
@@ -957,7 +978,10 @@ std::unordered_map<uint32_t, Moved> g_overlay;
 // each top-level object is moved so its outer corner (the corner of its
 // extent away from the middle of the screen) keeps its place as the HUD's
 // corners do: s * (a + d) = k * a.
-extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
+// driving: the HUD's size is in the matrix (IPA146, Stefan: under the pause
+// menu the song box was left moved for the smaller size, at full size and
+// off the screen; there it goes back to the game's place).
+extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) return;
   uint32_t at = 0;
   const uint32_t first = FirstObject(base, package, at);
@@ -970,7 +994,7 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
   }
   const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
   const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
-  const float s = HudScaleSetting();
+  const float s = driving ? HudScaleSetting() : 1.0f;
   int n = 0;
   for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
     const uint32_t data = REX_LOAD_U32(o + 44);

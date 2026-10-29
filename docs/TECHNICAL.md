@@ -8356,3 +8356,18 @@ fades, FullScreenScale), so its pieces keep together. `cmake --build
 --preset ios --target ipa -j 6` exit 0; `ios/build/NFSMW-hud-backdrop-146.ipa`
 SHA-256 7b0dfa47a8818145d02e0b9c13632eb9e4526dd914ac54e98e2430ea6a2114c8,
 30121610 bytes, `unzip -tq` ok. Not run yet.
+
+IPA146 result (Stefan, Oct 29): the pause menu's darkening covers the whole
+iPhone screen; the asphalt-and-leaves picture behind the results still shows
+the game at the sides, so it is not InGameBackground.fng (inference: it is
+InGamePhotoMaster.fng's top-level 640x480 image 0xBCC00F05, IPA139's tree).
+New: pausing while the song box (EA_Trax.fng) shows puts it back at full
+size and off the screen (it kept the offsets for 0.7 under the menu's size
+1).
+
+IPA147: nfsmw_hud_fit_photo fits only that image (full-screen scale, then
+enlarged to cover the screen's aspect keeping 4:3, cut at the top and
+bottom; 1.625 at 1560x720, 1 on the iPad); nfsmw_hud_fit_overlay runs under
+menus too with the HUD size 1 there. `cmake --build --preset ios --target
+ipa -j 6` exit 0; `ios/build/NFSMW-hud-photo-147.ipa` SHA-256 062d567384c8b7dd2820eeadc67b7edbc9b4b10a0319e36256915843c5d0e9bb, 30132806
+bytes, `unzip -tq` ok. Not run yet.
