@@ -141,6 +141,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: original-world-time trial feels worse; diagnostic test4
+  built.** Archived nfsmw_iphone_14pm_7_metal_display_40_frame_ticks_off_worse.log.
+  All1440 selected shown gaps25ms; user judder worsens, so restore mode2.
+  New default-off `nfsmw_frame_ticks_log` observes raw/given world update
+  time, quantum/debt/host gap; no timing/presentation behavior change.
+  24000-return host differential, build/ZIP/signature passed. Test IPA
+  `ios/build/NFSMW-0.5.0-metal-display-40-test4-diag.ipa`, SHA-256
+  68e859cd2e645e3c25439344bdcc544afd9eb33234b8fd86d82a803c50d7ef05,
+  UUID542EEA4F-55E5-35D4-9FD7-A407F0100234. Next same14 Pro Max
+  Balanced/1x/40 cold run, Low Power Mode off, replace Extra Args with
+  metal_display_40=true, frame_trace=true, frame_ticks=2,
+  frame_ticks_log=true, native_repeat_log=true (full nfsmw_ prefixes in
+  TECHNICAL); remove camera override. Correlate world steps/strip repeats
+  with presentation. 40 unaccepted/default off; 60 fix remains; no release.
+
 - **October 30: test3 still has perceived stuck frames about every 5 s.**
   Archived nfsmw_iphone_14pm_6_metal_display_40_test3_stuck_frames.log in
   Debug/29 October. Guest grid ~8.34 ms confirmed; 1437/1440 selected
