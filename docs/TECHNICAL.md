@@ -8974,7 +8974,7 @@ lines; read as fractions of the screen: left below ~.62 and left of
 ~.35-.38, right below ~.62 and right of ~.62-.72).
 - touch_controls.mm layoutDriving: on a screen under 1.6:1 (`tablet`) the
   same arrangement at new defaults: DOWN (.045,.70), UP (.115,.68), D-pad
-  middle (.245,.72), steering thumb zone x 0-.37 / y .62-1 (fixed stick
+  middle (.245,.72; IPA170: (.083,.503), above the zone), steering thumb zone x 0-.37 / y .62-1 (fixed stick
   at (.13,.86)); LOOK BACK (.795,.665), NOS (.915,.665), SPEEDBREAKER /
   HANDBRAKE (.795/.915,.775) at radius .6 unit (was .8), BRAKE / GAS
   (.795/.915,.92) 1.35 units tall (was 1.75). CAM, PAUSE, RESET unchanged.
@@ -8985,3 +8985,15 @@ lines; read as fractions of the screen: left below ~.62 and left of
 b0112f47c72c57053248cc6ef1685dd70bddb2128b44460ce8011658768e2c6e, 30169886
 bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA168.
 Not run.
+
+### October 29: IPA170, iPad D-pad default from Stefan's layout
+
+Stefan (IPA169, `ipa169_ipad_layout_IMG_0339.png`, his edited layout): fine
+for the iPad; the D-pad buttons need not be in the thumb zone (rarely
+pressed): he moved them up to about (.083,.503). IPA170 makes that the
+iPad default (touch_controls.mm `pad` and the editor's ACTIONS group);
+everything else as IPA169. Stefan: thread done after this.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-ipad-thumbs-170.ipa` SHA-256
+6091f3765b4baae8f81d669581f35d8524d7f766d220b88b9a7c611e1e5b8e07, 30169916
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA169.

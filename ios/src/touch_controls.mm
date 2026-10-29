@@ -699,7 +699,8 @@ static CGFloat TouchOpacity() {
   // A 4:3 screen (iPad): the same arrangement drawn closer to the bottom
   // corners, where the thumbs reach (Stefan's sketch, Oct 29,
   // ipa168_ipad_thumb_zones.jpeg): left below y .62 and left of x .35,
-  // right below y .62 and right of x .70.
+  // right below y .62 and right of x .70. The D-pad buttons above the left
+  // zone (Stefan, IPA169: not pressed often).
   const bool tablet = w < h * 1.6;
   auto T = [&](CGFloat fx, CGFloat fy, CGFloat tx, CGFloat ty) { return tablet ? P(tx, ty) : P(fx, fy); };
   // Steering (ios_touch_steering): the circle where it is, the same
@@ -761,7 +762,7 @@ static CGFloat TouchOpacity() {
   _context = g_drive_context.load();
   const bool event = _context & nfsmw::touch::kInRace;
   const bool pursuit = _context & nfsmw::touch::kInPursuit;
-  CGPoint pad = T(.11, .36, .245, .72);
+  CGPoint pad = T(.11, .36, .083, .503);
   CGFloat k = TouchSize();
   NSArray* saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][@"drive.ACTIONS"];
   if (saved.count == 3) {
@@ -769,7 +770,7 @@ static CGFloat TouchOpacity() {
     k *= CGFloat([saved[2] doubleValue]);
   }
   if (_editing) {
-    Control group{Kind::kDpad, @"ACTIONS", T(.11, .36, .245, .72), unit * .98};
+    Control group{Kind::kDpad, @"ACTIONS", T(.11, .36, .083, .503), unit * .98};
     _controls.push_back(group);  // placed by applyCustomLayout
   } else {
     const CGFloat off = unit * .62 * k, r = unit * .36 * k;
