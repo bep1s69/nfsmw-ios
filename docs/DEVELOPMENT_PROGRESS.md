@@ -165,7 +165,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   wide scene); IPA144 fixed the bar, nearly the loading screen, and broke
   the pause menu (asphalt picture fit). IPA145
   `ios/build/NFSMW-hud-fade-grow-145.ipa`: asphalt picture left alone,
-  fades 10% larger (not yet tested).
+  fades 10% larger: no bleed on either device, the loading pieces twitch
+  a little (known issue). IPA146 `ios/build/NFSMW-hud-backdrop-146.ipa`:
+  the pause backdrop and asphalt picture scaled as whole groups (not yet
+  tested). Next after the HUD (Stefan): each HUD element movable from the
+  pre-launch and in-game menus; then the timing thread, then touch
+  controls.
   Still open: iPhone side bars on the bust overlay and asphalt
   picture, the iPad loading screen's short bleed, the judder Stefan felt
   (not in the pacing log) (TECHNICAL Oct 29, D-006).
