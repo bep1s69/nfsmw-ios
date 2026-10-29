@@ -103,6 +103,7 @@ extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hoo
 // shown on time. Each frame copies a strip of the displayed picture and
 // compares it with the previous frame's; each repeat is logged with where
 // the picture came from.
+REXCVAR_DECLARE(std::string, nfsmw_performance_mode);  // adaptive_qos.cpp
 REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_log, false, "GPU",
                     "Native renderer: log frames whose displayed picture repeats the previous one's");
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
@@ -436,6 +437,10 @@ uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msa
 }
 
 extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y, nfsmw_mirror_shift_y;  // game_scene_size.cpp
+
+namespace nfsmw::adaptive_qos {
+void OnRendered(double ms);  // adaptive_qos.cpp: a frame encoded over the cap's budget
+}
 
 namespace {
 
@@ -3347,7 +3352,10 @@ class PipelineCache {
     static dispatch_queue_t warm_queue = dispatch_queue_create(
         "nfsmw.pipelines.warm", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
     static dispatch_queue_t demand_queue = dispatch_queue_create(
-        "nfsmw.pipelines", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0));
+        "nfsmw.pipelines",
+        dispatch_queue_attr_make_with_qos_class(  // Performance "Eco": Utility like the rest
+            DISPATCH_QUEUE_SERIAL, REXCVAR_GET(nfsmw_performance_mode) == "eco" ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED,
+            0));
     dispatch_async(warm ? warm_queue : demand_queue, ^{
       NSError* error = nil;
       id<MTLRenderPipelineState> pso = nil;
@@ -7377,6 +7385,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     capture.Finish();
     {
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
+      if (!dump) ::nfsmw::adaptive_qos::OnRendered(ms - drawable_wait_ms);
       if (!dump && ms > 30.0 && hitch_lines_left.fetch_sub(1) > 0) {
         REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms to encode: {} texture uploads ({} KiB, {:.1f} ms), "
                     "waiting for a drawable {:.1f} ms",

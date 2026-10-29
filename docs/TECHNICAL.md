@@ -8997,3 +8997,49 @@ everything else as IPA169. Stefan: thread done after this.
 `ios/build/NFSMW-ipad-thumbs-170.ipa` SHA-256
 6091f3765b4baae8f81d669581f35d8524d7f766d220b88b9a7c611e1e5b8e07, 30169916
 bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA169.
+
+### October 29: 0.4.3 Performance setting (Eco / Balanced / Max), QoS while driving
+
+Stefan approved (via the coordinator) after the GitHub tester's diag2 log
+(Vipe95, iPhone 17 Pro Max, iOS 26.7.2, cap 60, scale 0.85; evidence above,
+commit 966d165): 60 fps while adaptive QoS was boosted, then
+`[adaptive-qos] back to Utility` at 19:47:18 and 60 -> 49 -> a flat 40 fps,
+rendering 15.8 -> ~23 ms/frame with GPU ~11 ms; re-boost only at 19:47:54
+(`2 late frames of 120, 36 s on Utility`): a steady 40 at 1.5x the 60
+budget was rarely counted late. Changes:
+- `adaptive_qos.cpp`: game_state.cpp reports driving (in the world, no menu
+  up) with `SetDriving`; while driving the mode is pinned boosted (main, GPU
+  command thread, guest threads by override, render queue), with a 5 s hold
+  after driving stops. Outside driving a frame is late when its swap interval
+  is over 1.1x the cap's budget, or (`OnRendered`, from RenderFrame) its
+  encoding time without the drawable wait is over the budget; 3 late frames
+  in the last 60 boost (was 2 of 120 over 1.2x).
+- Launcher Graphics option "Performance" (`performance_mode`: eco /
+  balanced / max; default balanced, eco when Battery mode is on and nothing
+  was chosen; a choice wins). `--nfsmw_performance_mode` and
+  `--nfsmw_performance_source` (setting / battery_mode / default).
+  `ApplyUtilityQosDefault` (ios_main.mm) now sets, unless Extra Args name them:
+  Balanced: ios_utility_qos false, ios_utility_qos_guest true,
+  ios_adaptive_qos true, nfsmw_native_render_utility true (adaptive on every
+  device; the iPads' fixed Utility for main/GPU threads, default with >= 6
+  efficiency cores since Oct 21, is gone, so iPad battery may differ: not
+  measured). Max: all four false (no Utility). Eco: ios_utility_qos true,
+  guest true, adaptive false, render utility true, and the on-demand pipeline
+  compile queue at Utility (was User Initiated). Not changed in any mode:
+  CoreAudio's RemoteIO thread and the real-time vblank thread
+  (`ios_vblank_realtime`), so no crackles, voice cuts or pacing loss.
+- Log: nfsmw.log `[performance] <mode> (<source>): ...`, boot.txt
+  `performance: <mode> (<source>)`; `[adaptive-qos] driving: boosted until
+  driving stops`, `[adaptive-qos] User Initiated (driving)`, `[adaptive-qos]
+  driving stopped: Utility allowed again`, late boosts now say `of 60`.
+- `.github/ISSUE_TEMPLATE/performance.yml` (new) and `bug_report.yml` (new,
+  with a Performance report section): device, iOS, install method, version,
+  settings including Performance, Low Power Mode, nfsmw.log from a run with a
+  race, FPS counter screenshots.
+Built `ios/build/NFS-Most-Wanted-0.4.3.ipa` (0.4.3 / 7), 30170540 bytes,
+SHA-256 15db3c3904fc24184568f627069f78ed908200830e46980c5a8a0ad2493bf0a2,
+UUID CA509B8F-9082-30B4-BB9E-4D53DBE1CF15, 208 metallibs, ZIP test OK,
+codesign --deep --strict ok; on the iCloud Desktop. Not run yet. Suggested
+A/B: the same 15 min route (free roam + one race + a pursuit) from a full
+charge-matched start, IPA 612b799a (previous 0.4.3) vs this one at Balanced,
+then Max and Eco: fps counter, `[native] frame` lines, battery % used.

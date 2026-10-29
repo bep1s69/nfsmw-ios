@@ -126,6 +126,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 29: 0.4.3 Performance setting (D-012), local main, not pushed.**
+  Threads stay boosted while driving (no Utility in the world), faster late
+  detection, launcher Graphics "Performance": Eco (all Utility; default with
+  Battery mode) / Balanced (default) / Max (no Utility); audio and vblank
+  threads untouched. Issue templates for bug and performance reports.
+  `ios/build/NFS-Most-Wanted-0.4.3.ipa` (SHA-256 15db3c39...), also on the
+  iCloud Desktop. Next: Stefan's run and the 15 min A/B against the previous
+  0.4.3 IPA (612b799a).
+
 - **October 29: IPA170 `ios/build/NFSMW-ipad-thumbs-170.ipa` (IPA167, the ring fix confirmed in IPA168, iPad DRIVE layout in the thumb zones with Stefan's D-pad spot; local main,
   not pushed), not yet run.** Stefan approved 120 Hz simulation by default
   with its switch removed (camera logs: at sim 60 the first ~15 s of a

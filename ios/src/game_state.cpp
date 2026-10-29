@@ -47,6 +47,10 @@ extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284D70(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
 
+namespace nfsmw::adaptive_qos {
+void SetDriving(bool on);  // adaptive_qos.cpp
+}
+
 namespace {
 
 constexpr uint32_t kGameFlowState = 0x82A39AB8 + 32;
@@ -251,4 +255,5 @@ extern "C" REX_FUNC(sub_823B4158) {
   last_state = state;
   last_menu = menu;
   nfsmw::battery::SetInMenu(!driving);
+  nfsmw::adaptive_qos::SetDriving(driving);
 }

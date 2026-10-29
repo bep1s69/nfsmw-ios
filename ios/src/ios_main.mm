@@ -185,6 +185,7 @@ void ApplyBatteryExperiment(std::vector<std::string>& args) {
 // cores; an explicit --ios_utility_qos / --ios_utility_qos_guest wins.
 int utility_qos_efficiency_cores = -1;
 const char* utility_qos_source = "default";
+std::string performance_mode = "balanced", performance_source = "default";  // launcher
 
 void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   int cores = 0;
@@ -192,21 +193,31 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   if (sysctlbyname("hw.perflevel1.physicalcpu", &cores, &size, nullptr, 0) != 0) cores = 0;
   utility_qos_efficiency_cores = cores;
   const bool on = cores >= 6;
-  // Above 60 fps (the 120 cap) the main and GPU command threads need the
+  // Until 0.4.3: above 60 fps (the 120 cap) the main and GPU command threads need the
   // performance cores' headroom: adaptive there (adaptive_qos.cpp), so the cap
   // is still reached while frames have time to spare. With fewer efficiency
   // cores (iPhones, M1 iPads) adaptive at every cap: at 30/40 fps or in light
   // scenes they run on the efficiency cores, and switch back when frames are late.
   // The other guest threads at Utility on every device (since October 22: the
   // iPhone 17 Pro held 60 with it in every run from October 21).
-  int cap = 60;
+  // Performance (launcher, since 0.4.3; docs/TECHNICAL.md, Oct 29): "balanced"
+  // adaptive on every device, never Utility while driving (adaptive_qos.cpp;
+  // the iPads' fixed Utility for the main and GPU threads is gone with it);
+  // "max" no Utility QoS for any game or render thread; "eco" (the default
+  // with Battery mode on) every one of them at Utility, no boost.
+  (void)on;
   for (const auto& arg : args) {
-    if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
+    if (arg.find('=') == std::string::npos) continue;
+    const std::string value = arg.substr(arg.find('=') + 1);
+    if (OptionName(arg) == "--nfsmw_performance_mode") performance_mode = value == "max" || value == "eco" ? value : "balanced";
+    if (OptionName(arg) == "--nfsmw_performance_source") performance_source = value;
   }
-  const bool high_cap = cap > 60;
-  const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", on && !high_cap},
-                                                   {"--ios_utility_qos_guest", true},
-                                                   {"--ios_adaptive_qos", !on || high_cap}};
+  nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")");
+  const bool max = performance_mode == "max", eco = performance_mode == "eco";
+  const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", eco},
+                                                   {"--ios_utility_qos_guest", !max},
+                                                   {"--ios_adaptive_qos", !max && !eco},
+                                                   {"--nfsmw_native_render_utility", !max}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });
@@ -339,6 +350,10 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
+  REXLOG_INFO("[performance] {} ({}): {}", performance_mode, performance_source,
+              performance_mode == "max"   ? "no Utility QoS for any game or render thread"
+              : performance_mode == "eco" ? "every game and render thread at Utility QoS, no boost"
+                                          : "Utility only outside driving (adaptive QoS), boosted while driving");
   REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {}, adaptive {} ({})",
               utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",
               rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off",

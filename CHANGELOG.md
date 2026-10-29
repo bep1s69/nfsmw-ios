@@ -22,6 +22,15 @@
   iOS 26 ([issue 4](https://github.com/bep1s69/nfsmw-ios/issues/4),
   [issue 7](https://github.com/bep1s69/nfsmw-ios/issues/7)).
 
+- **Steadier frame rate while driving, and a Performance setting.** The
+  game used to move its threads to the phone's efficient CPU cores once
+  frames had been on time for a while, and on some phones the frame rate
+  then sank from 60 to 40 in the middle of a race. Now they stay on the fast
+  cores while you drive (menus and loading still save power). A new
+  Graphics option, "Performance", chooses: Eco (efficient cores always; the
+  default with Battery mode on), Balanced (the default) or Max (fast cores
+  always). iOS takes it as a hint.
+
 - **Sound in silent mode, if you want it.** A new switch in the Audio tab,
   "Play sound in silent mode". Off (the default) keeps the usual behaviour:
   the game is quiet when the phone's silent switch is on.

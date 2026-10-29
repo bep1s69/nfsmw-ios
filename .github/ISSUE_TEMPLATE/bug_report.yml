@@ -1,0 +1,62 @@
+name: Bug report
+description: A crash, a black screen, something drawn wrong or not working.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you did, what you expected, what happened instead. Screenshots or a screen recording help.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ### Performance report
+        The same details for every report, so we can compare devices. For a
+        low frame rate or stutter, the "Performance report" template asks for
+        a little more.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in the launcher, for example 0.4.3.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and iOS version
+      placeholder: iPhone 16 Pro, iOS 26.6.1
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - LiveContainer
+        - LiveContainer2 (or another with Game Mode)
+        - Sideloaded with a certificate (AltStore, SideStore, Sideloadly, ...)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: Renderer (native or emulated), frame rate cap, resolution scale, MetalFX, anti-aliasing/MSAA, Battery mode and its options, Performance (Eco / Balanced / Max). "Defaults" is fine.
+    validations:
+      required: true
+  - type: checkboxes
+    id: conditions
+    attributes:
+      label: Conditions
+      options:
+        - label: Low Power Mode was on
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Turn on Logging (Advanced > Diagnostics), reproduce the problem (a run that includes a race, if you can get there), and drag Documents/logs/nfsmw.log here. For a crash, also the crash report (Settings > Privacy & Security > Analytics & Improvements > Analytics Data, NFSMW-...).
+    validations:
+      required: true
