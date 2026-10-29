@@ -145,6 +145,14 @@ world one display period per frame: iPad camera judder 0.05% of frames, iPhone
 0 in 4080, Stefan: no judder at any of the old spots. Fixed in 0.4.2. Also open: a sharp counter on its
 own layer (the in-frame one is soft at low render scales).
 
+### Customize HUD editor — in progress (IPA150)
+
+Stefan, Oct 29: replace the HUD rows with a visual editor (pre-launch and
+in-game): every element shown, Race / Free roam and Pursuit tabs, drag each
+anywhere without overlapping, master sliders for size and safe zone, a size
+per element. IPA150 does it with outlines (TECHNICAL Oct 29). Later:
+pictures of the elements instead of outlines.
+
 ### D-006 HUD/scene-size regressions on the iPad (race finish, cutscene overlays, pop-ups) — open
 
 Stefan, Oct 26 (IPA91): the asphalt-and-leaves picture behind the race

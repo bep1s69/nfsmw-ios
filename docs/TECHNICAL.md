@@ -8410,3 +8410,35 @@ Customize HUD editor (pre-launch and in-game menus): every HUD element
 shown, tabs for race/free roam and pursuit, tap and drag each element
 anywhere without overlapping others, master sliders for safe zone and HUD
 size, and, if not too much work, a size per element.
+
+Customize HUD editor (Oct 29, approved by Stefan: outlines for now).
+- hud_editor.mm/.h (new, in the nfsmw executable beside launcher.mm): a
+  full-screen landscape editor. Tabs Race / Free roam and Pursuit; each
+  element an outline at its place and size (boxes from the 100% iPad
+  screenshots IMG_0334/0335, 3.125 points per HUD unit); drag to move (kept
+  on screen, never moved onto another shown element, sliding along an
+  obstacle); tap to select, Smaller/Bigger for its own size (50-200%, not
+  the minimap or the mirror, whose pictures are drawn apart from their
+  pieces); HUD size (70-130%, 5% steps) and safe zone (80-110%, 2% steps)
+  sliders; Reset; Done. Geometry: the editor's view stands for the screen;
+  4:3 is the game's SD layout (sides at 221, 480 units tall), wider is HD
+  (0.92 title-safe kept: 480 / 0.92 units tall, sides 341 plus the wide
+  scene's extra for 720 x aspect, at most 1600).
+- Settings: hud_layout ("name:x,y,size;..." in HUD units) with hud_scale
+  and hud_safe_zone; the launcher's HUD section is now Custom HUD plus a
+  Customize HUD row (greyed while Custom HUD is off); the old size, safe
+  zone and per-side offset rows are gone and the per-side offset arguments
+  are no longer passed. In-game options: a Customize HUD button (top left)
+  opens the same editor; changes apply at once (nfsmw_hud_layout is live).
+- game_scene_size.cpp: cvar nfsmw_hud_layout parsed when it changes
+  (`[hud] layout: ...`); new element kPursuitPoints (the right side's
+  middle rows, moved with the speedometer's corner by default, as in
+  IPA142); each piece is moved and, with its element's own size e, scaled
+  about the element's corner (MoveScaled: position a + d + (p - a) * e,
+  size times e; a group's size is its scale); the anchor is taken in the
+  piece's parent's units from the groups it is in (Piece::parents).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-editor-150.ipa` SHA-256 656a6e25bc96e215b6013f11b2e6b837efafc8c753f5d88bf14b8b541d16c1d1, 30141561 bytes, `unzip -tq`
+ok. Not run yet: the editor has not been seen on a device, and the boxes'
+match with the game's drawn HUD at other sizes, safe zones and screens is
+untested.

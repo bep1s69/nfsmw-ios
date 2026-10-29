@@ -75,6 +75,7 @@
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
 #include <cstdint>
+#include <cstdio>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -114,6 +115,11 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_hud_safe_zone, 1.0, "Game",
                       "How far out the HUD's pieces sit, from the middle of the screen (1 = the game's)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_x, 0.0, "Game", "Race info (top right) moved right by (HUD units)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_hud_race_y, 0.0, "Game", "Race info (top right) moved down by (HUD units)");
+// The Customize HUD editor's layout (hud_editor.mm, live): per element
+// "name:x,y,size;..." with x, y in HUD units added to its place and size a
+// factor on top of the HUD's size. Names: minimap, speedometer, race_info,
+// infractions, mirror, pursuit_bar, pursuit_points.
+REXCVAR_DEFINE_STRING(nfsmw_hud_layout, "", "Game", "Custom HUD layout (the Customize HUD editor's)");
 REXCVAR_DEFINE_INT32(nfsmw_wide_scene_width, 0, "Game",
                      "Scene width for video modes wider than 16:9 (e.g. 1560 for 19.5:9); 0 = "
                      "the game's 1280 (experimental)")
@@ -390,6 +396,10 @@ struct Moved {
   uint32_t object = 0;
   float base_x = 0, base_y = 0;
   float written_x = 0, written_y = 0;
+  // Its size (+56/+60: a group's scale) when an element's own size is set.
+  bool scaled = false;
+  float base_w = 0, base_h = 0;
+  float written_w = 0, written_h = 0;
 };
 Moved g_left, g_right;
 
@@ -411,6 +421,35 @@ void MoveGroup(uint8_t* base, uint32_t object, float dx, float dy, Moved& moved)
   moved.written_y = moved.base_y + dy;
   if (moved.written_x != x) StoreF(base, data + 28, moved.written_x);
   if (moved.written_y != y) StoreF(base, data + 32, moved.written_y);
+}
+
+// As MoveGroup, and scaled by es about (ax, ay) (in the object's parent's
+// units, before the move): position a + d + (p - a) * es, size times es
+// (a group's size is the scale of what it holds). es 1: MoveGroup's result,
+// and a size left by an earlier es put back.
+void MoveScaled(uint8_t* base, uint32_t object, float dx, float dy, float es, float ax, float ay, Moved& moved) {
+  const uint32_t data = Plausible(object) ? REX_LOAD_U32(object + 44) : 0;
+  if (!Plausible(data)) return;
+  const float w = LoadF(base, data + 56), h = LoadF(base, data + 60);
+  const bool same = moved.object == object;
+  MoveGroup(base, object, dx, dy, moved);  // its base found, written as for es 1
+  if (es == 1.0f && !(same && moved.scaled)) {
+    moved.scaled = false;
+    return;
+  }
+  if (!same || !moved.scaled || w != moved.written_w || h != moved.written_h) {
+    moved.base_w = w;  // new, or the game sized it since
+    moved.base_h = h;
+  }
+  moved.scaled = es != 1.0f;
+  moved.written_x = ax + dx + (moved.base_x - ax) * es;
+  moved.written_y = ay + dy + (moved.base_y - ay) * es;
+  moved.written_w = moved.base_w * es;
+  moved.written_h = moved.base_h * es;
+  StoreF(base, data + 28, moved.written_x);
+  StoreF(base, data + 32, moved.written_y);
+  if (moved.written_w != w) StoreF(base, data + 56, moved.written_w);
+  if (moved.written_h != h) StoreF(base, data + 60, moved.written_h);
 }
 
 // The minimap is moved apart from the left group, as the game does it
@@ -520,7 +559,10 @@ uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t h
 constexpr uint32_t kLeftOuter = 0x157C5B37;
 constexpr uint32_t kRightInner = 0x5C7A5C8A;
 
-enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft, kTopCentre, kBottomCentre, kElements };
+enum Element { kMinimap, kSpeedometer, kRaceInfo, kTopLeft, kTopCentre, kBottomCentre, kPursuitPoints, kElements };
+// The layout's names for them (nfsmw_hud_layout).
+constexpr const char* kElementNames[kElements] = {"minimap", "speedometer", "race_info", "infractions",
+                                                  "mirror", "pursuit_bar", "pursuit_points"};
 
 // Each element's outer corner as the game draws it (before the 19.5:9
 // extra), in HUD units from the middle of the screen, kept at its place by
@@ -538,7 +580,9 @@ struct Corner {
 // under the mirror did not follow it) go with the mirror at the top (its top
 // edge, -220) and with the bottom edge at the bottom; those in the middle
 // ("GO!", messages) stay.
-constexpr Corner kCorners[] = {{-1, 215}, {1, 215}, {1, -213}, {-1, -213}, {0, -220}, {0, 215}};
+// "PURSUIT CTS" (kPursuitPoints) keeps the speedometer's corner: by default
+// they move together (IPA142).
+constexpr Corner kCorners[] = {{-1, 215}, {1, 215}, {1, -213}, {-1, -213}, {0, -220}, {0, 215}, {1, 215}};
 constexpr uint32_t kMiddleGroup = 0xAB9C1D4D;
 constexpr float kSideX = 221.0f, kWideSideX = 120.0f, kHalfWidth = 76.0f;
 constexpr uint32_t kMirrorFrame = 0x7FAC287B;
@@ -554,21 +598,67 @@ struct Piece {
   // list's rows, which flashed between the two places): its children are
   // moved instead, which the game leaves alone.
   bool by_children;
+  uint32_t parents[2];  // the groups it is in (0: none), for its parent's place
 };
 std::vector<Piece> g_pieces;
 std::unordered_map<uint32_t, Moved> g_child_moved;
 
+float X(uint8_t* base, uint32_t object);
+float Y(uint8_t* base, uint32_t object);
+float g_anchor[kElements][2] = {};  // each element's corner (HUD units from the middle), as last laid out
+float g_size[kElements] = {1, 1, 1, 1, 1, 1, 1};  // each element's own size
+
+// A piece moved by (dx, dy) and scaled by its element's own size about the
+// element's corner.
 void MovePiece(uint8_t* base, Piece& p, float dx, float dy) {
+  const float es = g_size[p.element];
+  float px = 0, py = 0;  // where its parent's units start
+  for (uint32_t g : p.parents) {
+    if (g) px += X(base, g), py += Y(base, g);
+  }
+  const float ax = g_anchor[p.element][0] - px, ay = g_anchor[p.element][1] - py;
   if (!p.by_children) {
-    MoveGroup(base, p.object, dx, dy, p.moved);
+    MoveScaled(base, p.object, dx, dy, es, ax, ay, p.moved);
     return;
   }
+  const float cx = ax - X(base, p.object), cy = ay - Y(base, p.object);
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(p.object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
-    MoveGroup(base, c, dx, dy, g_child_moved[c]);
+    MoveScaled(base, c, dx, dy, es, cx, cy, g_child_moved[c]);
   }
 }
+float g_layout[kElements][3] = {};  // nfsmw_hud_layout: x, y, own size
+
+// nfsmw_hud_layout read again when it changes. The minimap's and the
+// mirror's own size are left at 1: their pictures are drawn apart from
+// their pieces (MoveMinimap, the native renderer's mirror).
+void ReadLayout() {
+  static std::string read = "-";
+  const std::string now = REXCVAR_GET(nfsmw_hud_layout);
+  if (now == read) return;
+  read = now;
+  for (int e = 0; e < kElements; ++e) g_layout[e][0] = g_layout[e][1] = 0, g_size[e] = 1.0f;
+  size_t at = 0;
+  while (at < now.size()) {
+    size_t end = now.find(';', at);
+    if (end == std::string::npos) end = now.size();
+    const std::string item = now.substr(at, end - at);
+    at = end + 1;
+    const size_t colon = item.find(':');
+    if (colon == std::string::npos) continue;
+    float x = 0, y = 0, es = 1;
+    if (std::sscanf(item.c_str() + colon + 1, "%f,%f,%f", &x, &y, &es) < 2) continue;
+    for (int e = 0; e < kElements; ++e) {
+      if (item.compare(0, colon, kElementNames[e]) != 0) continue;
+      g_layout[e][0] = std::clamp(x, -600.0f, 600.0f);
+      g_layout[e][1] = std::clamp(y, -400.0f, 400.0f);
+      g_size[e] = e == kMinimap || e == kTopCentre ? 1.0f : std::clamp(es, 0.5f, 2.0f);
+    }
+  }
+  REXLOG_INFO("[hud] layout: {}", now.empty() ? "(none)" : now);
+}
+
 float g_offset[kElements][2] = {};  // each element's offset, as last written
 bool g_pieces_moved = false;  // by the HUD's update this frame
 uint32_t g_pieces_package = 0;
@@ -576,6 +666,11 @@ uint32_t g_pieces_package = 0;
 float Y(uint8_t* base, uint32_t object) {
   const uint32_t data = Plausible(object) ? REX_LOAD_U32(object + 44) : 0;
   return Plausible(data) ? LoadF(base, data + 32) : 0.0f;
+}
+
+float X(uint8_t* base, uint32_t object) {
+  const uint32_t data = Plausible(object) ? REX_LOAD_U32(object + 44) : 0;
+  return Plausible(data) ? LoadF(base, data + 28) : 0.0f;
 }
 
 // Where a piece is drawn (y), from its group: its position plus the middle of
@@ -604,14 +699,14 @@ float AnchorY(uint8_t* base, uint32_t object, int depth) {
 // at size 1 (IPA141, Stefan's 100% screenshot): they go with it (they went
 // with the race info until IPA141 and floated mid-screen at 70%).
 constexpr float kBottom = 60.0f;
-void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above, int middle) {
+void AddPieces(uint8_t* base, uint32_t outer, uint32_t group, float y0, Element below, int above, int middle) {
   if (!Plausible(group) || REX_LOAD_U32(group + 0x5C) != kListVtable) return;
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(group + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
     const float y = y0 + AnchorY(base, c, 0);
     const int e = y > kBottom ? int(below) : y < -kBottom ? above : middle;
-    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false});
+    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false, {outer, group}});
   }
 }
 
@@ -647,11 +742,16 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   // zone k and the size s (the HUD's matrix scales about the middle of the
   // screen), the middle is drawn at k * (g + e) + offset:
   // s * (g + e + d) = k * (g + e) + offset. The mirror's frame alike (y).
-  const float user[kElements][2] = {
+  float user[kElements][2] = {
       {float(REXCVAR_GET(nfsmw_hud_left_x)), float(REXCVAR_GET(nfsmw_hud_left_y))},
       {float(REXCVAR_GET(nfsmw_hud_right_x)), float(REXCVAR_GET(nfsmw_hud_right_y))},
       {float(REXCVAR_GET(nfsmw_hud_race_x)), float(REXCVAR_GET(nfsmw_hud_race_y))},
-      {0, 0}, {0, 0}, {0, 0}};
+      {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+  ReadLayout();
+  for (int e = 0; e < kElements; ++e) {
+    user[e][0] += g_layout[e][0];
+    user[e][1] += g_layout[e][1];
+  }
   const double safe = REXCVAR_GET(nfsmw_hud_safe_zone);
   const float k = safe >= 0.5 && safe <= 1.5 ? float(safe) : 1.0f;
   // The setting, not HudScale(): the pieces' offsets must not change when a
@@ -667,7 +767,9 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     const float x = kCorners[e].side * (gx + kHalfWidth + extra), y = kCorners[e].y;
     offset[e][0] = (k * x + user[e][0]) / s - x;
     offset[e][1] = (k * y + user[e][1]) / s - y;
-    active = active || std::abs(offset[e][0]) > 0.01f || std::abs(offset[e][1]) > 0.01f;
+    g_anchor[e][0] = x;
+    g_anchor[e][1] = y;
+    active = active || std::abs(offset[e][0]) > 0.01f || std::abs(offset[e][1]) > 0.01f || g_size[e] != 1.0f;
   }
   const uint32_t package = REX_LOAD_U32(hud + 36);
   static uint32_t dumped_package = 0;
@@ -695,16 +797,17 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       g_child_moved.clear();
       const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
       const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);
-      AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft, kTopLeft);
-      AddPieces(base, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo, kSpeedometer);
+      AddPieces(base, left_outer, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft, kTopLeft);
+      AddPieces(base, right, right_inner, Y(base, right) + Y(base, right_inner), kSpeedometer, kRaceInfo,
+                kPursuitPoints);
       const uint32_t middle = FindObject(ctx, base, package, kMiddleGroup);
-      AddPieces(base, middle, Y(base, middle), kBottomCentre, kTopCentre, -1);
+      AddPieces(base, 0, middle, Y(base, middle), kBottomCentre, kTopCentre, -1);
       int counts[kElements] = {};
       for (const Piece& p : g_pieces) ++counts[p.element];
       REXLOG_INFO("[hud] package {:08X}: left group {:08X}, right group {:08X} ({:08X}); pieces: minimap {}, "
-                  "speedometer {}, race info {}, top left {}, top centre {}, bottom centre {} (wide {:.0f})",
+                  "speedometer {}, race info {}, top left {}, top centre {}, bottom centre {}, pursuit points {} (wide {:.0f})",
                   package, left, right, right_inner, counts[kMinimap], counts[kSpeedometer], counts[kRaceInfo],
-                  counts[kTopLeft], counts[kTopCentre], counts[kBottomCentre], extra);
+                  counts[kTopLeft], counts[kTopCentre], counts[kBottomCentre], counts[kPursuitPoints], extra);
     }
     if (dump && right) {  // once per HUD package
       dumped_package = package;
@@ -761,7 +864,7 @@ void ReapplyHudPieces(uint8_t* base) {
       p.moved = {};
       MovePiece(base, p, g_offset[p.element][0], g_offset[p.element][1]);
     } else {
-      MoveGroup(base, p.object, g_offset[p.element][0], g_offset[p.element][1], p.moved);
+      MovePiece(base, p, g_offset[p.element][0], g_offset[p.element][1]);
     }
   }
 }

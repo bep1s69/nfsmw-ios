@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "hud_editor.h"
 #include "touch_controls.h"
 #include "save_manager.h"
 #include <dlfcn.h>
@@ -80,37 +81,6 @@ std::vector<Choice> Percent(NSString* game) {
   for (int i = 0; i <= 100; i += 10) {
     NSString* v = [NSString stringWithFormat:@"%d", i];
     c.push_back({[v isEqualToString:game] ? [v stringByAppendingString:@" (game)"] : v, v});
-  }
-  return c;
-}
-
-// The HUD's size, 70% to 130%.
-std::vector<Choice> HudSizes() {
-  std::vector<Choice> c;
-  for (int i = 70; i <= 130; i += 5) {
-    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
-    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
-  }
-  return c;
-}
-
-// The HUD's safe zone, 80% to 110% by 2.
-std::vector<Choice> HudSafeZones() {
-  std::vector<Choice> c;
-  for (int i = 80; i <= 110; i += 2) {
-    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
-    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
-  }
-  return c;
-}
-
-// A HUD side moved, in HUD units (640 across at 4:3): -160 to 160 by 10,
-// with arrows (less: left or up).
-std::vector<Choice> HudOffsets(NSString* less, NSString* more) {
-  std::vector<Choice> c;
-  for (int i = -160; i <= 160; i += 10) {
-    NSString* v = [NSString stringWithFormat:@"%d", i];
-    c.push_back({i == 0 ? @"0 (game)" : [NSString stringWithFormat:@"%@ %d", i < 0 ? less : more, abs(i)], v});
   }
   return c;
 }
@@ -440,30 +410,12 @@ const std::vector<Section>& Sections() {
                @"they apply at once: the HUD shows them as soon as driving starts again.",
        {
            {@"hud_custom", Type::kSwitch, @"Custom HUD",
-            @"Off: the game's own HUD size and layout. On: the size and positions below apply.",
+            @"Off: the game's own HUD size and layout. On: the layout from Customize HUD applies.",
             @"false"},
-           {@"hud_scale", Type::kChoice, @"HUD size",
-            @"The size of the speedometer, minimap and the rest of the race HUD (the mirror "
-            @"too). Each keeps its place. Menus keep their size.",
-            @"1.00", HudSizes()},
-           {@"hud_safe_zone", Type::kChoice, @"HUD safe zone",
-            @"How far out toward the screen's edges the HUD's pieces sit. Lower: further in "
-            @"from the edges.",
-            @"1.00", HudSafeZones()},
-           {@"hud_left_x", Type::kChoice, @"Minimap: left / right",
-            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"←", @"→")},
-           {@"hud_left_y", Type::kChoice, @"Minimap: up / down",
-            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"↑", @"↓")},
-           {@"hud_right_x", Type::kChoice, @"Speedometer: left / right",
-            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
-            HudOffsets(@"←", @"→")},
-           {@"hud_right_y", Type::kChoice, @"Speedometer: up / down",
-            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
-            HudOffsets(@"↑", @"↓")},
-           {@"hud_race_x", Type::kChoice, @"Race info: left / right",
-            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"←", @"→")},
-           {@"hud_race_y", Type::kChoice, @"Race info: up / down",
-            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"↑", @"↓")},
+           {@"hud_editor", Type::kLink, @"Customize HUD",
+            @"Move each part of the HUD by hand, change its size, and set the HUD's overall size and "
+            @"safe zone. Race / free roam and pursuit each have a tab.",
+            @""},
        }, kTabGraphics},
       {@"Graphics", nil,
        {
@@ -725,6 +677,7 @@ NSString* HudDefault(NSString* key) {
     @"hud_right_y" : @"0",
     @"hud_race_x" : @"0",
     @"hud_race_y" : @"0",
+    @"hud_layout" : @"",
   };
   return values[key];
 }
@@ -738,6 +691,7 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
     return forced;
   }
   NSString* v = s[key];
+  if (!v.length && HudDefault(key)) return HudDefault(key);  // no row of its own (the HUD editor's)
   // Battery mode keeps the cap at 30 or 40, as chosen (Stefan, Oct 28; it
   // forced 30 before 0.4.2): 60 and 120 become 30.
   if ([key isEqualToString:@"fps_cap"] && [s[@"battery_mode"] isEqualToString:@"true"] &&
@@ -827,12 +781,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
-  a.push_back("--nfsmw_hud_left_x=" + str(@"hud_left_x"));
-  a.push_back("--nfsmw_hud_left_y=" + str(@"hud_left_y"));
-  a.push_back("--nfsmw_hud_right_x=" + str(@"hud_right_x"));
-  a.push_back("--nfsmw_hud_right_y=" + str(@"hud_right_y"));
-  a.push_back("--nfsmw_hud_race_x=" + str(@"hud_race_x"));
-  a.push_back("--nfsmw_hud_race_y=" + str(@"hud_race_y"));
+  // The HUD editor's layout (it replaced the per-side offsets of 0.4.2).
+  a.push_back("--nfsmw_hud_layout=" + str(@"hud_layout"));
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
@@ -1572,7 +1522,7 @@ NSString* AchievementSummary(const Achievements& a) {
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
   const bool battery_locked = native && On(_settings, @"battery_mode") && BatteryValue(o.key);
-  const bool hud_locked = HudDefault(o.key) && !On(_settings, @"hud_custom");
+  const bool hud_locked = (HudDefault(o.key) || [o.key isEqualToString:@"hud_editor"]) && !On(_settings, @"hud_custom");
   const bool inactive =
       (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked || hud_locked;
   c.text = o.title;
@@ -1642,7 +1592,8 @@ NSString* AchievementSummary(const Achievements& a) {
     }
     case Type::kLink: {
       cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-      cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+      cell.selectionStyle = inactive ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
+      cell.contentView.alpha = inactive ? 0.45 : 1.0;
       break;
     }
     case Type::kText: {
@@ -1694,6 +1645,16 @@ NSString* AchievementSummary(const Achievements& a) {
     const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
     if (o.type == Type::kLink && [o.key isEqualToString:@"saves"]) {
       [self.navigationController pushViewController:nfsmw::saves::MakeSaveManager(_docs) animated:YES];
+      return;
+    }
+    if (o.type == Type::kLink && [o.key isEqualToString:@"hud_editor"]) {
+      if (!On(_settings, @"hud_custom")) return;  // greyed out
+      [self presentViewController:nfsmw::hud::MakeEditor(_settings,
+                                                          ^{
+                                                            SaveSettings(self->_docs, self->_settings);
+                                                          })
+                         animated:YES
+                       completion:nil];
       return;
     }
     if (o.type == Type::kLink && [o.key isEqualToString:@"touch_layout"]) {

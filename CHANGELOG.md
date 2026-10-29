@@ -17,6 +17,13 @@
   Game Mode when it is sideloaded with a certificate (LiveContainer has its
   own Game Mode handling).
 
+- **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
+  in the in-game options) shows the HUD's parts as outlines on a screen of
+  your device's shape: drag each where you want it, make it smaller or
+  bigger, and set the whole HUD's size and safe zone, with separate tabs
+  for races and pursuits. It replaces the HUD size, safe zone and
+  position settings.
+
 - **Custom HUD: full-screen overlays at full size.** With a smaller HUD,
   the TV-style picture when you're busted and at the end of a race was
   shrunk with it; both are full size again, and the autosave icon stays in
