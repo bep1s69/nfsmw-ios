@@ -8807,3 +8807,26 @@ menu with hints.
 `ios/build/NFSMW-touch-hints-164.ipa` SHA-256
 048114713b4d30af4e1ee0cf9749d1a883cee5be65d2bdde89ffe5365301cb61, 30169066
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA163. Not run.
+
+### October 29: button hint table (IPA165)
+
+Stefan's IPA164 taps (`Debug/29 October 2026/nfsmw_ipa164_hint_taps_iphone.log`):
+the hints' picture word +24 is the hash of a PS2 name: CROSS 02959349,
+TRIANGLE 6851AAF5, SQUARE 7A8B6BD0, CIRCLE 54A68051. Screens and their
+order on screen: SMS_MailBoxes (TRIANGLE -250 "B Done", CROSS -150 "A
+Read", CIRCLE -48 "Y Delete"), WorldMapMain (TRIANGLE -246 "B Back",
+SQUARE 81,114 "X Toggle Icon Visibility"), MainMenu_Sub (TRIANGLE -279
+"B Back", CROSS -171 "A Accept"), MainMenu (CROSS -280, CIRCLE -158 =
+"GAME STATS GROUP"): CROSS = A, TRIANGLE = B, SQUARE = X, CIRCLE = Y,
+consistent everywhere. Taps landed where expected (package units match
+the screen). Pause_Main's hints were missed: their groups have three
+children (text, picture, a second text; e.g. 6A218478 at -219,36 in
+2FE74244 at -14.4,30.8: picture at -248,67). Also counted as hints: the
+SMS list's rows (texture CFFB7033) and HUD_SingleRace's FA9C840C.
+IPA165: a hint is a group with 2-3 children, a text and a 24-34 unit
+picture with one of the four textures (ButtonOfTexture); the button from
+that table; of overlapping boxes the one starting nearer left of the tap.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-hints-165.ipa` SHA-256
+d0b85a9cfe5519e2631baa8b77cffcf784055b150cb782773d7306e29cf8657a, 30169585
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA164. Not run.
