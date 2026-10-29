@@ -63,9 +63,11 @@ release). The game is playable start to finish, and we are getting closer to a
 - **Extra Options**, ported from the PC mod: markers after beating a Blacklist
   rival (1-6), cars you can buy (1-25), the Old Bridge road, Quick Race laps,
   opponents, traffic and weather, skip movies.
-- **Touch controls**: a gamepad layout for menus and a driving layout, switched
-  automatically; every control can be moved and resized. They hide themselves
-  when a controller connects.
+- **Touch controls** made for the phone: menus by swiping and tapping (tap a
+  button hint to press it), a dynamic steering joystick, driving buttons that
+  appear only when the game uses them, and a drag race layout. Every control
+  can be moved and resized, also while playing. They hide themselves when a
+  controller connects.
 - **Controllers** (Xbox, PlayStation, MFi) and **keyboards** (customizable).
 - **External displays** (HDMI, AirPlay): the game alone on the big screen, the
   touch controls on the device.
@@ -176,13 +178,14 @@ The launcher has six tabs: **Game**, **Extras**, **Graphics**, **Controls**,
 **Audio** and **Advanced**. Every option has a short explanation on screen, and
 the defaults suit normal play. Settings only the emulated renderer uses are
 greyed out while the native one draws. **Advanced** holds the GPU and
-performance switches for testing; leave them at their defaults unless you are
-testing something.
+performance switches for testing, and an **Extra arguments** field for testing
+options; leave them at their defaults unless you are testing something.
 
 While playing, in a menu or the pause screen, tap the gear at the top right (or
 press L3+R3 on a controller) to change the render resolution, MetalFX, the
-30/60 fps cap, anti-aliasing, motion blur, post-processing, the HUD and the
-battery settings. Settings that need a restart (40/120 fps, MSAA) are marked
+30/60 fps cap, anti-aliasing, motion blur, post-processing, the HUD, the touch
+controls' steering and dimming, and the battery settings; **Customize HUD** and
+**Touch controls** open their editors. Settings that need a restart (40/120 fps, MSAA) are marked
 "next launch".
 
 ## Controls
@@ -198,11 +201,33 @@ With a controller, the game's own Xbox 360 controls (control type 1):
 | Change camera | RB | Reset car | Back |
 | Pause | Start | Options while playing | L3+R3 |
 
-On the touch screen the layout switches by itself: the gamepad in menus, the
-driving layout (steering, pedals, nitrous, speedbreaker, handbrake, gears,
-camera, look back, reset, pause) while driving, with a small D-pad in free
-roam. Every control can be moved and resized, with an overall size and
-opacity, in the Controls tab. Keyboard keys can be changed there too.
+### Touch
+
+The touch controls change with what you are doing:
+
+- **Menus and pause screens:** no buttons on screen. Swipe to move through
+  the menu, tap anywhere to accept (A), tap with two fingers to go back (B).
+  Tapping one of the game's button hints ("B Back", "Y Delete"...) presses
+  that button. On the world map a swipe moves the cursor, the LT / RT
+  pictures zoom and the arrows change the category. The PAD button at the
+  top brings the full gamepad back for that menu.
+- **Driving:** steering on the left (a joystick that appears under your
+  thumb anywhere in the bottom-left quarter, or a fixed circle, or two
+  buttons: Controls › Steering), gears, gas, brake, nitrous, speedbreaker,
+  handbrake, look back and reset. The D-pad's actions appear as buttons only
+  when they do something: the map, SMS and the Blacklist in free roam, a
+  button to enter a race, shop or safehouse when you are in its circle, and
+  the race's or pursuit's details during one.
+- **Drag races:** lane change, gears, gas, nitrous and brake.
+
+Camera, pause, PAD and HIDE share the top row. The controls dim after a few
+seconds without a touch (Controls › Dim when not touched) and hide themselves
+when a controller connects; HIDE hides them by hand.
+
+**Customize touch controls** (Controls tab, or the in-game options while
+playing) moves and resizes every control, with Pad, Drive and Drag tabs, an
+overall size and the opacity. Keyboard keys can be changed in the Controls tab
+too.
 
 ## Performance and battery
 
