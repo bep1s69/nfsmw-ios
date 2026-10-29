@@ -153,10 +153,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   InGamePhotoMaster.fng). IPA140 (size 1 while they are up): bust fixed,
   HUD flashes at size 1 at a race's end. IPA141
   `ios/build/NFSMW-hud-fit-full-141.ipa`: those packages and the asphalt
-  picture drawn at size 1 and the full width (iPhone) while the HUD keeps
-  its size; HUD tree logged every 600 frames. Next: Stefan runs it on iPad
-  and iPhone (pursuit with infractions, a race end); the pursuit pieces'
-  fix follows that log (TECHNICAL Oct 29, D-006).
+  picture drawn at size 1 and the full width (iPhone): photo screen text
+  missing and a growing image, reverted at Stefan's request. IPA142
+  `ios/build/NFSMW-hud-pursuit-142.ipa`: IPA140's overlays plus the
+  pursuit pieces ("PURSUIT CTS" with the speedometer, infraction lines
+  moved again after the game's script). Next: Stefan tests the chase at
+  70%. Still open: iPhone side bars on the bust overlay and asphalt
+  picture, the iPad loading screen's short bleed, the judder Stefan felt
+  (not in the pacing log) (TECHNICAL Oct 29, D-006).
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.

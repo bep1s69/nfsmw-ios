@@ -178,6 +178,11 @@ IPA140 (Stefan): bust fixed; at a race's end the HUD flashed at size 1.
 IPA141 fits those packages and InGameBackground.fng instead (size 1, full
 width on the iPhone); pursuit pieces (infraction list mid-left, "PURSUIT
 CTS" mid-right at 70%) wait for its log.
+IPA141 broke the photo screen (missing text, growing stripes): reverted to
+IPA140's behaviour. IPA142 moves "PURSUIT CTS" with the speedometer and
+re-moves the infraction lines after the script places them (not yet
+tested). Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
+(the widescreen layout, not the HUD size).
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 

@@ -8239,3 +8239,40 @@ while driving. `cmake --build --preset ios --target ipa -j 6` exit 0;
 `ios/build/NFSMW-hud-fit-full-141.ipa` SHA-256 e4bb63ea2af27a05c9cfe2ebb3dcac0a6c986b6e9eba9a94d442d0d8b7a22028, 30118885 bytes, `unzip -tq`
 ok. Not run yet. Not proven: that widening is right for the iPhone (text in
 those packages is stretched as well).
+
+IPA141 result (Stefan, Oct 29, iPad, log `Debug/29 October 2026/
+nfsmw_ipa141_pursuit_race_70pct_ipad.log`, `ipa141_IMG_0333-0335.png`): the
+race-end flash is gone, but the photo screen loses some text and its
+diagonal-stripe image at the bottom grows every few seconds (inference:
+Fit takes the game's per-frame animated values as a new base and divides
+again, so animated sizes compound). Stefan: revert it (a half-second flash
+outside gameplay is preferable). He also felt the D-005-style judder for the
+whole first race and in chases; the log's `[native] pacing` lines show 0 of
+300 frames off the 16.7 ms grid through the race (17:36:39-17:37:34) and
+the 600-frame tree dumps (about 400 lines each) left no off-grid frames, so
+the judder is not in the presented frame timing; cause not found. The
+loading screen's short bleed at the top and bottom on the iPad (IPA84) is
+still there.
+
+Chase HUD, 70% vs 100% (tree dumps 17:39:49 and 17:40:41): the infraction
+badge, "INFRACTIONS" label and list rows (left group children 3345911D,
+05C8C7A8-AB, D9B62133) are moved with the top-left corner in the dump, and
+the label is drawn under the badge, but the list's rows were drawn where
+the game puts them, scaled about the middle (screenshot at about -224,-120
+HUD units, the game's own position): the script slides them in after the
+HUD's update (inference). "PURSUIT CTS" and the rows above it (right inner
+group children EA903012, 3F8644CA, D60FC075 at y -32, 3, 41) were assigned
+to the race info and moved up toward the top right; at 100% they sit just
+above the speedometer.
+
+IPA142: game_scene_size.cpp and game_state.cpp back to IPA140 (size 1
+while BUSTED_OVERLAY.fng or InGamePhotoMaster.fng is up; one tree dump per
+screen and one 180 frames later; no fit of whole packages). Then: the right
+side's middle rows go with the speedometer; the pieces' offsets are kept
+(g_offset) and, after the HUD's matrix is built for drawing
+(sub_82440D80), any piece whose position differs from what was written is
+moved again (logged `[hud] piece ... placed again`, 20 lines at most).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-pursuit-142.ipa` SHA-256 310c8375070dd2a3f7371d5a1e205596a6ff71f31a08c1455a706fef6332dab6, 30130972 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that the matrix is built after the script's
+update and before the HUD is drawn in the same frame.
