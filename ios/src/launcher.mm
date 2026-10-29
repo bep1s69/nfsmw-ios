@@ -406,7 +406,8 @@ const std::vector<Section>& Sections() {
            {@"performance_mode", Type::kChoice, @"Performance",
             @"Which CPU cores the game's threads ask for. Eco: the efficient ones always (the "
             @"default with Battery mode on), for battery life over smoothness. Balanced: the "
-            @"efficient ones in menus and loading, the fast ones while driving. Max: always the "
+            @"efficient ones in menus and loading, the fast ones while driving (iPads with 6 or "
+            @"more efficient cores keep their original, tested setting). Max: always the "
             @"fast ones, for the steadiest frame rate. Sound and the screen's timing keep their "
             @"own priority in every mode. iOS takes this as a hint, not a fixed choice of cores.",
             @"balanced",

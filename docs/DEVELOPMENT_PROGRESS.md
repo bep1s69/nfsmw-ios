@@ -129,9 +129,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 - **October 29: 0.4.3 Performance setting (D-012), local main, not pushed.**
   Threads stay boosted while driving (no Utility in the world), faster late
   detection, launcher Graphics "Performance": Eco (all Utility; default with
-  Battery mode) / Balanced (default) / Max (no Utility); audio and vblank
-  threads untouched. Issue templates for bug and performance reports.
-  `ios/build/NFS-Most-Wanted-0.4.3.ipa` (SHA-256 15db3c39...), also on the
+  Battery mode) / Balanced (default; original behaviour with 6+ efficiency
+  cores, the M-series iPads) / Max (no Utility); audio and vblank threads
+  untouched. Issue templates for bug and performance reports.
+  `ios/build/NFS-Most-Wanted-0.4.3.ipa` (SHA-256 5f467ae5...), also on the
   iCloud Desktop. Next: Stefan's run and the 15 min A/B against the previous
   0.4.3 IPA (612b799a).
 

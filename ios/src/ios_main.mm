@@ -186,6 +186,7 @@ void ApplyBatteryExperiment(std::vector<std::string>& args) {
 int utility_qos_efficiency_cores = -1;
 const char* utility_qos_source = "default";
 std::string performance_mode = "balanced", performance_source = "default";  // launcher
+bool performance_tablet = false;  // Balanced with 6+ efficiency cores: the original behaviour
 
 void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   int cores = 0;
@@ -205,19 +206,30 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   // the iPads' fixed Utility for the main and GPU threads is gone with it);
   // "max" no Utility QoS for any game or render thread; "eco" (the default
   // with Battery mode on) every one of them at Utility, no boost.
-  (void)on;
+  // Balanced with 6+ efficiency cores (the M-series iPads; Stefan, Oct 29):
+  // the original, measured behaviour (main/GPU fixed at Utility below the 120
+  // cap, adaptive with the old rules above it, no driving boost).
+  int cap = 60;
+  for (const auto& arg : args) {
+    if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
+  }
+  const bool high_cap = cap > 60;
   for (const auto& arg : args) {
     if (arg.find('=') == std::string::npos) continue;
     const std::string value = arg.substr(arg.find('=') + 1);
     if (OptionName(arg) == "--nfsmw_performance_mode") performance_mode = value == "max" || value == "eco" ? value : "balanced";
     if (OptionName(arg) == "--nfsmw_performance_source") performance_source = value;
   }
-  nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")");
   const bool max = performance_mode == "max", eco = performance_mode == "eco";
-  const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", eco},
-                                                   {"--ios_utility_qos_guest", !max},
-                                                   {"--ios_adaptive_qos", !max && !eco},
-                                                   {"--nfsmw_native_render_utility", !max}};
+  performance_tablet = !max && !eco && on;
+  nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")" +
+                     (performance_tablet ? ", tablet profile: 6+ efficiency cores, original behavior" : ""));
+  const std::pair<const char*, bool> defaults[] = {
+      {"--ios_utility_qos", eco || (performance_tablet && !high_cap)},
+      {"--ios_utility_qos_guest", !max},
+      {"--ios_adaptive_qos", !max && !eco && (!performance_tablet || high_cap)},
+      {"--nfsmw_adaptive_qos_original", performance_tablet},
+      {"--nfsmw_native_render_utility", !max}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });
@@ -353,6 +365,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[performance] {} ({}): {}", performance_mode, performance_source,
               performance_mode == "max"   ? "no Utility QoS for any game or render thread"
               : performance_mode == "eco" ? "every game and render thread at Utility QoS, no boost"
+              : performance_tablet        ? "tablet profile: 6+ efficiency cores, original behavior"
                                           : "Utility only outside driving (adaptive QoS), boosted while driving");
   REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {}, adaptive {} ({})",
               utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",

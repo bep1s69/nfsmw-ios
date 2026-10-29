@@ -312,9 +312,9 @@ GitHub tester (iPhone 17 Pro Max, iOS 26): 60 fps until `[adaptive-qos] back
 to Utility`, then a flat 40 for 36 s before the next boost; Stefan's logs
 show the same returns. 0.4.3 keeps the threads boosted while driving, detects
 late frames by the cap's budget within ~1 s, and adds Performance Eco /
-Balanced / Max (TECHNICAL, Oct 29). Next: Stefan's A/B (fps and battery),
-then the tester's log. Open question: iPad battery without its fixed
-Utility default.
+Balanced / Max (TECHNICAL, Oct 29); with 6+ efficiency cores (M-series
+iPads) Balanced keeps the original behaviour. Next: Stefan's A/B (fps and
+battery) on the iPhone, then the tester's log.
 
 ### D-011 iOS 26: native renderer crashes on Play (GitHub report, 0.4.2) — fixed (0.4.3; diag2 confirmed on iOS 26 Oct 29)
 

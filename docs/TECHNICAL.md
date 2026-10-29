@@ -9043,3 +9043,19 @@ codesign --deep --strict ok; on the iCloud Desktop. Not run yet. Suggested
 A/B: the same 15 min route (free roam + one race + a pursuit) from a full
 charge-matched start, IPA 612b799a (previous 0.4.3) vs this one at Balanced,
 then Max and Eco: fps counter, `[native] frame` lines, battery % used.
+
+0.4.3 Balanced tablet profile (Stefan, Oct 29): with 6+ efficiency cores
+(the old `ApplyUtilityQosDefault` condition, not "is an iPad"), Balanced is
+the pre-4c0b7eb behaviour: ios_utility_qos on below the 120 cap (main/GPU
+fixed at Utility), adaptive only at the 120 cap and then with the original
+rules (new cvar `nfsmw_adaptive_qos_original`: 2 late of 120 over 1.2x, no
+render-time test, no driving boost); guest Utility and render-queue Utility
+as before. Phones (4 efficiency cores) keep the new Balanced; Eco and Max
+unchanged everywhere. Log: nfsmw.log `[performance] balanced (default):
+tablet profile: 6+ efficiency cores, original behavior` and the
+`[utility-qos] 6 efficiency cores; main/GPU threads on ...` line; boot.txt
+`performance: balanced (default), tablet profile: 6+ efficiency cores,
+original behavior`. Rebuilt `ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30161274
+bytes, SHA-256 5f467ae57e84f2056c242e91b6fcf3082aee554ea23562f3081d5f8a366ae129,
+UUID A4AD715B-9069-3574-B1EB-0395719DBF59, 208 metallibs, ZIP test OK,
+codesign ok; on the iCloud Desktop. Not run yet.
