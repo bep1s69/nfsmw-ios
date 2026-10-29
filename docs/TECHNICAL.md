@@ -8116,3 +8116,26 @@ issues 4 and 7, iOS 26 native black screen: not confirmed).
 --deep --strict ok. Not run on a device (the same fix was confirmed in
 diag2). The diagnostic branch `diag-ios26-native-crash` stays local. No
 tag, push or GitHub release.
+
+### October 29: 0.4.3 additions, silent-mode switch and Game Mode key
+
+Stefan approved (via the coordinator) two more 0.4.3 changes, still build 7.
+- Audio: the session category was `AVAudioSessionCategorySoloAmbient`
+  (respects the silent switch, stops other apps' audio). New launcher switch
+  "Play sound in silent mode" (Audio tab, key `audio_silent_mode`, default
+  off) passes `--ios_audio_silent_mode`; cvar `ios_audio_silent_mode`
+  (coreaudio_driver.mm, default false) picks
+  `AVAudioSessionCategoryPlayback` instead. `PrepareAudioSession()` moved in
+  `RunGame` from before to just after `rex::cvar::Init` (a few lines; the
+  category needs the parsed value). boot.txt says `audio: Playback (sound in
+  silent mode)` or `audio: SoloAmbient`. The separate "mute game audio, keep
+  other apps' music" idea is untouched.
+- Info.plist: `LSSupportsGameMode` true (GCSupportsGameMode was already
+  there), for certificate sideloading; LiveContainer handles its own.
+Rebuilt `ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30112243 bytes, SHA-256
+612b799a8387814df2309930e9a53b52c2dcf0c6c57a0de416517be91c0b30d5, UUID
+E03ED4ED-B0A2-3803-AB23-5F239940A093, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok, plist has both Game Mode keys. Replaces the earlier
+0.4.3 IPA (30335eac...). Not run on a device. Test: silent switch on;
+switch off -> no game sound, boot.txt `audio: SoloAmbient`; switch on, Play
+-> sound, `audio: Playback`.

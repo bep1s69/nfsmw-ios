@@ -141,7 +141,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFS-Most-Wanted-0.4.2-diag2.ipa` (fix + draw log, validation
   off by default; also on the iCloud Desktop). Confirmed on iOS 26 (Oct 29).
   Then (Stefan's go) only the fix went onto `main` as 0.4.3 (build 7):
-  `ios/build/NFS-Most-Wanted-0.4.3.ipa`. Next: Stefan's device check,
+  `ios/build/NFS-Most-Wanted-0.4.3.ipa`. Also in 0.4.3 (approved): Audio
+  switch "Play sound in silent mode" (default off) and LSSupportsGameMode.
+  Minimap and Custom HUD work for 0.4.3 happens in other threads.
+  Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.
 
