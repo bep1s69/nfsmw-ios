@@ -779,6 +779,8 @@ std::unordered_map<uint32_t, Fitted> g_fitted;
 // Position (+28, +32) and, unless only_position, size (+56, +60) of an
 // object divided by s, so that through the HUD's matrix (scaled by s about
 // the middle of the screen) it is drawn as without it.
+float g_fit_grow = 1.0f;  // sizes also multiplied by this (fades: see below)
+
 void Fit(uint8_t* base, uint32_t object, float sx, float sy, bool only_position) {
   const uint32_t data = REX_LOAD_U32(object + 44);
   if (!Plausible(data)) return;
@@ -789,7 +791,7 @@ void Fit(uint8_t* base, uint32_t object, float sx, float sy, bool only_position)
   Fitted& f = it->second;
   if (added || std::memcmp(now, f.written, sizeof(now)) != 0) std::memcpy(f.base, now, sizeof(now));
   for (int i = 0; i < 4; ++i) {
-    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / (i % 2 ? sy : sx);
+    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / (i % 2 ? sy : sx) * (i >= 2 ? g_fit_grow : 1.0f);
     if (f.written[i] != now[i]) StoreF(base, at[i], f.written[i]);
   }
 }
@@ -875,10 +877,11 @@ bool FitWide(uint8_t* base, uint32_t object, float sx, float sy, int depth) {
 // count, first), logged once. IPA143 (Stefan, iPhone): the loading screen
 // and the asphalt picture behind the post-race screens let the game show on
 // all four sides: in HD the matrix keeps the title-safe 0.92 and, on a wide
-// scene, x is narrowed by 1280/width. Those are taken out too, and the
-// asphalt picture (InGameBackground.fng) is fitted the same way. Called in
-// every game state and under menus (driving: the HUD's size is in the
-// matrix).
+// scene, x is narrowed by 1280/width. Those are taken out too. IPA144: still
+// a thin edge (the 1200x650 images are not quite enough there), so they are
+// drawn 10% larger. Called in every game state and under menus (driving: the
+// HUD's size is in the matrix). IPA144 also fitted InGameBackground.fng,
+// which broke the pause menu (it is that menu's dimmed panels too): left out.
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) {  // none up
     g_fade_opaque = false;
@@ -905,9 +908,11 @@ extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving
   const float s = driving ? HudScaleSetting() : 1.0f;
   const float sx = s * keep_x * (width ? 1280.0f / float(width) : 1.0f), sy = s * keep_y;
   int n = 0;
+  g_fit_grow = 1.1f;
   for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {
     FitWide(base, o, sx, sy, 0);
   }
+  g_fit_grow = 1.0f;
   const bool opaque = g_fade_alpha >= 255;
   if (opaque != g_fade_opaque) {
     g_fade_opaque = opaque;

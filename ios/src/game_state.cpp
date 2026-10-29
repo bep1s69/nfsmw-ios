@@ -153,17 +153,15 @@ extern "C" REX_FUNC(sub_823B4158) {
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
   const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
   const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
-  // Every fade up, and the asphalt picture behind the post-race screens,
-  // drawn at full size and the screen's width whatever the HUD's size and
-  // the title-safe area (IPA82: the first fade only, FadeScreen.fng, which
-  // stays pushed; IPA143: every state, under menus too).
+  // Every fade up drawn at full size and the screen's width whatever the
+  // HUD's size and the title-safe area (IPA82: the first fade only,
+  // FadeScreen.fng, which stays pushed; IPA144: every state, under menus
+  // too).
   {
-    static const char* const kAlso[] = {"InGameBackground.fng"};
     bool any = false;
-    for (int i = 0; i <= kFadeCount; ++i) {
-      const char* const* name = i < kFadeCount ? &kFadePackages[i] : &kAlso[0];
-      if (PushedPackage(ctx, base, name, 1) >= 0) {
-        nfsmw_hud_fit_fade(base, FindPackage(ctx, base, *name), state == kRacing && menu < 0);
+    for (int i = 0; i < kFadeCount; ++i) {
+      if (PushedPackage(ctx, base, &kFadePackages[i], 1) >= 0) {
+        nfsmw_hud_fit_fade(base, FindPackage(ctx, base, kFadePackages[i]), state == kRacing && menu < 0);
         any = true;
       }
     }

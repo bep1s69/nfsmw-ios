@@ -22,8 +22,7 @@
   shrunk with it; both are full size again, and the autosave icon stays in
   the HUD's corner. In chases, the pursuit points stay above the
   speedometer and the infraction list stays under its badge. On the iPhone
-  the loading screen and the picture behind the race results fill the
-  screen.
+  the loading screen fills the screen.
 
 - **Minimap stays in place.** After leaving the safe house again, finishing
   or restarting a race, the map and its icons could be drawn inward from
