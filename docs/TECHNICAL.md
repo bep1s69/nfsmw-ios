@@ -8878,3 +8878,24 @@ on in these runs, so the world's step per frame at the start is unknown.
 Proposed next (existing switches, no build): a start-of-race run with
 `--nfsmw_native_camera_log=true`, then the same with `--nfsmw_frame_ticks=0`,
 and on the iPad `--ios_utility_qos=false --ios_utility_qos_guest=false`.
+
+### October 29: GitHub iOS 26 tester, diag2 logs (lower resolution, worse performance)
+
+Logs: `Debug/29 October 2026/diag2 GitHub user iOS26/nfsmw.log` and
+`native_diag.txt` (0.4.2-diag2, iPhone 440x956 points, 4 E cores, cap 60,
+Low Power Mode off, thermal nominal; no crash this run, a race was played).
+- Resolution: `internal resolution 0.850x (setting 0.85)`, FXAA off, so it
+  is his chosen scale, not Battery mode: drawable 1330x612 stretched to
+  2868x1320. Stefan's same-size iPhone at 1x gets 1564x720.
+- Performance: in the world, 0-2 of 300 frames off the grid until
+  `[adaptive-qos] back to Utility` (19:47:18.6, 14.5 s into the race, the
+  40 s boot boost running out). From 19:47:23: render-queue hitches of
+  ~31 ms with 23-25 ms "waiting for a drawable" every other frame, then
+  pacing 150 of 300 frames off the grid (gaps 2:150 4:150: alternating
+  16.7 / 33.3 ms, ~40 fps shown) until he quit at 19:47:54. The boost never
+  came back during those 30 s: adaptive_qos.cpp OnSwap counts late guest
+  swaps on the GPU command thread, which stayed on time; the shown frames
+  were the late ones. It re-boosted only on the menu.
+Inference: the iPhone's adaptive QoS lets the render path drop to Utility
+and its late-frame detector cannot see drops on the presentation side. Same
+finding as the "back to Utility" note from the crash thread; fix belongs there.
