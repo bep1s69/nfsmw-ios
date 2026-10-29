@@ -864,6 +864,13 @@ add nfsmw_frame_ticks=0, cold same chase, then restore default2. Isolates
 world timing, not a global reversal of the 60 fix. No new code/build and
 no accepted 40 fix; see TECHNICAL October30 for measured limits.
 
+October30 frame_ticks=0 trial (log7 archived) feels even worse; selected
+1440 shown gaps all25ms. Restore mode2. Built test4-diag IPA with default-
+off world-update time/debt logger;24000 host returns match prior code.
+Next same40 run with mode2, world logger + existing repeat-strip/trace
+flags, camera diagnostic removed. No timing behavior change or accepted
+40 fix; full flags/build/evidence in TECHNICAL October30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

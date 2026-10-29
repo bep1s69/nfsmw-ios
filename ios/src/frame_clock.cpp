@@ -17,19 +17,62 @@
 // 4080 (iPhone). 0: the game's own time.
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cstdint>
+#include <string>
 
 #include <rex/cvar.h>
+#include <rex/logging.h>
 
 #include "display_rate.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
                      "Game frame time: 2 one display period per frame (smooth motion), 0 the game's own "
                      "(uneven)");
+REXCVAR_DEFINE_BOOL(nfsmw_frame_ticks_log, false, "Game",
+                    "Diagnostic: buffer 60 world updates and log raw/given time, quantum, debt and host gap");
+
+namespace {
+// Main-loop thread only. Record numbers per update; format only once per
+// batch. The result is returned verbatim, including the original bypasses.
+double TraceTicks(double result, double ticks, double milliseconds, double period,
+                  double debt, bool resync, int mode, double rate, double wait, double clamp) {
+  if (!REXCVAR_GET(nfsmw_frame_ticks_log)) return result;
+  using Clock = std::chrono::steady_clock;
+  static Clock::time_point last;
+  const auto now = Clock::now();
+  const double wall = last.time_since_epoch().count() ?
+      std::chrono::duration<double, std::milli>(now - last).count() : 0;
+  last = now;
+  static std::array<std::array<double, 6>, 60> samples;
+  static size_t count = 0;
+  static uint64_t total = 0;
+  static int lines = 160;  // at most four minutes of updates at 40 fps
+  const double given = ticks != 0 ? milliseconds * (result / ticks) : milliseconds;
+  samples[count++] = {milliseconds, given, period, debt, wall, resync ? 1.0 : 0.0};
+  ++total;
+  if (count == samples.size()) {
+    if (lines-- > 0) {
+      std::string values;
+      for (const auto& sample : samples) {
+        values += fmt::format(" {:.3f}/{:.3f}/{:.4f}/{:.3f}/{:.3f}/{:.0f}",
+                              sample[0], sample[1], sample[2], sample[3], sample[4], sample[5]);
+      }
+      REXLOG_INFO("[world-clock] updates {}-{}, mode {}, rate {}, wait {}, clamp {} | "
+                  "raw/given/quantum/debt/host-gap(ms)/resync:{}",
+                  total - samples.size() + 1, total, mode, rate, wait, clamp, values);
+    }
+    count = 0;
+  }
+  return result;
+}
+}  // namespace
 
 extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double rate, double wait, double clamp) {
-  (void)rate, (void)wait, (void)clamp;
-  if (REXCVAR_GET(nfsmw_frame_ticks) != 2 || !(milliseconds > 0) || milliseconds >= 250) return ticks;
+  const int mode = REXCVAR_GET(nfsmw_frame_ticks);
+  if (mode != 2 || !(milliseconds > 0) || milliseconds >= 250)
+    return TraceTicks(ticks, ticks, milliseconds, 0, 0, false, mode, rate, wait, clamp);
   uint64_t vblank_ns = 0, period_ns = 0;
   nfsmw::display::LatestVblank(vblank_ns, period_ns);
   const double period = period_ns ? double(period_ns) / 1e6 : 1000.0 / 60.0;
@@ -40,6 +83,8 @@ extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double ra
     give += period;
     debt -= period;
   }
-  if (debt < -2 * period || debt > 4 * period) debt = 0;  // far off (loading): resync
-  return ticks * (give / milliseconds);
+  const bool resync = debt < -2 * period || debt > 4 * period;
+  if (resync) debt = 0;  // far off (loading): resync
+  return TraceTicks(ticks * (give / milliseconds), ticks, milliseconds,
+                    period, debt, resync, mode, rate, wait, clamp);
 }

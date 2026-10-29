@@ -9800,3 +9800,78 @@ configuration. If original world timing helps, design a 40-specific clock
 change; if not, use targeted world-step/repeated-picture diagnostics before
 further presentation rewrites. No source change/new IPA, no promoted 40
 fix, version bump, push/tag/release. Preserve issue11 note, HANDOFF and SDK.
+
+### October 30: frame_ticks=0 trial worse; world-update diagnostic test4
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 7.log: "even worse in terms of
+those judders" after requested frame_ticks=0 isolation on test3. Archived
+byte-for-byte, exclusive create, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_7_metal_display_40_frame_ticks_off_worse.log`.
+653676 bytes, 3470 lines, SHA-256
+9c741b2b0401c21d114b83b7480b9857e6aef177738119158eb58c7090035e0f.
+Read/copy/equality check exit 0. One launch01:21:12.490; world01:21:44.446;
+link stopped01:22:31.109, partial tail01:22:31.694. Device14 Pro Max per
+ongoing test, OS not supplied; test3 IPA identity previously recorded
+06e1b783..., 29F35A9F-1923-38A5-A256-AAD17E3CAE3F, not independently
+echoed by this file. Balanced/native1x/40, MetalFX/FXAA/MSAA off; ordinary
+link80Hz, managed guest grid~8.3400ms, camera/trace active. nfsmw.log does
+not echo frame_ticks value, so mode0 setting is per requested/user trial,
+not independently verified; new logger below explicitly reports mode.
+
+Trace rows emitted >=01:21:55.000 and <01:22:30.000, rounded numbers,
+1440 numeric gaps/stage:
+- swap mean25.021ms, sd.549.
+- handed mean25.020, sd1.068.
+- GPU end mean25.028, sd1.317.
+- shown mean25.000, sd0: all1440 gaps25.0ms.
+Latency components3.41/20.48/25.56ms, sum49.45ms renderer handoff->shown;
+not total input latency. All five full steady 300-frame summaries1501-2701
+40fps,0/300 off-grid. Camera32 windows, not a full-picture freeze detector.
+No world-clock or repeat-strip diagnostics in this log. User still feels
+worse with original world time; do not remove the proven correction or
+promote perfect presentedTime stats as accepted smoothness. Restore mode2.
+
+Next is diagnostic only, not another speculative behavior change:
+new nfsmw_frame_ticks_log default false in frame_clock.cpp buffers60 world
+updates then logs mode/rate/wait/clamp and per-call raw/given milliseconds,
+quantum, post-correction debt, host call interval and resync marker. Bounded
+160 batches. Same result arithmetic/early bypass paths; enabled tracing
+only observes. No new world timing mode, presentation tweak or default
+change. Mode read once, TraceTicks returns original result verbatim.
+
+Validation: source differential host harness generated at
+/tmp/nfsmw_world_clock_differential.cpp compared actual pre-change
+frame_clock.cpp (git show HEAD:... while HEAD=b6bb9b9) with current source,
+inside separate namespaces with unique function names. Fake cvar/display
+and formatting/log stubs isolate arithmetic. xcrun clang++ -std=c++17 -O2,
+24000 sequential calls with mode0/1/2, logging on/off every60 calls,
+periods8333333/8340000/16666667/0ns, elapsed jitter10-39.9ms and bypass
+cases0/-1/250/1000/NaN: double return bit patterns identical in every case.
+Output PASS24000, exit0. Test does not validate actual log I/O overhead or
+on-device timing; essential case description/results recorded here rather
+than relying on temporary harness. git diff --check exit0.
+Build `cmake --build --preset ios --target ipa -j 6` in ios/ exit0,
+ignored log ios/build/metal-display-40-world-diagnostic-build.log; only
+frame_clock.cpp rebuilt then link/package (duplicate -lz warning).
+
+New ignored IPA ios/build/NFSMW-0.5.0-metal-display-40-test4-diag.ipa,
+30184005 bytes, version0.5.0/build8, SHA-256
+68e859cd2e645e3c25439344bdcc544afd9eb33234b8fd86d82a803c50d7ef05,
+UUID542EEA4F-55E5-35D4-9FD7-A407F0100234. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit0, dwarfdump --uuid exit0; all104
+payload metallibs and both SDK dylibs byte-identical to test3. No runtime
+result yet; no accepted 40 fix, 0.5.1 release/version bump/push/tag.
+
+Next run test4, same Balanced/1x/40, Low Power Mode off, cold LiveContainer.
+Replace test Extra Args with:
+--nfsmw_native_metal_display_40=true --nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2 --nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+Remove prior camera_log override to reduce unrelated diagnostics (rotation
+vote was inconclusive). Existing repeat diagnostic copies only a 2-row,
+up-to1024-pixel strip asynchronously after render; detects exact strip
+repeats, not necessarily full-frame freeze. Correlate moving-chase repeats
+with raw/given world steps and screen cadence over~1min; diagnostic work
+has overhead, not an energy comparison. This will discriminate irregular
+world time from repeated captured content, without changing game timing
+behavior again. Preserve issue11 checkpoint note, HANDOFF and SDK work.
