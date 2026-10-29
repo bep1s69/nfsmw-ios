@@ -41,6 +41,7 @@
 #include <rex/logging.h>
 
 #include "battery.h"
+#include "touch_controls.h"
 
 extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284D70(PPCContext& __restrict ctx, uint8_t* base);
@@ -190,6 +191,17 @@ extern "C" REX_FUNC(sub_823B4158) {
   {
     static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng"};
     nfsmw_hud_full_size(state == kRacing && menu < 0 && PushedPackage(ctx, base, kFullSize, 2) >= 0);
+  }
+  // A drag race's HUD: the touch controls' DRAG layout.
+  {
+    static const char* const kDrag[] = {"HUD_Drag.fng"};
+    const bool drag = state == kRacing && PushedPackage(ctx, base, kDrag, 1) >= 0;
+    static bool was = false;
+    if (drag != was) {
+      was = drag;
+      REXLOG_INFO("[game] drag race HUD {}", drag ? "up" : "gone");
+    }
+    nfsmw::touch::SetDragRace(drag);
   }
   // Every screen up in the world logged, with its pieces (D-006).
   if (state == kRacing) {

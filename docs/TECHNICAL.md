@@ -8755,3 +8755,21 @@ still wins.
 `ios/build/NFSMW-touch-top-row-162.ipa` SHA-256
 e950565bbd5b0bef27743b22ce3e6856961476a3a3123419eadc7202737e5438, 30152472
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA161. Not run.
+
+### October 29: IPA162 confirmed; drag race layout (IPA163)
+
+Stefan (IPA162): "looks fresh"; next, the drag controls (step 4).
+- game_state.cpp: HUD_Drag.fng pushed while in the world (PC package name
+  from speed.exe, not yet seen on X360) -> nfsmw::touch::SetDragRace,
+  logged `[game] drag race HUD up / gone`.
+- touch_controls.mm: the DRAG layout, a kind of DRIVE layout (`_drag`,
+  layout names `drag.*`): lane ◀ / ▶ (left stick -1 / +1, P(.07/.20, .80),
+  unit x .6), shift DOWN / UP (right stick, P(.07/.20, .50), UP bigger),
+  NOS P(.765, .80), BRAKE (LT) P(.765, .50) small, GAS (RT) P(.9, .74)
+  tall, CAM / PAUSE in the top row. Switches with the 2 Hz context check;
+  held controls are carried over by name (`held.*`), so the gas held when
+  the drag HUD comes up stays held. Editor: Pad / Drive / Drag tabs.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-drag-163.ipa` SHA-256
+483b8648b3b06ecb6a04dd391d3920b79b5fe6d09700a762f152cca05471b3c4, 30154600
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA162. Not run.

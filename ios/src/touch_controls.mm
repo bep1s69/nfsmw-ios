@@ -110,6 +110,9 @@ SDL_Joystick* g_pad = nullptr;
 int g_buttons = 0;
 Sint16 g_axes[kAxes] = {};
 
+// nfsmw::touch::SetDragRace, from the game's thread.
+std::atomic<bool> g_drag{false};
+
 // nfsmw::touch::SetDriveContext, from the game's thread.
 std::atomic<int> g_drive_context{0};
 
@@ -249,6 +252,7 @@ struct Control {
   BOOL _editing;
   NSString* _steering;  // ios_touch_steering the layout was made with
   int _context;         // g_drive_context the layout was made with
+  BOOL _drag;           // the DRAG layout (a drag race: g_drag), a kind of DRIVE layout
   BOOL _keepTouches;    // the next layout keeps the held controls (by name)
   NSTimer* _fadeTimer;  // the dynamic joystick fading out
   // Dimmed after 3 s without a touch while driving (ios_touch_idle_opacity).
@@ -283,10 +287,11 @@ struct Control {
 // the size of all controls and their opacity.
 static NSString* const kLayoutKey = @"nfsmw.touch.layout";
 
-static NSString* ControlIdent(BOOL driving, const Control& c) {
+// layout: "pad", "drive" or "drag".
+static NSString* ControlIdent(NSString* layout, const Control& c) {
   NSString* name = c.label.length ? [c.label stringByReplacingOccurrencesOfString:@"\n" withString:@" "]
                                   : (c.kind == Kind::kDpad ? @"DPAD" : @"STEER");
-  return [NSString stringWithFormat:@"%@.%@", driving ? @"drive" : @"pad", name];
+  return [NSString stringWithFormat:@"%@.%@", layout, name];
 }
 
 // The editor runs from the launcher, before the game sets the cvar: the
@@ -394,6 +399,10 @@ static CGFloat TouchOpacity() {
   REXLOG_INFO("[touch] {} layout", driving ? "DRIVE" : "PAD");
 }
 
+- (NSString*)layoutName {
+  return !_driving ? @"pad" : _drag ? @"drag" : @"drive";
+}
+
 - (NSString*)steeringMode {
   if (_editing) return g_editor_steering;
   return [NSString stringWithUTF8String:REXCVAR_GET(ios_touch_steering).c_str()];
@@ -402,7 +411,7 @@ static CGFloat TouchOpacity() {
 // The steering choice changed in the options while playing, or the HUD
 // shows a circle or a race: a new layout.
 - (void)syncSteering {
-  if (_driving && !_editing && g_drive_context.load() != _context) {
+  if (_driving && !_editing && (g_drive_context.load() != _context || g_drag.load() != bool(_drag))) {
     _keepTouches = YES;  // gas, steering... stay held through the new layout
     [self setNeedsLayout];
     return;
@@ -498,8 +507,8 @@ static CGFloat TouchOpacity() {
       for (UITouch* t in _owners) {
         const Control& c = old[[_owners objectForKey:t].unsignedIntegerValue];
         [touches addObject:t];
-        [names addObject:ControlIdent(YES, c)];
-        held[ControlIdent(YES, c)] = [NSValue valueWithCGRect:CGRectMake(c.knob.x, c.knob.y, c.center.x, c.center.y)];
+        [names addObject:ControlIdent(@"held", c)];  // by name alone: GAS stays held into the DRAG layout
+        held[ControlIdent(@"held", c)] = [NSValue valueWithCGRect:CGRectMake(c.knob.x, c.knob.y, c.center.x, c.center.y)];
       }
     }
     [self layoutDriving:w height:h unit:unit];
@@ -512,7 +521,7 @@ static CGFloat TouchOpacity() {
     for (NSUInteger k = 0; k < touches.count; ++k) {
       for (size_t i = 0; i < _controls.size(); ++i) {
         Control& c = _controls[i];
-        if ([ControlIdent(YES, c) isEqualToString:names[k]]) {
+        if ([ControlIdent(@"held", c) isEqualToString:names[k]]) {
           [_owners setObject:@(i) forKey:touches[k]];
           c.pressed = true;
           const CGRect v = held[names[k]].CGRectValue;  // knob, and centre (the dynamic stick's)
@@ -577,7 +586,7 @@ static CGFloat TouchOpacity() {
   for (Control& c : _controls) {
     if (c.grouped) continue;
     CGFloat scale = all;
-    NSArray* v = layout[ControlIdent(_driving, c)];
+    NSArray* v = layout[ControlIdent([self layoutName], c)];
     if (v.count == 3) {
       c.center = CGPointMake(w * [v[0] doubleValue], h * [v[1] doubleValue]);
       scale *= CGFloat([v[2] doubleValue]);
@@ -592,19 +601,20 @@ static CGFloat TouchOpacity() {
   const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
   NSMutableDictionary* layout =
       [[NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey] mutableCopy] ?: [NSMutableDictionary dictionary];
-  layout[ControlIdent(_driving, c)] = @[ @(c.center.x / w), @(c.center.y / h), @(scale) ];
+  layout[ControlIdent([self layoutName], c)] = @[ @(c.center.x / w), @(c.center.y / h), @(scale) ];
   [NSUserDefaults.standardUserDefaults setObject:layout forKey:kLayoutKey];
 }
 
 // Editor: the selected control's own size factor (1 = default).
 - (CGFloat)scaleOf:(const Control&)c {
-  NSArray* v = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][ControlIdent(_driving, c)];
+  NSArray* v = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][ControlIdent([self layoutName], c)];
   return v.count == 3 ? CGFloat([v[2] doubleValue]) : 1.0;
 }
 
-- (void)setEditing:(BOOL)editing driving:(BOOL)driving {
+- (void)setEditing:(BOOL)editing driving:(BOOL)driving drag:(BOOL)drag {
   _editing = editing;
-  _driving = driving;
+  _driving = driving || drag;
+  _drag = drag;
   _controlsVisible = YES;
   _selected = -1;
   [self setNeedsLayout];
@@ -630,6 +640,39 @@ static CGFloat TouchOpacity() {
     k.bit = bit;
     _controls.push_back(k);
   };
+  if (!_editing) _drag = g_drag.load();
+  if (_drag) {
+    // A drag race (HUD_Drag.fng up; Stefan, as on Android): the car keeps
+    // its lane by itself, so lane changes on two buttons (the left stick),
+    // shifting, nitrous and gas; camera and pause in the top row.
+    if (!_editing) _context = g_drive_context.load();
+    auto lane = [&](NSString* l, CGPoint c, float x) {
+      Control k{Kind::kRoundButton, l, c, unit * .6};
+      k.left_x = x;
+      _controls.push_back(k);
+    };
+    lane(@"◀", P(.07, .80), -1);
+    lane(@"▶", P(.20, .80), 1);
+    auto shift = [&](NSString* l, CGPoint c, CGFloat r, float y) {
+      Control k{Kind::kRoundButton, l, c, r};
+      k.right_y = y;
+      _controls.push_back(k);
+    };
+    shift(@"DOWN", P(.07, .50), unit * .5, kDriveShiftDown);
+    shift(@"UP", P(.20, .50), unit * .62, kDriveShiftUp);
+    round(@"NOS", P(.765, .80), unit * .62, kDriveNitrous);
+    Control brake{Kind::kTrigger, @"BRAKE", P(.765, .50), 0, CGSizeMake(unit * .9, unit * 1.1)};
+    brake.axis = 0;
+    _controls.push_back(brake);
+    Control accel{Kind::kTrigger, @"GAS", P(.9, .74), 0, CGSizeMake(unit * 1.05, unit * 1.9)};
+    accel.axis = 1;
+    _controls.push_back(accel);
+    const CGFloat top = h * .02 + unit * .25;
+    round(@"CAM", CGPointMake(w * .46, top), unit * .36, kDriveCamera);
+    round(@"PAUSE", CGPointMake(w * .54, top), unit * .36, kDrivePause);
+    [self applyCustomLayout];
+    return;
+  }
   // Steering (ios_touch_steering): the circle where it is, the same
   // circle under the thumb anywhere in the bottom-left quarter (not in the
   // editor: it has no place of its own), or two buttons.
@@ -1613,7 +1656,7 @@ UIWindow* GameWindow() {
 //  The layout editor (launcher › Controls › Customize touch controls)
 // ---------------------------------------------------------------------------
 @interface NFSTouchView (Editing)
-- (void)setEditing:(BOOL)editing driving:(BOOL)driving;
+- (void)setEditing:(BOOL)editing driving:(BOOL)driving drag:(BOOL)drag;
 - (void)resizeSelected:(CGFloat)factor;
 @end
 
@@ -1680,9 +1723,9 @@ UIView* LiveView();
   _touch.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   [self.view addSubview:_touch];
   _driving = [NSUserDefaults.standardUserDefaults boolForKey:@"nfsmw.touch.driving"];
-  [_touch setEditing:YES driving:_driving];
+  [_touch setEditing:YES driving:_driving drag:NO];
 
-  _mode = [[UISegmentedControl alloc] initWithItems:@[ @"Pad", @"Drive" ]];
+  _mode = [[UISegmentedControl alloc] initWithItems:@[ @"Pad", @"Drive", @"Drag" ]];
   _mode.selectedSegmentIndex = _driving ? 1 : 0;
   [_mode addTarget:self action:@selector(modeChanged) forControlEvents:UIControlEventValueChanged];
   UIStackView* bar = [[UIStackView alloc] initWithArrangedSubviews:@[
@@ -1706,7 +1749,7 @@ UIView* LiveView();
 
 - (void)modeChanged {
   _driving = _mode.selectedSegmentIndex == 1;
-  [_touch setEditing:YES driving:_driving];
+  [_touch setEditing:YES driving:_driving drag:_mode.selectedSegmentIndex == 2];
 }
 
 - (void)smaller {
@@ -1730,7 +1773,7 @@ UIView* LiveView();
 - (void)confirmReset {
   UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Reset the touch controls?"
                                                                  message:@"Positions, sizes and opacity go back to "
-                                                                         @"the defaults, for both layouts."
+                                                                         @"the defaults, for all three layouts."
                                                           preferredStyle:UIAlertControllerStyleAlert];
   [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
   [alert addAction:[UIAlertAction actionWithTitle:@"Reset"
@@ -1767,6 +1810,8 @@ UIViewController* MakeLayoutEditor(NSString* steering) {
 }
 
 void SetDriveContext(int bits) { g_drive_context.store(bits); }
+
+void SetDragRace(bool on) { g_drag.store(on); }
 
 UIView* LiveView() { return g_view; }
 
