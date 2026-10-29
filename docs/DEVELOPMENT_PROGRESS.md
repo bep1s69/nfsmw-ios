@@ -197,7 +197,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   races, and fixes the log bloat; built, not run. Pursuit not seen in the
   run (buttons as in free roam). Circle prompt ring fix (Stefan, "now"):
   IPA156 `ios/build/NFSMW-hud-prompt-156.ipa` (iCloud Desktop, includes
-  IPA155), built, not run. Then: the on-screen touch controls, then
+  IPA155), built, not run. Stefan asked for an Extra arguments field in
+  the launcher: IPA157 `ios/build/NFSMW-extra-args-157.ipa` (iCloud
+  Desktop, includes IPA156), built, not run. Next: his pursuit run with
+  `--nfsmw_hud_watch=true`. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

@@ -8604,3 +8604,17 @@ puts them, top middle, as without Custom HUD. The context detection
 `ios/build/NFSMW-hud-prompt-156.ipa` SHA-256
 69261e77fe6bd25acf3016f738cba119832934e5b44340ac54c8d80560e47060, 30150039
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA155. Not run.
+
+### October 29: Extra arguments in the launcher (IPA157)
+
+Stefan asked for it (no field existed; flags went only in
+Documents/extra_args.txt). Launcher Advanced tab, last section: text row
+`extra_args` ("Extra arguments", monospaced, smart dashes off, saved as
+typed). ios_main.mm: ApplyExtraArguments' line handling split out as
+ApplyArgumentLines (dash / quote / option-name fixes, SetArgument);
+ApplyLauncherArguments splits the field on whitespace and applies it
+after extra_args.txt, so it wins. The Advanced footer says so.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-extra-args-157.ipa` SHA-256
+afde2f97d546f14de27d98168fc789a4f8ebe91ac84d02bb17bf3b4aaf45fd2b, 30150546
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA156. Not run.
