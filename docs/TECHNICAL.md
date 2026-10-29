@@ -8396,3 +8396,17 @@ fit. `cmake --build --preset ios --target ipa -j 6` exit 0;
 `ios/build/NFSMW-hud-backdrop-149.ipa` SHA-256 1f75315a3d8a51050dd564a46f6d3949282f3e9a8500265448a218c05f82b477, 30122061 bytes, `unzip -tq`
 ok. Not run yet. Song box under the pause menu: Stefan accepts full size
 there if every piece is in place; asked for a screenshot.
+
+IPA149 result (Stefan, Oct 29, iPhone, `nfsmw_ipa149_iphone.log`,
+`ipa149_iphone_results_IMG_4062.png`): the leaves picture is unchanged
+again (about 95 of 2000 screenshot pixels of margin at each side), so none
+of the fits so far reach it: it is not drawn through these packages' images
+as assumed (cause unknown). The 15% enlargement is removed again (source
+only, not built); the leaves margins stay a known issue. The song box under
+the pause menu: good enough (Stefan).
+
+Stefan's next request (Oct 29): replace the HUD options with a visual
+Customize HUD editor (pre-launch and in-game menus): every HUD element
+shown, tabs for race/free roam and pursuit, tap and drag each element
+anywhere without overlapping others, master sliders for safe zone and HUD
+size, and, if not too much work, a size per element.

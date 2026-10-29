@@ -192,7 +192,8 @@ the results' leaves picture (InGamePhotoMaster.fng) and fixes the song box
 under the pause menu: wrong picture, removed in IPA148. Known issues: the
 leaves picture's iPhone side margins (package unknown, perhaps
 PostRace_Results.fng), the song box at full size under the pause menu, the
-loading screen's slight twitch. Known issue: the loading screen's
+loading screen's slight twitch. IPA149 (15% larger backdrop) did not reach
+the leaves either: removed; their iPhone margins stay a known issue. Known issue: the loading screen's
 pieces twitch slightly since IPA145. Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 
