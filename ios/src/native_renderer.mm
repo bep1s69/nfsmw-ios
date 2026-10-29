@@ -5992,6 +5992,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               rp.depthAttachment.loadAction == MTLLoadActionClear ? "clear" : "load", rp.depthAttachment.clearDepth));
         }
         enc = [cb renderCommandEncoderWithDescriptor:rp];
+        // A new encoder starts with no state. Its address does not say so:
+        // iOS 26 gives each new encoder the old one's address, the caches
+        // kept the old state and the pass drew without a pipeline (D-011).
+        state.enc = nil;
+        bias_encoder = nil;
+        visibility_encoder = nil;
         clip_mode_encoder = nil;  // a new encoder starts clipping
         clip_mode_clamp = false;
         // Everything the argument heaps point to, resident for this pass: one

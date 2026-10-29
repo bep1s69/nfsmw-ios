@@ -126,6 +126,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 29: D-011 diagnostic build `ios/build/NFS-Most-Wanted-0.4.2-diag1.ipa`
+  on local branch `diag-ios26-native-crash` (off `main` 0.4.2; not for
+  `main`, not pushed).** For the iOS 26 crash in AGX `drawIndexedPrimitives`
+  on the first native frames (GitHub report): Metal API validation from the
+  start of `main()` (stderr into `Documents/logs/native_diag.txt`) and a
+  synced per-draw state log of the first 5 frames with `MISMATCH` flags.
+  Off with `--nfsmw_diag_metal_validation=false` /
+  `--nfsmw_diag_draw_log=false` in extra_args.txt. Stefan's iOS 27 smoke
+  test passed (validation active, 0 MISMATCH). The user's iOS 26 run with
+  validation on did not crash (17 fps). With validation off it crashed;
+  cause found (iOS 26 reuses the encoder address, the per-encoder state
+  caches compare addresses; TECHNICAL Oct 29). Fix approved and built:
+  `ios/build/NFS-Most-Wanted-0.4.2-diag2.ipa` (fix + draw log, validation
+  off by default; also on the iCloud Desktop). Confirmed on iOS 26 (Oct 29).
+  Then (Stefan's go) only the fix went onto `main` as 0.4.3 (build 7):
+  `ios/build/NFS-Most-Wanted-0.4.3.ipa`. Next: Stefan's device check,
+  then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
+  reporters to try it.
+
 - **October 28: 0.4.2 prepared on local branch `touch-overlay-native` (off
   `main`), not merged, tagged or pushed (waiting for Stefan).** Fixes: the
   60 fps world judder (D-005: the game's main loop timed frames unevenly; each
