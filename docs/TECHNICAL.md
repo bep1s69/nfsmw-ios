@@ -8298,3 +8298,28 @@ does not also place the children. `cmake --build --preset ios --target ipa
 `unzip -tq` ok. Not run yet.
 
 IPA143 result (Stefan, Oct 29, iPad, 70%): the infraction rows stay under their badge; fixed.
+
+IPA143 on iPhone (Stefan, Oct 29, 70%, log `Debug/29 October 2026/
+nfsmw_ipa143_pursuit_70pct_iphone.log`, screenshots `ipa143_iphone_IMG_4050,
+4052, 4053.png`; an earlier upload was an Oct 28 log with logging off, kept
+as `nfsmw_oct28_build_iphone_sent_oct29.log`): the bust overlay is right;
+the busted/evade bar's marker is missing; the loading screen's black box
+covers about 0.74 of the width and 0.87 of the height (screenshot), which
+matches the matrix's HD title-safe 0.92 and the wide scene's 1280/1560
+(0.755 and 0.92; inference); the asphalt picture shows the game at its
+edges too. The log: 7B422BA3 and E0B1430B (the bar's groups, bottom centre)
+were given to the game (by_children); the marker inside is placed by the
+game too, so it was drawn unmoved (about 92 HUD units lower: off the
+bottom) (inference).
+
+IPA144: by_children only for top-left pieces (the infraction rows); the
+others are moved again late, as in IPA142. Fade packages and
+InGameBackground.fng are fitted in every game state, under menus too: their
+images 400 units wide or more (types 1 and 9) divided by the HUD size
+(driving only) times the kept title-safe scale (HD 0.92, SD only with
+nfsmw_hud_title_safe), x also by 1280/width on a wide scene. On the iPad
+(SD, 4:3) only the HUD size applies, as before, now also undone under menus.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fit-safe-144.ipa` SHA-256 996345e70b8c01f069e5873e583ad46b614232edf88901349a939777d2ca00ab, 30130938 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that the asphalt picture's pieces are static
+(IPA141 showed fitting animated pieces compounds).
