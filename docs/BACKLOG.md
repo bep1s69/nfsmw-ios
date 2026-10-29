@@ -17,6 +17,24 @@ unnumbered entries below, instead of opening duplicates.
 
 ## Open bugs
 
+### D-014 iPhone 14 Pro Max cycles between 60 and ~40 fps — open (October 30)
+
+Stefan reports repeated 20-30 s cycles at native 1x/60 on this phone only,
+including Balanced and Max. Log: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm.log`;
+recent runs are October 30 00:15-00:23, build Oct 29 22:38:47; OS/install
+method not established from this analysis. Distinct from D-012: Balanced
+stays boosted while driving and Max confirms adaptive/Utility off; render
+entry samples stay User Initiated (Balanced) / Default (Max). GPU times
+rise above the 16.67 ms budget during drops, return below it with 60 fps.
+An exact 40 window is 150 x 16.7 ms + 150 x 33.3 ms, not even 25 ms.
+Low Power Mode and app auto caps off; drops start with thermal nominal.
+GPU clock/power variation or workload plus presentation feedback are
+hypotheses; no clock measurement or causal proof. Next: same scene on Max,
+stationary if reproducible, cold launch with only
+`--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`
+added, 2-3 min; compare with this log. No source change approved or made.
+Details: TECHNICAL October 30 D-014 analysis.
+
 ### D-001 Null call crash near the first safehouse (iPhone) — monitor
 
 Since 2026-10-12; Oct 22 iPhone logs `22 October 2026/nfsmw_crash_iphone.log`,
