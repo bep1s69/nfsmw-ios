@@ -9351,3 +9351,58 @@ Keep 40 source unchanged until the 60 fix is validated, then collect current
 40 trace and localize residual pacing (prior negative experiments retained).
 Pre-existing uncommitted issue 11 note, HANDOFF_CHATGPT.md and SDK work
 preserved. Local commit only; no push/tag/release or new device run.
+
+### October 30: D-014 Balanced confirmed; 0.5.1 scope and 40 fps investigation
+
+Stefan confirms new default-fix IPA: ~1 minute police chase on iPhone 14
+Pro Max at Balanced, no issues; prior cycling appeared much sooner. Refers
+to NFSMW-0.5.0-14pm-60fps-fix.ipa documented above (SHA-256 d56bcfea..., UUID
+D7D325E7-784F-36DD-94BA-96D226418869). User-reported device result, no new
+log/photo or OS version supplied in this message. No archival file exists
+for this run beyond this report; no fabricated runtime measurements.
+This validates the default change on that phone, not all devices/settings.
+
+Impact explained: change applies to all devices at 60 fps, so pacing and
+latency may differ elsewhere; cannot guarantee zero regressions. 30 keeps
+its tested scheduled path; 40/120 unchanged. World timing, simulation,
+QoS and image quality unchanged. Short other-device 60 and 30/menu checks
+remain before release. Stefan's 0.5.1 hotfix scope: these two fixes only
+(D-014 and 40 fps pacing). Recorded in working rules, no version bump yet.
+
+Read current swap cap (SDK patch scripts), display link publication,
+native render queue/in-flight limit and drawable acquisition/presentation.
+40 counts three guest 120 Hz vblanks between swaps; native serial queue
+then encodes, obtains nextDrawable and presents when ready. A 120 Hz
+CADisplayLink request is already enforced at 40. No source mutation made.
+Requested current-build 40 fps trace, 1-2 min, Low Power Mode off, device
+identified, nfsmw_native_frame_trace=true; awaiting evidence.
+
+Independent read-only reanalysis of historical
+`Debug/28 October 2026/nfsmw_ipa131_no_present_at_time_40fps_iphone.log`:
+script includes records after game flow state 6, disables inclusion on
+Pause menu; not a matched new run. Parsed all numeric trace gap fields:
+- swap: 1740 gaps, mean 25.247 ms, 1633 within 1 ms of 25.
+- handed: 1740, mean 25.248 ms, 1033 within 1 ms.
+- GPU end: 1723, mean 25.244 ms, 682 within 1 ms.
+- shown: 1723, mean 25.242 ms; exact rounded bins 25.0:644,
+  29.2:464, 20.8:430, 33.3:97, 16.7:64, remaining 24 other values.
+There are 259 frame-trace lines in the full file. Rounded log measurements,
+not exact physical scanout timing. Missing GPU/shown entries excluded;
+includes transients, no claim of a controlled steady-only population.
+This corrects any impression that historical unpaced 40 was perfectly
+smooth: it improved on the exact 16.7/25/33.3 cycle but residual variation
+remained. Near-even swaps plus display gap variation motivates inspecting
+frame/display synchronization if current trace reproduces it. Historical
+GPU completion also has jitter, so do not attribute all variation solely
+to the compositor without fresh evidence. Wider target delays and minimum
+duration already failed; do not repeat them as assumed fixes.
+
+Read/analysis commands exit 0. No source change/build/new device execution,
+no push/tag/release. Pre-existing issue 11 checkpoint text and untracked
+HANDOFF_CHATGPT.md preserved. Next: supplied current 40-cap trace, then
+an isolated evidence-based fix proposal/implementation within 0.5.1 scope.
+
+Stefan selected the iPhone 14 Pro Max for the pending 40 fps run. Test
+instructions: same Balanced/1x, choose 40 before cold launch, Low Power
+Mode off, frame_trace true; force-quit LiveContainer first (startup guest
+vblank rate matters). Result/log not yet received.

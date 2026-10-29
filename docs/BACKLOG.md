@@ -17,7 +17,7 @@ unnumbered entries below, instead of opening duplicates.
 
 ## Open bugs
 
-### D-014 iPhone 14 Pro Max cycles between 60 and ~40 fps — default fix built, device check pending (October 30)
+### D-014 iPhone 14 Pro Max cycles between 60 and ~40 fps — fixed for 0.5.1, iPhone confirmed (October 30)
 
 Stefan reports repeated 20-30 s cycles at native 1x/60 on this phone only,
 including Balanced and Max. Log: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm.log`;
@@ -49,6 +49,12 @@ master remains true and 30 keeps its tested behavior. Remove the workaround
 and trace arguments for the device check (Max, then Balanced, 1x/60).
 No new device result yet; runtime evidence remains the successful manual
 workaround. 40 unchanged; next after validation is its current-build trace.
+
+Stefan confirmed the default fix: ~1 min chase at Balanced, no issues
+(previously appeared sooner). No new log supplied; device/OS/settings
+beyond that report not independently checked. Other devices still need a
+short 60 fps regression check; scheduled presentation changed on all at 60.
+Stefan limits 0.5.1 to this fix and 40 fps pacing.
 
 ### D-001 Null call crash near the first safehouse (iPhone) — monitor
 
@@ -801,7 +807,7 @@ caused by the 0.4.2 changes. Next: look at the present-at-time pacing at the
 the target).
 
 
-October 30 follow-up for the 40 fps cap entry above: current source already
+October 30 follow-up (active for 0.5.1, Stefan): current source already
 excludes cap 40 from scheduled presentation (RC7). The D-014 60 fps success
 does not fix/validate residual 40 pacing. Next: cold current-build 40 run,
 Low Power Mode off, `--nfsmw_native_frame_trace=true` (and presentation

@@ -24,6 +24,8 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 30 (Stefan): 0.5.1 hotfix scope is only the iPhone 14 Pro Max
+  60/~40 cycling fix and the 40 fps frame-pacing fix. No unrelated additions.
 - October 30 (Stefan): archive all logs, photos and other test evidence he
   sends in `~/Developer/Debug/Most Wanted (2005) Debug/`, under the relevant
   test folder with names similar to the previous evidence (device and test
@@ -133,6 +135,17 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 30: D-014 default fix confirmed on iPhone 14 Pro Max.**
+  Stefan ran a ~1 min chase at Balanced on the new IPA without issues;
+  previously the cycling appeared sooner. User-reported result, no log
+  supplied for this run. Other-device 60 fps and short 30 checks remain.
+  0.5.1 scope: only this fix and 40 fps pacing (Stefan). Current 40 path
+  already unpaced; requested fresh current-build 40 trace, Low Power Mode
+  off, device identified. Next: analyze it before choosing a source change;
+  previous wider-delay/minimum-duration experiments failed. Old unpaced
+  trace confirms residual display unevenness despite near-even swaps.
+  No new 40 source change/build, version bump or release yet.
 
 - **October 30: D-014 default fix approved, built; device check pending.**
   Stefan: fix 14 Pro Max permanently first, then tackle 40 fps pacing.
