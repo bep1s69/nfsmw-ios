@@ -598,6 +598,10 @@ const std::vector<Section>& Sections() {
             @"Native renderer, with \"0.75x when hot\" on (or Battery mode): acts as if the phone "
             @"were hot for 30 s of every minute, to see the resolution switch. The log says when.",
             @"false"},
+           {@"extra_args", Type::kText, @"Extra arguments",
+            @"Options for testing, passed to the game at launch, separated by spaces, e.g. "
+            @"--nfsmw_hud_watch=true. They win over these settings and Documents/extra_args.txt.",
+            @""},
        }, kTabAdvanced},
   };
   return sections;
@@ -1479,7 +1483,7 @@ NSString* AchievementSummary(const Achievements& a) {
     NSString* f = [self sectionAt:section].footer ?: @"";
     return [f stringByAppendingString:
                   @"Documents/extra_args.txt, if present, is applied after these settings "
-                  @"and wins."];
+                  @"and wins; Extra arguments after both."];
   }
   return [self sectionAt:section].footer;
 }
@@ -1616,9 +1620,12 @@ NSString* AchievementSummary(const Achievements& a) {
       break;
     }
     case Type::kText: {
-      UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 170, 34)];
+      const bool args = [key isEqualToString:@"extra_args"];
+      UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, args ? 230 : 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
-      field.placeholder = @"User";
+      field.placeholder = args ? @"--option=value" : @"User";
+      field.font = args ? [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular] : field.font;
+      field.smartDashesType = UITextSmartDashesTypeNo;
       field.text = value;
       field.autocorrectionType = UITextAutocorrectionTypeNo;
       field.autocapitalizationType = UITextAutocapitalizationTypeNone;
@@ -1627,8 +1634,8 @@ NSString* AchievementSummary(const Achievements& a) {
       field.returnKeyType = UIReturnKeyDone;
       field.delegate = self;
       [field addAction:[UIAction actionWithHandler:^(UIAction*) {
-               // Saved as typed, but only while it is valid for Xbox 360.
-               const bool valid = GamertagValid(field.text);
+               // Saved as typed, but a gamertag only while it is valid for Xbox 360.
+               const bool valid = args || GamertagValid(field.text);
                field.textColor = valid ? UIColor.labelColor : UIColor.systemRedColor;
                if (valid) {
                  [self set:key to:field.text];

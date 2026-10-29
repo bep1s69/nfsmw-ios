@@ -223,6 +223,8 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
 // option name already in `args`. UTF-8, or UTF-16 with its byte-order mark
 // (a file passed through the Mac's clipboard/TextEdit came as UTF-16 LE and
 // every argument was ignored, Oct 28).
+void ApplyArgumentLines(NSString* text, std::vector<std::string>& args);
+
 void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
   NSData* data = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:file.c_str()]];
   if (!data) {
@@ -244,6 +246,20 @@ void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
   if ([text hasPrefix:@"\uFEFF"]) {
     text = [text substringFromIndex:1];  // a UTF-8 byte-order mark
   }
+  ApplyArgumentLines(text, args);
+}
+
+// The launcher's Extra arguments field: the same, separated by spaces (or
+// lines), applied after extra_args.txt.
+void ApplyLauncherArguments(const fs::path& docs, std::vector<std::string>& args) {
+  NSString* text = nfsmw::launcher::ReadSettings(docs)[@"extra_args"];
+  if (!text.length) return;
+  NSArray<NSString*>* words =
+      [text componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+  ApplyArgumentLines([words componentsJoinedByString:@"\n"], args);
+}
+
+void ApplyArgumentLines(NSString* text, std::vector<std::string>& args) {
   std::istringstream in(text.UTF8String);
   std::string line;
   while (std::getline(in, line)) {
@@ -431,6 +447,7 @@ int main(int argc, char* argv[]) {
       boot::Trace("setting: " + a);
     }
     ApplyExtraArguments(docs / "extra_args.txt", texts);
+    ApplyLauncherArguments(docs, texts);
     // The Logging switch off: no more boot trace either.
     if (std::find(texts.begin(), texts.end(), std::string("--log_level=off")) != texts.end()) {
       boot::Trace("logging off");

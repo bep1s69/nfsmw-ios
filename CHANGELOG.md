@@ -44,6 +44,10 @@
   the infractions list, and the ring flashed between two places. It now
   stays where the game puts it, at the top middle.
 
+- **Extra arguments in the launcher.** Advanced tab › Extra arguments:
+  options for testing (e.g. `--nfsmw_hud_watch=true`), separated by
+  spaces, without editing Documents/extra_args.txt. They win over both.
+
 - **Smaller logs.** Two of the HUD's overlays took turns being logged in
   full every frame, which filled several 5 MB logs in a few minutes. Each
   is now logged once.
