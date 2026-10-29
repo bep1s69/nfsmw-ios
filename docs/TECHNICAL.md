@@ -9226,3 +9226,38 @@ untracked HANDOFF_CHATGPT.md and sibling SDK work. Analysis commands exited
 0 except a final rg for guessed QoS label spellings (exit 1: no match);
 subsequent exact `render scheduling` extraction found the samples above.
 Only documentation changed; no push/tag/release.
+
+### October 30: D-014 presentation-off test succeeds; archive evidence rule
+
+Stefan: "issue was fixed" after the proposed test. Supplied
+`/Users/bep1s/Downloads/nfsmw 2.log`, archived byte-for-byte without overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_2_present_at_time_off.log`.
+631472 bytes, 3903 lines, SHA-256
+dc0e9a3375aacaf09f073ee938ea4eadd8a3595de824762a57b5c8943073e7b2.
+Kept beside the original nfsmw_iphone_14pm.log to preserve the comparison;
+source in Downloads retained. Exclusive-create copy and byte equality
+verification exited 0. Initial read/status/log and summary extraction
+commands exited 0. No evidence contents committed.
+
+Run October 30 00:33:07.565-00:34:41.592, iPhone 14 Pro Max (Stefan),
+build Oct 29 22:38:47; Max confirmed, adaptive/Utility off, native 1x/60,
+MetalFX/FXAA/MSAA off. OS and IPA hash/UUID not supplied. Test requested
+`--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`;
+log pacing summaries have no "paced" suffix, consistent with presentation
+disabled (exact argument values are not echoed by the supplied log).
+World entered 00:33:42.774. Eleven full steady-world windows (frames
+2101-5101, 00:33:49.933-00:34:40.020) at 59.6-60.0 fps; GPU summaries
+7.67-15.06 ms. No ~40 plateau. Final slow-GPU diagnostics at the tail
+are retained; this short run does not establish absence of all hitches.
+
+Inference: the successful presentation-off test strongly implicates the
+scheduled presentation path in D-014; not proof of the exact GPU/pacing
+feedback mechanism or a universal device fix. No source/default change,
+new build or broader performance validation. Workaround confirmed; next,
+if requested, investigate/design the permanent presentation fix.
+
+New Stefan rule: save all supplied logs/photos/other test evidence under
+Most Wanted (2005) Debug with descriptive names similar to the preceding
+log, retaining the full test history. Recorded in working rules. Preserve
+pre-existing issue 11 checkpoint note and untracked HANDOFF_CHATGPT.md;
+commit only this session's documentation, no push/release.
