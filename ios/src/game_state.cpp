@@ -140,7 +140,7 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);     // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
-extern "C" void nfsmw_hud_full_size(bool on);                              // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_full(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 
 namespace {
 bool fade_up = false;
@@ -171,11 +171,14 @@ extern "C" REX_FUNC(sub_823B4158) {
       if (PushedPackage(ctx, base, &overlay, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay));
     }
   }
-  // The TV-style overlays of a bust and of a race's end (IPA139), drawn at
-  // full size while they are up.
-  {
-    static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng"};
-    nfsmw_hud_full_size(state == kRacing && menu < 0 && PushedPackage(ctx, base, kFullSize, 2) >= 0);
+  // The TV-style overlays of a bust and of a race's end and the post-race
+  // asphalt picture (IPA139), drawn at full size and the screen's width
+  // whatever the HUD's size, under menus too.
+  if (state == kRacing) {
+    static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng", "InGameBackground.fng"};
+    for (const char* screen : kFullSize) {
+      if (PushedPackage(ctx, base, &screen, 1) >= 0) nfsmw_hud_fit_full(base, FindPackage(ctx, base, screen), menu < 0);
+    }
   }
   // Every screen up in the world logged, with its pieces (D-006).
   if (state == kRacing) {

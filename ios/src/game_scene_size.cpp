@@ -178,12 +178,7 @@ float HudScaleSetting() {
 // full size.
 bool g_fade_opaque = false;
 
-// Set by game_state.cpp while a full-screen TV overlay is up while driving
-// (IPA139's log: BUSTED_OVERLAY.fng, InGamePhotoMaster.fng at a race's end):
-// drawn at the game's size, like a menu. The HUD is hidden under them.
-bool g_full_size_screen = false;
-
-float HudScale() { return nfsmw::battery::InMenu() == 0 && !g_full_size_screen ? HudScaleSetting() : 1.0f; }
+float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -713,9 +708,9 @@ struct Fitted {
 std::unordered_map<uint32_t, Fitted> g_fitted;
 
 // Position (+28, +32) and, unless only_position, size (+56, +60) of an
-// object divided by s, so that through the HUD's matrix (scaled by s about
-// the middle of the screen) it is drawn as without it.
-void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
+// object divided by sx (x) and sy (y), so that through the HUD's matrix
+// (scaled by those about the middle of the screen) it is drawn as without it.
+void Fit(uint8_t* base, uint32_t object, float sx, float sy, bool only_position) {
   const uint32_t data = REX_LOAD_U32(object + 44);
   if (!Plausible(data)) return;
   const uint32_t at[4] = {data + 28, data + 32, data + 56, data + 60};
@@ -725,7 +720,7 @@ void Fit(uint8_t* base, uint32_t object, float s, bool only_position) {
   Fitted& f = it->second;
   if (added || std::memcmp(now, f.written, sizeof(now)) != 0) std::memcpy(f.base, now, sizeof(now));
   for (int i = 0; i < 4; ++i) {
-    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / s;
+    f.written[i] = i >= 2 && only_position ? f.base[i] : f.base[i] / (i % 2 ? sy : sx);
     if (f.written[i] != now[i]) StoreF(base, at[i], f.written[i]);
   }
 }
@@ -785,7 +780,7 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
   const uint32_t type = REX_LOAD_U32(object + 0x18), data = REX_LOAD_U32(object + 44);
   if (type == 1) {
     if (!Plausible(data) || std::abs(LoadF(base, data + 56)) < 400.0f) return false;
-    Fit(base, object, s, false);
+    Fit(base, object, s, s, false);
     g_fade_alpha = std::max(g_fade_alpha, REX_LOAD_U32(data + 12));  // FEColor b, g, r, a
     return true;
   }
@@ -796,7 +791,7 @@ bool FitWide(uint8_t* base, uint32_t object, float s, int depth) {
        c = REX_LOAD_U32(c + 4), ++n) {
     any = FitWide(base, c, s, depth + 1) || any;
   }
-  if (any) Fit(base, object, s, true);
+  if (any) Fit(base, object, s, s, true);
   return any;
 }
 
@@ -882,12 +877,13 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
 // sub_82284D70 -> sub_822F5A98: first at +8; a package's +4 next, +12 its
 // name, +16 the name's hash). The list's names are logged when it changes,
 // with the HUD's size then; each package's object tree when it comes up and
-// again 180 frames later (its pieces once its script has moved them).
+// again 180 frames later (its pieces once its script has moved them), then
+// every 600 frames while driving.
 namespace {
 struct Seen {
   uint32_t package;
-  uint64_t frame;
-  bool redumped;
+  uint64_t first;  // when it came up
+  uint64_t frame;  // when it was last logged
 };
 std::vector<Seen> g_seen;
 uint64_t g_ui_frame = 0;
@@ -913,9 +909,45 @@ void DumpPackage(uint8_t* base, uint32_t package, const char* when) {
 }
 }  // namespace
 
-extern "C" void nfsmw_hud_full_size(bool on) {
-  if (on != g_full_size_screen) REXLOG_INFO("[hud] full-screen overlay {}", on ? "up: HUD size 1" : "gone");
-  g_full_size_screen = on;
+namespace {
+
+// Every object of a full-screen package, groups included, at any depth
+// (positions are relative to the group): positions and sizes divided by the
+// matrix's scale, groups' sizes left (IPA139's tree: 1, or -1 for a flip).
+void FitAll(uint8_t* base, uint32_t object, float sx, float sy, int depth) {
+  const uint32_t type = REX_LOAD_U32(object + 0x18);
+  Fit(base, object, sx, sy, type == 5);
+  if (type != 5 || depth >= 6 || REX_LOAD_U32(object + 0x5C) != kListVtable) return;
+  int n = 0;
+  for (uint32_t c = REX_LOAD_U32(object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+       c = REX_LOAD_U32(c + 4), ++n) {
+    FitAll(base, c, sx, sy, depth + 1);
+  }
+}
+}  // namespace
+
+// A full-screen package in the world (game_state.cpp, every frame while it is
+// up, under menus too): the TV-style overlays of a bust and of a race's end
+// (BUSTED_OVERLAY.fng, InGamePhotoMaster.fng) and the asphalt picture behind
+// the post-race screens (InGameBackground.fng). IPA140 drew the HUD at size 1
+// while the overlays were up, and at a race's end the HUD showed for half a
+// second at full size with its pieces still moved for 0.7. Instead the
+// package is drawn as at size 1 while the HUD keeps its size, and on a wide
+// scene (19.5:9) it is widened to the screen's width (IPA91 and Stefan,
+// Oct 29: the game showed through at the sides on the iPhone). driving: the
+// HUD's size is in the matrix this frame.
+extern "C" void nfsmw_hud_fit_full(uint8_t* base, uint32_t package, bool driving) {
+  if (!Plausible(package)) return;
+  const float s = driving ? HudScaleSetting() : 1.0f;
+  const uint32_t width = WideWidth();
+  const float sx = s * (width ? 1280.0f / float(width) : 1.0f);
+  if (sx == 1.0f && s == 1.0f && g_fitted.empty()) return;
+  uint32_t at = 0;
+  int n = 0;
+  for (uint32_t o = FirstObject(base, package, at); Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300;
+       o = REX_LOAD_U32(o + 4), ++n) {
+    FitAll(base, o, sx, s, 0);
+  }
 }
 
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine) {
@@ -937,7 +969,7 @@ extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine) {
       if (old != g_seen.end()) {
         next.push_back(*old);
       } else {
-        next.push_back({p, g_ui_frame, false});
+        next.push_back({p, g_ui_frame, g_ui_frame});
         DumpPackage(base, p, "up");
       }
     }
@@ -945,9 +977,12 @@ extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine) {
     REXLOG_INFO("[ui] screens: {} (HUD size {:.2f}, menu {})", names, HudScale(), nfsmw::battery::InMenu());
   }
   for (Seen& s : g_seen) {
-    if (!s.redumped && g_ui_frame - s.frame >= 180) {  // 180 frames: 3-6 s at the caps
-      s.redumped = true;
-      DumpPackage(base, s.package, "3 s later");
+    // 180 frames after it came (3-6 s at the caps), then every 600 while
+    // driving (IPA141: the pursuit's pieces, placed by the HUD's script).
+    const uint64_t wait = s.frame == s.first ? 180 : 600;
+    if (g_ui_frame - s.frame >= wait && (s.frame == s.first || nfsmw::battery::InMenu() == 0)) {
+      DumpPackage(base, s.package, s.frame == s.first ? "3 s later" : "again");
+      s.frame = g_ui_frame;
     }
   }
 }
