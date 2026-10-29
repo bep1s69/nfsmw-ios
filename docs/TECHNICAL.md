@@ -8899,3 +8899,28 @@ Low Power Mode off, thermal nominal; no crash this run, a race was played).
 Inference: the iPhone's adaptive QoS lets the render path drop to Utility
 and its late-frame detector cannot see drops on the presentation side. Same
 finding as the "back to Utility" note from the crash thread; fix belongs there.
+
+### October 29: start judder runs on the iPad (camera log), 120 Hz simulation
+
+Logs `Debug/29 October 2026/start_judder_ipad/` (iPad, cap 60, challenge
+series pursuit, cold start each run, `--nfsmw_native_camera_log=true`).
+Counted per camera line (60 frames): frames where the camera did not move.
+- run1 (sim 60, default): from 1 s to ~14.5 s after `game flow state 6`,
+  11-22 of every 60 frames still, in a repeating 3-frame pattern
+  (e.g. 0.22 0.00 0.42 0.19 0.00 0.37: step, nothing, double step): the
+  world moves on 2 of 3 frames, ~40 fps of motion on a clean 60 fps screen.
+  At 21:57:17 it stops by itself (0 still), with short returns later
+  (16, 23 still at +22/+23 s). Stefan: "started with the judders but then
+  fixed itself".
+- run2, run2_2, run2_3 (`--nfsmw_sim_rate=120`): 0-1 still frames per 60
+  from 2 s in (one 7 and one 5 later). The first ~8-10 s still show an
+  uneven 3-frame sawtooth (e.g. 0.63 0.42 0.20; 30-42 of 60 frames off
+  their neighbours by >25%, run2_3 lower), no freezes. Stefan: "much
+  better", consistent over 3 runs.
+- Presentation the same in all (0-13 of 300 frames off grid in the world);
+  `[cpu]` in the world 139-199% (sim 60) vs 181-192% (sim 120): no
+  measurable cost.
+Inference: something feeding the camera updates at a 20 Hz cadence for the
+first ~15 s of the pursuit; with 60 world steps a second that shows as a
+missing step every third frame, with 120 only as unevenness. Cause not
+identified. Runs 3/4 (frame_ticks 0, QoS off) skipped by Stefan's choice.

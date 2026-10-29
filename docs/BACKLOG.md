@@ -146,7 +146,9 @@ world one display period per frame: iPad camera judder 0.05% of frames, iPhone
 own layer (the in-frame one is soft at low render scales).
 Oct 29: Stefan reports a low-frame-rate feel for the first 20-30 s of races
 and pursuits; logs show even 60 fps presentation then (TECHNICAL Oct 29,
-"race/pursuit start"). Next: camera-log run at a race start.
+"race/pursuit start"). Camera log (TECHNICAL Oct 29, "start judder runs"):
+for ~15 s the world moves on 2 of 3 frames at sim 60; sim 120 removes the
+still frames (Stefan: much better). Proposed: 120 Hz simulation by default.
 
 ### Customize HUD editor — in progress (IPA150)
 
