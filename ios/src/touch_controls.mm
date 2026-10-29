@@ -118,6 +118,9 @@ std::atomic<float> g_tap_x{0}, g_tap_y{0};
 
 void PressMenuButton(int button);
 
+// nfsmw::touch::SetMapUp, from the game's thread.
+std::atomic<bool> g_map_up{false};
+
 // nfsmw::touch::SetDragRace, from the game's thread.
 std::atomic<bool> g_drag{false};
 
@@ -167,10 +170,12 @@ void SetPadState(int buttons, float lx, float ly, float rx, float ry, float lt, 
 }
 
 // Pressed for 0.1 s (a menu's tap).
+// (1 << 20, 1 << 21: LT, RT, as game_scene_size.cpp's kHintLT / kHintRT.)
 void PressMenuButton(int button) {
-  SetPadState(button, 0, 0, 0, 0, 0, 0);
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    if (g_buttons == button) SetPadState(0, 0, 0, 0, 0, 0, 0);
+  const int buttons = button & 0xFFFF;
+  SetPadState(buttons, 0, 0, 0, 0, (button & (1 << 20)) ? 1 : 0, (button & (1 << 21)) ? 1 : 0);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (g_buttons == buttons) SetPadState(0, 0, 0, 0, 0, 0, 0);
   });
 }
 
@@ -976,6 +981,13 @@ static CGFloat TouchOpacity() {
   if (d < 14 && !_gSwiping) return;
   _gSwiping = YES;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
+  if (g_map_up.load()) {
+    // The world map moves its cursor with the right stick, any way (Stefan,
+    // IPA165).
+    const float len = float(std::max(d, 1.0));
+    SetPadState(0, 0, 0, float(dx) / len * k, float(dy) / len * k, 0, 0);
+    return;
+  }
   const bool across = std::fabs(dx) >= std::fabs(dy);
   SetPadState(0, across ? (dx > 0 ? k : -k) : 0, across ? 0 : (dy > 0 ? k : -k), 0, 0, 0, 0);
 }
@@ -1847,6 +1859,8 @@ void SetDriveContext(int bits) { g_drive_context.store(bits); }
 
 void SetDragRace(bool on) { g_drag.store(on); }
 
+void SetMapUp(bool up) { g_map_up.store(up); }
+
 bool TakeMenuTap(int& serial, float& x, float& y) {
   serial = g_tap_pending.load();
   if (!serial) return false;
@@ -1866,7 +1880,7 @@ void MenuTapResult(int serial, int button) {
       return;
     }
     const int bits = button ? button : kA;
-    REXLOG_INFO("[touch] menu tap: {}", bits == kA ? "A" : bits == kB ? "B" : bits == kX ? "X" : "Y");
+    REXLOG_INFO("[touch] menu tap: {:X}", bits);
     PressMenuButton(bits);
   });
 }

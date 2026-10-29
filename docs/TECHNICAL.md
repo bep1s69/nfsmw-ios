@@ -8830,3 +8830,24 @@ that table; of overlapping boxes the one starting nearer left of the tap.
 `ios/build/NFSMW-touch-hints-165.ipa` SHA-256
 d0b85a9cfe5519e2631baa8b77cffcf784055b150cb782773d7306e29cf8657a, 30169585
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA164. Not run.
+
+### October 29: IPA165 confirmed; the world map by touch (IPA166)
+
+Stefan (IPA165): the hints work, tap anywhere = A and two fingers = B to
+keep (also needed for "press start"). The world map
+(`ipa165_world_map_IMG_4077.png`) moves its cursor with the right stick,
+zooms with LT / RT (pictures beside "Zoom 1.5X") and changes the category
+with the arrows by its name; none were reachable.
+- game_state.cpp: WorldMapMain.fng pushed -> nfsmw::touch::SetMapUp; a
+  menu swipe then moves the right stick in any direction (not one axis).
+- game_scene_size.cpp nfsmw_menu_hint_at: with WorldMapMain up, fixed
+  spots before the hints: LT (-245,169) and RT (23,169) (D1CDA594 /
+  9345E4A7 in its ui-tree), the arrows (43,-184) / (234,-184) (measured on
+  the screenshot), +-28 x +-24 units: the triggers (kHintLT / kHintRT,
+  bits 20 / 21) or D-pad left / right (a guess: the category arrows'
+  button is not on screen). PressMenuButton holds them 0.15 s, triggers
+  included.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-map-166.ipa` SHA-256
+a377bfe4b39914923b9986023451df74a3a0c4e218600afd144555a936e93918, 30169927
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA165. Not run.

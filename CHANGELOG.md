@@ -79,7 +79,9 @@
 - **Swipe and tap in menus.** In menus and pause screens the on-screen
   gamepad is gone: swipe to move through the menu, tap to accept, tap with
   two fingers to go back. Tapping one of the game's button hints ("B Back",
-  "Y Delete"...) presses that button. The PAD button still brings the full gamepad
+  "Y Delete"...) presses that button. On the world map a swipe moves the
+  cursor, the LT / RT pictures zoom and the arrows at the top change the
+  category. The PAD button still brings the full gamepad
   back for that menu. Can be turned off (Touch controls › Swipe and tap in
   menus).
 
