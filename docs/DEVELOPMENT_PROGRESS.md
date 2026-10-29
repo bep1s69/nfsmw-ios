@@ -175,8 +175,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-hud-backdrop-149.ipa` draws the backdrop 15% larger for
   the leaves' iPhone margins: no effect, removed. Customize HUD editor
   (Stefan's spec, outlines): IPA150 `ios/build/NFSMW-hud-editor-150.ipa`
-  works on the iPhone (Stefan; outlines match the drawn HUD). Next: his
-  further checks, then push/release on his go. Known issues
+  works on the iPhone (Stefan; outlines match the drawn HUD). Stefan
+  (Oct 29): HUD done for now. Next: the on-screen touch controls, then
+  the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
   controls.
