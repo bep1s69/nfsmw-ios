@@ -8139,3 +8139,7 @@ E03ED4ED-B0A2-3803-AB23-5F239940A093, 208 metallibs, ZIP test OK, codesign
 0.4.3 IPA (30335eac...). Not run on a device. Test: silent switch on;
 switch off -> no game sound, boot.txt `audio: SoloAmbient`; switch on, Play
 -> sound, `audio: Playback`.
+
+0.4.3 (7942b6b build, SHA-256 612b799a...) result (Stefan, Oct 29): the
+"Play sound in silent mode" switch works. LSSupportsGameMode not tested
+(all three of his sideload app slots are in use); a plist key only.
