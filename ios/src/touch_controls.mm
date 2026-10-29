@@ -248,6 +248,7 @@ struct Control {
   BOOL _editing;
   NSString* _steering;  // ios_touch_steering the layout was made with
   int _context;         // g_drive_context the layout was made with
+  BOOL _keepTouches;    // the next layout keeps the held controls (by name)
   NSTimer* _fadeTimer;  // the dynamic joystick fading out
   // Dimmed after 3 s without a touch while driving (ios_touch_idle_opacity).
   NSTimeInterval _lastTouch;
@@ -361,6 +362,10 @@ static CGFloat TouchOpacity() {
 
 // The layout to the game's state, when it changes (ios_touch_auto_layout).
 - (void)followGame {
+  // The menu layout until the game says it is driving (the remembered DRIVE
+  // layout flashed up for a moment at start, Stefan, IPA157).
+  _driving = NO;
+  [self setNeedsLayout];
   __weak NFSTouchView* weak = self;
   [NSTimer scheduledTimerWithTimeInterval:0.2
                                   repeats:YES
@@ -397,7 +402,7 @@ static CGFloat TouchOpacity() {
 // shows a circle or a race: a new layout.
 - (void)syncSteering {
   if (_driving && !_editing && g_drive_context.load() != _context) {
-    [self releaseAll];
+    _keepTouches = YES;  // gas, steering... stay held through the new layout
     [self setNeedsLayout];
     return;
   }
@@ -470,6 +475,7 @@ static CGFloat TouchOpacity() {
   [self setNeedsDisplay];  // a new layout: everything redrawn once
   _drawnLook.clear();
   _drawnBounds.clear();
+  const std::vector<Control> old = _controls;  // for _keepTouches
   _controls.clear();
   [_fadeTimer invalidate];
   _fadeTimer = nil;
@@ -480,8 +486,38 @@ static CGFloat TouchOpacity() {
   _snap = snap ? CGRectOffset(_toggle, _toggle.size.width + unit * .3, 0) : CGRectZero;
   if (_driving) {
     _gestures = NO;
+    // Held controls, by name, for a layout that keeps them.
+    NSMutableDictionary<NSString*, NSValue*>* held = [NSMutableDictionary dictionary];
+    NSMutableArray<UITouch*>* touches = [NSMutableArray array];
+    NSMutableArray<NSString*>* names = [NSMutableArray array];
+    if (_keepTouches) {
+      for (UITouch* t in _owners) {
+        const Control& c = old[[_owners objectForKey:t].unsignedIntegerValue];
+        [touches addObject:t];
+        [names addObject:ControlIdent(YES, c)];
+        held[ControlIdent(YES, c)] = [NSValue valueWithCGRect:CGRectMake(c.knob.x, c.knob.y, c.center.x, c.center.y)];
+      }
+    }
     [self layoutDriving:w height:h unit:unit];
-    [self releaseAll];
+    if (!_keepTouches) {
+      [self releaseAll];
+      return;
+    }
+    _keepTouches = NO;
+    [_owners removeAllObjects];
+    for (NSUInteger k = 0; k < touches.count; ++k) {
+      for (size_t i = 0; i < _controls.size(); ++i) {
+        Control& c = _controls[i];
+        if ([ControlIdent(YES, c) isEqualToString:names[k]]) {
+          [_owners setObject:@(i) forKey:touches[k]];
+          c.pressed = true;
+          const CGRect v = held[names[k]].CGRectValue;  // knob, and centre (the dynamic stick's)
+          c.knob = v.origin;
+          if (c.dynamic) c.center = CGPointMake(v.size.width, v.size.height);
+        }
+      }
+    }
+    [self sendState];  // a button that went away is released
     return;
   }
   static const bool gestures =
@@ -632,19 +668,26 @@ static CGFloat TouchOpacity() {
   // up enters a shop or engages an event, left the world map, right the
   // SMS messages, down the Blacklist (or the race's / pursuit's details).
   // One button each, around where the D-pad was.
-  // Each only when it does something (the HUD tells, SetDriveContext):
-  // ENTER in a circle, MAP and SMS outside races; LIST always (the
-  // Blacklist, or the race's / pursuit's details). The editor shows all.
+  // Each only when it does something (the HUD tells, SetDriveContext;
+  // Stefan, IPA157): up is ENTER in a circle and STATS (the race's or
+  // pursuit's details) in a race or a pursuit event; MAP always (the
+  // pursuit's map; nothing in a race); SMS and LIST (the Blacklist) in free
+  // roam only. The editor shows all.
   _context = g_drive_context.load();
   const bool all = _editing;
+  const bool event = _context & nfsmw::touch::kInRace;
   const CGPoint pad = P(.11, .27);
   const CGFloat off = unit * .62, r = unit * .36;
-  if (all || (_context & nfsmw::touch::kInCircle)) round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
-  if (all || !(_context & nfsmw::touch::kInRace)) {
-    round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
-    round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
+  if (event) {
+    round(@"STATS", CGPointMake(pad.x, pad.y - off), r, kUp);
+  } else if (all || (_context & nfsmw::touch::kInCircle)) {
+    round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
   }
-  round(@"LIST", CGPointMake(pad.x, pad.y + off), r, kDown);
+  round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
+  if (all || !event) {
+    round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
+    round(@"LIST", CGPointMake(pad.x, pad.y + off), r, kDown);
+  }
   [self applyCustomLayout];
   // Last, so the buttons inside its zone (nitrous, look back) come first.
   if (!CGRectIsEmpty(_steerZone) && !_editing) {
@@ -808,7 +851,7 @@ static CGFloat TouchOpacity() {
       c.fade = 0;
     }
     c.pressed = true;
-    if (_driving && c.bit & (kUp | kDown | kLeft | kRight)) {
+    if (_driving && (c.bit & (kUp | kDown | kLeft | kRight))) {
       REXLOG_INFO("[touch] {}", c.label.UTF8String);  // marks the [hud-watch] log
     }
     [self updateControl:c at:p];
@@ -1076,6 +1119,7 @@ static NSString* SymbolFor(NSString* label) {
     @"PAUSE" : @"pause.fill",
     @"RESET" : @"arrow.counterclockwise",
     @"ENTER" : @"flag.checkered",
+    @"STATS" : @"chart.bar.fill",
     @"MAP" : @"map.fill",
     @"SMS" : @"message.fill",
     @"LIST" : @"list.number",

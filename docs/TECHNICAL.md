@@ -8618,3 +8618,33 @@ after extra_args.txt, so it wins. The Advanced footer says so.
 `ios/build/NFSMW-extra-args-157.ipa` SHA-256
 afde2f97d546f14de27d98168fc789a4f8ebe91ac84d02bb17bf3b4aaf45fd2b, 30150546
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA156. Not run.
+
+### October 29: IPA157 pursuit run; up = details, held controls (IPA158)
+
+Stefan (IPA157, challenge-series pursuit with `--nfsmw_hud_watch=true`,
+`Debug/29 October 2026/nfsmw_ipa157_pursuit_iphone.log`, screenshots
+`ipa157_pursuit_IMG_4066.png` (pursuit), `_4067.png` (circle)):
+- `[hud] drive context: race` from 20:33:15 (the pursuit event shows a
+  race marker), so MAP/SMS were hidden and LIST (down) did nothing; the
+  game's details in races and pursuits are on D-pad up (Stefan).
+- 20:33:30, 55, 59: 3345911D with 35236DBE shown for ~0.4 s at 3,-189
+  (the D-pad prompt group: the game's "press up" hint after an
+  infraction), context "race, in a circle" meanwhile. Stefan sees this
+  ring at the prompt's place while his infractions are lower (moved by
+  Custom HUD): the game itself puts the group there (not moved since
+  IPA156). Left as is; to compare with Custom HUD off.
+- The DRIVE controls flashed up at start: NFSTouchView began in the
+  remembered layout (nfsmw.touch.driving) until the first game-state tick.
+IPA158 (touch_controls.mm):
+- followGame starts in the PAD layout.
+- Up: STATS (chart.bar.fill) in a race / pursuit event (kInRace), ENTER
+  in a circle otherwise; MAP always; SMS and LIST outside events.
+- A context change rebuilds the layout keeping held controls
+  (_keepTouches: owners remapped by ControlIdent, knob and the dynamic
+  stick's centre restored; a button that went away is released). Before,
+  any context change (a circle, the infraction hint) released everything,
+  gas and steering included, for a moment.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-pursuit-158.ipa` SHA-256
+5c9c75155e04637ec35803124c4ea18469cc9dd63e0a5064d2509efb2910b901, 30150624
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA157. Not run.
