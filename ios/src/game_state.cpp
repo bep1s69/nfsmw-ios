@@ -204,6 +204,11 @@ extern "C" REX_FUNC(sub_823B4158) {
       nfsmw::touch::MenuTapResult(serial, nfsmw_menu_hint_at(base, feng ? REX_LOAD_U32(feng) : 0, x, y));
     }
   }
+  // The world map: swipes move its cursor (the right stick).
+  {
+    static const char* const kMap[] = {"WorldMapMain.fng"};
+    nfsmw::touch::SetMapUp(state == kRacing && PushedPackage(ctx, base, kMap, 1) >= 0);
+  }
   // A drag race's HUD: the touch controls' DRAG layout.
   {
     static const char* const kDrag[] = {"HUD_Drag.fng"};

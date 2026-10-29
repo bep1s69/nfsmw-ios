@@ -29,6 +29,9 @@ void SetDriveContext(int bits);
 // DRAG layout.
 void SetDragRace(bool on);
 
+// The world map is up (game_state.cpp): a menu swipe moves the right stick.
+void SetMapUp(bool up);
+
 // A one-finger tap in a menu, for the game's thread to look for a button
 // hint under it (package units from the middle of the screen); answered
 // with MenuTapResult(serial, button bits, 0 none, -1 a hint not known).

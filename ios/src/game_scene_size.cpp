@@ -1443,11 +1443,32 @@ void FindHints(uint8_t* base, uint32_t first, float px, float py, float ps, int 
 
 // The hint at (x, y) (package units from the middle of the screen) among
 // the packages up, logged with all hints found; its button bits, or 0.
+// Not SDL buttons: the triggers, for the world map's zoom.
+constexpr int kHintLT = 1 << 20, kHintRT = 1 << 21;
+
 extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y) {
   if (!Plausible(engine)) return 0;
   std::vector<Hint> hints;
   int packages = 0;
   for (uint32_t p = REX_LOAD_U32(engine + 216 + 8); Plausible(p) && packages < 64; p = REX_LOAD_U32(p + 4), ++packages) {
+    // The world map (Stefan, IPA165): its zoom pictures (LT, RT: D1CDA594
+    // at -245,169 and 9345E4A7 at 23,169 in its dump) and the arrows around
+    // the category at the top (measured on IMG_4077: 43,-184 and 234,-184)
+    // are no hints: fixed places, the triggers and the D-pad's left / right.
+    if (GuestName(base, REX_LOAD_U32(p + 12)) == "WorldMapMain.fng") {
+      struct Spot {
+        float x, y;
+        int button;
+        const char* name;
+      } spots[] = {{-245, 169, kHintLT, "LT"}, {23, 169, kHintRT, "RT"}, {43, -184, 1 << 13, "left"},
+                   {234, -184, 1 << 14, "right"}};
+      for (const Spot& s : spots) {
+        if (std::abs(x - s.x) <= 28 && std::abs(y - s.y) <= 24) {
+          REXLOG_INFO("[touch-hint] tap at {:.0f},{:.0f}: the map's {}", x, y, s.name);
+          return s.button;
+        }
+      }
+    }
     uint32_t at = 0;
     const uint32_t first = FirstObject(base, p, at);
     int budget = 2000;
