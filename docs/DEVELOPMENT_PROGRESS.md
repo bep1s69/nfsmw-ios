@@ -134,6 +134,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: D-014 default fix approved, built; device check pending.**
+  Stefan: fix 14 Pro Max permanently first, then tackle 40 fps pacing.
+  `native_renderer.mm`: 60 fps now presents when ready by default; 30 fps
+  keeps scheduled presentation. Existing master `nfsmw_native_present_at_time`
+  stays true; new `nfsmw_native_present_at_time_60` defaults false (both true
+  restores the old 60 path for diagnosis). Trace remains default false;
+  40/120, QoS, world timing and simulation unchanged. Test IPA:
+  `ios/build/NFSMW-0.5.0-14pm-60fps-fix.ipa` (0.5.0 / 8, SHA-256
+  d56bcfeab2324b41b0d7632999067444cfeed6ad2f12288c01be3d5eb3699208,
+  UUID D7D325E7-784F-36DD-94BA-96D226418869). Build, ZIP, deep strict
+  codesign passed; 104 actual payload metallibs unchanged (208 ZIP entries
+  counts AppleDouble metadata too). Next: Stefan tests cold at 60 with
+  the two workaround/trace arguments removed, Max first, then Balanced;
+  short 30/menu check and other devices before a release. Then current
+  40 fps trace (separate change after validation). No push/tag/release.
+
 - **October 30: D-014 workaround confirmed by Stefan and follow-up log.**
   Disabling scheduled presentation removed the iPhone 14 Pro Max cycling:
   Max, native 1x/60, eleven full steady-world windows at 59.6-60.0 fps.

@@ -203,8 +203,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_bc_gpu_decode, true, "GPU",
                     "Native renderer: on GPUs without BC (DXT) formats, expand them on the GPU (off: on the CPU)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time, true, "GPU",
-                    "Native renderer: below the display rate, keep each frame on screen at least one cap interval "
-                    "(frame pacing at the 30/40/60 caps)");
+                    "Native renderer: scheduled presentation at 30 fps; 60 also requires "
+                    "nfsmw_native_present_at_time_60 (40 always presents when ready)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time_60, false, "GPU",
+                    "Experiment: scheduled presentation at 60 fps (can cause 60/40 cycling; "
+                    "also requires nfsmw_native_present_at_time)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -7156,8 +7159,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // IPA127-131: shown 33 / 25 / 17 ms apart in turn); shown when ready,
         // the frames (finished every 25 +- 2 ms) came out an even 25 ms apart
         // with a few 29 / 21 pairs (Oct 28, log nfsmw_ipa131_no_present_at_time).
+        // D-014: scheduled presentation caused 60/~40 cycling on iPhone 14
+        // Pro Max, including Max QoS. Present when ready at 60 by default;
+        // retain the tested 30 path and an explicit 60 opt-in for diagnosis.
+        const bool schedule_cap = cap == 30 || (cap == 60 && REXCVAR_GET(nfsmw_native_present_at_time_60));
         const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && !pacing_broken.load() && interval > 0 &&
-                           shown_at.load() > 0 && double(cap) < display_hz - 1.0 && cap != 40;
+                           shown_at.load() > 0 && double(cap) < display_hz - 1.0 && schedule_cap;
         __block double frame_target = 0;  // set below when paced
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
           static std::atomic<double> last_shown{0};
