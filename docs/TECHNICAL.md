@@ -8185,3 +8185,29 @@ ipa -j 6` exit 0; `ios/build/NFSMW-ui-log-139.ipa` SHA-256
 90f6c8006dbd052fa8f7e2bd814104d3a4f8fb577ee2910b42dbbb7dad749dfd, 30118882
 bytes, `unzip -tq` ok. Not run yet. Not proven: that +216 holds every
 drawn package (sub_82284D70 has a second path through sub_822D71A0).
+
+IPA139 result (Stefan, Oct 29, iPad, Custom HUD at 70%, log
+`Debug/29 October 2026/nfsmw_ipa139_ui_log_70pct_ipad.log`): a bust, then a
+race. Screens pushed while driving (HUD size 0.70, menu 0): HUD_SingleRace,
+FadeScreen, EA_TRAX, BUSTED_OVERLAY.fng (the bust's TV overlay: a 640x470
+frame, 350x538 side pieces, a 1046x540 cover), InGamePhotoMaster.fng (the
+same TV frame at a race's end, 3 s before PostRace_Results), and
+Autosave_Overlay.fng (an icon group at 220,-182, top right). Under menus
+(Pause_Main, PostRace_Results) the size is 1: InGameBackground (the asphalt
+picture) is at full size there (Stefan: it goes full screen at the
+statistics). No Infractions.fng was pushed: the pursuit pop-ups are in
+HUD_SingleRace itself (inference). The list walk at FEngine+216 matches
+what IsPackagePushed reports (the menu changes line up with `[game] menu`).
+
+Fix (IPA140, Stefan's approved plan): game_state.cpp reports
+BUSTED_OVERLAY.fng or InGamePhotoMaster.fng pushed while driving
+(nfsmw_hud_full_size, logged `[hud] full-screen overlay`); HudScale() is
+then 1, as under a menu (the HUD is hidden under them; the pieces' offsets
+keep the setting, as for the pause screen). Autosave_Overlay.fng now goes
+through nfsmw_hud_fit_overlay like EA_Trax.fng (kept at the HUD's corner).
+The screen log stays in for the chase pieces. With Custom HUD off the scale
+is 1 and nothing changes. `cmake --build --preset ios --target ipa -j 6`
+exit 0; `ios/build/NFSMW-hud-full-size-140.ipa` SHA-256 3864f4b821468a8f4e7e969af5d21c223bae5ff698657bac7f0c2fd883b3b454, 30128438 bytes,
+`unzip -tq` ok. Not run yet. Open: the misplaced pieces during chases and
+the bounty/infraction pop-ups (in HUD_SingleRace; need a screenshot to
+match them to the tree).

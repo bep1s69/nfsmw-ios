@@ -178,7 +178,12 @@ float HudScaleSetting() {
 // full size.
 bool g_fade_opaque = false;
 
-float HudScale() { return nfsmw::battery::InMenu() == 0 ? HudScaleSetting() : 1.0f; }
+// Set by game_state.cpp while a full-screen TV overlay is up while driving
+// (IPA139's log: BUSTED_OVERLAY.fng, InGamePhotoMaster.fng at a race's end):
+// drawn at the game's size, like a menu. The HUD is hidden under them.
+bool g_full_size_screen = false;
+
+float HudScale() { return nfsmw::battery::InMenu() == 0 && !g_full_size_screen ? HudScaleSetting() : 1.0f; }
 
 float g_half_height_per_unit = 1.0f / 240.0f;  // the HUD drawn: see sub_82453768
 
@@ -907,6 +912,11 @@ void DumpPackage(uint8_t* base, uint32_t package, const char* when) {
   if (first) DumpObjects(base, first, 0, budget);
 }
 }  // namespace
+
+extern "C" void nfsmw_hud_full_size(bool on) {
+  if (on != g_full_size_screen) REXLOG_INFO("[hud] full-screen overlay {}", on ? "up: HUD size 1" : "gone");
+  g_full_size_screen = on;
+}
 
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine) {
   ++g_ui_frame;
