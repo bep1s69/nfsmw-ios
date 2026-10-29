@@ -880,6 +880,14 @@ below40 performance/missed-frame compensation before default: constant
 steps can slow simulation at sustained<40. Not an accepted general fix.
 Archive/build/tests in TECHNICAL October30.
 
+October30 test5/log9: successful steady40 on14 Pro Max,Balanced1x.
+Stefan "felt like heaven in terms of everything";world steps~25.02ms,
+1978/1980 shown gaps25ms,given/raw time99.95%,no steady strip repeats.
+Known-good test5 retained. Remaining before0.5.1 default: true under40
+performance/game-speed behavior,menu30/background-resume and second
+ProMotion40/60 regression check. Not yet a released/general-device fix;
+full measurements/limitations and archive path in TECHNICAL October30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
