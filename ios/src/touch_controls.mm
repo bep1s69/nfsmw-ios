@@ -171,6 +171,7 @@ struct Control {
   bool horizontal = false;  // sticks: left/right only (the steering circle)
   float right_y = 0;        // buttons that push the right stick up/down (shifting)
   float left_x = 0;         // buttons that push the left stick left/right (steering buttons)
+  bool grouped = false;     // placed with its group (the D-pad buttons), not on its own
   // The dynamic steering joystick: it takes a touch anywhere in `zone`,
   // comes up under the thumb and fades out once it lifts.
   bool dynamic = false;
@@ -571,6 +572,7 @@ static CGFloat TouchOpacity() {
   NSDictionary* layout = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey];
   const CGFloat all = TouchSize();
   for (Control& c : _controls) {
+    if (c.grouped) continue;
     CGFloat scale = all;
     NSArray* v = layout[ControlIdent(_driving, c)];
     if (v.count == 3) {
@@ -673,20 +675,38 @@ static CGFloat TouchOpacity() {
   // pursuit's details) in a race or a pursuit event; MAP always (the
   // pursuit's map; nothing in a race); SMS and LIST (the Blacklist) in free
   // roam only. The editor shows all.
+  // (IPA158 runs: no map in races or pursuit challenges; a free-roam
+  // pursuit has the map and its details on up.) The four move and resize
+  // together in the editor, as one D-pad ("drive.ACTIONS").
   _context = g_drive_context.load();
-  const bool all = _editing;
   const bool event = _context & nfsmw::touch::kInRace;
-  const CGPoint pad = P(.11, .27);
-  const CGFloat off = unit * .62, r = unit * .36;
-  if (event) {
-    round(@"STATS", CGPointMake(pad.x, pad.y - off), r, kUp);
-  } else if (all || (_context & nfsmw::touch::kInCircle)) {
-    round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
+  const bool pursuit = _context & nfsmw::touch::kInPursuit;
+  CGPoint pad = P(.11, .27);
+  CGFloat k = TouchSize();
+  NSArray* saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:kLayoutKey][@"drive.ACTIONS"];
+  if (saved.count == 3) {
+    pad = CGPointMake(w * [saved[0] doubleValue], h * [saved[1] doubleValue]);
+    k *= CGFloat([saved[2] doubleValue]);
   }
-  round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
-  if (all || !event) {
-    round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
-    round(@"LIST", CGPointMake(pad.x, pad.y + off), r, kDown);
+  if (_editing) {
+    Control group{Kind::kDpad, @"ACTIONS", P(.11, .27), unit * .98};
+    _controls.push_back(group);  // placed by applyCustomLayout
+  } else {
+    const CGFloat off = unit * .62 * k, r = unit * .36 * k;
+    auto action = [&](NSString* l, CGFloat dx, CGFloat dy, int bit) {
+      round(l, CGPointMake(pad.x + dx * off, pad.y + dy * off), r, bit);
+      _controls.back().grouped = true;
+    };
+    if (event || pursuit) {
+      action(@"STATS", 0, -1, kUp);
+    } else if (_context & nfsmw::touch::kInCircle) {
+      action(@"ENTER", 0, -1, kUp);
+    }
+    if (!event) action(@"MAP", -1, 0, kLeft);
+    if (!event && !pursuit) {
+      action(@"SMS", 1, 0, kRight);
+      action(@"LIST", 0, 1, kDown);
+    }
   }
   [self applyCustomLayout];
   // Last, so the buttons inside its zone (nitrous, look back) come first.

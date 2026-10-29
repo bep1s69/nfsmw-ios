@@ -208,7 +208,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (iCloud Desktop): STATS on up in race/pursuit events, MAP always, held
   controls kept through context changes, PAD layout at start. Open: the
   infraction ring at the top middle (where the game puts it; to compare
-  with Custom HUD off), free-roam pursuits untested. Then: the on-screen touch controls, then
+  with Custom HUD off), free-roam pursuits untested. Stefan's IPA158 runs
+  (`nfsmw_ipa158_a_iphone.log` free-roam pursuit, `_b_` challenge
+  pursuit with Custom HUD off): free-roam pursuit kept free-roam buttons,
+  no map in races or challenge pursuits; the infraction ring is at the
+  same place with Custom HUD off (the game's own). IPA159
+  `ios/build/NFSMW-touch-actions-159.ipa` (iCloud Desktop): pursuit
+  detection (FD9152B1), map rules, the four D-pad buttons as one group in
+  the touch editor, hud_layout never empty. Built, not run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
