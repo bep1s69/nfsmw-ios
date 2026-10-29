@@ -78,7 +78,8 @@
 
 - **Swipe and tap in menus.** In menus and pause screens the on-screen
   gamepad is gone: swipe to move through the menu, tap to accept, tap with
-  two fingers to go back. The PAD button still brings the full gamepad
+  two fingers to go back. Tapping one of the game's button hints ("B Back",
+  "Y Delete"...) presses that button. The PAD button still brings the full gamepad
   back for that menu. Can be turned off (Touch controls › Swipe and tap in
   menus).
 

@@ -237,7 +237,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   (tap a button hint): hints found by name/shape, IPA164
   `ios/build/NFSMW-touch-hints-164.ipa` logs `[touch-hint]` (texture per
   hint) to build the texture -> button table; only BACK_BUTTON = B known.
-  Built, not run. Then: the on-screen touch controls, then
+  Stefan's IPA164 taps (`nfsmw_ipa164_hint_taps_iphone.log`) gave the
+  table; IPA165 `ios/build/NFSMW-touch-hints-165.ipa` (iCloud Desktop),
+  built, not run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
