@@ -211,6 +211,12 @@ the leaves either: removed; their iPhone margins stay a known issue. Known issue
 pieces twitch slightly since IPA145. Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 
+Stefan, Oct 29 (0.4.3, iPhone, `.../29 October 2026/0.4.3 Stefan iPhone
+15min balanced/race_finished_screen.png`): the leaves picture is still
+broken on the iPhone. With the loading-screen twitch and the HUD elements
+zooming in at the end of a race (most visible on the iPad), these are the
+three remaining large visual bugs (Stefan).
+
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 
 Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13
@@ -305,6 +311,14 @@ hand to the iCloud union file with the logged time (backup of the old file in
 the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
+
+### D-013 Race-finished screen keeps the driving controls; no touch navigation — open
+
+Stefan, Oct 29 (0.4.3, iPhone, screenshot in `.../29 October 2026/0.4.3
+Stefan iPhone 15min balanced/race_finished_screen.png`): the touch driving
+controls stay up on the race-finished screen; they should go and the screen
+be navigated by touch (its prompts: A Continue, X Race Stats, Y Restart,
+like the menu taps in the touch-controls plan). Not investigated.
 
 ### D-012 Frame rate sinks to 40 mid-race when adaptive QoS returns to Utility — fix in 0.4.3, untested
 
