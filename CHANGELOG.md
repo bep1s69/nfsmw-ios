@@ -9,7 +9,11 @@
   simulation" switch is gone from Advanced.
 
 - **Heat ring back around the heat badge.** In pursuits with a smaller HUD
-  size, the spinning ring sat off to the side of the heat level badge.
+  size, the spinning ring (and the shop / event circle prompt) sat off to
+  the side of the heat level badge.
+
+- **iPad driving controls within thumb reach.** The same layout, gathered
+  into the bottom corners of the iPad screen.
 
 - **No more crash on Play on iOS 26 with the native renderer.** iOS 26
   reuses an internal ID the renderer relied on, so some drawing steps were
