@@ -2,7 +2,7 @@
 
 ## 0.5.0
 
-> **Please read this before playing.** This is the biggest update so far, and
+> **Please read this before playing.** This update changes how you play:
 > **the touch controls work differently now**: menus are driven by swiping
 > and tapping instead of an on-screen gamepad, steering uses a joystick that
 > appears under your thumb, and the D-pad's actions show up as buttons only
