@@ -9491,3 +9491,83 @@ RC4-RC7 failed target-delay/minimum-duration experiments stay rejected.
 Next: Stefan reviews/approves design before implementation. 0.5.1 still
 only D-014 and 40 pacing; no unrelated changes, version bump or release.
 Pre-existing issue 11 checkpoint text and HANDOFF_CHATGPT.md preserved.
+
+### October 30: approved CAMetalDisplayLink 40 fps experiment implemented
+
+Stefan after design review: "if this is the only solution then its worth
+trying". Clarified not the only possible solution; approved candidate is
+an isolated default-off test. No claim of runtime benefit yet.
+
+Changes:
+- New ios/src/metal_display_pacer.{h,mm}, added to ios/CMakeLists.txt.
+  Cvar nfsmw_native_metal_display_40 false, restart required. Only the
+  primary Metal layer/effective 40 cap uses CAMetalDisplayLink; callbacks
+  requested at 40, preferredFrameLatency 2. Existing CADisplayLink still
+  publishes the guest 120 Hz vblank; game frame time/simulation/QoS intact.
+- Single retained pending update, replaced if unused; render queue acquires
+  its drawable/target before encoding. One update per managed frame, 100 ms
+  sleeping timeout, no legacy nextDrawable fallback while link owns layer.
+  Timed-out/stale frames still encode/commit world work and writebacks,
+  without presenting a stale drawable. Main never waits for renderer.
+- Frame leases count legacy CPU encoding too; start only between leases,
+  preventing simultaneous link/nextDrawable acquisition. Attach ownership
+  established before publishing present_layer to render queue. A generation
+  invalidates pending/acquired updates across transitions. Stop invalidates
+  link before returning ownership to legacy; no live-link timeout fallback.
+- display_rate.mm tick manages eligibility; lifecycle.mm stops/wakes before
+  guest pause and restarts on resume. Off flag returns immediately. 30/60/
+  120 use existing paths; current 60 fix remains; external layer's separate
+  presentation code unchanged. Main primary-link experiment with external
+  display connected has not been runtime-tested.
+- Native renderer presents at system targetPresentationTimestamp without
+  EMA GPU+4 ms estimation or previous-frame target rounding. Uses existing
+  command queue/order, completion handlers/writebacks/resource lifetime.
+  Acquisition wait included in existing drawable-wait accounting so it
+  does not falsely count as CPU encoding lateness for adaptive QoS.
+- [metal-display-40] start/stop, every-120 callback gap/target lead, every-300
+  acquisition avg/max and >4 ms presentation target misses/drops. Existing
+  per-frame trace records system target too; independent of legacy 30 fps
+  watchdog. Off-by-default experiment has no new user-facing setting or
+  changelog fix claim; 0.5.1 remains limited to the two authorized fixes.
+
+Checks/failures:
+- git diff --check exit 0.
+- Initial `cmake --build --preset ios --target ipa -j 6` (ios/, authorized
+  cache access) exit 1: new pacer variable `link` conflicts with POSIX link.
+  Repeated saved failure: ios/build/metal-display-40-build.log, exit 1,
+  12 compiler errors. Renamed variable metal_link. No SDK source edit.
+- Corrected build exit 0, saved ios/build/metal-display-40-build-success.log.
+  Subsequent manual ownership review moved Attach before present_layer
+  publication to close initial ownership race. Final build exit 0, saved
+  ios/build/metal-display-40-build-final.log (5 usual native renderer
+  fpcr/UIKit warnings, duplicate -lz linker warning).
+- CMake regenerated because new file/header added, built hook/edition app
+  objects and SDK debug_overlay.cpp/version-related runtime output. Runtime
+  dylib bytes differ from previous 60-fix IPA; GPU dylib byte-identical.
+  No SDK gameplay/platform source changes by this session. Do not claim
+  both SDK dylibs are byte-identical to baseline.
+- Manual review: legacy acquisition cannot overlap link startup; stop wakes
+  waiters, no cap/stop stale target used for presentation; background stop
+  occurs before g_pause; disabled path does not take pacer mutex or own
+  drawables. This is source review, not a UIKit lifecycle runtime test.
+
+Unique ignored artifact: ios/build/NFSMW-0.5.0-metal-display-40-test.ipa,
+30171875 bytes, SHA-256
+bad106dc1a6ee3707710c3a83df4abd8bbde2424bde09fa5c03ef7cc9cf62f43,
+UUID 4A2222D3-4733-3082-B290-16B8A8309473, version 0.5.0 build 8 (test
+filename distinguishes it; no hotfix version bump yet).
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+xcrun dwarfdump --uuid exit 0. All 104 Payload shader libraries byte-
+identical to NFSMW-0.5.0-14pm-60fps-fix.ipa; 208 ZIP names count metadata.
+These checks do not establish display cadence or input latency on device.
+
+Next test: same 14 Pro Max, Balanced/1x/40, Low Power Mode off; select 40
+before launch, cold force-quit LiveContainer. Extra Args:
+--nfsmw_native_metal_display_40=true --nfsmw_native_frame_trace=true
+No need to re-enable legacy present_at_time or its 60 opt-in. Run same
+chase 1-2 min, note smoothness and any extra input delay, supply log for
+archival/comparison. If improved, short pause/resume, 30 fps in menus and
+background/resume, other owned ProMotion device; only then consider default
+and 0.5.1. Off switch restores baseline. No new device run, release, push
+or tag. Existing issue 11 checkpoint note, HANDOFF_CHATGPT.md and sibling
+SDK source/submodule work preserved; only session changes committed.
