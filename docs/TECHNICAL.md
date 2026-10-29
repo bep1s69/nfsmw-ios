@@ -8525,3 +8525,29 @@ Stefan asked for step 3 before testing (all in IPA153).
 1ac5737f720356cb07c9ef1f47f8607a8a0b5fe8a42237e53050283db48869fb, 30155729
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA152. Not run on a
 device; the game's menus following the left stick is assumed, not checked.
+
+### October 29: IPA153 confirmed; D-pad buttons and HUD watch (IPA154)
+
+Stefan (Oct 29): IPA153 tested, "worked as expected" (steering modes,
+icons, dimming, menu swipe/tap). Asked for the driving D-pad as buttons
+shown only where they apply (controls screen `ipa153_controls_screen_dpad_IMG_4065.png`:
+up Enter Shop / Engage Event, left World Map, right SMS System, down
+Blacklist; down also the race's / pursuit's details).
+- `touch_controls.mm`: DRIVE layout D-pad replaced by four round buttons
+  ENTER (kUp, flag.checkered), MAP (kLeft, map.fill), SMS (kRight,
+  message.fill), LIST (kDown, list.number) in a diamond where the D-pad
+  was; presses logged (`[touch] MAP`...) as markers. All always shown
+  for now.
+- Finding the states: the PC executable's package names (strings of
+  `PC Game Files/speed.exe`) have no free roam or pursuit HUD of their own
+  (HUD_SingleRace.fng; HUD_Drag.fng for drag races, usable for step 4).
+  Diagnostic cvar `nfsmw_hud_watch` (default true in IPA154,
+  game_scene_size.cpp WatchTree): every 30 HUD updates, the HUD package's
+  objects (from the right group's first sibling, as DumpTree) whose flags
+  (+1C) changed, logged `[hud-watch] object hash type depth flags old ->
+  new pos` (at most 60 lines per pass; `new HUD tree` when it is rebuilt).
+  To read with Stefan's run: free roam, an event circle, a race, a pursuit.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-dpad-watch-154.ipa` SHA-256
+0023ef560759a3cf712247c71ccc5573b50369d0e0933e214cf831ee0353f50c, 30148567
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA153. Not run.

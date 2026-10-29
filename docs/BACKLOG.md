@@ -527,6 +527,14 @@ steps, one IPA each, each approved:
    areas will not do: find their FE objects (button icon images) in the
    pushed packages at run time, e.g. a diagnostic dump of the objects
    under a tap.
+3c. (Stefan, Oct 29, after testing IPA153: all fine) the D-pad's driving
+   actions as buttons, each only when it applies: ENTER (up: shop,
+   safehouse, engage event) only inside an event / shop circle; MAP (left)
+   always; SMS (right) and Blacklist (down) in free roam; down also shows
+   the race's or pursuit's details during one. IPA154: the four buttons
+   always shown; `[hud-watch]` log to find what tells the states apart (no
+   separate HUD package for free roam or pursuits; HUD_Drag.fng for drag
+   races). Screenshot: `ipa153_controls_screen_dpad_IMG_4065.png`.
 4. Drag race layout: gas, shift up/down, nitrous, two lane-change buttons
    (how Android does it). Needs the race type from the game (not read yet).
 

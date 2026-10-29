@@ -90,6 +90,8 @@
 
 #include "battery.h"
 
+REXCVAR_DEFINE_BOOL(nfsmw_hud_watch, true, "Game",
+                    "Diagnostic: log the HUD objects whose flags change ([hud-watch]), twice a second");
 REXCVAR_DEFINE_BOOL(nfsmw_sd_scene_720, false, "Game",
                     "4:3 (SD) scene at 960x720 without MSAA instead of 640x480 with 2x MSAA "
                     "(experimental)")
@@ -540,6 +542,49 @@ void DumpTree(uint8_t* base, uint32_t object) {
   DumpObjects(base, first, 0, budget);
 }
 
+// Diagnostic (nfsmw_hud_watch): the HUD's objects whose flags change,
+// twice a second, to find what shows in free roam, races, pursuits and
+// event circles (touch controls' context buttons).
+void WatchObjects(uint8_t* base, uint32_t first, int depth, int& budget,
+                  std::unordered_map<uint32_t, uint32_t>& seen, int& logged) {
+  for (uint32_t o = first; Plausible(o) && budget > 0; o = REX_LOAD_U32(o + 4)) {
+    if (REX_LOAD_U32(o) == kListVtable) break;
+    --budget;
+    const uint32_t type = REX_LOAD_U32(o + 0x18), flags = REX_LOAD_U32(o + 0x1C);
+    auto [it, added] = seen.emplace(o, flags);
+    if (!added && it->second != flags && logged < 60) {
+      ++logged;
+      const uint32_t data = REX_LOAD_U32(o + 0x2C);
+      float x = 0, y = 0;
+      if (Plausible(data)) x = LoadF(base, data + 28), y = LoadF(base, data + 32);
+      REXLOG_INFO("[hud-watch] {:08X} hash {:08X} type {} depth {} flags {:08X} -> {:08X} pos {:.0f},{:.0f}", o,
+                  REX_LOAD_U32(o + 0x10), type, depth, it->second, flags, x, y);
+    }
+    it->second = flags;
+    if (type == 5 && REX_LOAD_U32(o + 0x5C) == kListVtable && REX_LOAD_U32(o + 0x60) < 200 && depth < 8) {
+      WatchObjects(base, REX_LOAD_U32(o + 0x64), depth + 1, budget, seen, logged);
+    }
+  }
+}
+
+void WatchTree(uint8_t* base, uint32_t object) {
+  static std::unordered_map<uint32_t, uint32_t> seen;
+  static uint32_t first_seen = 0;
+  uint32_t first = object;
+  for (int i = 0; i < 1000; ++i) {
+    const uint32_t prev = REX_LOAD_U32(first + 8);
+    if (!Plausible(prev) || REX_LOAD_U32(prev) == kListVtable) break;
+    first = prev;
+  }
+  if (first != first_seen) {
+    seen.clear();
+    first_seen = first;
+    REXLOG_INFO("[hud-watch] new HUD tree from {:08X}", first);
+  }
+  int budget = 1500, logged = 0;
+  WatchObjects(base, first, 0, budget, seen, logged);
+}
+
 uint32_t FindObject(PPCContext& ctx, uint8_t* base, uint32_t package, uint32_t hash) {
   ctx.r3.u64 = package;
   ctx.r4.u64 = hash;
@@ -772,6 +817,13 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     active = active || std::abs(offset[e][0]) > 0.01f || std::abs(offset[e][1]) > 0.01f || g_size[e] != 1.0f;
   }
   const uint32_t package = REX_LOAD_U32(hud + 36);
+  static int watch_tick = 0;
+  if (REXCVAR_GET(nfsmw_hud_watch) && package && ++watch_tick % 30 == 0) {
+    const PPCContext saved_watch = ctx;
+    const uint32_t right = FindObject(ctx, base, package, kRightGroup);
+    ctx = saved_watch;
+    if (right) WatchTree(base, right);
+  }
   static uint32_t dumped_package = 0;
   const bool dump = package && package != dumped_package;
   if (!dump && !active && extra == 0 && !g_left.object && !g_right.object) {

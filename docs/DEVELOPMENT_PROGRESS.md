@@ -185,7 +185,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-touch-menus-153.ipa` (steps 1-3; on iCloud Desktop
   instead of IPA152), built, not run; Stefan tests them together
   (TECHNICAL Oct 29). Step 3 still open: a tap on a prompt presses that
-  button (needs each screen's prompt positions). Then: the on-screen touch controls, then
+  button (needs each screen's prompt positions). Stefan (Oct 29): IPA153
+  all works as expected. He asked for D-pad buttons (map, SMS, Blacklist,
+  enter/engage, race/pursuit details) shown only when they apply: IPA154
+  `ios/build/NFSMW-touch-dpad-watch-154.ipa` (iCloud Desktop) has the four
+  buttons always shown plus a `[hud-watch]` diagnostic to find the HUD's
+  signs of free roam / race / pursuit / event circle. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
