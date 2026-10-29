@@ -8296,3 +8296,5 @@ game (its position stays the game's) and its children are moved instead
 does not also place the children. `cmake --build --preset ios --target ipa
 -j 6` exit 0; `ios/build/NFSMW-hud-rows-143.ipa` SHA-256 5f5af15806b087244c4ff0f7dd8dbf3e48d287ec479218ca76857da365232d6d, 30130428 bytes,
 `unzip -tq` ok. Not run yet.
+
+IPA143 result (Stefan, Oct 29, iPad, 70%): the infraction rows stay under their badge; fixed.
