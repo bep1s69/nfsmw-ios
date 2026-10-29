@@ -26,6 +26,7 @@
 #include <rex/logging.h>
 
 #include "display_rate.h"
+#include "battery.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
                      "Game frame time: 2 one display period per frame (smooth motion), 0 the game's own "
@@ -77,6 +78,19 @@ extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double ra
   nfsmw::display::LatestVblank(vblank_ns, period_ns);
   const double period = period_ns ? double(period_ns) / 1e6 : 1000.0 / 60.0;
   static double debt = 0;  // real time not yet given to the game (ms); the main loop's thread only
+  const uint64_t managed_period_ns = nfsmw::display::ManagedFramePeriodNs();
+  if (managed_period_ns && nfsmw::battery::InMenu() == 0 &&
+      rex::cvar::Query<int32_t>("ios_fps_cap") == 40) {
+    // The Metal link displays one game frame per 25 ms slot. The main loop
+    // can still stall then catch up (log8: 3-74 ms) behind that steady output.
+    // Debt corrections in 8.34 ms units made those on-time pictures move by
+    // 1/2/4 simulation ticks. Give each picture one complete 40 fps step.
+    // Keep menus, other caps, loading bypasses and legacy behavior intact.
+    const double frame_period = double(managed_period_ns) / 1e6;
+    debt = 0;
+    return TraceTicks(ticks * (frame_period / milliseconds), ticks, milliseconds,
+                      frame_period, debt, false, mode, rate, wait, clamp);
+  }
   debt += milliseconds - period;
   double give = period;
   while (debt > period * 0.75 && give < period * 4) {  // refreshes missed: catch up

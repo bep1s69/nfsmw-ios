@@ -141,6 +141,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: log8 confirms world-step mismatch; test5 built.**
+  Archived nfsmw_iphone_14pm_8_metal_display_40_world_diagnostic.log.
+  mode2 confirmed (existing default since0.4.2,not2ticks).2280 shown gaps
+  all25ms; world steps1901x25.02,180x33.36,160x16.68,37x8.34,2x25.05ms.
+  No steady sampled-strip repeats. Test5 gives one full managed40 frame
+  duration per driving update; legacy paths/menus/30/60/120 preserved.
+  Host24000 legacy differential +2280 recorded-interval checks passed;
+  build/ZIP/signature passed. `ios/build/NFSMW-0.5.0-metal-display-40-test5-world-step.ipa`,
+  SHA256 f918c1dfd21a9286fb0af94c73691c9dbd209600f0b5e2f387abec29d04254b9,
+  UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5. Next same14PM/Balanced/1x/40
+  cold chase with same five diagnostic arguments. Check motion + game speed,
+  then genuine below40/missed-frame behavior before promotion (fixed-step
+  branch can slow simulation under sustained frame drops). Experimental
+  default still off,60fix intact,0.5.1 not ready/no release.
+
 - **October 30: original-world-time trial feels worse; diagnostic test4
   built.** Archived nfsmw_iphone_14pm_7_metal_display_40_frame_ticks_off_worse.log.
   All1440 selected shown gaps25ms; user judder worsens, so restore mode2.

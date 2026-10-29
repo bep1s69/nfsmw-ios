@@ -52,6 +52,7 @@ std::atomic<int> current_cap{60};
 std::atomic<int> asked_hz{60};
 // What was last published to the SDK (frame_clock.cpp reads it).
 std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
+std::atomic<uint64_t> managed_frame_period_ns{0};
 }  // namespace
 
 @interface NFSDisplayRate : NSObject
@@ -72,10 +73,12 @@ std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
       // 120 / 80 is not an integer: rounding a split publishes 80 or 160
       // Hz and breaks both the guest vblank lock and even world-frame time.
       // Keep a virtual 120 Hz grid phase-locked to the managed 40 cadence.
+      managed_frame_period_ns.store(metal_period_ns * 3, std::memory_order_relaxed);
       published_period_ns.store(metal_period_ns, std::memory_order_relaxed);
       published_ns.store(metal_timestamp_ns, std::memory_order_release);
       publish(metal_timestamp_ns, metal_period_ns);
     } else if (period > 0) {
+      managed_frame_period_ns.store(0, std::memory_order_relaxed);
       // The guest vblank's rate at the 30, 40 and 60 caps: 60, 120 and 60 Hz.
       const int cap = current_cap.load(std::memory_order_relaxed);
       const double guest_hz = cap == 40 ? 120.0 : cap == 30 || cap == 60 ? 60.0 : 0.0;
@@ -140,6 +143,10 @@ void RequestRateForCap(int fps_cap) {
 }
 
 bool MatchesCap() { return REXCVAR_GET(ios_display_match_cap); }
+
+uint64_t ManagedFramePeriodNs() {
+  return managed_frame_period_ns.load(std::memory_order_relaxed);
+}
 
 void LatestVblank(uint64_t& time_ns, uint64_t& period_ns) {
   time_ns = published_ns.load(std::memory_order_acquire);

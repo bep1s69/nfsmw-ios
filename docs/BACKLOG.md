@@ -871,6 +871,15 @@ Next same40 run with mode2, world logger + existing repeat-strip/trace
 flags, camera diagnostic removed. No timing behavior change or accepted
 40 fix; full flags/build/evidence in TECHNICAL October30.
 
+October30 log8: mode2 explicitly confirmed (existing0.4.2 default).2280
+shown gaps all25ms but~16.5% world updates receive different time steps;
+no steady repeated strips. Built test5-world-step trial: one full25.02ms
+world step only in managed40 driving,unchanged legacy/other caps/menus.
+Same diagnostic flags;next check smoothness/game speed. Must assess actual
+below40 performance/missed-frame compensation before default: constant
+steps can slow simulation at sustained<40. Not an accepted general fix.
+Archive/build/tests in TECHNICAL October30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
