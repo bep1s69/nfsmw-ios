@@ -787,11 +787,19 @@ float AnchorY(uint8_t* base, uint32_t object, int depth) {
 // at size 1 (IPA141, Stefan's 100% screenshot): they go with it (they went
 // with the race info until IPA141 and floated mid-screen at 70%).
 constexpr float kBottom = 60.0f;
+// Left where the game puts them: the prompt over the road in an event,
+// shop or safehouse circle (its icon and its group with the spinning ring),
+// in the left group but drawn at the top middle. As top-left pieces they
+// went with the infractions (Stefan, IPA154: moved 100 units down with his
+// infractions, the ring flashing between there and lower still).
+bool NotAPiece(uint32_t hash) { return hash == 0x3B1B624A || hash == 0x3345911D; }
+
 void AddPieces(uint8_t* base, uint32_t outer, uint32_t group, float y0, Element below, int above, int middle) {
   if (!Plausible(group) || REX_LOAD_U32(group + 0x5C) != kListVtable) return;
   int n = 0;
   for (uint32_t c = REX_LOAD_U32(group + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
        c = REX_LOAD_U32(c + 4), ++n) {
+    if (NotAPiece(REX_LOAD_U32(c + 0x10))) continue;
     const float y = y0 + AnchorY(base, c, 0);
     const int e = y > kBottom ? int(below) : y < -kBottom ? above : middle;
     if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false, {outer, group}});

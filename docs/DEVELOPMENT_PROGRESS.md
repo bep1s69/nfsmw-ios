@@ -195,7 +195,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   prompt and the race markers: IPA155 `ios/build/NFSMW-touch-context-155.ipa`
   (iCloud Desktop) shows ENTER only in a circle, MAP/SMS only outside
   races, and fixes the log bloat; built, not run. Pursuit not seen in the
-  run (buttons as in free roam). Then: the on-screen touch controls, then
+  run (buttons as in free roam). Circle prompt ring fix (Stefan, "now"):
+  IPA156 `ios/build/NFSMW-hud-prompt-156.ipa` (iCloud Desktop, includes
+  IPA155), built, not run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

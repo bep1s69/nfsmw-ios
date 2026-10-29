@@ -540,7 +540,7 @@ steps, one IPA each, each approved:
 4. Drag race layout: gas, shift up/down, nitrous, two lane-change buttons
    (how Android does it). Needs the race type from the game (not read yet).
 
-### D-0xx Circle prompt's spinning ring jumps below its icon — open
+### D-0xx Circle prompt's spinning ring jumps below its icon — fix in IPA156, not tested
 
 Stefan, Oct 29 (iPhone, IPA154, Custom HUD with the minimap moved to the
 top left): in an event or safehouse circle, the prompt icon over the road
@@ -551,8 +551,11 @@ around the icon and ~1 cm below it. IPA154 [hud-watch]: the prompt is
 with 35236DBE (-8,99) and D907EF51 / B996A84C (-8,100, flags 43000000 /
 43800000) came up: likely the ring, under a parent at -189 + 99. Suspect
 the HUD pieces' moving (game_scene_size.cpp MovePiece / AddPieces) moving
-one of these objects on some frames only (as EA Trax was). Not
-investigated.
+one of these objects on some frames only (as EA Trax was). Cause
+(TECHNICAL Oct 29): both are top-left pieces, moved with Stefan's
+infractions (-8,+100); 3345911D was "placed again by the game" and went
+by_children, the ring's frames alternating. IPA156 leaves them out of the
+pieces.
 
 ## Parked investigations
 

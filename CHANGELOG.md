@@ -39,6 +39,11 @@
   inside an event, shop or safehouse circle, and Map and SMS only outside
   races.
 
+- **Custom HUD: the circle prompt stays put.** The icon over the road in
+  an event, shop or safehouse circle (and its spinning ring) moved with
+  the infractions list, and the ring flashed between two places. It now
+  stays where the game puts it, at the top middle.
+
 - **Smaller logs.** Two of the HUD's overlays took turns being logged in
   full every frame, which filled several 5 MB logs in a few minutes. Each
   is now logged once.
