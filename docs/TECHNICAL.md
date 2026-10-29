@@ -9105,3 +9105,15 @@ a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f, UUID
 BCE7DE85-E64A-3893-9ACB-EF8FBAE520B4, 208 metallibs, ZIP test OK, codesign
 ok; on the iCloud Desktop. Not run yet: check that the taps hit the photo's
 prompts and that the photo still fills the screen.
+
+### October 29: 0.5.0 published
+
+Stefan confirmed the D-013 fix on device and approved pushing and
+publishing. CHANGELOG 0.5.0 rewritten (read-first note, most important
+first, detailed touch controls section, Known issues, Vipe95 credit); no
+code change since e33924f, so the release IPA is the tested build:
+`ios/build/NFS-Most-Wanted-0.5.0.ipa`, SHA-256
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f. RELEASING
+checks: prepare_sdk --status all applied, pool 63/63 and extra-options
+applied, `git status --ignored` shows no game files, generated code or IPAs
+tracked. `main` pushed, tag v0.5.0, GitHub release with the IPA.
