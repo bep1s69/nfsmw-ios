@@ -8585,3 +8585,22 @@ IPA155:
 `ios/build/NFSMW-touch-context-155.ipa` SHA-256
 67d96566c5641a0cf449bbe7f68bf0e6e76f2e4c0822a5c6649638feca2333af, 30149614
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA154. Not run.
+
+### October 29: circle prompt ring (IPA156)
+
+Stefan (IPA154, Custom HUD; layout `infractions:-8,100`): in an event or
+safehouse circle the prompt icon sat over his old minimap place and its
+spinning ring alternated between around the icon and ~1 cm lower. IPA154
+log: `[hud] piece 3345911D placed again by the game (3.0,-189.0): its
+children moved from now on`. The prompt (3B1B624A, icon 38 x 38) and its
+group 3345911D (ring parts inside 35236DBE) are children of the left group
+at y -190, so AddPieces took them as top-left (infractions) pieces and
+moved them 100 units down; the game places 3345911D's group and its
+animated children again on some frames (by_children), hence the flashing.
+Fix: AddPieces skips these two hashes (NotAPiece): drawn where the game
+puts them, top middle, as without Custom HUD. The context detection
+(3B1B624A shown) is unchanged.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-prompt-156.ipa` SHA-256
+69261e77fe6bd25acf3016f738cba119832934e5b44340ac54c8d80560e47060, 30150039
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA155. Not run.
