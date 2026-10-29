@@ -9737,3 +9737,66 @@ Compare guest grid log, world camera steps, presentation cadence and
 latency drift. If successful, then decide whether to reduce latency;
 keep this change isolated first. No promotion/default change, version bump,
 push/tag/release. Preserve issue 11 note, HANDOFF_CHATGPT.md and SDK work.
+
+### October 30: test3 still feels like periodic stuck frames; isolate world clock
+
+Stefan: "still seemed to have a few stuck frames ... every 5s or so".
+Input /Users/bep1s/Downloads/nfsmw 6.log archived byte-for-byte (exclusive
+create, no overwrite), original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_6_metal_display_40_test3_stuck_frames.log`.
+574262 bytes, 2947 lines, SHA-256
+bcb18bb990ab7064f9104fd1994b2a032884ee5d1eeba4885ef374d1e00c5f51.
+Copy/equality verification and read-only analysis commands exit 0.
+One launch 01:16:06.498; world at 01:16:37.619; experimental link stopped
+01:17:25.051, subsequent GPU hitches occur after stop (not evidence of a
+steady-state 5 s hitch). Final log line partial. Test3 identity from handoff:
+06e1b783..., UUID 29F35A9F-1923-38A5-A256-AAD17E3CAE3F; device 14 Pro Max
+per established test, OS not supplied. Balanced, native1x/40, no MetalFX/
+FXAA/MSAA, Low Power Mode off, nominal CPU thermal samples. Frame trace,
+camera log and managed Metal path active. Ordinary link 80 Hz, managed
+virtual guest grid logs ~8.3400 ms (one 8.3398), fixing prior conversion.
+
+Trace rows emitted >=01:16:49.000 and <01:17:24.000 (rounded numeric
+values; rows cover preceding 60 gaps), 1440 gaps/stage:
+- swap mean25.026 ms, sd .702.
+- handed mean25.038, sd1.242.
+- GPU end mean25.048, sd1.600.
+- shown mean25.017, sd .678; bins25.0:1437,37.5:1,16.7:1,45.9:1.
+No recurring 5 s display-gap pattern observed. Four steady 300-frame
+windows through 01:17:11.805 have 0/300 off-grid; later window has 3/300,
+39.8 fps. GPU generally ~19-22 ms after warm-up; no steady deadline misses
+in summaries, apart from later two presentation misses >4 ms. Actual
+screen-stall cause is not proven from presentedTime alone.
+
+Mean trace latency components swap->handed / handed->GPU end / ->shown:
+7.40/20.92/25.20 ms, sum53.51 vs test2 selected63.63 and baseline27.42.
+This is renderer handoff latency, not input-to-photon; different workloads
+and selection windows, no controlled energy or total input-lag claim.
+Drawable wait ~.44-.49 ms through most driving (previous test2 steadily
+grew to19.78); final window 9.89/max18.78. Source review: integer guest
+clock defect corrected as intended, but experiment still not accepted.
+
+Camera trace shows uneven turn magnitudes in some windows but cannot
+prove whole-picture freezes: it measures rotation, not translation or a
+hash of displayed pixels. Near-zero rotation can be natural, and the
+most-common view-projection vote may switch to a different scene camera
+(large angle jumps). Do not label all flagged neighbors as actual judder.
+Only three isolated <.02-degree values with both immediate neighbors>.15
+were found across camera windows; not a 5 s sequence. No new world-clock
+input/output diagnostic exists in this build. No logged periodic task
+established as the cause; native draw-census has 5 s interval but this log
+contains no active draw-census evidence.
+
+Next diagnostic (existing switch, NO source/build): same test3 IPA,
+Balanced/1x/40, Low Power Mode off, existing metal_display_40/frame_trace/
+camera_log true; add only --nfsmw_frame_ticks=0 and cold-launch. This uses
+the game's original main-loop elapsed time while leaving the successful
+40 screen presentation and sim120 intact. Compare same chase for 1 min,
+world smoothness, perceived stuck moments and log. It is an isolation
+trial for interaction with our even-world-frame correction, not a proposal
+to remove that proven 60 fps fix globally. Restore default2 afterward.
+Earlier 60 fps timing investigations do not validate this new managed-40
+configuration. If original world timing helps, design a 40-specific clock
+change; if not, use targeted world-step/repeated-picture diagnostics before
+further presentation rewrites. No source change/new IPA, no promoted 40
+fix, version bump, push/tag/release. Preserve issue11 note, HANDOFF and SDK.
