@@ -8338,3 +8338,21 @@ the iPhone); fade images drawn 10% larger on top of the fit (g_fit_grow).
 `cmake --build --preset ios --target ipa -j 6` exit 0;
 `ios/build/NFSMW-hud-fade-grow-145.ipa` SHA-256 f755d286daf36645555bf7c3de99984fdd3f3047e521a475dca562320a876c1d, 30131166 bytes, `unzip -tq`
 ok. Not run yet.
+
+IPA145 result (Stefan, Oct 29, iPhone and iPad; log `Debug/29 October 2026/
+nfsmw_ipa145_iphone.log`, `ipa145_ipad_pause.jpeg`, `ipa145_iphone_pause.jpeg`):
+the loading screen no longer bleeds on either device, but its pieces twitch
+a little (kept as a known issue unless an easy fix turns up); the pause menu
+looks as before, but on the iPhone its darkening covers only the middle,
+not the whole screen as on the iPad; the asphalt picture still has side
+margins on the iPhone. InGameBackground.fng's tree (IPA145 log): group
+2716CDBF (size 1 x 2: a group's size is its scale) holds three pictures, a
+510-wide middle and two 254-wide sides at x +-382 (1018 units across), and
+two groups of 1200-wide bars at the top and bottom.
+
+IPA146: nfsmw_hud_fit_backdrop fits only InGameBackground.fng's top-level
+groups (position and scale divided by the same full-screen scale as the
+fades, FullScreenScale), so its pieces keep together. `cmake --build
+--preset ios --target ipa -j 6` exit 0; `ios/build/NFSMW-hud-backdrop-146.ipa`
+SHA-256 7b0dfa47a8818145d02e0b9c13632eb9e4526dd914ac54e98e2430ea6a2114c8,
+30121610 bytes, `unzip -tq` ok. Not run yet.

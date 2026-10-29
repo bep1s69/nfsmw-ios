@@ -882,6 +882,41 @@ bool FitWide(uint8_t* base, uint32_t object, float sx, float sy, int depth) {
 // drawn 10% larger. Called in every game state and under menus (driving: the
 // HUD's size is in the matrix). IPA144 also fitted InGameBackground.fng,
 // which broke the pause menu (it is that menu's dimmed panels too): left out.
+// The matrix's scale beyond a full-size, full-width picture: the HUD's size
+// (driving only), the title-safe scale kept (HD 0.92, SD only with
+// nfsmw_hud_title_safe) and, in x, the wide scene's 1280/width.
+void FullScreenScale(uint8_t* base, bool driving, float& sx, float& sy) {
+  float safe_x, safe_y;
+  HudSafeScale(base, safe_x, safe_y);  // 1 in HD (kept there), the SD scale
+  const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;
+  const float hd_safe = LoadF(base, kHdSafeScale);
+  const bool kept = hd || REXCVAR_GET(nfsmw_hud_title_safe);
+  const float keep_x = !kept ? 1.0f : hd ? (hd_safe > 0.75f && hd_safe <= 1.0f ? hd_safe : 1.0f) : safe_x;
+  const float keep_y = !kept ? 1.0f : hd ? keep_x : safe_y;
+  const uint32_t width = WideWidth();
+  const float s = driving ? HudScaleSetting() : 1.0f;
+  sx = s * keep_x * (width ? 1280.0f / float(width) : 1.0f);
+  sy = s * keep_y;
+}
+
+// InGameBackground.fng: the asphalt picture behind the post-race screens and
+// the pause menu's dimmed backdrop (IPA145, Stefan: on the iPhone it covered
+// only the middle). IPA144 fitted its wide images one by one and the
+// narrower side pieces (254 of 1018 units) were left: dark bands. Its
+// top-level groups are scaled instead (a group's size is its scale: the
+// backdrop's is 1 x 2), so the pieces stay together.
+extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool driving) {
+  if (!Plausible(package)) return;
+  float sx, sy;
+  FullScreenScale(base, driving, sx, sy);
+  uint32_t at = 0;
+  int n = 0;
+  for (uint32_t o = FirstObject(base, package, at); Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300;
+       o = REX_LOAD_U32(o + 4), ++n) {
+    if (REX_LOAD_U32(o + 0x18) == 5) Fit(base, o, sx, sy, false);
+  }
+}
+
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving) {
   if (!Plausible(package)) {  // none up
     g_fade_opaque = false;
@@ -897,16 +932,8 @@ extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving
     if (first) DumpObjects(base, first, 0, budget);
   }
   g_fade_alpha = 0;
-  float safe_x, safe_y;
-  HudSafeScale(base, safe_x, safe_y);  // 1 in HD (kept there), the SD scale
-  const bool hd = REX_LOAD_U8(0x828F4A8F) != 0;
-  const float hd_safe = LoadF(base, kHdSafeScale);
-  const bool kept = hd || REXCVAR_GET(nfsmw_hud_title_safe);
-  const float keep_x = !kept ? 1.0f : hd ? (hd_safe > 0.75f && hd_safe <= 1.0f ? hd_safe : 1.0f) : safe_x;
-  const float keep_y = !kept ? 1.0f : hd ? keep_x : safe_y;
-  const uint32_t width = WideWidth();
-  const float s = driving ? HudScaleSetting() : 1.0f;
-  const float sx = s * keep_x * (width ? 1280.0f / float(width) : 1.0f), sy = s * keep_y;
+  float sx, sy;
+  FullScreenScale(base, driving, sx, sy);
   int n = 0;
   g_fit_grow = 1.1f;
   for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && n < 300; o = REX_LOAD_U32(o + 4), ++n) {

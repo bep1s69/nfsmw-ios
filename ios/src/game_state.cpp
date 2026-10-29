@@ -138,6 +138,7 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 }  // namespace
 
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 extern "C" void nfsmw_hud_full_size(bool on);                              // game_scene_size.cpp
@@ -166,6 +167,11 @@ extern "C" REX_FUNC(sub_823B4158) {
       }
     }
     if (!any) nfsmw_hud_fit_fade(base, 0, false);
+    // The post-race picture and the pause menu's backdrop (IPA146).
+    static const char* const kBackdrop[] = {"InGameBackground.fng"};
+    if (PushedPackage(ctx, base, kBackdrop, 1) >= 0) {
+      nfsmw_hud_fit_backdrop(base, FindPackage(ctx, base, kBackdrop[0]), state == kRacing && menu < 0);
+    }
   }
   if (state == kRacing && menu < 0) {
     // The song's name and the autosave icon (IPA139), kept at the HUD's
