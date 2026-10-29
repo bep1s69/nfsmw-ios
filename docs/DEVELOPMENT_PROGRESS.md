@@ -228,8 +228,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   default for all, adapted to iPad; editor in the in-game options. His
   IPA160 run (`nfsmw_ipa160_circles_pursuit_iphone.log`): pursuit sign =
   the busted/evade bar labels, circle icon word. IPA161
-  `ios/build/NFSMW-touch-defaults-161.ipa` (iCloud Desktop), built, not
-  run. Then: the on-screen touch controls, then
+  `ios/build/NFSMW-touch-defaults-161.ipa` (iCloud Desktop): Stefan, all
+  three work. CAM / PAUSE covered the mirror: IPA162
+  `ios/build/NFSMW-touch-top-row-162.ipa` puts PAD, CAM, PAUSE, HIDE in
+  one row at the top (his choice), built, not run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
