@@ -17,6 +17,12 @@ void Install();
 // frames per second and ms per frame, every half second. Same rules.
 void InstallFpsCounter();
 
+// What the HUD shows while driving (game_scene_size.cpp, twice a second, on
+// the game's thread): the DRIVE layout's D-pad buttons follow it.
+constexpr int kInCircle = 1;  // an event, shop or safehouse circle: ENTER
+constexpr int kInRace = 2;    // a race: no MAP or SMS
+void SetDriveContext(int bits);
+
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen
 // in landscape from the launcher. `steering`: the launcher's touch_steering

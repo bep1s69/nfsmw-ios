@@ -190,7 +190,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   enter/engage, race/pursuit details) shown only when they apply: IPA154
   `ios/build/NFSMW-touch-dpad-watch-154.ipa` (iCloud Desktop) has the four
   buttons always shown plus a `[hud-watch]` diagnostic to find the HUD's
-  signs of free roam / race / pursuit / event circle. Then: the on-screen touch controls, then
+  signs of free roam / race / pursuit / event circle. Stefan's IPA154 run
+  (`Debug/29 October 2026/ipa154_hud_watch_iphone/`) gave the circle
+  prompt and the race markers: IPA155 `ios/build/NFSMW-touch-context-155.ipa`
+  (iCloud Desktop) shows ENTER only in a circle, MAP/SMS only outside
+  races, and fixes the log bloat; built, not run. Pursuit not seen in the
+  run (buttons as in free roam). Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

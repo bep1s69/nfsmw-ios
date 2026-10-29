@@ -8551,3 +8551,37 @@ Blacklist; down also the race's / pursuit's details).
 `ios/build/NFSMW-touch-dpad-watch-154.ipa` SHA-256
 0023ef560759a3cf712247c71ccc5573b50369d0e0933e214cf831ee0353f50c, 30148567
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA153. Not run.
+
+### October 29: IPA154 HUD watch result; context buttons and log size (IPA155)
+
+Stefan's IPA154 run (iPhone, 20:15-20:18, five logs of 5 MB in
+`Debug/29 October 2026/ipa154_hud_watch_iphone/`, `all.log` joined):
+free roam, an event circle, a shop/safehouse circle, a race started from
+the circle (LIST then the race sheet), quit to the menu, back to free roam.
+Map pressed in the race did nothing (the world map is not offered in
+races). Flags +1C: 0x00800000 set = shown (43800000 shown, 40000000 /
+42000000 hidden).
+- Circle prompt: 3B1B624A (type 1, at -5,-90 over the road) with
+  0A729B1B (its D-pad picture, depth 4) shown 20:16:24-34 and from
+  20:16:52 to the race (the 4-way picture group 3345911D blinked at
+  20:16:52).
+- Race: the position markers 4FDDD64C-4FDDD64F (type 1, left, x -24)
+  hidden in free roam, one shown from the race's start (20:17:40) on.
+  4183E0A1-4 / 2AF89FD7-A (standings names / values) blink in the race.
+- No pursuit identified in this run.
+- Log size: 12,016 `[hud] overlay package` lines each with a 60-object
+  `[hud-tree]` dump: two overlays up at once took turns as "the last one
+  said" (nfsmw_hud_fit_overlay, and the same pattern in the fade one),
+  so both were dumped every frame. Now once per package (FirstTime, a set).
+IPA155:
+- game_scene_size.cpp UpdateDriveContext: every 15 HUD updates, walks the
+  HUD package's objects for the above, logs `[hud] drive context: race /
+  free roam, in a circle` on change, and hands it to
+  nfsmw::touch::SetDriveContext (atomic). nfsmw_hud_watch now default off.
+- touch_controls.mm: the DRIVE layout is rebuilt (2 Hz check) when the
+  context changes: ENTER only in a circle, MAP and SMS only outside races,
+  LIST always; the editor shows all four.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-context-155.ipa` SHA-256
+67d96566c5641a0cf449bbe7f68bf0e6e76f2e4c0822a5c6649638feca2333af, 30149614
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA154. Not run.

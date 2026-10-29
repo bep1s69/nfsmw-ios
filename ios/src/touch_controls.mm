@@ -110,6 +110,9 @@ SDL_Joystick* g_pad = nullptr;
 int g_buttons = 0;
 Sint16 g_axes[kAxes] = {};
 
+// nfsmw::touch::SetDriveContext, from the game's thread.
+std::atomic<int> g_drive_context{0};
+
 // Keyboard controls (the SDK's mnk_mode, set by the launcher).
 bool KeyboardControlsOn() { return rex::cvar::Query<bool>("mnk_mode"); }
 
@@ -244,6 +247,7 @@ struct Control {
   // controls instead of pressing them.
   BOOL _editing;
   NSString* _steering;  // ios_touch_steering the layout was made with
+  int _context;         // g_drive_context the layout was made with
   NSTimer* _fadeTimer;  // the dynamic joystick fading out
   // Dimmed after 3 s without a touch while driving (ios_touch_idle_opacity).
   NSTimeInterval _lastTouch;
@@ -389,8 +393,14 @@ static CGFloat TouchOpacity() {
   return [NSString stringWithUTF8String:REXCVAR_GET(ios_touch_steering).c_str()];
 }
 
-// The steering choice changed in the options while playing: a new layout.
+// The steering choice changed in the options while playing, or the HUD
+// shows a circle or a race: a new layout.
 - (void)syncSteering {
+  if (_driving && !_editing && g_drive_context.load() != _context) {
+    [self releaseAll];
+    [self setNeedsLayout];
+    return;
+  }
   if (_driving && _steering && ![_steering isEqualToString:[self steeringMode]]) {
     REXLOG_INFO("[touch] steering: {}", [self steeringMode].UTF8String);
     [self setNeedsLayout];
@@ -622,11 +632,18 @@ static CGFloat TouchOpacity() {
   // up enters a shop or engages an event, left the world map, right the
   // SMS messages, down the Blacklist (or the race's / pursuit's details).
   // One button each, around where the D-pad was.
+  // Each only when it does something (the HUD tells, SetDriveContext):
+  // ENTER in a circle, MAP and SMS outside races; LIST always (the
+  // Blacklist, or the race's / pursuit's details). The editor shows all.
+  _context = g_drive_context.load();
+  const bool all = _editing;
   const CGPoint pad = P(.11, .27);
   const CGFloat off = unit * .62, r = unit * .36;
-  round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
-  round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
-  round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
+  if (all || (_context & nfsmw::touch::kInCircle)) round(@"ENTER", CGPointMake(pad.x, pad.y - off), r, kUp);
+  if (all || !(_context & nfsmw::touch::kInRace)) {
+    round(@"MAP", CGPointMake(pad.x - off, pad.y), r, kLeft);
+    round(@"SMS", CGPointMake(pad.x + off, pad.y), r, kRight);
+  }
   round(@"LIST", CGPointMake(pad.x, pad.y + off), r, kDown);
   [self applyCustomLayout];
   // Last, so the buttons inside its zone (nitrous, look back) come first.
@@ -1646,6 +1663,8 @@ UIViewController* MakeLayoutEditor(NSString* steering) {
   editor.modalPresentationStyle = UIModalPresentationFullScreen;
   return editor;
 }
+
+void SetDriveContext(int bits) { g_drive_context.store(bits); }
 
 void InstallFpsCounter() {
   static bool installed = false;
