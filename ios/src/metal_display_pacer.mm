@@ -21,6 +21,8 @@ CAMetalLayer* attached = nil;             // under mutex
 CAMetalDisplayLinkUpdate* pending = nil;  // one retained update at most
 bool owns = false, active = true;
 uint64_t generation = 0;
+uint64_t guest_timestamp_ns = 0, guest_period_ns = 0;
+double previous_target = 0;
 unsigned frames = 0;
 CAMetalDisplayLink* metal_link = nil;           // main thread only
 bool Enabled() {
@@ -41,14 +43,32 @@ bool Enabled() {
   }
   std::lock_guard<std::mutex> lock(mutex);
   if (!owns || !active) return;
+  // Use the display link's system timestamp spacing, not callback arrival
+  // jitter or integer subdivision of CADisplayLink (which may run at 80 Hz).
+  // A missed callback spans several 25 ms slots; normalize it before /3.
+  const double target = update.targetPresentationTimestamp;
+  double cadence = .025;
+  if (previous_target > 0 && target > previous_target) {
+    const double gap = target - previous_target;
+    cadence = gap / std::max(1.0, std::round(gap / .025));
+  }
+  previous_target = target;
+  if (cadence >= .020 && cadence <= .030) {
+    const double period = cadence / 3;
+    const double now = CACurrentMediaTime();
+    const double latest = target - std::ceil(std::max(0.0, target - now) / period) * period;
+    guest_period_ns = uint64_t(std::llround(period * 1e9));
+    guest_timestamp_ns = uint64_t(std::llround(latest * 1e9));
+  }
   pending = update;  // replace an unused update; never queue stale frames
   changed.notify_all();
   static double last = 0;
   static uint32_t count = 0;
   if (++count % 120 == 0) {
-    REXLOG_INFO("[metal-display-40] callback gap {:.2f} ms, target {:.2f} ms ahead",
+    REXLOG_INFO("[metal-display-40] callback gap {:.2f} ms, target {:.2f} ms ahead, guest grid {:.4f} ms",
                 last > 0 ? (CACurrentMediaTime() - last) * 1000 : 0,
-                (update.targetPresentationTimestamp - CACurrentMediaTime()) * 1000);
+                (update.targetPresentationTimestamp - CACurrentMediaTime()) * 1000,
+                double(guest_period_ns) / 1e6);
   }
   last = CACurrentMediaTime();
 }
@@ -67,6 +87,8 @@ void Stop() {
   }
   owns = false;
   pending = nil;
+  guest_timestamp_ns = guest_period_ns = 0;
+  previous_target = 0;
   ++generation;
   changed.notify_all();
 }
@@ -107,11 +129,23 @@ void Tick() {
   metal_link.preferredFrameRateRange = CAFrameRateRangeMake(40, 40, 40);
   metal_link.preferredFrameLatency = 2;
   pending = nil;
+  guest_timestamp_ns = guest_period_ns = 0;
+  previous_target = 0;
   ++generation;
   owns = true;
   [metal_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   REXLOG_INFO("[metal-display-40] started: 40 callbacks/s requested, latency 2; "
               "plain present when scheduled, system timing, guest vblank unchanged");
+}
+
+bool GuestGrid(uint64_t& timestamp_ns, uint64_t& period_ns) {
+  if (!Enabled()) return false;
+  std::lock_guard<std::mutex> lock(mutex);
+  if (!owns || !active || !guest_period_ns ||
+      rex::cvar::Query<int32_t>("ios_fps_cap") != 40) return false;
+  timestamp_ns = guest_timestamp_ns;
+  period_ns = guest_period_ns;
+  return true;
 }
 
 Frame::Frame(CAMetalLayer* layer) {
