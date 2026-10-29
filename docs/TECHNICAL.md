@@ -8773,3 +8773,37 @@ Stefan (IPA162): "looks fresh"; next, the drag controls (step 4).
 `ios/build/NFSMW-touch-drag-163.ipa` SHA-256
 483b8648b3b06ecb6a04dd391d3920b79b5fe6d09700a762f152cca05471b3c4, 30154600
 bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA162. Not run.
+
+### October 29: IPA163 confirmed; button hints, first part (IPA164)
+
+Stefan (IPA163): the drag layout works; nitrous over the gas (P(.9,.45)),
+brake where nitrous was (P(.765,.80)). Next: in menus a tap on a button
+hint ("B Done", "A Read", "Y Delete" in SMS) presses that button, in every
+menu with hints.
+- FE names are bStringHash (h = h x 33 + c from 0xFFFFFFFF): BACKGROUND =
+  2716CDBF (WorldMapMain's backdrop group), EVENTICON = 3B1B624A (circle
+  prompt), ENGAGE_MECHANIC = 3345911D, "PC BACK" = C0A32823 (the PC's
+  mouse hints), BACK_BUTTON 1C7FCF8B, READ_BUTTON 23AFB3F6, DELETE_BUTTON
+  D18B818D (SMS hints, group B3A69E89 at -91,192); their pictures are
+  named CROSS 02959349, TRIANGLE 6851AAF5, SQUARE 7A8B6BD0 (CIRCLE
+  54A68051), slots that do not match the button shown (BACK_BUTTON's is
+  TRIANGLE, shown as B).
+- Package units to the screen (iPhone, IPA159 SMS screenshot): hint
+  pictures at x -250 / -150 / -48 drawn at 178 / ~238 / 293 of 640, y 192
+  at 256 of 294: 0.569 px per unit = h x 0.92 / 480 (HD title-safe), from
+  the middle. Not checked on the iPad.
+- game_scene_size.cpp nfsmw_menu_hint_at: walks every package up (cFEng
+  +216+8 list, as nfsmw_ui_log), finds hint groups (two children: a text
+  and a 24-34 unit picture; the PC's have three), absolute positions with
+  each group's scale, logs `[touch-hint] <package> hint <group> texture
+  <picture +24> at x,y` and the tap's result; hit box from 20 units left
+  of the picture to 85 right, +-20 up/down. ButtonOf: BACK_BUTTON = B,
+  others unknown (-1: nothing pressed, logged).
+- touch_controls.mm: a one-finger menu tap stores its place in package
+  units; game_state.cpp's frame hook answers (MenuTapResult): the hint's
+  button, A when no hint, nothing for an unknown hint; A if no answer in
+  0.2 s. Two fingers: B as before.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-hints-164.ipa` SHA-256
+048114713b4d30af4e1ee0cf9749d1a883cee5be65d2bdde89ffe5365301cb61, 30169066
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA163. Not run.

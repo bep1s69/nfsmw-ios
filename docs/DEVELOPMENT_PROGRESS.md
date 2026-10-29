@@ -233,7 +233,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-touch-top-row-162.ipa` puts PAD, CAM, PAUSE, HIDE in
   one row at the top (his choice): Stefan "looks fresh". Step 4, drag
   race layout: IPA163 `ios/build/NFSMW-touch-drag-163.ipa` (iCloud
-  Desktop), built, not run. Then: the on-screen touch controls, then
+  Desktop): works (Stefan); nitrous over gas, brake in its place. Step 3b
+  (tap a button hint): hints found by name/shape, IPA164
+  `ios/build/NFSMW-touch-hints-164.ipa` logs `[touch-hint]` (texture per
+  hint) to build the texture -> button table; only BACK_BUTTON = B known.
+  Built, not run. Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch

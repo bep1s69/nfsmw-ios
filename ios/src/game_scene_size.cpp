@@ -1372,3 +1372,91 @@ extern "C" REX_FUNC(sub_822241A0) {
 extern "C" REX_FUNC(sub_82224240) {
   WithoutMotionBlur<__imp__sub_82224240>(ctx, base);
 }
+
+// ---------------------------------------------------------------------------
+//  Menus: the button hints at the bottom ("B Done", "A Read", "Y Delete"),
+//  for the touch controls: a tap on one presses its button (Stefan, Oct 29).
+// ---------------------------------------------------------------------------
+// A hint, as in SMS_MailBoxes.fng (IPA159 ui-tree): a group named after
+// its action (BACK_BUTTON 1C7FCF8B, READ_BUTTON 23AFB3F6, DELETE_BUTTON
+// D18B818D...) holding a text (type 2) and its button's picture (type 1,
+// 30 x 30; its name is a slot, CROSS / CIRCLE / SQUARE / TRIANGLE, not the
+// button shown). The PC's mouse hints at the same places have a third child
+// (the bar C6D91A27) and 32 x 32 pictures: left out. The button is told by
+// the picture's texture (word +24, as the circle prompt's), from the table
+// below once known; BACK_BUTTON is B. Positions in the package's units
+// from the middle of the screen, each group's position and size (its
+// scale) applied.
+namespace {
+struct Hint {
+  uint32_t group, texture;
+  float x, y;  // the picture's middle
+};
+
+void FindHints(uint8_t* base, uint32_t first, float px, float py, float ps, int depth, std::vector<Hint>& out,
+               int& budget) {
+  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && budget > 0; o = REX_LOAD_U32(o + 4)) {
+    --budget;
+    if (REX_LOAD_U32(o + 0x18) != 5 || REX_LOAD_U32(o + 0x5C) != kListVtable || REX_LOAD_U32(o + 0x60) > 200) continue;
+    const uint32_t data = REX_LOAD_U32(o + 0x2C);
+    if (!Plausible(data)) continue;
+    const float gx = px + ps * LoadF(base, data + 28), gy = py + ps * LoadF(base, data + 32);
+    const float gs = ps * LoadF(base, data + 56);
+    const uint32_t children = REX_LOAD_U32(o + 0x60), first_child = REX_LOAD_U32(o + 0x64);
+    if (children == 2) {
+      uint32_t text = 0, picture = 0;
+      for (uint32_t c = first_child; Plausible(c) && REX_LOAD_U32(c) != kListVtable; c = REX_LOAD_U32(c + 4)) {
+        const uint32_t type = REX_LOAD_U32(c + 0x18);
+        if (type == 2) text = c;
+        if (type == 1) picture = c;
+      }
+      const uint32_t pd = picture ? REX_LOAD_U32(picture + 0x2C) : 0;
+      if (text && Plausible(pd)) {
+        const float w = std::abs(LoadF(base, pd + 56)), h = std::abs(LoadF(base, pd + 60));
+        if (w >= 24 && w <= 34 && h >= 24 && h <= 34) {
+          out.push_back({REX_LOAD_U32(o + 0x10), REX_LOAD_U32(picture + 0x24), gx + gs * LoadF(base, pd + 28),
+                         gy + gs * LoadF(base, pd + 32)});
+          continue;
+        }
+      }
+    }
+    if (depth < 8) FindHints(base, first_child, gx, gy, gs, depth + 1, out, budget);
+  }
+}
+
+// The picture's texture -> the button (SDL bits as touch_controls.mm: A 1,
+// B 2, X 4, Y 8). Filled from the logs.
+int ButtonOf(const Hint& h) {
+  if (h.group == 0x1C7FCF8B) return 2;  // BACK_BUTTON
+  return 0;
+}
+}  // namespace
+
+// The hint at (x, y) (package units from the middle of the screen) among
+// the packages up, logged with all hints found; its button bits, or 0.
+extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y) {
+  if (!Plausible(engine)) return 0;
+  std::vector<Hint> hints;
+  int packages = 0;
+  for (uint32_t p = REX_LOAD_U32(engine + 216 + 8); Plausible(p) && packages < 64; p = REX_LOAD_U32(p + 4), ++packages) {
+    uint32_t at = 0;
+    const uint32_t first = FirstObject(base, p, at);
+    int budget = 2000;
+    const size_t before = hints.size();
+    if (first) FindHints(base, first, 0, 0, 1, 0, hints, budget);
+    for (size_t i = before; i < hints.size(); ++i) {
+      REXLOG_INFO("[touch-hint] {} hint {:08X} texture {:08X} at {:.0f},{:.0f}", GuestName(base, REX_LOAD_U32(p + 12)),
+                  hints[i].group, hints[i].texture, hints[i].x, hints[i].y);
+    }
+  }
+  // The picture and its text after it: from 20 units left of the picture's
+  // middle to 85 right, 20 up and down (hints sit ~100 apart).
+  const Hint* hit = nullptr;
+  for (const Hint& h : hints) {
+    if (x >= h.x - 20 && x <= h.x + 85 && std::abs(y - h.y) <= 20) hit = &h;
+  }
+  const int button = hit ? ButtonOf(*hit) : 0;
+  REXLOG_INFO("[touch-hint] tap at {:.0f},{:.0f}: {}", x, y,
+              hit ? fmt::format("hint {:08X} texture {:08X}, button {}", hit->group, hit->texture, button) : "no hint");
+  return hit && !button ? -1 : button;  // -1: a hint whose button is not known yet
+}
