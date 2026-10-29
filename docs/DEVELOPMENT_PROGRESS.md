@@ -159,7 +159,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   pursuit pieces ("PURSUIT CTS" with the speedometer, infraction lines
   moved again after the game's script). Next: Stefan tests the chase at
   70%. IPA142: PURSUIT CTS right, infraction rows flash; IPA143
-  `ios/build/NFSMW-hud-rows-143.ipa` moves such rows' children instead.
+  `ios/build/NFSMW-hud-rows-143.ipa` moves such rows' children instead
+  (confirmed by Stefan).
   Still open: iPhone side bars on the bust overlay and asphalt
   picture, the iPad loading screen's short bleed, the judder Stefan felt
   (not in the pacing log) (TECHNICAL Oct 29, D-006).

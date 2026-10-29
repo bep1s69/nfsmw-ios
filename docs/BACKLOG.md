@@ -182,7 +182,7 @@ IPA141 broke the photo screen (missing text, growing stripes): reverted to
 IPA140's behaviour. IPA142 moves "PURSUIT CTS" with the speedometer and
 re-moves the infraction lines after the script places them (not yet
 tested). IPA142: PURSUIT CTS fixed, the rows flashed; IPA143 moves the
-rows' children instead (not yet tested). Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
+rows' children instead (Stefan: fixed). Open: iPhone side bars on BUSTED_OVERLAY and InGameBackground
 (the widescreen layout, not the HUD size).
 
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
