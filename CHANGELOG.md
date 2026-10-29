@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3
+
+- **No more crash on Play on iOS 26 with the native renderer.** iOS 26
+  reuses an internal ID the renderer relied on, so some drawing steps were
+  left without their settings and the graphics driver crashed. They are
+  now always set up. This likely also fixes the native black screen on
+  iOS 26 ([issue 4](https://github.com/bep1s69/nfsmw-ios/issues/4),
+  [issue 7](https://github.com/bep1s69/nfsmw-ios/issues/7)).
+
 ## 0.4.2
 
 - **"Appears to be damaged" careers load.** A career saved on another device

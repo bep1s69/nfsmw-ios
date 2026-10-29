@@ -256,6 +256,27 @@ the session scratchpad). Lasting fix idea: re-derive the Blacklist
 achievements from the save once its Blacklist progress is decoded.
 
 
+### D-011 iOS 26: native renderer crashes on Play (GitHub report, 0.4.2) — fixed (0.4.3; diag2 confirmed on iOS 26 Oct 29)
+
+iPhone 17 Pro Max, iOS 26.7.2: SIGSEGV at 0x9a0 inside AGX
+`drawIndexedPrimitives` (the driver reads a null encoder state slot), from
+`RenderFrame`, 1-2 s after Play. Pure Vulkan works there; native works on
+iOS 27 (Stefan's 17 Pro Max). Evidence: `.ips` and log in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/`.
+Diagnostic build `ios/build/NFS-Most-Wanted-0.4.2-diag1.ipa` (branch
+`diag-ios26-native-crash`): Metal API validation and a synced per-draw log
+in `Documents/logs/native_diag.txt` (switches `nfsmw_diag_metal_validation`,
+`nfsmw_diag_draw_log`, both on). Stefan's iOS 27 smoke test passed (Oct 29,
+validation active, no MISMATCH). User's iOS 26 run: no crash with
+validation on (17 fps, the layer's cost), 0 MISMATCH. Next: same build with
+`--nfsmw_diag_metal_validation=false`. That run crashed at frame 2 draw 5.
+Cause: iOS 26 reuses the encoder address and the renderer's per-encoder
+state caches compare addresses, so a new encoder misses its pipeline.
+Fix (reset the caches at encoder creation) in test build
+`ios/build/NFS-Most-Wanted-0.4.2-diag2.ipa`, confirmed on iOS 26 (Oct 29).
+The fix alone is on `main` as 0.4.3 (`ios/build/NFS-Most-Wanted-0.4.3.ipa`).
+Possibly also GitHub issues 4 and 7 (iOS 26 native black screen): unconfirmed. Details: TECHNICAL, Oct 29.
+
 ### D-010 Career "appears to be damaged" (GitHub issue 8) — fixed (IPA137, Stefan confirmed Oct 29)
 
 Not Black Edition and not file damage (checksums and structure fine). The

@@ -7981,3 +7981,138 @@ fast-forwarded into `main` at b933b6a. Temporary probes removed (load probe,
 UUID 1C6B1AAE-39A4-3916-BAE2-9FEB126DAAC6, 208 metallibs, ZIP test OK,
 codesign --deep --strict ok; copied to the iCloud Desktop. No tag or GitHub
 release (Stefan).
+
+### October 29: 0.4.2-diag1, diagnostic build for the iOS 26 native crash (D-011)
+
+Report (GitHub user, `.ips` and log in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/`):
+iPhone18,2 (17 Pro Max), iOS 26.7.2 23H128, 0.4.2 build 6. EXC_BAD_ACCESS
+(SIGSEGV) KERN_INVALID_ADDRESS 0x9a0 on queue `nfsmw.native`, 1-2 s after Play
+(first native frames, front end loading). Top frame AGXMetalG18P
+`-[AGXG18PFamilyRenderContext drawIndexedPrimitives:...] +240` (`ldr x9,
+[x8,#0x9a0]`, x8 null: the driver reads an empty slot of the encoder's
+state), called from `(anonymous namespace)::RenderFrame +67772` (the NativeSwap
+block); the only indexed draw is the game draw in `native_renderer.mm`. Pure
+Vulkan works on that phone; native works on Stefan's 17 Pro Max on iOS 27.
+Cause not known.
+
+Change (branch `diag-ios26-native-crash` off `main` 0.4.2, Stefan approved
+via the coordinator, logs only, no draw skipped):
+- `ios_main.mm` `StartDiagnostics`, first thing in `main()` after the
+  Documents folders: opens `Documents/logs/native_diag.txt`; unless
+  extra_args.txt has `--nfsmw_diag_metal_validation=false` (cvar, default
+  true; read by a plain text scan, so a UTF-16 extra_args.txt is not seen),
+  sets `MTL_DEBUG_LAYER=1`, `MTL_DEBUG_LAYER_ERROR_MODE=nslog`,
+  `MTL_DEBUG_LAYER_WARNING_MODE=nslog` (report and continue, so the crash
+  still happens), `MTL_SHADER_VALIDATION=0`, `OS_ACTIVITY_DT_MODE=YES` (NSLog
+  copied to stderr) and points stderr at native_diag.txt. nfsmw.log gets a
+  `[diag] D-011 diagnostic build` line with both switches.
+- `native_renderer.mm`, cvar `nfsmw_diag_draw_log` (default true): for the
+  first 5 frames with draws (at most 400 lines) one line per new game encoder
+  (pass, encoder class, attachments: colour 0/1/4 and depth/stencil
+  format/sample count/size, visibility buffer) and per game draw (index count,
+  index buffer and length vs offset + count*4, pso and PipelineKey formats,
+  samples, alpha spec, motion, the pass's attachments, depth-stencil state,
+  visibility slot, nil vertex buffers among the shader's inputs 9..30) and
+  per full-screen `drawPrimitives` (encoder, attachments). Each line is
+  written with write() + fsync() before the draw. Differences are flagged
+  `MISMATCH` with a name (index-overrun, c0-format, c0-samples, c1-presence,
+  c1-format, c4-presence, c4-format, depth, stencil, no-depth-state,
+  visibility, vertex-buffer, nil-encoder). If validation is active the encoder
+  class should be an MTLDebug... wrapper instead of AGX....
+- Version `0.4.2-diag1` (CFBundleShortVersionString, build 6), shown in the
+  launcher and the first line of native_diag.txt.
+
+Built `ios/build/NFS-Most-Wanted-0.4.2-diag1.ipa`, SHA-256
+ec33bb733fc385adb8cab88157c40e8a64f22929316e5ec4e68f7437230c0cf2, UUID
+0C78385E-6C9D-38A1-A5E8-FC03B4EFFB48, 208 metallibs, ZIP test OK, codesign --deep --strict ok. Not run on a
+device yet. Unverified: whether iOS 26/27 honours MTL_DEBUG_LAYER for an app
+launched without Xcode (the encoder class in native_diag.txt shows it), and
+whether NSLog output reaches stderr with OS_ACTIVITY_DT_MODE. Expected cost:
+validation slows encoding; the draw log syncs up to 400 lines once.
+Next: Stefan checks it starts and plays on his iOS 27 phone (native_diag.txt
+written, no false MISMATCH), then the GitHub user runs it and sends
+native_diag.txt, nfsmw.log and the .ips.
+
+0.4.2-diag1 smoke test (Stefan, iPhone 17 Pro Max, iOS 27, Oct 29): plays.
+`native_diag.txt` (copy in `.../29 October 2026/diag1 Stefan iOS27/`): 157
+lines, 5 frames; every game encoder is `MTLDebugRenderCommandEncoder`, so
+MTL_DEBUG_LAYER is honoured without Xcode; no validation message reached the
+file (none raised, or NSLog not copied to stderr: not distinguishable from
+this run); 0 MISMATCH. Frame 1 drew no game draw (pipelines not ready), only
+full-screen passes. All draws: triangle lists, 32-bit indices in range,
+sample count 1, depth 260 (Depth32Float_Stencil8) on every pass. The
+`nfsmw.log` sent with it is an older one (last start Oct 29 00:49, build
+Oct 28 21:56), not from this run. Next: the GitHub user's run on iOS 26.
+
+0.4.2-diag1 on the GitHub user's iPhone 17 Pro Max, iOS 26 (Oct 29; copies in
+`.../29 October 2026/diag1 GitHub user iOS26/`): **no crash**, the game
+plays, but as low as 17 fps (user; SpeedBreaker 60). Log: build Oct 29
+11:24:38, validation on, draw log on, native backend, scale 1.0, MSAA off,
+cap 40; `pacing: 300 of 300 frames off the 25.0 ms grid`; frame 1801: 3008
+draws. native_diag.txt: 148 lines, 0 MISMATCH, no validation message,
+encoders `MTLDebugRenderCommandEncoder`, attachments 1600x736.
+Inference (not proven): the debug layer stands between the renderer and
+AGX (it forwards every call itself and retains every object it is given),
+which hides the crash; the low frame rate is that layer's CPU cost on ~3000
+draws a frame, not representative. Either the crash needs AGX to receive
+our calls directly (driver state bug), or an object we use is freed early
+and the layer's retains keep it alive. Next: the same build with
+`--nfsmw_diag_metal_validation=false` in extra_args.txt (UTF-8): draw log
+only, expected to crash, the last native_diag.txt line names the draw.
+
+0.4.2-diag1 with `--nfsmw_diag_metal_validation=false`, GitHub user, iOS
+26.7.2 23H128 (Oct 29; copies in `.../29 October 2026/diag1 GitHub user iOS26
+validation off/`): crashes as before (.ips: SIGSEGV 0x9a0 in AGX
+`drawIndexedPrimitives` +240, RenderFrame +75648, queue nfsmw.native).
+native_diag.txt ends at frame 2, draw 5 (0 MISMATCH). **Cause found:** on
+iOS 26 AGX hands out every new render encoder at the same address
+(frame 1: 0x10e9543f0 for all ten game passes; frame 2: 0x10e903f00). The
+renderer's per-encoder caches (`EncoderState::For`, `bias_encoder`,
+`visibility_encoder`) detect a new encoder by comparing that pointer, so on
+iOS 26 they never reset. Draw 5 is the first draw on a new encoder whose
+pipeline equals the previous draw's (draw 4 and 5: pso 0x12e3b0000), so
+`setRenderPipelineState` is skipped and the new encoder draws with no
+pipeline: the null state slot. (Depth state, vertex buffers 9+, depth bias
+and visibility were already skipped the same way since draw 2, without a
+crash.) On iOS 27, and under the debug layer, each encoder has a new
+address, so the caches reset and nothing shows. Proposed fix (not made,
+awaiting Stefan): at the game encoder's creation, clear the trackers
+(`state.enc = nil; bias_encoder = nil; visibility_encoder = nil;`, as
+`clip_mode_encoder` already is) so the reset no longer depends on the
+address.
+
+### October 29: 0.4.2-diag2, the D-011 fix (test build)
+
+Stefan approved the fix. `native_renderer.mm`: when the game's encoder is
+made, `state.enc`, `bias_encoder` and `visibility_encoder` are cleared (as
+`clip_mode_encoder` already was), so the pipeline, depth-state, vertex
+buffer, depth bias and visibility caches reset on every new encoder whatever
+its address. The draw log stays on (`nfsmw_diag_draw_log`); Metal validation
+now defaults to off (`--nfsmw_diag_metal_validation=true` in extra_args.txt
+turns it on), so the test runs the real driver path and speed. Version
+0.4.2-diag2, build 6. `ios/build/NFS-Most-Wanted-0.4.2-diag2.ipa`, SHA-256
+1ebbce856ffe83e7ca6127201640d4e648635fed50c6b195600936925b66ff76, UUID
+A085D51D-CA3F-3C16-B853-51FAC0B5A2DE, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok; copied to the iCloud Desktop (~/Desktop). Not run yet.
+Expected on iOS 26: no crash, and native_diag.txt shows the same encoder
+addresses with draws continuing past frame 2 draw 5. Next: Stefan checks it
+on iOS 27, the GitHub user on iOS 26 (frame rate with validation off too).
+
+0.4.2-diag2 result (Stefan, Oct 29): the fix is confirmed to work on iOS 26
+(the GitHub user's iPhone 17 Pro Max). No logs received for this run.
+D-011 fixed in the test build; not yet on `main`.
+
+### October 29: 0.4.3 release build (D-011 fix on `main`)
+
+Stefan: "yes". Only the D-011 fix went onto `main` (the encoder-state reset
+in `native_renderer.mm`, as in diag2); none of the diagnostic code (no
+validation switch, no draw log: `strings` finds no `nfsmw_diag`/`native_diag`
+in the binary). Version 0.4.3, build 7; CHANGELOG entry (likely also GitHub
+issues 4 and 7, iOS 26 native black screen: not confirmed).
+`ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30121690 bytes, SHA-256
+30335eacaf0179b0a07a3c7d9b4b09e66b485820cd07b4560fb02cbbd3a1e968, UUID
+0597A31B-3378-341D-9061-392288540C7A, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok. Not run on a device (the same fix was confirmed in
+diag2). The diagnostic branch `diag-ios26-native-crash` stays local. No
+tag, push or GitHub release.
