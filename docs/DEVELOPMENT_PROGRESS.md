@@ -171,7 +171,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFSMW-hud-photo-147.ipa`: the results' leaves picture
   (InGamePhotoMaster image) covers the iPhone screen; the song box is put
   back under the pause menu: the leaves were not that image, removed in
-  IPA148 `ios/build/NFSMW-hud-148.ipa` (current HUD build). Known issues
+  IPA148 `ios/build/NFSMW-hud-148.ipa`; IPA149
+  `ios/build/NFSMW-hud-backdrop-149.ipa` draws the backdrop 15% larger for
+  the leaves' iPhone margins (not yet tested). Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
   controls.

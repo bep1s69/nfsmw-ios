@@ -8385,3 +8385,14 @@ fit under menus kept. Known issues: the leaves picture's side margins on
 the iPhone, the song box at full size under the pause menu, the loading
 screen's slight twitch. `cmake --build --preset ios --target ipa -j 6` exit
 0; `ios/build/NFSMW-hud-148.ipa` SHA-256 88fb432d53bcddaf1e8a4c481af9050ed380eec9ba68f7144f9ff1001c53d254, 30121834 bytes, `unzip -tq` ok.
+
+Leaves picture, one more round (Stefan, Oct 29): IPA139's tree shows the
+results' InGameBackground.fng is the same package as the pause backdrop
+(group 2716CDBF: 1018 x 996 units with its scale), so IPA146's group fit
+reaches it; full-size 19.5:9 is about 1040 units across, and the iPhone
+screenshots show about 5% margins per side (the gap between the two is not
+explained). IPA149: the backdrop's groups are drawn 15% larger on top of the
+fit. `cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-backdrop-149.ipa` SHA-256 1f75315a3d8a51050dd564a46f6d3949282f3e9a8500265448a218c05f82b477, 30122061 bytes, `unzip -tq`
+ok. Not run yet. Song box under the pause menu: Stefan accepts full size
+there if every piece is in place; asked for a screenshot.
