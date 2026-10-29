@@ -626,7 +626,7 @@ caused by the 0.4.2 changes. Next: look at the present-at-time pacing at the
 40 cap (target from the last shown frame minus 2 ms; frames arriving around
 the target).
 
-### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, awaiting device test)
+### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
 wrong position after a menu change; fine in free roam and during the race,
@@ -637,4 +637,5 @@ investigated. Oct 29: also seen by a GitHub user after restarting a race
 Stefan after leaving the safe house a second time, with Custom HUD off.
 Cause (inferred from code, TECHNICAL Oct 29): a rebuilt HUD's minimap at the
 old one's address was taken for the old one, so the wide-scene shift was not
-applied. Fix in IPA138; next: Stefan's test.
+applied. Fix in IPA138; Stefan (iPhone, Oct 29): safe house exited twice and a race
+finished, minimap stays in place.

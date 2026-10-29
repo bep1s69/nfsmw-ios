@@ -145,7 +145,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   switch "Play sound in silent mode" (default off; Stefan: works) and
   LSSupportsGameMode (untested, no free sideload slot).
   Minimap fix (approved, Oct 29): IPA138 `ios/build/NFSMW-minimap-138.ipa`,
-  awaiting Stefan's test (TECHNICAL Oct 29, BACKLOG minimap entry).
+  confirmed by Stefan on iPhone (TECHNICAL Oct 29, BACKLOG minimap entry).
   Custom HUD work for 0.4.3 happens in another thread.
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7

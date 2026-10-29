@@ -8163,3 +8163,7 @@ call, or another HUD address, marks a new HUD and resets g_minimap. IPA138
 9c2816c04f65535db4b67453eaba04651dffcd89c1b0df6a25907103a0eb4bcf, 30111768
 bytes, UUID 26C71920-3AE0-3D23-89C2-B47DC4EA1492, 208 metallibs, `unzip -t`
 ok, codesign --deep --strict ok. Not run on a device yet.
+
+IPA138 result (Stefan, Oct 29, iPhone, Custom HUD off): exiting the safe
+house twice and finishing a race no longer move the minimap out of place.
+Race restart not separately reported.
