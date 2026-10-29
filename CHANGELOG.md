@@ -17,6 +17,10 @@
   Game Mode when it is sideloaded with a certificate (LiveContainer has its
   own Game Mode handling).
 
+- **Minimap stays in place.** After leaving the safe house again, finishing
+  or restarting a race, the map and its icons could be drawn inward from
+  the minimap's ring. Fixed (also with Custom HUD off).
+
 ## 0.4.2
 
 - **"Appears to be damaged" careers load.** A career saved on another device

@@ -144,7 +144,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/build/NFS-Most-Wanted-0.4.3.ipa`. Also in 0.4.3 (approved): Audio
   switch "Play sound in silent mode" (default off; Stefan: works) and
   LSSupportsGameMode (untested, no free sideload slot).
-  Minimap and Custom HUD work for 0.4.3 happens in other threads.
+  Minimap fix (approved, Oct 29): IPA138 `ios/build/NFSMW-minimap-138.ipa`,
+  awaiting Stefan's test (TECHNICAL Oct 29, BACKLOG minimap entry).
+  Custom HUD work for 0.4.3 happens in another thread.
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.

@@ -8143,3 +8143,23 @@ switch off -> no game sound, boot.txt `audio: SoloAmbient`; switch on, Play
 0.4.3 (7942b6b build, SHA-256 612b799a...) result (Stefan, Oct 29): the
 "Play sound in silent mode" switch works. LSSupportsGameMode not tested
 (all three of his sideload app slots are in use); a plist key only.
+
+Minimap position fix (Oct 29, approved by Stefan). Bug: after leaving the
+safe house a second time, or finishing/restarting a race, the minimap's map
+and icons are drawn inward from its ring (IMG_4038; a GitHub user's
+IMG_4045), also with Custom HUD off. Cause (inferred from the code, not
+traced): the HUD is rebuilt, often at the old HUD's address, and its minimap
+at the old minimap's address. MoveMinimap only treats a minimap as new when
+its address changes or (when the game did not just switch widescreen) its
++184 differs from what was written; the new HUD's first update switches it
+to widescreen, so `switched` was true, the old offset state (m.x = -extra)
+was kept and the new minimap, its children and +184 got no wide-scene shift
+(105 HUD units at 1560x720); the pivot (set outright by the game) was still
+moved, and the ring moves with the left group. Fix (game_scene_size.cpp,
+sub_822AA6D0 hook): the widescreen flag hud+816 only changes inside the
+game's call, so a flag that differs from the value left after the previous
+call, or another HUD address, marks a new HUD and resets g_minimap. IPA138
+`ios/build/NFSMW-minimap-138.ipa` (0.4.3 + fix): SHA-256
+9c2816c04f65535db4b67453eaba04651dffcd89c1b0df6a25907103a0eb4bcf, 30111768
+bytes, UUID 26C71920-3AE0-3D23-89C2-B47DC4EA1492, 208 metallibs, `unzip -t`
+ok, codesign --deep --strict ok. Not run on a device yet.
