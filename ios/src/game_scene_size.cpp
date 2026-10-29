@@ -594,9 +594,21 @@ void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above
 extern "C" REX_FUNC(sub_822AA6D0) {
   const uint32_t hud = ctx.r3.u32;
   const uint8_t was_wide = hud ? REX_LOAD_U8(hud + 816) : 0;
+  // The game only changes the widescreen flag inside this call: a flag that
+  // changed since the last call, or another HUD, is a new HUD (perhaps at
+  // the old one's address, its minimap too: after a race or the safe house,
+  // IMG_4038).
+  static uint32_t last_hud = 0;
+  static uint8_t last_wide = 0;
+  const bool rebuilt = hud && (hud != last_hud || was_wide != last_wide);
   __imp__sub_822AA6D0(ctx, base);
   if (!hud) {
     return;
+  }
+  last_hud = hud;
+  last_wide = REX_LOAD_U8(hud + 816);
+  if (rebuilt) {
+    g_minimap.object = 0;  // its minimap is new: move it again
   }
   const uint32_t width = WideWidth();
   const float extra = width && REX_LOAD_U8(hud + 816) ? ExtraHudOffset(width) : 0.0f;
