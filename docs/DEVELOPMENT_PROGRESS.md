@@ -136,6 +136,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: 40 fps experiment crashed twice at startup; documented
+  API misuse corrected, test2 built.** Archived
+  `Debug/29 October 2026/nfsmw_iphone_14pm_4_metal_display_40_crash.log`.
+  Managed branch wrongly used timed present; Apple explicitly prohibits
+  timed presentation on CAMetalDisplayLink drawables (assert). Replaced
+  with plain command-buffer present (forwards plain drawable.present after
+  GPU scheduling); estimated display time is diagnostic only, stale checks
+  now use targetTimestamp submission deadline. No .ips/boot stack supplied:
+  concrete API defect found, exact crash stack not proven by buffered log.
+  `ios/build/NFSMW-0.5.0-metal-display-40-test2.ipa`, 0.5.0/8, SHA-256
+  87ea6d83729966b2704889271de251a4e2a315ce5700fcf801337b04dd8778f5,
+  UUID 9AC76DA4-519A-3A7D-91A6-146C0DEBE6D7. Build/ZIP/deep strict
+  signature passed; shaders and SDK dylibs unchanged versus failed test1.
+  Next: same 14 Pro Max Balanced/1x/40, Low Power Mode off, cold launch
+  with `--nfsmw_native_metal_display_40=true --nfsmw_native_frame_trace=true`.
+  First confirm startup, then chase/cadence/latency; if it still crashes,
+  get .ips and Documents/logs/boot.txt. Experimental flag still default
+  false, 60 fix intact; no rollout/version bump/push/tag/release.
+
 - **October 30: approved 40 fps Metal display-link experiment built,
   default off; device test pending.** Stefan: worth trying after design
   review. New `--nfsmw_native_metal_display_40=true` (restart required)

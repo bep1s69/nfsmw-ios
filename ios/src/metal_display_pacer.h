@@ -21,11 +21,13 @@ class Frame {
   bool Current() const;
   bool managed = false;
   id<CAMetalDrawable> drawable = nil;
-  double presentation_time = 0;
+  double presentation_time = 0;  // estimated display time; diagnostics only
+  double present_deadline = 0;  // deadline to commit and call plain present
   double wait_ms = 0;
  private:
   bool registered_ = false;
   uint64_t generation_ = 0;
 };
+void Scheduled(double deadline);
 void Presented(double target, double shown);
 }  // namespace nfsmw::metal_pacer

@@ -111,7 +111,7 @@ void Tick() {
   owns = true;
   [metal_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   REXLOG_INFO("[metal-display-40] started: 40 callbacks/s requested, latency 2; "
-              "system drawable and presentation timestamp, guest vblank unchanged");
+              "plain present when scheduled, system timing, guest vblank unchanged");
 }
 
 Frame::Frame(CAMetalLayer* layer) {
@@ -128,9 +128,10 @@ Frame::Frame(CAMetalLayer* layer) {
   while (owns && active && generation == generation_ &&
          rex::cvar::Query<int32_t>("ios_fps_cap") == 40) {
     if (pending) {
-      if (pending.targetPresentationTimestamp > CACurrentMediaTime() + .001) {
+      if (pending.targetTimestamp > CACurrentMediaTime() + .001) {
         drawable = pending.drawable;
         presentation_time = pending.targetPresentationTimestamp;
+        present_deadline = pending.targetTimestamp;
         pending = nil;
         break;
       }
@@ -167,6 +168,24 @@ bool Frame::Current() const {
   std::lock_guard<std::mutex> lock(mutex);
   return owns && active && generation == generation_ &&
          rex::cvar::Query<int32_t>("ios_fps_cap") == 40;
+}
+
+void Scheduled(double deadline) {
+  // Scheduling callback: compare actual scheduling time with targetTimestamp,
+  // not the later estimated targetPresentationTimestamp.
+  static std::mutex stats_mutex;
+  std::lock_guard<std::mutex> lock(stats_mutex);
+  static uint32_t count = 0, late = 0;
+  static double worst = 0;
+  const double after_ms = (CACurrentMediaTime() - deadline) * 1000;
+  if (after_ms > 0) ++late;
+  worst = std::max(worst, after_ms);
+  if (++count % 300 == 0) {
+    REXLOG_INFO("[metal-display-40] {} of 300 buffers scheduled after present deadline, worst {:.2f} ms",
+                late, worst);
+    late = 0;
+    worst = 0;
+  }
 }
 
 void Presented(double target, double shown) {
