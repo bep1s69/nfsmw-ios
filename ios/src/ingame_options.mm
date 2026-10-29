@@ -53,7 +53,8 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom" ];
+            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
+            @"touch_steering" ];
 }
 
 // The settings that only the native renderer has (left out without it).
@@ -72,7 +73,7 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_sin_posprocesado",        "nfsmw_motion_blur",
       "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
       "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
-      "nfsmw_hud_race_y",              "nfsmw_hud_layout"};
+      "nfsmw_hud_race_y",              "nfsmw_hud_layout",      "ios_touch_steering"};
   return flags;
 }
 

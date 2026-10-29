@@ -3,6 +3,7 @@
 #pragma once
 
 #ifdef __OBJC__
+@class NSString;
 @class UIViewController;
 #endif
 
@@ -18,8 +19,9 @@ void InstallFpsCounter();
 
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen
-// in landscape from the launcher.
-UIViewController* MakeLayoutEditor();
+// in landscape from the launcher. `steering`: the launcher's touch_steering
+// (dynamic, fixed or buttons), which decides the DRIVE layout's steering.
+UIViewController* MakeLayoutEditor(NSString* steering);
 #endif
 
 }  // namespace nfsmw::touch

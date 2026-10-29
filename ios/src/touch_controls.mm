@@ -21,6 +21,10 @@
 // (game_state.cpp tells; battery::InMenu), checked 5 times a second. The pill
 // still switches by hand until the next change.
 //
+// Steering in the DRIVE layout (ios_touch_steering): a dynamic joystick under
+// the thumb in the bottom-left quarter (fading out on release), the fixed
+// circle, or two buttons.
+//
 // Not here yet, and on Android: tilt steering.
 //
 // Also here: the FPS counter (InstallFpsCounter), Android's GameActivity one.
@@ -58,6 +62,10 @@
 REXCVAR_DEFINE_BOOL(ios_touch_auto_layout, true, "Input",
                     "Touch controls: the DRIVE layout while driving, the PAD layout in menus and pause "
                     "screens, switched by themselves");
+REXCVAR_DEFINE_STRING(ios_touch_steering, "dynamic", "Input",
+                      "Touch controls, DRIVE layout: how to steer. dynamic: a joystick wherever the "
+                      "thumb lands in the bottom-left quarter, fading out when it lifts; fixed: the "
+                      "steering circle in its place; buttons: two buttons, left and right");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "
                     "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
@@ -152,12 +160,21 @@ struct Control {
   int axis = -1;   // sticks: 0 left, 1 right; triggers: 0 LT, 1 RT
   bool horizontal = false;  // sticks: left/right only (the steering circle)
   float right_y = 0;        // buttons that push the right stick up/down (shifting)
+  float left_x = 0;         // buttons that push the left stick left/right (steering buttons)
+  // The dynamic steering joystick: it takes a touch anywhere in `zone`,
+  // comes up under the thumb and fades out once it lifts.
+  bool dynamic = false;
+  CGRect zone = CGRectZero;
   // State.
   bool pressed = false;
   CGPoint knob{0, 0};  // sticks: -1..1
   int dpad_bits = 0;
+  float fade = 0;  // dynamic joystick after release: 1 shown .. 0 gone
 
   bool Contains(CGPoint p) const {
+    if (dynamic) {
+      return CGRectContainsPoint(zone, p);
+    }
     if (kind == Kind::kRectButton || kind == Kind::kTrigger) {
       // A little slack around the rectangle, easier to hit with a thumb.
       return std::fabs(p.x - center.x) <= size.width * 0.5 + 8 &&
@@ -176,11 +193,21 @@ struct Control {
     return CGRectInset(CGRectMake(center.x - w / 2, center.y - h / 2, w, h), -6, -6);
   }
 
-  // Its look: pressed, where the knob is, which D-pad arrows.
+  // Its look: pressed, where the knob is, which D-pad arrows; and for the
+  // dynamic joystick where it is and how faded.
   uint64_t Look() const {
-    return uint64_t(pressed) | uint64_t(dpad_bits & 0xFFFF) << 1 |
-           uint64_t(uint16_t(int16_t(knob.x * 1000))) << 17 | uint64_t(uint16_t(int16_t(knob.y * 1000))) << 33;
+    uint64_t look = uint64_t(pressed) | uint64_t(dpad_bits & 0xFFFF) << 1 |
+                    uint64_t(uint16_t(int16_t(knob.x * 1000))) << 17 |
+                    uint64_t(uint16_t(int16_t(knob.y * 1000))) << 33;
+    if (dynamic) {
+      look ^= (uint64_t(uint16_t(center.x)) << 7 | uint64_t(uint16_t(center.y)) << 29 |
+               uint64_t(uint8_t(fade * 255)) << 49) * 0x9E3779B97F4A7C15ull;
+    }
+    return look;
   }
+
+  // Drawn at all: the dynamic joystick only while held or fading out.
+  bool Shown() const { return !dynamic || pressed || fade > 0; }
 };
 
 }  // namespace
@@ -192,6 +219,7 @@ struct Control {
 @implementation NFSTouchView {
   std::vector<Control> _controls;
   std::vector<uint64_t> _drawnLook;  // each control's look when last drawn
+  std::vector<CGRect> _drawnBounds;  // and where it was (the dynamic joystick moves)
   NSMapTable<UITouch*, NSNumber*>* _owners;  // touch -> control index
   CGRect _toggle;
   CGRect _modeToggle;  // DRIVE/PAD
@@ -202,6 +230,9 @@ struct Control {
   // The layout editor (launcher: Customize touch controls): touches move
   // controls instead of pressing them.
   BOOL _editing;
+  NSString* _steering;  // ios_touch_steering the layout was made with
+  NSTimer* _fadeTimer;  // the dynamic joystick fading out
+  CGRect _steerZone;    // editor: where the dynamic joystick works, outlined
   int _selected;
   CGPoint _grab;  // the finger's offset from the selected control's centre
   // Drawn into the native frame (ios_touch_native, IPA111): the picture kept
@@ -224,6 +255,10 @@ static NSString* ControlIdent(BOOL driving, const Control& c) {
                                   : (c.kind == Kind::kDpad ? @"DPAD" : @"STEER");
   return [NSString stringWithFormat:@"%@.%@", driving ? @"drive" : @"pad", name];
 }
+
+// The editor runs from the launcher, before the game sets the cvar: the
+// launcher hands it the setting (MakeLayoutEditor).
+static NSString* g_editor_steering = @"dynamic";
 
 static CGFloat TouchSize() {
   const double v = [NSUserDefaults.standardUserDefaults doubleForKey:@"nfsmw.touch.size"];
@@ -265,6 +300,7 @@ static CGFloat TouchOpacity() {
                                           return;
                                         }
                                         [view syncNativeMode];
+                                        [view syncSteering];
                                       }];
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
@@ -317,6 +353,19 @@ static CGFloat TouchOpacity() {
   REXLOG_INFO("[touch] {} layout", driving ? "DRIVE" : "PAD");
 }
 
+- (NSString*)steeringMode {
+  if (_editing) return g_editor_steering;
+  return [NSString stringWithUTF8String:REXCVAR_GET(ios_touch_steering).c_str()];
+}
+
+// The steering choice changed in the options while playing: a new layout.
+- (void)syncSteering {
+  if (_driving && _steering && ![_steering isEqualToString:[self steeringMode]]) {
+    REXLOG_INFO("[touch] steering: {}", [self steeringMode].UTF8String);
+    [self setNeedsLayout];
+  }
+}
+
 - (void)controllerConnected:(NSNotification*)note {
   [self setControlsVisible:NO];
 }
@@ -347,7 +396,11 @@ static CGFloat TouchOpacity() {
   auto P = [&](CGFloat fx, CGFloat fy) { return CGPointMake(w * fx, h * fy); };
   [self setNeedsDisplay];  // a new layout: everything redrawn once
   _drawnLook.clear();
+  _drawnBounds.clear();
   _controls.clear();
+  [_fadeTimer invalidate];
+  _fadeTimer = nil;
+  _steerZone = CGRectZero;
   _toggle = CGRectMake(w * .5 - unit * .9, h * .02, unit * 1.8, unit * .5);
   _modeToggle = CGRectOffset(_toggle, -(_toggle.size.width + unit * .3), 0);
   static const bool snap = rex::cvar::Query<bool>("nfsmw_native_dump_manual");
@@ -454,10 +507,25 @@ static CGFloat TouchOpacity() {
     k.bit = bit;
     _controls.push_back(k);
   };
-  Control steer{Kind::kStick, @"", P(.115, .78), unit * 1.15};
-  steer.axis = 0;
-  steer.horizontal = true;
-  _controls.push_back(steer);
+  // Steering (ios_touch_steering): the circle where it is, the same
+  // circle under the thumb anywhere in the bottom-left quarter (not in the
+  // editor: it has no place of its own), or two buttons.
+  _steering = [self steeringMode];
+  if ([_steering isEqualToString:@"buttons"]) {
+    Control left{Kind::kRoundButton, @"◀", P(.06, .80), unit * .55};
+    left.left_x = -1;
+    _controls.push_back(left);
+    Control right{Kind::kRoundButton, @"▶", P(.16, .80), unit * .55};
+    right.left_x = 1;
+    _controls.push_back(right);
+  } else if ([_steering isEqualToString:@"fixed"]) {
+    Control steer{Kind::kStick, @"", P(.115, .78), unit * 1.15};
+    steer.axis = 0;
+    steer.horizontal = true;
+    _controls.push_back(steer);
+  } else {
+    _steerZone = CGRectMake(0, h * .5, w * .5, h * .5);
+  }
   auto shift = [&](NSString* l, CGPoint c, float y) {
     Control k{Kind::kRoundButton, l, c, unit * .42};
     k.right_y = y;
@@ -483,6 +551,15 @@ static CGFloat TouchOpacity() {
   Control dpad{Kind::kDpad, @"", P(.11, .27), unit * .72};
   _controls.push_back(dpad);
   [self applyCustomLayout];
+  // Last, so the buttons inside its zone (nitrous, look back) come first.
+  if (!CGRectIsEmpty(_steerZone) && !_editing) {
+    Control steer{Kind::kStick, @"", P(.115, .78), unit * 1.15 * TouchSize()};
+    steer.axis = 0;
+    steer.horizontal = true;
+    steer.dynamic = true;
+    steer.zone = _steerZone;
+    _controls.push_back(steer);
+  }
 }
 
 // Touches go to the game's own view where there is nothing of ours.
@@ -587,6 +664,12 @@ static CGFloat TouchOpacity() {
     }
     [_owners setObject:@(i) forKey:t];
     Control& c = _controls[size_t(i)];
+    if (c.dynamic && !c.pressed) {
+      // Under the thumb, whole on screen.
+      const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+      c.center = CGPointMake(std::clamp(p.x, c.radius, w - c.radius), std::clamp(p.y, c.radius, h - c.radius));
+      c.fade = 0;
+    }
     c.pressed = true;
     [self updateControl:c at:p];
     haptic = haptic || c.kind == Kind::kRoundButton || c.kind == Kind::kRectButton;
@@ -636,7 +719,37 @@ static CGFloat TouchOpacity() {
       c.pressed = false;
       c.knob = CGPointZero;
       c.dpad_bits = 0;
+      if (c.dynamic) {
+        c.fade = 1;
+        [self startFade];
+      }
     }
+  }
+  [self sendState];
+}
+
+// The dynamic joystick fades out in a quarter of a second.
+- (void)startFade {
+  if (_fadeTimer) return;
+  __weak NFSTouchView* weak = self;
+  _fadeTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 / 30
+                                               repeats:YES
+                                                 block:^(NSTimer* timer) {
+                                                   [weak fadeTick:timer];
+                                                 }];
+}
+
+- (void)fadeTick:(NSTimer*)timer {
+  bool fading = false;
+  for (Control& c : _controls) {
+    if (c.dynamic && !c.pressed && c.fade > 0) {
+      c.fade = std::max(0.0f, c.fade - 1.0f / (0.25f * 30));
+      fading = fading || c.fade > 0;
+    }
+  }
+  if (!fading) {
+    [timer invalidate];
+    if (_fadeTimer == timer) _fadeTimer = nil;
   }
   [self sendState];
 }
@@ -662,6 +775,7 @@ static CGFloat TouchOpacity() {
     c.pressed = false;
     c.knob = CGPointZero;
     c.dpad_bits = 0;
+    c.fade = 0;
   }
   [self sendState];
 }
@@ -687,6 +801,7 @@ static CGFloat TouchOpacity() {
           if (c.right_y != 0) {
             axes[3] = c.right_y;
           }
+          axes[0] += c.left_x;  // both steering buttons held: straight
         }
         break;
     }
@@ -698,13 +813,16 @@ static CGFloat TouchOpacity() {
   // redraw the whole screen-sized overlay at every move: ~0.1 of a core).
   if (_drawnLook.size() != _controls.size()) {
     _drawnLook.assign(_controls.size(), ~uint64_t(0));
+    _drawnBounds.assign(_controls.size(), CGRectNull);
   }
   CGRect dirty = CGRectNull;
   for (size_t i = 0; i < _controls.size(); ++i) {
     const uint64_t look = _controls[i].Look();
     if (look != _drawnLook[i]) {
       _drawnLook[i] = look;
-      dirty = CGRectUnion(dirty, _controls[i].Bounds());
+      // Where it was too: the dynamic joystick moves.
+      dirty = CGRectUnion(dirty, CGRectUnion(_drawnBounds[i], _controls[i].Bounds()));
+      _drawnBounds[i] = _controls[i].Bounds();
     }
   }
   if (!CGRectIsNull(dirty)) {
@@ -860,6 +978,18 @@ static CGFloat TouchOpacity() {
       sel.lineWidth = 3;
       [sel stroke];
     }
+    // The dynamic joystick's zone: it has no place to move.
+    if (!CGRectIsEmpty(_steerZone)) {
+      UIBezierPath* zone = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(_steerZone, 6, 6) cornerRadius:12];
+      const CGFloat dash[] = {8, 6};
+      [zone setLineDash:dash count:2 phase:0];
+      zone.lineWidth = 1.5;
+      [stroke setStroke];
+      [zone stroke];
+      [self drawLabel:@"STEERING\nthumb anywhere here"
+                   at:CGPointMake(CGRectGetMidX(_steerZone), CGRectGetMidY(_steerZone))
+                 size:_steerZone.size.height * 0.16];
+    }
   } else {
   // The HIDE/TOUCH pill.
   UIBezierPath* pill = [UIBezierPath bezierPathWithRoundedRect:_toggle
@@ -901,9 +1031,12 @@ static CGFloat TouchOpacity() {
   }
 
   for (const Control& c : _controls) {
-    if (!CGRectIntersectsRect(c.Bounds(), dirty)) continue;  // not in the part being redrawn
+    if (!CGRectIntersectsRect(c.Bounds(), dirty) || !c.Shown()) continue;  // not in the part being redrawn
     switch (c.kind) {
       case Kind::kStick: {
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGContextSaveGState(context);
+        if (!c.pressed && c.dynamic) CGContextSetAlpha(context, c.fade);
         UIBezierPath* ring = [UIBezierPath
             bezierPathWithOvalInRect:CGRectInset(CGRectMake(c.center.x, c.center.y, 0, 0),
                                                  -c.radius, -c.radius)];
@@ -921,6 +1054,7 @@ static CGFloat TouchOpacity() {
         [knob fill];
         [stroke setStroke];
         [knob stroke];
+        CGContextRestoreGState(context);
         break;
       }
       case Kind::kDpad: {
@@ -1284,7 +1418,8 @@ UIWindow* GameWindow() {
 
 namespace nfsmw::touch {
 
-UIViewController* MakeLayoutEditor() {
+UIViewController* MakeLayoutEditor(NSString* steering) {
+  g_editor_steering = steering.length ? steering : @"dynamic";
   NFSTouchLayoutEditor* editor = [[NFSTouchLayoutEditor alloc] init];
   editor.modalPresentationStyle = UIModalPresentationFullScreen;
   return editor;

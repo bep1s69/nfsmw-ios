@@ -176,7 +176,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   the leaves' iPhone margins: no effect, removed. Customize HUD editor
   (Stefan's spec, outlines): IPA150 `ios/build/NFSMW-hud-editor-150.ipa`
   works on the iPhone (Stefan; outlines match the drawn HUD). Stefan
-  (Oct 29): HUD done for now. Next: the on-screen touch controls, then
+  (Oct 29): HUD done for now. Touch controls (Stefan's plan, Oct 29, 4
+  steps, each its own IPA; BACKLOG "Touch controls overhaul"): step 1,
+  steering modes, IPA151 `ios/build/NFSMW-touch-steering-151.ipa`, built,
+  not run (TECHNICAL Oct 29). Then: the on-screen touch controls, then
   the game-timing judder; push/release of these local commits on his go. Known issues
   in TECHNICAL Oct 29 (IPA148). Next after the HUD (Stefan): each HUD element movable from the
   pre-launch and in-game menus; then the timing thread, then touch
