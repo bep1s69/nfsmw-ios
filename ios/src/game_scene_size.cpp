@@ -550,8 +550,25 @@ struct Piece {
   Element element;
   Moved moved;
   uint32_t hash, vtable;  // the object's when found: checked every frame
+  // A group the game places itself every frame (IPA142: the infraction
+  // list's rows, which flashed between the two places): its children are
+  // moved instead, which the game leaves alone.
+  bool by_children;
 };
 std::vector<Piece> g_pieces;
+std::unordered_map<uint32_t, Moved> g_child_moved;
+
+void MovePiece(uint8_t* base, Piece& p, float dx, float dy) {
+  if (!p.by_children) {
+    MoveGroup(base, p.object, dx, dy, p.moved);
+    return;
+  }
+  int n = 0;
+  for (uint32_t c = REX_LOAD_U32(p.object + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 200;
+       c = REX_LOAD_U32(c + 4), ++n) {
+    MoveGroup(base, c, dx, dy, g_child_moved[c]);
+  }
+}
 float g_offset[kElements][2] = {};  // each element's offset, as last written
 bool g_pieces_moved = false;  // by the HUD's update this frame
 uint32_t g_pieces_package = 0;
@@ -594,7 +611,7 @@ void AddPieces(uint8_t* base, uint32_t group, float y0, Element below, int above
        c = REX_LOAD_U32(c + 4), ++n) {
     const float y = y0 + AnchorY(base, c, 0);
     const int e = y > kBottom ? int(below) : y < -kBottom ? above : middle;
-    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c)});
+    if (e >= 0) g_pieces.push_back({c, Element(e), {}, REX_LOAD_U32(c + 0x10), REX_LOAD_U32(c), false});
   }
 }
 
@@ -675,6 +692,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       pieces_left = left;
       pieces_right = right;
       g_pieces.clear();
+      g_child_moved.clear();
       const uint32_t left_outer = FindObject(ctx, base, package, kLeftOuter);
       const uint32_t right_inner = FindObject(ctx, base, package, kRightInner);
       AddPieces(base, left, Y(base, left_outer) + Y(base, left), kMinimap, kTopLeft, kTopLeft);
@@ -695,7 +713,7 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     MoveGroup(base, left, -extra, 0, g_left);
     MoveGroup(base, right, extra, 0, g_right);
     for (Piece& p : g_pieces) {
-      MoveGroup(base, p.object, offset[p.element][0], offset[p.element][1], p.moved);
+      MovePiece(base, p, offset[p.element][0], offset[p.element][1]);
     }
     g_pieces_moved = true;
     const float mirror_dy = offset[kTopCentre][1];
@@ -710,12 +728,15 @@ extern "C" REX_FUNC(sub_822AA6D0) {
               REX_LOAD_U8(hud + 816) != was_wide);
 }
 
-// Once the HUD's matrix is built for drawing: the pieces moved again where
-// the HUD's script placed them after the HUD's update (IPA141, Stefan: the
-// infraction list's lines, slid in by the script every frame while they
-// show, were drawn where the game puts them, scaled about the middle of the
-// screen, away from their badge in the corner). A piece the script did not
-// touch reads what was written and is left. The first few are logged.
+// Once the HUD's matrix is built for drawing: a piece that the game placed
+// again after the HUD's update (IPA141, Stefan: the infraction list's
+// lines, slid in every frame while they show, were drawn where the game
+// puts them, scaled about the middle of the screen, away from their badge in
+// the corner) is moved again. IPA142: moved here, the list's rows flashed
+// between both places (the game also places them at other times), so a
+// group placed by the game is given back to it and its children are moved
+// from then on (by_children). A piece the game did not touch reads what was
+// written and is left. Logged once per piece, 20 lines at most.
 void ReapplyHudPieces(uint8_t* base) {
   if (!g_pieces_moved) return;
   g_pieces_moved = false;
@@ -725,12 +746,20 @@ void ReapplyHudPieces(uint8_t* base) {
     const uint32_t data = REX_LOAD_U32(p.object + 44);
     if (!Plausible(data)) continue;
     const float x = LoadF(base, data + 28), y = LoadF(base, data + 32);
-    if (p.moved.object != p.object || (x == p.moved.written_x && y == p.moved.written_y)) continue;
+    if (p.by_children || p.moved.object != p.object || (x == p.moved.written_x && y == p.moved.written_y)) continue;
+    const bool group = REX_LOAD_U32(p.object + 0x18) == 5 && REX_LOAD_U32(p.object + 0x5C) == kListVtable;
     if (lines > 0) {
       --lines;
-      REXLOG_INFO("[hud] piece {:08X} placed again by the game ({:.1f},{:.1f}): moved after it", p.hash, x, y);
+      REXLOG_INFO("[hud] piece {:08X} placed again by the game ({:.1f},{:.1f}): {}", p.hash, x, y,
+                  group ? "its children moved from now on" : "moved after it");
     }
-    MoveGroup(base, p.object, g_offset[p.element][0], g_offset[p.element][1], p.moved);
+    if (group) {
+      p.by_children = true;  // its own position stays the game's
+      p.moved = {};
+      MovePiece(base, p, g_offset[p.element][0], g_offset[p.element][1]);
+    } else {
+      MoveGroup(base, p.object, g_offset[p.element][0], g_offset[p.element][1], p.moved);
+    }
   }
 }
 

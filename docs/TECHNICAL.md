@@ -8276,3 +8276,23 @@ moved again (logged `[hud] piece ... placed again`, 20 lines at most).
 `ios/build/NFSMW-hud-pursuit-142.ipa` SHA-256 310c8375070dd2a3f7371d5a1e205596a6ff71f31a08c1455a706fef6332dab6, 30130972 bytes, `unzip -tq`
 ok. Not run yet. Not proven: that the matrix is built after the script's
 update and before the HUD is drawn in the same frame.
+
+IPA142 result (Stefan, Oct 29, iPad, 70%, log `Debug/29 October 2026/
+nfsmw_ipa142_pursuit_70pct_ipad.log`): "PURSUIT CTS" is right; the
+infraction rows flash between the old and the new place. The 20 `placed
+again` lines went to D60FC075 (PURSUIT CTS, sliding in, y 16.6 to -6.5 a
+frame at a time) and three others; none to the rows. sub_82440D80 is called
+from sub_82442310 (the frame's post chain), not right before the HUD is
+drawn, so a piece the game places at another time is drawn unmoved on some
+frames (inference). Stefan also felt the game run like a lower frame rate
+for the first ~20 s of the chase while the counter showed 60; the pacing
+lines show 144 and 30 of 300 frames off the grid while loading, then 0-4
+in the world: like D-005 (the game's own timing), not this HUD work
+(inference; not investigated here).
+
+IPA143: a group piece found placed again by the game is given back to the
+game (its position stays the game's) and its children are moved instead
+(Piece::by_children, g_child_moved; logged once per piece). Assumes the game
+does not also place the children. `cmake --build --preset ios --target ipa
+-j 6` exit 0; `ios/build/NFSMW-hud-rows-143.ipa` SHA-256 5f5af15806b087244c4ff0f7dd8dbf3e48d287ec479218ca76857da365232d6d, 30130428 bytes,
+`unzip -tq` ok. Not run yet.
