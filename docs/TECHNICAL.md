@@ -9078,3 +9078,13 @@ each driving start, `driving stopped` at menus/results, `back to Utility`
 driving. Thermal: nominal 237 lines, fair 30. Inference: the 60 -> 40 drops
 seen before (D-012) did not occur in this run; the drain is not comparable
 to the iPad's or earlier iPhone numbers without the A/B on the same route.
+
+### October 29: 0.5.0 release build (was 0.4.3)
+
+Stefan: today's `main` ships as 0.5.0; the `dev-0.5` work becomes 0.6.0.
+Version 0.5.0, build 8 (`ios/CMakeLists.txt`); CHANGELOG section renamed
+(entries unchanged), README version and roadmap updated. No code change
+since 67cc815. `ios/build/NFS-Most-Wanted-0.5.0.ipa`, 30161271 bytes, SHA-256
+1f2bae93d8fee7dac3dcd370307a77f4c7a0c21e37d0bdd500ec73a2a62ea7ef, UUID
+CB57E7C1-B00C-3D00-9492-83EC07AB39B5, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok; on the iCloud Desktop. No tag, push or GitHub release.

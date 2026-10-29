@@ -34,8 +34,11 @@ input paths, test commands, outcomes and next action for each experiment.
   older records refer to the old history (v0.4.0 3e2a74b is now e24238c);
   backup mirror and the broken "main 2" refs in
   `/Users/bep1s/Developer/Debug/nfsmw-ios-history-backup-2026-10-28`.
-- October 27: post-0.4 work (0.5.0: Extra Options, Widescreen Fix features,
-  PC mods) lives on the local branch `dev-0.5`; never commit it here. The
+- October 29 (Stefan): today's `main` (planned as 0.4.3) is released as
+  0.5.0; the `dev-0.5` work is now planned as 0.6.0 (branch not renamed;
+  Stefan may rename it).
+- October 27: post-0.4 work (0.5.0, now 0.6.0: Extra Options, Widescreen Fix
+  features, PC mods) lives on the local branch `dev-0.5`; never commit it here. The
   exception, approved by Stefan: PC save import, in 0.4.0 because it works.
 - October 27: Stefan: 120 Hz simulation did not fix the 60 fps judder; off by
   default, switch kept in Advanced. Order of work: finish the save manager,
@@ -125,6 +128,14 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 29: 0.5.0 (build 8) prepared on local `main`, not tagged or
+  pushed.** Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
+  is now 0.6.0. `ios/build/NFS-Most-Wanted-0.5.0.ipa` (SHA-256 1f2bae93...),
+  also on the iCloud Desktop. Remaining visual bugs (D-006 leaves picture,
+  loading twitch, race-end HUD zoom; D-013 post-race touch) deferred to a
+  later session. Next: Stefan's check, then tag/push/release on his go
+  (docs/RELEASING.md).
 
 - **October 29: 0.4.3 Performance setting (D-012), local main, not pushed.**
   Threads stay boosted while driving (no Utility in the world), faster late

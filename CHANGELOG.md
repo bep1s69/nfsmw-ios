@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.4.3
+## 0.5.0
+
+Everything planned for 0.4.3, released as 0.5.0 because of how much it
+changed (the earlier 0.5.0 plans are now 0.6.0).
 
 - **Smoother start to races and pursuits.** For the first seconds of a
   race or chase the world could move on only two of every three frames,
