@@ -22,6 +22,7 @@ void InstallFpsCounter();
 constexpr int kInCircle = 1;  // an event, shop or safehouse circle: ENTER
 constexpr int kInRace = 2;    // a race or another event (a pursuit challenge): STATS only
 constexpr int kInPursuit = 4;  // a pursuit: STATS, and MAP outside events
+constexpr int kRaceCircle = 8;  // the circle is an event's (not a shop's or safehouse's)
 void SetDriveContext(int bits);
 
 #ifdef __OBJC__

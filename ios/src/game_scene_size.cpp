@@ -592,9 +592,9 @@ void WatchTree(uint8_t* base, uint32_t object) {
 // [hud-watch] log, Oct 29): the prompt over the road in an event, shop or
 // safehouse circle (3B1B624A, and its D-pad picture 0A729B1B), and the
 // race's position markers on the left (4FDDD64C-4FDDD64F, one shown in a
-// race or a pursuit challenge, none in free roam), and the pursuit's group
-// on the right (FD9152B1, at 73,8: shown from a free-roam pursuit's start,
-// IPA158 log a, 20:44:26). Shown: flag 0x00800000 (43800000 shown,
+// race or a pursuit challenge, none in free roam), and the busted / evade
+// bar's labels in a pursuit. The prompt's icon (+24) is E9638D3E in an
+// event's circle, 0ED39F69 in a shop's or safehouse's (IPA160 log). Shown: flag 0x00800000 (43800000 shown,
 // 40000000 / 42000000 hidden).
 constexpr uint32_t kShown = 0x00800000;
 bool g_log_prompt = false;  // the next scan logs the prompt's words
@@ -615,7 +615,13 @@ void ScanContext(uint8_t* base, uint32_t first, int depth, int& budget, int& bit
       REXLOG_INFO("[hud] circle prompt {:08X}:{}", o, words);
     }
     if (shown && hash >= 0x4FDDD64C && hash <= 0x4FDDD64F) bits |= nfsmw::touch::kInRace;
-    if (shown && hash == 0xFD9152B1) bits |= nfsmw::touch::kInPursuit;
+    // The busted / evade bar's two labels: 43000002 / 42000002 / 43800002
+    // the whole pursuit, 40000002 outside (IPA160 log, 21:07:12-21:07:41;
+    // IPA158 log a, 20:44:26 on).
+    if ((hash == 0xFC39CB0A || hash == 0x875E92EB) && (REX_LOAD_U32(o + 0x1C) & 0x03000000) != 0) {
+      bits |= nfsmw::touch::kInPursuit;
+    }
+    if (shown && hash == 0x3B1B624A && REX_LOAD_U32(o + 0x24) == 0xE9638D3E) bits |= nfsmw::touch::kRaceCircle;
     if (type == 5 && REX_LOAD_U32(o + 0x5C) == kListVtable && REX_LOAD_U32(o + 0x60) < 200 && depth < 8) {
       ScanContext(base, REX_LOAD_U32(o + 0x64), depth + 1, budget, bits);
     }
