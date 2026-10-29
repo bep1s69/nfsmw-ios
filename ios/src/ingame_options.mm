@@ -42,6 +42,7 @@
 #include "battery.h"
 #include "ingame_options.h"
 #include "launcher.h"
+#include "hud_editor.h"
 
 extern "C" void NativeSettingsChanged();  // native_renderer.mm
 
@@ -52,8 +53,7 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom", @"hud_scale", @"hud_safe_zone",
-            @"hud_left_x", @"hud_left_y", @"hud_right_x", @"hud_right_y", @"hud_race_x", @"hud_race_y" ];
+            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom" ];
 }
 
 // The settings that only the native renderer has (left out without it).
@@ -72,7 +72,7 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_sin_posprocesado",        "nfsmw_motion_blur",
       "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
       "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
-      "nfsmw_hud_race_y"};
+      "nfsmw_hud_race_y",              "nfsmw_hud_layout"};
   return flags;
 }
 
@@ -146,6 +146,21 @@ UIWindow* GameWindow() {
       [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                     target:self
                                                     action:@selector(close)];
+  // The HUD editor (the launcher's Customize HUD), while Custom HUD is on.
+  self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Customize HUD"
+                                                                           style:UIBarButtonItemStylePlain
+                                                                          target:self
+                                                                          action:@selector(customizeHud)];
+  [self updateHudButton];
+}
+
+- (void)updateHudButton {
+  self.navigationItem.leftBarButtonItem.enabled =
+      [nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"];
+}
+
+- (void)customizeHud {
+  [self presentViewController:nfsmw::hud::MakeEditor(_settings, ^{ [self apply]; }) animated:YES completion:nil];
 }
 
 - (void)close {
@@ -217,6 +232,7 @@ UIWindow* GameWindow() {
 - (void)set:(NSString*)key to:(NSString*)value {
   _settings[key] = value;
   [self apply];
+  [self updateHudButton];
   [self.tableView reloadData];
   [self showFocus];
 }

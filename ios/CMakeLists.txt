@@ -154,6 +154,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
 add_executable(nfsmw MACOSX_BUNDLE
     src/ios_main.mm
     src/launcher.mm
+    src/hud_editor.mm
     src/save_manager.mm
     src/save_import.cpp
     src/save_convert.cpp
