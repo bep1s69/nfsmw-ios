@@ -9,6 +9,10 @@ namespace nfsmw::metal_pacer {
 void Attach(CAMetalLayer* layer);
 void Tick();
 void SetActive(bool active);
+// Virtual 120 Hz grid derived from the managed 40 fps system cadence.
+// Avoid integer subdivision of a separate display link running at 80 Hz.
+// Same mach_absolute_time clock as CACurrentMediaTime, nanoseconds.
+bool GuestGrid(uint64_t& timestamp_ns, uint64_t& period_ns);
 
 // A render-queue frame lease. Legacy frames are counted too, so the main
 // thread starts display-link ownership only between nextDrawable users.

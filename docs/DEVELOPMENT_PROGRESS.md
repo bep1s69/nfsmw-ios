@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 30 (Stefan, 40 fps): truly smooth world/presentation motion
+  matters more than minimal latency; roughly one extra frame of input delay
+  is acceptable if it achieves that. Test2 felt mostly more jerky world
+  motion, with only a little additional input lag; do not equate improved
+  presentedTime statistics alone with an accepted fix.
 - October 30 (Stefan): 0.5.1 hotfix scope is only the iPhone 14 Pro Max
   60/~40 cycling fix and the 40 fps frame-pacing fix. No unrelated additions.
 - October 30 (Stefan): archive all logs, photos and other test evidence he
@@ -135,6 +140,24 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 30: 40 test2 starts but feels worse; guest-clock correction
+  built as test3 (default off).** Archived
+  `Debug/29 October 2026/nfsmw_iphone_14pm_5_metal_display_40_test2_worse.log`.
+  Screen cadence improved (1435/1440 shown gaps 25 ms) but swap->shown
+  mean rose 27.42 -> 63.63 ms in selected windows; Stefan mostly felt more
+  world jerking, some input delay. Display link reported 80 Hz: legacy
+  integer split can publish 80/160 Hz instead of guest 120. Test3 fixes
+  only the experimental guest grid, deriving three guest ticks per system
+  40 fps slot; keeps two-frame latency/presentation unchanged. 3000 host
+  arithmetic checks, build/ZIP/deep strict signature passed; same shaders
+  and SDK dylibs. `ios/build/NFSMW-0.5.0-metal-display-40-test3.ipa`,
+  SHA-256 06e1b78301b5ed3bf2d2a475d4f0350c1c5d7aa39c59e9e63bcff6e563950b97,
+  UUID 29F35A9F-1923-38A5-A256-AAD17E3CAE3F. Next: same 14 Pro Max
+  Balanced/1x/40 cold test, Low Power Mode off, metal_display_40 and
+  frame_trace true, add `--nfsmw_native_camera_log=true` to measure world
+  motion too. Observe smoothness/latency. No 40 fix accepted, default
+  change, 0.5.1 bump or release; confirmed 60 fix remains intact.
 
 - **October 30: 40 fps experiment crashed twice at startup; documented
   API misuse corrected, test2 built.** Archived

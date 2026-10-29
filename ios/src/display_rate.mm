@@ -66,7 +66,16 @@ std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
   static Publish publish = reinterpret_cast<Publish>(dlsym(RTLD_DEFAULT, "nfsmw_display_vsync"));
   if (publish) {
     const double period = link.targetTimestamp - link.timestamp;
-    if (period > 0) {
+    uint64_t metal_timestamp_ns = 0, metal_period_ns = 0;
+    if (nfsmw::metal_pacer::GuestGrid(metal_timestamp_ns, metal_period_ns)) {
+      // The 40 fps Metal link can make this CADisplayLink report 80 Hz.
+      // 120 / 80 is not an integer: rounding a split publishes 80 or 160
+      // Hz and breaks both the guest vblank lock and even world-frame time.
+      // Keep a virtual 120 Hz grid phase-locked to the managed 40 cadence.
+      published_period_ns.store(metal_period_ns, std::memory_order_relaxed);
+      published_ns.store(metal_timestamp_ns, std::memory_order_release);
+      publish(metal_timestamp_ns, metal_period_ns);
+    } else if (period > 0) {
       // The guest vblank's rate at the 30, 40 and 60 caps: 60, 120 and 60 Hz.
       const int cap = current_cap.load(std::memory_order_relaxed);
       const double guest_hz = cap == 40 ? 120.0 : cap == 30 || cap == 60 ? 60.0 : 0.0;

@@ -843,6 +843,18 @@ experiment/trace flags; next startup check then pacing/latency run.
 Need .ips/boot.txt if termination persists. No 40 improvement validated;
 keep experimental default off. Full evidence in TECHNICAL October 30.
 
+October 30 test2 result: starts/plays, Stefan feels worse (mostly world
+jerking, slight extra input lag). Archived nfsmw_iphone_14pm_5_metal_display_40_test2_worse.log.
+Screen pacing 1435/1440 gaps at 25 ms, but swap->shown mean 63.63 ms vs
+27.42 baseline selected windows. Ordinary display link reports 80 Hz;
+integer guest-clock conversion can output 80/160 Hz, breaking intended
+120 Hz grid. Test3 corrects only experimental guest grid from managed
+system 40 cadence (3 ticks/slot), keeps latency 2 and plain presentation.
+Built NFSMW-0.5.0-metal-display-40-test3.ipa; 3000 host arithmetic checks
+passed, no device result yet. Next: same run + camera log. Stefan accepts
+~one frame extra input delay for truly smooth motion; cadence alone is
+not success. 40 fix remains unaccepted/default off; details in TECHNICAL.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

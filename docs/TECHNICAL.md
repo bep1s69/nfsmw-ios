@@ -9646,3 +9646,94 @@ no push/tag/release. All source/log analysis commands completed exit 0;
 one broad Apple search returned no results, markdown doc fetch failed
 (unsupported type), a guessed WWDC URL was unrelated and discarded;
 primary delegate/present/deadline pages above supplied the API evidence.
+
+### October 30: test2 cadence improves but feels worse; virtual guest grid test3
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 5.log, "worked but honestly
+felt worse". Follow-up clarifies mostly more jerky world motion, some extra
+input lag; lag not bad, accepts roughly one extra frame if it means truly
+smooth 40 fps. Recorded this preference in working rules. Do not dismiss
+subjective result because presentedTime intervals improve.
+
+Archived byte-for-byte (exclusive create, no overwrite), source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_5_metal_display_40_test2_worse.log`.
+629677 bytes, 3395 lines, SHA-256
+a0554679e6bfbdbb82fa6a2aeaf864068948b9c6dc00b94e5446fc683c17f84f.
+Copy/verify exit 0. One launch 01:07:43.814, Balanced/native1x/40,
+MetalFX/FXAA/MSAA off, Low Power Mode off, nominal CPU thermal samples.
+Device 14 Pro Max per established test, OS not supplied; test2 identity
+from prior handoff (87ea6d83..., 9AC76DA4-519A-3A7D-91A6-146C0DEBE6D7),
+not independently echoed in runtime startup stamp. Metal link starts
+01:07:44.848; ordinary CADisplayLink reports 80 Hz at 01:07:46.006 (requested
+120), persists until stop at 01:09:01.281, after which 120 reported again.
+World entered 01:08:18.240. No startup assertion recurs in this supplied run.
+
+Analyzed numeric trace rows emitted at/after 01:08:26.000 (each row covers
+preceding 60 gaps; rounded values). 1440 gaps/stage:
+- swap mean 25.046 ms, sd 1.277.
+- handed mean 25.055, sd 1.274.
+- GPU end mean 25.066, sd 1.770.
+- shown mean 25.035, sd .728; bins 25.0:1435, 37.5:3, 41.7:1, 20.8:1.
+Most 300-frame driving summaries 40.0 fps and 0/300 off grid; one 39.8
+window, no target-deadline misses in steady summaries. GPU 8.46-20.62 ms
+in selected 40 windows, rendering increases with pacing wait (not all CPU
+work). System target about 49 ms ahead; latency requested 2 unchanged.
+
+Baseline nfsmw 3.log latest run, trace rows >=00:50:23.000, 2220 entries:
+mean swap->handed / handed->GPU end / GPU end->shown 3.06/20.64/3.72 ms,
+sum 27.42. Test2 selected 1440 entries 17.27/20.01/26.35, sum 63.63 ms.
+Per-row mean swap->shown grows ~54.49 -> ~70.83 ms then ends ~63.12 ms;
+drawable wait summaries rise .00 ->19.78 ms. This measures renderer handoff
+to presentedTime, not total input-to-photon latency; gameplay/workload not
+bit-identical, so 36.21 ms difference is not a controlled input-lag A/B.
+Nonetheless it exposes a substantial latency tradeoff, even while screen
+intervals improve. Test2 not an accepted fix.
+
+Found separate concrete guest-clock conversion defect exposed by 80 Hz:
+display_rate.mm used split=lround(period*120), published period/split.
+At 79.98/80/80.02 Hz that arithmetic yields about 159.96/160/80.02 Hz,
+not 120. These are code-derived examples, not logged actual guest rates;
+test2 lacked published-period/camera logs. Wrong period fails SDK's +/-10%
+120 Hz lock condition and feeds frame_clock.cpp a 6.25 or 12.5 ms quantum.
+Inference: plausible cause of world-motion regression; no camera trace
+proves it yet. Do not tune away input latency and assume world fixed.
+
+Isolated correction, still under default-off nfsmw_native_metal_display_40:
+- Metal callback derives nominal 40-slot cadence from consecutive system
+  estimated-presentation timestamps, not callback arrival jitter; normalizes
+  2/3 missed callbacks, divides into 3 virtual guest ticks. First uses 25 ms.
+- Publishes latest nonfuture tick on that phase and corresponding ~8.33 ms
+  period through new metal_pacer::GuestGrid; ordinary display tick uses it
+  only while experiment owns layer at cap40. Clears clock on stop/start.
+- No integer division of 80 Hz display-link period in managed mode. Existing
+  guest timing path elsewhere unchanged. Callback log now shows guest grid.
+  Two-frame preferred latency and presentation path unchanged to isolate
+  this bug. No SDK source edits, graphics changes or 60-fix changes.
+
+Validation: host extracted actual callback arithmetic block and checked
+3000 updates across 25/25.025/24.99 ms cadences, 1/2/3-slot gaps and arrival
+jitter: expected three guest periods per slot within 1 ns, published tick
+nonfuture and less than one period old; passed. Retained reproducible test
+`python3 tools/ios/test_metal_display_guest_grid.py` (xcrun clang++ -std=c++17
+-O2), exit 0: PASS 3000 updates. Tests clock arithmetic, not UIKit behavior,
+locking, presentation or world-motion smoothness. git diff --check exit 0.
+`cmake --build --preset ios --target ipa -j 6` in ios/ exit 0, saved
+ignored ios/build/metal-display-40-guest-grid-build.log; usual 5 native
+renderer fpcr/UIKit warnings and duplicate -lz linker warning.
+
+Unique artifact ios/build/NFSMW-0.5.0-metal-display-40-test3.ipa,
+30172263 bytes, version0.5.0/build8, SHA-256
+06e1b78301b5ed3bf2d2a475d4f0350c1c5d7aa39c59e9e63bcff6e563950b97,
+UUID 29F35A9F-1923-38A5-A256-AAD17E3CAE3F. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit 0, dwarfdump --uuid exit 0.
+All 104 actual payload shader libraries and both SDK dylibs byte-identical
+to test2. No runtime validation of test3 yet.
+
+Next device test: same 14 Pro Max Balanced/1x/40, Low Power Mode off,
+cold LiveContainer; Extra Args nfsmw_native_metal_display_40=true,
+nfsmw_native_frame_trace=true, add nfsmw_native_camera_log=true to check
+world as well as presentation. Same 1-2 min chase, report motion and lag.
+Compare guest grid log, world camera steps, presentation cadence and
+latency drift. If successful, then decide whether to reduce latency;
+keep this change isolated first. No promotion/default change, version bump,
+push/tag/release. Preserve issue 11 note, HANDOFF_CHATGPT.md and SDK work.
