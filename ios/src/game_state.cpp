@@ -139,6 +139,7 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);     // game_scene_size.cpp
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
+extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 
 namespace {
 bool fade_up = false;
@@ -165,6 +166,11 @@ extern "C" REX_FUNC(sub_823B4158) {
     // The song's name, kept at the HUD's safe zone.
     static const char* const kTrax[] = {"EA_Trax.fng"};
     if (PushedPackage(ctx, base, kTrax, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, kTrax[0]));
+  }
+  // Every screen up in the world logged, with its pieces (D-006).
+  if (state == kRacing) {
+    const uint32_t feng = REX_LOAD_U32(kFeng);
+    nfsmw_ui_log(base, feng ? REX_LOAD_U32(feng) : 0);
   }
   // Under a menu the fades are not asked about: kept as they were.
   if ((menu < 0 || state != kRacing) && (fade >= 0) != fade_up) {

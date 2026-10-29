@@ -78,6 +78,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -867,6 +868,77 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package) {
     if (!box.Valid()) continue;
     const float ax = (box.x0 + box.x1) < 0 ? box.x0 : box.x1, ay = (box.y0 + box.y1) < 0 ? box.y0 : box.y1;
     MoveGroup(base, o, k * ax / s - ax, k * ay / s - ay, m);
+  }
+}
+
+// Every screen up in the world, logged (D-006, IPA139: which packages the
+// HUD's size reaches besides the HUD, and where their pieces are). The
+// engine's pushed packages are a list at FEngine+216 (IsPackagePushed,
+// sub_82284D70 -> sub_822F5A98: first at +8; a package's +4 next, +12 its
+// name, +16 the name's hash). The list's names are logged when it changes,
+// with the HUD's size then; each package's object tree when it comes up and
+// again 180 frames later (its pieces once its script has moved them).
+namespace {
+struct Seen {
+  uint32_t package;
+  uint64_t frame;
+  bool redumped;
+};
+std::vector<Seen> g_seen;
+uint64_t g_ui_frame = 0;
+
+std::string GuestName(uint8_t* base, uint32_t at) {
+  std::string s;
+  if (!Plausible(at & ~3u)) return "?";
+  for (uint32_t i = 0; i < 64; ++i) {
+    const uint8_t c = REX_LOAD_U8(at + i);
+    if (!c) break;
+    s.push_back(c >= 32 && c < 127 ? char(c) : '?');
+  }
+  return s;
+}
+
+void DumpPackage(uint8_t* base, uint32_t package, const char* when) {
+  uint32_t at = 0;
+  const uint32_t first = FirstObject(base, package, at);
+  REXLOG_INFO("[ui-tree] {} {:08X} ({}), HUD size {:.2f}, menu {}:", GuestName(base, REX_LOAD_U32(package + 12)),
+              package, when, HudScale(), nfsmw::battery::InMenu());
+  int budget = 400;
+  if (first) DumpObjects(base, first, 0, budget);
+}
+}  // namespace
+
+extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine) {
+  ++g_ui_frame;
+  if (!Plausible(engine)) return;
+  std::vector<uint32_t> now;
+  for (uint32_t p = REX_LOAD_U32(engine + 216 + 8); Plausible(p) && now.size() < 64; p = REX_LOAD_U32(p + 4)) {
+    now.push_back(p);
+  }
+  bool changed = now.size() != g_seen.size();
+  for (size_t i = 0; !changed && i < now.size(); ++i) changed = now[i] != g_seen[i].package;
+  if (changed) {
+    std::string names;
+    std::vector<Seen> next;
+    for (uint32_t p : now) {
+      if (!names.empty()) names += ", ";
+      names += GuestName(base, REX_LOAD_U32(p + 12));
+      auto old = std::find_if(g_seen.begin(), g_seen.end(), [p](const Seen& s) { return s.package == p; });
+      if (old != g_seen.end()) {
+        next.push_back(*old);
+      } else {
+        next.push_back({p, g_ui_frame, false});
+        DumpPackage(base, p, "up");
+      }
+    }
+    g_seen = std::move(next);
+    REXLOG_INFO("[ui] screens: {} (HUD size {:.2f}, menu {})", names, HudScale(), nfsmw::battery::InMenu());
+  }
+  for (Seen& s : g_seen) {
+    if (!s.redumped && g_ui_frame - s.frame >= 180) {  // 180 frames: 3-6 s at the caps
+      s.redumped = true;
+      DumpPackage(base, s.package, "3 s later");
+    }
   }
 }
 

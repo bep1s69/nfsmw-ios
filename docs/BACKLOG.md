@@ -161,6 +161,15 @@ infraction pop-ups. Inference: the HUD size/safe-zone scale also reaches
 full-screen FNG elements that should stay at full size. Next: compare each
 at 100% and 70% HUD size, then exclude those screens from the HUD scale.
 
+Oct 29 (from the code, not yet confirmed in a log): the HUD size is applied
+to the frontend's one shared matrix (sub_82453768 hook) whenever
+game_state.cpp says driving, so every package drawn while driving shrinks,
+not only the HUD. Candidates by name (PC files): Chyron_IG.fng (TV
+overlay), Infractions.fng, BUSTED_OVERLAY.fng, InGameBackground.fng. Also
+latent: the fade fit uses the setting, not the size in effect. Stefan also
+sees misplaced pieces during chases. IPA139 logs every screen and its
+pieces (TECHNICAL Oct 29); the fix follows its log.
+
 ### D-007 Black Edition switch shows no visible change in game; street BMW M3 GTR — fixed (IPA96, iPad confirmed Oct 27)
 
 Reported by Stefan Oct 27. The switch does take effect: every log since Oct 13

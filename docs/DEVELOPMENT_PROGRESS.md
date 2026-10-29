@@ -146,7 +146,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   LSSupportsGameMode (untested, no free sideload slot).
   Minimap fix (approved, Oct 29): IPA138 `ios/build/NFSMW-minimap-138.ipa`,
   confirmed by Stefan on iPhone (TECHNICAL Oct 29, BACKLOG minimap entry).
-  Custom HUD work for 0.4.3 happens in another thread.
+  Custom HUD (D-006, Stefan approved the log-first plan Oct 29): IPA139
+  `ios/build/NFSMW-ui-log-139.ipa` logs every screen up in the world
+  (`[ui] screens:`) and each one's object tree (`[ui-tree]`). Next: Stefan
+  runs it at 70% HUD size (intro, a pursuit, a race finish), then the fix:
+  those screens kept at full size (TECHNICAL Oct 29, D-006).
   Next: Stefan's device check,
   then tag/push/release on his go (docs/RELEASING.md); ask the issue 4/7
   reporters to try it.
