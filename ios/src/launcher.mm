@@ -479,6 +479,12 @@ const std::vector<Section>& Sections() {
             @"Move and resize the on-screen buttons and sticks (both the Pad and the Drive "
             @"layouts), and set their size and opacity.",
             @""},
+           {@"touch_steering", Type::kChoice, @"Steering",
+            @"Drive layout. Dynamic: a joystick comes up wherever your thumb lands in the bottom-left "
+            @"quarter of the screen and fades out when you lift it. Fixed: the steering circle stays "
+            @"in its place. Buttons: one button for left, one for right.",
+            @"dynamic",
+            {{@"Dynamic joystick", @"dynamic"}, {@"Fixed joystick", @"fixed"}, {@"Two buttons", @"buttons"}}},
            {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
             @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
             @"DRIVE/PAD button still switches by hand.",
@@ -786,6 +792,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
+  a.push_back("--ios_touch_steering=" + str(@"touch_steering"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
@@ -1658,7 +1665,7 @@ NSString* AchievementSummary(const Achievements& a) {
       return;
     }
     if (o.type == Type::kLink && [o.key isEqualToString:@"touch_layout"]) {
-      [self presentViewController:nfsmw::touch::MakeLayoutEditor() animated:YES completion:nil];
+      [self presentViewController:nfsmw::touch::MakeLayoutEditor(Value(_settings, @"touch_steering")) animated:YES completion:nil];
       return;
     }
     if (o.type == Type::kLink && [o.key isEqualToString:@"keyboard_bindings"]) {

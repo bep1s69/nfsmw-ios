@@ -8449,3 +8449,29 @@ at 70% with the minimap and mirror moved to the bottom middle, the game draws
 the minimap, mirror and speedometer where their outlines were (mirror box
 848-1103 x 570-660 screenshot points, drawn about 870-1130 x 565-640).
 Pursuit elements and per-element sizes not shown in these screenshots.
+
+### October 29: touch controls step 1, steering modes (IPA151)
+
+Stefan's plan (BACKLOG "Touch controls overhaul"), step 1, approved Oct 29.
+- `touch_controls.mm`: cvar `ios_touch_steering` (dynamic / fixed /
+  buttons, default dynamic) picks the DRIVE layout's steering. fixed: the
+  old circle. buttons: two round buttons (◀ ▶, layout names `drive.◀`,
+  `drive.▶`) that push the left stick to -1 / +1 (Control::left_x; both
+  held: straight). dynamic: a horizontal stick (Control::dynamic) that
+  takes any touch in the bottom-left quarter not on another control
+  (added last, so nitrous and look back win), centres itself under the
+  thumb (kept whole on screen), is drawn only while held, then fades out
+  in 0.25 s (30 Hz timer, Control::fade). The redraw tracks each control's
+  last drawn bounds so the old spot is cleared when it moves (Look() hashes
+  its centre and fade). The setting is checked twice a second with the
+  native-mode timer and the layout rebuilt when it changes (`[touch]
+  steering: ...`).
+- Editor: the dynamic joystick is not placed; its zone is outlined
+  (dashed, "STEERING thumb anywhere here"). MakeLayoutEditor takes the
+  launcher's touch_steering, since the cvar is only set at game start.
+- Launcher: Touch controls › Steering (choice, `--ios_touch_steering`);
+  in-game options: same row, live (LiveFlags).
+`cmake --build --preset ios --target ipa -j 6` (in ios/) exit 0;
+`ios/build/NFSMW-touch-steering-151.ipa` SHA-256
+4453294ac42817cc68796cec724b3dc2a033285e13d4d50a684f02b809e802e8, 30134292
+bytes, `unzip -tq` ok. Not run on a device.

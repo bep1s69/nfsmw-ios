@@ -17,6 +17,14 @@
   Game Mode when it is sideloaded with a certificate (LiveContainer has its
   own Game Mode handling).
 
+- **Steering choice for the touch controls.** A new Steering setting in
+  the launcher's Touch controls section and in the in-game options:
+  a dynamic joystick (the new default) that comes up wherever your thumb
+  lands in the bottom-left quarter of the screen and fades out when you
+  lift it, the fixed steering circle as before, or two buttons for left
+  and right. The touch layout editor shows the dynamic joystick's area
+  and lets you move and resize the two buttons.
+
 - **Customize HUD.** With Custom HUD on, a new editor (in the launcher and
   in the in-game options) shows the HUD's parts as outlines on a screen of
   your device's shape: drag each where you want it, make it smaller or
