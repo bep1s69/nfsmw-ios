@@ -141,6 +141,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: race repeat stillslow; downstreamsimulationcap candidate found.**
+  Archived17pm_12_test6_race_slowdown log (fullpath/identity inTECHNICAL).
+  Stefan confirms everythinga bitslower at~26fps;no numericaltimerreadings.
+  Late1380clockupdates give70.032s over56.368sraw (124.2%):test6accounting
+  notvalidated,notrelease-ready. Rawengineinspection finds sub_823C6500
+  clamp uses4*sharedstep in onebranch;120Hzpatch changes66.67->33.33ms
+  initialbudget,consistentwithslowdown below30fps. Runtimeflag/multiplier
+  mustbeobserved,notassumed. Nextnarrow actualworldstep/clampdiagnostic
+  and reconcileworldupdatesvsrenderframes;preservesteady40/60fix.
+  No need more sameuninstrumentedtests. No newsource/build/default/release.
+  Ignoredgeneratedsources restored FORINSPECTIONONLY viaoldCLI;notpatched,
+  functiongroupingdiffers fromhardcodedpatchpaths. Beforebuild restore
+  matchingCLI/fullpostpatchprocedure andmissingcache/shaders. Privateimage
+  ignoredios/build/managed40-inspection-image.bin. Fullfailedattempts and
+  findings inTECHNICAL. Existingissue11/HANDOFF/SDKwork preserved.
+
 - **October30: 17 Pro Max test6 stress log analyzed; race-timer repeat next.**
   Archived nfsmw_iphone_17pm_11_metal_display_40_test6_resolution_stress.log.
   1x/3x steady40 and25ms shown gaps;5x~21.9fps/GPU50.73ms.

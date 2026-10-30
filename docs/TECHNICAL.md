@@ -10256,3 +10256,90 @@ cache first using existing build procedure;do not pretend prior IPAs/cache
 are available. Current next action is user race-timer repeat,then downstream
 investigation as needed. No source/build/default/version/push/tag/release.
 Preserve pre-existing issue11 checkpoint addition,HANDOFFandSDK state.
+
+
+### October 30: race repeat confirms perceived below-cap slowdown; downstream cap found
+
+Stefan after the requested race test: "yes everything did run a bit slower
+at ~26 fps". No numerical race-timer/stopwatch readings or1x comparison
+supplied;record as user-confirmed perceived slowdown,not a measured speed
+ratio. Same17 Pro Max/test6-stress from continuing test;OS unspecified.
+Input shared-pasteboard/items/FBABEE50-E290-4506-904D-052A5D29AD54/nfsmw.log
+under /Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/.
+Archived byte-identically,exclusive create,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_12_metal_display_40_test6_race_slowdown.log`.
+1296689bytes,7534lines,SHA256
+5ebe1f11d5fb8ce6e4c0656c18b11adf5316b11985fda5afd752db33af8b196a.
+Archive/verification exit0. One launch21:48:12.911;ends cleanly on scene
+background21:50:04.878,not the previous8x termination. Scale5 throughout,
+Balanced40,MetalFX/FXAA/MSAAoff,Low Power Modeoff,thermalnominal. Expected
+IPA d3888a5a...,UUID54E550CB-F57B-3BE1-94DF-19B90F9987E0 perhandoff,
+not independently logged. No newbuild/IPA/source/default change this turn.
+
+World-clock batches emitted21:49:07<=time<21:50:02:1380updates,
+raw56368.024ms,given70032.384ms,host56377.512ms,ratio1.242413.
+Main-loop~24.5updates/s;do not identify that with presentedframes/s.
+Givenbins659x25.0,426x75.0,156x50.0,124x100.0,7x125.0,others8.
+world-missed267/306/327/303/304 slots per300managed updates. Renderer
+300frame windows24.2fps/GPU46.62ms at21:49:02,15.9/70.38 at20.921,
+14.2/78.35 at42.049,14.9/75.88 at21:50:02.205. These renderer windows
+are not Stefan's reported instantaneous~26fps. No missing-time claim at
+hook:it supplies24.2% MORE than elapsed in selectedlatephase,while user
+still feels slow. Render-slot accounting plus fullstep perworldupdate
+assumes a mapping not guaranteed by actual pipelinedengine;must correct
+that discrepancy too,not blindly increase suppliedtime. Earlierpre-driving
+legacy branches have lowgiven/raw;do not fold them into steady driving.
+
+Direct engine inspection on newlaptop:
+- Source executable assets/game_root/default.xex exists (USA),and ignored
+  old hostCLI out/mac-arm64/Release/rexglue exists in siblingSDK. Attempted
+  python3 tools/ios/generate_code.py --rexglue <thatCLI> exit1:dyld rpath
+  still names oldDocuments/GitHub,librexruntime missing there. Prefixing
+  DYLD_LIBRARY_PATH on Python also exit1 (child env did not preserve it).
+- DirectCLI with DYLD_LIBRARY_PATH=<SDK>/out/mac-arm64/Release loads;
+  sandboxedcodegen exit1,"Unable to reserve the4gb guest address space".
+  Same directcommand escalated succeeds:codegen nfsmw_manifest.toml from
+  ios/generated/edicion,269written/0unchanged/0deleted,36.3s,exit0;
+  several unresolvedconditional-branch warnings,not new build failures.
+- Raw regenerated files are FOR INSPECTION ONLY,NOT PATCHED/BUILD-READY.
+  OldCLI grouped functions differently:sub_823AFE20 in94.cpp,
+  sub_823C6500 in108.cpp,World_Service sub_824CE048 in77.cpp.
+  Existing hardcodedpatch_game_frame_ticks.py expects89.cpp;normal wrapper
+  stopped beforepostpatches. Before anybuild restore/update matchingCLI
+  and run full existinggenerate/postpatch procedure. Do not compile these
+  rawfiles into a release or mistake this for complete buildrestoration.
+- Read-only disassembly of preservedtest6stressIPA executable also found
+  matching ___imp__sub_823AFE20 and other symbols;no source edit from it.
+- ExistingCLI supports NFSMW_DUMP_IMAGE. Directescalated codegen with that
+  env dumps original mappedimage and exits0 beforeanalysis. Persisted
+  ignored ios/build/managed40-inspection-image.bin (privategameimage).
+  Commands/logs temporarily /tmp/nfsmw-test6-inspect/;essentialfindings here.
+
+Concrete downstreamcap candidate from sub_823C6500:
+It adds incomingdelta to accumulator0x82A2CD1C,then conditionally caps
+accumulatedtime BEFORE converting it to integerworldticks. Outside certain
+menu/pause conditions,the cap is float0x828FD87C times eitherconstant
+0x82063A50 whenflag0x828FD868==0,or sharedstep0x820AFDD0 whennonzero.
+Originalimageconstants:0x828FD87C=4.0,flag0x828FD868=integer2,
+0x82063A50=.020,0x820AFDD0=1/60. Therefore nonzero branch's initialcap
+is4/60=66.67ms. Existing game_extra_options.cpp120Hz patch changes the
+sharedstep to1/120;that SAMEcapexpression thenbecomes4/120=33.33ms,
+below~38.46ms required at26fps. Incoming50/75/100ms clocksteps can also
+be discarded there regardless of aggregate clockgive. Zero-flagbranch
+uses4*.020=80ms and does not directly change withsharedstep.
+
+This is an observedcode/datainteraction and strongslowdownlead,NOT yet
+proof of runtimeflag/capvalues in this race:bothglobalscanchange;source
+shows anotherfunction changescapmultiplier. Need instrument incomingdelta,
+accumulator before/after clamp,activeflag,multiplier,actualticksconsumed and
+world/renderupdate counts. Preserve120Hz substeps/acceptedsteady40;do NOT
+blindly undo120Hz globally or raiseall21sharedconstantuses. A scopedfix
+could preserveoriginalelapsedcatch-upbudget independently ofsimulation
+frequency if runtime evidence confirms,alongside correcttimeaccounting
+betweenworldupdates/renderedframes. No speculativecap sourcechange or
+newIPA delivered. Test6remainsunfit fordefault0.5.1.60fixunmodified.
+
+Next: narrowactualworldstepdiagnostic/design based on this cap andaccounting
+mismatch,restorematchingcodegen/buildcache/shaders beforeanotherIPA;no need
+repeat sameuninstrumentedoverloadtest. Keep8xstressoutsidehotfixscope.
+Documented/committed locally;preserveissue11checkpoint,HANDOFFandSDKstate.

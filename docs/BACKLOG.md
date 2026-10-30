@@ -912,6 +912,15 @@ No defaultpromotion. SeeTECHNICAL for archive,measurements and limits.
 If needed,nextinstrument actualworld consumption;newlaptop lacks generated
 sources/buildcache and requiresrestoration beforeanotherbuild.
 
+October30 race repeat(log12):Stefan confirms slowerlogic at~26fps.
+Lateclockgive124.2%ofelapsed means no simplemissingtime atourhook.
+Engineinspectionfoundconditionalaccumulatorcap4*sharedstep:120Hzpatch
+halvesinitial66.67msbudget to33.33ms. Runtimebranch/multiplierunverified;
+strongcandidate,notprovenfix. Nextactualclamp/tickconsumptiondiagnostic
+plusworld/rendercountaccounting;test6notready,60fixretained. Rawgenerated
+sources restoredforinspectiononly;matchingCLI/postpatches/cache needed
+beforebuild. Evidence/failedrestorationcommands inTECHNICAL.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
