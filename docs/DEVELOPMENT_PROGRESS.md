@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October30 (Stefan):0.5.1 is live. First0.5.2 features are live switching
+  among all FPS caps and Eco/Balanced/Max. Audit profile effects (17PM holds
+  locked60fps/1x inEco per user). Reopen CPU/GPU optimization at IDENTICAL
+  graphics settings before quality reductions. Backlog comprehensive PC-style
+  graphics menu with High Fidelity/High Performance presets; distinguish
+  graphics quality presets from scheduling profiles. No0.5.2 push/release
+  authorized merely by earlier0.5.1 authorization.
+
 - October 30 (Stefan): approved verifying the downstream world-time clamp
   and simulation/render update accounting after test6 still slowed under
   load. Next trial adds diagnostics first; keep the confirmed60fps fix and
@@ -157,6 +165,20 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October30:0.5.1 released by Stefan;0.5.2 live-settings work prioritized.**
+  User confirms update live (not independently queried). Promote existing
+  all-cap/profile backlog entries to active; add profile audit, resumed
+  unchanged-quality optimization pass and PC-style graphics/presets request.
+  Source review identifies startup guest-clock interval/120flag/realtime policy
+  and cached QoS/thread/queue state as actual runtime transition work. Removing
+  menu guards alone is insufficient. TECHNICAL has design/dependencies/checks.
+  Next implementation: shared runtime cap transition, then shared launch/live
+  performance policy with Extra Args precedence, each device-checked before
+  stacking. No feature code/newIPA/version bump this planning/source-audit turn.
+  0.5.1 timing baseline retained; no new push/tag/release authorization.
+  Preserved pre-existing issue11 note,HANDOFF and siblingSDK modifications;
+  other-agent d5d3e1d issue13 diagnosis read and retained without reopening.
 
 - **October 30: GitHub issue 13 disc-startup failure diagnosed (no source change).**
   Attached `/Users/bep1s/Downloads/nfsmw-2.log` archived in Debug/30 October

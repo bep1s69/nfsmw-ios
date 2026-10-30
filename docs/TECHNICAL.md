@@ -11044,3 +11044,58 @@ Release next step unchanged: user smoke-tests/publishes0.5.1. No push/tag/releas
 Initial local git staging/commit attempt could not create .git/index.lock
 (sandbox Operation not permitted; commit exit128). Retried with filesystem
 escalation for the required local documentation commit.
+
+
+### October30:0.5.1 live;0.5.2 priorities and runtime-settings design audit
+
+Stefan confirms release live;asks to focus first0.5.2 features on live FPS-group
+and performance-profile switching. Adds audit of what profiles actually affect,
+general CPU/GPU optimization before any graphics reductions, and comprehensive
+PC-style graphics menu with High Fidelity/High Performance presets. User17PM
+report: locked60fps1x inEco;no matched log/OS/energy result supplied this turn.
+Record as throughput observation,not proof of energy savings/equivalent policies.
+Both previously parked live-switching entries now active;other requests recorded
+in BACKLOG,optimization tied to existing battery history rather than duplicating
+its implementation leads. All0.5.1 pacing fixes/120Hz simulation stay baseline.
+Latest other-agent commitd5d3e1d disc-startup diagnosis/docs read and preserved.
+
+Source audit (read-only; no new feature code):
+- ingame_options.mm LiveCap and battery::ChooseCap explicitly allow30/60 only.
+  SDK graphics_system.cpp vblank worker initializes refresh_rate_hz120 for40/120,
+  nfsmw_vblank_120 flag,thread realtime period and interval ticks once. Display
+  published period/phase used subsequently must agree with those. Need an
+  atomic transition request applied by worker at a boundary, reset old phase/
+  accumulated timing debt, update realtime period and vblank120 flag together;
+  synchronize display/pacer readiness to avoid stale60grid at40/120 transitions.
+  Cover forward/backward30/40/60/120 pairs,menu caps,LPM/warm auto-cap behavior,
+  pause/background/resume and both render paths where supported.120Hz physics
+  remains independent. Update battery controlled/chosen state and UI launch
+  warnings only after backend actually handles those transitions.
+- ios_main ApplyTabletUtilityProfile expands mode into startup Utility/adaptive/
+  native-render flags with explicit Extra Args precedence and tablet6+E policy.
+  adaptive_qos.cpp caches Enabled,Settings,WorkersOn,original and per-thread
+  applied mode. Worker QoS override handles persist until mode changes;main
+  thread must set its own QoS. Existing native render queue and demand pipeline
+  queue base attributes chosen at creation; simply changing mode cvar cannot
+  lower existing high-base work toEco or consistently raise existing workers.
+  Shared profile resolver for launch/live needed, with runtime generation,
+  clearing obsolete overrides, owning-thread adoption,new guest-thread policy,
+  and appropriate per-work queue QoS preserving serial order. Avoid recreating
+  queues and reordering in-flight frames. Test six directed profile transitions
+  on17PM plus tablet policy;do not hard-code profile names to physical cores.
+- Current profiles are primarily CPU scheduling/boost policies;GPU time/energy
+  can change indirectly via scheduling/throughput and pipeline preparation.
+  No new matched measurements establish costs. Audit existing cached values
+  and effective policies before interpretingEco60 behavior/changing defaults.
+
+Next implement runtime cap transition first,then profile transition,with host
+transition-policy tests/build and device timing/QoS validation. New SDK changes
+must be reproducible via existing patch scripts and preserve extensive sibling
+local changes. Optimization pass must read prior negative evidence,establish
+current same-scene/fidelity baseline,then measured isolated work-removal changes;
+no lower-quality shortcuts. Graphics presets are separate opt-in quality work.
+No source changes,build/tests,newIPA,version bump,push/tag/release this turn;
+source audit and backlog/checkpoint update only. git diff --check for docs.
+Preserved pre-existing13line issue11 note,untrackedHANDOFF and siblingSDKwork;
+commit own documentation only.0.5.1 push authorization does not authorize new
+0.5.2 publication.
