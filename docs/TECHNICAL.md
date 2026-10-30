@@ -10597,3 +10597,46 @@ No device result yet: correction implemented, not declared a verified fix or
 ready for0.5.1. Keep diagnostics for effective cap/output/host checks. Preserved
 pre-existing13-line issue11 checkpoint note, untracked HANDOFF_CHATGPT.md and
 siblingSDK changes; excluded from session commit. No push/tag/release.
+
+
+### October 30: test8/log14 accepted on 17 Pro Max; overload oversupply persists
+
+Stefan: “everything worked as intended”. Device17 Pro Max per ongoing test;
+OS not supplied. Expected test8 IPA identity: SHA256
+4b0d0c915c0610a644c0c72330de843ea51719b0260d197a7629fa2877753c5c,
+UUID8899C41D-E22F-3268-905A-ED3107A80A63 (not independently echoed in log).
+Build stamp remains Oct30 22:12:38; new66.667 ms effective limit confirms
+correction active. One launch22:28:20.307; final line22:30:12.563.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/58E873E2-BC4D-432F-8F21-77CA2251188A/nfsmw.log`.
+Archived exclusive-create, byte-identical, source preserved:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_14_metal_display_40_test8_catchup_limit.log`.
+1359264 bytes,6928lines; SHA256
+f08b757ab16b334e4677c23d2a5a56031a1bbb2a54847716ddb246b9e1240c63.
+Archive and analysis exit0. No source modifications/build/tests this turn.
+
+Requested settings were Balanced40, LPMoff, MetalFXoff and same five test8
+arguments (previous entry). Log confirms cap40, MetalFXoff and world-step
+tracing/managed correction. Other settings not independently established here.
+Resolution transitions: 1x initially,5x22:29:11.532,restored1x22:29:58.160.
+28 full world-step batches/1680samples. Timing windows selected by batch
+emission timestamp; each contains preceding60 updates, not exact instantaneous
+resolution boundaries. Excluded initial/restore transition batches below.
+- Initial1x22:29:02<=t<22:29:10,180samples: incoming4500.369ms,
+  output4500.556ms,host4498.855ms (~100.038%); zero clamp loss.
+- 5x22:29:15<=t<22:29:56,960samples: incoming48579.305ms,
+  output43317.045ms,host41300.861ms (~104.882% output/host).
+  Clamp still discards5237.553ms under extreme stress. Later subset
+  22:29:39<=t<22:29:56,420samples: input22627.074ms,output19225.063ms,
+  host17888.141ms (~107.474%);3386.309ms loss,189clamps.
+- Restored1x22:30:02<=t<22:30:12,420samples: input10500.884ms,
+  output10501.112ms,host10502.092ms (~99.991%); zero clamp loss.
+
+Measured engine time is timing bookkeeping, not independent race stopwatch or
+all physics invocations. User accepts behavior and slowdown correction, but
+log does not prove exact wall-time conservation at5x: previously noted missed
+slot overcompensation persists and partially offsets remaining cap loss.
+Keep that distinction for release review. No default promotion/version bump/
+push/tag/release. Next: review overload accounting before promoting experimental
+40 path; normal-resolution release candidate still pending. Preserved unrelated
+13-line issue11 checkpoint addition, untracked HANDOFF and sibling SDK work;
+selectively commit only this session's evidence/docs.
