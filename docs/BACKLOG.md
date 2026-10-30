@@ -938,6 +938,16 @@ preservesoriginalelapsedcatch-upbudget separately from120Hzstep under
 managed40driving,thenverifyactualengineoutput/host. Priorlog12accounting
 mismatch stillrequirescoverage. No sourcefix/newIPA/defaultpromotion yet.
 
+October 30 test8: scoped catch-up correction implemented and built, awaiting
+17 Pro Max validation. Only managed 40 fps main-loop driving with frame ticks 2,
+nonzero budget flag and an actual 1/120 s budget unit restores the original
+66.67 ms allowance. No simulation-frequency/global constant change. Test7
+recorded-input comparison reduces local cap loss from 5702.614 to 185.367 ms
+in the selected 5x window; this is a counterfactual, not a device result.
+Steady-40 samples unchanged. Next: test8 1x/5x/1x race timing and log, including
+output/host balance and residual stalls. Prior log12 oversupply remains open.
+Experiment remains default OFF; no hotfix release approval or promotion.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

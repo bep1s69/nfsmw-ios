@@ -27,6 +27,7 @@
 #include <rex/logging.h>
 
 #include "display_rate.h"
+#include "world_step_limit.h"
 #include "battery.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
@@ -71,6 +72,16 @@ double TraceTicks(double result, double ticks, double milliseconds, double perio
   return result;
 }
 }  // namespace
+
+// Restore the original elapsed-time allowance, not the shared simulation step.
+// The generated hook runs before the clamp; diagnostics see the effective limit.
+extern "C" double nfsmw_world_step_limit(double limit, double step,
+    uint32_t flag, bool main_loop) {
+  return nfsmw::WorldStepLimit(limit, step, flag, main_loop,
+      nfsmw::display::ManagedFramePeriodNs() != 0,
+      nfsmw::battery::InMenu(), rex::cvar::Query<int32_t>("ios_fps_cap"),
+      REXCVAR_GET(nfsmw_frame_ticks));
+}
 
 // Diagnostic only: observe the engine's downstream accumulator, including
 // time discarded after nfsmw_frame_ticks returned. Never change its result.
