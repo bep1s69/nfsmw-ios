@@ -10129,3 +10129,48 @@ menu30/background-resume and other ProMotion40/60 regression checks remain,
 then clean0.5.1candidate with diagnostics off. Default-off experiment and
 confirmed60fix retained;no version bump/push/tag/release. Preserve issue11
 checkpoint text,HANDOFF_CHATGPT.md and sibling SDK local changes.
+
+
+### October 30: temporary up-to-8x resolution build for test6 on another device
+
+Stefan cannot use the14 Pro Max anymore (returned to girlfriend). Requested
+additional resolutions up to8x for this test only;hopes to release tomorrow.
+No release/push/tag permission inferred. Existing test6 missed-slot behavior
+unchanged;no new device result. Pre-existing issue11 checkpoint addition,
+untracked HANDOFF_CHATGPT.md and sibling SDK changes preserved.
+
+Added CMake NFSMW_RESOLUTION_STRESS_TEST option defaultOFF. WhenON,only
+launcher.mm/native_renderer.mm receive the compile definition. Shared menu
+choices (launcher and in-game) add2.5/3/4/5/6/8x,marked(test);native numeric
+scale ceiling changes4->8. Default remains1x. OFF keeps prior choices and
+4x ceiling;no normal-release feature/changelog claim. Selection persists:
+restore1x before returning to normal builds. High scales multiply target
+area/memory as well as GPU work;increase gradually only until FPS falls
+below40,not a requirement to reach8x. Native Metal path required.
+
+From ios: cmake --preset ios -DNFSMW_RESOLUTION_STRESS_TEST=ON,then
+cmake --build --preset ios --target ipa -j6,both exit0. Logs ignored under
+ios/build/resolution-stress-configure.log and resolution-stress-build.log.
+Usual fpcr/UIKit and duplicate-lz warnings. Build touched two app sources,
+SDK version/debug-overlay metadata and packaging;no SDK source edit.
+No additional timing algorithm changes or redundant host tests for menu
+choices. git diff --check exit0. Build.ninja verified compile definition
+on exactly2 source compile rules. Artifact preserved exclusive-create:
+`ios/build/NFSMW-0.5.0-metal-display-40-test6-resolution-stress.ipa`,
+30175503bytes,version0.5.0/build8,SHA256
+ d3888a5a007e3a6c4f1f0cf02c81b377928cbc0460459199a4ccd1dccf792bf4,
+UUID54E550CB-F57B-3BE1-94DF-19B90F9987E0. ZIP testzip passed,
+codesign --verify --deep --strict passed,dwarfdump --uuid exit0;
+all104payload metallibs byte-identical to ordinary test6.
+
+After preservation,configure -DNFSMW_RESOLUTION_STRESS_TEST=OFF to reset
+cache (resolution-stress-reset.log). Next normal build must actually rebuild:
+NFSMW.ipa and cache app bundle still contain this trial until then.
+Next device test: same five test6 args (nfsmw_native_metal_display_40=true,
+nfsmw_native_frame_trace=true,nfsmw_frame_ticks=2,nfsmw_frame_ticks_log=true,
+nfsmw_native_repeat_log=true),cold LiveContainer,Balanced40,Low Power Mode
+off,MetalFX off. Short1x baseline,raise gradually until sustained below40,
+restore1x;send log plus device/OS and game-speed/judder impressions. Pending
+menu/background-resume and other-device40/60 checks remain before default
+promotion/0.5.1candidate. Desktop checks do not establish device stability
+at8x or correct under-cap game speed. No version bump/push/tag/release.

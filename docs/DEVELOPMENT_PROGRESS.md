@@ -141,6 +141,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: test6 resolution-stress IPA ready; 14 Pro Max unavailable.**
+  Stefan returned the phone and requested temporary choices up to8x to
+  force GPU-limited output on another device; hopes to release tomorrow,
+  which is not permission to publish. Build-only CMake option
+  `NFSMW_RESOLUTION_STRESS_TEST` defaults OFF; ON adds2.5/3/4/5/6/8x
+  launcher/in-game choices and raises native numeric ceiling4->8.
+  Configure from ios with `cmake --preset ios -DNFSMW_RESOLUTION_STRESS_TEST=ON`,
+  then normal ipa build. Cache reset OFF after preserving test artifact;
+  rebuild before any normal candidate (current NFSMW.ipa is the stress IPA).
+  `ios/build/NFSMW-0.5.0-metal-display-40-test6-resolution-stress.ipa`,
+  SHA256 d3888a5a007e3a6c4f1f0cf02c81b377928cbc0460459199a4ccd1dccf792bf4,
+  UUID54E550CB-F57B-3BE1-94DF-19B90F9987E0. Build/ZIP/signature/shaders pass.
+  Next same five test6 args,Balanced40,Low Power Mode off:1x baseline,
+  raise gradually only until below40,restore1x;device/OS with log.
+  Return scale to1x before normal builds because settings persist.
+  No device result;missed-slot correctness/lifecycle/other-device40/60
+  checks still pending;experiment defaultoff,no release/version bump.
+
 - **October30: native chase(log10) confirms below40 slow motion; test6 built.**
   Archived nfsmw_iphone_14pm_10_metal_display_40_native_heavy_chase.log.
   Native1.792x heavy chase drops27-32fps,GPU~33-39ms;780 world updates
