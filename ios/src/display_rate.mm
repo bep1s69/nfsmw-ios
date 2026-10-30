@@ -125,7 +125,15 @@ void RequestRateForCap(int fps_cap) {
   const bool high = fps_cap == 40 || fps_cap == 120 || (fps_cap == 60 && REXCVAR_GET(ios_display_120_at_60));
   const bool match = REXCVAR_GET(ios_display_match_cap) && (fps_cap == 30 || fps_cap == 40 || fps_cap == 60);
   const float preferred = match ? float(fps_cap) : high ? 120.0f : 60.0f;
-  current_cap.store(fps_cap);
+  if (current_cap.exchange(fps_cap) != fps_cap) {
+    published_ns.store(0, std::memory_order_release);
+    published_period_ns.store(0, std::memory_order_relaxed);
+    managed_frame_period_ns.store(0, std::memory_order_relaxed);
+    using Publish = void (*)(uint64_t, uint64_t);
+    static Publish clear = reinterpret_cast<Publish>(dlsym(RTLD_DEFAULT, "nfsmw_display_vsync"));
+    if (clear) clear(0, 0);
+    nfsmw::metal_pacer::Tick();
+  }
   asked_hz.store(int(preferred));
   if (!link) {
     target = [[NFSDisplayRate alloc] init];

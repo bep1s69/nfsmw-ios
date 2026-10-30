@@ -12,11 +12,10 @@
 //     every frame;
 //   - the HUD's size and positions, post-processing: game_scene_size.cpp,
 //     every frame;
-//   - the 30/60 fps cap, 30 fps when warm, 30 fps in menus, 0.75x when hot:
+//   - all four fps caps, 30 fps when warm, 30 fps in menus, 0.75x when hot:
 //     battery.mm (ChooseCap, SettingsChanged).
-// The rest wait for the next launch, and the sheet says so: 40/120 fps (or
-// from them: they change the console's screen refresh and the threads'
-// priorities at launch), MSAA, and what Battery mode sets that is read once
+// The rest wait for the next launch, and the sheet says so: performance
+// profiles, MSAA, and what Battery mode sets that is read once
 // (anisotropic filtering, shadow quality...). Documents/extra_args.txt is
 // not read here: a setting changed here wins over it until the next launch.
 //
@@ -79,7 +78,10 @@ const std::set<std::string>& LiveFlags() {
   return flags;
 }
 
-bool LiveCap(NSString* fps) { return [fps isEqualToString:@"30"] || [fps isEqualToString:@"60"]; }
+bool LiveCap(NSString* fps) {
+  return [fps isEqualToString:@"30"] || [fps isEqualToString:@"40"] ||
+         [fps isEqualToString:@"60"] || [fps isEqualToString:@"120"];
+}
 
 std::pair<std::string, std::string> Split(const std::string& arg) {
   const size_t eq = arg.find('=');

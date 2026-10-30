@@ -20,8 +20,7 @@ void SetInMenu(bool in_menu);
 // thread (the touch controls read it).
 int InMenu();
 
-// The in-game options menu: the frame rate cap chosen (30 or 60; only when
-// the game started at one of them), and the caps' switches changed.
+// In-game cap choice (30/40/60/120), and the cap switches changed.
 void ChooseCap(int fps);
 void SettingsChanged();
 

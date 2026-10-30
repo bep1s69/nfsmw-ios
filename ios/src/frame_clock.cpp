@@ -132,6 +132,16 @@ extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double ra
   nfsmw::display::LatestVblank(vblank_ns, period_ns);
   const double period = period_ns ? double(period_ns) / 1e6 : 1000.0 / 60.0;
   static double debt = 0;  // real time not yet given to the game (ms); the main loop's thread only
+  static int previous_cap = -1;
+  static bool previous_managed = false;
+  const int cap = rex::cvar::Query<int32_t>("ios_fps_cap");
+  if (cap != previous_cap || bool(managed_period_ns) != previous_managed) {
+    debt = 0;
+    nfsmw::display::TakeManagedMissedSlots(0);
+    previous_cap = cap;
+    previous_managed = bool(managed_period_ns);
+  }
+
   if (managed_period_ns && nfsmw::battery::InMenu() == 0 &&
       rex::cvar::Query<int32_t>("ios_fps_cap") == 40) {
     // The Metal link displays one game frame per 25 ms slot. The main loop

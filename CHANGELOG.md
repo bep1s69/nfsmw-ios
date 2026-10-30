@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Change frame-rate caps while playing.** Switch between 30, 40, 60 and
+  120 fps in the in-game settings without relaunching. Device testing pending.
+
 ## 0.5.1
 
 - **Steady 60 fps on iPhone 14 Pro Max.** Fixed presentation scheduling that

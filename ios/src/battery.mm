@@ -56,8 +56,8 @@ std::atomic<int> in_menu{-1};
 std::atomic<float> heat_scale{0.0f};
 
 std::mutex cap_mutex;
-bool controlled = false;  // the launcher's cap is 30, 40 or 60 (120 is left alone)
-int chosen = 60;          // the cap chosen (launcher, in-game menu): 30, 40 or 60
+bool controlled = false;  // supported caps 30/40/60/120; auto reductions only at 40/60
+int chosen = 60;          // chosen cap (launcher or in-game): 30/40/60/120
 bool warm = false;        // Low Power Mode, or thermal state fair and above (with the way back at nominal)
 bool menu = false;
 int cap = 60;
@@ -72,12 +72,12 @@ void UpdateCap(const char* why) {
   cap = want;
   rex::cvar::SetFlagByName("ios_fps_cap", std::to_string(cap));
   REXLOG_INFO("[battery] cap {} fps: {}", cap, why);
-  if (nfsmw::display::MatchesCap()) {
-    const int now = cap;
-    dispatch_async(dispatch_get_main_queue(), ^{
-      nfsmw::display::RequestRateForCap(now);
-    });
-  }
+  const int now = cap;
+  // All live cap changes update the display, including the 40 fps owner.
+  if (NSThread.isMainThread) nfsmw::display::RequestRateForCap(now);
+  else dispatch_async(dispatch_get_main_queue(), ^{
+    nfsmw::display::RequestRateForCap(now);
+  });
 }
 
 }  // namespace
@@ -92,7 +92,7 @@ void SetInMenu(bool now) {
 
 void ChooseCap(int fps) {
   std::lock_guard<std::mutex> lock(cap_mutex);
-  if (!controlled || (fps != 30 && fps != 60)) return;
+  if (!controlled || (fps != 30 && fps != 40 && fps != 60 && fps != 120)) return;
   chosen = fps;
   UpdateCap("chosen in the options");
 }
@@ -112,10 +112,10 @@ void Start() {
   {
     std::lock_guard<std::mutex> lock(cap_mutex);
     const std::string launched = rex::cvar::GetFlagByName("ios_fps_cap");
-    // 40 too (0.4.2, Stefan): its 30 counts 4 of the 120 Hz guest vblanks
-    // (tools/ios/patch_ios_cap_30_at_120.py).
-    controlled = launched == "60" || launched == "30" || launched == "40";
-    chosen = cap = launched == "30" ? 30 : launched == "40" ? 40 : 60;
+    // All supported caps can be changed live. The SDK worker follows group
+    // transitions; menu/thermal reductions retain their existing 40/60 scope.
+    controlled = launched == "60" || launched == "30" || launched == "40" || launched == "120";
+    chosen = cap = launched == "30" ? 30 : launched == "40" ? 40 : launched == "120" ? 120 : 60;
   }
   REXLOG_INFO("[battery] 30 fps when warm {}, 30 fps in menus {}, 0.75x when hot {}{}",
               auto_cap ? "on" : "off", REXCVAR_GET(nfsmw_menu_cap) ? "on" : "off", hot_scale ? "on" : "off",

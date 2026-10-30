@@ -11099,3 +11099,68 @@ source audit and backlog/checkpoint update only. git diff --check for docs.
 Preserved pre-existing13line issue11 note,untrackedHANDOFF and siblingSDKwork;
 commit own documentation only.0.5.1 push authorization does not authorize new
 0.5.2 publication.
+
+
+### October30:0.5.2 test1 implements live FPS groups (device pending)
+
+Stefan agrees to prioritized implementation. Added patch_ios_live_fps.py last
+in SDK preparation order: at vblank worker loop,read cap and on transition
+choose60Hz for30/60,120Hz for40/120;update interval ticks,guest high-rate flag,
+Mach realtime period (if enabled),timer/display phase and lock log state. CP
+resets swap-vblank history on cap or high-rate change,aborts old bounded waits
+when either changes. Existing mark-vblank count remains monotonic. New cap
+can be seen briefly before worker acknowledges it;history resets again on high
+flag change. Stale display grid cannot lock if wrong rate;fallback timer until
+fresh matching grid. All motion/display transitions still require device proof.
+
+App changes: LiveCap allows four choices;battery controlled/chosen supports120
+and40 plus existing30/60;ChooseCap updates display unconditionally (on main
+immediately,otherwise queued). Auto/menu cap reductions still only chosen40/60.
+RequestRateForCap clears app/SDK published grid and managed period on cap change,
+then ticks Metal40 ownership (existing in-flight frame/generation safeguards).
+World clock clears debt/missed-slot history when cap or managed status changes.
+Keep mode0 bypass,120Hz simulation and0.5.1 catch-up/30quantum unchanged.
+Profiles remain launch-only for this trial;tablet startup profile behavior at
+new cap not recomputed yet (next shared profile work). No graphics changes.
+
+Validation:
+- Pre-change patch status: vblank_display1/2,fps_cap1/5,cap_30_at_1204/4.
+  Earlier NO statuses reflect existing nested later patches,not newly lost code.
+  New live patch applied3blocks,exit0,status3/3. Added last inprepare_sdk list;
+  did not rerun full SDK preparation over already-patched tree. Apply new script
+  directly;fresh preparation runs it after earlier cap/vblank patches.
+- `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3 tools/ios/test_live_fps_patch.py`
+  exit0:actual SDK fixtures,apply/idempotency/byte-exact revert;missing final
+  anchor causes exit1 with neither file modified (intentional failure check).
+- Existing host tests exit0: frame_clock_policy(fourcap jitter,25fps elapsed
+  conservation,loading bounds,10000legacy60 comparisons),world_step_limit
+  (36cases/twofixtures),managed_frame_slots(29000assignments). No device/
+  emulated console transition test yet. These tests do not establish smooth
+  cap changes or lack of races across real renderer/guest threads.
+- Configure/build fromios with normal preset and targetipa -j6 exit0 (25steps),
+  logs/tmp/nfsmw-052-live-fps-configure.log,/tmp/nfsmw-052-live-fps-build.log.
+  No failed build;existing compiler warnings. Added only explanatory battery
+  comments afterward,not executable code. git diff --check passed before docs.
+- Exclusive-create IPA,ZIP integrity,codesign --verify --deep --strict and UUID
+  checks pass.104metallibs identical to0.5.1. SDK runtime/GPU both rebuilt from
+  changed respective sources;source changes reproducible via app patchscript,
+  not a siblingSDK commit (many pre-existing modifications preserved).
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test1-live-fps.ipa`,
+30135229bytes,SHA256
+3c69c6a19d780d10bec953a03bd78f2f18425be65507d5f9b796310a8a6ac40e,
+UUID5DF4F2C5-0634-360E-B867-C33BEE325BBB. Bundle0.5.1/build9;intentionally no
+release version bump while testing. Ignored.json metadata beside IPA.
+
+Next device test:Balanced,1x,LPMoff,menu/thermal automatic caps initiallyOFF;
+no Extra Args required. Start60 then pause/change/resume and drive10–15s each:
+60->40->30->120->60->30->40->120->30->60->120->40->60.
+This covers all12ordered pairs. Check expectedFPS,world speed/motion,audio,input,
+blackframes/hangs and persistent need-for-relaunch labels. Then background/
+resume at40 and120;enable30fps-in-menus at40/60 and confirm restoration.
+Cold starts at30/40/120 plus fullmatrix onother hardware desirable after first
+shorttest. Sendlog;[live-fps] logs actual guest-rate transition. Optional old
+frame/camera/worldclock diagnostics if a problem needsquantifying. Do not
+add stress resolutions back. First validate caps,then live profiles;no push/
+tag/release. Preserved issue11checkpoint note,HANDOFF and siblingSDKwork;
+new SDK source edits are ONLY runtime/CP changes represented bynewpatch.

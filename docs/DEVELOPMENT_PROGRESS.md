@@ -166,6 +166,29 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30:0.5.2 test1 live-FPS switching built;device validation next.**
+  Stefan agrees to implementation order. All30/40/60/120 choices now live in
+  options,battery state supports all four;auto caps still only40/60. SDK worker
+  updates guest rate/phase/realtime interval and high-rate flag;swap history
+  resets/waits abort across cap changes. Display publication/Metal40 ownership
+  and world-clock debt reset.120Hz simulation/0.5.1 timing preserved.
+  SDK changes reproduced by `python3 tools/ios/patch_ios_live_fps.py` (apply LAST
+  after existing timing patches),included last in prepare_sdk list. Status3/3.
+  Earlier SDK patch scripts already reported superseded blocks missing BEFORE
+  this work;full prepare_sdk reapply on this heavily patched tree not attempted.
+  See TECHNICAL for observations/tests. No SDK tracked files staged in app repo.
+  `ios/build/NFSMW-0.5.2-test1-live-fps.ipa`,SHA256
+  `3c69c6a19d780d10bec953a03bd78f2f18425be65507d5f9b796310a8a6ac40e`,
+  UUID `5DF4F2C5-0634-360E-B867-C33BEE325BBB`,30135229bytes.
+  Bundle remains0.5.1/build9 intentionally;filename identifies trial. No release.
+  Next: device cap matrix inTECHNICAL,then implement live profiles only after
+  cap transitions accepted. No Extra Args needed for basic test;optional existing
+  frame trace/camera/tick diagnostics for comparisons. No stress resolutions.
+  Preserved pre-existing issue11 note,HANDOFF,siblingSDKwork;own SDK edits via
+  new tracked patchscript only. No push/tag/version bump this turn.
+  New host check: PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3
+  tools/ios/test_live_fps_patch.py; existing timing checks/build command unchanged.
+
 - **October30:0.5.1 released by Stefan;0.5.2 live-settings work prioritized.**
   User confirms update live (not independently queried). Promote existing
   all-cap/profile backlog entries to active; add profile audit, resumed
