@@ -931,6 +931,13 @@ caller paths beforecorrection. Buildenv/shaders/codegen restored;all old
 postpatches passed. No device result/defaultpromotion/release. Identity,
 newtoolchain caveat and restorationcommands inTECHNICAL/checkpoint.
 
+October30 test7/log13:engineclamp confirmed active33.333ms,flag2,budget4,
+main-loopcaller823AFE64 throughout1380samples.1x~100%engine-time speed;
+5x~73.5%,308/480updatesclipped despite~102%incomingtime. Nextscopefix
+preservesoriginalelapsedcatch-upbudget separately from120Hzstep under
+managed40driving,thenverifyactualengineoutput/host. Priorlog12accounting
+mismatch stillrequirescoverage. No sourcefix/newIPA/defaultpromotion yet.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
