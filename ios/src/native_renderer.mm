@@ -72,6 +72,7 @@
 #include "battery.h"
 #include "performance_profile.h"
 #include "native_renderer.h"
+#include "touch_controls.h"
 #include "metal_display_pacer.h"
 #include "memory_report.h"
 #include "gpu_capture.h"
@@ -1183,6 +1184,7 @@ struct Frame {
   std::vector<std::shared_ptr<const Texture>> textures;
   std::unordered_map<FetchKey, int, FetchKeyHash> texture_index;
   uint32_t skipped_inline = 0, skipped_shader = 0, skipped_other = 0;
+  bool movie_picture = false; // includes native movie shaders as well as fallback
   uint32_t movie_draws = 0;  // the video player's picture (no library for its shaders)
   uint32_t from_arguments = 0;  // DrawVertices rebuilt from their arguments
   std::set<uint32_t> unsupported_formats;
@@ -2461,6 +2463,7 @@ const CachedFetchLayout* FetchLayoutFor(const NfsmwNativeDraw& in, const std::ve
 }
 
 void Record(Frame& frame, const NfsmwNativeDraw& in) {
+  if (in.vs_key==0xacc15ef6157ec934ull || in.ps_key==0x2d2462de73d283deull) frame.movie_picture=true;
   const uint32_t* regs = in.regs;
   // Inline draws (DRAW_INDX_2: D3D's draws from user memory, e.g. the bloom
   // chain): their vertices are in the ring, behind a vertex fetch constant
@@ -8323,6 +8326,7 @@ bool NativeSwap() {
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);
+    nfsmw::touch::SetMoviePlaying(frame->movie_picture);
     previous_motion_constants.swap(frame->motion_constants);
     frame->motion_constants.clear();
     if (frame->movie_draws) {

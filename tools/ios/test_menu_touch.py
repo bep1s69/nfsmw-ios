@@ -89,7 +89,7 @@ int main() {
  Object(0x72000,1,120,20,30,30,0,12345);
  hints.clear();budget=2000;FindHints(nullptr,0x70000,0,0,1,1,0,false,0,hints,budget);
  assert(HintAt(hints,-30,20)->button==4);
- assert(HintAt(hints,30,20)->button==Left);
+ assert(HintAt(hints,30,20)->button==Right);
  assert(HintAt(hints,120,20)->button==0); // unknown not guessed as A
  // Corrupt sibling cycle must stop at the shared budget.
  words[0x72000+4]=0x70000;hints.clear();budget=10;
@@ -127,6 +127,31 @@ int main() {
  hints.push_back({5,0,44,-184,20,20,Left,false});
  assert(ScrollAt({},hints,{},-100,0,true));
  assert(!ScrollAt({},hints,{},200,0,true));
+ // Root-level pause frame shares a texture with its outer decorative frame.
+ std::vector<MenuNode> pause;
+ for (auto [cx,cy]:{std::pair{81.f,-18.f},{152.f,-18.f},{81.f,43.f},{152.f,43.f},
+                   {-280.f,-90.f},{280.f,-90.f},{-280.f,79.f},{280.f,79.f}})
+   pause.push_back({uint32_t(pause.size()+1),0,0,0x475A90F5,1,cx,cy,32,32});
+ auto pf=FocusFrames(pause);assert(pf.size()==1 && pf[0].rect.Contains(116,12));
+ // Rotated car-category arrows must send Up/Down, title arrows remain Left/Right.
+ std::vector<Hint> car={{0x0603C1D1,0x1A6D3D2C,-270,-197,20,20,Left,false},
+                       {0xC6EAC384,0x1A6D3D2C,-276,-152,20,20,Right,false},
+                       {0x0603C1D1,0x1A6D3D2C,-83,-174,20,20,Left,false},
+                       {0xFEA90A33,Hash("CIRCLE"),-29,208,20,20,8,true}};
+ CorrectMenuHints(car,true);
+ assert(car[0].button==Up && car[1].button==Down && car[2].button==Left && car[3].button==(1<<10));
+ assert(WidgetDragAt("Car_Select.fng",{},car,-193,-170)==VerticalDrag);
+ assert(WidgetDragAt("Car_Select.fng",{},car,0,70)==HorizontalDrag);
+ assert(WidgetDragAt("Showcase.fng",{},car,0,70)==CameraDrag);
+ assert(WidgetDragAt("Showcase.fng",{},car,0,230)==NoDrag);
+ std::vector<MenuNode> panel={{1,0,0,0,1,0,0,300,330}};
+ assert(WidgetDragAt("MC_List.fng",panel,{},0,-60)==VerticalDrag);
+ assert(WidgetDragAt("MC_List.fng",panel,{},300,-60)==NoDrag);
+ panel[0].type=9;assert(WidgetDragAt("MC_List.fng",panel,{},0,-60)==VerticalDrag);
+ std::vector<Hint> tracks={{1,0,-25,172,20,20,LT,false},{2,0,266,172,20,20,RT,false},
+                           {3,0,-21,-171,20,20,Left,false}};
+ assert(WidgetDragAt("Track_Select.fng",{},tracks,100,0)==HorizontalDrag);
+ assert(WidgetDragAt("WorldMapMain.fng",{},tracks,100,0)==NoDrag); // distinct map behavior
  // Popup choices are wide images; a hidden choice never enters the snapshot.
  nodes={{0x90000,1,0xB8A7C6CC,0,1,2,82,154,32},
         {0x91000,1,0xB8A7C6CD,0,1,167,82,154,32}};
@@ -158,7 +183,7 @@ int main() {
  popup.last_move-=std::chrono::milliseconds(230);
  assert(PopupAction(pkg,106,167,82)==(SelectChoice|Right));
  assert(PopupAction(pkg,106,167,82)==WaitForChoice); // no repeat until focus moves
- puts("PASS: gesture direction/repeat; actual FE walker nested/standalone/trigger/arrow/label/hidden/cycle cases");
+ puts("PASS: gesture policy; actual FE walker, root focus frames, rotated arrows, list/map/car regions and popup confirmation");
 }
 '''
 with tempfile.TemporaryDirectory() as t:

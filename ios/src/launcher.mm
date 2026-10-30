@@ -544,6 +544,9 @@ const std::vector<Section>& Sections() {
             @"Off: the game is quiet when the phone's silent switch is on, like most iOS games. "
             @"On: the game's sound plays anyway.",
             @"false"},
+           {@"audio_mix_others", Type::kSwitch, @"Keep other music playing",
+            @"Let music from another app continue alongside the game. You can lower the game's "
+            @"music volume separately in its audio settings. Applies when launching the game.", @"false"},
            {@"audio_starve_reset", Type::kSwitch, @"Audio stream reset",
             @"When a sound stream runs out of data, drop what it had decoded but not yet played "
             @"(Xenia Canary's fix for stale sounds in NFS). Leave it on: off, music cuts out. "
@@ -904,6 +907,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
+  a.push_back("--ios_audio_mix_others=" + b(On(s, @"audio_mix_others")));
   a.push_back("--ios_audio_silent_mode=" + b(On(s, @"audio_silent_mode")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
   // No Vulkan at all when the native renderer draws everything

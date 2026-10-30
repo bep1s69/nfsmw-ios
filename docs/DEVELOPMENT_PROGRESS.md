@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan, test7 follow-up): strict menu gestures must still skip
+  intro movies and advance Press Start. Add opt-in other-app music mixing;
+  map/car-preview swipe areas, category Up/Down and showcase drag/pinch where
+  supported. Keep free-roam map behavior separate. Popup screens have OK/Cancel,
+  not their own A hint: compare with PAD A while OK is selected if isolating
+  the reported safehouse freeze. No ordinary-A-hint comparison was performed.
+
 - October 31 (Stefan): the empty-space accept toggle also controls anywhere
   scrolling. OFF means taps on actionable controls and swipes starting inside
   scrollable widgets. Two-finger Back has its own independent live option,
@@ -178,6 +185,38 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: test8 menu/audio trial ready; safehouse stall remains unresolved.**
+  Test7/log24 contains the entire log23 prefix plus a new launch at01:28:39.820.
+  Archived log/four screenshots under Debug/31 October2026 (`17pm_24_*`).
+  Root-level pause highlight now recognized alongside decorative frame; generic
+  ARROW directions corrected from observed pause taps. Rotated car-category
+  chevrons resolve Up/Down, and Car_Select's visible RB Showcase overrides its
+  misleading CIRCLE texture. Wider list panel uses vertical navigation. Quick
+  Race Track_Select map and car-preview regions use horizontal navigation;
+  world-map cursor remains separate. Showcase trial: one-finger camera motion,
+  pinch trigger zoom, short analog pulses stop when fingers stop; needs actual
+  axis/layout validation on device (no claim all shop/showcase variants work).
+  Intro movie taps explicitly skip via movie-input detection including native
+  movie shaders; Splash tap sends Start with anywhere OFF. Music option in
+  launcher Audio: **Keep other music playing**, `ios_audio_mix_others=false`
+  default/restart-only. Ambient mixing with silent-mode sound OFF; Playback+
+  MixWithOthers when ON. No game-music auto-mute.
+  Popup log shows desired OK highlight and one A, then engine request/job wait,
+  renderer stops, audio zeros, nominal thermal/ample memory. Cause NOT fixed or
+  proven touch-related. Added [job-wait] job/worker/caller/elapsed diagnostics
+  after1s then5s; no forced job completion/timing-policy change. Next FIRST:
+  safehouse popup with PAD A while OK selected, then direct OK, send full log.
+  Then strict startup/save/pause/category/track/car gestures; showcase drag/pinch;
+  music playing before game launch with new option ON, silent-mode combinations.
+  Host tests/four incremental builds pass; ZIP/signature/104shaders/2SDKdylibs
+  verified (shaders/dylibs identical to test7). Final artifact:
+  `ios/build/NFSMW-0.5.2-test8-menu-areas-and-music-r2.ipa`, 30171188 bytes,
+  SHA256 `535a4e5ed5d7ca27a7aefae0c4195af3d95ccf2f82a90757c18ab26948f9476b`,
+  UUID `DF24267D-B2DC-35CB-BEEE-B8FECA0C2A6B`, bundle0.5.1/build9. No device validation yet,
+  push/tag/release/version bump. Preserve pre-existing issue11 note unstaged,
+  HANDOFF untracked, sibling SDK work. Detailed evidence/limits TECHNICAL;
+  matching menu/audio and recurring loading-stall backlog entries updated.
 
 - **October 31: test7 menu widgets and independent two-finger Back ready.**
   Test6/log23: user confirms blank-tap OFF works; main selected icon, Quick Race

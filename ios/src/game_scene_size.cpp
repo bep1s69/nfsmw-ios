@@ -1429,7 +1429,7 @@ int ButtonOfObject(uint32_t hash) {
   if (hash == 0xD1CDA594) return LT;
   if (hash == 0x9345E4A7) return RT;
   // Test6 Quick Race / carousel chevrons, texture 1A6D3D2C.
-  if (hash == 0x0603C1D1) return Left;
+  if (hash == 0x0603C1D1 || hash == 0x29B7FF24) return Left;
   if (hash == 0x6126AB37 || hash == 0xC6EAC384) return Right;
   if (hash == 0xBFF41BD9) return Left;
   if (hash == 0xBEE65E8C) return Right;
@@ -1502,7 +1502,7 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     if (!button) button=ButtonOfTexture(texture);
     if (!button) button=inherited_action;
     if (!button && texture==nfsmw::menu_touch::Hash("ARROW"))
-      button=w<0?nfsmw::menu_touch::Left:nfsmw::menu_touch::Right;
+      button=w<0?nfsmw::menu_touch::Right:nfsmw::menu_touch::Left;
     // Keep small unknown icons for a diagnostic only; never guess their action.
     if (button || (std::abs(w)>=10&&std::abs(h)>=10))
       out.push_back({hash,texture,gx,gy,std::max(20.f,std::abs(w)/2+5),
@@ -1522,24 +1522,73 @@ const Hint* HintAt(const std::vector<Hint>& hints,float x,float y) {
   return best;
 }
 
-std::vector<FocusFrame> FocusFrames(const std::vector<MenuNode>& nodes) {
+std::vector<FocusFrame> FocusFrames(const std::vector<MenuNode>& nodes,float max_height=130) {
   std::vector<FocusFrame> frames;
-  std::unordered_set<uint32_t> seen;
-  for (const auto& n:nodes) {
-    if (!n.parent || !seen.insert(n.parent).second) continue;
-    MenuRect rect{1e9f,1e9f,-1e9f,-1e9f};
-    int corners=0;
-    for (const auto& c:nodes) if (c.parent==n.parent &&
-        (c.texture==0x6FB79A55 || c.texture==0x475A90F5) && c.type!=5 &&
-        std::abs(c.w)<=32 && std::abs(c.h)<=32) {
-      rect.Include({c.x,c.y,c.x,c.y});++corners;
+  std::vector<const MenuNode*> corners;
+  for (const auto& n:nodes) if ((n.texture==0x6FB79A55 || n.texture==0x475A90F5) && n.type!=5 &&
+      std::abs(n.w)<=32 && std::abs(n.h)<=32) corners.push_back(&n);
+  // A package can have both a large decorative frame and a selected-entry
+  // frame at root level. Match geometry, not a nonzero/common parent alone.
+  for (const auto* tl:corners) for (const auto* br:corners) {
+    if (tl->parent!=br->parent || tl->texture!=br->texture || br->x-tl->x<20 || br->x-tl->x>540 ||
+        br->y-tl->y<12 || br->y-tl->y>max_height) continue;
+    bool tr=false,bl=false;
+    for (const auto* c:corners) if (c->parent==tl->parent && c->texture==tl->texture) {
+      tr=tr||(std::abs(c->x-br->x)<=2 && std::abs(c->y-tl->y)<=2);
+      bl=bl||(std::abs(c->x-tl->x)<=2 && std::abs(c->y-br->y)<=2);
     }
-    // Exclude large decorative screen frames and incomplete/hidden highlights.
-    if (corners==4 && rect.right-rect.left>=20 && rect.right-rect.left<=540 &&
-        rect.bottom-rect.top>=12 && rect.bottom-rect.top<=130)
-      frames.push_back({n.parent,rect});
+    if (!tr||!bl) continue;
+    const MenuRect rect{tl->x,tl->y,br->x,br->y};
+    if (std::none_of(frames.begin(),frames.end(),[&](const FocusFrame& f){
+      return f.parent==tl->parent && std::abs(f.rect.X()-rect.X())<3 && std::abs(f.rect.Y()-rect.Y())<3;
+    })) frames.push_back({tl->parent,rect});
   }
   return frames;
+}
+void CorrectMenuHints(std::vector<Hint>& hints,bool car_select) {
+  using namespace nfsmw::menu_touch;
+  for (auto& h:hints) {
+    if (car_select && h.group==0xFEA90A33) h.button=1<<10; // visible RB Showcase, not Y
+    if (h.texture!=0x1A6D3D2C) continue;
+    const Hint* opposite=nullptr;
+    for (const auto& other:hints) if (other.texture==h.texture && std::abs(other.x-h.x)<24 &&
+        std::abs(other.y-h.y)>=28 && std::abs(other.y-h.y)<=130 &&
+        (!opposite || std::abs(other.y-h.y)<std::abs(opposite->y-h.y))) opposite=&other;
+    // The category widget rotates the same arrow objects by 90 degrees.
+    if (opposite) h.button=h.y<opposite->y?Up:Down;
+  }
+}
+int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,float x,float y) {
+  using namespace nfsmw::menu_touch;
+  if (name=="Showcase.fng") return MenuRect{-280,-170,280,180}.Contains(x,y)?CameraDrag:NoDrag;
+  if (name=="Car_Select.fng" || name=="MyCarsManager.fng") {
+    for (const auto& up:hints) for (const auto& down:hints) if (up.button==Up && down.button==Down &&
+        std::abs(up.x-down.x)<24 && down.y>up.y) {
+      if (MenuRect{up.x-28,up.y-22,up.x+155,down.y+45}.Contains(x,y)) return VerticalDrag;
+    }
+    if (MenuRect{-280,-110,280,180}.Contains(x,y)) return HorizontalDrag;
+  }
+  if (name=="Track_Select.fng") {
+    for (const auto& lt:hints) for (const auto& rt:hints) if (lt.button==LT && rt.button==RT && rt.x>lt.x) {
+      for (const auto& arrow:hints) if (arrow.button==Left && arrow.y<lt.y-100 &&
+          MenuRect{lt.x-25,arrow.y+24,rt.x+25,lt.y-24}.Contains(x,y)) return HorizontalDrag;
+    }
+  }
+  if (name=="MC_List.fng") {
+    // The complete list panel is a scroll surface, not just its animated row.
+    for (const auto& frame:FocusFrames(nodes,440)) {
+      auto panel=frame.rect;
+      if (panel.bottom-panel.top<140) continue;
+      panel.top+=40;panel.bottom-=50;
+      if (panel.Contains(x,y)) return VerticalDrag;
+    }
+    for (const auto& n:nodes) if ((n.type==1 || n.type==9) && std::abs(n.w)>=160 && std::abs(n.w)<=500 &&
+        std::abs(n.h)>=160 && std::abs(n.h)<=440) {
+      auto panel=NodeRect(n);panel.top+=40;panel.bottom-=50;
+      if (panel.Contains(x,y)) return VerticalDrag;
+    }
+  }
+  return NoDrag;
 }
 std::vector<MenuNode> DialogChoices(const std::vector<MenuNode>& nodes) {
   std::vector<MenuNode> choices;
@@ -1618,6 +1667,7 @@ std::vector<MenuPackage> MenuPackages(uint8_t* base,uint32_t engine) {
     MenuPackage pkg{p,GuestName(base,REX_LOAD_U32(p+12)),{},{},{}};
     int budget=2000;
     if (first) FindHints(base,first,0,0,1,1,0,false,0,pkg.hints,budget,&pkg.nodes);
+    CorrectMenuHints(pkg.hints,pkg.name=="Car_Select.fng");
     pkg.frames=FocusFrames(pkg.nodes);
     packages.push_back(std::move(pkg));
   }
@@ -1666,16 +1716,25 @@ int PopupAction(const MenuPackage& pkg,int serial,float x,float y) {
 // MENU_TOUCH_POPUP_END
 }  // namespace
 
-extern "C" bool nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y) {
+extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y) {
   const auto packages=MenuPackages(base,engine);
-  for (const auto& pkg:packages) if (IsDialog(pkg)) return false;
+  using namespace nfsmw::menu_touch;
+  for (const auto& pkg:packages) if (IsDialog(pkg)) return NoDrag;
+  for (const auto& pkg:packages) {
+    const int mode=WidgetDragAt(pkg.name,pkg.nodes,pkg.hints,x,y);
+    if (mode) return mode;
+  }
   for (const auto& pkg:packages)
-    if (ScrollAt(pkg.nodes,pkg.hints,pkg.frames,x,y,pkg.name=="WorldMapMain.fng")) return true;
-  return false;
+    if (ScrollAt(pkg.nodes,pkg.hints,pkg.frames,x,y,pkg.name=="WorldMapMain.fng"))
+      return pkg.name=="WorldMapMain.fng"?MapDrag:MenuDrag;
+  return NoDrag;
 }
 extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,int serial) {
   const auto packages=MenuPackages(base,engine);
   for (const auto& pkg:packages) if (IsDialog(pkg)) return PopupAction(pkg,serial,x,y);
+  for (const auto& pkg:packages) if (pkg.name=="WS_MW_LS_Splash.fng" || pkg.name=="MW_LS_Splash.fng") {
+    REXLOG_INFO("[touch-widget] title screen: Start");return 1<<6;
+  }
   // A popup closed/replaced before focus confirmation: never accept its successor.
   if (popup.serial==serial) return -1;
   std::vector<Hint> hints;

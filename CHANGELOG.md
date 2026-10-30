@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Keep your music playing.** An optional Audio setting lets other apps' music
+  continue alongside the game when launching it.
+- **More menu gesture coverage.** Strict touch navigation now includes startup
+  movie skipping, Press Start, wider save-list gestures, corrected pause and
+  car-category arrows, track-map and car-preview swipes, and a showcase camera
+  gesture trial. Device validation is pending; the safehouse stall is unresolved.
+
 - **More control over menu gestures.** Choose whether taps and swipes work
   anywhere or only on menu controls, with a separate two-finger Back switch.
   Added selected-icon and popup-choice tapping, corrected track arrows and

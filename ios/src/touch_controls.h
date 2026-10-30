@@ -34,11 +34,14 @@ void SetMapUp(bool up);
 
 // A one-finger tap in a menu, for the game's thread to look for a button
 // hint under it (package units from the middle of the screen); answered
-// with MenuTapResult(serial, button bits, 0 none, -1 a hint not known).
+// with MenuTapResult: button bits, 0 blank, -1 ignored, or a popup selection
+// response from menu_touch_policy.h. Scroll queries return that header's DragMode.
 bool TakeMenuTap(int& serial, float& x, float& y);
 void MenuTapResult(int serial, int button);
 bool TakeMenuScroll(int& serial, float& x, float& y);
-void MenuScrollResult(int serial, bool allowed);
+void MenuScrollResult(int serial, int mode);
+void SetMoviePlaying(bool on);
+void SetShowcaseUp(bool on);
 
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen

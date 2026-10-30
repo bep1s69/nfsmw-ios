@@ -11676,3 +11676,131 @@ OFF/ON independent, B hint still active; anywhere ON/inversion/PAD return.
 No new device validation, push/tag/release/version bump. Preserve pre-existing
 13-line issue11 checkpoint note unstaged, HANDOFF_CHATGPT.md untracked, sibling
 SDK changes untouched. Session code/docs committed locally only.
+
+
+### October 31: test7 log24 gaps/safehouse stall; test8 menu regions and music mixing
+
+Stefan reports: anywhere OFF prevents intro skip/Press Start; wants Quick Race
+map swipes separate from free-roam map, car-preview swipes across car selectors,
+category Up/Down, working RB Showcase and showcase camera gestures. Save list
+swipes inconsistent; pause icon/region inert, arrows reversed. Direct OK on
+return-to-safehouse freezes. Optional external music continuation requested.
+
+Evidence preserved, exclusive-create/byte comparison, originals retained. Folder:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_24_052_test7_menu_gaps.log`,3808770 bytes,23030 lines,
+  SHA2568b12e96a91b991db1b5646b577460518f7bf6ea22436d82dbff7fd5acfed925a.
+- `nfsmw_iphone_17pm_24_car_selector.png`,3310255 bytes,
+  SHA2561218a2ec7a683512a08a8ebd0a5adc5c8e44b17278759eb298c04713974ae9d2.
+- `nfsmw_iphone_17pm_24_save_list.png`,2247454 bytes,
+  SHA256c2e9015ca7e217b2d87b09d6489ef2c55596aa9ab6d1120e837f44c4d0681963.
+- `nfsmw_iphone_17pm_24_pause_menu.png`,2318368 bytes,
+  SHA256385a4892613dd564d5d8ecb94f3271ea3913336146e9194276932fd625d63057.
+- `nfsmw_iphone_17pm_24_safehouse_freeze.png`,2615519 bytes,
+  SHA256b555739bb5578c94a91111d8fcefb7c9a239b8d6c1ab1527baf61c1768b743e4.
+Source log:
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/F2DEB463-C07E-4888-A977-583AAD5DE810/nfsmw.log`.
+Screenshots from `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`, respectively:
+`codex-clipboard-d91a9757-86b9-49c8-8896-fb47616f1ce7.png`,
+`codex-clipboard-677f2032-1ded-4b7f-b7a4-ebefd06035bf.png`,
+`codex-clipboard-80cee871-1e4e-4e8b-afb2-61e3cc8fcabe.png`,
+`codex-clipboard-b48ac866-7e7a-410e-9eef-596dd1885618.png`.
+
+Log24 starts with the exact1566612-byte log23 prefix (verified), including its
+partial last line. New launch begins01:28:39.820 on that same physical line9535;
+analysis separates the new launch through01:38:24.167. Printed ios/native build
+stamps are cached old translation-unit stamps, not reliable whole-IPA identity.
+New touch-widget/scroll-mode/test7 popup markers identify new implementation;
+artifact UUID not independently logged. iPhone17PM per ongoing user context,
+OS not newly supplied. Final native samples cap60/1x, Low Power Mode OFF,
+thermal nominal; exact complete Extra Args not supplied in this turn.
+
+Findings and scoped trial changes:
+- Pause corners are ROOT objects(parent0), same texture475A90F5 as decorative
+  outer frame. Old FocusFrames skipped parent0, and one-parent-count-four would
+  also combine multiple frames. Match four geometric corners of same texture/
+  parent, including root; reject large/incomplete frames. Observed selection
+  bounds81..152,-18..43 now recognized. Host fixture includes simultaneous outer
+  -280..280,-90..79 and inner frame; only inner passes selected-frame bounds.
+- Pause left object444969FD at-20,11 had actionRight; right444969FE at246,11 had
+  actionLeft. Generic ARROW actually points left with positive width, right
+  when mirrored. Reversed default sign mapping; explicit known IDs retained.
+- Car category uses same1A6D3D2C arrow objects as track/title, but top cluster
+  atx~-270,y-197 and bottomx~-276,y-152. Postprocess spatial vertical pairs to
+  Up/Down, including shadow29B7FF24 (now recognized Left when horizontal).
+  Category region locks vertical swipes; preview region locks horizontal.
+- Visible RB Showcase taps resolvedFEA90A33/textureCIRCLE->Y in Car_Select;
+  package-specific override nowRB. Does not globally change CIRCLE/Y hints.
+- MC_List allows its whole bounded panel (image/colored-image or outer corners),
+  excluding header/footer; vertical axis no longer depends on animated row only.
+  Full real-list layout coverage remains unconfirmed. Quick Race Track_Select
+  map canvas uses live track/region anchors and horizontal mode. WorldMapMain
+  retains cursor right-stick path; no track-selection behavior enabled there.
+- Showcase.fng region routes single-finger camera pulses to right stick;
+  two-finger distance changes pulse LT/RT zoom. Pulses expire50ms after movement,
+  release/cancel clears input; pinch movement suppresses Back. Invert menu swipes
+  does not invert camera. This is an INPUT-MAPPING TRIAL: actual showcase axes,
+  zoom direction/sensitivity and safehouse/tuning shop package reuse still need
+  device verification. Car previews are bounded scene areas rather than car
+  mesh hit-tests. No claim of universally finished camera gestures.
+- Startup: Splash package tap sends Start even with anywhere OFF. Native draw
+  recording separately detects XMV shader keys (including native movie shaders,
+  not only missing-shader fallback) to allow one-finger A skip while movie plays.
+  No rendering/shader/presentation policy changed by that detection. Anywhere
+  query now runs for semantic direction/camera mode even when anywhere ON.
+
+Audio: launcher Audio **Keep other music playing**, new savedaudio_mix_others /
+`--ios_audio_mix_others=true`, defaultfalse, requires launch/restart. Existing
+`ios_audio_silent_mode` unchanged. Mixing ON + silent-mode sound OFF => Ambient;
+ON + silent-mode sound ON => Playback with MixWithOthers; mixing OFF preserves
+SoloAmbient/Playback defaults. No automatic game music muting. API failures
+logged; activation remains on existing background queue. Apple primary docs:
+https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/soloambient
+https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/mixwithothers
+Build/source validation only; real external audio/Bluetooth/resume not tested.
+
+Safehouse freeze evidence (NOT fixed):01:37:43.058 selects B8A7C6CC fromCD;
+43.258 desired targetBE8BD720 highlighted,43.259 oneA; dialog gone43.542.
+No later native frame summaries, game audio becomes all-zero. Watchdogs at
+01:37:52.416,01:38:07.468,01:38:17.511 show guest7 waiting8261D610 from engine
+request-completion path821C8E48 ->825D3F60 ->82620460. Render thread6 waits for
+work. Source confirms job-completion wait, not the old null-call crash. Footprint
+~1350MiB,~4794MiB before limit, thermal nominal: no evidence of memory/thermal
+cause here. This does NOT establish why the job is incomplete or whether direct
+input caused it. Popup selection itself resolved correctly; no speculative
+semaphore completion/state reset added. Existing2ms lost-wakeup retry retained.
+Added [job-wait] address/result/worker/original caller/elapsed warning after1s,
+then every5s in indefinite wait. It diagnoses, does not fix the stuck job.
+Stefan clarifies popup has OK/Cancel only, no visible A hints. No comparison
+with PAD A yet; next do that with OK selected, then direct OK and send full log.
+Prior loading-freeze entry updated as active recurrence, same root not asserted.
+
+Validation:
+- `python3 tools/ios/test_menu_touch.py`: initial new-source run SIGABRT(exit1)
+  on old mirrored-arrow assertion; expected direction corrected from actual pause
+  evidence. Later runs exit0, final output includes actual walker/root frames/
+  rotated arrows/list-map-car regions/popup confirmation. Added type9 panel,
+  category Up/Down/title Left, RB override and Track_Select-vs-WorldMap fixtures.
+  These tests do not exercise UIKit events or prove real camera axes/music.
+- Four incremental `cmake --build --preset ios --target ipa -j 6` runs fromios,
+  all exit0: /tmp/nfsmw-052-menu8-build.log (17 planned steps),build2.log(6),
+  build3.log(5),build4.log(5). Existing enum/asm/duplicate-z warnings, no errors.
+  A preceding relative-path Python edit failed FileNotFoundError because command
+  cwd wasios; corrected from repo root before final build, no source lost.
+- Internal first test8 artifact retained, not delivered:30170355bytes,
+  SHA256084fe6853a5f27dd70a59f50f88fec930cc122c2545830f183a44ebe247ce86e,
+  UUIDC99A2D90-3A52-34AB-B83D-F7AAFC6082E9. Source review caught movie_draws
+  only tracks missing-shader fallback; finalr2 uses separate movie_picture flag
+  on actual XMV inputs so default native movies are detected too.
+- Final ZIP integrity, codesign --verify --deep --strict,dwarfdump UUID pass;
+  104metallibs and2SDKdylibs byte-identical to test7. gitdiff--check pass.
+
+Final artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test8-menu-areas-and-music-r2.ipa`,
+30171188bytes,SHA256535a4e5ed5d7ca27a7aefae0c4195af3d95ccf2f82a90757c18ab26948f9476b,
+UUIDDF24267D-B2DC-35CB-BEEE-B8FECA0C2A6B,bundle0.5.1/build9.
+Ignored .json beside IPA. Next first PAD A/directOK safehouse comparison and new
+stall log, then strict startup/save/pause/category/QuickRace-map/car previews,
+Showcase drag/pinch, music before launch with mixing ON and silent-mode options.
+No on-device acceptance, new energy claims, SDK edits, FPS/profile timing policy
+changes,push/tag/release/version bump. Preserve pre-existing13-line issue11
+checkpoint note unstaged,HANDOFF untracked,and sibling SDK modifications.

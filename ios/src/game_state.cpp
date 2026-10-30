@@ -153,7 +153,7 @@ extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driv
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 extern "C" void nfsmw_hud_full_size(bool on);
 extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y, int serial);
-extern "C" bool nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y);
+extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y);
 
 namespace {
 bool fade_up = false;
@@ -219,6 +219,8 @@ extern "C" REX_FUNC(sub_823B4158) {
   }
   // The world map: swipes move its cursor (the right stick).
   {
+    static const char* const kShowcase[] = {"Showcase.fng"};
+    nfsmw::touch::SetShowcaseUp(PushedPackage(ctx,base,kShowcase,1)>=0);
     static const char* const kMap[] = {"WorldMapMain.fng"};
     nfsmw::touch::SetMapUp(state == kRacing && PushedPackage(ctx, base, kMap, 1) >= 0);
   }

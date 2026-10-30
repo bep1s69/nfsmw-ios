@@ -130,6 +130,7 @@ void PressMenuButton(int button);
 
 // nfsmw::touch::SetMapUp, from the game's thread.
 std::atomic<bool> g_map_up{false};
+std::atomic<bool> g_movie_playing{false}, g_showcase_up{false};
 
 // nfsmw::touch::SetDragRace, from the game's thread.
 std::atomic<bool> g_drag{false};
@@ -188,6 +189,16 @@ void PressMenuButton(int button) {
   SetPadState(buttons, 0, 0, 0, 0, (button & (1 << 20)) ? 1 : 0, (button & (1 << 21)) ? 1 : 0);
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     if (generation == g_menu_press_generation && g_buttons == buttons) SetPadState(0, 0, 0, 0, 0, 0, 0);
+  });
+}
+
+// Short analog motion pulses: keeping a finger still must stop the showcase
+// camera, unlike the deliberately held-stick world-map cursor gesture.
+void PulseCameraInput(float x,float y,float zoom) {
+  const uint64_t generation=++g_menu_press_generation;
+  SetPadState(0,0,0,x,y,zoom<0?-zoom:0,zoom>0?zoom:0);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,int64_t(.05*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+    if (generation==g_menu_press_generation) SetPadState(0,0,0,0,0,0,0);
   });
 }
 
@@ -297,8 +308,11 @@ struct Control {
   // time, from its first finger down to the last one up.
   BOOL _gestures;
   BOOL _padOverride;  // the PAD pill: the full gamepad in this menu
-  CGPoint _gStart, _gLast;
+  CGPoint _gStart, _gLast, _gCameraLast;
   BOOL _gScrollAllowed;
+  int _gDragMode;
+  CGFloat _gPinchStart;
+  BOOL _gPinching;
   int _gScrollSerial;
   NSTimeInterval _gTime;
   BOOL _gSwiping;
@@ -926,7 +940,7 @@ static CGFloat TouchOpacity() {
                 CGRectContainsPoint(_snap, p);
     }
     if (!on_pill) {
-      [self gestureBegan:touches];
+      [self gestureBegan:touches event:event];
       return;
     }
   }
@@ -997,16 +1011,19 @@ static CGFloat TouchOpacity() {
   [_gRepeatTimer invalidate];
 }
 
-- (void)gestureBegan:(NSSet<UITouch*>*)touches {
+- (void)gestureBegan:(NSSet<UITouch*>*)touches event:(UIEvent*)event {
   if (_gDown == 0) {
     [self stopMenuRepeat];
     SetPadState(0,0,0,0,0,0,0);
     _gStart = [touches.anyObject locationInView:self];
     _gLast = _gStart;
+    _gCameraLast = _gStart;
     _gScrollAllowed = REXCVAR_GET(ios_touch_menu_empty_accept);
     g_scroll_pending.store(0);
     _gScrollSerial = ++g_tap_serial;
-    if (!_gScrollAllowed) {
+    _gDragMode=nfsmw::menu_touch::MenuDrag;
+    _gPinching=NO;
+    {
       const CGFloat scale = self.bounds.size.height * .92 / 480.;
       g_scroll_x.store(float((_gStart.x-self.bounds.size.width/2)/scale));
       g_scroll_y.store(float((_gStart.y-self.bounds.size.height/2)/scale));
@@ -1020,7 +1037,19 @@ static CGFloat TouchOpacity() {
   g_tap_pending.store(0);
   _gDown += int(touches.count);
   _gFingers = std::max(_gFingers, _gDown);
-  if (_gFingers > 1) { [self stopMenuRepeat]; SetPadState(0,0,0,0,0,0,0); }
+  if (_gFingers > 1) {
+    [self stopMenuRepeat]; SetPadState(0,0,0,0,0,0,0);
+    if (_gDown==2 && g_showcase_up.load()) {
+      NSArray<UITouch*>* fingers=event.allTouches.allObjects;
+      if (fingers.count==2) {
+        CGPoint a=[fingers[0] locationInView:self],b=[fingers[1] locationInView:self];
+        const CGRect canvas=CGRectMake(0,self.bounds.size.height*.18,self.bounds.size.width,self.bounds.size.height*.67);
+        if (CGRectContainsPoint(canvas,a)&&CGRectContainsPoint(canvas,b)) {
+          _gPinchStart=std::hypot(a.x-b.x,a.y-b.y);_gPinching=YES;
+        }
+      }
+    }
+  }
 }
 
 // The first finger's way from where it went down: past 14 points the left
@@ -1031,9 +1060,10 @@ static CGFloat TouchOpacity() {
   [self updateMenuDragAt:[touch locationInView:self]];
 }
 
-- (void)allowMenuScroll:(int)serial allowed:(BOOL)allowed {
+- (void)allowMenuScroll:(int)serial mode:(int)mode {
   if (serial != _gScrollSerial || _gDown != 1 || _gFingers != 1) return;
-  _gScrollAllowed = allowed;
+  _gDragMode=mode?mode:nfsmw::menu_touch::MenuDrag;
+  _gScrollAllowed=mode!=0 || REXCVAR_GET(ios_touch_menu_empty_accept);
   if (_gSwiping) [self updateMenuDragAt:_gLast];
 }
 
@@ -1046,6 +1076,14 @@ static CGFloat TouchOpacity() {
   _gSwiping = YES;
   if (!_gScrollAllowed) return;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
+  if (_gDragMode==nfsmw::menu_touch::CameraDrag) {
+    [self stopMenuRepeat];
+    const float x=std::clamp(float((p.x-_gCameraLast.x)/35),-1.f,1.f);
+    const float y=std::clamp(float((p.y-_gCameraLast.y)/35),-1.f,1.f);
+    _gCameraLast=p;
+    PulseCameraInput(x,y,0);
+    return;
+  }
   if (g_map_up.load()) {
     [self stopMenuRepeat];
     // The world map moves its cursor with the right stick, any way (Stefan,
@@ -1054,7 +1092,9 @@ static CGFloat TouchOpacity() {
     SetPadState(0, 0, 0, float(dx) / len * k, float(dy) / len * k, 0, 0);
     return;
   }
-  _gDirection = nfsmw::menu_touch::Direction(float(dx),float(dy),REXCVAR_GET(ios_touch_menu_invert));
+  const bool horizontal=_gDragMode==nfsmw::menu_touch::HorizontalDrag;
+  const bool vertical=_gDragMode==nfsmw::menu_touch::VerticalDrag;
+  _gDirection = nfsmw::menu_touch::Direction(vertical?0:float(dx),horizontal?0:float(dy),REXCVAR_GET(ios_touch_menu_invert));
   [self repeatMenuDrag];
   if (!_gRepeatTimer) {
     __weak NFSTouchView* weak = self;
@@ -1089,7 +1129,10 @@ static CGFloat TouchOpacity() {
 - (void)gestureEnded:(NSSet<UITouch*>*)touches {
   if (_gDown <= 0) return;  // a pill touch never began a menu gesture
   _gDown = std::max(0, _gDown - int(touches.count));
-  if (_gDown > 0) return;
+  if (_gDown > 0) {
+    if (_gPinching) SetPadState(0,0,0,0,0,0,0);
+    return;
+  }
   g_scroll_pending.store(0);
   [self stopMenuRepeat];
   SetPadState(0, 0, 0, 0, 0, 0, 0);
@@ -1102,6 +1145,9 @@ static CGFloat TouchOpacity() {
     return;
   }
   [_haptic impactOccurred];
+  if (g_movie_playing.load()) {
+    REXLOG_INFO("[touch] movie skip: A");PressMenuButton(kA);return;
+  }
   // One finger: the game's thread looks for a button hint under it
   // (game_state.cpp, nfsmw_menu_hint_at) and answers with MenuTapResult;
   // an answered blank tap can press A; no answer in 0.2 s is ignored.
@@ -1126,6 +1172,20 @@ static CGFloat TouchOpacity() {
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
   if (_gestures && !_editing) {
+    if (_gPinching && _gDown==2 && g_showcase_up.load()) {
+      NSArray<UITouch*>* fingers=event.allTouches.allObjects;
+      if (fingers.count==2) {
+        CGPoint a=[fingers[0] locationInView:self],b=[fingers[1] locationInView:self];
+        const CGFloat distance=std::hypot(a.x-b.x,a.y-b.y);
+        const CGFloat delta=distance-_gPinchStart;
+        if (std::abs(delta)>2) {
+          _gSwiping=YES;
+          _gPinchStart=distance;
+          PulseCameraInput(0,0,std::clamp(float(delta/25),-1.f,1.f));
+        }
+      }
+      return;
+    }
     [self gestureMoved:touches.anyObject];
     return;
   }
@@ -1976,6 +2036,8 @@ void SetDriveContext(int bits) { g_drive_context.store(bits); }
 void SetDragRace(bool on) { g_drag.store(on); }
 
 void SetMapUp(bool up) { g_map_up.store(up); }
+void SetMoviePlaying(bool on) { g_movie_playing.store(on); }
+void SetShowcaseUp(bool on) { g_showcase_up.store(on); }
 
 bool TakeMenuTap(int& serial, float& x, float& y) {
   serial = g_tap_pending.load();
@@ -1990,12 +2052,12 @@ bool TakeMenuScroll(int& serial,float& x,float& y) {
   if (!serial) return false;
   x=g_scroll_x.load();y=g_scroll_y.load();return true;
 }
-void MenuScrollResult(int serial,bool allowed) {
+void MenuScrollResult(int serial,int mode) {
   dispatch_async(dispatch_get_main_queue(),^{
     int expected=serial;
     if (!g_scroll_pending.compare_exchange_strong(expected,0)) return;
-    REXLOG_INFO("[touch] scroll start {}: {}",serial,allowed?"widget":"outside recognised widget");
-    [g_view allowMenuScroll:serial allowed:allowed];
+    REXLOG_INFO("[touch] scroll start {}: mode {}",serial,mode);
+    [g_view allowMenuScroll:serial mode:mode];
   });
 }
 
