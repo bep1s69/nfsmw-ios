@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan): the empty-space accept toggle also controls anywhere
+  scrolling. OFF means taps on actionable controls and swipes starting inside
+  scrollable widgets. Two-finger Back has its own independent live option,
+  default ON. Selected carousel icons, selector chevrons, icon-only LT/RT and
+  individual popup choices must work directly with anywhere gestures OFF.
+
 - October31 (Stefan):confirmed dimbandbelow1x(inBattery mode),AirPods crackles,
   engine-sound fade,safehousecrash andevent-loadingfreeze fixed. Markthemclosed
   ratherthanrelistingasoutstanding;exactfixingversionsnotnewlyestablished.
@@ -172,6 +178,34 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: test7 menu widgets and independent two-finger Back ready.**
+  Test6/log23: user confirms blank-tap OFF works; main selected icon, Quick Race
+  arrows/region triggers, world-map zoom and popup choices need corrections.
+  Archived log plus four screenshots (TECHNICAL paths/hashes). Actual L1/R1
+  texture names draw LT/RT here; corrected to trigger axes. Mapped observed
+  carousel/track chevrons. Live FE focus-frame bounds now activate selected
+  entries. Popup taps use live button bounds, select the desired choice, then
+  require its observed highlight before A; failed/replaced/timed-out targets
+  never accept. Unanswered ordinary queries now ignore instead of guessing A.
+  Existing saved empty-accept key now labels **Tap and swipe anywhere**; OFF
+  queries visible widget/selector/list/map areas at gesture start, ON retains
+  universal navigation. New **Two-finger tap to go back** live/default ON,
+  independent in launcher and in-game settings. Inversion unchanged.
+  Host actual walker/popup tests, two incremental IPA builds, ZIP/signature,
+  104 unchanged shaders and two unchanged SDK dylibs pass. Artifact:
+  `ios/build/NFSMW-0.5.2-test7-menu-widgets.ipa`, 30164878 bytes, SHA256
+  `b22937161ec577cef26664c4449d0812827a6f4e24c1e0877ab0dab230e1eacf`,
+  UUID `81C2B2FE-7D27-32AE-A5FF-139322E10507`, bundle 0.5.1/build 9.
+  **Next:** device test anywhere OFF: selected main-menu icon, arrows and held
+  drags inside carousel/save/Blacklist versus outside; Quick Race track arrows
+  and region LT/RT; map zoom/cursor; tap BOTH selected and unselected popup
+  choices. Toggle two-finger Back OFF/ON independently; visible B hint stays
+  active. Check anywhere ON, inversion and PAD/GESTURES return. Generic FE
+  frame/list recognition and popup layout coverage remain unconfirmed on device;
+  no universal coverage or energy savings claimed. No SDK/timing/profile edits,
+  push/tag/release. Preserve the pre-existing 13-line issue11 checkpoint note
+  unstaged, untracked HANDOFF_CHATGPT.md and sibling SDK changes.
 
 - **October31:test6 corrects hint visibility,optionalblankA,andpadreturn.**
   Usertest5/log22:14tapsallnoicon->A;5two-fingerB. InvalidHUDkShownvisibility

@@ -11571,3 +11571,108 @@ LT/RTandoptionselectors. Sendlogforcandidatecoverage. NoExtraArgsneeded.
 Correctionofknownbadmaskdoesnotyetproveallmainmenuglyphsrecognized;test5
 failedandmustnotbemarkedaccepted. No newdevicevalidation,push/tag/release.
 Preserveissue11checkpointnote,HANDOFF,siblingSDKwork;ownchangescommittedonly.
+
+
+### October 31: test6 log23 menu targets; test7 widget gestures and optional two-finger Back
+
+User evidence: ongoing iPhone 17 Pro Max context, OS not newly verified; test6
+per user/context, not independently matched to executable UUID from this log.
+Stefan confirms empty-space accept OFF works. Main selected icon, Quick Race
+track arrows/region LT/RT, world-map LT/RT and popup buttons reported inactive.
+Other unmentioned controls mean working OR not encountered, not blanket acceptance.
+New requests: same anywhere toggle must restrict scrolling origins too; independent
+live two-finger Back option, default ON. Existing swipe direction default retained.
+
+Source log:
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/D11B7536-08FB-42F5-9BF4-E57F8DBB2C33/nfsmw.log`.
+Archived without overwriting, byte-identical, originals retained. All archives:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_23_052_test6_menu_targets.log`: 1566612 bytes, 9535 lines,
+  SHA256 f35cce698022986dbf1f80776094a81916fb5d4633187db0d67beab5792cd9b4.
+  Launch 01:04:23.809, last partial line 01:11:39.357. Counts: 123 touch-hint,
+  14 menu-tap-ignored, 32 unknown-hint, 1 full-pad->gestures, 30 swipe-start markers.
+- `nfsmw_iphone_17pm_23_quick_race_targets.png`: 2611751 bytes,
+  SHA256 ffbcf0c96b36cd941bb1f404645d9103b02bfe7be86233e44f6d8092f1a67699.
+- `nfsmw_iphone_17pm_23_confirm_targets.png`: 2250447 bytes,
+  SHA256 8ff8fd7ab625b9b02a38b27530c1240163d771eb1a0bd5a03e51aa409dfc8e2c.
+- `nfsmw_iphone_17pm_23_world_map_targets.png`: 2981928 bytes,
+  SHA256 b6a1ad305163a41ed1f2f854a59161f7d388e0e0dec425636f5f92b83cf13051.
+- `nfsmw_iphone_17pm_23_main_menu_targets.png`: 3365711 bytes,
+  SHA256 c00333d7bff659ab0669a64db470d246f3914391a086b0bfcde72857c1a8d548.
+Screenshot originals in `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+`codex-clipboard-aacf89ea-5d59-4b09-8101-7091c1fc92ae.png`,
+`codex-clipboard-8da04d04-a946-4aa7-ba16-215d8070adac.png`,
+`codex-clipboard-8f0680c6-e275-4390-88fa-9c7271c7c353.png`,
+`codex-clipboard-5912a643-6391-47d7-a232-33d6ef85b4ff.png`, respectively.
+
+Concrete findings versus inference:
+- Quick Race taps resolve textures 000005BC / 00000682 (Hash L1/R1), action
+  512/1024 at -25,172 / 266,172. World map same textures at -245,169 / 23,169.
+  Screenshots show LT/RT: previous alias mapping to shoulders is wrong here.
+  Now L1/L2/LT -> LT axis, R1/R2/RT -> RT; literal LB/RB keep shoulder bits.
+- Track chevron unknown texture1A6D3D2C, left object0603C1D1 at -21,-171,
+  right6126AB37/C6EAC384 at279/266,-171. Mapped observed object IDs left/right;
+  generic ARROW and existing semantic mappings retained. Other texture variants
+  still require evidence, not guessed action.
+- Main selected Quick Race unknown icon4B4E388A/texture03704F3D at136,157 is
+  enclosed by focus corners texture6FB79A55. New bounded walker snapshot records
+  visible nodes/parents/live transforms including wide button images/text. Four
+  matching corners in one parent create a focus rectangle, rejecting incomplete
+  or large decorative frames. Known hints take priority; focused entry then A.
+  Generic focus recognition is an inference from observed frames, not proof that
+  every decorative/selection frame family is distinguished on every screen.
+- InGameDialog tree shows button image hashesB8A7C6CC/CD/CE,154x32, a hidden
+  third button, and moving9x9 focus-corner group. New popup transaction reads
+  visible button rectangles, sends a direction when needed, waits >180ms and
+  two observed updates with target highlighted before A. Three-choice dialogs
+  can send a second direction only after observed intermediate focus and >220ms.
+  Stops on missing target/replaced package,850ms backend or1s UI timeout/new
+  gesture/layout/cancel. Dialogs block underlying packages. Unknown modal taps
+  ignore. Unanswered ordinary tap query at200ms now ignores even with anywhere
+  ON, avoiding guessed confirmation when frontend stalls. Confirmed-host logic,
+  not yet actual device acceptance of every popup variant.
+
+Settings/gesture behavior:
+- Existing saved `touch_menu_empty_accept` / `ios_touch_menu_empty_accept` key
+  retained, live/default true; UI renamed Tap and swipe anywhere. ON retains
+  universal tap/drag. OFF requests start-point widget hit-test on game thread;
+  only focus rectangles, opposing-arrow strips, bounded text/list ancestors or
+  map canvas derived from live category/zoom anchors allow scrolling. No package
+  background/fullscreen fallback. Finger motion before response stays inert,
+  resumes if allowed; release/cancel/layout/multitouch rejects stale response.
+  These regions are intentionally bounded heuristics; save/Blacklist/unseen
+  layouts need validation and may require more semantic widget families.
+- New `touch_menu_two_finger_back` / `ios_touch_menu_two_finger_back`, live,
+  default true, shared launcher and in-game row/argument/LiveFlags. OFF ignores
+  two-finger taps, never converts them to A. Visible B hints remain usable.
+- Invert behavior and PAD->GESTURES return preserved. No SDK/timing/profile edits.
+
+Validation actually run:
+- `python3 tools/ios/test_menu_touch.py`: initial compile exit1 because new
+  host fixture omitted unordered_set include; corrected fixture include. Later
+  runs exit0, including final walker/popup tests. Tests compile actual FE walker
+  and actual PopupAction with synthetic guest memory. Cover observed L1/R1 and
+  arrow IDs, scaled focus corners/incomplete frame, strict outside rejection,
+  carousel/map bounds, independent two-finger setting, direct/selected/unselected
+  popup buttons, failed highlight, replaced package, absent focus, three-choice
+  intermediate navigation. These do not prove UIKit gesture lifecycles or all
+  real FNG layouts; on-device matrix remains next.
+- `cmake --build --preset ios --target ipa -j 6` from ios, two builds exit0:
+  /tmp/nfsmw-052-menu7-build.log (14 steps) and
+  /tmp/nfsmw-052-menu7-build2.log (6 steps after delayed-popup tightening).
+  Existing enum conversion/asm constraint/duplicate-z warnings, no errors.
+- ZIP testzip, codesign --verify --deep --strict and dwarfdump --uuid pass;
+  104 metallibs and both SDK dylibs byte-identical to test6. Bundle0.5.1/build9.
+
+Trial artifact:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test7-menu-widgets.ipa`,
+30164878 bytes, SHA256
+b22937161ec577cef26664c4449d0812827a6f4e24c1e0877ab0dab230e1eacf,
+UUID81C2B2FE-7D27-32AE-A5FF-139322E10507. Ignored .json beside IPA.
+Next device test: anywhere OFF, selected main icon/arrows/held drags inside and
+outside save/main/Blacklist; Quick Race track arrows and region LT/RT, world map
+zoom/cursor; both popup choices including unselected choice; two-finger Back
+OFF/ON independent, B hint still active; anywhere ON/inversion/PAD return.
+No new device validation, push/tag/release/version bump. Preserve pre-existing
+13-line issue11 checkpoint note unstaged, HANDOFF_CHATGPT.md untracked, sibling
+SDK changes untouched. Session code/docs committed locally only.

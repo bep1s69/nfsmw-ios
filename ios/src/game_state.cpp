@@ -152,7 +152,8 @@ extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool dri
 extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
 extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
 extern "C" void nfsmw_hud_full_size(bool on);
-extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y);  // game_scene_size.cpp                              // game_scene_size.cpp
+extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y, int serial);
+extern "C" bool nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y);
 
 namespace {
 bool fade_up = false;
@@ -207,11 +208,13 @@ extern "C" REX_FUNC(sub_823B4158) {
   {
     int serial;
     float x, y;
-    static int handled = 0;
-    if (nfsmw::touch::TakeMenuTap(serial, x, y) && serial != handled) {
-      handled = serial;
+    if (nfsmw::touch::TakeMenuScroll(serial,x,y)) {
+      const uint32_t feng=REX_LOAD_U32(kFeng);
+      nfsmw::touch::MenuScrollResult(serial,nfsmw_menu_scroll_at(base,feng?REX_LOAD_U32(feng):0,x,y));
+    }
+    if (nfsmw::touch::TakeMenuTap(serial, x, y)) {
       const uint32_t feng = REX_LOAD_U32(kFeng);
-      nfsmw::touch::MenuTapResult(serial, nfsmw_menu_hint_at(base, feng ? REX_LOAD_U32(feng) : 0, x, y));
+      nfsmw::touch::MenuTapResult(serial, nfsmw_menu_hint_at(base, feng ? REX_LOAD_U32(feng) : 0, x, y, serial));
     }
   }
   // The world map: swipes move its cursor (the right stick).

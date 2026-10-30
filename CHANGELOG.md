@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- **More control over menu taps.** Empty-space taps can be disabled while
-  keeping two-finger Back. The full gamepad now has a direct return to gesture
-  navigation. Corrected frontend visibility detection for tappable hints.
+- **More control over menu gestures.** Choose whether taps and swipes work
+  anywhere or only on menu controls, with a separate two-finger Back switch.
+  Added selected-icon and popup-choice tapping, corrected track arrows and
+  LT/RT hints, and added a direct return from the full gamepad to gestures.
+  Device validation of the new targets is pending.
 
 - **More complete touch navigation in menus.** Held drags repeat through
   entries, swipe direction can be reversed, and button/arrow hit detection

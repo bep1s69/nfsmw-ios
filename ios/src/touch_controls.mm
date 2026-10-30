@@ -75,7 +75,9 @@ REXCVAR_DEFINE_BOOL(ios_touch_menu_gestures, true, "Input",
                     "overlay; a swipe pushes the left stick that way, a tap presses A, a two-finger "
                     "tap B. The PAD pill brings the full gamepad back until the next layout change");
 REXCVAR_DEFINE_BOOL(ios_touch_menu_empty_accept, true, "Input",
-                    "A short tap outside recognised menu controls presses A; two-finger back stays enabled");
+                    "Tap empty space to accept and swipe anywhere; off restricts both to recognised menu widgets");
+REXCVAR_DEFINE_BOOL(ios_touch_menu_two_finger_back, true, "Input",
+                    "A short two-finger tap in menus presses Back (B), independently of empty-space gestures");
 REXCVAR_DEFINE_BOOL(ios_touch_menu_invert, false, "Input",
                     "Reverse swipe navigation in menus; world-map cursor dragging stays direct");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
@@ -120,6 +122,9 @@ Sint16 g_axes[kAxes] = {};
 std::atomic<int> g_tap_pending{0};
 int g_tap_serial = 0;
 std::atomic<float> g_tap_x{0}, g_tap_y{0};
+std::atomic<int> g_tap_selecting{0};
+std::atomic<int> g_scroll_pending{0};
+std::atomic<float> g_scroll_x{0}, g_scroll_y{0};
 
 void PressMenuButton(int button);
 
@@ -292,7 +297,9 @@ struct Control {
   // time, from its first finger down to the last one up.
   BOOL _gestures;
   BOOL _padOverride;  // the PAD pill: the full gamepad in this menu
-  CGPoint _gStart;
+  CGPoint _gStart, _gLast;
+  BOOL _gScrollAllowed;
+  int _gScrollSerial;
   NSTimeInterval _gTime;
   BOOL _gSwiping;
   NSTimer* _gRepeatTimer;
@@ -995,6 +1002,16 @@ static CGFloat TouchOpacity() {
     [self stopMenuRepeat];
     SetPadState(0,0,0,0,0,0,0);
     _gStart = [touches.anyObject locationInView:self];
+    _gLast = _gStart;
+    _gScrollAllowed = REXCVAR_GET(ios_touch_menu_empty_accept);
+    g_scroll_pending.store(0);
+    _gScrollSerial = ++g_tap_serial;
+    if (!_gScrollAllowed) {
+      const CGFloat scale = self.bounds.size.height * .92 / 480.;
+      g_scroll_x.store(float((_gStart.x-self.bounds.size.width/2)/scale));
+      g_scroll_y.store(float((_gStart.y-self.bounds.size.height/2)/scale));
+      g_scroll_pending.store(_gScrollSerial);
+    }
     _gTime = NSDate.timeIntervalSinceReferenceDate;
     _gSwiping = NO;
     _gFingers = 0;
@@ -1011,12 +1028,23 @@ static CGFloat TouchOpacity() {
 // way), all the way at 40.
 - (void)gestureMoved:(UITouch*)touch {
   if (_gDown != 1 || _gFingers > 1) return;
-  const CGPoint p = [touch locationInView:self];
+  [self updateMenuDragAt:[touch locationInView:self]];
+}
+
+- (void)allowMenuScroll:(int)serial allowed:(BOOL)allowed {
+  if (serial != _gScrollSerial || _gDown != 1 || _gFingers != 1) return;
+  _gScrollAllowed = allowed;
+  if (_gSwiping) [self updateMenuDragAt:_gLast];
+}
+
+- (void)updateMenuDragAt:(CGPoint)p {
+  _gLast = p;
   const CGFloat dx = p.x - _gStart.x, dy = p.y - _gStart.y;
   const CGFloat d = std::hypot(dx, dy);
   if (d < 14 && !_gSwiping) return;
   if (!_gSwiping) REXLOG_INFO("[touch] menu swipe started, invert {}",REXCVAR_GET(ios_touch_menu_invert));
   _gSwiping = YES;
+  if (!_gScrollAllowed) return;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
   if (g_map_up.load()) {
     [self stopMenuRepeat];
@@ -1062,19 +1090,22 @@ static CGFloat TouchOpacity() {
   if (_gDown <= 0) return;  // a pill touch never began a menu gesture
   _gDown = std::max(0, _gDown - int(touches.count));
   if (_gDown > 0) return;
+  g_scroll_pending.store(0);
   [self stopMenuRepeat];
   SetPadState(0, 0, 0, 0, 0, 0, 0);
   // A tap: short and still. One finger A, two B.
   if (_gSwiping || NSDate.timeIntervalSinceReferenceDate - _gTime > 0.4) return;
-  [_haptic impactOccurred];
   if (_gFingers >= 2) {
-    REXLOG_INFO("[touch] menu tap: B (two fingers)");
-    PressMenuButton(kB);
+    const int back=nfsmw::menu_touch::BackAction(_gFingers,REXCVAR_GET(ios_touch_menu_two_finger_back));
+    REXLOG_INFO("[touch] two-finger menu tap: {}",back?"B":"disabled");
+    if (back) { [_haptic impactOccurred]; PressMenuButton(back); }
     return;
   }
+  [_haptic impactOccurred];
   // One finger: the game's thread looks for a button hint under it
   // (game_state.cpp, nfsmw_menu_hint_at) and answers with MenuTapResult;
-  // none (or no answer in 0.2 s): A. In the package's units: 480 / 0.92
+  // an answered blank tap can press A; no answer in 0.2 s is ignored.
+  // In the package's units: 480 / 0.92
   // tall (the HD title-safe area), from the middle of the screen
   // (measured on the iPhone's SMS screen, IPA159).
   const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
@@ -1085,10 +1116,10 @@ static CGFloat TouchOpacity() {
   g_tap_pending.store(serial);
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     int expected = serial;
-    if (g_tap_pending.compare_exchange_strong(expected,0)) {
-      const bool accept=REXCVAR_GET(ios_touch_menu_empty_accept);
-      REXLOG_INFO("[touch] menu tap timed out: {}",accept?"A":"ignored (empty-space accept off)");
-      if (accept) PressMenuButton(kA);
+    if (g_tap_selecting.load()!=serial && g_tap_pending.compare_exchange_strong(expected,0)) {
+      // No frontend answer means the target is unknown, not empty space.
+      // In particular, never accept an old popup choice on a delayed query.
+      REXLOG_INFO("[touch] menu tap timed out: ignored");
     }
   });
 }
@@ -1190,6 +1221,7 @@ static CGFloat TouchOpacity() {
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
   if (_gestures) {
     _gDown = 0;
+    g_scroll_pending.store(0);
     _gSwiping = YES;
     [self stopMenuRepeat];
     g_tap_pending.store(0);
@@ -1203,6 +1235,7 @@ static CGFloat TouchOpacity() {
 - (void)releaseAll {
   [self stopMenuRepeat];
   _gDown = 0;
+  g_scroll_pending.store(0);
   g_tap_pending.store(0);
   ++g_menu_press_generation;
   [_owners removeAllObjects];
@@ -1952,14 +1985,40 @@ bool TakeMenuTap(int& serial, float& x, float& y) {
   return true;
 }
 
+bool TakeMenuScroll(int& serial,float& x,float& y) {
+  serial=g_scroll_pending.load();
+  if (!serial) return false;
+  x=g_scroll_x.load();y=g_scroll_y.load();return true;
+}
+void MenuScrollResult(int serial,bool allowed) {
+  dispatch_async(dispatch_get_main_queue(),^{
+    int expected=serial;
+    if (!g_scroll_pending.compare_exchange_strong(expected,0)) return;
+    REXLOG_INFO("[touch] scroll start {}: {}",serial,allowed?"widget":"outside recognised widget");
+    [g_view allowMenuScroll:serial allowed:allowed];
+  });
+}
+
 void MenuTapResult(int serial, int button) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    if (g_tap_pending.load()!=serial) return;
+    if (button==nfsmw::menu_touch::WaitForChoice || (button>0 && (button&nfsmw::menu_touch::SelectChoice))) {
+      if (g_tap_selecting.exchange(serial)!=serial) {
+        // A popup selection must never fall back to accepting the old choice.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,int64_t(1.0*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+          int expected=serial;
+          if (g_tap_pending.compare_exchange_strong(expected,0)) REXLOG_INFO("[touch] popup selection timed out; ignored");
+        });
+      }
+      if (button>0) PressMenuButton(button&~nfsmw::menu_touch::SelectChoice);
+      return;
+    }
     int expected = serial;
     if (!g_tap_pending.compare_exchange_strong(expected, 0)) return;  // answered by the 0.2 s fallback
     // A hint whose button is not known yet (-1): nothing, rather than a
     // wrong button.
     if (button < 0) {
-      REXLOG_INFO("[touch] menu tap: a hint, button not known yet");
+      REXLOG_INFO("[touch] menu tap ignored: unrecognised or unconfirmed target");
       return;
     }
     const int bits=nfsmw::menu_touch::TapAction(button,REXCVAR_GET(ios_touch_menu_empty_accept));

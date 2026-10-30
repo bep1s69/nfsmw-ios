@@ -76,6 +76,7 @@
 
 #include "menu_touch_policy.h"
 #include <cstdint>
+#include <chrono>
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
@@ -1415,10 +1416,10 @@ int ButtonOfTexture(uint32_t texture) {
     case 0x6851AAF5: return 2;  // TRIANGLE -> B
     case 0x7A8B6BD0: return 4;  // SQUARE -> X
     case 0x54A68051: return 8;  // CIRCLE -> Y
-    case Hash("L2"): case Hash("LT"): return LT;
-    case Hash("R2"): case Hash("RT"): return RT;
-    case Hash("L1"): case Hash("LB"): return 1<<9;
-    case Hash("R1"): case Hash("RB"): return 1<<10;
+    case Hash("L1"): case Hash("L2"): case Hash("LT"): return LT;
+    case Hash("R1"): case Hash("R2"): case Hash("RT"): return RT;
+    case Hash("LB"): return 1<<9;
+    case Hash("RB"): return 1<<10;
     default: return 0;
   }
 }
@@ -1427,6 +1428,9 @@ int ButtonOfObject(uint32_t hash) {
   // Existing world-map tree evidence, now resolved at live positions.
   if (hash == 0xD1CDA594) return LT;
   if (hash == 0x9345E4A7) return RT;
+  // Test6 Quick Race / carousel chevrons, texture 1A6D3D2C.
+  if (hash == 0x0603C1D1) return Left;
+  if (hash == 0x6126AB37 || hash == 0xC6EAC384) return Right;
   if (hash == 0xBFF41BD9) return Left;
   if (hash == 0xBEE65E8C) return Right;
   static const auto actions = [] {
@@ -1450,8 +1454,24 @@ struct Hint {
   int button;
   bool label;
 };
+struct MenuNode {
+  uint32_t object,parent,hash,texture,type;
+  float x,y,w,h;
+};
+struct MenuRect {
+  float left,top,right,bottom;
+  bool Contains(float x,float y) const { return x>=left&&x<=right&&y>=top&&y<=bottom; }
+  float X() const { return (left+right)/2; }
+  float Y() const { return (top+bottom)/2; }
+  void Include(const MenuRect& r) {
+    left=std::min(left,r.left);top=std::min(top,r.top);
+    right=std::max(right,r.right);bottom=std::max(bottom,r.bottom);
+  }
+};
+MenuRect NodeRect(const MenuNode& n) { return {n.x-std::abs(n.w)/2,n.y-std::abs(n.h)/2,n.x+std::abs(n.w)/2,n.y+std::abs(n.h)/2}; }
+struct FocusFrame { uint32_t parent; MenuRect rect; };
 void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,int depth,
-               bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget) {
+               bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget,std::vector<MenuNode>* nodes=nullptr,uint32_t parent=0) {
   for (uint32_t o=first;Plausible(o)&&REX_LOAD_U32(o)!=kListVtable&&budget>0;o=REX_LOAD_U32(o+4)) {
     --budget;
     if (REX_LOAD_U32(o+0x1C)&kMenuHidden) continue;
@@ -1459,6 +1479,8 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     if (!Plausible(data)) continue;
     const float gx=px+sx*LoadF(base,data+28),gy=py+sy*LoadF(base,data+32);
     if (!std::isfinite(gx)||!std::isfinite(gy)) continue;
+    if (nodes) nodes->push_back({o,parent,REX_LOAD_U32(o+0x10),REX_LOAD_U32(o+0x24),type,gx,gy,
+                                sx*LoadF(base,data+56),sy*LoadF(base,data+60)});
     if (type==5) {
       if (depth>=8||REX_LOAD_U32(o+0x5C)!=kListVtable||REX_LOAD_U32(o+0x60)>200) continue;
       const auto child=REX_LOAD_U32(o+0x64);
@@ -1469,7 +1491,7 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
       const float xs=LoadF(base,data+56),ys=LoadF(base,data+60);
       if (std::isfinite(xs)&&std::isfinite(ys))
         FindHints(base,child,gx,gy,sx*xs,sy*ys,depth+1,text||parent_text,
-                  ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget);
+                  ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget,nodes,o);
       continue;
     }
     if (type!=1&&type!=9&&type!=10&&type!=11&&type!=12) continue;
@@ -1499,40 +1521,183 @@ const Hint* HintAt(const std::vector<Hint>& hints,float x,float y) {
   }
   return best;
 }
+
+std::vector<FocusFrame> FocusFrames(const std::vector<MenuNode>& nodes) {
+  std::vector<FocusFrame> frames;
+  std::unordered_set<uint32_t> seen;
+  for (const auto& n:nodes) {
+    if (!n.parent || !seen.insert(n.parent).second) continue;
+    MenuRect rect{1e9f,1e9f,-1e9f,-1e9f};
+    int corners=0;
+    for (const auto& c:nodes) if (c.parent==n.parent &&
+        (c.texture==0x6FB79A55 || c.texture==0x475A90F5) && c.type!=5 &&
+        std::abs(c.w)<=32 && std::abs(c.h)<=32) {
+      rect.Include({c.x,c.y,c.x,c.y});++corners;
+    }
+    // Exclude large decorative screen frames and incomplete/hidden highlights.
+    if (corners==4 && rect.right-rect.left>=20 && rect.right-rect.left<=540 &&
+        rect.bottom-rect.top>=12 && rect.bottom-rect.top<=130)
+      frames.push_back({n.parent,rect});
+  }
+  return frames;
+}
+std::vector<MenuNode> DialogChoices(const std::vector<MenuNode>& nodes) {
+  std::vector<MenuNode> choices;
+  for (const auto& n:nodes) if (n.type==1 &&
+      (n.hash==0xB8A7C6CC || n.hash==0xB8A7C6CD || n.hash==0xB8A7C6CE) &&
+      std::abs(n.w)>40 && std::abs(n.w)<240 && std::abs(n.h)>12 && std::abs(n.h)<60)
+    choices.push_back(n);
+  return choices;
+}
+bool ScrollAt(const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,
+              const std::vector<FocusFrame>& frames,float x,float y,bool map) {
+  using namespace nfsmw::menu_touch;
+  // A widget's selected entry is itself a valid drag origin.
+  for (const auto& f:frames) if (f.rect.Contains(x,y)) return true;
+  // Selector/carousel strip between visible opposing arrows, at live positions.
+  for (const auto& l:hints) for (const auto& r:hints) {
+    if (l.button!=Left || r.button!=Right || r.x-l.x<30 || r.x-l.x>650 || std::abs(l.y-r.y)>12) continue;
+    MenuRect strip{l.x-20,std::min(l.y,r.y)-22,r.x+20,std::max(l.y,r.y)+22};
+    for (const auto& f:frames) if (f.rect.X()>=l.x && f.rect.X()<=r.x && std::abs(f.rect.Y()-l.y)<65)
+      strip.Include(f.rect);
+    if (strip.Contains(x,y)) return true;
+  }
+  // Lists: visible text/image content in the frame's immediate widget ancestors.
+  // Never promote the entire package/background into a scrolling surface.
+  for (const auto& f:frames) {
+    uint32_t ancestor=f.parent;
+    for (int level=0;level<2 && ancestor;++level) {
+      auto group=std::find_if(nodes.begin(),nodes.end(),[&](const MenuNode& n){return n.object==ancestor;});
+      if (group==nodes.end()) break;
+      ancestor=group->parent;
+      if (!ancestor) break;
+      MenuRect list=f.rect;int texts=0;
+      for (const auto& n:nodes) {
+        uint32_t parent=n.parent;
+        for (int d=0;d<5 && parent && parent!=ancestor;++d) {
+          auto it=std::find_if(nodes.begin(),nodes.end(),[&](const MenuNode& g){return g.object==parent;});
+          parent=it==nodes.end()?0:it->parent;
+        }
+        if (parent!=ancestor || n.type==5) continue;
+        if (n.type==2) { list.Include({n.x-12,n.y-12,n.x+12,n.y+12});++texts; }
+        else if (std::abs(n.w)<=96 && std::abs(n.h)<=96) list.Include(NodeRect(n));
+      }
+      if (texts>=2 && list.right-list.left<=540 && list.bottom-list.top<=320 && list.Contains(x,y)) return true;
+    }
+  }
+  // World-map canvas: the live zoom triggers delimit its bottom edge; category
+  // arrows delimit the top. Do not allow drags over the legend or outside map.
+  if (map) for (const auto& l:hints) for (const auto& r:hints) {
+    if (l.button!=LT || r.button!=RT || r.x<=l.x || std::abs(l.y-r.y)>12) continue;
+    for (const auto& a:hints) if (a.button==Left && a.y<l.y-100) {
+      const MenuRect canvas{l.x-35,a.y+35,r.x+35,l.y-22};
+      if (canvas.Contains(x,y)) return true;
+    }
+  }
+  return false;
+}
 // MENU_TOUCH_HINTS_END
 }  // namespace
 
-extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y) {
-  if (!Plausible(engine)) return 0;
+
+namespace {
+struct MenuPackage {
+  uint32_t address;
+  std::string name;
   std::vector<Hint> hints;
-  int packages=0;
-  std::vector<std::string> scans;
-  for (uint32_t p=REX_LOAD_U32(engine+216+8);Plausible(p)&&packages<64;p=REX_LOAD_U32(p+4),++packages) {
+  std::vector<MenuNode> nodes;
+  std::vector<FocusFrame> frames;
+};
+std::vector<MenuPackage> MenuPackages(uint8_t* base,uint32_t engine) {
+  std::vector<MenuPackage> packages;
+  if (!Plausible(engine)) return packages;
+  std::unordered_set<uint32_t> seen;
+  for (uint32_t p=REX_LOAD_U32(engine+216+8);Plausible(p)&&packages.size()<64&&seen.insert(p).second;p=REX_LOAD_U32(p+4)) {
     uint32_t at=0;
-    const uint32_t first=FirstObject(base,p,at);
+    const auto first=FirstObject(base,p,at);
+    MenuPackage pkg{p,GuestName(base,REX_LOAD_U32(p+12)),{},{},{}};
     int budget=2000;
-    const auto before = hints.size();
-    if (first) FindHints(base,first,0,0,1,1,0,false,0,hints,budget);
-    if (scans.size()<8) scans.push_back(fmt::format("{} first {:08X} visited {} candidates {}",
-        GuestName(base,REX_LOAD_U32(p+12)),first,2000-budget,hints.size()-before));
+    if (first) FindHints(base,first,0,0,1,1,0,false,0,pkg.hints,budget,&pkg.nodes);
+    pkg.frames=FocusFrames(pkg.nodes);
+    packages.push_back(std::move(pkg));
   }
-  const auto* hit=HintAt(hints,x,y);
-  const int result=hit?(hit->button?hit->button:-1):0;
-  if (hit) REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: object {:08X} texture {:08X} action {} at {:.0f},{:.0f}",
-      x,y,hit->group,hit->texture,hit->button,hit->x,hit->y);
-  else {
-    REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: no icon ({} candidates)",x,y,hints.size());
-    for (const auto& scan:scans) REXLOG_INFO("[touch-scan] {}",scan);
-  }
-  if (!hit || !hit->button) {
-    std::stable_sort(hints.begin(),hints.end(),[&](const Hint& a,const Hint& b) {
-      return std::hypot(x-a.x,y-a.y)<std::hypot(x-b.x,y-b.y);
-    });
-    for (size_t i=0;i<std::min<size_t>(hints.size(),6);++i) {
-      const auto& h=hints[i];
-      REXLOG_INFO("[touch-candidate] object {:08X} texture {:08X} at {:.0f},{:.0f} half {:.0f},{:.0f} action {}",
-          h.group,h.texture,h.x,h.y,h.half_w,h.half_h,h.button);
+  return packages;
+}
+bool IsDialog(const MenuPackage& pkg) { return pkg.name=="Dialog.fng" || pkg.name=="InGameDialog.fng"; }
+// MENU_TOUCH_POPUP_BEGIN
+struct PopupTap {
+  int serial=0,stable=0;
+  uint32_t package=0,target=0,last_selected=0;
+  std::chrono::steady_clock::time_point started,last_move;
+} popup;
+int PopupAction(const MenuPackage& pkg,int serial,float x,float y) {
+  using namespace nfsmw::menu_touch;
+  const auto choices=DialogChoices(pkg.nodes);
+  const auto now=std::chrono::steady_clock::now();
+  const MenuNode* selected=nullptr;
+  for (const auto& c:choices) for (const auto& f:pkg.frames)
+    if (f.rect.Contains(c.x,c.y)) selected=&c;
+  if (popup.serial==serial) {
+    auto target=std::find_if(choices.begin(),choices.end(),[&](const MenuNode& n){return n.object==popup.target;});
+    if (pkg.address!=popup.package || target==choices.end() || now-popup.started>std::chrono::milliseconds(850)) return -1;
+    // Wait past direction release, and see the requested highlight on two updates.
+    if (selected && selected->object==popup.target && now-popup.started>std::chrono::milliseconds(180)) {
+      if (++popup.stable>=2) { REXLOG_INFO("[touch-popup] target {:08X} highlighted; accept",popup.target);return 1; }
+    } else popup.stable=0;
+    // Three-choice dialogs can need a second distinct direction press. Only
+    // advance after an observed focus change and a neutral gap, never blindly.
+    if (selected && selected->object!=popup.target && selected->object!=popup.last_selected &&
+        now-popup.last_move>std::chrono::milliseconds(220)) {
+      popup.last_selected=selected->object;popup.last_move=now;
+      return SelectChoice | (target->x<selected->x?Left:Right);
     }
+    return WaitForChoice;
+  }
+  const auto target=std::find_if(choices.begin(),choices.end(),[&](const MenuNode& n){return NodeRect(n).Contains(x,y);});
+  if (target==choices.end() || !selected) {
+    REXLOG_INFO("[touch-popup] ignored tap {:.0f},{:.0f}: {} buttons, {} focus frames, selected {}",x,y,choices.size(),pkg.frames.size(),selected!=nullptr);
+    return -1;
+  }
+  if (target->object==selected->object) return 1;
+  popup={serial,0,pkg.address,target->object,selected->object,now,now};
+  REXLOG_INFO("[touch-popup] select {:08X} from {:08X}",target->hash,selected->hash);
+  return SelectChoice | (target->x<selected->x?Left:Right);
+}
+// MENU_TOUCH_POPUP_END
+}  // namespace
+
+extern "C" bool nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y) {
+  const auto packages=MenuPackages(base,engine);
+  for (const auto& pkg:packages) if (IsDialog(pkg)) return false;
+  for (const auto& pkg:packages)
+    if (ScrollAt(pkg.nodes,pkg.hints,pkg.frames,x,y,pkg.name=="WorldMapMain.fng")) return true;
+  return false;
+}
+extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,int serial) {
+  const auto packages=MenuPackages(base,engine);
+  for (const auto& pkg:packages) if (IsDialog(pkg)) return PopupAction(pkg,serial,x,y);
+  // A popup closed/replaced before focus confirmation: never accept its successor.
+  if (popup.serial==serial) return -1;
+  std::vector<Hint> hints;
+  for (const auto& pkg:packages) hints.insert(hints.end(),pkg.hints.begin(),pkg.hints.end());
+  const auto* hit=HintAt(hints,x,y);
+  if (hit && hit->button) {
+    REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: object {:08X} texture {:08X} action {} at {:.0f},{:.0f}",x,y,hit->group,hit->texture,hit->button,hit->x,hit->y);
+    return hit->button;
+  }
+  for (const auto& pkg:packages) for (const auto& frame:pkg.frames) if (frame.rect.Contains(x,y)) {
+    REXLOG_INFO("[touch-widget] {} focused entry at {:.0f},{:.0f}: A",pkg.name,x,y);return 1;
+  }
+  const int result=hit?-1:0;
+  REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: {} ({} candidates)",x,y,hit?"unknown icon":"no icon",hints.size());
+  for (size_t i=0;i<std::min<size_t>(packages.size(),8);++i) {
+    const auto& pkg=packages[i];
+    REXLOG_INFO("[touch-scan] {} nodes {} candidates {} focus frames {}",pkg.name,pkg.nodes.size(),pkg.hints.size(),pkg.frames.size());
+  }
+  std::stable_sort(hints.begin(),hints.end(),[&](const Hint& a,const Hint& b){return std::hypot(x-a.x,y-a.y)<std::hypot(x-b.x,y-b.y);});
+  for (size_t i=0;i<std::min<size_t>(hints.size(),6);++i) {
+    const auto& h=hints[i];
+    REXLOG_INFO("[touch-candidate] object {:08X} texture {:08X} at {:.0f},{:.0f} half {:.0f},{:.0f} action {}",h.group,h.texture,h.x,h.y,h.half_w,h.half_h,h.button);
   }
   return result;
 }

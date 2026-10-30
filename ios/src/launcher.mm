@@ -513,9 +513,11 @@ const std::vector<Section>& Sections() {
             @"move (the left stick that way), tap to accept (A), tap with two fingers to go back (B). "
             @"The PAD button brings the full gamepad back for that menu.",
             @"true"},
-           {@"touch_menu_empty_accept", Type::kSwitch, @"Tap empty space to accept",
-            @"A short tap away from button hints presses A. Turn off to accept only through "
-            @"recognised controls. Two-finger tap still goes back (B).", @"true"},
+           {@"touch_menu_empty_accept", Type::kSwitch, @"Tap and swipe anywhere",
+            @"Tap empty space to accept (A) and swipe anywhere to navigate. Turn off to tap "
+            @"visible controls and start swipes only inside recognised scrollable areas.", @"true"},
+           {@"touch_menu_two_finger_back", Type::kSwitch, @"Two-finger tap to go back",
+            @"Tap with two fingers in menus to press Back (B). Independent of tap and swipe anywhere.", @"true"},
            {@"touch_menu_invert", Type::kSwitch, @"Invert menu swipes",
             @"Reverse the direction used to navigate menus. Off keeps the current direction. "
             @"World-map cursor dragging is unchanged.", @"false"},
@@ -843,6 +845,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_steering=" + str(@"touch_steering"));
   a.push_back("--ios_touch_menu_gestures=" + b(On(s, @"touch_menu_gestures")));
   a.push_back("--ios_touch_menu_empty_accept=" + b(On(s, @"touch_menu_empty_accept")));
+  a.push_back("--ios_touch_menu_two_finger_back=" + b(On(s, @"touch_menu_two_finger_back")));
   a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));

@@ -37,6 +37,8 @@ void SetMapUp(bool up);
 // with MenuTapResult(serial, button bits, 0 none, -1 a hint not known).
 bool TakeMenuTap(int& serial, float& x, float& y);
 void MenuTapResult(int serial, int button);
+bool TakeMenuScroll(int& serial, float& x, float& y);
+void MenuScrollResult(int serial, bool allowed);
 
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen
