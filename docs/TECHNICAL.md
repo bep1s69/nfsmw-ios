@@ -10640,3 +10640,24 @@ push/tag/release. Next: review overload accounting before promoting experimental
 40 path; normal-resolution release candidate still pending. Preserved unrelated
 13-line issue11 checkpoint addition, untracked HANDOFF and sibling SDK work;
 selectively commit only this session's evidence/docs.
+
+
+### October 30: source review of 60 fps drops with default 120 Hz simulation
+
+Stefan asks what remains to test and whether normal60-cap behavior remains;
+reiterates120 Hz simulation was made default for uneven60 fps motion.
+Read frame_clock.cpp, world_step_limit.h, game_extra_options.cpp and launcher.
+Both cvar and launcher retain120 default. At60, managed40 branch is bypassed;
+legacy clock accumulates elapsed debt, supplies display-period increments up to
+four periods, and resyncs excessive debt. Test8's local-cap correction explicitly
+requires managed40. Thus prior60 timing behavior is retained, including potential
+shared-step side effect: with observed nonzero flag/budget4 branch, downstream
+engine cap remains4/120=33.33 ms. ~40–50 fps generally fits this elapsed budget;
+individual supplied steps above33.33 ms can still lose time, and sustained
+below30 fps can slow game time. These are source-based expectations, not a new
+60 fps on-device measurement. Do not revert120 simulation to solve this.
+Recommended next test: same test8 IPA,60 cap, same arguments,1x baseline then
+stress to45–55 and below30 fps,restore1x; compare race seconds to wall clock.
+Existing world-clock tracing works at60, but world-step trace is currently
+managed40-gated, so a60 log alone cannot directly prove downstream clamp loss.
+No code/build changes. Existing issue11 note/HANDOFF preserved; no release.
