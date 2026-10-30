@@ -10691,3 +10691,48 @@ Next scoped fix to review: restore original elapsed catch-up allowance at60
 while retaining default120Hz simulation; expand diagnostic coverage for proof.
 No source change/build/default promotion/release this turn. Preserve issue11
 checkpoint note, untracked HANDOFF and sibling SDK work; own docs only committed.
+
+
+### October 30: test9 restores original catch-up duration across caps
+
+Stefan explicitly requests original allowance restored across the board because
+all caps may be affected. Kept120Hz simulation default. WorldStepLimit now has
+only limit,actual budget unit and flag inputs. Nonzero flag plus float1/120
+unit doubles positive finite computed limit, restoring original multiplier/60
+allowance regardless of cap,renderer,menu,caller or frame-clock mode. Original
+1/60 unit and separate flag0/20ms branch retain behavior. Generated USA hook
+still acts only at the downstream local cap, before comparison; no global
+simulation constants or multipliers changed. No new switch; correction now
+active independently of default-off Metal40 experiment. World-step logging
+still default-off via nfsmw_frame_ticks_log, now driving at all caps/renderers.
+The existing render-seq field only measures managed assignments where active.
+
+Validation: reverted prior generated patch before updating script, applied new
+patch (both exit0). Host check `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache
+python3 tools/ios/test_world_step_limit.py` exit0:36 branch/budget/unit cases,
+steady30/40/60/120 steps,50ms catch-up,75/250ms bounded stalls,invalid limits;
+synthetic/actual generated fixtures pass idempotency, exact revert, partial/
+missing-anchor rejection and correction-before-trace. Changed policy has no
+cap inputs; checks confirm original budget recovered for multipliers1/2/4/8.
+`git diff --check` exit0. Configured stress ON then built from ios with
+`cmake --build --preset ios --target ipa -j 6`,exit0; logs
+/tmp/nfsmw-test9-configure.log and /tmp/nfsmw-test9-build.log (temporary, not
+sole essential record). No failed build this turn. ZIP integrity/signature
+(codesign --verify --deep --strict)/UUID checks exit0.104payload metallibs
+identical to test8. GPU dylib identical; runtime differs after configure/relink;
+no tracked SDK source edits. Configure stress OFF afterward exit0, no rebuild;
+generic NFSMW.ipa/cache bundle still contain stress choices until rebuilt.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-test9-all-caps-catchup.ipa`,
+30134024bytes,SHA256
+1e387cda34a0eadf215b7a1084cce5b5c37ffd18da39f32a4b690845521a1d1b,
+UUID DAAF1A3E-8720-3679-ABB6-B859A1567310,version0.5.0/build8.
+Ignored .json beside IPA stores verification metadata.
+
+Next:17ProMax60cap1x/5x/1x race seconds vs wall time; same five args from test8,
+Balanced,LPMoff,MetalFXoff. Then short30/120 checks (normal and below-cap load)
+and40 regression. No new device result yet. Original66.67ms limit still bounds
+extreme stalls; do not promise unlimited catch-up. Separate managed40 missed-slot
+oversupply remains unresolved. Confirmed60 presentation fix retained; no default
+Metal40 promotion/version bump/push/tag/release. Preserved pre-existing issue11
+checkpoint note,untracked HANDOFF and SDK work; own changes only committed.

@@ -963,6 +963,13 @@ no60 world-step trace, so exact engine loss not measured. Next: scoped60-cap
 allowance correction preserving120Hz simulation, with direct diagnostics.
 Log path/hash in TECHNICAL. No new code/default promotion this turn.
 
+October30 test9: Stefan approved restoring original allowance across the board.
+Correction now independent of cap/renderer/menu/caller/frame-clock mode, gated
+by actual modified1/120 budget branch.120Hz simulation retained. Built test9,
+identity/checks TECHNICAL. Next60 stress repeat plus30/120/40 regressions;
+world-step diagnostics now cover all driving caps. Device validation pending;
+managed40 stress oversupply remains separate/open. No release promotion.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

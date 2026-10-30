@@ -76,11 +76,8 @@ double TraceTicks(double result, double ticks, double milliseconds, double perio
 // Restore the original elapsed-time allowance, not the shared simulation step.
 // The generated hook runs before the clamp; diagnostics see the effective limit.
 extern "C" double nfsmw_world_step_limit(double limit, double step,
-    uint32_t flag, bool main_loop) {
-  return nfsmw::WorldStepLimit(limit, step, flag, main_loop,
-      nfsmw::display::ManagedFramePeriodNs() != 0,
-      nfsmw::battery::InMenu(), rex::cvar::Query<int32_t>("ios_fps_cap"),
-      REXCVAR_GET(nfsmw_frame_ticks));
+    uint32_t flag) {
+  return nfsmw::WorldStepLimit(limit, step, flag);
 }
 
 // Diagnostic only: observe the engine's downstream accumulator, including
@@ -93,9 +90,7 @@ extern "C" void nfsmw_world_step_trace(double input, double before, double limit
   static thread_local size_t count = 0;
   static thread_local uint64_t updates = 0;
   static thread_local int lines = 160;
-  if (!REXCVAR_GET(nfsmw_frame_ticks_log) ||
-      !nfsmw::display::ManagedFramePeriodNs() || nfsmw::battery::InMenu() != 0 ||
-      rex::cvar::Query<int32_t>("ios_fps_cap") != 40) {
+  if (!REXCVAR_GET(nfsmw_frame_ticks_log) || nfsmw::battery::InMenu() != 0) {
     last = {};
     count = 0;
     return;
