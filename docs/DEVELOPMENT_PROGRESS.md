@@ -141,6 +141,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: 17 Pro Max test6 stress log analyzed; race-timer repeat next.**
+  Archived nfsmw_iphone_17pm_11_metal_display_40_test6_resolution_stress.log.
+  1x/3x steady40 and25ms shown gaps;5x~21.9fps/GPU50.73ms.
+  Selected360 world updates give16.297s over15.608s raw(~104.4%),so
+  compensation active;does NOT establish actual physics speed. Stefan
+  suspects slowlogic,unclear5xvs8x;requested race-seconds retest. Nextsame
+  IPA/fiveargs,Balanced40:compare race-timer advance over30externalseconds
+  at1x then5x,exclude menus/settling,observe carmotion,restore1x,skip8x.
+  8xblackpicture/termination,peak5916MiB near6144limit;memorypressure
+  plausible,unproven;outsidehotfixscope. Audio48kHz/0gaps unaffected.
+  No new source/build/default/release. If repeat disagrees with supplied
+  time,inspect downstream world/physics consumption and frame association.
+  New laptop missing buildcache/generated89.cpp;restore before newbuild.
+  Pre-existing issue11 note/HANDOFF/SDK changes preserved uncommitted.
+
 - **October30: test6 resolution-stress IPA ready; 14 Pro Max unavailable.**
   Stefan returned the phone and requested temporary choices up to8x to
   force GPU-limited output on another device; hopes to release tomorrow,
