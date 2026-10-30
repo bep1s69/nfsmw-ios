@@ -10972,3 +10972,15 @@ confirms remote remains4e2ac87fb27af677884d917198b62831a581bedb.
 available; connected API file commits are not a substitute for pushing this
 existing29-commit history. Ask user to authenticate gh then retry authorized
 push; no tag/release created. FinalIPA and local changes complete.
+
+
+### October 30: authenticated push completed
+
+Stefan confirms GitHub login completed;asks whether30/120 fixes included.
+Confirmed final0.5.1/build9 includes frame_clock_policy30full-frame quantum and
+120catch-up-duration correction,all-cap engine allowance,Metal40defaultON and
+14PM60presentation fix. Artifact identity remains prior release entry.
+`git push origin main` exit0:4e2ac87->223623a. No force/tag/release.
+This documentation update is committed/pushed afterward; next user action is
+finalIPA smoke test and publication. No code/build changes. Preserved unrelated
+issue11note,HANDOFF and SDK work;no additional authorization needed for push.

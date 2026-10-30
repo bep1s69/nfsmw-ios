@@ -158,6 +158,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: GitHub authentication restored;0.5.1 changes pushed.**
+  Stefan authenticated and asked whether30/120 fixes included: yes,both are
+  compiled into final0.5.1/build9 along with40 pacing and14PM60 fix.
+  `git push origin main` exit0,remote advanced4e2ac87->223623a. This record
+  follows as a documentation commit. Next: Stefan smoke-tests final namedIPA
+  without diagnostic args and creates tag/release; agent has not published.
+  Preserve unrelated issue11 checkpoint note/HANDOFF. No code/build changes.
+
 - **October 30: push blocked by missing GitHub credentials on new laptop.**
   Release preparation committed26e41c4; `git push origin main` failed:
   could not read Username for HTTPS/Device not configured. gh auth status fails
