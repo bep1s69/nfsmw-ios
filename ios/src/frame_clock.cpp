@@ -13,6 +13,8 @@
 // (default) each frame gets one display period (16.67 ms at 60 Hz), or more
 // when real time has run over 3/4 of a period ahead (frames missed on screen
 // too); far off (loading) it resyncs. The loop itself is not slowed.
+// At the 30 cap, driving uses two guest vblanks per world frame (33.33 ms).
+// Catch-up retains roughly 66.67 ms at every guest rate, including 120 Hz.
 // IPA124: camera judder 113-197 per ~900 frames -> 3 in 6120 (iPad), 0 in
 // 4080 (iPhone). 0: the game's own time.
 
@@ -28,6 +30,7 @@
 
 #include "display_rate.h"
 #include "world_step_limit.h"
+#include "frame_clock_policy.h"
 #include "battery.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
@@ -153,14 +156,9 @@ extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double ra
     return TraceTicks(ticks * (give / milliseconds), ticks, milliseconds,
                       frame_period, debt, false, mode, rate, wait, clamp);
   }
-  debt += milliseconds - period;
-  double give = period;
-  while (debt > period * 0.75 && give < period * 4) {  // refreshes missed: catch up
-    give += period;
-    debt -= period;
-  }
-  const bool resync = debt < -2 * period || debt > 4 * period;
-  if (resync) debt = 0;  // far off (loading): resync
-  return TraceTicks(ticks * (give / milliseconds), ticks, milliseconds,
-                    period, debt, resync, mode, rate, wait, clamp);
+  const double world_period = nfsmw::WorldFramePeriod(period,
+      rex::cvar::Query<int32_t>("ios_fps_cap"), nfsmw::battery::InMenu() == 0);
+  const auto step = nfsmw::AdvanceWorldClock(debt, milliseconds, world_period);
+  return TraceTicks(ticks * (step.given / milliseconds), ticks, milliseconds,
+                    world_period, debt, step.resync, mode, rate, wait, clamp);
 }

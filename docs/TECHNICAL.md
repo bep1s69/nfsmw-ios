@@ -10792,3 +10792,73 @@ camera trace at1x with same five args plus --nfsmw_native_camera_log=true,
 steady turning/driving for30–60s. Keep test resolutions available until these
 checks settle; no new code/build/default promotion/version/push/tag/release.
 Preserved pre-existing issue11 checkpoint note,HANDOFF and SDK work.
+
+
+### October 30: log17 camera evidence and test10 30/120 clock corrections
+
+Stefan approves both fixes hoping for definitive pacing/smoothness resolution.
+Do not equate that hope with validation. Same17PM/test9 context,OS unspecified.
+Log launch22:49:32.135,last22:50:36.154;build stampOct30 22:12:38.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/9C71D46A-B686-4437-992E-C7B129BB1719/nfsmw.log`.
+Archive exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_17_test9_30fps_camera.log`.
+666805bytes,2987lines,SHA256
+de05bdf8fc854a8ce173b1f06e5b85a548fab43ae11da5eb46a2ef5e2edd7828.
+22camera batches/1320samples,28values>170deg: dominant scene-matrix voting
+can switch views/axis signs; infer estimator artifacts, not real camera spins.
+Other isolated patterns (e.g.22:50:30 turn1.21,2.33,.55,.54,1.02) consistent
+with world-time half/double steps but variable steering/view switching prevents
+independent proof from every outlier. Selected world-step batches emitted
+22:50:00<=t<22:50:37:1080samples,output36093.099ms/host36055.953ms.
+Ticks120:654,121:328,60:40,180:19,119:10,240:9,181:7,59:4,61:4,
+179:3,75:1,239:1. This confirms near-correct total elapsed time but uneven
+per-frame time. Requested30cap1x/six args per prior instructions; OS and exact
+user steering not independently recorded. Archive/analysis exit0.
+
+Implemented frame_clock_policy.h and used it after the unchanged managed40
+branch.30 driving quantum is twice published guest60Hz period; menus retain
+single guest-period behavior. Legacy catch-up/resync duration uses whole quanta
+fitting~66.67ms (small ratio tolerance for measured display period), not four
+quanta at every rate. At120 it permits8steps,60 permits4,30 driving permits2.
+Legacy40 guest120 path also gets elapsed-duration correction; experimental
+managed40 returns before this policy and is unchanged. Retains bounded loading
+resync and120Hz simulation. No new switches; mode0 bypass and managed40 remain.
+Original engine cap correction stays active across caps.
+
+Validation: `python3 tools/ios/test_frame_clock_policy.py` initial exit1:
+rounding max_steps up for a25ms quantum allowed75ms, exceeding intended budget.
+Changed to floor with .001 ratio tolerance for measured display drift; rerun
+exit0. Checks30/40/60/120 steady jitter,6000 sustained25fps updates/cap with
+elapsed conservation,loading bounds,10000 comparisons to legacy60 algorithm.
+`PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3 tools/ios/test_world_step_limit.py`
+exit0:36cases and two generated-hook fixtures (exact revert/idempotency/reject).
+`git diff --check` exit0 before final docs. StressON configure and
+`cmake --build --preset ios --target ipa -j 6` from ios exit0; temporary logs
+/tmp/nfsmw-test10-configure.log and /tmp/nfsmw-test10-build.log.
+No failed build. Added explanatory source comments after build, no executable
+change after validation. ZIP integrity,codesign --verify --deep --strict and
+UUID checks exit0.104metallibs identical to test9;GPU dylib identical,runtime
+relinked/different following configure;no tracked SDK edits.
+StressOFF configure afterward exit0;no rebuild,genericIPA/cache app still stress.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-test10-30-120-world-clock.ipa`,
+30134223bytes,SHA256
+7bb64198f0b613645d628746e1bdf88df7dc24e5b7a33d147172bedcf676f26d,
+UUID A41DC73D-F563-3062-B68D-4E221763EF64,version0.5.0/build8.
+Ignored .json verification metadata beside IPA.
+
+Next device validation:30cap1x30–60s sustained turning/driving;120cap1x/5x/1x
+race seconds vs wall time;short40/60 regression. Same six args:
+```
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+--nfsmw_native_camera_log=true
+```
+Balanced,LPMoff,MetalFXoff. Stress choices retained in namedtest10;do not remove
+until checks settle. No device result yet,no definitive fix/release claim.
+Managed40 prior oversupply remains open;experiment defaultOFF. No version bump,
+push/tag/release. Preserved pre-existing issue11 note,untracked HANDOFF and SDK
+work;own session changes only committed.
