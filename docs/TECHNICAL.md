@@ -11292,3 +11292,37 @@ pacing andno next-launchlabel. ThenunderEco40->120->60 andbackground/resume;
 6+EtablettestneededforitsdifferentBalancedpolicy. Don't inferbattery/thermal
 savingsfromshortthroughputtest;matchedcostauditremainsbacklog. No device result,
 newrelease/versionbump,push/tag. Preserveissue11note,HANDOFF,SDKpreexistingwork.
+
+
+### October31:test3 missing profile menu row corrected in test4
+
+Stefan cannot findPerformance,believesnewestbuild. Confirmed test3 backend in
+suppliedlog,notaninstallationmistake:57live-profile markers,zeroFAILED,no
+missingbridge marker;worker/mainutility17 andboosted25 adopted inepoch1.
+This demonstrates startup/adaptive adoption only,notprofile switching.
+Source Keys() iningame_options.mm omittedperformance_mode;previoustest3
+implementation/hosttests failed to cover UIentry availability. Addedkeybeside
+fps_cap,usingexisting sharedrow/choices/liveChoose callback. No backendchange.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/ADA09D6F-AF5A-4C8C-8888-9D2BB52934A3/nfsmw.log`.
+Archivedexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_20_052_test3_missing_profile_menu.log`.
+517288bytes,3376lines,SHA256
+31863735decf4176f7da01162180d8ac5b89850be0ec3987c618b7603e485b84.
+Launch00:07:16.067,buildOct31 00:02:42,lastpartialline00:08:28.271.
+Same17PM/test3 context,OSunspecified. Archive/analysisexit0.
+
+Validation: inspectedKeys->launcherRows->FindOption chain,Performance row
+existswithEco/Balanced/Max choices andlivecallback;notnative-onlyfiltered.
+Normalincremental cmakebuild --presetios --targetipa -j6 fromios exit0(5steps),
+log/tmp/nfsmw-052-profile-menu-build.log;gitdiff--checkpass. No newtests for
+one-rowreversible fix;existingbackendunchanged. ZIPintegrity,codesign--verify
+--deep--strict,UUIDpass;104metallibs andbothSDKdylibsidenticaltotest3.
+Exclusive-create artifact
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test4-profile-menu.ipa`,
+30140434bytes,SHA256
+a16ef0740b9a05804f663aa9a9077bdbfa5b8040db59b816eeb36a8878a41bf9,
+UUID662D52AD-B74A-3BA7-B11F-FBDF4BA9F270;bundle0.5.1/build9.
+Ignored.json besideIPA. Nextsixprofilepairs aspriorentry,60/1x,noExtraArgs,
+pausePerformance row thenresume15–20seach. Test3missingrow preventedthat
+validation;do not markprofilefeatureaccepted. Preservedpre-existingissue11note,
+HANDOFF,SDKwork;owncode/docscommittedlocally,no push/tag/release.

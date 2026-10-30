@@ -53,7 +53,7 @@ std::atomic<bool> sheet_open{false};
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
 
 NSArray<NSString*>* Keys() {
-  return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
+  return @[ @"scale", @"metalfx_mode", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
             @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
             @"touch_steering", @"touch_idle_opacity" ];
 }

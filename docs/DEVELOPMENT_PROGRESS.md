@@ -166,6 +166,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31:test4 fixes missing in-game Performance row;profile test pending.**
+  Stefan couldn't find profiles. Log20 proves newtest3 backend present (57
+  live-profile markers,no failures); source Keys() omitted performance_mode.
+  Added row besidefps_cap;already-defined shared choices/liveChoose path reused.
+  Build/ZIP/signature/shader checks pass,both SDKdylibsidenticaltotest3.
+  `ios/build/NFSMW-0.5.2-test4-profile-menu.ipa`,SHA256
+  `a16ef0740b9a05804f663aa9a9077bdbfa5b8040db59b816eeb36a8878a41bf9`,
+  UUID `662D52AD-B74A-3BA7-B11F-FBDF4BA9F270`,30140434bytes;
+  bundle0.5.1/build9. Next same sixprofile transition test,now via visible
+  Performance row. No priority-policy change;no claim of completedliveprofile
+  validation. Archive/path/hash TECHNICAL. Preservedissue11/HANDOFF/SDKwork.
+  No push/tag/release. Previoustest3 was unusable for profile selection due
+  missingrow,not userinstallerror;record that limitation for future agents.
+
 - **October31:0.5.2 test3 live performance profiles implemented;device check next.**
   Stefan approves live profiles for convenience/next optimization pass. Shared
   launch/live resolver retains existing phone/tablet policies and per-flag Extra
