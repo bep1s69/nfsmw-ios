@@ -158,6 +158,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: 60 fps overload review requested.** Stefan reiterates that
+  120 Hz simulation is deliberately the default at all caps for smooth motion;
+  retain it. Source review: 60 retains legacy debt/catch-up clock and the
+  shared-step-dependent engine cap (typically33.33 ms with budget4/120).
+  Test8 cap restoration is managed40 only. Next useful device check: 60 fps
+  race at1x, then stress to45–55 and below30 fps, then1x; compare race clock
+  to real time. Occasional >33 ms steps can be clipped even above30 average.
+  Actual60 overload result remains unmeasured; no source change this turn.
+
 - **October 30: test8 accepted by Stefan; log14 archived and analyzed.**
   “Everything worked as intended” on the ongoing 17 Pro Max test. Effective
   engine limit66.667 ms confirmed. 1x engine time/host time ~100% before and
