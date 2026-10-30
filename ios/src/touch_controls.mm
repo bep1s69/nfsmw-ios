@@ -50,6 +50,7 @@
 #include <atomic>
 #include <cmath>
 #include <vector>
+#include "menu_touch_policy.h"
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -73,6 +74,8 @@ REXCVAR_DEFINE_BOOL(ios_touch_menu_gestures, true, "Input",
                     "Touch controls in menus and pause screens (with ios_touch_auto_layout): no "
                     "overlay; a swipe pushes the left stick that way, a tap presses A, a two-finger "
                     "tap B. The PAD pill brings the full gamepad back until the next layout change");
+REXCVAR_DEFINE_BOOL(ios_touch_menu_invert, false, "Input",
+                    "Reverse swipe navigation in menus; world-map cursor dragging stays direct");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "
                     "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
@@ -171,11 +174,13 @@ void SetPadState(int buttons, float lx, float ly, float rx, float ry, float lt, 
 
 // Pressed for 0.1 s (a menu's tap).
 // (1 << 20, 1 << 21: LT, RT, as game_scene_size.cpp's kHintLT / kHintRT.)
+uint64_t g_menu_press_generation = 0;  // main thread, rejects stale delayed releases
 void PressMenuButton(int button) {
+  const uint64_t generation = ++g_menu_press_generation;
   const int buttons = button & 0xFFFF;
   SetPadState(buttons, 0, 0, 0, 0, (button & (1 << 20)) ? 1 : 0, (button & (1 << 21)) ? 1 : 0);
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    if (g_buttons == buttons) SetPadState(0, 0, 0, 0, 0, 0, 0);
+    if (generation == g_menu_press_generation && g_buttons == buttons) SetPadState(0, 0, 0, 0, 0, 0, 0);
   });
 }
 
@@ -288,6 +293,9 @@ struct Control {
   CGPoint _gStart;
   NSTimeInterval _gTime;
   BOOL _gSwiping;
+  NSTimer* _gRepeatTimer;
+  int _gDirection;
+  nfsmw::menu_touch::DragRepeat _gRepeat;
   int _gFingers;   // the most fingers down at once
   int _gDown;      // fingers down now
   CGRect _steerZone;    // editor: where the dynamic joystick works, outlined
@@ -967,15 +975,24 @@ static CGFloat TouchOpacity() {
 // ---------------------------------------------------------------------------
 //  Menus: swipe and tap (as on Android)
 // ---------------------------------------------------------------------------
+- (void)dealloc {
+  [_gRepeatTimer invalidate];
+}
+
 - (void)gestureBegan:(NSSet<UITouch*>*)touches {
   if (_gDown == 0) {
+    [self stopMenuRepeat];
+    SetPadState(0,0,0,0,0,0,0);
     _gStart = [touches.anyObject locationInView:self];
     _gTime = NSDate.timeIntervalSinceReferenceDate;
     _gSwiping = NO;
     _gFingers = 0;
   }
+  ++g_menu_press_generation;
+  g_tap_pending.store(0);
   _gDown += int(touches.count);
   _gFingers = std::max(_gFingers, _gDown);
+  if (_gFingers > 1) { [self stopMenuRepeat]; SetPadState(0,0,0,0,0,0,0); }
 }
 
 // The first finger's way from where it went down: past 14 points the left
@@ -990,19 +1007,46 @@ static CGFloat TouchOpacity() {
   _gSwiping = YES;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
   if (g_map_up.load()) {
+    [self stopMenuRepeat];
     // The world map moves its cursor with the right stick, any way (Stefan,
     // IPA165).
     const float len = float(std::max(d, 1.0));
     SetPadState(0, 0, 0, float(dx) / len * k, float(dy) / len * k, 0, 0);
     return;
   }
-  const bool across = std::fabs(dx) >= std::fabs(dy);
-  SetPadState(0, across ? (dx > 0 ? k : -k) : 0, across ? 0 : (dy > 0 ? k : -k), 0, 0, 0, 0);
+  _gDirection = nfsmw::menu_touch::Direction(float(dx),float(dy),REXCVAR_GET(ios_touch_menu_invert));
+  [self repeatMenuDrag];
+  if (!_gRepeatTimer) {
+    __weak NFSTouchView* weak = self;
+    _gRepeatTimer = [NSTimer timerWithTimeInterval:1.0/60 repeats:YES block:^(NSTimer*) {
+      [weak repeatMenuDrag];
+    }];
+    [NSRunLoop.mainRunLoop addTimer:_gRepeatTimer forMode:NSRunLoopCommonModes];
+  }
+}
+
+- (void)repeatMenuDrag {
+  if (!_gestures || _gDown != 1 || _gFingers != 1 || g_map_up.load()) {
+    [self stopMenuRepeat];
+    return;
+  }
+  const int buttons = _gRepeat.Buttons(NSDate.timeIntervalSinceReferenceDate,_gDirection);
+  SetPadState(buttons,0,0,0,0,0,0);
+}
+
+- (void)stopMenuRepeat {
+  const bool repeating = _gRepeatTimer != nil;
+  [_gRepeatTimer invalidate];
+  _gRepeatTimer = nil;
+  _gDirection = 0;
+  _gRepeat.Reset();
+  if (repeating) SetPadState(0,0,0,0,0,0,0);
 }
 
 - (void)gestureEnded:(NSSet<UITouch*>*)touches {
   _gDown = std::max(0, _gDown - int(touches.count));
   if (_gDown > 0) return;
+  [self stopMenuRepeat];
   SetPadState(0, 0, 0, 0, 0, 0, 0);
   // A tap: short and still. One finger A, two B.
   if (_gSwiping || NSDate.timeIntervalSinceReferenceDate - _gTime > 0.4) return;
@@ -1024,7 +1068,8 @@ static CGFloat TouchOpacity() {
   const int serial = ++g_tap_serial;
   g_tap_pending.store(serial);
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    if (g_tap_pending.exchange(0) == serial) {
+    int expected = serial;
+    if (g_tap_pending.compare_exchange_strong(expected,0)) {
       REXLOG_INFO("[touch] menu tap: A (no answer)");
       PressMenuButton(kA);
     }
@@ -1126,10 +1171,23 @@ static CGFloat TouchOpacity() {
 }
 
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  if (_gestures) {
+    _gDown = 0;
+    _gSwiping = YES;
+    [self stopMenuRepeat];
+    g_tap_pending.store(0);
+    ++g_menu_press_generation;
+    SetPadState(0,0,0,0,0,0,0);
+    return;
+  }
   [self endTouches:touches];
 }
 
 - (void)releaseAll {
+  [self stopMenuRepeat];
+  _gDown = 0;
+  g_tap_pending.store(0);
+  ++g_menu_press_generation;
   [_owners removeAllObjects];
   for (Control& c : _controls) {
     c.pressed = false;

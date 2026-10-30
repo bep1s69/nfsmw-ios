@@ -74,6 +74,7 @@
 //     its +184/+188, its children's x/y, and the map picture's offset
 //     (0x82A2C60C x, 0x82A2C610 y, both read where the map is drawn).
 
+#include "menu_touch_policy.h"
 #include <cstdint>
 #include <cstdio>
 #include <algorithm>
@@ -1403,101 +1404,114 @@ namespace {
 // B Done, A Read, Y Delete; the map's X; the main menus' A and B) give
 // CROSS = A, TRIANGLE = B, SQUARE = X, CIRCLE = Y. Other pictures (the SMS
 // list's rows, the PC's mouse hints) are not hints.
+// MENU_TOUCH_HINTS_BEGIN: also compiled against synthetic FE trees by host tests.
 int ButtonOfTexture(uint32_t texture) {
+  using namespace nfsmw::menu_touch;
   switch (texture) {
-    case 0x02959349: return 1;  // CROSS
-    case 0x6851AAF5: return 2;  // TRIANGLE
-    case 0x7A8B6BD0: return 4;  // SQUARE
-    case 0x54A68051: return 8;  // CIRCLE
+    case 0x02959349: return 1;  // CROSS -> A
+    case 0x6851AAF5: return 2;  // TRIANGLE -> B
+    case 0x7A8B6BD0: return 4;  // SQUARE -> X
+    case 0x54A68051: return 8;  // CIRCLE -> Y
+    case Hash("L2"): case Hash("LT"): return LT;
+    case Hash("R2"): case Hash("RT"): return RT;
+    case Hash("L1"): case Hash("LB"): return 1<<9;
+    case Hash("R1"): case Hash("RB"): return 1<<10;
     default: return 0;
   }
 }
-
+int ButtonOfObject(uint32_t hash) {
+  using namespace nfsmw::menu_touch;
+  // Existing world-map tree evidence, now resolved at live positions.
+  if (hash == 0xD1CDA594) return LT;
+  if (hash == 0x9345E4A7) return RT;
+  if (hash == 0xBFF41BD9) return Left;
+  if (hash == 0xBEE65E8C) return Right;
+  static const auto actions = [] {
+    std::unordered_map<uint32_t,int> result;
+    for (auto [name,button] : {std::pair{"LEFT_ARROW",Left}, {"RIGHT_ARROW",Right},
+         {"ARROW_LEFT",Left}, {"ARROW_RIGHT",Right}, {"LEFT_TRIGGER",LT}, {"RIGHT_TRIGGER",RT},
+         {"LTRIGGER",LT}, {"RTRIGGER",RT}, {"LT",LT}, {"RT",RT}}) result[Hash(name)] = button;
+    // FE option widgets construct these names (strings in the guest image).
+    for (int i=0;i<100;++i) {
+      result[Hash("LEFT_ARROW_"+std::to_string(i))] = Left;
+      result[Hash("RIGHT_ARROW_"+std::to_string(i))] = Right;
+    }
+    return result;
+  }();
+  auto it=actions.find(hash);
+  return it==actions.end()?0:it->second;
+}
 struct Hint {
   uint32_t group, texture;
-  float x, y;  // the picture's middle
+  float x,y,half_w,half_h;
+  int button;
+  bool label;
 };
-
-void FindHints(uint8_t* base, uint32_t first, float px, float py, float ps, int depth, std::vector<Hint>& out,
-               int& budget) {
-  for (uint32_t o = first; Plausible(o) && REX_LOAD_U32(o) != kListVtable && budget > 0; o = REX_LOAD_U32(o + 4)) {
+void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,int depth,
+               bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget) {
+  for (uint32_t o=first;Plausible(o)&&REX_LOAD_U32(o)!=kListVtable&&budget>0;o=REX_LOAD_U32(o+4)) {
     --budget;
-    if (REX_LOAD_U32(o + 0x18) != 5 || REX_LOAD_U32(o + 0x5C) != kListVtable || REX_LOAD_U32(o + 0x60) > 200) continue;
-    const uint32_t data = REX_LOAD_U32(o + 0x2C);
+    if (!(REX_LOAD_U32(o+0x1C)&kShown)) continue;
+    const auto type=REX_LOAD_U32(o+0x18),data=REX_LOAD_U32(o+0x2C);
     if (!Plausible(data)) continue;
-    const float gx = px + ps * LoadF(base, data + 28), gy = py + ps * LoadF(base, data + 32);
-    const float gs = ps * LoadF(base, data + 56);
-    const uint32_t children = REX_LOAD_U32(o + 0x60), first_child = REX_LOAD_U32(o + 0x64);
-    if (children >= 2 && children <= 3) {  // the pause menu's have a second text
-      uint32_t text = 0, picture = 0;
-      for (uint32_t c = first_child; Plausible(c) && REX_LOAD_U32(c) != kListVtable; c = REX_LOAD_U32(c + 4)) {
-        const uint32_t type = REX_LOAD_U32(c + 0x18);
-        if (type == 2) text = c;
-        if (type == 1 && ButtonOfTexture(REX_LOAD_U32(c + 0x24))) picture = c;
-      }
-      const uint32_t pd = picture ? REX_LOAD_U32(picture + 0x2C) : 0;
-      if (text && Plausible(pd)) {
-        const float w = std::abs(LoadF(base, pd + 56)), h = std::abs(LoadF(base, pd + 60));
-        if (w >= 24 && w <= 34 && h >= 24 && h <= 34) {
-          out.push_back({REX_LOAD_U32(o + 0x10), REX_LOAD_U32(picture + 0x24), gx + gs * LoadF(base, pd + 28),
-                         gy + gs * LoadF(base, pd + 32)});
-          continue;
-        }
-      }
+    const float gx=px+sx*LoadF(base,data+28),gy=py+sy*LoadF(base,data+32);
+    if (!std::isfinite(gx)||!std::isfinite(gy)) continue;
+    if (type==5) {
+      if (depth>=8||REX_LOAD_U32(o+0x5C)!=kListVtable||REX_LOAD_U32(o+0x60)>200) continue;
+      const auto child=REX_LOAD_U32(o+0x64);
+      bool text=false;
+      int scan=200;
+      for (uint32_t c=child;Plausible(c)&&REX_LOAD_U32(c)!=kListVtable&&scan-->0;c=REX_LOAD_U32(c+4))
+        if (REX_LOAD_U32(c+0x18)==2 && (REX_LOAD_U32(c+0x1C)&kShown)) text=true;
+      const float xs=LoadF(base,data+56),ys=LoadF(base,data+60);
+      if (std::isfinite(xs)&&std::isfinite(ys))
+        FindHints(base,child,gx,gy,sx*xs,sy*ys,depth+1,text||parent_text,
+                  ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget);
+      continue;
     }
-    if (depth < 8) FindHints(base, first_child, gx, gy, gs, depth + 1, out, budget);
+    if (type!=1) continue;
+    const float w=LoadF(base,data+56)*sx,h=LoadF(base,data+60)*sy;
+    if (!std::isfinite(w)||!std::isfinite(h)||std::abs(w)<3||std::abs(h)<3||std::abs(w)>96||std::abs(h)>96) continue;
+    const auto texture=REX_LOAD_U32(o+0x24),hash=REX_LOAD_U32(o+0x10);
+    int button=ButtonOfObject(hash);
+    if (!button) button=ButtonOfTexture(texture);
+    if (!button) button=inherited_action;
+    if (!button && texture==nfsmw::menu_touch::Hash("ARROW"))
+      button=w<0?nfsmw::menu_touch::Left:nfsmw::menu_touch::Right;
+    // Keep small unknown icons for a diagnostic only; never guess their action.
+    if (button || (std::abs(w)>=20&&std::abs(w)<=40&&std::abs(h)>=20&&std::abs(h)<=40))
+      out.push_back({hash,texture,gx,gy,std::max(20.f,std::abs(w)/2+5),
+                     std::max(20.f,std::abs(h)/2+5),button,parent_text&&button>0&&button!=nfsmw::menu_touch::Left&&button!=nfsmw::menu_touch::Right});
   }
 }
-
+const Hint* HintAt(const std::vector<Hint>& hints,float x,float y) {
+  const Hint* best=nullptr;
+  float score=1e9;
+  for (const auto& h:hints) {
+    const bool icon=std::abs(x-h.x)<=h.half_w&&std::abs(y-h.y)<=h.half_h;
+    const bool label=h.label&&x>=h.x-h.half_w&&x<=h.x+85&&std::abs(y-h.y)<=h.half_h;
+    if (!icon&&!label) continue;
+    const float candidate=std::hypot(x-h.x,y-h.y)+(icon?0:100)+(h.button?0:200);
+    if (candidate<score) {score=candidate;best=&h;}
+  }
+  return best;
+}
+// MENU_TOUCH_HINTS_END
 }  // namespace
 
-// The hint at (x, y) (package units from the middle of the screen) among
-// the packages up, logged with all hints found; its button bits, or 0.
-// Not SDL buttons: the triggers, for the world map's zoom.
-constexpr int kHintLT = 1 << 20, kHintRT = 1 << 21;
-
-extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y) {
+extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y) {
   if (!Plausible(engine)) return 0;
   std::vector<Hint> hints;
-  int packages = 0;
-  for (uint32_t p = REX_LOAD_U32(engine + 216 + 8); Plausible(p) && packages < 64; p = REX_LOAD_U32(p + 4), ++packages) {
-    // The world map (Stefan, IPA165): its zoom pictures (LT, RT: D1CDA594
-    // at -245,169 and 9345E4A7 at 23,169 in its dump) and the arrows around
-    // the category at the top (measured on IMG_4077: 43,-184 and 234,-184)
-    // are no hints: fixed places, the triggers and the D-pad's left / right.
-    if (GuestName(base, REX_LOAD_U32(p + 12)) == "WorldMapMain.fng") {
-      struct Spot {
-        float x, y;
-        int button;
-        const char* name;
-      } spots[] = {{-245, 169, kHintLT, "LT"}, {23, 169, kHintRT, "RT"}, {43, -184, 1 << 13, "left"},
-                   {234, -184, 1 << 14, "right"}};
-      for (const Spot& s : spots) {
-        if (std::abs(x - s.x) <= 28 && std::abs(y - s.y) <= 24) {
-          REXLOG_INFO("[touch-hint] tap at {:.0f},{:.0f}: the map's {}", x, y, s.name);
-          return s.button;
-        }
-      }
-    }
-    uint32_t at = 0;
-    const uint32_t first = FirstObject(base, p, at);
-    int budget = 2000;
-    const size_t before = hints.size();
-    if (first) FindHints(base, first, 0, 0, 1, 0, hints, budget);
-    for (size_t i = before; i < hints.size(); ++i) {
-      REXLOG_INFO("[touch-hint] {} hint {:08X} texture {:08X} at {:.0f},{:.0f}", GuestName(base, REX_LOAD_U32(p + 12)),
-                  hints[i].group, hints[i].texture, hints[i].x, hints[i].y);
-    }
+  int packages=0;
+  for (uint32_t p=REX_LOAD_U32(engine+216+8);Plausible(p)&&packages<64;p=REX_LOAD_U32(p+4),++packages) {
+    uint32_t at=0;
+    const uint32_t first=FirstObject(base,p,at);
+    int budget=2000;
+    if (first) FindHints(base,first,0,0,1,1,0,false,0,hints,budget);
   }
-  // The picture and its text after it: from 20 units left of the picture's
-  // middle to 85 right, 20 up and down (hints sit ~100 apart); of two, the
-  // one starting nearer to the left of the tap.
-  const Hint* hit = nullptr;
-  for (const Hint& h : hints) {
-    if (x >= h.x - 20 && x <= h.x + 85 && std::abs(y - h.y) <= 20 && (!hit || h.x > hit->x)) hit = &h;
-  }
-  const int button = hit ? ButtonOfTexture(hit->texture) : 0;
-  REXLOG_INFO("[touch-hint] tap at {:.0f},{:.0f}: {}", x, y,
-              hit ? fmt::format("hint {:08X} texture {:08X}, button {}", hit->group, hit->texture, button) : "no hint");
-  return hit && !button ? -1 : button;  // -1: a hint whose button is not known yet
+  const auto* hit=HintAt(hints,x,y);
+  if (hit) REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: object {:08X} texture {:08X} action {} at {:.0f},{:.0f}",
+      x,y,hit->group,hit->texture,hit->button,hit->x,hit->y);
+  else REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: no icon",x,y);
+  return hit?(hit->button?hit->button:-1):0;
 }

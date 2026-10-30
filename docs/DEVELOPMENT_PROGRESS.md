@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October31 (Stefan):confirmed dimbandbelow1x(inBattery mode),AirPods crackles,
+  engine-sound fade,safehousecrash andevent-loadingfreeze fixed. Markthemclosed
+  ratherthanrelistingasoutstanding;exactfixingversionsnotnewlyestablished.
+  New0.5.2priority:polishmenu touch navigation against suppliedAndroidreference;
+  inversionmustbeoptional,currentdirectiondefault;repeathelddrags,tappable
+  visiblebuttonhints/icon-onlyLT/RT andleft/rightselectors.
+
 - October30 (Stefan):0.5.1 is live. First0.5.2 features are live switching
   among all FPS caps and Eco/Balanced/Max. Audit profile effects (17PM holds
   locked60fps/1x inEco per user). Reopen CPU/GPU optimization at IDENTICAL
@@ -165,6 +172,28 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October31:test5 menu touch polish built;device verification next.**
+  ArchivedAndroidreferencevideo(TECHNICAL hash/path);sampledframes inspected.
+  NewInvert menu swipes setting live/defaultOFF inlauncher/in-game;worldmap
+  cursor remainsdirect. Heldmenu drags sendboundedrepeatingDpadpulses;end/
+  cancel/layoutclearstopthem. FEhintscan nowhandlesvisible standalone/nested
+  icons,trigger/shoulder glyph aliases,knownworldmap IDs andindexedarrow
+  objects atlivepositions. Hiddenparents skipped;unknownsmallglyphs logged/
+  blocked instead of guessingA. Broaderglyphcoverage stillrequiresdevicecheck.
+  Fixedold tap timeout clearingnewpendingtap andold releaseclearingnewpress.
+  Syntheticgesture/actualwalker hostchecks,build,ZIP/signature/104shaderspass.
+  `ios/build/NFSMW-0.5.2-test5-menu-controls-r2.ipa`,SHA256
+  `e18f5df949c62555114cd93c0db3ec6e08c7f1810c3ff953af9476ac0b84979e`,
+  UUID `D6276DAD-8512-3C1C-BAF7-72F84964472D`,30154542bytes;
+  bundle0.5.1/build9 remains. Earlierinternalmenu-touch-polishIPA ispreview,
+  not the finalhand-off. Newhostcheck python3 tools/ios/test_menu_touch.py.
+  Nextmainmenuhelddrag/bothdirections,options<>controls,ABXYlabel/iconhints,
+  mapLT/RT/categoryarrows,QuickRaceicon-onlyLT/RT,cancel/background/returnto
+  driving. Sendlogforunrecognizedglyphs;noExtraArgsneeded. Recheckdefault
+  navigationdirectionandliveinvert toggle. No timing/profile/SDKsourcechanges.
+  Backlogfiveuser-confirmedbugsclosed,historyretained. Preservedissue11note,
+  HANDOFF,SDKwork. No push/tag/versionbump/release.
 
 - **October31:backlog review requested before choosing next changes.**
   Stefan asks for remaining backlog and suggestsMaxmovesallthreads toEcores.

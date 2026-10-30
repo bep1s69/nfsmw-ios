@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **More complete touch navigation in menus.** Held drags repeat through
+  entries, swipe direction can be reversed, and button/arrow hit detection
+  covers more layouts and standalone icons. Device validation pending.
+
 - **Switch performance profiles while playing.** Eco, Balanced and Max now
   update game-thread and rendering priorities without relaunching. Explicit
   scheduling overrides are preserved. Confirmed on iPhone 17 Pro Max.

@@ -11404,3 +11404,93 @@ and0.5.2broaderdevicevalidationremainrelevant. No test/newmeasurement warranted
 forinventory;no source/build/newIPA,push/tag/release. Checkpointnotesuserchoice
 pending;existingoptimizationprioritynotreplaced. Preserveissue11note,HANDOFF,
 siblingSDKwork;commitownreviewrecordonly.
+
+
+### October31: confirmed bug closures and test5 menu touch polish
+
+Stefan confirms dimbandabsent inBattery mode(sub1x),AirPodcrackles andengine
+soundfadefixed,safehousenullcallcrash andevent-loadingfreezefixed. Updatedfive
+matchingbacklogentries tofixed/userconfirmed;retainhistoricalevidence. No new
+fixingbuild/OS/log/causeclaimedforclosures. Annotations1/2/3 acknowledged.
+
+UserrequestsAndroid-reference menucontrolpolish:optionalinvert(currentdirection
+preferred/default),allbuttonhints tappable,<>selectors,icon-onlyLT/RT onmap/
+QuickRace,repeathelddrag. Reference
+`/Users/bep1s/Downloads/Screenrecorder-2026-10-30-19-59-22-59.mp4`,
+archivedexclusive-create,byte-identical,originalretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_android_menu_touch_reference.mp4`.
+23161877bytes,SHA256
+8fbda450f21458a2a29f2ee4507b582e8fb9c1bc15366daa4df0e4154dd459d9.
+AVFoundationduration90.4561088435s. ffprobe unavailable(exit127). SwiftAVFoundation
+firstsandboxattemptcouldnotdecode(OSStatus-12911),notproofbadfile. Re-ranusing
+systemmediaservicespermissions;12sampledframesdecoded/contactsheetinspected,
+exit0. Frames~7–83.5s showmainmenucarousel,options/audio/gameplayselectors,
+controllerdiagram,confirmdialogandvisibletouchdots. Thiswaskeyframeinspection,
+notaclaimofframe-by-framemotionmeasurement. TemporarySwift/sheetin/tmp;essential
+recordandoriginalvideoarearchived. Javareferenceon-diskdidnotcontainmatching
+menugesturelogic,soimplementationguidedbyvideo/userrequestandourinputcode.
+
+Implementation:
+- ios_touch_menu_invert defaultfalse;launcher/in-gameInvert menu swipes,live.
+  Reversesnavigationonly;maprightstickcursorremainsdirect. Defaultnavsignsame.
+- MenuDrag policy emitsDpadpulses(initial100ms,350msfirstrepeat,160msperiod/
+  80mson)fromdominantdragaxispast14points. A60Hztimercontinueswhileheld,
+  nogesturecatch-upbursts. Release/cancel/multitouch/layoutclearstopsrepeat;
+  timerweaklycapturesview,invalidatedatdealloc. Mapusesexistingcontinuous
+  rightstick. Drivercontrolsunchanged.
+- FEwalkerpreviouslyrequired2–3childgroup,textplus30x30faceicon. Newbounded
+  recursivewalkacceptsvisibleleaficonsandgroupactions,independentx/yscale,
+  face/trigger/shoulderaliases,andindexedLEFT_ARROW_/RIGHT_ARROW_ widgetnames
+  (guestimagestringevidence). Knownmapobjecthashesretained,livepositionsreplace
+  hardcodedmaphotspots. FACEtexturemappingsretainprioron-deviceevidence;
+  newlyaddedL1/L2/R1/R2aliases/indexedwidgetsarehost-tested,butactualglyph
+  variants/coverageinQuickRaceandothermenusrequiredevicevalidation. Generic
+  ARROW usesmirroredwidthsign;knownsemanticobject/groupactionswin.
+- Minimum20uniticonhithalfextent;recognizedcontrollerlabelsgetexisting85unit
+  rightwardextension (arrowsdon't). Noclaimofexactfont/text-tailbounds. Visibility
+  viaexistingkShownflag;hiddenparentsdropdescendants. Traversal2000objects/
+  depth8,childscan200. Unknowncompacticonhitsloggedandreturn-1(no guessedA);
+  nontargettapretainsA fallback. Existinghintformatnowlogsobject/texture/action/
+  livepositionforfollow-up. Overlappingpackages/font-onlyglyphsnotdevice-proven.
+- TapfallbackusesCASinstead ofexchange sooldtimeoutcannotclearnewtap;button
+  releaseusesgeneration sooldtimercannotclearanewpress. Newgesturesclearold
+  pendinginput. No timing/profile/quality/SDKsourcechanges.
+
+Checks:
+`python3 tools/ios/test_menu_touch.py` exit0,compilesactualwalkerextractedfrom
+sourceagainstfakeFEtrees:>3children,nesting/nonuniformscale,standaloneABXY,
+triggerandlabel,arrows/mirroring,indexednames,hiddenparent/child,unknownicon,
+cycles/budget;gesturedeadzone/invert/repeat/neutral/directionchange/reset.
+Hostfixturesdon'tproveallrealFEtransforms/glyphsemantics;devicecheckrequired.
+Normalcmakeconfigure/buildipa-j6exit0(17steps),secondaftergrouphandlingcleanup
+exit0,thirdaftertrigger/shoulderlabelcoverageexit0. Tempbuildlogs
+/tmp/nfsmw-052-menu-build.log,build2.log,build3.log. Existingwarningsonly.
+InitialartifactverificationassertedbothSDKdylibsmustmatchtest4andfailed:
+runtimechangedafterconfigure-rebuiltdebug_overlay/versionmetadata;GPUidentical.
+NoSDKsourceeditthisturn. Recheckedwithoutfalseidentityassumption;ZIP/signature/
+UUIDpass,104metallibsidentical. Existinginternalpreview
+NFSMW-0.5.2-test5-menu-touch-polish.ipa(291c670b...SHA256,UUID0ED06933...)
+retainedbutnotdelivered;finalsubsequentbuildincludestrigger/shoulderlabelhits.
+`git diff --check`pass.
+
+Finalartifact
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test5-menu-controls-r2.ipa`,
+30154542bytes,SHA256
+e18f5df949c62555114cd93c0db3ec6e08c7f1810c3ff953af9476ac0b84979e,
+UUIDD6276DAD-8512-3C1C-BAF7-72F84964472D,bundle0.5.1/build9.
+Ignored.jsonbesideIPA. ZIPintegrity/codesign--verify--deep--strict/dwarfdumppass.
+
+Nextdevice:noExtraArgsneeded.Mainmenuhold/turn/release,cancel/secondfinger;
+currentdefaultandInvertmenu swipesON/OFF;options<>directions;ABXYicon+label
+hints;mapLT/RTzoom/categoryarrows;QuickRaceLT/RTselector;returntodrivingand
+background/resumeforstuckinput. Sendlog,especiallyunrecognizedglyphs. Thisis
+firstmenupolishtrial,notuniversalhintcoverageconfirmation. Keep0.5.2performance/
+FPSfeaturesand0.5.1timingbaseline.No newdevicetest/push/tag/versionbump/release.
+Preserveissue11note,HANDOFF,pre-existingSDKwork;owncode/docscommittedonly.
+
+Finalreviewaddedexplicitneutralreleasewhenrepeatstopsandstopsrepeatbefore
+maprightstickupdates,coveringamid-gesturemaptransition. Fourthincrementalbuild
+exit0,/tmp/nfsmw-052-menu-build4.log;hostmenu testre-runexit0. Finalhandoffis
+menu-controls-r2(namedabove). Priorinternalmenu-controls.ipa retained with
+SHA25650c8c7b8b92dacfc4594d66caa3e87646654d7ddfa380604a6a649c32333b2a5,
+UUID6A15713B-1824-3603-BB38-FEAD49619A02,30154820bytes;notdelivered.
