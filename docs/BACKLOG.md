@@ -888,6 +888,14 @@ performance/game-speed behavior,menu30/background-resume and second
 ProMotion40/60 regression check. Not yet a released/general-device fix;
 full measurements/limitations and archive path in TECHNICAL October30.
 
+October30 log10 heavy/native test: real27-32fps,GPU>25ms;world given/raw
+ratio75.4% confirms test5 slow motion below cap. Not release-ready.
+Built test6:managed assigned-target missed-slot compensation,phase jitter
+fractions cancel,steady40 unchanged;host/sanitizer checks passed,no device
+result yet. Next1x smoothness +native below40 game-speed comparison,same
+five flags. Then lifecycle/other-device regression before0.5.1 default.
+Archive/build/limits recorded in TECHNICAL October30.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

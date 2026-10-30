@@ -8121,7 +8121,7 @@ void TraceFrame(uint32_t number, int stage, double t) {
   done.push_back(times[number]);
   times.erase(times.begin(), times.upper_bound(number));
   if (done.size() < 61) return;
-  static int lines = 400;
+  static int lines = 800;  // retain later heavy-load stages of diagnostic runs
   if (lines > 0) {
     static const char* names[4] = {"swap", "handed", "gpu end", "shown"};
     for (int k = 0; k < 4; ++k) {

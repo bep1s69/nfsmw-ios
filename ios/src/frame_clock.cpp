@@ -72,23 +72,37 @@ double TraceTicks(double result, double ticks, double milliseconds, double perio
 
 extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double rate, double wait, double clamp) {
   const int mode = REXCVAR_GET(nfsmw_frame_ticks);
-  if (mode != 2 || !(milliseconds > 0) || milliseconds >= 250)
+  const uint64_t managed_period_ns = nfsmw::display::ManagedFramePeriodNs();
+  if (mode != 2 || !(milliseconds > 0) || milliseconds >= 250) {
+    if (managed_period_ns) nfsmw::display::TakeManagedMissedSlots(0);
     return TraceTicks(ticks, ticks, milliseconds, 0, 0, false, mode, rate, wait, clamp);
+  }
   uint64_t vblank_ns = 0, period_ns = 0;
   nfsmw::display::LatestVblank(vblank_ns, period_ns);
   const double period = period_ns ? double(period_ns) / 1e6 : 1000.0 / 60.0;
   static double debt = 0;  // real time not yet given to the game (ms); the main loop's thread only
-  const uint64_t managed_period_ns = nfsmw::display::ManagedFramePeriodNs();
   if (managed_period_ns && nfsmw::battery::InMenu() == 0 &&
       rex::cvar::Query<int32_t>("ios_fps_cap") == 40) {
     // The Metal link displays one game frame per 25 ms slot. The main loop
     // can still stall then catch up (log8: 3-74 ms) behind that steady output.
     // Debt corrections in 8.34 ms units made those on-time pictures move by
     // 1/2/4 simulation ticks. Give each picture one complete 40 fps step.
-    // Keep menus, other caps, loading bypasses and legacy behavior intact.
+    // Genuine skipped output slots need additional world time (log10), or
+    // sustained GPU-limited output would run the simulation in slow motion.
+    // Bound catch-up to the existing 250 ms loading threshold; retain excess debt.
     const double frame_period = double(managed_period_ns) / 1e6;
+    const uint32_t missed = nfsmw::display::TakeManagedMissedSlots(9);
+    const double give = frame_period * (1 + missed);
+    if (REXCVAR_GET(nfsmw_frame_ticks_log)) {
+      static uint32_t updates = 0, compensated = 0;
+      compensated += missed;
+      if (++updates % 300 == 0) {
+        REXLOG_INFO("[world-missed] {} skipped output slots compensated over 300 driving updates", compensated);
+        compensated = 0;
+      }
+    }
     debt = 0;
-    return TraceTicks(ticks * (frame_period / milliseconds), ticks, milliseconds,
+    return TraceTicks(ticks * (give / milliseconds), ticks, milliseconds,
                       frame_period, debt, false, mode, rate, wait, clamp);
   }
   debt += milliseconds - period;

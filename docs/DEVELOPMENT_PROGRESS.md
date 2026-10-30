@@ -141,6 +141,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30: native chase(log10) confirms below40 slow motion; test6 built.**
+  Archived nfsmw_iphone_14pm_10_metal_display_40_native_heavy_chase.log.
+  Native1.792x heavy chase drops27-32fps,GPU~33-39ms;780 world updates
+  give19.516s over25.872s raw (~75.4%). Test5 cannot ship unchanged.
+  Added managed target-slot accounting: preserve steady40 full steps,
+  compensate actual skipped assigned slots under load,carry fractions so
+  phase jitter cancels;bounded catch-up/reset on menus/lifecycle/loading.
+  Host29000slot,3000grid,24000legacy differential,36000clock model checks
+  passed with sanitizers where applicable;build/ZIP/signature passed.
+  `ios/build/NFSMW-0.5.0-metal-display-40-test6.ipa`,SHA256
+  427b5631ebbf623a42d2dfd606fab8834afc963bc9251e38b8c89907d526b3b5,
+  UUID9CB9776E-983A-3EEF-BC44-0A5DBFE842B8. Next samefive diagnostic args:
+  1x smoothness then native heavy below40/game-speed check,restore1x.
+  No device result yet;other-device/menu/resume tests still pending.
+  Experiment default off,60fix intact,0.5.1 not ready/no release.
+
 - **October30: test5 steady40 successful on14 Pro Max (log9).** Stefan:
   "felt like heaven in terms of everything". Archived
   nfsmw_iphone_14pm_9_metal_display_40_test5_smooth.log in Debug/29October.

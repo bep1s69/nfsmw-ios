@@ -10022,3 +10022,110 @@ Remaining before final default/release candidate:
 No claim that sustained under40 is solved or that other devices are
 validated. Preserve pre-existing issue11 checkpoint note,HANDOFF_CHATGPT.md
 and sibling SDK source/submodule state. Session changes documentation only.
+
+### October 30: log10 proves GPU-limited slow motion; missed-slot test6 built
+
+Stefan raised resolution through the options to native and drove a heavy
+chase to lower FPS. Input /Users/bep1s/Downloads/nfsmw 10.log archived
+byte-for-byte, exclusive create, original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_10_metal_display_40_native_heavy_chase.log`.
+1594023bytes,7546lines,SHA-256
+a02689116aa373dd4e13bee2345df2bddca4803a7a8e7e2efd9c53dc605f6e15.
+Copy/verify/read analysis exit0. One launch01:47:27.334. First world at
+01:48:00.645, second heavy chase world01:49:11.918; pause01:50:11.795;
+restored1x01:50:16.522 and40fps01:50:29.510. Test5 known-good identity
+f918c1df...,BB804486-977E-3A1C-A832-4BFF813E5FD5 per handoff, not independently
+echoed. Device14 Pro Max per continuing test,OS not supplied. Balanced,
+native renderer,cap40,no MetalFX/FXAA/MSAA,Low Power Mode off;thermal
+nominal then fair in later chase. Runtime live scales1->1.25->1.5->1.75->2
+->1.792(native)->1.0; native1.792 from01:48:47.312 to01:50:16.522.
+
+Native heavy-chase windows:40fps/GPU23.09ms at01:49:20.061,40/GPU23.13
+at01:49:27.568;35.9/26.67 at01:49:35.914;32.3/32.86 at01:49:52.727;
+31.7/33.33 at01:50:02.196;27.4/38.63 at01:50:13.130 (last includes
+pause edge). Actual GPU cost exceeds25ms, so genuine below-cap evidence.
+
+World-clock rows emitted >=01:49:45.000 and <01:50:11.000,780 rounded
+samples, cover25872.099ms raw main-loop time but only19515.662ms given:
+ratio.7543. Individual60-update row ratios.615-.990. Full-frame branch
+continues giving~25.02ms while actual updates slow. Thus test5 measurably
+slows simulation under sustained GPU-limited output, as anticipated; no
+release/default promotion. This is main-loop time accounting,not an
+independent stopwatch/lap-time result, but a concrete code/data defect.
+Attempted target-gap reconstruction in this late interval found0 trace
+rows: frame_trace diagnostic counter was exhausted before heavy phase;
+use summary pacing/world evidence,do not fabricate per-frame target slots.
+
+Correction (experimental managed40 driving only):
+- New pure C++ ManagedFrameSlots in managed_frame_slots.h. On each render
+  frame's acquired system drawable, account elapsed assigned system target
+  slots beyond the one normal frame. Use current managed full-frame period.
+  Collect only across driving frames; reset on menu,stop/start,invalid/
+  nonmonotonic/long(>=10slot) discontinuities. Protected by existing pacer
+  mutex; no new callbacks/frame ordering or GPU lifetime changes.
+- Fractional excess target intervals carried across assignments. Avoid
+  rounding individual gaps:1.5-slot/.5-slot phase jitter cancels rather
+  than inventing a missed frame. Small1e-6-slot arithmetic tolerance.
+- Bounded pending12slots. Clock takes at most9missing slots/update (maximum
+  managed step250ms at nominal40),remaining debt retained. This covers
+  modeled5fps as well as normal30/20/10; existing>=250ms loading bypass
+  still returns original elapsed time and clears missed-slot history.
+  Original modes/menus/other caps unchanged. At steady40 no missing slots,
+  same full-step behavior that Stefan accepted in log9. Feedback arrives
+  from render assignment and is consumed in later game updates,so brief
+  bounded time lag is expected; this is not exact same-frame correction.
+- display_rate exposes TakeManagedMissedSlots to C++ clock via pacer.
+  [world-missed] reports compensated slots per300 driving updates when
+  world logger enabled. Keep existing world-clock6-value format. Frame
+  trace counter budget increased400->800 (still default-off) to retain
+  later settings/heavy-chase phases. No new test arguments/default change.
+
+Validation:
+- tools/ios/test_managed_frame_slots.py compiles actual header with xcrun
+  clang++ -std=c++17 -O2 -fsanitize=address,undefined. Final PASS29000 loop
+  assignments plus boundary assertions:steady40 with target jitter,delayed
+  accounting conservation at30/20/5fps and changing load,bounded drain,
+  saturation,menu/lifecycle/invalid/backward/long gap resets;1000 phase
+  pairs and5000 fractional-cadence assignments. Exit0,no sanitizer errors.
+  Earlier passing19000/22000 versions expanded during review;none were
+  device results.
+- Existing python3 tools/ios/test_metal_display_guest_grid.py PASS3000,exit0.
+- Actual before/current frame_clock.cpp source differential (baseline
+  HEAD9d8e28f; old algorithm499cf6e),cvar/display/menu stubs and actual new
+  header; /tmp/nfsmw_world_missed_slots_test.cpp. xcrun clang++ -std=c++17
+  -O2 -fsanitize=address,undefined -I ios/src. PASS24000 bit-identical
+  non-managed/menu/other-cap/mode/bypass returns. PASS36000 actual clock
+  calls modeledsteady40/30/20/10/5fps and transient skipped targets:
+  given time plus still-pending debt equals elapsed assigned-slot time
+  (1e-5ms tolerance),steady40 output unchanged. Fake scheduling is not
+  proof of actual Metal callback/queue time or on-device game speed.
+- git diff --check exit0. Initial build exit0,ignored log
+  ios/build/metal-display-40-missed-slots-build.log. Intermediate undelivered
+  IPA ios/build/NFSMW-0.5.0-metal-display-40-test6-missed-slots.ipa,
+  30175288bytes,SHA4a6bb9edcdaf593904dc95f30e7d5af222fe5872b90d006fa7d4601fe0f1f5d9,
+  UUID5FFD6348-8D86-326F-860E-C694B81D876E (earlier3-slot catch-up limit).
+  Review broadened bound to9 for real-time5fps modeling and added fractional
+  phase cancellation; intermediate file preserved,not delivered.
+- Subsequent final/reviewed builds exit0,logs
+  ios/build/metal-display-40-missed-slots-final-build.log and
+  ios/build/metal-display-40-missed-slots-reviewed-build.log. Usual fpcr/
+  UIKit compile and duplicate library/linker warnings. CMake regenerated
+  for new header;SDK debug_overlay.cpp rebuilt and runtime relinked with
+  version/config metadata. No SDK source edits by this session.
+
+Delivered candidate ios/build/NFSMW-0.5.0-metal-display-40-test6.ipa,
+30175392bytes,version0.5.0/build8,SHA-256
+427b5631ebbf623a42d2dfd606fab8834afc963bc9251e38b8c89907d526b3b5,
+UUID9CB9776E-983A-3EEF-BC44-0A5DBFE842B8. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit0,dwarfdump --uuid0. All104payload
+metallibs and GPU dylib byte-identical to test5;runtime dylib differs after
+CMake's SDK debug-overlay rebuild. Do not claim both SDK binaries identical.
+
+Next: same14 Pro Max,Balanced40,Low Power Mode off,same five test5 arguments.
+Short1x chase to ensure accepted smoothness remains;then native/heavy chase
+below40,restore1x. Compare world given/raw time,world-missed compensation,
+slot/target traces and feel. No test6 device result yet. After correctness,
+menu30/background-resume and other ProMotion40/60 regression checks remain,
+then clean0.5.1candidate with diagnostics off. Default-off experiment and
+confirmed60fix retained;no version bump/push/tag/release. Preserve issue11
+checkpoint text,HANDOFF_CHATGPT.md and sibling SDK local changes.

@@ -13,6 +13,8 @@ void SetActive(bool active);
 // Avoid integer subdivision of a separate display link running at 80 Hz.
 // Same mach_absolute_time clock as CACurrentMediaTime, nanoseconds.
 bool GuestGrid(uint64_t& timestamp_ns, uint64_t& period_ns);
+// Consume skipped output slots for bounded world catch-up; maximum=0 resets.
+uint32_t TakeMissedSlots(uint32_t maximum);
 
 // A render-queue frame lease. Legacy frames are counted too, so the main
 // thread starts display-link ownership only between nextDrawable users.

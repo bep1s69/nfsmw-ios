@@ -21,5 +21,7 @@ void LatestVblank(uint64_t& time_ns, uint64_t& period_ns);
 // Full 40 fps frame duration while the experimental Metal link owns the
 // primary display; 0 on the legacy paths. Any thread, no lock.
 uint64_t ManagedFramePeriodNs();
+// At most maximum skipped managed output slots; 0 resets debt/history.
+uint32_t TakeManagedMissedSlots(uint32_t maximum);
 
 }  // namespace nfsmw::display
