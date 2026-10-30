@@ -158,6 +158,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test10 accepted; log18 confirms30 steps and120 catch-up.**
+  Stefan:30 great,120 slowdown fixed,40/60 still fine. At120 return1x throughput
+  ~89–99fps with GPU~9–10ms, thermal nominal, render QoS User Initiated; no
+  evidence of Utility demotion, physical core placement unknown. Game clock
+  still tracks real time.30 selected1380updates:1376full33.3ms,4catch-up;
+  no half steps. Full measurements/log hash TECHNICAL. No new IPA this turn.
+  Next release work: review remaining managed40 stress oversupply, opt-in/default
+  promotion and remove stress choices from final normal-resolution candidate
+  when authorized; no version/push/tag/release yet. User asks about live caps/
+  profiles: guest vblank initialization, not simulation rate, currently blocks
+  30/60<->40/120; profiles are launch-only. Record as separate future work,
+  outside the two-fix hotfix. Keep120Hz simulation. Preserved issue11/HANDOFF.
+
 - **October 30: test10 corrects30 world quantum and120 input catch-up duration.**
   Stefan approves both remaining fixes, hoping to close smoothness work. Log17
   camera trace archived; uneven steps confirmed, estimator180-degree artifacts

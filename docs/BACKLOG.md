@@ -986,6 +986,13 @@ to~66.67ms (rate-independent). Managed40 unchanged,120Hz simulation retained.
 Host checks/build pass; device validation pending. Next30camera1x and120stress,
 then40/60 regression. No definitive smoothness claim or release promotion yet.
 
+October30 test10/log18: Stefan accepts30 smoothness,120 slowdown correction
+and40/60 regression. Selected30 clock1376/1380full33.3ms updates,4catch-up;
+no half steps.120 1x recovery maintains game time though throughput~89–99fps;
+GPU9–10ms exceeds120budget,thermal nominal/renderQoS User Initiated. Core
+placement unmeasured. Evidence/hash TECHNICAL. Device acceptance recorded;
+managed40 stress overcompensation remains separate unresolved release review.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
@@ -999,3 +1006,16 @@ Cause (inferred from code, TECHNICAL Oct 29): a rebuilt HUD's minimap at the
 old one's address was taken for the old one, so the wide-scene shift was not
 applied. Fix in IPA138; Stefan (iPhone, Oct 29): safe house exited twice and a race
 finished, minimap stays in place.
+
+
+### Live switching of all frame caps and performance profiles — proposed (October 30)
+
+Stefan asks whether all caps and Eco/Balanced/Max can apply in-game now that
+simulation is120Hz everywhere. Current30/60-only LiveCap and ChooseCap gates
+remain;40/120 require120Hz guest vblank initialized at startup in SDK graphics
+system, distinct from simulation. Profiles expand into startup QoS flags;
+render dispatch queue base priority also chosen on creation. Full live switching
+is feasible as future work but requires coordinated guest vblank/phase/pacer/
+battery state and active-thread/queue updates, rather than UI whitelist edits.
+Not implemented or included in current two-fix0.5.1 scope. Current profile
+selection in-game is saved for next launch. Evidence source review TECHNICAL.

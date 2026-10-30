@@ -10862,3 +10862,58 @@ until checks settle. No device result yet,no definitive fix/release claim.
 Managed40 prior oversupply remains open;experiment defaultOFF. No version bump,
 push/tag/release. Preserved pre-existing issue11 note,untracked HANDOFF and SDK
 work;own session changes only committed.
+
+
+### October 30: log18 test10 acceptance, recovery throughput and live settings review
+
+Stefan reports30great,120 slowdown fixed but recovery1x80–94fps,40/60fine;
+asks about live switching of caps/profiles. Same17PM/test10 context,OS unspecified.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/333B0AC3-4413-4D24-AC8C-1DF95A5934F2/nfsmw.log`.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_18_test10_30_120_validation.log`.
+4850650bytes,23902lines,SHA256
+5c49b82a9b6853beeefbe0c82a23f004cd2ff375bbe5febac25af15cc772650e.
+Archive/analysis exit0. Appended/concatenated run boundaries; malformed samples
+excluded. First launch22:56:03.514,lastpartialcamera23:01:32.954. Expected
+IPA test10 identity in preceding entry;not independently echoed. Logged cap
+milestones30 at22:56:04.692,120at22:57:49.845,40at22:59:42.377,
+60at23:00:46.216.120stress5x22:58:24.547,restored1x22:58:38.948.
+
+Windows by emission timestamp (preceding60samples per batch):
+-30 22:56:30<=t<22:57:15:1380world-clock updates,1376given33.34ms,
+4given66.67ms. Given46137.03ms/host45993.72ms. Engine same1380samples
+input46137.03ms/output46264.09ms/host45993.37ms, ticks120:904,121:472,
+240:4. Half16.7/full-and-half50ms pattern absent. Engine-output quantization
+slightly oversupplies (~0.59%); do not claim exact timing. User accepts feel.
+-120stress22:58:27<=t<22:58:38:180engine updates input7592.28ms,
+output7582.81ms/host7691.08ms;240clock updates supply10359.18ms/
+10510.13ms host (different sample coverage). New41.67/50/58.34ms clock
+steps present; prior33ms ceiling removed. User confirms fixed speed.
+-120return22:58:44<=t<22:59:30:3900clock updates given42436.73ms/
+42444.92ms host;1080engine samples output12154.88ms/host12122.00ms.
+Totals differ in coverage because world-step logging stops after160batches.
+GPU summaries at22:58:46.08599.4fps/GPU5.16ms;22:58:59.75288.7fps/
+GPU8.90ms;22:59:12.66491.5fps/GPU10.13ms;22:59:25.33594.4fps/
+GPU9.81ms. GPU costs exceed8.33ms target in later samples. Thermal nominal
+throughout selected recovery;LPMoff in CPU summaries. Render-entry QoS samples
+User Initiated (e.g.300/300),zeroUtility. No physical-core/clock data; cannot
+prove no hardware frequency limiting or rule out all CPU limits. Evidence does
+not support Utility demotion; sustained workload/GPU throughput sufficient to
+explain failure to hit120. A cold-launch same-scene1x comparison would distinguish
+persistent stress effect from ordinary scene workload; no fix inferred yet.
+
+Source review: ingame_options.mm LiveCap allows30/60 only; battery::ChooseCap
+also rejects others. SDK graphics_system.cpp startup at40/120 initializes
+refresh_rate_hz120 and nfsmw_vblank_120=true. This is guest display/vblank rate,
+NOT simulation rate (launcher always passes nfsmw_sim_rate120). Live cap
+switching needs guest timing/phase/pacer/battery coordination, not just removing
+UI guards. ios_main ApplyTabletUtilityProfile expands performance_mode into
+startup QoS flags; native renderer queue priority chosen when queue created.
+LiveFlags excludes nfsmw_performance_mode; in-game profile changes save for
+next launch, no immediate full profile transition. Implementing full live
+profiles needs active-thread/queue policy updates and tests; possible future
+work, outside current two-fix hotfix. No source change/build this turn.
+
+Next: release candidate cleanup/default decision after remaining managed40
+stress accounting review; no automatic release/push/tag/version bump. User
+acceptance of30/120 corrections recorded. Preserved issue11note,HANDOFF,SDKwork.
