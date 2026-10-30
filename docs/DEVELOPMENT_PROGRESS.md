@@ -158,6 +158,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test9 restores original catch-up allowance across all caps.**
+  Stefan explicitly approved applying the correction across the board, keeping
+  default120Hz simulation. Removed managed40/caller/menu/frame-mode gates from
+  local cap correction; only nonzero flag, actual1/120 budget unit and valid
+  positive limit are corrected. Original1/60 and separate20ms branch unchanged.
+  World-step diagnostic now covers driving at all caps/renderers (still opt-in).
+  Built `ios/build/NFSMW-0.5.0-test9-all-caps-catchup.ipa`, SHA256
+  `1e387cda34a0eadf215b7a1084cce5b5c37ffd18da39f32a4b690845521a1d1b`,
+  UUID `DAAF1A3E-8720-3679-ABB6-B859A1567310`,0.5.0/build8.
+  Host tests/build/ZIP/signature/104-shader comparisons passed; details TECHNICAL.
+  Next:60 cap1x/5x/1x race clock comparison, then short30 and120 checks and40
+  regression with same five arguments. Device result pending. Managed40 remains
+  opt-in; its separate stress oversupply remains open. No release/version bump.
+  Stress configured ON for artifact then OFF for future builds; generic IPA/cache
+  app still stress until rebuilt. Pre-existing issue11 note/HANDOFF preserved.
+
 - **October 30: 60-cap stress test confirms perceived slowdown below30.**
   Stefan reports5x slow motion, above30 mostly fine. Log15 archived (TECHNICAL).
   Selected5x360updates average26.58 updates/s; supplied13.522s vs13.542s host,
