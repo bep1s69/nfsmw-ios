@@ -10661,3 +10661,33 @@ stress to45–55 and below30 fps,restore1x; compare race seconds to wall clock.
 Existing world-clock tracing works at60, but world-step trace is currently
 managed40-gated, so a60 log alone cannot directly prove downstream clamp loss.
 No code/build changes. Existing issue11 note/HANDOFF preserved; no release.
+
+
+### October 30: log15, 60 fps cap overload slowdown reported below30
+
+Stefan: “yes 5x also results in slow motion”, interpreted “anything about30”
+as above30fps mostly fine in context (not a test of the30fps cap). Same17 Pro
+Max/test8 per ongoing experiment; OS unspecified, IPA identity inherited from
+previous entry, not independently echoed. Launch22:34:41.420, last22:36:11.555;
+logged build Oct30 22:12:38. Requested same five diagnostic args/60cap; mode2
+world-clock trace active, zero world-step batches because trace is managed40-only.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/5CAF4CF6-04A4-411F-9A30-F855C462E01D/nfsmw.log`.
+Archived exclusive-create, byte-identical, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_15_60fps_test8_overload.log`.
+1425427bytes,7933lines,SHA256
+7030d64b0296cc3a328d20f2099cc7e8b3576f905676428d3e49811135a212b4.
+Archive and analysis exit0. Resolution changes1->2.5 at22:35:17.368,
+3 at22:35:25.163,4 at22:35:36.396,5 at22:35:49.293,
+restored1 at22:36:05.798.
+
+Selected full world-clock batches emitted22:35:53<=t<22:36:05:360updates,
+supplied13521.932ms vs13542.391ms host (~99.85%);26.583updates/s,
+197suppliedsteps>34ms. This confirms elapsed time reaches the engine clock
+rather than the input clock simply slowing with FPS. Consistent with source
+prediction of downstream33.33ms cap clipping >30fps-equivalent steps, but no
+direct60-cap engine-output measurement: do not claim exact lost time proven.
+User report establishes perceived slowdown; above30 mostly acceptable.
+Next scoped fix to review: restore original elapsed catch-up allowance at60
+while retaining default120Hz simulation; expand diagnostic coverage for proof.
+No source change/build/default promotion/release this turn. Preserve issue11
+checkpoint note, untracked HANDOFF and sibling SDK work; own docs only committed.

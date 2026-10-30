@@ -956,6 +956,13 @@ oversupply remains measurable despite the successful subjective result.
 Status: slowdown correction device-accepted; exact overload accounting and
 release/default promotion still pending. Archived log14 identity in TECHNICAL.
 
+October30 log15: 60-cap overload also produces slow motion at5x; Stefan says
+above30fps mostly fine. Selected5x360updates average26.58/s; clock supplies
+13.522s/13.542s host,197steps>34ms. Consistent with downstream33.33ms limit;
+no60 world-step trace, so exact engine loss not measured. Next: scoped60-cap
+allowance correction preserving120Hz simulation, with direct diagnostics.
+Log path/hash in TECHNICAL. No new code/default promotion this turn.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
