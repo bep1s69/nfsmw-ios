@@ -10483,3 +10483,51 @@ OFF bydefault and retainconfirmed60fix. No0.5.1promotion/release.
 
 Pre-existing uncommitted issue11checkpointaddition,HANDOFF_CHATGPT.md and
 siblingSDKwork remainexcluded fromsessioncommit. Only owncode/docs staged.
+
+
+### October 30: test7 log13 confirms active 33.33 ms engine clamp
+
+Stefan: "still very slow". Same17 Pro Max/test7 per ongoing test,OS not
+specified. Input shared-pasteboard/items/AD3BCE09-33BC-4F21-A634-6EF8EABBA093/nfsmw.log
+under /Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_13_metal_display_40_test7_world_step.log`.
+1377572bytes,7126lines,SHA256
+da72bc52f65e39c687ada5d69a1c0662d48522748d2b6444eaa581309075bd48.
+Archive/verification/analysis exit0. Launch22:17:39.705,build stampOct30
+22:12:38,lastline22:19:15.827. Expected test7 identity4baf6442...,UUID
+6C6B1D1E-C437-35DC-9F56-813F07CEE650 perhandoff,not independently echoed.
+Scale1 selected22:18:00.146,scale5 selected22:18:52.353;no1xrestoration
+captured. Newworld-step diagnostics present,23batches/1380samples.
+
+Every world-step sample reports limit33.333ms,flag2,budget4,caller823AFE64.
+Thus the suspected shared-step-dependent cap IS active in this run and
+all observed driving engine updates derive from the patched main-loop
+caller. Alternate823AFDA0 caller is not observed;not the explanation here.
+
+Selected rows by emissiontimestamp (batches cover preceding60updates):
+- 22:18:29<=time<22:18:40,1x,480samples: input12000.973ms,
+  accumulatorbefore12006.611ms,after12006.611ms,quantizedoutput12001.112ms,
+  host12000.132ms. Zero cap hits. Normal engine-time progression~100.01%.
+- 22:18:50<=time<22:19:15,5x,480samples: input20243.325ms,
+  before20284.002ms,after14581.388ms,quantizedoutput14566.564ms,
+  host19813.908ms.308cap hits. Clamp discards5702.614ms accumulatedtime.
+  Quantized output/host~73.52%,despite input/host~102.17%. Firstbatch
+  includes settling;the laterbatches also consistently showlarge losses.
+  These are actualengine timing outputs,not an independent stopwatch or
+  count of allphysics calls. They substantiate user-perceivedslowdown.
+- Per60updates at steady1x,render-seq last-first59;at5xmostly56-59,
+  initialtransition46. Distinguish assignmentsequence fromactualdisplayed
+  frames. Current run has much smaller clockoversupply thanlog12's124%;
+  do not erase that prior accounting defect or assume it universallysolved.
+
+Conclusion: active downstreamcap is a directloss mechanism and sufficient
+explanation forslowdown inthisrun. 120Hzsharedstep turns original4/60s
+budget into4/120s. Next scopedcorrection should preserveoriginal elapsed
+catch-upbudget independently ofsimulationfrequency,only in approved
+managed40 driving path,retain120Hzsubsteps andsteady40. Keepdiagnostics
+andcompare engineoutput/host at1x/5x;also assess priorworld/render mismatch
+atotherloads beforedefaultrelease. Do not globallyraise sharedconstants or
+blindly supply more clocktime. This turnanalysis only,no newIPA/sourcefix;
+test7stilldiagnostic,60fixunchanged,0.5.1notready. Preservepre-existing
+issue11note,HANDOFFandSDKwork;no push/tag/release.

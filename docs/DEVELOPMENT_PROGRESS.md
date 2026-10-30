@@ -158,6 +158,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: log13 confirms the engine clamp causes below-cap slowdown.**
+  Archived17pm_13_test7_world_step log (fullpath/hash inTECHNICAL).
+  All1380samples:33.333mslimit,flag2,budget4,main-loopcaller823AFE64.
+  Selected1x engineoutput12.001s/12.000shost,no clamp;5xoutput14.567s/
+  19.814shost (~73.5%),308/480updatesclipped. Input supplies~102.2%,
+  so increasing suppliedtime is not thefix. Next scopedmanaged40driving
+  correction:preserve originalelapsed catch-upbudget independently of
+  120Hzsimulationstep,then1x/5x engineoutput comparison. Priorlog12
+  accountingoversupply also remains to assess. No sourcefix/newIPA this
+  analysis turn;test7stilldiagnostic,60fixretained,no0.5.1promotion.
+
 - **October 30: test7 downstream world-time diagnostic built and verified.**
   Stefan approved the diagnostic after test6 still slowed below40.
   New [world-step] records incoming/accumulated/capped/quantized time,
