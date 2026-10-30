@@ -979,6 +979,13 @@ Next:120 input-clock allowance correction;30 camera-motion check with existing
 nfsmw_native_camera_log flag. Keep stress choices until resolved before0.5.1.
 Evidence archived as17pm_16_test9_all_caps, full path/hash in TECHNICAL.
 
+October30 test10: Stefan approves30/120 corrections. Log17 camera has isolated
+half/double motion plus dominant-view estimator artifacts; uneven world steps
+confirmed.30 driving now uses33.33ms quantum; legacy120 catch-up window restored
+to~66.67ms (rate-independent). Managed40 unchanged,120Hz simulation retained.
+Host checks/build pass; device validation pending. Next30camera1x and120stress,
+then40/60 regression. No definitive smoothness claim or release promotion yet.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

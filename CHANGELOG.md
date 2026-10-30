@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Smoother 30 fps world timing.** Driving now advances in complete 30 fps
+  frame steps. The 120 fps clock also retains the original catch-up duration
+  when frames drop. Device validation pending.
+
 - **Restored game-time catch-up at every frame-rate cap.** Kept the engine's
   original catch-up allowance with 120 Hz simulation, avoiding the accidentally
   halved limit during frame-rate drops. Broader device validation pending.

@@ -158,6 +158,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test10 corrects30 world quantum and120 input catch-up duration.**
+  Stefan approves both remaining fixes, hoping to close smoothness work. Log17
+  camera trace archived; uneven steps confirmed, estimator180-degree artifacts
+  must not be treated as real camera jumps (TECHNICAL).30 driving now consumes
+  two guest60Hz vblanks/world frame; legacy catch-up/resync uses ~66.67ms duration
+  rather than four periods regardless of guest rate.120Hz simulation retained;
+  managed40 path unchanged. Host policy/engine patch checks and build pass.
+  `ios/build/NFSMW-0.5.0-test10-30-120-world-clock.ipa`,SHA256
+  `7bb64198f0b613645d628746e1bdf88df7dc24e5b7a33d147172bedcf676f26d`,
+  UUID `A41DC73D-F563-3062-B68D-4E221763EF64`,0.5.0/build8.
+  Next: same six args including camera trace;30cap1x30–60s turning, then120cap
+  1x/5x/1x race clock comparison; short40/60 regression. No device result yet;
+  cannot declare definitive fix. Keep stress choices in test10; configuredOFF
+  afterward for future builds, genericIPA/cache app still stress until rebuild.
+  Managed40 oversupply remains open/defaultOFF. No release/version/push/tag.
+  Preserved issue11 checkpoint note,HANDOFF and SDK work. New host check:
+  `python3 tools/ios/test_frame_clock_policy.py`; normal build procedure unchanged.
+
 - **October 30: test9 log16 reveals 120 clock ceiling and uneven30 world steps.**
   Stefan says caps generally good,120 still slows; asks to check30 camera/world
   before removing stress choices for final0.5.1. Keep test resolutions available.
