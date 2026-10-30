@@ -948,6 +948,14 @@ Steady-40 samples unchanged. Next: test8 1x/5x/1x race timing and log, including
 output/host balance and residual stalls. Prior log12 oversupply remains open.
 Experiment remains default OFF; no hotfix release approval or promotion.
 
+October 30 test8/log14: Stefan reports everything worked as intended.
+Accepted on 17 Pro Max (ongoing test; OS not supplied). 1x before/after stress
+engine time tracks host ~100%; 66.667 ms limit active. At5x engine output is
+104.88% of host over960samples (late420samples107.47%); prior slot-accounting
+oversupply remains measurable despite the successful subjective result.
+Status: slowdown correction device-accepted; exact overload accounting and
+release/default promotion still pending. Archived log14 identity in TECHNICAL.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

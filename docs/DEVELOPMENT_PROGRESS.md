@@ -158,6 +158,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test8 accepted by Stefan; log14 archived and analyzed.**
+  “Everything worked as intended” on the ongoing 17 Pro Max test. Effective
+  engine limit66.667 ms confirmed. 1x engine time/host time ~100% before and
+  after5x. Full captured5x batches advance43.317s engine/41.301s host (~104.9%);
+  later subset ~107.5%. User-perceived slowdown resolved, but prior render-slot
+  overcompensation remains measurable; do not call timing exact under all loads.
+  Evidence: Debug/29 October 2026/nfsmw_iphone_17pm_14_metal_display_40_test8_catchup_limit.log
+  (full path/hash/settings/measurements in TECHNICAL). Next: review remaining
+  overload accounting before default promotion and make a normal-resolution
+  release candidate when authorized. Experiment remains OFF; no build, version,
+  push, tag or release this turn. Preserved issue11 note and HANDOFF uncommitted.
+
 - **October 30: test8 restores the managed-40 catch-up allowance; device check pending.**
   Stefan approved the correction. The measured main-loop driving path now
   retains the original 66.67 ms cap with 120 Hz simulation (previously 33.33 ms).
