@@ -970,6 +970,15 @@ identity/checks TECHNICAL. Next60 stress repeat plus30/120/40 regressions;
 world-step diagnostics now cover all driving caps. Device validation pending;
 managed40 stress oversupply remains separate/open. No release promotion.
 
+October30 test9/log16: user accepts most caps but120 slows. Confirmed engine
+limit66.667ms; separate input clock at120 has four8.334ms-period ceiling and
+resyncs, losing time before engine. Selected clock48.487s/60.630s host;
+engine29.788s/35.781s host (different windows).30 presentation even538/540 gaps
+at33.3ms, but world timing has16.7/50/66.7ms steps. No camera trace supplied.
+Next:120 input-clock allowance correction;30 camera-motion check with existing
+nfsmw_native_camera_log flag. Keep stress choices until resolved before0.5.1.
+Evidence archived as17pm_16_test9_all_caps, full path/hash in TECHNICAL.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

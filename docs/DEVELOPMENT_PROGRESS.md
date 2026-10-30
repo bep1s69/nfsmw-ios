@@ -158,6 +158,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test9 log16 reveals 120 clock ceiling and uneven30 world steps.**
+  Stefan says caps generally good,120 still slows; asks to check30 camera/world
+  before removing stress choices for final0.5.1. Keep test resolutions available.
+  Engine66.667ms correction active at30/60/120;120 input clock still bounded by
+  four8.334ms periods, resyncing/discarding debt under load. Selected stress
+  clock gives48.487s/60.630s host; engine timing29.788s/35.781s host (different
+  windows).30 shown gaps538/540 at33.3ms but engine steps include16.7/50/66.7ms;
+  no camera trace, so camera smoothness unproven. Next: correct120 input-clock
+  catch-up duration while retaining120Hz simulation; inspect30 camera trace
+  with --nfsmw_native_camera_log=true on existing test9. Detailed windows and
+  limitations TECHNICAL. No code/build/default/release change this analysis.
+
 - **October 30: test9 restores original catch-up allowance across all caps.**
   Stefan explicitly approved applying the correction across the board, keeping
   default120Hz simulation. Removed managed40/caller/menu/frame-mode gates from
