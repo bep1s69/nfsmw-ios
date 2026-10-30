@@ -10917,3 +10917,46 @@ work, outside current two-fix hotfix. No source change/build this turn.
 Next: release candidate cleanup/default decision after remaining managed40
 stress accounting review; no automatic release/push/tag/version bump. User
 acceptance of30/120 corrections recorded. Preserved issue11note,HANDOFF,SDKwork.
+
+
+### October 30: 0.5.1/build9 final packaging and authorized main push
+
+Stefan explicitly requests two separate live-switching backlog items, stress
+resolution removal, and pushing everything for him to release. This authorizes
+version preparation/default promotion for tested hotfix, not agent publication.
+Split existing combined backlog entry into two parked items. Removed
+NFSMW_RESOLUTION_STRESS_TEST CMake option/compile definitions and UI2.5/3/4/5/6/8x
+choices; renderer returns to original4x safety ceiling (normal UI up to2x/Native).
+LoadSettings replaces saved numeric scales>2 with1, preservesNative. Enabled
+nfsmw_native_metal_display_40 by default so release users receive accepted40fix
+without Extra Args; off override remains. All tracing/logging remains defaultOFF.
+No further timing policy changes. Version0.5.1/build9,README/changelog updated.
+No SDK tracked edits. Preserved unrelated13line issue11 checkpoint note and
+untrackedHANDOFF; exclude them and siblingSDK modifications from commit/push.
+
+Validation: prepare_sdk.py --status exit0, all reported patches yes; pool status
+63/63,extra-options all marker counts complete; used existing generatedUSA tree
+with world-step tests rather than rerunning unchanged guest generation.
+Host frame_clock_policy check exit0 (four caps,jitter/conservation/loading,
+10000legacy60 comparisons); world_step_limit check exit0 (36cases,twofixtures).
+`git diff --check` passed. Configure/build from ios with normal preset,
+cmake --build --preset ios --target ipa -j6 exit0 (12steps; existing compiler/
+link warnings). Logs /tmp/nfsmw-051-configure.log,/tmp/nfsmw-051-build.log are
+nonessential temporary outputs; commands/results preserved here.
+Exclusive-create named artifact,ZIP integrity pass; extracted bundle codesign
+--verify --deep --strict exit0; plist version0.5.1/build9; dwarfdump UUID exit0.
+104metallibs identical to test10. Binary strings contain no5760p/3600p test
+choices. Source inspection confirms diagnostic frame/camera/repeat/tick logsOFF.
+Final binary packaging/default cleanup has not had fresh-container device smoke
+validation: test10 is latest device-tested timing. User should run finalIPA
+without diagnostic Extra Args. Remaining extreme managed40 oversupply is known;
+no claim of exact timing at all loads or new120throughput optimization.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFS-Most-Wanted-0.5.1.ipa`,
+30134223bytes,SHA256
+e00b03cb68589e9517a8a44b204540d9fae016b68ba18367d87780362d6402c9,
+UUID4A4C9469-32E6-3BE6-AEAB-06A13C96D222. Ignored .json beside IPA.
+No game assets/generated/logs/IPAs tracked (`git ls-files` checked).
+`git fetch origin` exit0;origin/main...HEAD before final commit0behind/28ahead.
+Authorized push targetmain only,fast-forward; no force/tag/GitHub release.
+Stefan publishes release and attaches IPA after final smoke test.

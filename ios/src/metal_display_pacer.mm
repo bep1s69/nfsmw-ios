@@ -12,8 +12,8 @@
 #include "managed_frame_slots.h"
 #include "battery.h"
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_metal_display_40, false, "GPU",
-                    "Experiment: system Metal display-link drawables and timestamps at 40 fps "
+REXCVAR_DEFINE_BOOL(nfsmw_native_metal_display_40, true, "GPU",
+                    "System Metal display-link drawables and timestamps at 40 fps "
                     "(restart required; primary display only)");
 
 namespace {

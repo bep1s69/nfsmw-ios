@@ -44,12 +44,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(nfsmw_ios LANGUAGES C CXX OBJC OBJCXX ASM)
 
-option(NFSMW_RESOLUTION_STRESS_TEST "Test-only render resolution choices up to 8x" OFF)
-if(NFSMW_RESOLUTION_STRESS_TEST)
-    set_source_files_properties(src/launcher.mm src/native_renderer.mm PROPERTIES
-        COMPILE_DEFINITIONS NFSMW_RESOLUTION_STRESS_TEST=1)
-endif()
-
 if(NOT IOS)
     message(FATAL_ERROR "This is for iOS: configure with  cmake --preset ios  (see ios/README.md)")
 endif()
@@ -148,8 +142,8 @@ endif()
 # -----------------------------------------------------------------------------
 #  The app
 # -----------------------------------------------------------------------------
-set(NFSMW_VERSION "0.5.0")
-set(NFSMW_VERSION_CODE "8")
+set(NFSMW_VERSION "0.5.1")
+set(NFSMW_VERSION_CODE "9")
 # The name under the icon: the full title does not fit on the home screen.
 set(NFSMW_DISPLAY_NAME "NFS Most Wanted")
 set(NFSMW_IOS_MIN "${CMAKE_OSX_DEPLOYMENT_TARGET}")
