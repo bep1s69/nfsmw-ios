@@ -26,6 +26,7 @@ uint64_t generation = 0;
 uint64_t guest_timestamp_ns = 0, guest_period_ns = 0;
 double previous_target = 0;
 nfsmw::ManagedFrameSlots world_slots;
+uint64_t assigned_frames = 0;  // diagnostic sequence, under mutex; monotonic across restarts
 unsigned frames = 0;
 CAMetalDisplayLink* metal_link = nil;           // main thread only
 bool Enabled() {
@@ -164,6 +165,11 @@ uint32_t TakeMissedSlots(uint32_t maximum) {
   return world_slots.Take(maximum);
 }
 
+uint64_t AssignedFrames() {
+  std::lock_guard<std::mutex> lock(mutex);
+  return assigned_frames;
+}
+
 Frame::Frame(CAMetalLayer* layer) {
   if (!Enabled() || !layer) return;
   const auto start = std::chrono::steady_clock::now();
@@ -186,6 +192,7 @@ Frame::Frame(CAMetalLayer* layer) {
         // queued frames can still present evenly while the main loop catches up.
         world_slots.Assign(presentation_time, double(guest_period_ns * 3) / 1e9,
                            nfsmw::battery::InMenu() == 0);
+        ++assigned_frames;
         pending = nil;
         break;
       }

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstdint>
 #include <string>
@@ -32,7 +33,8 @@ REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
                      "Game frame time: 2 one display period per frame (smooth motion), 0 the game's own "
                      "(uneven)");
 REXCVAR_DEFINE_BOOL(nfsmw_frame_ticks_log, false, "Game",
-                    "Diagnostic: buffer 60 world updates and log raw/given time, quantum, debt and host gap");
+                    "Diagnostic: buffer 60 world updates and log raw/given time, quantum, debt, "
+                    "engine accumulator/clamp/output and host gap");
 
 namespace {
 // Main-loop thread only. Record numbers per update; format only once per
@@ -69,6 +71,46 @@ double TraceTicks(double result, double ticks, double milliseconds, double perio
   return result;
 }
 }  // namespace
+
+// Diagnostic only: observe the engine's downstream accumulator, including
+// time discarded after nfsmw_frame_ticks returned. Never change its result.
+extern "C" void nfsmw_world_step_trace(double input, double before, double limit,
+    double after, double output, int32_t ticks, uint32_t flag, uint32_t budget_bits, uint32_t caller) {
+  using Clock = std::chrono::steady_clock;
+  static thread_local Clock::time_point last;
+  static thread_local std::array<std::array<double, 11>, 60> samples;
+  static thread_local size_t count = 0;
+  static thread_local uint64_t updates = 0;
+  static thread_local int lines = 160;
+  if (!REXCVAR_GET(nfsmw_frame_ticks_log) ||
+      !nfsmw::display::ManagedFramePeriodNs() || nfsmw::battery::InMenu() != 0 ||
+      rex::cvar::Query<int32_t>("ios_fps_cap") != 40) {
+    last = {};
+    count = 0;
+    return;
+  }
+  if (lines <= 0) return;
+  const auto now = Clock::now();
+  const double wall = last.time_since_epoch().count() ?
+      std::chrono::duration<double, std::milli>(now - last).count() : 0;
+  last = now;
+  samples[count++] = {input * 1000, before * 1000, limit * 1000, after * 1000,
+      output * 1000, double(ticks), double(flag), std::bit_cast<float>(budget_bits),
+      double(nfsmw::display::ManagedAssignedFrames()), wall, double(caller)};
+  ++updates;
+  if (count == samples.size()) {
+    std::string values;
+    for (const auto& sample : samples)
+      values += fmt::format(" {:.3f}/{:.3f}/{:.3f}/{:.3f}/{:.3f}/{:.0f}/{:.0f}/{:.3f}/{:.0f}/{:.3f}/{:08X}",
+          sample[0], sample[1], sample[2], sample[3], sample[4],
+          sample[5], sample[6], sample[7], sample[8], sample[9], uint32_t(sample[10]));
+    REXLOG_INFO("[world-step] driving updates {}-{} | "
+        "input/before/limit/after/output(ms)/ticks/flag/budget/render-seq/host-gap(ms)/caller:{}",
+        updates - 59, updates, values);
+    count = 0;
+    --lines;
+  }
+}
 
 extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double rate, double wait, double clamp) {
   const int mode = REXCVAR_GET(nfsmw_frame_ticks);
