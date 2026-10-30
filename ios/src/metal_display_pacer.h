@@ -15,6 +15,8 @@ void SetActive(bool active);
 bool GuestGrid(uint64_t& timestamp_ns, uint64_t& period_ns);
 // Consume skipped output slots for bounded world catch-up; maximum=0 resets.
 uint32_t TakeMissedSlots(uint32_t maximum);
+// Number of managed drawables assigned, not a count of displayed frames.
+uint64_t AssignedFrames();
 
 // A render-queue frame lease. Legacy frames are counted too, so the main
 // thread starts display-link ownership only between nextDrawable users.

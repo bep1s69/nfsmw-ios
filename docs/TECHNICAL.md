@@ -10343,3 +10343,143 @@ Next: narrowactualworldstepdiagnostic/design based on this cap andaccounting
 mismatch,restorematchingcodegen/buildcache/shaders beforeanotherIPA;no need
 repeat sameuninstrumentedoverloadtest. Keep8xstressoutsidehotfixscope.
 Documented/committed locally;preserveissue11checkpoint,HANDOFFandSDKstate.
+
+
+### October 30: approved downstream world-step diagnostic (test7)
+
+Stefan agreed to verify the active engine catch-up limit and simulation
+consumption before correcting it. This trial adds observations only; no
+change to the clock return, accumulator, catch-up budget, simulation rate,
+missed-slot accounting, presentation, or confirmed60fps fix. Both experiment
+and diagnostic defaults remain OFF. Same five test6 arguments enable it;
+the stress build retains temporary resolution choices through8x, but test
+only1x/5x and restore1x. No release/version bump/push/tag authorization.
+
+Implementation:
+- New tools/ios/patch_game_world_step_trace.py locates sub_823C6500 by
+  symbol across generated files, validates five exact anchors before any
+  write, and adds only local snapshots plus a void logging call. Hook
+  records incoming seconds, accumulator after incoming time is added,
+  computed cap, post-cap accumulator, quantized engine time output and
+  integer ticks. Flag0x828FD868, multiplier0x828FD87C and caller LR sampled at entry.
+  Bypassed paths retain -1 sentinels (logged -1000 in ms fields). No PPC
+  register or game-memory store is added. Existing stores remain verbatim.
+- generate_code.py runs this patch after frame_ticks for USA generation.
+  Runtime helper in frame_clock.cpp uses existing default-false
+  nfsmw_frame_ticks_log; only managed40 driving logs. Buffer60 numeric
+  samples per thread, format at batch end, maximum160 batches/thread. Reset partial batch
+  and host baseline outside managed driving. [world-step] fields:
+  input/before/limit/after/output(ms)/ticks/flag/budget/render-seq/host-gap(ms)/caller.
+  Engine integer ticks/quantized output are timing bookkeeping, NOT a count
+  of physics calls; this diagnostic alone cannot establish every subsystem
+  consumes that time. Existing world-clock format unchanged.
+- Pacer increments monotonic assigned_frames under its existing mutex only
+  when assigning a system drawable. Read via display::ManagedAssignedFrames
+  for the diagnostic. This counts acquisitions, NOT actually shown frames.
+  It never drains/changes skipped-slot debt. Getter avoids a new dependency
+  from non-USA pacing code onto USA-only frame_clock.cpp.
+
+Validation before build:
+- Python transform checks on actual original/generated engine function:
+  apply, idempotency, byte-exact revert, rejection of each of5 missing
+  anchors and1 partial patch. PASS after current generation too. First
+  missing-anchor harness accidentally removed an earlier function's
+  prologue and asserted; corrected test scopes deletion to targetfunction.
+  This was a harness error, not a rejected source patch or device result.
+- Existing pool/extra/constant/transform/deferred/frame-clock postpatches
+  all applied by wrapper. Pool31sites/31checks/1reset;63editedlines.
+  Extra marker6/6,car1/1,shadow3/3,movies3/3,laps4/4,opponents6/6,traffic3/3.
+  Deferred --status all3yes,frame_ticks --status applied,newtrace --status
+  applied in108.cpp. git diff --check passed.
+
+New laptop restoration (no sibling SDK tracked source edits):
+- Host cmake --preset mac-arm64 failed exit1 because migrated cache still
+  names /Users/bep1s/Documents/GitHub. Fresh ignored
+  out/build/mac-arm64-restored configured successfully; build then failed
+  in pre-existing presenter.cpp:681,undeclared rex_native_draws_only.
+  Its declaration/definition are guarded iOS but this use is not. Preserve
+  pre-existing SDK source rather than broadening hotfix changes.
+- Host-only build workaround: ignored
+  <SDK>/out/build/mac-arm64-restored/nfsmw_host_shim.h contains pragma once,
+  <atomic>,inline std::atomic<bool> rex_native_draws_only{false}.
+  Configure preset with -B out/build/mac-arm64-restored and
+  CMAKE_CXX_FLAGS='-march=armv8-a -include <absolute shim path>'. Rebuild
+  --config Release --target rexglue -j6 exit0. This shim belongs ONLY to
+  host generator configuration, never iOS build flags or shipped binary.
+  RestoredCLI at<SDK>/out/mac-arm64/Release/rexglue; rpaths now current.
+  Host logs /tmp/nfsmw-host-{configure,restored-configure,restored-build,
+  shim-configure,shim-build}.log; failure reasons persisted here.
+- python3 tools/ios/generate_code.py --rexglue <restoredCLI> exit0,
+  133cpp files,USA metadata written,all postpatches applied. Full log
+  ignored ios/build/world-step-codegen.log. Sources now patched/build-ready.
+  Correction to previous checkpoint: its assertion that partitioning
+  differed was not established; it compared different function names
+  (AFE20 vs B0008). Current wrapper's existing hardcoded89/48/100 locations
+  work; no patch-locator changes or source regrouping workaround needed.
+- Restored108 NativeShaders files (104 metallibs) from preservedtest6stress
+  IPA into ~/Library/Caches/nfsmw-ios/shaders/lib,byte-exact originals.
+  Fresh iOS configure fromios,presetios,
+  -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
+  -DNFSMW_RESOLUTION_STRESS_TEST=ON succeeded. Build targetipa -j6 uses
+  external cache ~/Library/Caches/nfsmw-ios/build. Logs ignored
+  ios/build/world-step-configure.log and world-step-build.log.
+
+Further source review found two callers of sub_823C6500: sub_823AFE20
+(returnLR823AFE64, main-loop time we patch) and sub_823AFD18
+(returnLR823AFDA0, separately computes time). Added caller LR and thread-
+local diagnostic batches to distinguish paths safely rather than assume
+all engine updates derive from the hooked main-loop clock. This is an
+important potential explanation of why hook-time sums and perceived world
+speed disagree; actual runtime caller remains to be measured.
+Python bytecode check first failed due sandbox denying Apple's redirected
+~/Library/Caches/com.apple.python; rerun with PYTHONPYCACHEPREFIX under/tmp
+passed,exit0. Clock algorithm and existing TraceTicks helper byte-identical
+to test6 source by direct source comparison. Fullbuild registration unit
+(56942lines) takes several minutes at high CPU;process remains active,
+not a renderer hang or device result. iOS build uses AppleClang21.0.0,
+iPhoneOS27.2 SDK; CMAKE_CXX_FLAGS empty,host shim NOT included in iOS.
+
+
+Final test7 build/verification:
+- First full cmake --build --preset ios --target ipa -j6 exit0,
+  904 scheduled steps (Ninja finalprinted903/904). Registration unit took
+  several minutes;compiler CPU remained~99%. Final incremental build exit0,
+  six scheduled steps,logios/build/world-step-final-build.log. It recompiles
+  the final caller-aware patch added during the fullbuild;initialunreviewed
+  NFSMW.ipa was not delivered. Usualfpcr/UIKit/unused and duplicate-lz
+  warnings;no finalcompile/link/signature errors.
+- Final patch-transform checks repeated on current caller-aware source:
+  apply/idempotency/byte-exact revert,5missing-anchor and1partial-patch
+  rejection allPASS. Newdecl and helper agree on9arguments. Clock algorithm
+  and existing TraceTicks remain identical to prior source. No new timing
+  or physics correction tested/claimed.
+- Delivered ignored `ios/build/NFSMW-0.5.0-metal-display-40-test7-world-step-diag.ipa`,
+  30134038bytes,version0.5.0/build8,SHA256
+  4baf6442ad7f51e12a8a98da8871d1999402b5219587c9cb90c65fb52e778176,
+  UUID6C6B1D1E-C437-35DC-9F56-813F07CEE650. ZIP testzip no badentry,codesign --verify --deep
+  --strict exit0,dwarfdump --uuid exit0. Packaged executable includes final
+  host-gap(ms)/caller format. All104payload metallibs byte-identical to
+  test6stress. Both SDKdylibs DIFFER after fulltoolchain rebuild;do not claim
+  binary-identical runtime/GPU or that this is a controlledcompiler A/B.
+  No SDK tracked source edits bythissession;pre-existing modifications
+  preserved. Metadata inignoredios/build/world-step-artifact-metadata.json.
+- Reset configure NFSMW_RESOLUTION_STRESS_TEST=OFF,exit0,
+  logios/build/world-step-stress-reset.log. PreservedtestIPA has stress
+  choices;NFSMW.ipa/cacheapp stillstress until subsequentnormalrebuild.
+
+Next: cold LiveContainer,same fivearguments below,Balanced40,Low Power Mode
+ off,MetalFXoff. About20-30s race at1x then30s at5x onceFPSsettles;skip8x,
+restore1x. Sendlog;race-timer/real-time readings useful ifavailable,not
+required to establishclamp fromnewtrace. Inspect [world-step] caller,
+computedlimit,lostaccumulator/output,renderseq vsworldupdates beforefix.
+No test7device result yet;test6slowdown notfixedbydiagnostic. Keepexperiment
+OFF bydefault and retainconfirmed60fix. No0.5.1promotion/release.
+
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+
+Pre-existing uncommitted issue11checkpointaddition,HANDOFF_CHATGPT.md and
+siblingSDKwork remainexcluded fromsessioncommit. Only owncode/docs staged.

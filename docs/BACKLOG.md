@@ -921,6 +921,16 @@ plusworld/rendercountaccounting;test6notready,60fixretained. Rawgenerated
 sources restoredforinspectiononly;matchingCLI/postpatches/cache needed
 beforebuild. Evidence/failedrestorationcommands inTECHNICAL.
 
+October30: Stefan approved the next diagnostic. Test7 built/verified,
+`ios/build/NFSMW-0.5.0-metal-display-40-test7-world-step-diag.ipa`.
+Default-off [world-step] via existing frame_ticks_log records incoming time,
+activecap,post-cap/quantizedoutput,engineflag/budget,caller and renderseq.
+Timing behavior remains test6;not a slowdownfix. NextcoldBalanced40 short
+race1x then5x,samefiveargs,restore1x,skip8x;inspect actualdiscardedtime and
+caller paths beforecorrection. Buildenv/shaders/codegen restored;all old
+postpatches passed. No device result/defaultpromotion/release. Identity,
+newtoolchain caveat and restorationcommands inTECHNICAL/checkpoint.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

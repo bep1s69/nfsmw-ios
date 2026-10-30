@@ -152,6 +152,10 @@ uint32_t TakeManagedMissedSlots(uint32_t maximum) {
   return nfsmw::metal_pacer::TakeMissedSlots(maximum);
 }
 
+uint64_t ManagedAssignedFrames() {
+  return nfsmw::metal_pacer::AssignedFrames();
+}
+
 void LatestVblank(uint64_t& time_ns, uint64_t& period_ns) {
   time_ns = published_ns.load(std::memory_order_acquire);
   period_ns = published_period_ns.load(std::memory_order_relaxed);

@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 30 (Stefan): approved verifying the downstream world-time clamp
+  and simulation/render update accounting after test6 still slowed under
+  load. Next trial adds diagnostics first; keep the confirmed60fps fix and
+  accepted steady40 behavior, then make the scoped correction from evidence.
+
 - October 30 (Stefan, 40 fps): truly smooth world/presentation motion
   matters more than minimal latency; roughly one extra frame of input delay
   is acceptable if it achieves that. Test2 felt mostly more jerky world
@@ -119,6 +124,18 @@ must be configured with `-DNFSMW_NATIVE_SHADERS_DIR=$HOME/Library/Caches/nfsmw-i
 if that cache entry is empty the IPA has no `NativeShaders` and every game draw
 is skipped (IPA25). Check `unzip -l <ipa> | grep -c metallib` before handing off. The IPA is
 copied into `ios/build/NFSMW.ipa`. CMake/Ninja is used; there is no Xcode project.
+On this restored laptop, invoke generation with the already built host CLI:
+`python3 tools/ios/generate_code.py --rexglue /Users/bep1s/Developer/GitHub/rexglue-sdk-ios/out/mac-arm64/Release/rexglue`.
+The old default host cache still points to Documents; current host build is
+`<SDK>/out/build/mac-arm64-restored`, with the host-only shim documented in
+TECHNICAL October30 test7. Never pass that shim to the iOS compiler.
+
+For USA generation, `tools/ios/generate_code.py` now also applies
+`patch_game_world_step_trace.py` after frame_ticks. Existing
+`--nfsmw_frame_ticks_log=true` enables the downstream [world-step] diagnostic
+at managed40 while driving; default false. Regenerate before building from
+a fresh checkout, or apply that script to existing patched generated code.
+
 Keep uniquely named copies for device tests and record UUID/SHA256, build,
 ZIP-integrity and codesign results. Native shader libraries should remain
 byte-identical for a CPU-only change. Install/test via LiveContainer; cold
@@ -140,6 +157,28 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 30: test7 downstream world-time diagnostic built and verified.**
+  Stefan approved the diagnostic after test6 still slowed below40.
+  New [world-step] records incoming/accumulated/capped/quantized time,
+  runtime flag/budget, caller and render-assignment sequence. Existing
+  `nfsmw_frame_ticks_log` enables it; diagnostic and Metal experiment
+  default OFF. Timing algorithm and60fix unchanged. Codegen applies new
+  patch automatically; all old postpatches verified. Full new-laptop cache,
+  current hostCLI and exact shader bundle restored; generated sources are
+  now patched/build-ready. See TECHNICAL for host-only shim/build commands
+  and correction of earlier unproven source-partition mismatch claim.
+  `ios/build/NFSMW-0.5.0-metal-display-40-test7-world-step-diag.ipa`,
+  SHA256 4baf6442ad7f51e12a8a98da8871d1999402b5219587c9cb90c65fb52e778176,
+  UUID 6C6B1D1E-C437-35DC-9F56-813F07CEE650. Build/ZIP/signature/104same shaders pass;
+  both SDKdylibs rebuilt with newtoolchain and differ fromtest6.
+  Next cold17ProMax/Balanced40/Low Power Modeoff/MetalFXoff: same five
+  test6args (TECHNICAL),20-30s1x then30s5x race,restore1x,skip8x,sendlog.
+  Measure activecap/caller/actual output and world/rendercounts before
+  scopedcorrection. No device result/fix/defaultpromotion/versionbump.
+  Stressbuild option cache resetOFF; rebuild before normalcandidate since
+  NFSMW.ipa/cacheapp stillcontainstresschoices. No push/tag/release.
+  Pre-existing issue11note/HANDOFF/SDKwork preserved and notstaged.
 
 - **October30: race repeat stillslow; downstreamsimulationcap candidate found.**
   Archived17pm_12_test6_race_slowdown log (fullpath/identity inTECHNICAL).

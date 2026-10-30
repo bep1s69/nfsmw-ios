@@ -23,5 +23,6 @@ void LatestVblank(uint64_t& time_ns, uint64_t& period_ns);
 uint64_t ManagedFramePeriodNs();
 // At most maximum skipped managed output slots; 0 resets debt/history.
 uint32_t TakeManagedMissedSlots(uint32_t maximum);
+uint64_t ManagedAssignedFrames();  // diagnostic render-assignment sequence
 
 }  // namespace nfsmw::display
