@@ -416,11 +416,7 @@ float NativeResolutionScale() {
   if (read_at.load(std::memory_order_acquire) != generation) {
     const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
     native.store(setting == "native", std::memory_order_relaxed);
-#if NFSMW_RESOLUTION_STRESS_TEST
-    constexpr float maximum_scale = 8.0f;
-#else
     constexpr float maximum_scale = 4.0f;
-#endif
     fixed.store(std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, maximum_scale), std::memory_order_relaxed);
     read_at.store(generation, std::memory_order_release);
   }

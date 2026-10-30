@@ -1,18 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.5.1
 
-- **Smoother 30 fps world timing.** Driving now advances in complete 30 fps
-  frame steps. The 120 fps clock also retains the original catch-up duration
-  when frames drop. Device validation pending.
-
-- **Restored game-time catch-up at every frame-rate cap.** Kept the engine's
-  original catch-up allowance with 120 Hz simulation, avoiding the accidentally
-  halved limit during frame-rate drops. Broader device validation pending.
-
-- **Steady 60 fps on iPhone 14 Pro Max.** Removed extra presentation
-  scheduling at 60 fps that could repeatedly pull the game down to about
-  40 fps. The existing 30 fps presentation behavior is preserved.
+- **Steady 60 fps on iPhone 14 Pro Max.** Fixed presentation scheduling that
+  could repeatedly pull the game down to about 40 fps.
+- **Smoother frame pacing and world motion.** Improved 40 fps presentation,
+  aligned 30 fps world updates with complete frames, and restored the original
+  catch-up allowance during frame-rate drops, including at the 120 fps cap.
+  The smoother 120 Hz simulation remains enabled at every cap.
 
 ## 0.5.0
 

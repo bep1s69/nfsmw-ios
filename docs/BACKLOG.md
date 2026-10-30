@@ -993,6 +993,11 @@ GPU9–10ms exceeds120budget,thermal nominal/renderQoS User Initiated. Core
 placement unmeasured. Evidence/hash TECHNICAL. Device acceptance recorded;
 managed40 stress overcompensation remains separate unresolved release review.
 
+October30 release preparation approved for0.5.1: accepted timing changes included,
+Metal40 path defaultON. Test resolutions retired; finalIPA/version9 documented
+in TECHNICAL. User handles publication. Remaining extreme-load managed40 time
+oversupply is retained as a known follow-up, not erased by release preparation.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the
@@ -1008,14 +1013,16 @@ applied. Fix in IPA138; Stefan (iPhone, Oct 29): safe house exited twice and a r
 finished, minimap stays in place.
 
 
-### Live switching of all frame caps and performance profiles — proposed (October 30)
+### Live switching between all frame-rate caps — parked (October 30)
 
-Stefan asks whether all caps and Eco/Balanced/Max can apply in-game now that
-simulation is120Hz everywhere. Current30/60-only LiveCap and ChooseCap gates
-remain;40/120 require120Hz guest vblank initialized at startup in SDK graphics
-system, distinct from simulation. Profiles expand into startup QoS flags;
-render dispatch queue base priority also chosen on creation. Full live switching
-is feasible as future work but requires coordinated guest vblank/phase/pacer/
-battery state and active-thread/queue updates, rather than UI whitelist edits.
-Not implemented or included in current two-fix0.5.1 scope. Current profile
-selection in-game is saved for next launch. Evidence source review TECHNICAL.
+Stefan explicitly requests backlog inclusion for after0.5.1. Allow30/60 to40/120
+and back in-game.120Hz simulation is already shared; startup guest vblank,
+phase/pacer and battery state need coordinated live changes. Current LiveCap/
+ChooseCap gates remain. No implementation in0.5.1. Source review in TECHNICAL.
+
+### Live switching of Eco/Balanced/Max performance profiles — parked (October 30)
+
+Stefan explicitly requests backlog inclusion for after0.5.1. Apply profile to
+existing threads/render queues while playing, preserving Extra Args precedence.
+Currently profile expands startup flags and queue priorities at creation;
+in-game selection saves for next launch. No implementation in0.5.1.

@@ -30,3 +30,13 @@ What to do for each release, so every published `.ipa` is built the same way.
    GitHub release from it with the CHANGELOG entry as its notes, the SHA-256,
    and the `.ipa` attached. Only the `.ipa`: never an ISO, XEX, extracted game
    file or the generated C++.
+
+
+0.5.1 preparation: temporary stress-resolution build flag and choices removed;
+normal choices end at2x plus Native. Numeric settings saved above2x by test
+builds fall back to1x. Metal40 presentation is now defaultON; remove diagnostic
+Extra Args for the final smoke test (native_frame_trace,camera_log,repeat_log,
+frame_ticks_log). Default frame_ticks2 and120Hz simulation stay enabled.
+Use the existing validated generated tree for incremental packaging; check
+pool/extra-options/world-step patch status rather than regenerating unchanged
+guest code solely to package a release. Fresh generation still uses generate_code.

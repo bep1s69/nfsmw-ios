@@ -158,6 +158,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: 0.5.1/build9 release preparation approved; push authorized.**
+  Stefan requests both live-switching items parked in backlog, removal of stress
+  resolutions and all0.5.1 changes pushed for him to release. Backlog now has
+  separate entries. Removed stress CMake flag/UI choices/8x renderer override;
+  old numeric settings >2x reset to1x on load, native selection preserved.
+  Promoted accepted Metal40 presentation defaultON; all diagnostic flags stayOFF.
+  Default120Hz simulation and both confirmed timing fixes retained. Changelog/
+  README/version updated. Final named IPA `ios/build/NFS-Most-Wanted-0.5.1.ipa`,
+  SHA256 `e00b03cb68589e9517a8a44b204540d9fae016b68ba18367d87780362d6402c9`,
+  UUID `4A4C9469-32E6-3BE6-AEAB-06A13C96D222`,30134223bytes.
+  SDK/generated status,host tests,build,signature,ZIP,104shader comparisons pass.
+  Test10 device acceptance precedes packaging; finalIPA itself still needs normal
+  fresh-container smoke test. Remaining extreme managed40 oversupply recorded,
+  not claimed fixed. Push main only; Stefan handles tag/release/asset upload.
+  Remove six diagnostic/test Extra Args for normal use (frame_ticks2/default
+  Metal40 already apply). Preserve issue11 note/HANDOFF outside commit.
+  Next: user smoke-tests named0.5.1IPA and publishes update. No agent tag/release.
+
 - **October 30: test10 accepted; log18 confirms30 steps and120 catch-up.**
   Stefan:30 great,120 slowdown fixed,40/60 still fine. At120 return1x throughput
   ~89–99fps with GPU~9–10ms, thermal nominal, render QoS User Initiated; no
