@@ -267,6 +267,17 @@ NSString* ScaleSummary() {
       px.height, px.height / 720.0];
 }
 
+bool SupportsHighFrameRates() {
+  // Screen capability, not its temporary refresh rate under Low Power Mode.
+  return UIScreen.mainScreen.maximumFramesPerSecond >= 120;
+}
+
+std::vector<Choice> FrameRateChoices() {
+  if (SupportsHighFrameRates()) return {{@"30", @"30"}, {@"40", @"40"},
+                                       {@"60", @"60"}, {@"120", @"120"}};
+  return {{@"30", @"30"}, {@"60", @"60"}};
+}
+
 const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
       {@"Saves", nil,
@@ -378,13 +389,10 @@ const std::vector<Section>& Sections() {
             {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
              {@"Anti-aliasing only", @"drawn"}}},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
-            @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
-            @"they run the console's screen refresh at 120 Hz, which the game was not made "
-            @"for, so some things may run too fast. With Battery mode: 30 or 40 (60 and 120 "
-            @"become 30).",
-            @"60",
-            {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
-             {@"120 (experimental)", @"120"}}},
+            @"30 saves battery and heat. Higher caps make motion smoother when the game "
+            @"can keep up. 40 and 120 are available on 120 Hz displays. With Battery mode: "
+            @"30 or 40 (60 and 120 become 30).",
+            @"60", FrameRateChoices()},
            {@"auto_cap", Type::kSwitch, @"30 fps when warm or on Low Power",
             @"At the 40 and 60 caps: 30 fps while Low Power Mode is on or the phone is warm, back "
             @"once it is off and cool again.",
@@ -718,6 +726,8 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
     return forced;
   }
   NSString* v = s[key];
+  if ([key isEqualToString:@"fps_cap"] && !SupportsHighFrameRates() &&
+      ([v isEqualToString:@"40"] || [v isEqualToString:@"120"])) v = @"60";
   if (!v.length && HudDefault(key)) return HudDefault(key);  // no row of its own (the HUD editor's)
   // Battery mode keeps the cap at 30 or 40, as chosen (Stefan, Oct 28; it
   // forced 30 before 0.4.2): 60 and 120 become 30.

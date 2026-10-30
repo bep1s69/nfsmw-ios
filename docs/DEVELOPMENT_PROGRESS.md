@@ -166,6 +166,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October30:live FPS matrix accepted;test2 cleans labels/capability choices.**
+  Stefan reports no issues;log19 confirms all12directed cap transitions,guestHz
+  and realtime policy correct. Archive/hash TECHNICAL. Removed experimental
+  labels and obsolete speed-warning text. Shared launcher/in-game choices now
+  show40/120 only when main screen maximumFramesPerSecond>=120;unsupported
+  saved40/120 values resolve60 (Battery mode stillforces30). Extra Args remain
+  explicit overrides;no timing/SDK changes this turn. Build/package checks pass.
+  `ios/build/NFSMW-0.5.2-test2-fps-menu.ipa`,SHA256
+  `eaf782204eefd251a2344909cbc967d4b74174472cc6888e5166ad118020de24`,
+  UUID `896BB62D-ABD5-35FD-887F-C15A08AFBFF7`,30135895bytes;
+  bundle still0.5.1/build9. Next:live performance profiles;menu filtering on60Hz
+  hardware and background/auto-cap checks remain validation coverage items.
+  No full FPS matrix rerun needed for label-only/capability change on17PM.
+  Preserved issue11note,HANDOFF,siblingSDKwork. No push/tag/release.
+
 - **October30:0.5.2 test1 live-FPS switching built;device validation next.**
   Stefan agrees to implementation order. All30/40/60/120 choices now live in
   options,battery state supports all four;auto caps still only40/60. SDK worker

@@ -11164,3 +11164,48 @@ frame/camera/worldclock diagnostics if a problem needsquantifying. Do not
 add stress resolutions back. First validate caps,then live profiles;no push/
 tag/release. Preserved issue11checkpoint note,HANDOFF and siblingSDKwork;
 new SDK source edits are ONLY runtime/CP changes represented bynewpatch.
+
+
+### October30: test1 log19 accepted; test2 FPS labels and display capability
+
+Stefan noticed no issues across requested matrix;120 feels particularly good.
+Same17PM/test1 per context,OS unspecified. Source
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/8AB0DAF3-0FAF-4B5A-AB4B-D189D0D5A751/nfsmw.log`.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_19_052_test1_live_fps.log`.
+3654487bytes,22615lines,SHA256
+76c04b16315a504bdf85c064e789afc21f691de495e9f924663f06545f751767.
+Two launch markers;first23:21:24.005,lastline23:52:26.072. Live-FPS records
+from23:48:05.814to23:52:10.549:60,40,30,120,60,30,40,120,30,60,120,40,60.
+All12ordered pairs covered;each30/60 uses60Hz,40/120 uses120Hz,all realtime
+policy calls reportset,zeroFAILED. User confirms subjective motion/function.
+This is not independent proof of all latent races or other-device behavior;
+background/resume and automatic menu/heat cap coverage not established here.
+Archive/analysis exit0;script confirms actualpairset equals requiredpairset.
+
+User requests removing experimental40/120 tags and hiding options without
+ProMotion. Implemented shared FrameRateChoices using main screen reported
+maximumFramesPerSecond>=120,not current preferred/temporary rate. Both launcher
+and in-game rows derive same choices;new plain30/40/60/120 labels,old simulation
+speed warning removed. Value resolves unsupported saved40/120 to60 before
+Battery rules (which may choose30). Raw saved preference remains;effective
+launch/runtime settings normalize,so hidden saved option cannot silently run.
+Explicit Extra Args still override UI intentionally. Main-screen capability is
+consistent with existing primary-display-only presenter,not model-name matching.
+No new platform-specific network facts relied upon;uses existing UIKit API.
+No timing/profile/SDK changes. Performance-live feature remains next.
+
+Validation: git diff --check exit0;normal incremental build ipa -j6 fromios
+exit0 (6steps),log/tmp/nfsmw-052-cap-labels-build.log. No failed attempts.
+Shared choices/value paths inspected for120Hz/60Hz branches;no physical60Hz
+menu test yet. No new tests for simple label/filter change;existing timing
+not changed. ZIP integrity,codesign --verify --deep --strict,UUID checks pass;
+104metallibs byte-identical to test1. NamedIPA exclusive-create:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test2-fps-menu.ipa`,
+30135895bytes,SHA256
+eaf782204eefd251a2344909cbc967d4b74174472cc6888e5166ad118020de24,
+UUID896BB62D-ABD5-35FD-887F-C15A08AFBFF7;bundle0.5.1/build9 unchanged.
+Ignored.json metadata besideIPA. Next:implement live profiles;verify60Hz menu
+only30/60 and savedunsupported fallback when hardware available. No needrepeat
+12pair matrix on17PM just for thisUI change. Preserved pre-existingissue11note,
+HANDOFF,siblingSDKwork. Owncode/docs committed locally;no push/tag/release.
