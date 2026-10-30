@@ -10960,3 +10960,15 @@ No game assets/generated/logs/IPAs tracked (`git ls-files` checked).
 `git fetch origin` exit0;origin/main...HEAD before final commit0behind/28ahead.
 Authorized push targetmain only,fast-forward; no force/tag/GitHub release.
 Stefan publishes release and attaches IPA after final smoke test.
+
+
+October30 push outcome: release prep commit26e41c4 created successfully.
+`git push origin main` failed with fatal could not read Username for
+https://github.com / Device not configured (combined shell command later returned
+0 from status, not a successful push). `git ls-remote origin refs/heads/main`
+confirms remote remains4e2ac87fb27af677884d917198b62831a581bedb.
+`gh auth status` exit1 both normal and elevated: bep1s69 token invalid.
+`ls -la ~/.ssh` exit1: directory absent. No safe existing Git authentication
+available; connected API file commits are not a substitute for pushing this
+existing29-commit history. Ask user to authenticate gh then retry authorized
+push; no tag/release created. FinalIPA and local changes complete.
