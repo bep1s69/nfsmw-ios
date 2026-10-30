@@ -903,6 +903,15 @@ build option defaultsOFF and cache resetOFF. Next1x then gradually raise
 until below40,restore1x,same five diagnostics;report device/OS. No device
 validation or release approval yet;remaining correctness checks unchanged.
 
+October30 17 Pro Max stress result:1x/3x smooth40;5x~21.9fps,
+worldclock compensation active (selectedgiven/raw104.4%). Actualsimulation
+speedunproven;Stefan suspects slowlogic and will compare race timer with
+30s externalstopwatch at1x/5x,sameIPA/args,skip8x,restore1x.8xblackpicture/
+termination near6GiBprocesslimit,unproven cause;stressonly,outsidehotfixscope.
+No defaultpromotion. SeeTECHNICAL for archive,measurements and limits.
+If needed,nextinstrument actualworld consumption;newlaptop lacks generated
+sources/buildcache and requiresrestoration beforeanotherbuild.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

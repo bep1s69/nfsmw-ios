@@ -10174,3 +10174,85 @@ restore1x;send log plus device/OS and game-speed/judder impressions. Pending
 menu/background-resume and other-device40/60 checks remain before default
 promotion/0.5.1candidate. Desktop checks do not establish device stability
 at8x or correct under-cap game speed. No version bump/push/tag/release.
+
+
+### October 30: 17 Pro Max test6 overload log; time supplied, actual simulation unproven
+
+Stefan reports4K still smooth40,perceived slower logic under overload;
+8x black picture while slow input reactions/audio continued,then termination.
+He considers8x crash outside normal reproducibility/hotfix scope. Asked if
+slowdown occurred visibly at5x or only8x;Stefan instead requests another
+race test comparing the seconds. No confirmed5x subjective slowdown yet.
+Advised sameIPA/fiveargs,Balanced40,Low Power Mode off,MetalFX off: measure
+race timer advance over30 external-stopwatch seconds at1x then5x,after
+settings closed/FPS settled,exclude pauses,skip8x,restore1x. Record car
+motion too: race timer may track real time independently of physics.
+Pending repeat log/readings and subjective comparison;no timing source edit.
+
+Input (one launch21:41:09.207 to partial final line21:42:47.531):
+/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/DB9A7713-C90D-417F-AFBA-EFA352018AA6/nfsmw.log
+Archived byte-identically/exclusive create,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_11_metal_display_40_test6_resolution_stress.log`.
+1340395bytes,7565lines,SHA256
+17aeb19cf130015b78eb509abbc8653125fd10aeae87c3eb27c4a6bcd145ac5a.
+Archive/verify/analysis exit0. Device17 Pro Max perStefan,OS unspecified.
+Expected test6-stress identity perhandoff:d3888a5a...,UUID54E550CB-F57B-3BE1-
+94DF-19B90F9987E0,0.5.0/build8;not independently echoed by app runtime.
+Startup saysOct29 22:38:47 (stale translation-unit stamp,not IPAidentity).
+Runtime includes world-missed accounting,mode2 and managed40 diagnostics;
+Balanced,cap40,MetalFX/FXAA/MSAAoff,Low Power Modeoff,thermalnominal.
+Options recordedscale3 at21:42:02.463,5 at21:42:14.024,8 at21:42:40.823.
+3x=2160p (user4K),not a4x selection. No restoration to1x captured.
+
+Measurements from emitted world-clock batches (60 samples per row;rounded,
+windows include each batch's preceding updates,not exact physical events):
+- Rows21:41:49<=time<21:41:59:420updates,raw10499.841ms,
+  given10500.893ms,host10500.739ms,ratio1.000100,allgiven25.0ms.
+  Corresponding420 shown gaps all25ms.
+- Rows21:42:06<=time<21:42:11 (3x):240updates,raw5995.386ms,
+  given6000.485ms,host5995.780ms,ratio1.000850;240shown gaps all25ms.
+  Renderer40.0fps/GPU14.51ms at21:42:07.881 (mixed300frame window).
+- Rows21:42:20<=time<21:42:34 (5x before next options open):360updates,
+  raw15607.527ms,given16297.198ms,host15608.560ms,ratio1.044188.
+  Givenbins226x50.0,101x25.0,31x75.0,1x100.0,1x45.9ms.
+  Compensation active:world-missed141/300 at21:42:24.262,251/300
+  at21:42:38.809 (windows not identical to selectedworld batches).
+  Renderer21.9fps/GPU50.73ms at21:42:30.002.300shown gaps spread
+  33.3-58.3ms:45.8x85,50.0x75,41.7x52,54.2x49,37.5x28,58.3x9,33.3x2.
+- 8x/mixedtransition rows21:42:42<=time<21:42:45:120updates,
+  raw5153.858ms,given6225.542ms,ratio1.207938. Not a valid
+  steady-state simulation-speed measurement (black picture/settings/load).
+
+Interpretation:unlike log10/test5,the selected5x test6 clock did NOT merely
+supply~25ms per~50ms update:it compensated and supplied~104.4% of elapsed
+main-loop time. This does NOT prove the world/physics consumes all of it,
+nor that speed feels correct. Oversupply also deserves investigation if
+repeat confirms;do not call this a complete correctness success. Need
+race-timer/wall-time comparison plus physics-step evidence if perception
+and clock totals disagree. Downstream timestep/substep limitation is a
+hypothesis only;no engine clamp found/proven here. Some world batches
+switch to legacy8.334ms quantum when options/menu state changes;do not
+claim entire run stays in managed driving branch. Hostfake-scheduler tests
+previously passed but did not cover actual renderer/world frame association.
+
+Audio runs RemoteIO48kHz stereo,5.3ms buffers. At21:42:40.256 and45.259
+reports938blocks/5s,0gaps;consistent with normal-speed music independent
+of graphics/world updates. It does not validate simulation speed.
+8x renderer summary17.2fps/GPU68.04ms at21:42:47.427 includes earlier5x
+frames. Memoryfootprint5402MiB,peak5916,742MiB headroom at6144MiB limit;
+Metaldevice4102MiB,compressed423MiB. At5x~4130MiB footprint. Memory
+pressure plausible for8x termination,NOT proven jetsam/crash cause;no
+fatal/command-buffer-failure record and final line truncated. Final6 trace
+rows have missingGPU timestamps and nonsensical derived latency:exclude
+from latency conclusions. Do not infer GPU fault from missing timestamps.
+Do not widen0.5.1scope into8x support;stress choices remain build-onlyOFF.
+
+Laptop migration:repository/Debug accessible;build cache and generated
+`ios/generated/default/nfsmw_recomp.89.cpp` absent here. Attempted read/rg
+failedENOENT;cannot inspect downstream generated functions or build yet.
+No restoration attempted during this evidence-only turn. If repeat requires
+new instrumentation/build,restore generated game sources and shader/build
+cache first using existing build procedure;do not pretend prior IPAs/cache
+are available. Current next action is user race-timer repeat,then downstream
+investigation as needed. No source/build/default/version/push/tag/release.
+Preserve pre-existing issue11 checkpoint addition,HANDOFFandSDK state.
