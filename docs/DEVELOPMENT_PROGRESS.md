@@ -158,6 +158,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: push blocked by missing GitHub credentials on new laptop.**
+  Release preparation committed26e41c4; `git push origin main` failed:
+  could not read Username for HTTPS/Device not configured. gh auth status fails
+  with invalid token, including unsandboxed check; ~/.ssh absent. Remote main
+  remains4e2ac87fb27af677884d917198b62831a581bedb. No changes pushed/tagged/
+  published. User needs gh auth login -h github.com then gh auth setup-git;
+  next agent action is retry authorized git push origin main and verify remote
+  matches HEAD. No new permission needed. FinalIPA is ready at path below.
+
 - **October 30: 0.5.1/build9 release preparation approved; push authorized.**
   Stefan requests both live-switching items parked in backlog, removal of stress
   resolutions and all0.5.1 changes pushed for him to release. Backlog now has
