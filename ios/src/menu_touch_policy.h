@@ -16,6 +16,9 @@ inline int Direction(float dx,float dy,bool invert) {
   if (invert) { dx=-dx;dy=-dy; }
   return std::abs(dx)>=std::abs(dy) ? (dx>0?Right:Left) : (dy>0?Down:Up);
 }
+inline int TapAction(int matched,bool empty_accept) {
+  return matched>0?matched:matched<0?0:empty_accept?1:0;
+}
 class DragRepeat {
  public:
   int Buttons(double now,int direction) {

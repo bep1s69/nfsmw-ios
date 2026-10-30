@@ -173,6 +173,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31:test6 corrects hint visibility,optionalblankA,andpadreturn.**
+  Usertest5/log22:14tapsallnoicon->A;5two-fingerB. InvalidHUDkShownvisibility
+  assumptionfound:guestFEquery82282CC0/showhide82282BF8 usehiddenbit26,
+  notHUDbit23. Walkerfixed,regressionfixtureusesrealvisible42000000flags;
+  broadimagecandidates/per-package/nearest-iconmissdiagnosticsadded.
+  NewTap empty space to accept option live/defaultON inbothmenus;OFFignores
+  unmatched/no-response taps;two-fingerBunchanged. PADoverridepillnowGESTURES
+  returnsdirectly;unregisteredpilltouchescan'tbecomegestures/taps. Repeatpulses
+  useoriginalleft-stickroute (mapcontinuousrightstickunchanged).
+  Hosttests/build/ZIP/signature/104shaderspass;SDKdylibsidenticaltotest5.
+  `ios/build/NFSMW-0.5.2-test6-menu-fallback-and-pad.ipa`,SHA256
+  `3808820226985ffb83843d247d761b483f3a62c0c6a6f0ce72aa37b1efcfa169`,
+  UUID `1E6C0B72-8C55-3F04-83AF-204029C4EF1D`,30148720bytes;
+  bundle0.5.1/build9. NextsetblankacceptOFF,mainmenubuttons/chevrons/helddrag,
+  PAD->GESTURESroundtrip,emptytapnoaction/twofingerB,thenmap/QuickRaceLT/RT.
+  Sendlog;main-menucoverageNOTyetconfirmedondevice. Nosdk/timing/profile
+  changes,no push/tag/release. Preserveissue11note,HANDOFF,SDKwork.
+
 - **October31:test5 menu touch polish built;device verification next.**
   ArchivedAndroidreferencevideo(TECHNICAL hash/path);sampledframes inspected.
   NewInvert menu swipes setting live/defaultOFF inlauncher/in-game;worldmap

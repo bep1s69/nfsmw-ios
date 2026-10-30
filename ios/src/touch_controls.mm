@@ -74,6 +74,8 @@ REXCVAR_DEFINE_BOOL(ios_touch_menu_gestures, true, "Input",
                     "Touch controls in menus and pause screens (with ios_touch_auto_layout): no "
                     "overlay; a swipe pushes the left stick that way, a tap presses A, a two-finger "
                     "tap B. The PAD pill brings the full gamepad back until the next layout change");
+REXCVAR_DEFINE_BOOL(ios_touch_menu_empty_accept, true, "Input",
+                    "A short tap outside recognised menu controls presses A; two-finger back stays enabled");
 REXCVAR_DEFINE_BOOL(ios_touch_menu_invert, false, "Input",
                     "Reverse swipe navigation in menus; world-map cursor dragging stays direct");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
@@ -934,6 +936,15 @@ static CGFloat TouchOpacity() {
       [_haptic impactOccurred];
       return;
     }
+    if (CGRectContainsPoint(_modeToggle,p) && _padOverride) {
+      [self releaseAll];
+      _padOverride = NO;
+      _driving = NO;
+      [_haptic impactOccurred];
+      [self setNeedsLayout];
+      REXLOG_INFO("[touch] full pad -> menu gestures");
+      return;
+    }
     if (CGRectContainsPoint(_modeToggle, p) && _gestures) {
       _padOverride = YES;  // the full gamepad, until the next layout change
       [_haptic impactOccurred];
@@ -999,11 +1010,12 @@ static CGFloat TouchOpacity() {
 // stick goes that way (the larger of across and down, so a menu moves one
 // way), all the way at 40.
 - (void)gestureMoved:(UITouch*)touch {
-  if (_gFingers > 1) return;
+  if (_gDown != 1 || _gFingers > 1) return;
   const CGPoint p = [touch locationInView:self];
   const CGFloat dx = p.x - _gStart.x, dy = p.y - _gStart.y;
   const CGFloat d = std::hypot(dx, dy);
   if (d < 14 && !_gSwiping) return;
+  if (!_gSwiping) REXLOG_INFO("[touch] menu swipe started, invert {}",REXCVAR_GET(ios_touch_menu_invert));
   _gSwiping = YES;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
   if (g_map_up.load()) {
@@ -1031,7 +1043,10 @@ static CGFloat TouchOpacity() {
     return;
   }
   const int buttons = _gRepeat.Buttons(NSDate.timeIntervalSinceReferenceDate,_gDirection);
-  SetPadState(buttons,0,0,0,0,0,0);
+  // Pulse the same left-stick route used by the original menu gestures.
+  const float x=buttons&nfsmw::menu_touch::Left?-1:buttons&nfsmw::menu_touch::Right?1:0;
+  const float y=buttons&nfsmw::menu_touch::Up?-1:buttons&nfsmw::menu_touch::Down?1:0;
+  SetPadState(0,x,y,0,0,0,0);
 }
 
 - (void)stopMenuRepeat {
@@ -1044,6 +1059,7 @@ static CGFloat TouchOpacity() {
 }
 
 - (void)gestureEnded:(NSSet<UITouch*>*)touches {
+  if (_gDown <= 0) return;  // a pill touch never began a menu gesture
   _gDown = std::max(0, _gDown - int(touches.count));
   if (_gDown > 0) return;
   [self stopMenuRepeat];
@@ -1070,8 +1086,9 @@ static CGFloat TouchOpacity() {
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, int64_t(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     int expected = serial;
     if (g_tap_pending.compare_exchange_strong(expected,0)) {
-      REXLOG_INFO("[touch] menu tap: A (no answer)");
-      PressMenuButton(kA);
+      const bool accept=REXCVAR_GET(ios_touch_menu_empty_accept);
+      REXLOG_INFO("[touch] menu tap timed out: {}",accept?"A":"ignored (empty-space accept off)");
+      if (accept) PressMenuButton(kA);
     }
   });
 }
@@ -1480,7 +1497,7 @@ static NSString* SymbolFor(NSString* label) {
   [stroke setStroke];
   mode.lineWidth = 1;
   [mode stroke];
-  [self drawLabel:(_driving || _gestures ? @"PAD" : @"DRIVE")
+  [self drawLabel:(_padOverride ? @"GESTURES" : _driving || _gestures ? @"PAD" : @"DRIVE")
                at:CGPointMake(CGRectGetMidX(_modeToggle), CGRectGetMidY(_modeToggle))
              size:_modeToggle.size.height * 0.42];
   if (!CGRectIsEmpty(_snap)) {
@@ -1945,7 +1962,11 @@ void MenuTapResult(int serial, int button) {
       REXLOG_INFO("[touch] menu tap: a hint, button not known yet");
       return;
     }
-    const int bits = button ? button : kA;
+    const int bits=nfsmw::menu_touch::TapAction(button,REXCVAR_GET(ios_touch_menu_empty_accept));
+    if (!bits) {
+      REXLOG_INFO("[touch] menu tap ignored (empty-space accept off)");
+      return;
+    }
     REXLOG_INFO("[touch] menu tap: {:X}", bits);
     PressMenuButton(bits);
   });

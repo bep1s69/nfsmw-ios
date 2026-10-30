@@ -1405,6 +1405,9 @@ namespace {
 // CROSS = A, TRIANGLE = B, SQUARE = X, CIRCLE = Y. Other pictures (the SMS
 // list's rows, the PC's mouse hints) are not hints.
 // MENU_TOUCH_HINTS_BEGIN: also compiled against synthetic FE trees by host tests.
+// Verified in guest sub_82282CC0 (query) and sub_82282BF8 (show/hide):
+// FEObject+0x1C bit26 is hidden. The HUD context's kShown is NOT visibility.
+constexpr uint32_t kMenuHidden = 1u << 26;
 int ButtonOfTexture(uint32_t texture) {
   using namespace nfsmw::menu_touch;
   switch (texture) {
@@ -1451,7 +1454,7 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
                bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget) {
   for (uint32_t o=first;Plausible(o)&&REX_LOAD_U32(o)!=kListVtable&&budget>0;o=REX_LOAD_U32(o+4)) {
     --budget;
-    if (!(REX_LOAD_U32(o+0x1C)&kShown)) continue;
+    if (REX_LOAD_U32(o+0x1C)&kMenuHidden) continue;
     const auto type=REX_LOAD_U32(o+0x18),data=REX_LOAD_U32(o+0x2C);
     if (!Plausible(data)) continue;
     const float gx=px+sx*LoadF(base,data+28),gy=py+sy*LoadF(base,data+32);
@@ -1462,14 +1465,14 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
       bool text=false;
       int scan=200;
       for (uint32_t c=child;Plausible(c)&&REX_LOAD_U32(c)!=kListVtable&&scan-->0;c=REX_LOAD_U32(c+4))
-        if (REX_LOAD_U32(c+0x18)==2 && (REX_LOAD_U32(c+0x1C)&kShown)) text=true;
+        if (REX_LOAD_U32(c+0x18)==2 && !(REX_LOAD_U32(c+0x1C)&kMenuHidden)) text=true;
       const float xs=LoadF(base,data+56),ys=LoadF(base,data+60);
       if (std::isfinite(xs)&&std::isfinite(ys))
         FindHints(base,child,gx,gy,sx*xs,sy*ys,depth+1,text||parent_text,
                   ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget);
       continue;
     }
-    if (type!=1) continue;
+    if (type!=1&&type!=9&&type!=10&&type!=11&&type!=12) continue;
     const float w=LoadF(base,data+56)*sx,h=LoadF(base,data+60)*sy;
     if (!std::isfinite(w)||!std::isfinite(h)||std::abs(w)<3||std::abs(h)<3||std::abs(w)>96||std::abs(h)>96) continue;
     const auto texture=REX_LOAD_U32(o+0x24),hash=REX_LOAD_U32(o+0x10);
@@ -1479,7 +1482,7 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     if (!button && texture==nfsmw::menu_touch::Hash("ARROW"))
       button=w<0?nfsmw::menu_touch::Left:nfsmw::menu_touch::Right;
     // Keep small unknown icons for a diagnostic only; never guess their action.
-    if (button || (std::abs(w)>=20&&std::abs(w)<=40&&std::abs(h)>=20&&std::abs(h)<=40))
+    if (button || (std::abs(w)>=10&&std::abs(h)>=10))
       out.push_back({hash,texture,gx,gy,std::max(20.f,std::abs(w)/2+5),
                      std::max(20.f,std::abs(h)/2+5),button,parent_text&&button>0&&button!=nfsmw::menu_touch::Left&&button!=nfsmw::menu_touch::Right});
   }
@@ -1503,15 +1506,33 @@ extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y)
   if (!Plausible(engine)) return 0;
   std::vector<Hint> hints;
   int packages=0;
+  std::vector<std::string> scans;
   for (uint32_t p=REX_LOAD_U32(engine+216+8);Plausible(p)&&packages<64;p=REX_LOAD_U32(p+4),++packages) {
     uint32_t at=0;
     const uint32_t first=FirstObject(base,p,at);
     int budget=2000;
+    const auto before = hints.size();
     if (first) FindHints(base,first,0,0,1,1,0,false,0,hints,budget);
+    if (scans.size()<8) scans.push_back(fmt::format("{} first {:08X} visited {} candidates {}",
+        GuestName(base,REX_LOAD_U32(p+12)),first,2000-budget,hints.size()-before));
   }
   const auto* hit=HintAt(hints,x,y);
+  const int result=hit?(hit->button?hit->button:-1):0;
   if (hit) REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: object {:08X} texture {:08X} action {} at {:.0f},{:.0f}",
       x,y,hit->group,hit->texture,hit->button,hit->x,hit->y);
-  else REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: no icon",x,y);
-  return hit?(hit->button?hit->button:-1):0;
+  else {
+    REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: no icon ({} candidates)",x,y,hints.size());
+    for (const auto& scan:scans) REXLOG_INFO("[touch-scan] {}",scan);
+  }
+  if (!hit || !hit->button) {
+    std::stable_sort(hints.begin(),hints.end(),[&](const Hint& a,const Hint& b) {
+      return std::hypot(x-a.x,y-a.y)<std::hypot(x-b.x,y-b.y);
+    });
+    for (size_t i=0;i<std::min<size_t>(hints.size(),6);++i) {
+      const auto& h=hints[i];
+      REXLOG_INFO("[touch-candidate] object {:08X} texture {:08X} at {:.0f},{:.0f} half {:.0f},{:.0f} action {}",
+          h.group,h.texture,h.x,h.y,h.half_w,h.half_h,h.button);
+    }
+  }
+  return result;
 }

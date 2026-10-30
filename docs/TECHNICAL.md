@@ -11494,3 +11494,80 @@ exit0,/tmp/nfsmw-052-menu-build4.log;hostmenu testre-runexit0. Finalhandoffis
 menu-controls-r2(namedabove). Priorinternalmenu-controls.ipa retained with
 SHA25650c8c7b8b92dacfc4594d66caa3e87646654d7ddfa380604a6a649c32333b2a5,
 UUID6A15713B-1824-3603-BB38-FEAD49619A02,30154820bytes;notdelivered.
+
+
+### October31:test5 log22 failures;test6 blank-tap preference,padreturn,FEvisibility
+
+Stefan:mainmenu controlsallactedasA;requestsoptiontodisableblanktapA,keep
+2fingerB,andreturnfromemulatedPADtogestureswithoutswitchingDrive/Hiding.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/63B0201E-8219-48DF-9177-AC88CEFCAC00/nfsmw.log`.
+Archiveexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_22_052_test5_menu_misses.log`.
+249651bytes,1518lines,SHA256
+2b048dc80effceeb44bca572df6533c2f2a5a53e2e105aba20c3001f6a96d657.
+Launch00:49:30.707,last00:50:31.747;loggedbuildOct31 00:02:42;17PM/test5
+perongoingcontext,OSunspecified,IPAidentitynotindependentlyechoed.14touch-hint
+misses(allnoicon),eachimmediatelyfollowedbutton1(A),not200mstimeout.
+5twofingerBpresseslogged. Fallbackexplainswrongaction;logdoesn'tcontain
+candidate/flagsdumpsoitcannotdirectlyidentifywhyscannermissedobjects.
+
+Sourceinvestigationfoundconcreteincorrectvisibilityassumptionintroducedtest5:
+HUDcontextkShown0x00800000wasappliedtoallFEparents/leaves. Guestsub_82282CC0
+findsFEobject,loads+28,not/rotateleft6/mask1 ->return!(flags&0x04000000).
+Show/hidewrapper82282BF8 clearsbit26whenboolean1,setsviaoris1024otherwise.
+ThusgeneralFEhiddenbit26isverifiedinX360source;HUDbit23isnotvisibility.
+Replacedmenupredicateonly;HUDcontextunchanged. Newtestfixturevisible42000000
+rootlacksbit23,hidden47C00000leaf/04000000parenthasbit26. Theoldtestusedmade-up
+kShownflagsandthereforemissedthisregression. HistoricalworkinghintlogIPA165
+hasMainMenuAat-280,209,Yat-158,209;MainMenu_SubA-171,209/B-279,209.
+Severalnewmissedtapcoordinatesneartheseoldpositionssupportscannerregression,
+butfulldevicere-testrequired. No fixed-coordinatefallbackadded.
+
+Primaryexternalcodecheckedforlayoutcross-referenceonly:
+https://github.com/ThirteenAG/WidescreenFixesPack/blob/master/source/NFSMostWanted.WidescreenFix/ComVars.ixx
+PCFEObjectFlagsfieldcorresponds,butactualvisibilitybitderivedfromlocalX360
+functionsabove,notassumedfromPC. Genericwebsearcheshadirrelevantresults;
+noexternalcodecopied/newdependencies.
+
+Changes:
+- ios_touch_menu_empty_accept defaulttrue,preserveexistingdefault. Sharedoption
+  Tap empty space to accept inlauncherandin-game,live. PureTapActionpreserves
+  knownbuttonactions,unknownnegative=noaction,blank0->Aonlyifenabled. Both
+  actualnohintand200msno-responsefallbackrespectOFF. TwofingerBremainsexisting
+  gestureindependentofthisoption. PADremainsfallbackfortitlescreenswithout
+  recognizedhintsifuserdisablesblankaccept.
+- FullPADoverride nowshowsGESTURES;tapclearsinput/overrideandreturnstomenu
+  gestures,directly. HIDEcontinuesexistinghide/disabletouchbehavior;notneeded
+  toreturntogestures. GestureMovedrequiresregisteredfinger;GestureEndedignores
+  zero-downpilltouchessoreturntogglecan'taccidentallyqueueA.
+- Repeatmenudragpulsesthroughoriginalleftstickrouteinstead ofnewDpadroute,
+  compatibilitytrial(nologgedswipemarkersintest5,sonotprovenDpadrootcause).
+  Mapcursorstillcontinuousrightstick. Addedoneswipestartlogwithinvertstate.
+- Walkeracceptspicturevariants1/9/10/11/12withvalidsmallbounds,knownsemantic
+  mappingsunchanged. Broaderunknownsmallimageskeptforlogging/no-guessedA.
+  Onmiss[ touch-scan ](actualprefixwithoutspaces)logsfirst8package/firstnode/
+  visited/candidatecounts;nearest6objects/texture/position/actionloggedfor
+  unknown/miss. Thisallowsdiagnosingremainingglyph/layoutmisseswithoutguessing.
+  Savehitresultbeforesortingcandidatevector,sopointerscannotchangeanswer.
+
+Validation: python3 tools/ios/test_menu_touch.py exit0twice,actualwalkerfakeFE
+regressionflagfixtures,hiddenparents,known/unknownicons,triggers,label,arrow
+includingtype9,cycles;pureblanktapON/OFFknown/unknown/Bcases,inversion/repeat.
+ActualPAD->GESTURESUIroundtripnotdevice-testedyet;sourcepathandrowlistchecked.
+Sharedlauncher/in-gameoptionKeys,LiveFlags,Argumentsmappingallpresent.
+Normalincrementalcmakeiosbuildtargetipa-j6exit0(13steps),log
+/tmp/nfsmw-052-menu6-build.log,existingwarningsonly. gitdiff--checkpass.
+ZIPintegrity,codesign--verify--deep--strict,dwarfdumpUUIDpass;104metallibsand
+bothSDKdylibsbyteidenticaltotest5r2. Nosdk/timing/profilecodechanges.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test6-menu-fallback-and-pad.ipa`,
+30148720bytes,SHA256
+3808820226985ffb83843d247d761b483f3a62c0c6a6f0ce72aa37b1efcfa169,
+UUID1E6C0B72-8C55-3F04-83AF-204029C4EF1D;bundle0.5.1/build9.
+Ignored.jsonbesideIPA. Nextdevice:disableblankacceptafterenteringmainmenu;
+tryA/Y/Bhints,carouselarrows,helddrag,bothswipedirections;blanktapdoesnothing,
+2fingerBstillworks;PAD->GESTURESroundtripwithnophantomA. Thenmap/QuickRace
+LT/RTandoptionselectors. Sendlogforcandidatecoverage. NoExtraArgsneeded.
+Correctionofknownbadmaskdoesnotyetproveallmainmenuglyphsrecognized;test5
+failedandmustnotbemarkedaccepted. No newdevicevalidation,push/tag/release.
+Preserveissue11checkpointnote,HANDOFF,siblingSDKwork;ownchangescommittedonly.

@@ -19,9 +19,10 @@ std::unordered_map<uint32_t,float> floats;
 #define REX_LOAD_U32(a) words[uint32_t(a)]
 bool Plausible(uint32_t a) { return a>=0x10000 && a<0x80000000; }
 float LoadF(uint8_t*,uint32_t a) { return floats[a]; }
-constexpr uint32_t kListVtable=0x82080030,kShown=0x00800000;
+constexpr uint32_t kListVtable=0x82080030;
 void Object(uint32_t o,uint32_t type,float x,float y,float w,float h,uint32_t hash=0,uint32_t texture=0) {
- words[o+0x18]=type;words[o+0x1c]=kShown;words[o+0x10]=hash;words[o+0x24]=texture;
+ words[o+0x18]=type;words[o+0x1c]=0x42000000; // real visible flags lacking the HUD-only bit
+ words[o+0x10]=hash;words[o+0x24]=texture;
  words[o+0x2c]=o+0x800; floats[o+0x800+28]=x;floats[o+0x800+32]=y;
  floats[o+0x800+56]=w;floats[o+0x800+60]=h;
 }
@@ -29,6 +30,11 @@ void Object(uint32_t o,uint32_t type,float x,float y,float w,float h,uint32_t ha
 test=r'''
 int main() {
  using namespace nfsmw::menu_touch;
+ assert(TapAction(0,true)==1 && TapAction(0,false)==0);
+ assert(TapAction(8,true)==8 && TapAction(8,false)==8);
+ assert(TapAction(-1,true)==0 && TapAction(-1,false)==0);
+ // Two-finger B is separate from blank-tap policy; a B hint is always valid.
+ assert(TapAction(2,false)==2);
  static_assert(Hash("CROSS")==0x02959349);
  assert(Direction(20,0,false)==Right && Direction(20,0,true)==Left);
  assert(Direction(0,-20,false)==Up && Direction(0,-20,true)==Down);
@@ -47,10 +53,13 @@ int main() {
  Object(0x30000,1,10,20,30,30,0,Hash("CROSS"));words[0x30000+4]=0x40000;
  Object(0x40000,1,100,20,30,30,0,Hash("L2"));words[0x40000+4]=0x50000;
  Object(0x50000,1,200,20,30,30,Hash("RIGHT_ARROW_7"));words[0x50000+4]=0x60000;
- Object(0x60000,1,300,20,30,30,0,Hash("CIRCLE"));words[0x60000+0x1c]=0; // hidden
+ Object(0x60000,1,300,20,30,30,0,Hash("CIRCLE"));words[0x60000+0x1c]=0x47C00000; // hidden
  std::vector<Hint> hints;int budget=2000;
  FindHints(nullptr,0x10000,0,0,1,1,0,false,0,hints,budget);
- assert(hints.size()==3);
+ assert(hints.size()==3); // old HUD-only visibility test rejected this root
+ // The guest show/hide methods use bit26, not bit23 from HUD context.
+ static_assert(kMenuHidden == 0x04000000);
+
  assert(hints[0].x==120 && hints[0].y==20); // independent group x/y scales
  assert(HintAt(hints,120,20)->button==1);
  assert(HintAt(hints,190,20)->button==1); // text beside A also taps A
@@ -62,7 +71,7 @@ int main() {
  assert(ButtonOfObject(0xD1CDA594)==LT && ButtonOfObject(0x9345E4A7)==RT);
  // Standalone face icon, mirrored generic arrow, unknown compact icon.
  Object(0x70000,1,-30,20,30,30,0,Hash("SQUARE"));words[0x70000+4]=0x71000;
- Object(0x71000,1,30,20,-32,32,0,Hash("ARROW"));words[0x71000+4]=0x72000;
+ Object(0x71000,9,30,20,-32,32,0,Hash("ARROW"));words[0x71000+4]=0x72000;
  Object(0x72000,1,120,20,30,30,0,12345);
  hints.clear();budget=2000;FindHints(nullptr,0x70000,0,0,1,1,0,false,0,hints,budget);
  assert(HintAt(hints,-30,20)->button==4);
@@ -72,7 +81,7 @@ int main() {
  words[0x72000+4]=0x70000;hints.clear();budget=10;
  FindHints(nullptr,0x70000,0,0,1,1,0,false,0,hints,budget);assert(budget==0);
  // A hidden parent excludes all descendants.
- words[0x10000+0x1c]=0;hints.clear();budget=2000;
+ words[0x10000+0x1c]=0x04000000;hints.clear();budget=2000;
  FindHints(nullptr,0x10000,0,0,1,1,0,false,0,hints,budget);assert(hints.empty());
  puts("PASS: gesture direction/repeat; actual FE walker nested/standalone/trigger/arrow/label/hidden/cycle cases");
 }
