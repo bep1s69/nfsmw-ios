@@ -896,6 +896,13 @@ result yet. Next1x smoothness +native below40 game-speed comparison,same
 five flags. Then lifecycle/other-device regression before0.5.1 default.
 Archive/build/limits recorded in TECHNICAL October30.
 
+October30: 14 Pro Max returned/unavailable. Stefan requested test-only
+resolution choices up to8x for another device's overload test. Built test6
+resolution-stress IPA (identity/commands in TECHNICAL and checkpoint),
+build option defaultsOFF and cache resetOFF. Next1x then gradually raise
+until below40,restore1x,same five diagnostics;report device/OS. No device
+validation or release approval yet;remaining correctness checks unchanged.
+
 ### D-0xx Minimap in the wrong place after a menu change — fixed in 0.4.3 (IPA138, confirmed Oct 29)
 
 Stefan, Oct 27-28 (iPhone, 0.4.2 RC2): the minimap is sometimes drawn in the

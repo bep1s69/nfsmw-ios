@@ -366,7 +366,13 @@ const std::vector<Section>& Sections() {
             ScaleSummary(),
             @"1",
             {{@"0.85x · 612p", @"0.85"}, {@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
-             {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
+             {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"},
+#if NFSMW_RESOLUTION_STRESS_TEST
+             {@"2.5x · 1800p (test)", @"2.5"}, {@"3x · 2160p (test)", @"3"},
+             {@"4x · 2880p (test)", @"4"}, {@"5x · 3600p (test)", @"5"},
+             {@"6x · 4320p (test)", @"6"}, {@"8x · 5760p (test)", @"8"},
+#endif
+             {NativeScaleTitle(), @"native"}}},
            {@"metalfx_mode", Type::kChoice, @"MetalFX",
             @"Native renderer: Apple's MetalFX builds each frame from several, with the game's "
             @"motion: finer detail (thin, distant things stay whole) and anti-aliasing of its "

@@ -44,6 +44,12 @@
 cmake_minimum_required(VERSION 3.25)
 project(nfsmw_ios LANGUAGES C CXX OBJC OBJCXX ASM)
 
+option(NFSMW_RESOLUTION_STRESS_TEST "Test-only render resolution choices up to 8x" OFF)
+if(NFSMW_RESOLUTION_STRESS_TEST)
+    set_source_files_properties(src/launcher.mm src/native_renderer.mm PROPERTIES
+        COMPILE_DEFINITIONS NFSMW_RESOLUTION_STRESS_TEST=1)
+endif()
+
 if(NOT IOS)
     message(FATAL_ERROR "This is for iOS: configure with  cmake --preset ios  (see ios/README.md)")
 endif()
