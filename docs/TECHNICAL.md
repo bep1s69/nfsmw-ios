@@ -10736,3 +10736,59 @@ extreme stalls; do not promise unlimited catch-up. Separate managed40 missed-slo
 oversupply remains unresolved. Confirmed60 presentation fix retained; no default
 Metal40 promotion/version bump/push/tag/release. Preserved pre-existing issue11
 checkpoint note,untracked HANDOFF and SDK work; own changes only committed.
+
+
+### October 30: test9/log16 all-cap review, 120 input ceiling and30 uneven steps
+
+Stefan: all seem good except120 suspected slowdowns; asks whether30 cap updates
+camera/world evenly before removing test resolutions for final0.5.1. Same17PM
+per ongoing test; OS unspecified. Expected test9 identity in prior entry, not
+independently echoed; log build stamp Oct30 22:12:38. Multiple appended runs:
+60 launch22:40:29.202;30 launch22:41:32.543;120 start around22:43:03.580
+(concatenated with prior world-clock line);40 launch22:45:40.720. Lastline
+22:46:51.960. Some interleaved/concatenated/truncated lines: discard malformed
+samples; avoid treating all lines as a single launch or equating batch times
+with exact sample/scale boundaries.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/CA613D8A-95F0-4382-8B17-0A0B8DDB1A19/nfsmw.log`.
+Archived exclusive-create, byte-identical, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_16_test9_all_caps.log`.
+5218774bytes,27572lines,SHA256
+6405a5b7262a685000ca88754ad6a0c97220ee22813e0a14a50342fdfbfbf1d0.
+Archive/analysis exit0 after initial exploratory parser exited1 on malformed
+40-run sample (not a game failure).98world-step and227world-clock log markers,
+no camera trace. Existing camera flag is nfsmw_native_camera_log (renderer
+CameraOnSwap estimates per-frame turning from dominant view-projection matrix).
+
+Measured (windows by emission timestamp, preceding60updates per batch):
+-30 normal22:42:05<=t<22:42:24:540world-step samples,
+ input17951.447ms/output17981.029ms/host17982.275ms; ticks histogram
+ 120:281,121:125,60:58,180:27,119:13,240:12,179:9,61:7,181:5,59:3.
+ At3600ticks/s, dominant output33.33ms, with16.67/50/66.67ms variations.
+ Shown540gaps:538at33.3ms,one37.5,one16.7. Corresponding world-clock
+600samples supplied19976.609ms/19986.050ms host;455steps33.34ms,
+74steps16.67ms,48steps50ms,12steps66.67ms plus changed-period samples.
+ Thus time conservation/presentation are good, but world timing is uneven;
+ this does not directly prove camera rotation irregularity (no camera trace).
+-120 stress22:44:25<=t<22:45:25:960world-step samples,
+ input29710.710ms/output29787.562ms/host35780.690ms (~83.25% output/host),
+ limit66.667ms,zero measured clamp loss.1560world-clock samples supply
+48487.212ms/60630.082ms host (~79.97%),297resyncs;1272steps33.34ms,
+201steps25ms,47steps8.33ms,40steps16.67ms. Quantum predominantly8.3341ms.
+ These world-clock/engine windows cover different actual sample ranges;
+ do not directly subtract their totals. Shown780gaps include246at83.3ms,
+128at75ms,118at66.7ms; severe GPU stress, not nominal120 output.
+ Source frame_clock.cpp still limits legacy give to four display periods
+ and resets debt beyond four periods: at120 that is33.33ms. This upstream
+ limit is distinct from restored engine66.67ms, consistent with measured
+ input undersupply and user slowdown. Need preserve elapsed catch-up duration
+ independently of cap here too; no change implemented this analysis turn.
+-Exploratory grouping of60 scale5 batches (may include transition)240samples
+ yielded output9727.75ms/9818.28ms host with66.667ms limit; not a precision
+ steady-state measurement. User says other caps generally good.40 malformed
+ sample prevents naive whole-log aggregation; prior40 oversupply remains open.
+
+Next: scoped120 input-clock correction keeping120Hz simulation, review30
+camera trace at1x with same five args plus --nfsmw_native_camera_log=true,
+steady turning/driving for30–60s. Keep test resolutions available until these
+checks settle; no new code/build/default promotion/version/push/tag/release.
+Preserved pre-existing issue11 checkpoint note,HANDOFF and SDK work.
