@@ -158,6 +158,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: 60-cap stress test confirms perceived slowdown below30.**
+  Stefan reports5x slow motion, above30 mostly fine. Log15 archived (TECHNICAL).
+  Selected5x360updates average26.58 updates/s; supplied13.522s vs13.542s host,
+  so incoming clock catches up.197steps exceed34ms. Downstream trace is40-only,
+  so clamp loss at60 remains inferred from source plus user report, not directly
+  measured. Next correction to review: preserve original catch-up duration at60
+  with120Hz simulation retained; use downstream diagnostics at60 to validate.
+  No code/IPA/default changes this turn; preserved issue11 note and HANDOFF.
+
 - **October 30: 60 fps overload review requested.** Stefan reiterates that
   120 Hz simulation is deliberately the default at all caps for smooth motion;
   retain it. Source review: 60 retains legacy debt/catch-up clock and the
