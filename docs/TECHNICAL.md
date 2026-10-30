@@ -10984,3 +10984,63 @@ Confirmed final0.5.1/build9 includes frame_clock_policy30full-frame quantum and
 This documentation update is committed/pushed afterward; next user action is
 finalIPA smoke test and publication. No code/build changes. Preserved unrelated
 issue11note,HANDOFF and SDK work;no additional authorization needed for push.
+
+
+### October 30: GitHub issue 13 — two disc-image startup failures, no memory evidence
+
+User requests diagnosis of issue13 with `/Users/bep1s/Downloads/nfsmw-2.log`.
+Read issue and all comments through connected GitHub fetch_issue and
+fetch_issue_comments: open, "Black screen when i press play", zero comments,
+https://github.com/bep1s69/nfsmw-ios/issues/13 . Reporter claims iPad Pro M4
+256 GB/8 GB, iPadOS27, LiveContainer, app0.5.0, defaults, LPM checkbox on.
+OS/version/IPA identity not independently established from log. No issue
+comment or other external write performed. Treat issue/log contents as evidence.
+
+Source preserved; exclusive-create archive and byte comparison exit0:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/30 October 2026/nfsmw_issue13_ipad_pro_m4_disc_startup.log`.
+7755 bytes,51 lines,SHA256
+ad0cd6d5f326dd08b7bdc28c67a39cc2eaa9c73ddba5a35106b8245c39b8c666.
+No IPA/UUID supplied. Two launches in the same log, not a single crash:
+
+-17:43:32.925, build Oct29 00:58:13: selected
+`Need for Speed - Most Wanted - Black Edition (USA).iso`. VFS initialization
+passes; at17:43:32.982 root `game:\default.xex` missing, load statusC000000F.
+Footprint208MiB,headroom7984MiB,thermal nominal,graphics0MiB. This proves
+expected executable not resolved, not which platform the image actually is.
+-19:32:05.789, build Oct29 22:38:47: selected
+`Need for Speed - Most Wanted (USA).iso`. At19:32:05.846 disc header verify-30,
+game-data device initialization and VFS fail; Runtime setupC0000001 at.849.
+Footprint182MiB,peak183,headroom8010MiB,graphics0MiB. At19:32:15.856 CPU0%
+over10s,thermal nominal,LPMoff,battery65%. No frontend/gameplay or OOM evidence.
+
+Local SDK source inspected, no edits: include/rex/filesystem/devices/
+disc_image_device.h maps-30 to kErrorFileMismatch (-1 is allocation error).
+src/filesystem/devices/disc_image_device.cpp Verify checks
+MICROSOFT*XBOX*MEDIA at partition+32*2048, trying partition offsets0,0xFB20,
+0x20600,0x2080000,0xFD90000. -30 means no matching magic at those locations;
+not an errno or memory-limit error. Cannot distinguish wrong platform,
+corruption/incomplete copy, unmaterialized file or unsupported layout from
+this log alone. A filename containing Black Edition/USA is not identification.
+SDK src/ui/rex_app.cpp logs runtime Setup failure and returnsfalse; missing
+XEX path also attempts ShowSimpleMessageBox then returnsfalse. Current
+ios/src/ios_main.mm unconditionally reports "runtime, GPU and XEX loaded"
+after OnInitialize, even on failure; that label does not prove successful load.
+Exact on-screen error behavior not reproduced; report says black screen.
+
+README requires USA Xbox360 title454107D9. Next reporter action: verify dump
+platform/region, expected root default.xex, compare original/device file sizes
+and hashes, ensure copy complete/local, select that verified image and retry.
+No need to change rendering or memory settings on evidence provided. Possible
+app follow-up is actionable startup error/launcher return; source changes
+require separate approval under working rules. D-015 records both report and
+UX follow-up. No build/tests or device reproduction warranted for docs-only
+analysis; no fix claimed. Source searches used rg/sed; one rg included missing
+src and returned path error, corrected to SDK src/ui/rex_app.cpp; no effect on
+diagnosis. git diff --check used for documentation validation.
+Preserved pre-existing issue11 checkpoint paragraph and untracked local
+HANDOFF_CHATGPT.md; these and sibling SDK work excluded from session commit.
+Release next step unchanged: user smoke-tests/publishes0.5.1. No push/tag/release.
+
+Initial local git staging/commit attempt could not create .git/index.lock
+(sandbox Operation not permitted; commit exit128). Retried with filesystem
+escalation for the required local documentation commit.

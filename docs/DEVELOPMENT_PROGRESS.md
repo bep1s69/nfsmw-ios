@@ -158,6 +158,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: GitHub issue 13 disc-startup failure diagnosed (no source change).**
+  Attached `/Users/bep1s/Downloads/nfsmw-2.log` archived in Debug/30 October
+  2026 as `nfsmw_issue13_ipad_pro_m4_disc_startup.log`; hash/details TECHNICAL.
+  Two launches: Black Edition-named image mounts but lacks accessible root
+  `default.xex`; regular USA-named image fails GDFX magic verification (-30).
+  Footprints 208/182 MiB, reported headroom 7984/8010 MiB: no memory-pressure
+  evidence for these failures. Wrong-platform/incomplete/unsupported images
+  are hypotheses, not identified from filenames. Next: reporter verifies USA
+  Xbox 360 dump, root default.xex, complete local copy/file size/hash; then
+  retests with that selected image. D-015 tracks report and startup-error UX.
+  No code/build/device test, GitHub comment, push, tag or release this session.
+  Preserved pre-existing issue11 checkpoint note uncommitted (another session's
+  work), untracked local HANDOFF_CHATGPT.md and sibling SDK changes.
+
 - **October 30: GitHub authentication restored;0.5.1 changes pushed.**
   Stefan authenticated and asked whether30/120 fixes included: yes,both are
   compiled into final0.5.1/build9 along with40 pacing and14PM60 fix.
