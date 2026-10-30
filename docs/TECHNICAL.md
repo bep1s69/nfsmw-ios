@@ -10531,3 +10531,69 @@ atotherloads beforedefaultrelease. Do not globallyraise sharedconstants or
 blindly supply more clocktime. This turnanalysis only,no newIPA/sourcefix;
 test7stilldiagnostic,60fixunchanged,0.5.1notready. Preservepre-existing
 issue11note,HANDOFFandSDKwork;no push/tag/release.
+
+
+### October 30: test8 restores original elapsed catch-up allowance (device pending)
+
+Stefan: “ok lets fix it”. Implemented the correction justified by test7/log13.
+`world_step_limit.h` and its frame_clock.cpp bridge return twice the local
+computed limit only for managed output, driving (menu==0), cap40, frame ticks2,
+main-loop caller823AFE64, nonzero budget flag and actual float1/120 budget unit.
+This restores multiplier4's original66.67 ms allowance. The shared simulation
+constant, 120 Hz substeps, supplied time, multiplier and other branch limits
+are unchanged. The USA generated patch calls the helper before fcmpu/clamping;
+world-step diagnostics report the effective limit. No new option: existing
+Metal40 default-false experiment gates this change; diagnostics default false.
+Confirmed60 fix retained. No other gameplay changes or SDK tracked edits.
+
+Validation:
+- Reverted old generated diagnostic with its old script before updating it.
+  Applied new script successfully. `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache
+  python3 tools/ios/test_world_step_limit.py`: exit0,576 scope combinations;
+  steady25 ms, missed50 ms, severe75/250 ms and invalid-limit cases passed.
+  Synthetic and actual generated fixtures passed idempotency, byte-exact revert,
+  anchor/partial-patch rejection and correction-before-trace ordering.
+- Compared the same selected log13 windows as the previous entry, using recorded
+  accumulator-before values against66.6667 ms. 1x480samples: zero loss before
+  and after. 5x480samples: original5702.614 ms lost; new local-cap comparison
+  loses185.367 ms over22samples rather than308. This is counterfactual arithmetic
+  on recorded values, NOT a rerun of simulation, residual accumulator, scheduler,
+  rendered motion or host timings. Original catch-up bound still drops time for
+  severe stalls. Prior log12 input oversupply is not fixed/proven absent by this.
+- Configured stress ON from ios, exit0. First `cmake --build --preset ios
+  --target ipa -j 6` exited1: edition translator rejected caller address823AFE64
+  in the new shared header. Moved USA address comparison into the already
+  USA-only generated hook and passed a boolean to shared code. No translation
+  table bypass. Re-ran host checks (same passes); build then exit0 (13 steps).
+  Existing FPSCR operand-width and duplicate-library warnings remain.
+- Named IPA created exclusively from built NFSMW.ipa, ZIP test passed;
+  extracted bundle `codesign --verify --deep --strict` exit0;
+  `dwarfdump --uuid` exit0. All104 payload metallibs byte-identical to test7.
+  GPU dylib identical; runtime dylib differs after debug_overlay.cpp rebuild
+  and relink on configure (version metadata changed with repo commit). No SDK
+  tracked source edited. Do not claim both dylibs identical.
+- Configured stress OFF after preserving artifact, exit0. Did not rebuild:
+  generic NFSMW.ipa and cache app remain stress builds until next rebuild.
+  `git diff --check` passed before documentation finalization.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-metal-display-40-test8-catchup-limit.ipa`
+30134162 bytes; SHA256
+`4b0d0c915c0610a644c0c72330de843ea51719b0260d197a7629fa2877753c5c`;
+UUID `8899C41D-E22F-3268-905A-ED3107A80A63`; version0.5.0/build8.
+Verification metadata stored beside ignored IPA as .json.
+
+Next device test (17 Pro Max; OS to record with result): cold LiveContainer,
+Balanced40, Low Power Mode off, MetalFX off. Race20–30s1x,30s5x,restore1x;
+skip8x. Compare race seconds with real time and report motion/send log.
+Same arguments:
+```
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+```
+No device result yet: correction implemented, not declared a verified fix or
+ready for0.5.1. Keep diagnostics for effective cap/output/host checks. Preserved
+pre-existing13-line issue11 checkpoint note, untracked HANDOFF_CHATGPT.md and
+siblingSDK changes; excluded from session commit. No push/tag/release.

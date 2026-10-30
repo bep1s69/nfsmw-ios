@@ -158,6 +158,33 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 30: test8 restores the managed-40 catch-up allowance; device check pending.**
+  Stefan approved the correction. The measured main-loop driving path now
+  retains the original 66.67 ms cap with 120 Hz simulation (previously 33.33 ms).
+  Other callers, caps, menus, unmanaged output and the 20 ms budget branch
+  retain their limits. Experimental Metal 40 remains OFF by default; the
+  confirmed 60 fps fix is unchanged. No release/version promotion.
+  Built `ios/build/NFSMW-0.5.0-metal-display-40-test8-catchup-limit.ipa`,
+  SHA256 `4b0d0c915c0610a644c0c72330de843ea51719b0260d197a7629fa2877753c5c`,
+  UUID `8899C41D-E22F-3268-905A-ED3107A80A63`, still 0.5.0/build 8.
+  Build, 576 scope cases, hook validation, ZIP/signature and 104 shader checks
+  passed. TECHNICAL records the first build failure and remaining limitations.
+  Next: cold LiveContainer, same five diagnostic arguments, Balanced/40,
+  Low Power Mode and MetalFX off; race 20–30 s at 1x, 30 s at 5x, then restore
+  1x. Compare race clock with real time and send log. Check effective limit,
+  output/host time and motion; prior log12 time oversupply remains unresolved.
+  Stress resolutions were ON for this artifact, then configured OFF for future
+  builds. Current NFSMW.ipa/cache app still contain stress choices until rebuilt.
+  Preserved pre-existing issue11 checkpoint note and untracked HANDOFF_CHATGPT.md;
+  excluded both and all sibling SDK changes from this session commit.
+  Build: from ios, configure `cmake --preset ios -DNFSMW_RESOLUTION_STRESS_TEST=ON`,
+  then `cmake --build --preset ios --target ipa -j 6`; preserve named IPA before
+  configuring stress OFF. Host check: `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache
+  python3 tools/ios/test_world_step_limit.py`.
+  Codegen still applies patch_game_world_step_trace.py. When updating an existing
+  test7 generated tree, revert using the test7 script before applying this version
+  (done locally); fresh code generation also works. Partial patches fail closed.
+
 - **October 30: log13 confirms the engine clamp causes below-cap slowdown.**
   Archived17pm_13_test7_world_step log (fullpath/hash inTECHNICAL).
   All1380samples:33.333mslimit,flag2,budget4,main-loopcaller823AFE64.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe the USA engine accumulator without altering any PPC register.
+"""Trace the USA engine accumulator and restore managed-40 catch-up time.
 
 Exact anchors are validated before writing. Repartitioning generated files is
 allowed; a changed/partial function body is rejected. Runtime logging uses the
@@ -12,7 +12,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-world-step-trace"
 HEAD = "DEFINE_REX_FUNC(sub_823C6500) {"
 DECL = ('extern "C" void nfsmw_world_step_trace(double, double, double, double, '
-        'double, int32_t, uint32_t, uint32_t, uint32_t); // ' + MARK + '\n')
+        'double, int32_t, uint32_t, uint32_t, uint32_t); // ' + MARK + '\n'
+        'extern "C" double nfsmw_world_step_limit(double, double, uint32_t, bool); // ' + MARK + '\n')
 LOCALS = ('\tconst double nfsmw_step_input = ctx.f1.f64; // ' + MARK + '\n'
           '\tdouble nfsmw_step_before = -1, nfsmw_step_limit = -1, nfsmw_step_after = -1; // ' + MARK + '\n'
           '\tconst uint32_t nfsmw_step_flag = REX_LOAD_U32(0x828FD868); // ' + MARK + '\n'
@@ -23,6 +24,7 @@ SITES = [
     ('\tctx.f0.f64 = double(float(ctx.f0.f64 + ctx.f1.f64));\n',
      '\tnfsmw_step_before = ctx.f0.f64; // ' + MARK + '\n'),
     ('\tctx.f13.f64 = double(float(ctx.f13.f64 * ctx.f12.f64));\n',
+     '\tctx.f13.f64 = nfsmw_world_step_limit(ctx.f13.f64, ctx.f12.f64, nfsmw_step_flag, nfsmw_step_caller == 0x823AFE64); // ' + MARK + '\n'
      '\tnfsmw_step_limit = ctx.f13.f64; // ' + MARK + '\n'),
     ('loc_823C65D8:\n', '\tnfsmw_step_after = ctx.f0.f64; // ' + MARK + '\n'),
     ('\tREX_STORE_U32(ctx.r11.u32 + -27040, temp.u32);\n',

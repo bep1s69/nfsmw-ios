@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Experimental 40 fps catch-up correction.** Restored the engine's original
+  catch-up allowance during 120 Hz simulation on the opt-in Metal 40 fps path,
+  reducing lost game time below the frame-rate cap. Device validation pending.
+
 - **Steady 60 fps on iPhone 14 Pro Max.** Removed extra presentation
   scheduling at 60 fps that could repeatedly pull the game down to about
   40 fps. The existing 30 fps presentation behavior is preserved.
