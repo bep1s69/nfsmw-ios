@@ -166,6 +166,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31:backlog review requested before choosing next changes.**
+  Stefan asks for remaining backlog and suggestsMaxmovesallthreads toEcores.
+  Clarified implementationrequestsQoS,notcoreaffinity;MaxDefault/EcoUtility/
+  BalanceddrivingUserInitiated observed,butphysicalplacementunmeasured.
+  Reviewedbacklogagainst0.5.0/0.5.1changelog/latestcheckpoint:historicalpending
+  touch/ring/menu fixes mustnotbe presentedasnewwork. Next:userchoosesnewideas;
+  keep profile/unchanged-qualitycost audit ascurrentpriority unlessredirected.
+  No source/build/IPA/push thisreview. Preserveissue11note,HANDOFF,SDKwork.
+
 - **October31:live profiles accepted on17PM;test4/log21 validates sixpairs.**
   Allsixprofile requests,mask00,no FAILED;selfQoS adoption/nativeentrysamples
   followEcoUtility,MaxDefault,BalanceddrivingUserInitiated. LastEco53.2–57.6fps,

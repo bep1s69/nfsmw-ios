@@ -11385,3 +11385,22 @@ No source/build/newIPA/tests thisevidence-onlyturn;gitdiff--check fordocs.
 LatestIPAremainstest4;do notclaimreleaseorbroaderhardwarecoverage. Preserve
 issue11checkpointnote,HANDOFF,siblingSDKwork. Ownrecordcommittedlocally,no
 push/tag/versionbump.
+
+
+### October31:backlog inventory and Max/core-placement clarification
+
+Stefan suspectsMax(noUtility)meansallthreads onEcores;asksallotherbacklogentries
+beforeofferingnewideas. Source/observedpolicy isDefaultwithoutUtility,notforced
+EorPplacement. No affinity/coretracingdata;do notinferfixedcoremappingfromQoS.
+ReviewedcurrentBACKLOGheadings/detailsandCHANGELOG0.5.0/0.5.1;somehistorical
+headingsstillpendingalthoughlaterreleaseincludesfixes(touch/draglayout,circle
+ring,postprocessing/menu,saveimport). Presentremainingworkconsolidatedrather
+thanreopeningcompletedfeatures. Remainingcategories:profile/cost audit,graphics
+menu/presets,HUDvisualbugs/editorimages,audiocrackles/fadevalidation,disc-startup
+errorUX,textures/glass/halo,FMVredframe,sub1xdimband,pipelinepersistence/capture,
+loading/crashmonitoring,olderdevice/renderer/copy/memory/shaderoptimizations,
+ExtraOptionsin-game/prelaunch/trainerideas. Prioroptimizationnegativeevidence
+and0.5.2broaderdevicevalidationremainrelevant. No test/newmeasurement warranted
+forinventory;no source/build/newIPA,push/tag/release. Checkpointnotesuserchoice
+pending;existingoptimizationprioritynotreplaced. Preserveissue11note,HANDOFF,
+siblingSDKwork;commitownreviewrecordonly.
