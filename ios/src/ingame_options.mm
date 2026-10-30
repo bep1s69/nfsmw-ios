@@ -14,8 +14,8 @@
 //     every frame;
 //   - all four fps caps, 30 fps when warm, 30 fps in menus, 0.75x when hot:
 //     battery.mm (ChooseCap, SettingsChanged).
-// The rest wait for the next launch, and the sheet says so: performance
-// profiles, MSAA, and what Battery mode sets that is read once
+// Performance profiles also apply live, through performance::Choose.
+// The rest wait for the next launch: MSAA and what Battery mode reads once
 // (anisotropic filtering, shadow quality...). Documents/extra_args.txt is
 // not read here: a setting changed here wins over it until the next launch.
 //
@@ -39,6 +39,7 @@
 #include <rex/logging.h>
 
 #include "battery.h"
+#include "performance_profile.h"
 #include "ingame_options.h"
 #include "launcher.h"
 #include "hud_editor.h"
@@ -222,7 +223,8 @@ UIWindow* GameWindow() {
   for (const auto& a : then) before.insert(Split(a));
   for (const auto& a : now) {
     const auto [name, value] = Split(a);
-    if (LiveFlags().count(name) || (live_cap && name == "ios_fps_cap")) continue;
+    if (LiveFlags().count(name) || (live_cap && name == "ios_fps_cap") ||
+        name == "nfsmw_performance_mode" || name == "nfsmw_performance_source") continue;
     if (native && name == "swap_post_effect") continue;  // the emulated renderer's FXAA
     if (before[name] != value) return YES;
   }
@@ -249,6 +251,9 @@ UIWindow* GameWindow() {
 
 - (void)set:(NSString*)key to:(NSString*)value {
   _settings[key] = value;
+  if ([key isEqualToString:@"performance_mode"] || [key isEqualToString:@"battery_mode"]) {
+    nfsmw::performance::Choose(std::string(nfsmw::launcher::SettingValue(_settings, @"performance_mode").UTF8String));
+  }
   [self apply];
   [self updateHudButton];
   [self.tableView reloadData];

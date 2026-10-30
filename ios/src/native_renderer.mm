@@ -70,6 +70,7 @@
 #include <rex/system/xmemory.h>
 
 #include "battery.h"
+#include "performance_profile.h"
 #include "native_renderer.h"
 #include "metal_display_pacer.h"
 #include "memory_report.h"
@@ -3356,12 +3357,8 @@ class PipelineCache {
     const PipelineKey k = key;  // a copy: a block captures a reference as a reference
     static dispatch_queue_t warm_queue = dispatch_queue_create(
         "nfsmw.pipelines.warm", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
-    static dispatch_queue_t demand_queue = dispatch_queue_create(
-        "nfsmw.pipelines",
-        dispatch_queue_attr_make_with_qos_class(  // Performance "Eco": Utility like the rest
-            DISPATCH_QUEUE_SERIAL, REXCVAR_GET(nfsmw_performance_mode) == "eco" ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED,
-            0));
-    dispatch_async(warm ? warm_queue : demand_queue, ^{
+    static dispatch_queue_t demand_queue = dispatch_queue_create("nfsmw.pipelines", DISPATCH_QUEUE_SERIAL);
+    dispatch_block_t compile = ^{
       NSError* error = nil;
       id<MTLRenderPipelineState> pso = nil;
       @try {
@@ -3371,7 +3368,10 @@ class PipelineCache {
       }
       std::lock_guard<std::mutex> lock(mutex_);
       done_.push_back({k, pso, warm, error ? error.localizedDescription.UTF8String : "exception"});
-    });
+    };
+    if (warm) dispatch_async(warm_queue, compile);
+    else dispatch_async(demand_queue, dispatch_block_create_with_qos_class(
+        DISPATCH_BLOCK_ENFORCE_QOS_CLASS, qos_class_t(nfsmw::performance::PipelineQos()), 0, compile));
   }
 
   void Finish(const PipelineKey& k, id<MTLRenderPipelineState> pso, bool warm, const char* error) {
@@ -4368,8 +4368,7 @@ size_t ConsolidateCubeTargets(std::vector<CubeTarget>& targets) {
 }
 
 bool NativeRenderUtility() {
-  static const bool enabled = REXCVAR_GET(nfsmw_native_render_utility);
-  return enabled;
+  return rex::cvar::Query<bool>("nfsmw_native_render_utility");
 }
 
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
@@ -8343,27 +8342,14 @@ bool NativeSwap() {
       const uint32_t number = ++dump_number;
       TraceFrame(number, 0, CACurrentMediaTime());
       const bool dump = recording_dumps;
-      static dispatch_queue_t queue = [] {
-        const bool utility = NativeRenderUtility();
-        // An explicit queue QoS takes precedence over the normal submitting
-        // thread's inherited QoS for dispatch_async. Keep the legacy attributes
-        // exactly when the experiment is off; no thread priorities are changed.
-        dispatch_queue_attr_t attributes = utility
-            ? dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0)
-            : DISPATCH_QUEUE_SERIAL;
-        dispatch_queue_t created = dispatch_queue_create("nfsmw.native", attributes);
-        REXLOG_INFO("[native] render queue: {} QoS; serial frame ordering unchanged (restart to change)",
-                    utility ? "utility" : "legacy unspecified");
-        return created;
-      }();
+      static dispatch_queue_t queue = dispatch_queue_create("nfsmw.native", DISPATCH_QUEUE_SERIAL);
       __block Frame* raw = frame.release();
       dispatch_block_t render = ^{
         RenderFrame(std::unique_ptr<Frame>(raw), number, present, dump);
       };
-      // Adaptive QoS boosted: above the queue's Utility for this frame.
-      if (const qos_class_t boost = ::nfsmw::adaptive_qos::WorkersRaised(); boost != QOS_CLASS_UNSPECIFIED) {
-        render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, boost, 0, render);
-      }
+      // Apply the current policy per block, without replacing/reordering the queue.
+      render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS,
+          qos_class_t(nfsmw::performance::RenderQos()), 0, render);
       dispatch_async(queue, render);
     }
   }

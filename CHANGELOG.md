@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Switch performance profiles while playing.** Eco, Balanced and Max now
+  update game-thread and rendering priorities without relaunching. Explicit
+  scheduling overrides are preserved. Device validation pending.
+
 - **Change frame-rate caps while playing.** Switch between 30, 40, 60 and
   120 fps in the in-game settings without relaunching. Confirmed on iPhone
   17 Pro Max. The 40/120 choices appear only on 120 Hz displays, with the

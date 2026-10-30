@@ -157,6 +157,7 @@ IOS_PATCHES = [
     "patch_ios_vblank_realtime",
     "patch_ios_cap_30_at_120",
     "patch_ios_live_fps",
+    "patch_ios_live_profiles",
 ]
 
 

@@ -166,6 +166,31 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31:0.5.2 test3 live performance profiles implemented;device check next.**
+  Stefan approves live profiles for convenience/next optimization pass. Shared
+  launch/live resolver retains existing phone/tablet policies and per-flag Extra
+  Args/config/environment overrides. Guest+command threads adopt own QoS at
+  start/wait/yield boundaries;main also polls existing main-loop hook. Old adaptive
+  worker overrides/late history reset on policy epoch. Render/demand-pipeline
+  work carries current QoS on unchanged serial queues. Host/audio/display work
+  excluded. No visual quality or timing algorithm changes;no core-affinity claim.
+  NewSDKpatch `python3 tools/ios/patch_ios_live_profiles.py` afterutility/sleep
+  patches;status10/10. Addedlast inprepare_sdk list. Preserve siblingSDKwork.
+  Host98304policy/override round trips,actualcallback TLS/wake tests,SDKpatch
+  transaction/revert/idempotency and existingtiming tests pass;build/packagepass.
+  `ios/build/NFSMW-0.5.2-test3-live-profiles.ipa`,SHA256
+  `452b7e4977baef9d5021033cc9f94e770d78dd01ba88bedf07d28f3948c2a04f`,
+  UUID `B7208F04-DE4E-3A1D-AA41-B8D922A9077E`,30140532bytes;
+  bundle remains0.5.1/build9,no release. Next coldlaunchBalanced60/1x,noExtraArgs,
+  auto capsOFF;Balanced->Eco->Max->Balanced->Max->Eco->Balanced,drive15–20s
+  each afterpause/select/resume. Sendlog;checkpriority adoption/failures,pacing,
+  workers and override cleanup. Then Eco40/120/60 and background/resume.
+  Dormant threads adopt uponwaking;busy guest withno safe point delays adoption;
+  real-device scheduling/performance overhead stillunmeasured. Don't claim savings.
+  Newhostcheck PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3
+  tools/ios/test_performance_profiles.py. Normalbuildcommandunchanged.
+  Preservedissue11checkpointnote,HANDOFF,siblingSDKwork;no push/tag/versionbump.
+
 - **October30:live FPS matrix accepted;test2 cleans labels/capability choices.**
   Stefan reports no issues;log19 confirms all12directed cap transitions,guestHz
   and realtime policy correct. Archive/hash TECHNICAL. Removed experimental

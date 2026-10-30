@@ -42,6 +42,9 @@
 // forces the IPA48 values over Extra Args.
 
 #include <pthread.h>
+#include <dlfcn.h>
+#include <mutex>
+#include "performance_profile.h"
 #include <pthread/qos.h>
 #include <mach/mach.h>
 
@@ -73,7 +76,7 @@ REXCVAR_DEFINE_INT32(ios_adaptive_qos_workers_count, 0, "Kernel",
                      "0 raises all (restart required)");
 REXCVAR_DEFINE_STRING(nfsmw_performance_mode, "balanced", "Kernel",
                       "eco: game and render threads always at Utility QoS; balanced: Utility only outside "
-                      "driving (adaptive); max: no Utility QoS for any game or render thread (restart required)");
+                      "driving (adaptive); max: no Utility QoS for any game or render thread (live)");
 REXCVAR_DEFINE_BOOL(nfsmw_adaptive_qos_original, false, "Kernel",
                     "Adaptive QoS with the rules before 0.4.3 (2 of 120 frames over 1.2x, no driving boost); "
                     "Balanced on devices with 6+ efficiency cores (restart required)");
@@ -109,11 +112,51 @@ const Boost& Settings() {
   return boost;
 }
 
-void Apply(int m, int& applied) {
-  if (m < 0 || m == applied) return;
-  pthread_set_qos_class_self_np(m == 0 ? QOS_CLASS_UTILITY : Settings().qos, 0);
-  applied = m;
+enum : unsigned { MainUtility=1, GuestUtility=2, Adaptive=4, Original=8, RenderUtility=16 };
+const char* policy_names[] = {"ios_utility_qos", "ios_utility_qos_guest", "ios_adaptive_qos",
+                            "nfsmw_adaptive_qos_original", "nfsmw_native_render_utility"};
+std::atomic<unsigned> policy_flags{0}, profile_epoch{0};
+std::atomic<int> selected_profile{1}, policy_cap{60};
+unsigned explicit_mask = 0, override_values = 0;
+int efficiency_cores = 0;
+bool main_interactive = false, cp_interactive = false;
+std::mutex profile_mutex;
+bool Flag(unsigned flag) { return (policy_flags.load(std::memory_order_acquire) & flag) != 0; }
+bool AdaptiveEnabled() { return Flag(Adaptive) && !Flag(MainUtility); }
+int ProfileNumber(const std::string& name) { return name == "eco" ? 0 : name == "max" ? 2 : 1; }
+void PublishProfile(int cap) {
+  const int selected = selected_profile.load(std::memory_order_relaxed);
+  const auto p = nfsmw::performance::Resolve(selected, efficiency_cores, cap);
+  const unsigned flags = nfsmw::performance::WithOverrides(
+      nfsmw::performance::Encode(p), explicit_mask, override_values);
+  // Existing thread-start code still reads these flags. Publish the atomic
+  // snapshot only after the legacy flags reflect the selected policy.
+  for (unsigned i = 0; i < 5; ++i)
+    rex::cvar::SetFlagByName(policy_names[i], flags & (1u<<i) ? "true" : "false");
+  policy_cap.store(cap, std::memory_order_relaxed);
+  policy_flags.store(flags, std::memory_order_release);
+  const unsigned epoch = profile_epoch.fetch_add(1, std::memory_order_acq_rel)+1;
+  REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} overrides {:02X}",
+      selected == 0 ? "eco" : selected == 2 ? "max" : "balanced", epoch, cap,
+      bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
+      bool(flags&RenderUtility), explicit_mask);
 }
+qos_class_t PrimaryQos(int m, bool main) {
+  if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
+  if (AdaptiveEnabled()) return m == 1 ? Settings().qos : QOS_CLASS_UTILITY;
+  return Flag(MainUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+}
+void ApplyQos(qos_class_t qos, int& applied, const char* role) {
+  // All cooperative and main-loop callers share one cache on each thread.
+  // Separate caches could skip a needed change after another hook set QoS.
+  static thread_local int current = -1;
+  if (int(qos) == current) { applied = current; return; }
+  const int result = pthread_set_qos_class_self_np(qos, 0);
+  if (result == 0) current = applied = int(qos);
+  REXLOG_INFO("[live-profile] {} self QoS {} epoch {}: {}", role, unsigned(qos),
+              profile_epoch.load(std::memory_order_acquire), result == 0 ? "set" : "FAILED");
+}
+void Apply(int m, int& applied) { ApplyQos(PrimaryQos(m, false), applied, "GPU Commands"); }
 
 bool WorkersOn() {
   static const bool on = REXCVAR_GET(ios_adaptive_qos_workers);
@@ -171,8 +214,7 @@ void RaiseGuestThreads(bool raise) {
 namespace nfsmw::adaptive_qos {
 
 bool Enabled() {
-  static const bool on = REXCVAR_GET(ios_adaptive_qos) && !rex::cvar::Query<bool>("ios_utility_qos");
-  return on;
+  return AdaptiveEnabled();
 }
 
 // For the native render queue: submit this frame at the boost's class (0 when not boosted).
@@ -193,16 +235,39 @@ void OnRendered(double ms) {
 
 // On the GPU command thread, once per swap.
 void OnSwap(double interval_ms) {
-  if (!Enabled()) return;
+  const int current_cap = rex::cvar::Query<int32_t>("ios_fps_cap");
+  if (policy_cap.load(std::memory_order_relaxed) != current_cap) {
+    std::lock_guard<std::mutex> lock(profile_mutex);
+    PublishProfile(current_cap);
+  }
   static int applied = -1;
   static bool late[120] = {};
-  static const bool original = REXCVAR_GET(nfsmw_adaptive_qos_original);
+  const bool original = Flag(Original);
   const int window = original ? 120 : 60, threshold = original ? 2 : 3;
   static int at = 0, late_count = 0;
   static Clock::time_point hold_until, eco_since = Clock::now();
   static double hold_s = 20.0;
   static int lines = 0;
   const auto now = Clock::now();
+  static unsigned seen_epoch = 0;
+  const unsigned epoch = profile_epoch.load(std::memory_order_acquire);
+  if (epoch != seen_epoch) {
+    seen_epoch = epoch;
+    RaiseGuestThreads(false);
+    std::fill(std::begin(late), std::end(late), false);
+    at = late_count = 0;
+    hold_s = 20;
+    hold_until = now;
+    eco_since = now;
+    render_late.store(0, std::memory_order_relaxed);
+    mode.store(-1, std::memory_order_relaxed);
+    applied = -1;
+  }
+  if (!Enabled()) {
+    mode.store(-1, std::memory_order_relaxed);
+    Apply(-1, applied);
+    return;
+  }
   int m = mode.load(std::memory_order_relaxed);
   if (m < 0) {
     m = 0;
@@ -265,7 +330,6 @@ void OnSwap(double interval_ms) {
 // thousands of times a second in pursuits, and the compare-exchange on every
 // call cost ~8 ms/s on the iPhone (IPA63 profile).
 void OnMainLoop() {
-  if (!Enabled()) return;
   static std::atomic<uint64_t> owner{0};
   thread_local int applied = -1;
   thread_local int8_t is_owner = -1;  // -1 not checked yet
@@ -279,10 +343,66 @@ void OnMainLoop() {
     is_owner = expected == 0 || expected == self;
   }
   if (!is_owner) return;
-  Apply(mode.load(std::memory_order_relaxed), applied);
+  ApplyQos(PrimaryQos(mode.load(std::memory_order_relaxed), true), applied, "Main XThread");
 }
 
 }  // namespace nfsmw::adaptive_qos
+
+namespace nfsmw::performance {
+void CaptureOverrides(const std::vector<std::string>& args, int cores) {
+  efficiency_cores = cores;
+  explicit_mask = 0;
+  for (const auto& arg : args) {
+    const auto name = arg.substr(0, arg.find('='));
+    for (unsigned i=0; i<5; ++i)
+      if (name == std::string("--")+policy_names[i]) explicit_mask |= 1u<<i;
+  }
+}
+// Runs on the actual guest thread at startup and wait/yield safe points.
+void AdoptGuestQos(int role) {
+  thread_local int applied = -1;
+  qos_class_t qos;
+  if (role == 1 || role == 3) qos = PrimaryQos(mode.load(std::memory_order_relaxed), role == 1);
+  else {
+    qos = Flag(GuestUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+    if (AdaptiveEnabled() && WorkersOn() && Settings().workers == 0 &&
+        mode.load(std::memory_order_relaxed) == 1) qos = Settings().qos;
+  }
+  ApplyQos(qos, applied, role == 1 ? "guest-main safe point" : role == 3 ? "GPU Commands safe point" : "guest-worker safe point");
+}
+void Initialize() {
+  override_values = 0;
+  for (unsigned i=0; i<5; ++i) {
+    const auto source = rex::cvar::GetFlagSource(policy_names[i]);
+    if (source == rex::cvar::Source::kConfig || source == rex::cvar::Source::kEnvironment)
+      explicit_mask |= 1u<<i;
+    if (rex::cvar::GetFlagByName(policy_names[i]) == "true") override_values |= 1u<<i;
+  }
+  main_interactive = rex::cvar::Query<bool>("ios_thread_qos") || rex::cvar::Query<bool>("ios_battery_baseline_qos");
+  cp_interactive = rex::cvar::Query<bool>("ios_battery_baseline_qos");
+  selected_profile.store(ProfileNumber(REXCVAR_GET(nfsmw_performance_mode)));
+  PublishProfile(rex::cvar::Query<int32_t>("ios_fps_cap"));
+  using SetCallback = void (*)(void (*)(int));
+  const auto setter = reinterpret_cast<SetCallback>(dlsym(RTLD_DEFAULT, "nfsmw_qos_set_callback"));
+  if (setter) setter(AdoptGuestQos);
+  else REXLOG_ERROR("[live-profile] guest callback bridge missing; SDK live-profile patch required");
+}
+void Choose(const std::string& name) {
+  std::lock_guard<std::mutex> lock(profile_mutex);
+  const int selected = ProfileNumber(name);
+  selected_profile.store(selected);
+  rex::cvar::SetFlagByName("nfsmw_performance_mode", selected == 0 ? "eco" : selected == 2 ? "max" : "balanced");
+  rex::cvar::SetFlagByName("nfsmw_performance_source", "in_game");
+  PublishProfile(rex::cvar::Query<int32_t>("ios_fps_cap"));
+}
+unsigned RenderQos() {
+  if (AdaptiveEnabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1) return Settings().qos;
+  return Flag(RenderUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+}
+unsigned PipelineQos() {
+  return selected_profile.load(std::memory_order_relaxed) == 0 ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED;
+}
+}  // namespace nfsmw::performance
 
 // The game's deferred-call runner, from its main loop (see
 // tools/ios/patch_game_deferred_queue.py): the main thread's QoS, then the original.

@@ -11209,3 +11209,86 @@ Ignored.json metadata besideIPA. Next:implement live profiles;verify60Hz menu
 only30/60 and savedunsupported fallback when hardware available. No needrepeat
 12pair matrix on17PM just for thisUI change. Preserved pre-existingissue11note,
 HANDOFF,siblingSDKwork. Owncode/docs committed locally;no push/tag/release.
+
+
+### October31:0.5.2 test3 live profiles, implementation and host validation
+
+Stefan approves liveEco/Balanced/Max for convenience and the next cost/thermal/
+battery optimization pass. Session beganOct30,crossed midnight. No new userlog.
+Shared performance_profile.h Resolve reproduces launch table (phoneBalanced
+adaptive withdriving boost;6+EtabletBalanced originalpolicy,mainUtility at<=60,
+adaptiveoriginalat120;EcoUtility/noadaptive;MaxDefault/noUtility). ios_main
+captures explicit per-flag arguments BEFORE inserting defaults,then initializes
+live snapshot aftercvar/environment parsing. Preserve startup ExtraArgs values
+forfiveflags,alsoexplicit config/environment sources. Profile UI selection
+intentionally replaces selected mode;individual scheduling overrides persist.
+No graphics-quality/defaultpolicy tuning. Appprobe path excluded from newinit.
+
+adaptive_qos.cpp publishes atomic flags/profileepoch,updates thread-start cvars,
+recomputes policy oncapchanges,and clears worker overridehandles,late history,
+hold state onCPepoch adoption. FixedEco/Max also applyselfQoS instead ofearly
+return. Main hook uses shared thread-local applied-QoS cache with safe-point
+callback to avoid two independent caches skipping a needed change. Guestworkers
+follow currentbase plusall-workerboost;existing limited-busiest-worker option
+still usesprior override selection. Existing boost tuning remainslaunch-only.
+Native render/demand-pipeline serial queues keep identity/order,per-block
+ENFORCE_QOS_CLASS reflects policy atsubmission;warmuppipelines remainUtility.
+In-flight/queued work retains its submitted policy until completed. No queue
+replacement,thread suspension,forcedcoreplacement orclockmanipulation.
+
+NewSDKpatch patch_ios_live_profiles.py (LAST afterexistingutility/cheap-sleep
+patches) adds runtime callback registration,thread-local roles0host/1main/
+2guestworker/3GPUCommands. Register afterlegacyinitial QoS atthreadstart;
+Sleep,MaybeYield,Wait,SignalAndWait,WaitMultiple pollbefore/after viaRAII.
+Only taggedgame/commandthreads participate;audio,vblank and otherhost threads
+excluded. Parkedthreads adopt whenwaking;CPU-busy guestwithoutoneofthese safe
+points can delayadoption. Main andnativeCP also pollperloop/swap. Needon-device
+proof allrelevant workers reachboundaries and overheadisacceptable. No energy
+savingclaimed fromhosttests. Missing callbackbridge loggederror;packagedsymbols
+verified. SDK changes represented solely bytrackedpatchscript,not siblingcommit.
+AppUI profile/battery-mode selection invokesChoose;source stampedin_game;
+profile/source differences no longer show next-launchfooter;otherlaunch-only
+settingsretainwarnings. Backend logs [live-profile]requestflags,override mask,
+epoch,cap,and selfQoS results. NumericalQoS isclass,notphysicalcoreplacement.
+
+Failed/inconclusive development attempts retained:
+- Firstpatchapplication exit1:WaitMultiple signature anchorlinewrap mismatch;
+  transactional engine wrote nothing. Corrected exactanchor,8blocksapplied.
+- Extendedpatch forCP registration:revertedprior8blocks thenattempt exit1 on
+  ambiguous CPcvarinclude(twoexistingoccurrences),no writes. Switchedunique
+  WorkerThreadMain/SetupContext anchors;final10blocksapplied,status10/10.
+- Firstfullbuild exit0(19steps). Review thenunified appliedcache,removed accidental
+  initializationfromprobe,andaddedCPsafe-pointrole. Secondbuild exit0(18steps).
+  Finalbuild afterpreservingconfig/environmentflags exit0. Tempbuildlogs
+  /tmp/nfsmw-052-profiles-build.log,build2.log,build3.log (sameprefixforlasttwo).
+  Initialconfigure log/tmp/nfsmw-052-profiles-configure.log. ExistingSDKunused
+  params,FPSCRoperandwidth,missingoverride andduplicatelibrarywarningsremain.
+
+Checks (exit0):
+- test_performance_profiles.py:98304 actualresolver/override roundtrips across
+  sixdirectedtransitions,4corecounts,4caps,32masks/32values;original launch-table
+  expectations. CompilesactualSDKbridge:hostthreadnotag/noadoption,TLSisolation,
+  registeredguestcallback beforewait,newcallback adoptedafterwait. Actualthree
+  SDKfilefixturesapply/idempotency/byteexactrevert;damagedlastanchorrejectsall
+  writes (intentionalnonzero subprocess).
+- test_live_fps_patch.py actualfixturesstillpass;test_frame_clock_policy.py
+  fourcap jitter,25fpselapsedconservation/loading and10000legacy60comparisons;
+  test_world_step_limit.py36cases/twofixtures. No needregenerate unchangedgame.
+- Normalcmakeios ipa-j6build,git diff --check,ZIPintegrity,codesign--verify--deep
+  --strict,UUIDchecks pass.104payloadmetallibsidenticaltotest2. nm-gU onpackaged
+  librexruntime verifiesnfsmw_qos_set_callback/nfsmw_qos_enter_guest exports.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test3-live-profiles.ipa`,
+30140532bytes,SHA256
+452b7e4977baef9d5021033cc9f94e770d78dd01ba88bedf07d28f3948c2a04f,
+UUIDB7208F04-DE4E-3A1D-AA41-B8D922A9077E;bundle0.5.1/build9 unchanged.
+Ignored.json besideIPA. BothSDKdylibsrebuilt;shadersunchanged.
+
+Nextdevice:17PMBalanced60/1x,coldlaunch,auto menu/thermal capsOFF,noExtraArgs
+(toavoidintentionalpolicyoverrides). Pause/select/resume anddrive15–20s each:
+Balanced->Eco->Max->Balanced->Max->Eco->Balanced (allsixpairs). Sendlogandfeel;
+verify self-adoption,renderentryQoS,FAILED/bridgeerrors,workers/priorboostcleanup,
+pacing andno next-launchlabel. ThenunderEco40->120->60 andbackground/resume;
+6+EtablettestneededforitsdifferentBalancedpolicy. Don't inferbattery/thermal
+savingsfromshortthroughputtest;matchedcostauditremainsbacklog. No device result,
+newrelease/versionbump,push/tag. Preserveissue11note,HANDOFF,SDKpreexistingwork.

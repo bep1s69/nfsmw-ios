@@ -48,6 +48,7 @@
 #include "audio/coreaudio_driver.h"
 #include "battery.h"
 #include "boot_trace.h"
+#include "performance_profile.h"
 #include "launcher.h"
 #include "memory_report.h"
 #include "probe.h"
@@ -213,7 +214,6 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
   }
-  const bool high_cap = cap > 60;
   for (const auto& arg : args) {
     if (arg.find('=') == std::string::npos) continue;
     const std::string value = arg.substr(arg.find('=') + 1);
@@ -224,12 +224,14 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   performance_tablet = !max && !eco && on;
   nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")" +
                      (performance_tablet ? ", tablet profile: 6+ efficiency cores, original behavior" : ""));
+  nfsmw::performance::CaptureOverrides(args, cores);
+  const auto policy = nfsmw::performance::Resolve(eco ? 0 : max ? 2 : 1, cores, cap);
   const std::pair<const char*, bool> defaults[] = {
-      {"--ios_utility_qos", eco || (performance_tablet && !high_cap)},
-      {"--ios_utility_qos_guest", !max},
-      {"--ios_adaptive_qos", !max && !eco && (!performance_tablet || high_cap)},
-      {"--nfsmw_adaptive_qos_original", performance_tablet},
-      {"--nfsmw_native_render_utility", !max}};
+      {"--ios_utility_qos", policy.main_utility},
+      {"--ios_utility_qos_guest", policy.guest_utility},
+      {"--ios_adaptive_qos", policy.adaptive},
+      {"--nfsmw_adaptive_qos_original", policy.original},
+      {"--nfsmw_native_render_utility", policy.render_utility}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });
@@ -339,6 +341,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   // category follows ios_audio_silent_mode.
   rex::audio::ios::PrepareAudioSession();
   rex::InitLoggingEarly();
+  nfsmw::performance::Initialize();
   // Before OnInitialize, which loads MoltenVK: it reads its settings from the
   // environment when it starts.
   setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", REXCVAR_GET(ios_async_submits) ? "0" : "1", 1);
