@@ -166,6 +166,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31:live profiles accepted on17PM;test4/log21 validates sixpairs.**
+  Allsixprofile requests,mask00,no FAILED;selfQoS adoption/nativeentrysamples
+  followEcoUtility,MaxDefault,BalanceddrivingUserInitiated. LastEco53.2–57.6fps,
+  finalBalancedreturns60.0;thermalnominal. Archive/hash/detailedtimingsTECHNICAL.
+  This validatesfunctional switching,notenergysavings orphysicalcoreplacement.
+  CurrentMaxremovesUtility butDefaultQoS isbelowBalancedboost;keepdistinction
+  explicit inprofileaudit. Nextremainingcoverage:tablet6+Epolicy,profileswith
+  FPSchanges/background/explicitoverrides;thenmatchedbaselineunchanged-quality
+  CPU/GPUcost audit. No code/newIPA thisanalysis. Both0.5.2featuresdeviceconfirmed
+  on17PM;broadercoveragepending,no releaseauthorization. Preserveissue11note,
+  HANDOFF,SDKwork;no push/tag/versionbump. Test4remainslatestIPA.
+
 - **October31:test4 fixes missing in-game Performance row;profile test pending.**
   Stefan couldn't find profiles. Log20 proves newtest3 backend present (57
   live-profile markers,no failures); source Keys() omitted performance_mode.

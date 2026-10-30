@@ -11326,3 +11326,62 @@ Ignored.json besideIPA. Nextsixprofilepairs aspriorentry,60/1x,noExtraArgs,
 pausePerformance row thenresume15–20seach. Test3missingrow preventedthat
 validation;do not markprofilefeatureaccepted. Preservedpre-existingissue11note,
 HANDOFF,SDKwork;owncode/docscommittedlocally,no push/tag/release.
+
+
+### October31:test4/log21 six live-profile transitions confirmed
+
+Stefan thinks switchingworks;lastEco no longerholds60fps. Same17PM/test4context,
+OSunspecified;noindependentIPAUUIDecho. Source
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/C023BF2A-500E-4157-9ADF-004C3313979C/nfsmw.log`.
+Archiveexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_21_052_test4_live_profiles.log`.
+905072bytes,5717lines,SHA256
+5c4bed0dfa7026e92c626fa695de3389d417dec6c727b0e852fc9b96fcc07f5c.
+Launch00:10:11.816,buildOct31 00:02:42,lastpartialframe00:13:36.792.
+Archive/analysisexit0.128live-profile markers,zeroFAILED,no missingbridge.
+Allrequests cap60,override00 (noexplicitfive-policyflagoverrides).
+Epoch2Eco00:11:01.739;3Max00:11:26.363;4Balanced00:11:52.653;
+5Max00:12:23.160;6Eco00:12:48.100;7Balanced00:13:14.976.
+WithinitialBalanced,allsixdirectedpairscovered.
+
+Observedself-adoption (numericQOS17Utility,21Default,25UserInitiated):
+-StartupBalancedepoch1:28unique threads,39self-logrecords (12Utility,27boost).
+-Ecoepoch2:11threads/11Utilitysuccessrecords,firstsame-ms request,last00:11:11.919.
+-Maxepoch3:11threads/11Defaultsuccessrecords,firstsame-ms,last00:11:34.816.
+-Balancedepoch4:11threads,29records (18Utility,11UserInitiated),includingmenu/
+  driving changes;lastUtility00:12:21.793 nearnextpause,notstuckboostfailure.
+-Maxepoch5:11threads/11Default,firstsame-ms,last00:12:37.148.
+-Ecoepoch6:11threads/11Utility,firstsame-ms,last00:12:56.470.
+-Balancedepoch7:10threads/10UserInitiated,00:13:16.591–00:13:17.564.
+Lateadoptionrecords reflectcooperativesafepoint/waking,notforcedsuspension;
+recordedthreadcountdoesnotproveeverydormantthreadhasresumed. Main/command
+prioritysetreturnsallzero;nativeframeentrysamplesindependentlyshoweffective
+renderQoS. SettledbatchesEco300/300Utility,Max300/300Default,Balanceddriving
+300/300UserInitiated. Firstbatchaftereachswitchmixespre/postselectionframes;
+not stale-policy leakage. No persistent UtilityinMax/boostinEcoinsettledbatches.
+
+FPS/processing summaries,notcontrolledsame-sceneA/B:
+-Ecofirst59.9,59.9,60.0,60.0,60.0fps. Recording~4.86–6.39ms aftersettling;
+ GPU~7.27–7.39ms. Otherprofile stages laterhavehigherGPUcosts,so scenes/
+ operatingpointsnotmatched. Do nottreatfullrun profile averagesasenergyproof.
+-LastEco(epoch6)57.2,56.4,53.2,57.6,57.1fps. Recording4.35–8.07ms,
+ GPU14.69–16.90ms;16.7mstargetsometimesexceeded. SettledrenderUtility.
+-FinalBalanced(epoch7)transition56.5 thenfour60.0fpssummaries,
+ recording~4.24–4.70ms,GPU12.88–14.94ms aftertransition;renderUserInitiated.
+-Thermalstate nominal throughoutselectedepochs;CPUcoreplacement/frequencies/
+ batteryenergyunmeasured. Evidenceconfirmsfunctionalprioritychanges and
+ successful60fpsrecovery,notwhichphysicalcorestheOSselected orenergysavings.
+
+Importantforprofileaudit:Max currentlyrequestsDefaultQoS/noUtility,whereas
+Balanceddrivingboost isUserInitiated(higherQoSclass). Thispreservespreexisting
+profilepolicy;namesdonotimplystrictpriorityordering. No automaticpolicychange
+basedonthisrun. Auditper-deviceworkloadandcost beforetuning/renaming.
+
+Conclusion:17PMfunctionalprofile-switchmatrixaccepted;bothlive0.5.2features
+nowdeviceconfirmed there. Remainingcoverage6+EtabletBalancedpolicy,profile+FPS
+transitions,background/resume,explicitoverridepreservation. Nextmatchedbaseline
+andprofile/CPU/GPUoptimizationauditatidenticalvisualsettings,asrequested.
+No source/build/newIPA/tests thisevidence-onlyturn;gitdiff--check fordocs.
+LatestIPAremainstest4;do notclaimreleaseorbroaderhardwarecoverage. Preserve
+issue11checkpointnote,HANDOFF,siblingSDKwork. Ownrecordcommittedlocally,no
+push/tag/versionbump.
