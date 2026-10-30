@@ -9,6 +9,8 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 #include "metal_display_pacer.h"
+#include "managed_frame_slots.h"
+#include "battery.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_metal_display_40, false, "GPU",
                     "Experiment: system Metal display-link drawables and timestamps at 40 fps "
@@ -23,6 +25,7 @@ bool owns = false, active = true;
 uint64_t generation = 0;
 uint64_t guest_timestamp_ns = 0, guest_period_ns = 0;
 double previous_target = 0;
+nfsmw::ManagedFrameSlots world_slots;
 unsigned frames = 0;
 CAMetalDisplayLink* metal_link = nil;           // main thread only
 bool Enabled() {
@@ -89,6 +92,7 @@ void Stop() {
   pending = nil;
   guest_timestamp_ns = guest_period_ns = 0;
   previous_target = 0;
+  world_slots.Reset();
   ++generation;
   changed.notify_all();
 }
@@ -131,6 +135,7 @@ void Tick() {
   pending = nil;
   guest_timestamp_ns = guest_period_ns = 0;
   previous_target = 0;
+  world_slots.Reset();
   ++generation;
   owns = true;
   [metal_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
@@ -146,6 +151,17 @@ bool GuestGrid(uint64_t& timestamp_ns, uint64_t& period_ns) {
   timestamp_ns = guest_timestamp_ns;
   period_ns = guest_period_ns;
   return true;
+}
+
+uint32_t TakeMissedSlots(uint32_t maximum) {
+  if (!Enabled()) return 0;
+  std::lock_guard<std::mutex> lock(mutex);
+  if (!maximum || !owns || !active || nfsmw::battery::InMenu() != 0 ||
+      rex::cvar::Query<int32_t>("ios_fps_cap") != 40) {
+    world_slots.Reset();
+    return 0;
+  }
+  return world_slots.Take(maximum);
 }
 
 Frame::Frame(CAMetalLayer* layer) {
@@ -166,6 +182,10 @@ Frame::Frame(CAMetalLayer* layer) {
         drawable = pending.drawable;
         presentation_time = pending.targetPresentationTimestamp;
         present_deadline = pending.targetTimestamp;
+        // Count skipped assigned system slots, not raw main-loop stalls:
+        // queued frames can still present evenly while the main loop catches up.
+        world_slots.Assign(presentation_time, double(guest_period_ns * 3) / 1e9,
+                           nfsmw::battery::InMenu() == 0);
         pending = nil;
         break;
       }
