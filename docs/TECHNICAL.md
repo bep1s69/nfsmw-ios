@@ -12923,3 +12923,70 @@ both game logs/server/boot if it fails. AndroidUSA follows; PC held. Original
 Wi-Fi reachability remains a separate open issue. No push/merge/release.
 Main19177b6 pre-existing modified checkpoint and untracked HANDOFF preserved;
 shared SDK untouched. All session source/docs committed on local multiplayer.
+
+## October 31, 2026 — preview4 iPhone/iPad hotspot race gameplay confirmed
+
+Stefan: "OH MY GOD IT ACTUALLY WORKED OVER HOTSPOT". Supplied five logs and
+screenshots of both race views. Test follows preview4 delivery; expected IPA
+NFSMW-multiplayer-preview4-receive-fix.ipa,30393878bytes,
+SHA256 e2b352835356a97c8accf3a55db9236c2d4e2f2d29eea552084a25a021fd2390,
+main UUID F5EC48E6-6A61-37F9-89DC-1D402CC03C18, runtime UUID
+6FEF5993-683D-3AD0-BF01-0B465BFF3EA0. These identify delivered artifact; logs
+alone do not independently hash installed runtime. Device models/OS not newly
+confirmed. Phone Host172.20.10.1, iPad Join172.20.10.5 over Personal Hotspot;
+boot red_dns .1 on both, red_ip respective device. No new Extra Args reported.
+Screenshots show40fps on BMW view and60fps on Fiat view; graphical settings
+not independently enumerated. No new code, flags, build or synthetic tests.
+
+Evidence copied preserving originals/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+All archived filenames have prefix `nfsmw_lan_preview4_hotspot_success_`:
+
+| Suffix | Bytes / lines if text | SHA256 |
+| --- | --- | --- |
+| host_boot.txt | 8038 / 129 | 37b2cdfbc67f4d6071af36e409e8fd22675f0c5cdb5b60745aa5b691dc4700e7 |
+| host_game.log | 1012171 / 6008 | a6f05082728debb5d0185e7dd97711ee46370ee48240eb89f26c116af592edb5 |
+| host_server.log | 27038 / 189 | d7c95884f1ae3fcd1882f396d551a5a367007e7feeef951be1084a86146e7fc9 |
+| join_boot.txt | 8322 / 132 | 32b745a5a44d823fadc6ef2915532e62a3bbd4dc232810c70294d3fbd75a9354 |
+| join_game.log | 1058844 / 6197 | acd7916557c4e91a7d2c72244301567dc812ad2df817e3aab7f5a2c807f4dc55 |
+| race_bmw.png | 3868498 | 9ff9c4edeae6b0386207d8577c4a7956b4fc6f1551a987a953651ee3469d6f16 |
+| race_fiat.png | 6360845 | 35468e8fcb6f4dadd1542334eff59da346b0b386d28b5e23ff2b61c8fe2abde1 |
+
+Original shared-pasteboard/items directories (same root as previous entry),
+in table order: BAE885A1-99D7-4398-A39A-B3983782EA4A/boot.txt;
+3C0F6FFA-292C-4293-87C9-822C4AF46B85/nfsmw.log;
+E54C015A-2B39-454B-847D-094AB44BC967/servidor_lan.log;
+A48411DA-A61A-4D1D-9EB5-00F1AC2297EB/boot.txt;
+0F226268-C813-4863-9136-D0ED6D5C3285/nfsmw.log. Screenshot originals in
+`/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+codex-clipboard-7bb349ac-4d1d-437e-9b44-94e4975a25cf.png (BMW),
+codex-clipboard-43412c32-90be-439a-bf86-174ce366100f.png (Fiat).
+
+Observed:
+- Phone Hostpreflight18:36:40.766, launch18:36:52.187. iPad Joinready
+ 18:36:50.577, launch18:37:22.285.
+- Shared gameCOUNT=2 at18:37:54.932; gsta18:38:10.807, +ses to bep1s and
+  zestygooner18:38:10.808. Actual server host remains active through game.
+- Host log:784 sendto UDP3658 lines (18:37:55.055–18:39:04.101),764
+  WSARecvFrom UDP3658 lines (18:37:55.053–18:39:01.609).
+  Join:758 sends (18:37:55.038–18:39:01.129),757 receives
+  (18:37:55.048–18:39:01.146). Counts are matching logged lines, not a claim of
+  loss-free network delivery. Both include async receives and gameplay payloads.
+- Zero `Unhandled guest access violation` lines in either game log; no repeat
+  of0x160 crash. There ARE existing error-level semaphore diagnostic dumps
+  around18:38:04–06, so do not describe logs as having zero errors. Gameplay
+  continues after those diagnostics. Last game-log lines partially truncated.
+- Screenshots show BMW and Fiat in reciprocal views: positions2/2 and1/2,
+  lap1/3, elapsed26.70/23.92 (screenshots not simultaneous), reciprocal18m
+  separation. Along with user confirmation, this establishes race startup and
+  actual two-device gameplay on hotspot, beyond shared-lobby/handshake only.
+- Server logs iPad connection close18:39:01.665. Cause not established; do not
+  label crash, intentional exit, or completed race. No finish/results/rematch
+  evidence, and short successful test does not establish prolonged stability.
+
+Conclusion: preview4 receive fix validated through racing on tested iOS hotspot
+path. Mobile multiplayer remains active: next finish/results/rematch, test
+victorgbd Android USA and original Wi-Fi path, improve setup usability as
+needed. PC stays deferred; no push/merge/release. Records/changelog updated and
+committed locally on multiplayer; main sources/controls/shared SDK untouched,
+main's pre-existing checkpoint edit and untracked HANDOFF preserved.

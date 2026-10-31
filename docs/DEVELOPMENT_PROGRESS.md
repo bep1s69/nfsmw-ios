@@ -303,6 +303,23 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: preview4 iOS↔iOS hotspot race startup/gameplay confirmed.**
+  Stefan reports success and supplied five logs plus two screenshots showing
+  BMW and Fiat, reciprocal positions1/2 and2/2, lap1/3, opponent18m apart.
+  Phone172.20.10.1 hosts, iPad172.20.10.5 joins; serverCOUNT=2 at18:37:54.932,
+  gsta/+ses to BOTH at18:38:10.808. Both game logs show >1minute of peer
+  UDP3658 traffic, zero guest AVs; prior0x160 crash did not recur. This validates
+  preview4 receive fix and actual race startup/gameplay on tested hotspot.
+  Finish/results/rematch/reconnect and prolonged play are not yet established.
+  Tested build is preview4-receive-fix (SHA/UUID below); no new build/code/flags.
+  All seven originals preserved under Debug/31 October 2026 with prefix
+  nfsmw_lan_preview4_hotspot_success_; hashes/evidence in TECHNICAL.
+  **Next:** finish a race/results/rematch, then verify victorgbd AndroidUSA
+  interoperability and resolve original Wi-Fi reachability/setup usability.
+  PC cross-play remains deferred until mobile interoperability is tested.
+  Branch remains local multiplayer, no push/merge/release. Main controls and
+  shared SDK unchanged; pre-existing main checkpoint edit/HANDOFF preserved.
+
 - **October 31: hotspot reaches both peers; preview4 fixes receive descriptor lifetime.**
   Preview3 phone 172.20.10.1 and iPad 172.20.10.5 discover/connect, share room
   (COUNT=2), then exchange 21-byte UDP3658 handshakes. Both immediately fault
