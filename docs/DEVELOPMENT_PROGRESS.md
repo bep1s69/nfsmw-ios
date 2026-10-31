@@ -303,6 +303,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31 follow-up:** Stefan confirms he intentionally quit after the
+  successful hotspot race; do not treat the final disconnect as a crash.
+  Regular Wi-Fi still fails per user. Android cross-play is implemented using
+  victorgbd's protocol but untested; test USA over the known-working hotspot
+  path first. No Android compatibility acceptance or PC work yet.
+
 - **October 31: preview4 iOS↔iOS hotspot race startup/gameplay confirmed.**
   Stefan reports success and supplied five logs plus two screenshots showing
   BMW and Fiat, reciprocal positions1/2 and2/2, lap1/3, opponent18m apart.

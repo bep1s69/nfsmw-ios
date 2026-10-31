@@ -12990,3 +12990,17 @@ victorgbd Android USA and original Wi-Fi path, improve setup usability as
 needed. PC stays deferred; no push/merge/release. Records/changelog updated and
 committed locally on multiplayer; main sources/controls/shared SDK untouched,
 main's pre-existing checkpoint edit and untracked HANDOFF preserved.
+
+
+### October 31 — user clarifies successful test termination and Wi-Fi status
+
+Stefan confirms "i quit the game" and regular Wi-Fi still fails. This resolves
+previous entry's uncertain final disconnect as user-initiated, not evidence
+of another crash. No new files, device settings, build or tests supplied.
+Hotspot race-start/gameplay success stands; finish/results/rematch unproved.
+AndroidUSA protocol/peer support is implemented, not yet device validated;
+first cross-play test should use known-working hotspot path to separate
+interoperability from unresolved Wi-Fi reachability. PC remains deferred.
+Checkpoint/backlog updated; documentation-only commit on local multiplayer,
+no main/shared SDK/build changes, push/merge/release. Pre-existing main
+checkpoint modification and HANDOFF remain preserved.
