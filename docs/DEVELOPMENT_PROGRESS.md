@@ -303,6 +303,30 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: first Android test reaches lobby, fails peer connection; mixed interfaces.**
+  User confirms Android on iPhone hotspot while iPhone Wi-Fi also enabled.
+  Phone chose/advertised192.168.1.151, Android172.20.10.6, directory correctly
+  answers Android172.20.10.1 but peer metadata retains phone's Wi-Fi address.
+  RoomCOUNT=2, Android sees both, iOS never completes peer appearance. iOS
+  receives Android8byte connect requests and sends replies/data; no guest AV.
+  This is not the prior iOS crash or proof of gameplay compatibility.
+  Host selector favored en0 over bridge; preview5 now prefers active private
+  bridge over en0 (Wi-Fi fallback retained). No new flag/protocol/SDK change.
+  Interface regression, setup/receive and protocol/discovery checks pass;
+  build/signature/ZIP pass;104metallibs andbothSDKdylibs identicalpreview4.
+  IPA `ios/build/NFSMW-multiplayer-preview5-hotspot-address.ipa`,30393361bytes,
+  SHA256490f9fe9990e4a05f72ba5980152fd20cb4cc583ca4dbc7bfca06392e45f2260,
+  UUIDB55A1AC5-73EE-38CA-A588-28BDD0E2E5EF; version0.5.1/build9.
+  **Next:** user offered to retest preview4 with iPhone Wi-Fi disabled; agreed,
+  restart Host and confirm172.20.10.1 before launch, Android reconnect. Outcome
+  pending, not implied success. Preview5 also ready to remove that workaround;
+  test with both interfaces active. Android logs needed if correct-address test
+  still fails; check actual release identity/region then, no speculative bypass.
+  Android source VERS/CLST matches iOS, SLUS differs21351/21267; significance
+  unproved. PC deferred; regular Wi-Fi unresolved. Archive five originals as
+  nfsmw_lan_preview4_android_mixed_interface_* (TECHNICAL identities).
+  Local multiplayer only; main/sharedSDK/controlrelease unchanged, no push.
+
 - **October 31 follow-up:** Stefan confirms he intentionally quit after the
   successful hotspot race; do not treat the final disconnect as a crash.
   Regular Wi-Fi still fails per user. Android cross-play is implemented using
@@ -2696,3 +2720,8 @@ for just one tiny change, no push/release or next source approval.
   carry out the documented same-build batch comparison; provide OFF/ON
   instructions and await paired logs/traces. No arm has been recorded/analyzed
   yet, and no additional source implementation was requested.
+
+
+October31 interface check command (host only; synthetic interface inventory,
+actual selector): `python3 tools/ios/test_lan_interface.py`. No runtime flag;
+hosting prefers active private hotspot bridge, falls back to en0 Wi-Fi.

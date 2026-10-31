@@ -445,8 +445,10 @@ std::optional<std::vector<Encontrado>> BuscarServidores(
 
 int PuntosInterfaz(const std::string& nombre) {
   const std::string n = Minusculas(nombre);
+  // Personal Hotspot guests cannot use our upstream Wi-Fi address. When both
+  // networks are up, host on the downstream hotspot bridge by default.
+  if (n.rfind("bridge", 0) == 0) return 4;            // Personal Hotspot
   if (n == "en0") return 3;                           // la Wi-Fi
-  if (n.rfind("bridge", 0) == 0) return 2;            // el punto de acceso personal
   if (n.rfind("en", 0) == 0) return 1;                // un adaptador de cable
   for (const char* fuera : {"pdp_ip", "utun", "ipsec", "awdl", "llw", "anpi", "ap", "gif", "stf", "xhc"}) {
     if (n.rfind(fuera, 0) == 0) return -1;            // datos moviles, VPN, AirDrop...

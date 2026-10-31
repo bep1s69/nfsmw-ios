@@ -13004,3 +13004,86 @@ interoperability from unresolved Wi-Fi reachability. PC remains deferred.
 Checkpoint/backlog updated; documentation-only commit on local multiplayer,
 no main/shared SDK/build changes, push/merge/release. Pre-existing main
 checkpoint modification and HANDOFF remain preserved.
+
+## October 31 — Android lobby success, mixed-interface peer failure; preview5
+
+First Android device test: user reports Android connected in prelaunch, sees
+both players in-game then cannot connect to other player; iOS never shows
+Android peer. Screenshots agree (TKMachine/bep1s vs bep1s alone). User confirms
+Android on iPhone Personal Hotspot, while iPhone Wi-Fi also enabled. He offered
+another preview4 test with Wi-Fi disabled; advised restartHost/check172.20.10.1
+then Android reconnect. This is a pending control, no outcome supplied yet.
+
+Five originals archived preserving source/no overwrite under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview4_android_mixed_interface_`:
+
+| Suffix | Bytes | SHA256 |
+| --- | --- | --- |
+| host_boot.txt | 16533 | 87eb02b9fc1c5682c840cb210c380f1317b77ebaaff073d0d5c7fe0e5ad3cde8 |
+| host_game.log | 1561861 | 9b31b6f551c88df7ed5eb04f3965a8fe5c45aa6171a48b7bc09194d99f185005 |
+| host_server.log | 63590 | 5bb5bdc7b43340e13d4183fecc7ec296ec797505a064c55799d92a75c05a83d1 |
+| android_lobby.jpg | 187543 | 14580c12c3097f9180894a3892fb1b721cca0ccec1fe6f74d9a8303ccb664992 |
+| ios_lobby.png | 3150576 | 516ac3b97644ac41aa254e672fb35884c68328de6758ec7e631c99aa40f8ff1d |
+
+Originals from shared-pasteboard/items root from prior entries:
+29DFC6F4-2ADE-4518-B77D-08DFE61DD412/boot.txt,
+64C42074-91E6-4C16-9A5E-011EE61423AA/nfsmw.log,
+C9EAFABB-8447-4B90-9190-FF1B500FCAE9/servidor_lan.log.
+Images in `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+codex-clipboard-2d79c54d-8340-43a7-b990-d10fb4741a2d.jpg,
+codex-clipboard-27379375-af7f-439a-8217-9404c93b4225.png.
+
+Logs append older successful hotspot run; relevant NEW launch18:45:12.933
+Host192.168.1.151, red_ip/red_dns151. Server18:45:06.957 discovery responds to
+172.20.10.6; gamertag TKMachine passes. Android directory18:46:02.926 returns
+172.20.10.1 based on accepted socket's local endpoint, whereas phone's own
+login/peer MADDR/SESS contains192.168.1.151. Two gjoi attempts18:46:09 and
+18:46:26 produceCOUNT=2 then leave18:46:19.236/18:46:36.127. Both peers use
+CLST192641/VERSxbox1.2-Nov2-2005, but SLUS21351(iOS) vs21267(Android).
+USA edition previously user supplied; exact installed Android release and
+SLUS significance not established, do not infer causal region incompatibility.
+No Android game log supplied. Phone log has zero guest AVs. New-run UDP3658
+sends:22x8bytes,10x21,8x35,22x49,104x63; UDP6000 four10byte pings. Repeated
+8byte connect requests arrive from172.20.10.6, phone replies and attempts
+handshake/data, but mobile gameplay not established. This demonstrates some
+UDP connectivity; do not claim all UDP blocked or complete working handshake.
+
+Concrete local defect: red_lan.cpp PuntosInterfaz ranks en0Wi-Fi3 > bridge2.
+Launcher passes selected address as fixed red_ip; game identity/session embeds
+Wi-Fi address even though guest needs hotspot. Preview5 ranks bridge4 > en0 3,
+only when UP/nonloopback/privateIPv4 per existing filter. Wi-Fi remains fallback;
+VPN/cellular excluded. Applies existing IpLocal consistently to setup/advertised
+host and runtime args; no lobby wire-format/USA hook/SDK change, no new toggle.
+If both networks intentional, hotspot takes precedence by default; explicit
+network selection can be future setup work. Fix addresses confirmed bad metadata,
+not yet proof it resolves all Android incompatibilities. Credit retained.
+
+Checks:
+- New `python3 tools/ios/test_lan_interface.py`: exit0; actual selection functions
+  compiled with ASan/UBSan, synthetic list tests simultaneousWi-Fi/hotspot in both
+  enumeration orders, bridge-down fallback and VPN/cellular exclusions. Helper
+  address formatting/private classification are test doubles; inventory only,
+  not an actual iOS networking test.
+- `test_lan_setup.py` and `test_multiplayer_receive.py --sdk
+  /private/tmp/nfsmw-multiplayer-sdk` exit0; original async lifetime fix retained.
+- `test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: exit0;25-stage
+  C++/Python parity, binary7 preservation, patch lifecycle/atomic rejection and
+  UDP-blackhole TCP fallback/invalid framing checks pass;
+  transcript `/private/tmp/nfsmw-preview5-protocol-tests.log`.
+- `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6` exit0,
+  transcript `/private/tmp/nfsmw-preview5-build.log`. codesign --verify --deep
+  --strict exit0; ZIP CRC pass,104metallibs andbothSDKdylibs identicalpreview4.
+
+Unique artifact copied to worktree ignored ios/build and main ignored ios/build
+(user access only; no controls output overwritten):
+`NFSMW-multiplayer-preview5-hotspot-address.ipa`,30393361bytes,
+SHA256490f9fe9990e4a05f72ba5980152fd20cb4cc583ca4dbc7bfca06392e45f2260,
+UUIDB55A1AC5-73EE-38CA-A588-28BDD0E2E5EF, version0.5.1/build9.
+Companion JSON records identities. No preview5 device acceptance yet. Next:
+await Wi-Fi-disabled preview4 control; preview5 both-interface hotspot test,
+then Android game logs/release identification if correctly advertised address
+still fails. Regular Wi-Fi remains separate, PC deferred. All changes local
+multiplayer; main/sharedSDK untouched, pre-existing main checkpoint modification
+and HANDOFF preserved. No push/merge/release.

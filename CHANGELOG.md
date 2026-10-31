@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Use the hotspot address while hosting.** Prefer the active Personal Hotspot
+  interface when Wi-Fi is also connected, so hotspot guests receive the host's
+  address on their network. Android device retest pending.
+
 - **Fix a crash when another player connects.** Keep a copy of the game's
   temporary receive-buffer descriptors until the packet arrives. The hotspot
   test reached both devices before exposing this memory overwrite. The fix
