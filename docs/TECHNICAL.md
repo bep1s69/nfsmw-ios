@@ -13789,3 +13789,122 @@ signature/SDKdylib/shader verification passes. Final identity above replaces
 an internal pre-delivery package; no previously delivered preview overwritten.
 Additional archived nfsmw-preview8-final-build.log3057bytes,
 SHA2565f0037622df55e55bd536c8b08132fa21e94f48ff29468ad13c5afada0d516df.
+
+## October 31 — preview8 exchanges PC UDP, times out; preview9 header-order experiment
+
+Stefan reports the PC room now raises a connection error after about10seconds
+instead of waiting forever. Supplied boot/game copied with copy2/no overwrite
+into `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`,
+prefix `nfsmw_lan_preview8_pc_peer_timeout_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 17125 / 231 | 8597a66f92de21177e773ea99ccb92699d20e4c0ee29c10fb98ef66417c050f8 |
+| game.log | 400257 / 2363 | 103422096adfe2290d997f38e71f2193b06bc9dddc066ac4e34f6e8cb6ea9f51 |
+
+Original pasteboard/items sources:
+3EBAA6BD-A57C-4A1A-AE74-79C0D29CCD2E/boot.txt;
+10FF2595-8882-4C74-AE6D-C530F47D5BAD/nfsmw.log.
+Decoded text splitlines initially counted233boot lines due to non-text ping
+subcode bytes; raw-byte archive counts231. Installed exact hash/OS not newly
+established; adapter behavior matchespreview8. No screenshot/exact error text
+supplied this turn. Do not invent the popup wording.
+
+Observed timeline and packet evidence:
+- Native PC192.168.1.202 service remains reachable; phone192.168.1.205.
+  Login/persona/room113.TKM pass. Preview8 outgoing MADDR adaptation logged.
+-23:42:38.918 gjoiCOUNT2 now contains local72byte SESS/10bytePLATPARAMS.
+  XNetXnAddrToInAddr maps correctly to192.168.1.202 at38.947; actual UDP3658
+  and voice6000 sockets open/bind. First3658send38.984. This is DEVICE proof
+  preview8 got beyond the missing-session/no-socket state.
+- First attempt closes race socket48.952 and sends glea FORCE1 at49.174;
+  second joins57.520/maps57.548, closes23:43:07.555. Approx10s timeouts.
+  The lobby/control adapter is still alive; +mgm dropsCOUNT2→1 on leaving.
+- Across both attempts exact race8byte counters:20 TX0000000100000000 and
+ 20 RX05000000C5B964C6 from PC .202:3658. PC replies repeatedly to each
+  attempt, establishing bidirectional race-port reachability. Do not blame
+  an unreachable server or generic3658 firewall block from these logs.
+- Voice6000 connect attempts repeat; no voice reply established. Later iOS
+  creates its own room on PC service, not evidence of reversePCdiscovery or
+  an actual PC/mobile race. No new Windows/firewall modifications performed.
+
+Source/interpretation:
+- Actual USA CommUDP sub_8289C448 calls DirtySock SocketRecvfrom8282A5A0 at
+  LR8289C4D8, then reads its two32bit header fields as big-endian guest words.
+  Captured PC bytes therefore become0x05000000/0xC5B964C6 to Xbox; interpreting
+  PC words little-endian yields5/0xC664B9C5. Xbox TX1 is written big-endian.
+  Opposite header byte order is a concrete wire difference and a testable
+  hypothesis, not proof that swapping it completes the handshake. Connection
+  identifiers/opcodes and NFS application packets may differ too.
+- DirtySock SocketSendto8282A4F0 is synchronous: original path maps destination
+  then calls82810E58/native sendto and returns. Captured LR8289C7B4 is CommUDP.
+  SocketRecvfrom8282A5A0 dequeues completed data before returning; transforming
+  at that boundary avoids changing the working asynchronous kernel receiver.
+- Primary local generated code and captured traffic used. Internet searches
+  for CommUDP protocol source yielded no useful primary result; no external
+  CommUDP source or unsupported opcode semantics imported/claimed.
+
+Preview9 implementation:
+- New USA game_pc_udp.cpp hooks original DirtySock send/receive, retaining
+  always-original __imp__ entries. Only when red_lan AND native PC adapter's
+  atomic selected IPv4 matches port3658 AND caller LR lies8289B000–8289D200.
+  Bound packets8–2048bytes. Send copies whole packet into private aligned
+  guest-stack allocation with128byte ABI home space; swaps first two32bit
+  words there, calls original, restores guest stack and retains original return.
+  Original send buffer never modified, including failed sends/retries.
+- Receive captures destination/capacity/from pointer before original may
+  clobber volatile registers, transforms only successful>=8byte completed
+  datagrams from selected endpoint within capacity. Payload after byte8 stays
+  byte-for-byte. LANoff/ordinarymobile/nonselectedIP/voice/otherport/non-CommUDP/
+  short/error paths call originals with no conversion. No readiness bypass.
+- pc_gateway Start sets eligible PC IPv4 after listener succeeds; Stop/newStart
+  clears atomically. Current scope selected PC directory/host only, not all
+  other racers using that directory. IsRacePeer regression covers set/clear.
+- Boot [pc-udp] traces first2translated sends/receives. Raw kernel game log will
+  show actual wire bytes; receive conversion occurs after that kernel logging.
+- CMake adds hook only in existing USA multiplayer game sources. No generated
+  source edits or additional codegen step. No shared/isolated SDK source edit,
+  no network/socket receiver patch change; existing Android adaptation credits
+  retained. PC remains unmodified/no helper; original game payload translation
+  and reverse discovery remain unimplemented.
+
+Checks actually run:
+- New test_pc_udp.py compiles actual game_pc_udp.cpp with bounded guest memory
+  and original-function capture stubs, ASan/UBSan. Tests captured header RX
+ 05000000C5B964C6→00000005C664B9C5, TX0000000100000000→0100000000000000;
+  arbitrary4byte payload unchanged, source sendbuffer unchanged, stack and
+  original return preserved after send/error. Bypasses LANoff, adapteroff,
+  mobileIP, otherport, non-CommUDP caller, short receive/send, negative receive.
+  First harness compile failed because unqualified boolpc resolved to namespace
+  nfsmw::pc in the stub; fixed to ::pc. Final exit0. No production fix needed.
+- Actual C++ gateway test with temporary listeners passes exit0; asserts selected
+  PC target active only between Start/Stop. Prior actual generated session/
+  address-decoder, room-filter and preflight regressions all pass exit0.
+- Isolated build command unchanged, cmake --build ... --target ipa -j6 exit0.
+  Initial command sequence continued after harness compile failure; corrected
+  hook regression passed afterward. Build had no source/compile/link failure.
+  nm -m executable confirms strong _sub_8282A4F0/_sub_8282A5A0 and separate
+  original ___imp__sub entries. No actual PC racer/handshake test run on Mac.
+- ZIPCRC valid, codesign --verify --deep --strict exit0. GPUdylib/104metallibs
+  byte-identicalpreview8. Runtime differs: CMake regenerated SDK buildstamp
+  and rebuilt ONLY debug_overlay.cpp object before runtime relink (logged
+  [1/15]); no networking object/source rebuilt. Existing SDK multiplayer patch
+  --status applied. Do not call runtime byte-identical; UUID changed below.
+- git diff --check exit0. Main's pre-existing docs/DEVELOPMENT_PROGRESS.md edit
+  and untracked HANDOFF preserved; no controls or canonical SDK edits.
+
+Unique ready artifact copied into main ignored ios/build, old IPAs retained:
+NFSMW-multiplayer-preview9-pc-udp-header.ipa,30432156bytes,
+SHA2568ab434c333c7fb46b26387c1f3d9dc90855f9b9a8e8ddd856a5560d10f9fdca6,
+appUUID3763C3DA-7834-3C34-ACA2-4040E98DDD51,
+runtimeUUID325ECA6F-B026-3D4A-A158-0618E2381E30, companionJSON.
+Archived buildlog nfsmw-preview9-build.log15584bytes,
+SHA25613b896f1b527f67221bf57406276824f5ad6ce8d70afcb72c8e1a5cbf6d34bfd.
+
+Next: same original PC room, phonepreview9 Join→launch→QuickMatch, observe
+whether peer connection succeeds, then whether host can start/load/play race.
+If still fails, collect boot/game for actual converted packet/opcode/identifier
+behavior. No forced connected flag. Device acceptance of header experiment
+pending; no claim of full PC gameplay. Hostguestnames stillopen, reversePC
+hosting deferred; all session source/evidence committed locally onmultiplayer.
+No push, merge, tag orrelease authorized/performed.

@@ -1,8 +1,12 @@
 #pragma once
+#include <cstdint>
 #include <functional>
 #include <string>
 namespace nfsmw::pc {
 // Probe the original PC LAN directory on TCP9900 (no account/login mutation).
+// True only while the native PC adapter is active, for its selected PC IPv4.
+// IPv4 uses guest/network numeric order (e.g. 0xc0a801ca).
+bool IsRacePeer(uint32_t ipv4);
 bool Probe(const std::string &ip);
 // In-app loopback adapter. Only PC control traffic uses this path; races stay
 // peer to peer. No PC-side helper or modification is required.

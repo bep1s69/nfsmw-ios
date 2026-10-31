@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Test PC race packet headers.** Adapt the two transport-header fields for
+  the selected PC host. iOS now exchanges race packets with PC, but the peer
+  handshake still times out; this experiment needs device confirmation.
+
 - **Prepare PC peers for the connection test.** Translate PC LAN addresses and
   provide the local Xbox session record required after joining a PC room.
   PC rooms and live car/track updates now work on device; racing is unverified.

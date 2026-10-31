@@ -315,6 +315,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31 preview9: bidirectional PC race UDP confirmed; header experiment ready.**
+  Preview8 now opens3658/6000, XnAddr maps PC.202, sends/receives race datagrams.
+  Two joins (~23:42:39/23:42:58) timeout ~10s; each repeats8byte requests and
+  replies. Overall20TX0000000100000000,20RX05000000C5B964C6. No longer a
+  discovery or unattempted socket issue; reachability for3658 evidenced.
+  Xbox CommUDP parser uses big-endian header fields; PC wire values suggest
+  little-endian headers. Preview9 TEST translates just two32bit transport
+  words at original DirtySock synchronous send/dequeued-receive boundary,
+  onlyselectedPCIP/port3658/CommUDPcallers/LANenabled. Payload/voice/mobile
+  untouched; original sendbuffer preserved via private gueststack copy.
+  No SDK source changes or async receiver changes, no ready-state forcing.
+  Actual hook tests ASan/UBSan cover captured bytes, payload/retrybuffer/stack/
+  return preservation and bypasses; gateway/session/room/preflight all pass.
+  Strong hooks verified in executable alongside original __imp__ entries.
+  Ready `ios/build/NFSMW-multiplayer-preview9-pc-udp-header.ipa`,30432156bytes,
+  SHA2568ab434c333c7fb46b26387c1f3d9dc90855f9b9a8e8ddd856a5560d10f9fdca6,
+  appUUID3763C3DA-7834-3C34-ACA2-4040E98DDD51,
+  runtimeUUID325ECA6F-B026-3D4A-A158-0618E2381E30. SDK runtime rebuilt only
+  debug_overlay.cpp afterCMake/versionstamp regeneration; networking patch
+  stillapplied, noSDKsourceedit. GPUdylib/104shaders identicalpreview8.
+  **Next:** existingoriginalPCroom + phonepreview9Join/QuickMatch; check actual
+  peer handshake, thenrace; captureboot/game iftimeout. Header translation is
+  a boundedexperiment, NOT proven fix/wholegame byte-order compatibility.
+  CurrentselectedPC endpointonly; doesn't generalizeotherPCpeers/voice.
+  New2logs archivednfsmw_lan_preview8_pc_peer_timeout_*. Hostmissingnames
+  stillopen/reversePCdiscovery deferred. Localmultiplayeronly; maincontrols,
+  pre-existingdocsedit/HANDOFF andsharedSDK preserved; nopush/release.
+
 - **October31 preview8: PC room joined, peer session adaptation ready.**
   Preview7 on phone joins PC073.TKM (.202), gjoi/+mgm COUNT2, sees live car/
   track updates, stays Waiting for players to connect. Logs: PC session has
@@ -2988,3 +3016,19 @@ preservation. Run alongside gateway, room-filter and preflight checks above.
 No real peer, PC racer or race is emulated by this check. Existing isolated IPA
 build command unchanged. Preview8 device flow same as preview7; observe peer
 connection before starting a race. No PC-side helper.
+
+### Preview9 PC transport hook check
+
+```sh
+python3 tools/ios/test_pc_udp.py
+```
+
+Compiles actual USA game_pc_udp.cpp with bounded guest memory/capture stubs,
+ASan/UBSan. Checks captured 8byte headers both ways, unchanged payload/original
+send buffer, retry/error return and stack preservation; bypasses LANoff,
+nonselected mobile peer, non-CommUDP caller, voice/other port, short packets.
+Only original PC endpoint passed to native PC Start is eligible; Stop clears
+it atomically. Native adapter remains required for this transport experiment.
+No SDK source patch or codegen step added; existing isolated build command.
+Check executable nm shows strong sub_8282A4F0/sub_8282A5A0 and original __imp__
+entries. Device handshake and race remain acceptance tests, not host stubs.

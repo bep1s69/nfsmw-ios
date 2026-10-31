@@ -17,6 +17,10 @@
 #include <unistd.h>
 #include <vector>
 namespace nfsmw::pc {
+namespace {
+std::atomic<uint32_t> racePeer{0};
+}
+bool IsRacePeer(uint32_t ipv4) { return ipv4 && racePeer.load() == ipv4; }
 std::string Field(const std::string &body, const std::string &key) {
   size_t at = 0;
   while (at < body.size()) {
@@ -537,11 +541,13 @@ bool Probe(const std::string &ip) {
 }
 void Stop() {
   std::lock_guard<std::mutex> lock(gatewayMutex);
+  racePeer = 0;
   gateway.reset();
 }
 bool Start(const std::string &ip,
            std::function<void(const std::string &)> trace, std::string *error) {
   std::lock_guard<std::mutex> lock(gatewayMutex);
+  racePeer = 0;
   gateway.reset();
   for (int i = 0; i < 8; ++i) {
     auto g = std::make_unique<Gateway>();
@@ -549,6 +555,9 @@ bool Start(const std::string &ip,
     g->trace = trace;
     if (g->Begin()) {
       gateway = std::move(g);
+      in_addr a{};
+      if (inet_pton(AF_INET, ip.c_str(), &a) == 1)
+        racePeer = ntohl(a.s_addr);
       return true;
     }
     g.reset();
