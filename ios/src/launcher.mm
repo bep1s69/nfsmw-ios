@@ -32,6 +32,8 @@
 
 #include "launcher.h"
 #include "multiplayer/lan_session.h"
+#include "multiplayer/lan_setup.h"
+#include "multiplayer/servidor_ea.h"
 #include "multiplayer/red_lan.h"
 #include "hud_editor.h"
 #include "touch_controls.h"
@@ -287,13 +289,10 @@ const std::vector<Section>& Sections() {
             @"in an iCloud Drive folder, kept in sync between your devices.",
             @""},
        }, kTabGame},
-      {@"LAN multiplayer (preview)", @"Play with iPhones, iPads and the Android port on the same Wi-Fi. "
-       @"Use Xbox Live → Quick Match in the game. Keep the host app open; each player needs a different gamertag.",
+      {@"Multiplayer", @"Play on the same Wi-Fi with another iPhone, iPad or Android device.",
        {
-           {@"lan_mode", Type::kChoice, @"LAN mode", @"Applies when launching the game.", @"off",
-            {{@"Off", @"off"}, {@"Join a server", @"join"}, {@"Host on this device", @"host"}}},
-           {@"lan_server", Type::kText, @"Server address", @"For Join: the Android/iOS host or Python lobby server's local address.", @""},
-           {@"lan_gamertag", Type::kText, @"LAN gamertag", @"A different name for each player. Single-player saves keep their existing identity.", @""},
+           {@"multiplayer_setup", Type::kLink, @"Host or join a game",
+            @"Find nearby hosts, check your connection and launch multiplayer.", @""},
        }, kTabGame},
       {@"Career", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
@@ -768,6 +767,7 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   // The render resolution's default: 1x (the Xbox 360's 720p) with either
   // renderer: on a phone screen it is hard to tell from 1.5x, at about half
   // the GPU work.
+  if ([key isEqualToString:@"lan_mode"]) return @"off";
   const Option* o = FindOption(key);
   return o ? o->default_value : @"";
 }
@@ -1476,40 +1476,11 @@ NSString* AchievementSummary(const Achievements& a) {
 }
 
 - (void)play {
-  [self.view endEditing:YES];
-  const std::string mode = Value(_settings, @"lan_mode").UTF8String;
-  if (mode == "off") { [self launchSelectedGame]; return; }
-  const std::string server = Value(_settings, @"lan_server").UTF8String;
-  const std::string tag = Value(_settings, @"lan_gamertag").UTF8String;
-  self.navigationItem.rightBarButtonItem.enabled = NO;
-  self.tableView.userInteractionEnabled = NO;
-  self.navigationItem.titleView.userInteractionEnabled = NO;
-  const auto docs = _docs;
-  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-    const auto prepared = nfsmw::lan::Prepare(mode, server, tag, docs);
-    dispatch_async(dispatch_get_main_queue(), ^{
-      self.navigationItem.rightBarButtonItem.enabled = YES;
-      self.tableView.userInteractionEnabled = YES;
-      self.navigationItem.titleView.userInteractionEnabled = YES;
-      if (!prepared.error.empty()) {
-        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"LAN multiplayer"
-            message:[NSString stringWithUTF8String:prepared.error.c_str()]
-            preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:alert animated:YES completion:nil];
-        return;
-      }
-      [self set:@"lan_resolved_ip" to:[NSString stringWithUTF8String:prepared.ip.c_str()]];
-      if (prepared.hosting) {
-        NSString* message = [NSString stringWithFormat:@"Server address: %s\n\nOn the other device, join this address. In the game, use Xbox Live → Quick Match. Keep this app in the foreground.", prepared.ip.c_str()];
-        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Hosting LAN multiplayer"
-            message:message preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Play" style:UIAlertActionStyleDefault
-            handler:^(UIAlertAction*) { [self launchSelectedGame]; }]];
-        [self presentViewController:alert animated:YES completion:nil];
-      } else { [self launchSelectedGame]; }
-    });
-  });
+  // The ordinary Play button always starts single-player. Multiplayer is an
+  // explicit action in its own screen, not a sticky mode from a previous run.
+  [self set:@"lan_mode" to:@"off"];
+  nfsmw::servidor::Parar();
+  [self launchSelectedGame];
 }
 
 - (void)launchSelectedGame {
@@ -1773,6 +1744,19 @@ NSString* AchievementSummary(const Achievements& a) {
   }
   if (ip.section >= fixed) {
     const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+    if (o.type == Type::kLink && [o.key isEqualToString:@"multiplayer_setup"]) {
+      if (!_isoName) {
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Choose a game first"
+            message:@"Add your USA game ISO and select it before opening multiplayer."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+      }
+      [self.navigationController pushViewController:nfsmw::lan::MakeSetup(_docs, _settings,
+          [self] { [self launchSelectedGame]; }) animated:YES];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"saves"]) {
       [self.navigationController pushViewController:nfsmw::saves::MakeSaveManager(_docs) animated:YES];
       return;

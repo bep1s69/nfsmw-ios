@@ -12465,3 +12465,137 @@ Main final read-only check: branchmain at19177b6; status still only preserved
 `docs/DEVELOPMENT_PROGRESS.md` modification and untrackedHANDOFF. No network code
 or changelog entered main; preview IPA is ignored. Local multiplayer commit only;
 no push/tag/merge/release. Snapshot and build commands remain in checkpoint.
+
+
+### October 31: preview1 both hosting attempts; preview2 native Host/Join flow
+
+User reports inability to play with either device hosting and says setup is
+extremely clunky/unintuitive. Investigation/fix stays on multiplayer4ddc814;
+main remains19177b6. Read checkpoint/backlog/latest evidence and git log15/status.
+Main preserves only issue11 checkpoint modification and untrackedHANDOFF; all
+multiplayer source is in separate worktree/SDK/build. No push/merge/release.
+
+Evidence archived exclusive-create and byte/hash-verified; originals retained.
+Folder `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+All six sources under
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/`;
+source directory UUID + original filename below identifies each exact full path.
+
+| Archived filename | Source directory UUID / original name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview1_ip150_game.log | AE0830E4-9704-41EA-8E77-06B125D4D0B2/nfsmw.log | 950654 | 19363353b4b5b6eaaa344d38d3a4530106f374d6f6eb11bea52622c1a0984188 |
+| nfsmw_lan_preview1_ip150_server.log | CC1DEAAF-13FA-495E-9CDA-C148FC39F847/servidor_lan.log | 9021 | eef53eb5c05d3937feb1e2db41bc7820864ff6eda06aafdd968837b828a0102e |
+| nfsmw_lan_preview1_ip150_boot.txt | F935730C-9BD6-4C71-8510-1B00C496590B/boot.txt | 1454714 | 133b7c8ee1ad8ca68ceb5804751abdba2a69f7084ab425cc97435473d3c701c0 |
+| nfsmw_lan_preview1_ip205_boot.txt | 6DE64913-BEB2-46C1-A5A2-EA462331D523/boot.txt | 104092 | 711c9d426474ff88c2107a556b0f0fef839cec80f6b95eca8fb8f7fde1d39aa6 |
+| nfsmw_lan_preview1_ip205_game.log | CA161E06-CC08-4E03-B0A8-454452D38143/nfsmw.log | 4726547 | c8f6384e7e96580849bb2812550129423aeac52cc431238b83055601c5887e6a |
+| nfsmw_lan_preview1_ip205_server.log | E3D8081F-19C4-48A6-8DEF-1503DF0E98C5/servidor_lan.log | 30127 | 479f9383e6130352e54c792c0f252db31370f501ca1ac02300a2f6618c16ab82 |
+
+Pairing by same launch timestamps/IP/settings, not attachment order. Hardware/OS
+not newly supplied;150 likely tablet and205 phone from memory/core figures and
+ongoing user context, but exact device/OS unconfirmed. User was testing delivered
+preview1; boot13:50:31 stamp is consistent; runtime UUID not independently logged.
+Game log150 has old October30 semaphore history; boot150 startsOctober7.
+Game205 includes older13:14controls test and13:53/17:03/17:05 runs. Do not count
+old error prefixes against current multiplayer. Earlier205server13:52 launch
+was at192.168.101.106; current17:00 runs at192.168.1.205. No SSID/netmask supplied.
+
+Measured current flow:
+- Device205 starts17:03:40; game17:03:50 with red_lan/red_live true,
+  red_dns=red_ip=192.168.1.205, own distinct gamertag, red_registro true and
+  log_levelinfo. Its server starts17:03:48.630; own directory/lobby connections
+  at17:04:13.575/.594; creates room17:04:26.414/game26.445. Restart17:05:02;
+  game17:05:35, same ownserver args; own connections17:05:57.011/.042;
+  rooms17:06:06 and17:06:54, still COUNT1. Last boot17:07:53.346 only shows
+  launcher; no later Play/settings/game startup in this file.
+- Device150 game17:07:47.858 with red_dns=red_ip=192.168.1.150,
+  red_lan/red_live true, distinct gamertag, red_registrotrue/log_levelinfo.
+  Its server starts17:07:42.181, own gamertag check42.182, own directory/lobby
+  at17:08:19.785/.805. usea23.320/28.934 then creates room35.390/game35.420.
+- Entire supplied150 server:1gamertag check,2TCP client connections, all from
+  .150. Entire205 server:3checks/6TCP connections across recorded launches,
+  all from its then-current ownIP. Both files contain ZERO ujoi/gjoi/gsta and
+  ZERO COUNT2. No successful shared lobby, joining or race-start evidenced.
+  Each game effectively used a separate local lobby. This does NOT establish
+  that the user never tried Join: preview1 preflight ran before game logging and
+  did not trace its failure. Last205boot may represent an unfinished attempt;
+  exact cause cannot be recovered. No basis yet to diagnose Wi-Fi isolation,
+  permission denial, socket/peer transport failure or actual race compatibility.
+- Session/MADDR/PLATPARAMS look garbled in UTF8 viewers but both raw server
+  files have ZERO literal UTF8 replacement sequences(EFBFBD). Server treats
+  fields as bytes. Added an all128high-byte Binary7 roundtrip test below;
+  no wire-encoding change justified by appearance of the log text.
+
+Preview2 implementation:
+- New lan_setup.mm/h: dedicated Game→Host or join a game screen. Auto distinct
+  iPhone/iPad + IP-suffix name when no valid saved tag; field editable. Host
+  starts lobby while launcher remains open, displays name/IP and clear state.
+  Join stops ownhost then calls upstream BuscarServidores, lists remote name/IP/
+  in-game player count, manual-address fallback, explicit Connect success/error.
+  Own addresses omitted by upstream search; Prepare rejects manual ownprimaryIP.
+- Explicit Launch game only after successful preparation; visible navigation
+  button plus table action. Revalidates name/host at launch; writes lan_mode
+  immediately before launch. Main Play always clears mode tooff and starts
+  single-player. Saved prior Host choice no longer silently affects normalPlay.
+- Separate in-game instructions perrole: Host creates one race via Xbox Live→
+  Quick Match→Create Game; Join finds/joins that race and must not create a
+  second one. Starting native lobby alone does not create the original game
+  room. No speculative automatic game-menu actions or FE/control edits.
+- Setup network operations on one serialqueue, main-thread generation checks
+  reject stale completions; Back invalidates/stops host and ignores outstanding
+  scan/preflight callbacks. Name changes invalidate readiness; name disabled
+  while connecting. Host health/IP checked every1s while setup open. Timer stops
+  on launch/back. No background audio workaround or entitlement change.
+- Discovery protocol unchanged(victorgbd):NFSMW_DISCOVER→NFSMW_SERVER/NAME/PLAYERS,
+  UDP10902; socket now nonblocking so a stalled ARP/send cannot block sender
+  threads past scan deadline. Upstream broadcast+unicast fallback /24..30; own
+  addresses filtered, manual IP remains for blocked broadcasts/other networks.
+  Restricted multicast entitlement is not assumed available in LiveContainer.
+- Foreground Host/Join switching can close listeners on upstream500ms polls;
+  Prepare now retries Arrancar at100ms intervals up to8attempts and clears any
+  transient bind error after success. No SDK net/identity/race payload changes.
+  Setup role/endpoint/search count/ready/failure now logged as [lan-setup] in
+  boot.txt to distinguish routing/configuration from in-game protocol failures.
+  Original networking and C++ adaptation credits retained; new changelog entry
+  scopes setup improvements to branchpreview/device-validation pending.
+
+Validation actually run:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research` exit0,
+  /private/tmp/nfsmw-multiplayer-preview2-host.log.25two-player stages still match
+  unchangedPython821b9b54; now MADDR/SESS/PLATPARAMS include all bytes80..FF.
+  SESS normalization restricted to random directory response only (previous
+  fixture masked everySESS); gjoi explicitly verifies both addresses/session/
+  platform data byte-for-byte. Confirms lobby byte preservation, not race data.
+  Also patch apply/revert/idempotency/atomic rejection pass; UDP discovery
+  response tested, actual outgoing scan/UI across devices not tested here.
+- `python3 tools/ios/test_lan_setup.py` exit0; compiles actual Prepare against
+  deterministic server/network stubs: invalid mode/partialIP, ownIP rejection
+  before contacting server, hostname→remoteIP, name conflict/unreachable error,
+  transient listener retries clearing olderror, stop on failure/off. This is
+  preflight logic coverage, not UIKit/cancellation/Wi-Fi proof.
+- `python3 tools/ios/test_menu_touch.py` exit0,
+  /private/tmp/nfsmw-multiplayer-preview2-menu.log. Existing menu fixtures pass;
+  no inference of new multiplayer screen interaction coverage on devices.
+- Two isolated `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa
+  -j6` exit0:preview2-build1.log(14planned steps),build2.log(6planned steps).
+  Existing UIKit/deprecation/duplicate-lz/actool simulator-service warnings;
+  no source compile/link error. No shared SDK/build used or reconfigured.
+- Initial artifact verification assertion expected bothSDKdylibs identical and
+  failed after unique copies created. Investigation: CMake reconfigured SDK
+  version to0.10.0-dev.g4ddc814 timestamp20261031_1715, rebuildingdebug_overlay.
+  Runtime file-backed Mach-O sections compare equal EXCEPT10bytes in __cstring;
+  UUID/signature differ. GPU dylib and104metallibs byte-identicalpreview1.
+  No source/network-code change inferred from runtime's new filehash.
+  Corrected expectations:ZIP.testzip=None;codesign --verify --deep --strict exit0;
+  dwarfdump exit0; shadercount104; samebytecopy verified. No previousIPA replaced.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview2-guided-setup.ipa`,
+30378275bytes,SHA256 `2dae71db4824e5cacdd799c16cf5d00e343cf233080e2a0ec43bed087c34186f`,
+UUID `792F461C-B08F-3AB5-A784-F89CFC9321E4`,bundle0.5.1/build9.
+Same artifact and ignoredJSON in multiplayerworktreeios/build. No new device
+run performed; actual discovery/permission UI/cancellation across transitions,
+sharedroom/peer/race/results stability still require device test. Next oneHost,
+otherJoinselectsamehost/confirmremoteIP, Launchboth, originalgamehostcreaterace/
+guestjoin, send bothboot/game/server logs if blocked. Keep foreground; iOS first,
+AndroidUSA later; PC held. Main retains existing issue11 note/HANDOFF only;
+no source/SDK controls changes, push/merge/tag/release. Commit locally onmultiplayer.

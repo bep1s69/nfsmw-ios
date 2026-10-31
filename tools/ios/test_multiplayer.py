@@ -100,8 +100,9 @@ class Client:
                 packet,self.buf = self.buf[:n],self.buf[n:]
                 fields = dict(line.split('=',1) for line in packet[12:].rstrip(b'\0').decode('latin1').split('\n') if '=' in line)
                 # Only startup-dependent values are normalized; all fields compared.
-                for key in ['SESS','MASK','LKEY','SEED','WHEN','REF','LGAME']:
+                for key in ['MASK','LKEY','SEED','WHEN','REF','LGAME']:
                     if key in fields: fields[key] = '<variable>'
+                if packet[:4] == b'@dir' and 'SESS' in fields: fields['SESS'] = '<variable>'
                 out.append((packet[:8],fields))
         return out
     def close(self): self.s.close()
@@ -111,19 +112,25 @@ def scenario():
     # Synthetic two-player lobby flow. Same source IP on macOS so no extra
     # loopback aliases required; unique names and MADDR still verify protocol.
     trace=[]
+    binary7 = ''.join(chr(i) for i in range(128,256))
+    session = '$' + binary7
     d=Client(30960); trace += [('directory', d.ask('@dir',PROD='nfs-xbox-2006'))]; d.close()
     x,y=Client(10901),Client(10901)
     try:
         for c,name in [(x,'iPhone'),(y,'Android')]:
-            for cmd,fields in [('skey',{}),('auth',dict(NAME=name,MADDR='$'+name)),('pers',dict(PERS=name)),('sele',dict(MYGAME=1,USERSETS=1)),('auxi',dict(TEXT='SCF%3d0%0aV%3d0%0a'))]:
+            for cmd,fields in [('skey',{}),('auth',dict(NAME=name,MADDR='$'+name+'^'+binary7)),('pers',dict(PERS=name)),('sele',dict(MYGAME=1,USERSETS=1)),('auxi',dict(TEXT='SCF%3d0%0aV%3d0%0a'))]:
                 trace.append((name+cmd,c.ask(cmd,**fields)))
         trace.append(('room',x.ask('ucre',NAME='lan-test',TYPE=0,SIZE=4,PARAMS='M=2')))
-        trace.append(('game',x.ask('gcre',NAME='lan-test',MINSIZE=2,MAXSIZE=4,PARAMS='M=2',PLATPARAMS='$0102')))
-        trace.append(('session',x.ask('gset',SESS='$12345678')))
+        trace.append(('game',x.ask('gcre',NAME='lan-test',MINSIZE=2,MAXSIZE=4,PARAMS='M=2',PLATPARAMS=binary7)))
+        trace.append(('session',x.ask('gset',SESS=session)))
         trace.append(('browse',y.ask('usea')))
         trace.append(('subscribe',y.ask('sele',USERSET0='lan-test')))
         trace.append(('joinroom',y.ask('ujoi',NAME='lan-test')))
-        trace.append(('joingame',y.ask('gjoi',NAME='lan-test')))
+        joined=y.ask('gjoi',NAME='lan-test')
+        record=next(f for cmd,f in joined if cmd[:4]==b'gjoi')
+        assert record['SESS']==session and record['PLATPARAMS']==binary7
+        assert record['MADDR0']=='$iPhone^'+binary7 and record['MADDR1']=='$Android^'+binary7
+        trace.append(('joingame',joined))
         trace.append(('hostupdates',x.read()))
         trace.append(('start',x.ask('gsta')))
         trace.append(('peerstart',y.read()))
@@ -176,4 +183,4 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-lan-test-') as path:
     assert len(actual)==len(expected)
     assert any(cmd[:4]==b'gjoi' and f.get('COUNT')=='2' for step,msg in actual for cmd,f in msg)
     assert any(cmd[:4]==b'+ses' for step,msg in actual for cmd,f in msg)
-    print('Lobby: C++ vs unmodified Python parity,',len(actual),'two-player stages; create/join/start/leave, gamertag and discovery passed')
+    print('Lobby: C++ vs unmodified Python parity,',len(actual),'two-player stages; binary7 session/address preservation, create/join/start/leave, gamertag and discovery passed')

@@ -2,6 +2,8 @@
 #include "lan_session.h"
 #include "red_lan.h"
 #include "servidor_ea.h"
+#include <thread>
+#include <chrono>
 
 namespace nfsmw::lan {
 Prepared Prepare(const std::string& mode, const std::string& server,
@@ -26,16 +28,28 @@ Prepared Prepare(const std::string& mode, const std::string& server,
                                  : "Enter the LAN server's IPv4 address or local hostname.";
     return result;
   }
+  if (!result.hosting && result.ip == red::IpLocal()) {
+    result.error = "That is this device's address. Choose Host here, or join the address shown on the OTHER device.";
+    return result;
+  }
   if (result.hosting) {
     std::error_code ec;
     std::filesystem::create_directories(docs / "data/lan_server", ec);
     if (ec) { result.error = "Cannot create the LAN server's data folder: " + ec.message(); return result; }
     std::filesystem::create_directories(docs / "logs", ec);
-    if (!servidor::Arrancar((docs / "data/lan_server").string(), (docs / "logs").string(),
-                           [] {}, [gamertag] { return red::GamertagEfectivo(gamertag); }, &result.error)) {
+    bool started = false;
+    // Upstream stops its listener threads at their next 500 ms poll. Switching
+    // Host/Join must allow those sockets to close before rebinding the ports.
+    for (int attempt = 0; attempt < 8 && !started; ++attempt) {
+      if (attempt) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      started = servidor::Arrancar((docs / "data/lan_server").string(), (docs / "logs").string(),
+          [] {}, [gamertag] { return red::GamertagEfectivo(gamertag); }, &result.error);
+    }
+    if (!started) {
       result.error = "Cannot start the LAN server: " + result.error;
       return result;
     }
+    result.error.clear();
   } else {
     servidor::Parar();
   }

@@ -171,6 +171,7 @@ add_executable(nfsmw MACOSX_BUNDLE
     src/multiplayer/red_lan.cpp
     src/multiplayer/servidor_ea.cpp
     src/multiplayer/lan_session.cpp
+    src/multiplayer/lan_setup.mm
     src/boot_trace.cpp
     src/probe.cpp
     src/probe_apple.mm

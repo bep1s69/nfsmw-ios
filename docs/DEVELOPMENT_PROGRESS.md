@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan, LAN preview1): tried both hosting roles without managing
+  to play; setup described as clunky and extremely unintuitive. Improve the
+  Host/Join flow with visible shared-lobby state and explicit race-role guidance;
+  do not treat the supplied logs as proof of peer network failure or success.
+
 - October 31 (Stefan, multiplayer implementation): approved starting LAN play for
   **iOS↔iOS and iOS↔Android**. PC cross-play waits until those work. Rename branch
   to `multiplayer` (local only); latest controls/test11 is the starting baseline.
@@ -195,15 +200,24 @@ Host checks (local listener permission required):
 python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk --reference-server /private/tmp/nfsmw-server-lan-research
 python3 tools/ios/test_multiplayer_transport.py --sdk /private/tmp/nfsmw-multiplayer-sdk
 python3 tools/ios/test_menu_touch.py
+python3 tools/ios/test_lan_setup.py
 ```
 
 Reference server must be the pinned unchanged upstream tree in TECHNICAL.
-Game tab → LAN multiplayer (preview): mode `off` (default), `join`, `host`;
+Preview2 launcher flow is Game → Host or join a game: choose Host on one
+phone and Join on the others, discover/select the remote host, then Launch game.
+The ordinary launcher Play button clears LAN mode and starts single-player.
+Names default to iPhone/iPad plus local IP suffix; saved valid names retained.
+Back cancels setup and stops this device's host. Setup logs use [lan-setup] in
+boot.txt. UI discovery calls upstream BuscarServidores; broadcasts plus unicast
+fallback for /24..30, ignores own addresses, manual entry available. iOS/LiveContainer
+network permissions still apply; no multicast entitlement is assumed.
+Internal mode `off` (default), `join`, `host`;
 `lan_server` IPv4/hostname and `lan_gamertag` (empty uses User). Preflight checks
 TCP10902; duplicate names/unreachable servers stop launch with an error. Host
 shows its address before game launch; use Xbox Live → Quick Match. Keep host
 foreground. Host stats in Documents/data/lan_server; log logs/servidor_lan.log.
-No discovery UI/background audio workaround added. iOS local-network prompt
+No background audio workaround added; discovery UI added in preview2. iOS local-network prompt
 uses the added usage description; LiveContainer's permissions govern its process.
 Settings map to upstream `red_lan`, `red_live`, `grant_user_privileges`,
 `red_dns`, `red_ip`, with network diagnostics `red_registro=true` in preview.
@@ -260,6 +274,39 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: multiplayer preview2 guided setup ready; preview1 workflow failed.**
+  Six supplied files archived under Debug/31 October2026 (TECHNICAL hashes/paths).
+  Current game launches route EA to their own device (.150/.205), server logs
+  only have their own client, all rooms COUNT1; zero ujoi/gjoi/gsta/COUNT2. Last
+  .205 boot stops at launcher after17:07:53. No successful shared lobby/race,
+  remote join or peer-transport test established; attempted preflight failure
+  cannot be reconstructed because preview1 did not log it. Older log prefixes
+  are historical; don't aggregate them as current gameplay failures.
+  New Game→Host or join a game screen: distinct Host/Join, default device name,
+  live status, nearby-host search plus manual fallback, visible Launch game,
+  explicit host-creates/guest-joins in-game instructions. Host can wait in setup
+  while the other discovers it. Own-IP Join rejected; normal Play always
+  single-player; back cancels/stops setup, generations ignore stale callbacks.
+  Discovery uses upstream protocol with nonblocking send; no restricted
+  entitlement added, /24-or-smaller unicast fallback/manual IP remain important
+  under LiveContainer. Listener rebind allows bounded500ms teardown window.
+  SDK network/race code unchanged.25-stage host parity now verifies full
+  high-byte MADDR/SESS/PLATPARAMS, preflight boundary/retry fixtures and existing
+  menu tests pass. Two builds, ZIP/signature/104shaders checks pass. All shaders
+  and GPU dylib identicalpreview1; runtime differs only in10cstring bytes among
+  file-backed Mach-O sections after debug-overlay version-stamp rebuild.
+  Artifact `ios/build/NFSMW-multiplayer-preview2-guided-setup.ipa`,30378275bytes,
+  SHA256 `2dae71db4824e5cacdd799c16cf5d00e343cf233080e2a0ec43bed087c34186f`,
+  UUID `792F461C-B08F-3AB5-A784-F89CFC9321E4`,bundle0.5.1/build9.
+  Same-byte copy in main's ignoredios/build; main source/SDK/build unchanged.
+  **Next:** install preview2 on both devices; one Host, other Join→tap that
+  host (or its IP), confirm remote address then Launch game on both. In-game
+  host Xbox Live→Quick Match→Create Game; guest Quick Match→join SAME race.
+  Send both complete logs/boot/server logs if blocked; boot now records setup
+  role/endpoint/search/failures. Actual discovery UI, shared room and full race
+  remain device-unvalidated. Keep apps foreground. iOS first, Android USA later;
+  PC remains deferred. No push/merge/tag/release; main controls remain separate.
 
 - **October 31: multiplayer preview1 ready for device tests, local branch `multiplayer`.**
   Latest test11 controls/main19177b6 merged as baseline; controls sources remain

@@ -2,6 +2,12 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Clearer multiplayer setup.** A dedicated Host/Join screen finds nearby
+  hosts, shows which lobby you are connected to, chooses a player name and
+  explains who creates the race. Joining this device's own address is blocked.
+  Ordinary Play always starts single-player. Uses victorgbd's existing LAN
+  discovery and lobby protocol; device testing of this flow is pending.
+
 - **LAN multiplayer preview.** Adds hosting and joining for iPhone/iPad play and
   Android compatibility testing. Based directly on [victorgbd's Android LAN
   implementation](https://github.com/victorgbd/NFSMW-Recompiled-Mobile) and

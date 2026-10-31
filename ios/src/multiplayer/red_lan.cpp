@@ -227,6 +227,7 @@ std::optional<std::vector<Encontrado>> BuscarServidores() {
   std::vector<Encontrado> encontrados;
   const int s = socket(AF_INET, SOCK_DGRAM, 0);
   if (s < 0) return encontrados;
+  fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK);
   int uno = 1;
   setsockopt(s, SOL_SOCKET, SO_BROADCAST, &uno, sizeof(uno));
   int bufer = BUFER_ENVIO;
