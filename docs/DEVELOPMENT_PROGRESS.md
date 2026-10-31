@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October31 (Stefan, after mobile device tests): explicitly approved investigating
+  PC cross-play now with remaining usage; this supersedes earlier PC hold for
+  this investigation. Keep everything on local multiplayer, preserve mobile
+  success and separate controls release. Friend Motorola Edge30Fusion, Android14
+  per recollection, Android/data denied; further Android testing on own Galaxy
+  S21+ later. User subsequently supplied original server.dll/server.cfg into
+  PC Game Files. No push/merge/release authorization.
+
 - October31 (Stefan, preview3): iPhonehosts; iPadcannotfindit bothinQuickMatch
   andwhilehostwaitsinlauncher. SameWi-Fi permitsdevicecommunication peruser;
   LocalNetworkaccess enabledonBOTH devices. Treat these as confirmed user
@@ -302,6 +310,32 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October31 PC investigation: original server accepts mobile-style login.**
+  User supplied server.dll(380928bytes)/server.cfg(1462bytes). Original DLL
+  starts in isolated temporary CrossOver bottle using own bounded30s PE harness;
+  binds observedMac192.168.1.152:9900. Actual @dir accepts PC and Xbox identities;
+  complete Xbox-style auth(GTAG/XUID/NETV0/CLST192641) and persona accepted.
+  Earlier authmiss was synthetic probe missingVERS, not incompatibility proof.
+  Graphical speed.exe launch failed display-mode setup/exit5 in CrossOver;
+  no PC racer or actual PC/mobile race tested. PC NETV20 vsXbox0 remains a
+  compatibility question, not a proven blocker after directory/auth success.
+  Added standalone Python pc_lan_probe.py, pc_lan_server_harness.py and explicit
+  pc_lan_bridge.py. Bridge only forwards mobile30960 directory to original PC
+ 9900, launcher discovery/preflight10902; unchanged directory sends lobby direct
+  to PC9900. NO race/roster/content/version translation and no playable-host
+  claim. Name holds cover bridge clients only; choose distinct PC/mobile names.
+  Five host boundary tests pass; actual DLL relay/preflight/discovery verified.
+  No new IPA/SDK/mobile behavior changes. Protocol source credits in scripts/
+  TECHNICAL; copied proprietary files remain /tmp ignored, never committed.
+  **Next:** native Windows PC game hosting real LAN room, run bridge on PC,
+  phoneJoin bridge address, test actual lobby visibility/join, then CommUDP
+  handshake and race payloads. If no room, capture PC/mobile search-version/
+  session metadata before patching; common directory/login is not cross-play.
+  Commands below; logs archived Debug/31 October2026/nfsmw-pc-*. Tests stopped
+  after bounded30s/15s. Temporary bottle/gamecopy retained for reproduction.
+  Outstanding Android Wi-Fi and Android-only missing-name defects retained;
+  user will test S21+ later. Main controls/sharedSDK untouched/no push.
 
 - **October31 Android Wi-Fi host evidence received/archived:** host205 serves
   its own directory/login twice19:05/19:06; UDP discovery requests from133 at
@@ -2765,3 +2799,40 @@ for just one tiny change, no push/release or next source approval.
 October31 interface check command (host only; synthetic interface inventory,
 actual selector): `python3 tools/ios/test_lan_interface.py`. No runtime flag;
 hosting prefers active private hotspot bridge, falls back to en0 Wi-Fi.
+
+
+### Experimental original-PC LAN investigation (multiplayer only)
+
+These are diagnostic/experimental tools, not accepted PC cross-play. Requires
+original Windows game hosting a LAN room and server.dll/server.cfg. On the PC
+with Python3, run from this checkout (replace192.168.1.10 with actualPCIP):
+
+```sh
+python tools/ios/pc_lan_probe.py --audit "C:/Games/Most Wanted"
+python tools/ios/pc_lan_probe.py --directory 192.168.1.10 --profile xbox
+python tools/ios/pc_lan_bridge.py --bind 192.168.1.10 --pc-host 192.168.1.10 --seconds 600
+```
+
+Phone launcher Join that PCIP, distinct name, then XboxLive/QuickMatch. Keep
+native PC LAN host/game active. Bridge exits after600s, Ctrl-C stops earlier.
+PC directory9900 is untouched; bridge usesTCP30960/TCP+UDP10902 on --bind only.
+Phone lobby connects DIRECTLY to originalPC9900. Bridge preflight only verifies
+host directory health and reserves names among bridge clients; cannot detect
+names of clients that bypass bridge. Use unique names. No packet injection or
+race translation. Preserve both logs/capture if lobby/race fails; do not expose
+these services publicly. No compatibility promise based on a visible lobby.
+
+Host checks:
+`PYTHONPYCACHEPREFIX=/private/tmp/nfsmw-pc-python-cache python3 tools/ios/test_pc_lan_probe.py`.
+Passive originalPC discovery capture (one bounded60s maximum):
+`python tools/ios/pc_lan_probe.py --listen 30` listens UDP9999, prints validated
+384-byte gEA announcements, does not broadcast a fabricated host.
+
+Mac original-DLL-only test reproduction (no PC racer): create disposable
+CrossOver bottle `/private/tmp/nfsmw-pc-crossplay-bottle` with cxbottle --create
+--template win10_64; APFS clone original folder to /private/tmp gamecopy; build
+own PE with `python3 tools/ios/pc_lan_server_harness.py --dll /private/tmp/nfsmw-pc-crossplay-game/server.dll --output /private/tmp/nfsmw-pc-crossplay-game/pc_server_probe.exe --seconds 30`.
+Run CrossOver wine --bottle thattemporarypath --no-gui --workdir gamecopypath
+pc_server_probe.exe. Needs copied server.cfg in working directory. Probe actual
+bindIP from Wine log (not127.0.0.1: DLL may bind LAN only). All source game files
+read-only; don't repurpose existing BeamNG bottle. No system settings changes.

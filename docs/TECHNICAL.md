@@ -13220,3 +13220,134 @@ No Android debug APK built/installed; ask for available file only, not invent
 release logging switch. Exact friend's build remains unknown beyond "latest".
 Documentation only; no new tests/build/code or claimed fix, local multiplayer,
 main controls/sharedSDK untouched, pre-existing main checkpoint/HANDOFF preserved.
+
+## October31 — original-PC LAN feasibility authorized; real DLL directory/login tested
+
+Stefan asks PC cross-play work now using remaining usage; supersedes earlier
+PC hold, not a push/merge/release approval. Android follow-up deferred to his
+old GalaxyS21+ later. Friend MotorolaEdge30Fusion/Android14 per recollection,
+Android/data access denied. Official Android Storage Access Framework docs
+exclude Android/data from ordinary file selection since Android11; no bypass
+or guessed root procedure attempted. Ordinary victorgbd release may not emit
+logs anyway (previous entry). Android roster/Wi-Fi bugs remain open.
+
+PC originals at `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files`:
+speed.exe6029312bytes, SHA25680774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c,
+x86PE32, exactpatchversion still not independently established. Initially
+server.dll/server.cfg absent; user pasted them into same folder, read-only now:
+server.dll380928bytes SHA256c4fdd0e9e779be7f4be7728b03339eda4fd27248ceb9d2c640403b8fc90587ff;
+server.cfg1462bytes SHA256b91b1c448d189db45437a165dc41a1511057a0525b8ad31780b9c5ff75b44a7c.
+Audit script observes both now present. DLL exports IsServerRunning RVA10B0,
+StartServer15B0, StopServer1000. cfg LAN_THROTTLE30/PINGTIME20/PINGWAIT30,
+ADDR uses original %%bind expression. No edits to originals.
+
+Primary reverse-engineering sources cloned read-only snapshots into /private/tmp:
+- OhhhThatVarun/nfsmw-lan-protocol dd2eb3329566f3b0c1e11e3e07a0a26b14da0487,
+  MIT, Discovery.md/Authentication.md/EaEncode.go. Describes384byte gEA announcement
+  UDP9999, PC server TCP9900, normal12byte EA frames, PC identity NETV20/
+  CLST194010/productnfs-pc-2006 vs mobileNETV0/CLST192641/nfs-xbox-2006. Text's
+  variable-length-prefix explanation is imprecise: actual frame has32bit BE
+  total length atoffset8, as both our actualDLL test and existing mobile prove.
+  Declaration difference alone does NOT prove race incompatibility.
+- codepdbh/nfsmwpc-recompiled 12bdadd5d6b0fe133e9fa494bc749402246249df;
+  source describes originalserver.dll needed for host, has Win32 socket shims.
+  No code imported from this implementation. Secondary project memory notes
+  s-b-repo network subsystem used as leads only, not assumed correct. Actual
+  suppliedexe disassembly confirms host/client global9B416C and network setup
+ 7A15D0. Game741E20 loads server, resolves3exports; calls StartServer with
+  four cdecl arguments, second boolean from649F00, last2null. DLL last2 are
+  optionalcallback/context (conditionalindirectcalls observed). Not evidence of
+  complete PC/mobile race serialization equivalence.
+
+Runtime isolation and negative result:
+- CrossOver installed, only existing bottleBeamNG left untouched. Created
+  /private/tmp/nfsmw-pc-crossplay-bottle using cxbottle --create --template
+  win10_64 (exit0). APFS `cp -cR` original2.8G folder to
+  /private/tmp/nfsmw-pc-crossplay-game exit0; test writes only copy/bottle.
+- Ran copied speed.exe via CrossOver wine --bottle temp --no-gui --workdir
+  copy --debugmsg+winsock. Wine logs display-mode change errors(-2), no usable
+  gameUI reached; process eventually exit5. A scoped WINEPREFIX wineserver-k
+  attempt exit1, so do not claim it was independently verified as stop reason.
+  CUA getState/getApp(CrossOver) exposed existing BeamNG/home only, no PC game
+  controls used. CrossOver app was opened; no existingbottle/settings modified.
+- Built own minimal2560byte PE32 harness (no proprietarybinary embedded),
+  loads copied server.dll, calls StartServer('PCprobe',0,0,0), sleeps30s,
+  calls StopServer, exits. Reproducible tracked pc_lan_server_harness.py.
+  Actual DLL started, loadedcfg and bound192.168.1.152:9900, wrote its normal
+  server logs. This is Mac's observed CURRENTbindIP; don't reuse old207.
+  Initial loopback127.0.0.1 probe refused because serverboundLANonly, not
+  proof DLL failed. Reprobe152 succeeds. Eachharness bounded30s/normalshutdown.
+
+Actual originalDLL protocol results:
+1. PC-style @tic/@dir accepted: ADDR192.168.1.152 PORT9900 plusSESS/MASK.
+2. Xbox-style @dir also accepted (NETV0/CLST192641/productnfs-xbox-2006).
+3. Main-session opening addr/skey/news returns~png, skey and newsbadc.
+4. First synthetic authmiss, then persmaut: probes omittedVERS, and server
+   explicitly logs `auth missing VERS`. Retain as negative fixture failure,
+   NOT a real mobile incompatibility. Later full captured-style mobile fields
+   includeVERS/SLUS/SKU/SDKVERS/BUILDDATE/GTAG/XUID/PUID/MAC and emptyPASS.
+5. Complete mobile auth ACCEPTED, no NAMEalias required: responseNAME=IOSProbe,
+   GTAG/PERSONAS=IOSProbe, XUID=$00090000c0a80198, TOS1 SHARE1 ADDR152. Another
+   test with extraPCNAME/REGKEY also succeeds; personaPERSIOSProbe succeeds with
+   NAME/PERS/LOCenUS/MA/A/LA. No password bypass patched; original LANserver
+   behavior in isolated disposable session. No gameplayer/race was impersonated
+   to another person's running server. No PC room/search/race validated yet.
+
+Added independent experimental tools (multiplayer only, no newIPA/SDK changes):
+- pc_lan_probe.py --audit PE/hash/hostfiles, --listen1..60 parses passive native
+  PC announcements, --directory IPv4 [--profilepc|xbox] validates actual frame.
+- pc_lan_server_harness.py builds bounded1..60s own PE, imports onlyKernel32
+  LoadLibraryA/GetProcAddress/Sleep/ExitProcess; objdump verifies PE/imports.
+- pc_lan_bridge.py explicit --bind/--pc-host/--seconds1..3600. Relays ONLY EA
+  initialdirectory from mobileTCP30960 to nativePC9900 unchanged. Native response
+  sends realgame's lobby DIRECTLYtoPC9900. LauncherUDPdiscovery/TCPgamertag10902
+  use victorgbd protocol; health-check originalPCdirectory before preflight.
+  Name reservations coverbridgeclients only, unknownPCplayers require distinct
+  names. PLAYERScount-1 explicitlyunknown. Does not relay/translate race, roster,
+  versions, sessions, encryption or content. READY/preflight is not cross-play.
+  Startupchecksbackend beforeopeninglisteners; all shutdown whenboundedtestends.
+
+Verification:
+- `PYTHONPYCACHEPREFIX=/private/tmp/nfsmw-pc-python-cache python3
+  tools/ios/test_pc_lan_probe.py`:5tests exit0 in0.006s. Announcementvalidation,
+  rejectedwronggame/size, fragmented12byteframing, invalidlengths, byte-exact
+  PC/Xbox directory relay, rejectauthinrelay. Synthetic peers do not testgame.
+- Initial plain py_compile failed permission to defaultApplePythoncache outside
+  writable roots; use explicittmpPYCACHEPREFIX (tests subsequently import/run).
+- ActualDLL final30s run plus15sbridge192.168.1.152:30960: Xboxdirectory request
+  returns unchanged originalADDR152/PORT9900/SESS1793467864/MASK. Gamertag
+  preflight returnsFREE afterbackendprobe; UDP returnsNFSMW_SERVER, NAMEPC LAN
+  experimental, PLAYERS-1. Bridge transcript exit0 and originalDLLtest exit0;
+  no remote phone or Windows racer joined. This validates control-path tooling,
+  not PC/mobile room or racing. Boundedserver/bridge processes ended; no service
+  installed. Temporarybottle/gamecopy retained intentionally for reproduction.
+
+Evidence copied preservingfiles under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- nfsmw-pc-launch.log289bytes SHA25623bc0e4a3f54244ba8ed537d9c6a6d5fe4273e27bec236d1ebdc0cad50df9b68;
+  nfsmw-pc-crossover.log2057951bytes SHA256b9d6fc2a61e191186f4fa0415241eca146ab38beb27603722d6977e5fb3e314c.
+- nfsmw-pc-bottle-create.log empty/exit0; nfsmw-pc-server-harness.log1983bytes
+  SHA256de436e112f7fa22ae7265420b5ee60b049ee55b08f1f68f7f664e7b301bcd88c.
+- nfsmw-pc-server-harness2.log1987bytes SHA256f2ca1de988f942f033b4be05ba6956749dc267b64a1e0c36a2340f7572ea5477.
+- nfsmw-pc-server-harness3.log2124bytes SHA256faa91c7dc51f048820cef0a30132a89277c07bc6ca3dfe88c8730fac6fdd49d0.
+- nfsmw-pc-server-harness4.log2806bytes SHA256c3130ad2e1d90d047192d704b7f795ed8c997add92e1aa99d1a68d7abf37f323
+  includes actualacceptedauth/persona.
+- nfsmw-pc-server-harness5.log1987bytes SHA256147217e595cd76a45a6254fc7c16501178db43cb18286bfeee32855551282fe7;
+  nfsmw-pc-bridge-live-test.log523bytes SHA256e4f74e2f5d571e12ae0323c8bf2c65bdc4f2174ed97abb64b07982fda034a209.
+- nfsmw-pc-server-calls.txt12304bytes SHA256fe75b99523f49acd0e72ab78f5cb20afc6872d0c4ae4342c62f8088e7ad734bb
+  proprietary disassembly keptlocal/ignored, not tracked. Originalwineharness
+  lowleveltrace files1..5 remain/private/tmp; essentials abovearchived.
+
+Next: native Windows PCgame hostsrealLANroom +bridge, mobileJoin, compare
+actualroom/searchclusters/versions and thenCommUDPpacket/racepayload semantics.
+Ifroommissing, inspect searchfilters first; ifracefails inspecthandshake/content
+IDs/serialization. No forcedversionpatch, fakepeer or speculativegamebypass.
+Publicsource supportsinvestigation but no guarantee of directPCcrossplay.
+Rules/checkpoint/backlog advanced; main19177b6pre-existingmodifiedcheckpoint/
+HANDOFF preserved, mobileworkingcode/sharedSDK/controlartifacts untouched.
+No push/merge/release. Standaloneexperimentzip identity recorded below.
+
+Standalone handoff `ios/build/NFSMW-PC-LAN-experiment.zip` (worktree and main
+ignored build folder),5348bytes SHA2562818da4dd3ee4742eac3c6906afe019379704540fbaf8d41dafa8e066c6b6fe5.
+Contains onlytwo Python scripts and explicitlyexperimental instructions, no
+proprietary files. ZIPCRC passes. Existing mobileIPA artifacts not overwritten.
