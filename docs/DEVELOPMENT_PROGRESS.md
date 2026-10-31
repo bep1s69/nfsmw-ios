@@ -315,6 +315,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+**Next-session handoff (Stefan, November 1):** Stop testing for now; Stefan is
+leaving his friend's house and saving usage. Resume validation next session.
+Claude should work in `/private/tmp/nfsmw-ios-multiplayer` on local branch
+`multiplayer`, read this checkpoint, BACKLOG and latest TECHNICAL entries.
+Preview12 is the confirmed PC-hosted gameplay baseline; the session ended by
+intentional quit. Preserve it. Next device tests are finish/results/rematch,
+then broader car/track/mobile checks. No release, push or merge authorized.
+Main controls checkout and its pre-existing edits stay separate. All source
+and handoff records are committed on the shared repository's local branch;
+these multiplayer changes are not on GitHub. Isolated SDK/build recreation
+commands and artifact identities are recorded in this file and TECHNICAL.
+
 - **November1 preview12: first PC-hosted iOS gameplay CONFIRMED; intentional quit.**
   Stefan reports itworked, thenclarifieslogsendedbecausehequit, NOcrash.
   NativePCendpoint192.168.1.133:9900 (newaddress, don'treuse202), hostNAME,
