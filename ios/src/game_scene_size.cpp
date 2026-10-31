@@ -1595,9 +1595,9 @@ int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const 
 }
 std::vector<MenuNode> DialogChoices(const std::vector<MenuNode>& nodes) {
   std::vector<MenuNode> choices;
-  for (const auto& n:nodes) if (n.type==1 &&
+  for (const auto& n:nodes) if ((n.type==1 || n.type==9) &&
       (n.hash==0xB8A7C6CC || n.hash==0xB8A7C6CD || n.hash==0xB8A7C6CE) &&
-      std::abs(n.w)>40 && std::abs(n.w)<240 && std::abs(n.h)>12 && std::abs(n.h)<60)
+      std::abs(n.w)>40 && std::abs(n.w)<600 && std::abs(n.h)>12 && std::abs(n.h)<60)
     choices.push_back(n);
   return choices;
 }
@@ -1770,8 +1770,14 @@ MenuModel BuildMenuModel(std::string_view name,const std::vector<MenuNode>& node
       panel=NodeRect(n);area=std::abs(n.w*n.h);
     }
     if (area) {
-      panel.top+=35;panel.bottom-=45;
-      for (const auto& n:nodes) if (n.type==2 && panel.Contains(n.x,n.y)) {
+      // ARRAY_SCROLL_REGION is already the content viewport. Trimming it as
+      // though it were the surrounding dialog removed the selected first row.
+      if (area<1e9) {panel.top+=35;panel.bottom-=45;}
+      const bool named=std::any_of(nodes.begin(),nodes.end(),[](const MenuNode& n){
+        return n.type==2 && NamedIndex(n.hash,"OPTION_NAME_")>=0;
+      });
+      for (const auto& n:nodes) if (n.type==2 && panel.Contains(n.x,n.y) &&
+          (!named || NamedIndex(n.hash,"OPTION_NAME_")>=0)) {
         auto same=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return std::abs(i.y-n.y)<4;});
         if (same==model.items.end()) model.items.push_back({n.object,{panel.left,n.y-13,panel.right,n.y+13},panel.X(),n.y});
       }
@@ -1865,7 +1871,8 @@ int OptionArrowAt(const MenuModel& model,const std::vector<Hint>& hints,const Me
 // MENU_TOUCH_SELECTION_BEGIN
 struct ItemSelection {
   int serial=0,stable=0,moves=0;
-  uint32_t package=0,target=0,last_selected=0;
+  uint32_t package=0,target=0,last_selected=0,observed=0;
+  int focus_stable=0;
   MenuRect target_rect{0,0,0,0};
   std::chrono::steady_clock::time_point began,last_move;
   std::vector<int> path;
@@ -1921,9 +1928,22 @@ int SelectItem(const MenuModel& model,uint32_t package,int serial,const MenuItem
       return SelectChoice|item_selection.path[item_selection.step];
     }
     const auto target=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return i.key==item_selection.target;});
-    if (package!=item_selection.package || target==model.items.end() || current==model.items.end() ||
+    if (package!=item_selection.package || target==model.items.end() ||
         std::hypot(target->x-item_selection.target_rect.X(),target->y-item_selection.target_rect.Y())>16 ||
         now-item_selection.began>std::chrono::milliseconds(2800) || item_selection.moves>12) return -1;
+    // Rap Sheet fades the old/new label colors through a period with no unique
+    // white row. Keep the transaction pending through that animation; never
+    // issue another move or accept until focus is observable and stable again.
+    if (current==model.items.end()) {
+      item_selection.observed=0;item_selection.focus_stable=0;item_selection.stable=0;
+      return WaitForChoice;
+    }
+    if (model.kind==MenuLayout::RapSheet) {
+      if (item_selection.observed!=current->key) {
+        item_selection.observed=current->key;item_selection.focus_stable=1;
+      } else ++item_selection.focus_stable;
+      if (item_selection.focus_stable<2) return WaitForChoice;
+    }
     if (current->key==target->key && now-item_selection.last_move>std::chrono::milliseconds(180)) {
       if (++item_selection.stable>=2) return SelectionDone;
     } else item_selection.stable=0;
@@ -1979,8 +1999,22 @@ std::vector<MenuPackage> MenuPackages(uint8_t* base,uint32_t engine) {
   }
   return packages;
 }
-bool IsDialog(const MenuPackage& pkg) { return pkg.name=="Dialog.fng" || pkg.name=="InGameDialog.fng"; }
 // MENU_TOUCH_POPUP_BEGIN
+bool IsDialog(const MenuPackage& pkg) { return pkg.name=="Dialog.fng" || pkg.name=="InGameDialog.fng"; }
+const MenuPackage* ActiveDialog(const std::vector<MenuPackage>& packages) {
+  for (const auto& pkg:packages) if (IsDialog(pkg)) return &pkg;
+  // The memcard dialog remains underneath MC_List while choosing a profile.
+  // Its buttons must not intercept taps intended for the foreground list.
+  for (const auto& pkg:packages) if (pkg.name=="MC_List.fng") return nullptr;
+  for (const auto& pkg:packages) if (pkg.name=="MC_Main_GC.fng" &&
+      !DialogChoices(pkg.nodes).empty()) return &pkg;
+  return nullptr;
+}
+int PopupDirection(const MenuNode& from,const MenuNode& to) {
+  using namespace nfsmw::menu_touch;
+  return std::abs(to.y-from.y)>std::abs(to.x-from.x)?
+    (to.y<from.y?Up:Down):(to.x<from.x?Left:Right);
+}
 struct PopupTap {
   int serial=0,stable=0;
   uint32_t package=0,target=0,last_selected=0;
@@ -2005,7 +2039,7 @@ int PopupAction(const MenuPackage& pkg,int serial,float x,float y) {
     if (selected && selected->object!=popup.target && selected->object!=popup.last_selected &&
         now-popup.last_move>std::chrono::milliseconds(220)) {
       popup.last_selected=selected->object;popup.last_move=now;
-      return SelectChoice | (target->x<selected->x?Left:Right);
+      return SelectChoice | PopupDirection(*selected,*target);
     }
     return WaitForChoice;
   }
@@ -2017,7 +2051,7 @@ int PopupAction(const MenuPackage& pkg,int serial,float x,float y) {
   if (target->object==selected->object) return 1;
   popup={serial,0,pkg.address,target->object,selected->object,now,now};
   REXLOG_INFO("[touch-popup] select {:08X} from {:08X}",target->hash,selected->hash);
-  return SelectChoice | (target->x<selected->x?Left:Right);
+  return SelectChoice | PopupDirection(*selected,*target);
 }
 // MENU_TOUCH_POPUP_END
 }  // namespace
@@ -2025,7 +2059,12 @@ int PopupAction(const MenuPackage& pkg,int serial,float x,float y) {
 extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y) {
   const auto packages=MenuPackages(base,engine);
   using namespace nfsmw::menu_touch;
-  for (const auto& pkg:packages) if (IsDialog(pkg)) return NoDrag;
+  if (const auto* dialog=ActiveDialog(packages)) {
+    if (dialog->name!="MC_Main_GC.fng") return NoDrag;
+    const auto choices=DialogChoices(dialog->nodes);
+    for (const auto& choice:choices) if (NodeRect(choice).Contains(x,y)) return VerticalDrag;
+    return NoDrag;
+  }
   for (const auto& pkg:packages) {
     const int mode=ModelDragAt(BuildMenuModel(pkg.name,pkg.nodes,pkg.hints,pkg.frames),x,y);
     if (mode) return mode;
@@ -2041,7 +2080,7 @@ extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float 
 }
 extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,int serial) {
   const auto packages=MenuPackages(base,engine);
-  for (const auto& pkg:packages) if (IsDialog(pkg)) return PopupAction(pkg,serial,x,y);
+  if (const auto* dialog=ActiveDialog(packages)) return PopupAction(*dialog,serial,x,y);
   for (const auto& pkg:packages) if (pkg.name=="WS_MW_LS_Splash.fng" || pkg.name=="MW_LS_Splash.fng") {
     REXLOG_INFO("[touch-widget] title screen: Start");return 1<<6;
   }

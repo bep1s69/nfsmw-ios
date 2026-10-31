@@ -15,7 +15,7 @@ inline float CameraMotion(float delta,float full_scale=8.f,float minimum=.35f) {
   if (std::abs(delta)<.1f) return 0;
   return std::copysign(minimum+(1.f-minimum)*std::min(std::abs(delta)/full_scale,1.f),delta);
 }
-inline float ShowcasePan(float delta) { return -CameraMotion(delta,1.f,.8f); }
+inline float ShowcasePan(float delta) { return -CameraMotion(delta,.5f,.95f); }
 inline int BackAction(int fingers,bool enabled) { return fingers>=2&&enabled?2:0; }
 constexpr uint32_t Hash(std::string_view name) {
   uint32_t h=0xffffffffu;

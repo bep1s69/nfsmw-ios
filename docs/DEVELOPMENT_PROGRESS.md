@@ -193,6 +193,33 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: test11 alias popup/profile/Rankings selection trial ready.**
+  Test10/log28 and alias confirmation screenshot archived (TECHNICAL exact
+  paths/hashes). Log identifies profile first-row exclusion: content viewport
+  was trimmed as outer dialog; now keeps full named region and OPTION_NAME_i
+  rows. Profiles remain select-only/manual A. Rankings aborted on transient
+  unobservable focus after first move; now bounded wait through color fade,
+  two stable focus observations before next Rap Sheet move. Steady white vs
+  green color detection confirmed by runtime channels. MC_Main_GC stacked
+  BUTTON1..3 choices now supported, live Up/Down geometry and observed highlight
+  before A; covered MC_Main cannot intercept MC_List. Small showcase pan gain
+  raised0.8->0.95floor/full-scale1->0.5pt, maximum analog camera speed unchanged.
+  One initial host assertion failed due gating applied to Options too; scoped
+  stability gate to Rap Sheet. Two subsequent host runs/build/ZIP/signature
+  pass;104metallibs/2SDKdylibs identicaltest10. Final artifact:
+  `ios/build/NFSMW-0.5.2-test11-popup-profile-selection.ipa`,30185722bytes,
+  SHA256 `c328f6dcdbaebf25739b1579e163d9ef17995a44032b16596ec0f9a0712afd6d`,
+  UUID `A05B9FB0-96C2-3E84-B317-357567642887`,bundle0.5.1/build9.
+  Same bytes verified on Desktop; ignored JSON beside build, older IPAs kept.
+  **Next:** direct alias No/Yes choices, first/other profile names then manual
+  A, distant Rankings taps up/down across highlight fade, small showcase pan.
+  MC_Main live geometry and Rankings continuation remain device-pending. If
+  maximum pan is still too slow, inspect guest camera response; virtual stick
+  is already capped at1. Prior remaining menu matrix/safehouse stall/music
+  acceptance remain pending where not explicitly accepted. No SDK/timing/profile
+  edits, push/tag/release/version bump. Preserve pre-existing13-line issue11
+  checkpoint note unstaged,HANDOFF untracked and sibling SDK changes.
+
 - **October 31: test10 profile/Rap Sheet focus and showcase pan trial ready.**
   Test9/log27 archived with3screenshots (TECHNICAL paths/hashes). User confirms
   main Rap Sheet and Vehicle Database swipes; profile selection fails with

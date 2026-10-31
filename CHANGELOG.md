@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Improve popup and list taps.** Added stacked alias-confirmation choices,
+  corrected profile-row detection, and kept Rankings selection moving through
+  highlight animations. Slightly increased slow showcase pan response.
+  Device validation pending.
+
 - **Refine profile and Rap Sheet touch selection.** Improved selection detection
   and Rankings row targets; reversed showcase panning and strengthened slow
   drags. Device validation pending.

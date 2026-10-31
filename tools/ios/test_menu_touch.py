@@ -194,6 +194,21 @@ int main() {
  pm.selected=53;item_selection.last_move-=std::chrono::milliseconds(200);
  assert(SelectItem(pm,40,203,&pm.items[1])==WaitForChoice);
  assert(SelectItem(pm,40,203,&pm.items[1])==SelectionDone);
+ // Log28 profile viewport must not be trimmed: the first row is selected.
+ std::vector<MenuNode> live_profiles={{400,0,Hash("ARRAY_SCROLL_REGION"),0,1,15,-15,322,221},
+   {401,0,Hash("OPTION_NAME_1"),0,2,-131,-106,1,1},
+   {402,0,Hash("OPTION_NAME_2"),0,2,-131,-79,1,1},
+   {403,0,Hash("OPTION_NAME_3"),0,2,-131,-51,1,1},
+   {404,0,0x426C7B4D,0,2,-129,-167,1,1}};
+ auto lp=BuildMenuModel("MC_List.fng",live_profiles,{},{{0,{-139,-116,141,-96}}});
+ assert(lp.items.size()==3 && lp.selected==401);
+ assert(ItemAt(lp,0,-51)->key==403);
+ assert(SelectItem(lp,42,213,&lp.items[2])==(SelectChoice|Down));
+ lp.selected=402;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(lp,42,213,&lp.items[2])==(SelectChoice|Down));
+ lp.selected=403;item_selection.last_move-=std::chrono::milliseconds(200);
+ assert(SelectItem(lp,42,213,&lp.items[2])==WaitForChoice);
+ assert(SelectItem(lp,42,213,&lp.items[2])==SelectionDone);
  // Event grid includes the entire named viewport, including gaps between tiles.
  std::vector<MenuNode> grid={{70,0,Hash("ARRAY_SCROLL_REGION"),0,1,-135,70,180,150}};
  for (int i=0;i<4;++i) grid.push_back({uint32_t(71+i),0,Hash("EVENT_ICON_"+std::to_string(i+1)),0,1,
@@ -257,6 +272,25 @@ int main() {
  auto ranking=BuildMenuModel("RapSheetRankings.fng",ranks,{},{});
  assert(ranking.items.size()==2 && ranking.selected==0x21A45337);
  assert(ItemAt(ranking,0,-88)->key==0x21A45336);
+ // Rankings can have no unique white label during its focus fade. Continue
+ // after that gap, through multiple rows; arrival must not auto-accept.
+ ranking.items.push_back({0x21A45338,{-280,-47,280,-21},0,-34});
+ ranking.selected=ranking.items[0].key;
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==(SelectChoice|Down));
+ ranking.selected=0;
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==WaitForChoice);
+ ranking.selected=ranking.items[1].key;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==WaitForChoice);
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==(SelectChoice|Down));
+ ranking.selected=0;assert(SelectItem(ranking,62,214,&ranking.items[2])==WaitForChoice);
+ ranking.selected=ranking.items[2].key;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==WaitForChoice);
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==WaitForChoice);
+ assert(SelectItem(ranking,62,214,&ranking.items[2])==SelectionDone);
+ ranking.selected=ranking.items[0].key;
+ assert(SelectItem(ranking,62,215,&ranking.items[2])==(SelectChoice|Down));
+ ranking.selected=0;item_selection.began-=std::chrono::milliseconds(2900);
+ assert(SelectItem(ranking,62,215,&ranking.items[2])==-1); // never wait forever
  // Narrow profile focus need not contain the full-width row's horizontal center.
  auto narrow=BuildMenuModel("MC_List.fng",profiles,{},{{0,{-139,-61,-90,-41}}});
  assert(narrow.selected==51 && SelectItem(narrow,41,212,&narrow.items[0])==SelectionDone);
@@ -302,6 +336,21 @@ int main() {
  popup.last_move-=std::chrono::milliseconds(230);
  assert(PopupAction(pkg,106,167,82)==(SelectChoice|Right));
  assert(PopupAction(pkg,106,167,82)==WaitForChoice); // no repeat until focus moves
+ // Alias-load Information popup: vertically stacked 411-unit-wide buttons.
+ MenuPackage memcard{18,"MC_Main_GC.fng",{},
+   {{0x93000,0,Hash("BUTTON1"),0,1,0,63,411,32},
+    {0x94000,0,Hash("BUTTON2"),0,1,0,99,411,32}},
+   {{0,{-211,45,211,81}}}};
+ assert(DialogChoices(memcard.nodes).size()==2);
+ assert(PopupAction(memcard,110,0,99)==(SelectChoice|Down));
+ memcard.frames={{0,{-211,81,211,117}}};popup.started-=std::chrono::milliseconds(200);
+ assert(PopupAction(memcard,110,0,99)==WaitForChoice);
+ assert(PopupAction(memcard,110,0,99)==1);
+ assert(PopupAction(memcard,111,0,63)==(SelectChoice|Up));
+ std::vector<MenuPackage> stacked={memcard};
+ assert(ActiveDialog(stacked) && ActiveDialog(stacked)->address==18);
+ stacked.push_back({19,"MC_List.fng",{},{},{}});
+ assert(ActiveDialog(stacked)==nullptr); // covered memcard must not steal list taps
  puts("PASS: FE walker, row/grid selection without auto-accept, option axes/arrows, event viewport, Rap Sheet, camera motion and popup safeguards");
 }
 '''

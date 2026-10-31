@@ -12036,3 +12036,102 @@ profile origin offset and perceived camera gain remain unproven by host tests.
 No SDK/timing/profile edits or push/tag/release/version bump. Session changes
 committed locally; pre-existing13-line issue11 checkpoint note deliberately
 unstaged, HANDOFF untracked and sibling SDK modifications preserved.
+
+
+### October 31: test10/log28 popup/profile and Rankings results; test11
+
+User: tapping Yes on alias-change Information popup and profile names still
+fails, scrolling works on both; showcase pan could be slightly faster;
+Rankings direct taps advance one entry rather than reaching tapped row. Later
+screenshot identifies exact popup: loading another alias loses unsaved changes,
+No/Yes vertically stacked, No highlighted. No new image was present with the
+initial log; requested clarification and user supplied it. No new safehouse
+stall/music or blanket remaining-menu acceptance result.
+
+Archived exclusively, byte-verified under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- `nfsmw_iphone_17pm_28_052_test10_popup_profile_rankings.log`,956221bytes,
+ 5858lines,SHA256 `0b7c67dd6ec4e2c127038e67b6b5860712193c268dd8f762fb5904d336ea55cc`.
+  Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/0ED4D2A0-67EA-4B41-9F6E-4F431C2A91F0/nfsmw.log`.
+- `nfsmw_iphone_17pm_28_alias_confirmation.png`,1964829bytes,
+  SHA256 `a6317212cea02185fa16e050aa353d74294b65dca6b8564817776fd9c189aeb8`.
+  Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-97a796e1-b5ab-4277-baa7-6e2c34957ab8.png`.
+One launch13:14:02.161,last13:18:04.584. Test10/iPhone17PM from ongoing test
+context, OS not independently established. Startup printed cached00:02:42
+unit stamp, not whole-IPA identity. Screenshot cap40. Empty-space accept OFF
+explicitly appears in ignored-tap logs. No new arguments requested for test11.
+
+Measured evidence and diagnosis:
+- Profile ARRAY_SCROLL_REGION(D276BA2F) at15,-15,size322x221 gives content
+  bounds[-146,-125.5,176,95.5]. First OPTION_NAME_1(B2980BA8),objectBE8FA900,
+  at-131,-106; selected frame[-139,-116..141,-96] directly surrounds it.
+  Existing unconditional top+35/bottom-45 trimming excluded that first row.
+  All repeated profile tap records selected00000000 consequently cancel.
+  Confirmed B2980BA8..AF are Hash(OPTION_NAME_1..8), not unknown label names.
+- Rankings13:17:07.515 target21A4533C from21A45336 cancels13:17:07.815;
+  later transactions repeatedly cancel75ms after request, yet next tap sees
+  selection advanced one entry. Stable label positions remain, e.g target
+  at-277.5,65. Runtime selected label255/255/255/255 vs unselected72/230/167/255
+  confirms test10 FEColor interpretation and steady-state focus detection.
+  Inference: highlight color transition temporarily removes unique white
+  focus; SelectItem cancelled immediately on current==end. Missing focus is
+  now a bounded wait, rather than concluding the target disappeared. This
+  inference still needs the on-device multi-step result.
+- Rap Sheet main targetE6362290 andE6362292 transactions complete selected/no-A
+  in log; no further main-row issue reported. Preserve working scrolling.
+- Alias popup belongs to MC_Main_GC.fng rather than Dialog/InGameDialog.
+  Original guest82290910 uses table820627C0 containing BUTTON1..3 hashes
+  B8A7C6CC/CD/CE; associated label hashesF9363F30/FB8B67D1/FDE09072.
+ 82290C70 configures two buttons and selectsBUTTON1 for this type of memcard
+  prompt. Screenshot supports stacked wide buttons (~411guest units), beyond
+  old240width bound; actual live MC_Main dimensions not captured by log28.
+
+Changes/defaults:
+- Profile named content viewport is no longer inset. Prefer OPTION_NAME_i
+  rows when present, excluding unrelated header/footer strings; fallback
+  unnamed outer-panel trimming retained. First row/focus now included. Taps
+  still select only and require manual A; no direct save loading/callback.
+- Non-grid selection waits through absent current focus within existing2.8s/
+ 12move limit; Rap Sheet additionally requires two consecutive observations of
+  the same focus before advancing. Changed package/missing target/moved target
+  still cancel; no auto-A on arrival, events grid path unchanged. UI3s deadline
+  remains. Initial tap with no identifiable current focus still ignores safely.
+- ActiveDialog handles MC_Main_GC BUTTON1..3 in addition to original dialogs.
+  Choice image types1/9, width40..600,height12..60. Navigation direction derives
+  from live dominant displacement, so stacked choices sendUp/Down; existing
+  horizontal choices keepLeft/Right. Popup A only after requested highlight
+  observed twice past180ms;850ms popup bound unchanged. MC_Main cannot steal
+  taps while MC_List is present above it. Vertical swiping on memcard choice
+  buttons retained; ordinary horizontal-dialog drag policy unchanged.
+- Showcase small-motion pan floor0.95(previous0.8),saturates0.5pt(previous1).
+  Reversed direction/start0.5pt/pulse50ms/pinch unchanged. This strengthens small
+  movements only: full right-stick camera speed is already saturated and is
+  not raised. If a faster maximum is still wanted, investigate actual guest
+  camera response rather than pushing virtual axes outside[-1,1]. No new flag.
+
+Validation:
+- First `python3 tools/ios/test_menu_touch.py` exit1 at options transaction
+  assertion expecting second Down: requiring new two-observation gating on
+  every row unnecessarily altered established Options behavior. Gating scoped
+  to Rap Sheet; subsequent two runs exit0. Tests exercise actual source:
+  exact log28 viewport/first-row/frame and3-profile path with manual A;
+  Rankings missing-focus fades between multiple moves/arrival without A and
+  timeout; stacked wide Yes/No choice, Up/Down, verified highlight before A;
+  MC_List foreground precedence. Existing option/event/grid/popup tests pass.
+- `cmake --build --preset ios --target ipa -j 6` exit0, log
+  `/tmp/nfsmw-052-menu11-build.log`. ZIP.testzip=None, codesign --verify --deep
+  --strict exit0, dwarfdump --uuid exit0.104metallibs and2SDKdylibs identical
+  to test10. `git diff --check` exit0. No actual iPhone validation performed.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test11-popup-profile-selection.ipa`,
+30185722bytes,SHA256 `c328f6dcdbaebf25739b1579e163d9ef17995a44032b16596ec0f9a0712afd6d`,
+UUID `A05B9FB0-96C2-3E84-B317-357567642887`,bundle0.5.1/build9.
+Exclusive-created byte/hash-verified Desktop copy at
+`/Users/bep1s/Desktop/NFSMW-0.5.2-test11-popup-profile-selection.ipa`;
+ignored JSON beside build, older IPAs retained. Next test alias No/Yes direct
+choice, first/other profile names then manual A, distant Rankings target taps
+both directions, small pan response. Actual MC_Main geometry/focus and animated
+Rankings continuation remain device-pending; preserve scope and existing menu
+regressions. No SDK/timing/profile changes, push/tag/release/version bump.
+Session changes committed locally; pre-existing13-line issue11 note unstaged,
+HANDOFF untracked and sibling SDK changes preserved.
