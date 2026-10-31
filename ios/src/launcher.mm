@@ -8,8 +8,6 @@
 //   - The native engine's options (render resolution, fps limit, shadows,
 //     reflections, filters, AAudio): that engine is not part of the iOS port.
 //   - App language: the iOS app is English only.
-//   - The gamertag: with a custom one the game asked to sign in to Xbox Live,
-//     and saying yes froze it. The SDK's default profile stays.
 //   - Tilt steering and the touch layout editor: tilt only acts while driving,
 //     and only the native engine can tell when that is (on Android's Xenos
 //     engine it never turns on); both come later.
@@ -33,6 +31,8 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "multiplayer/lan_session.h"
+#include "multiplayer/red_lan.h"
 #include "hud_editor.h"
 #include "touch_controls.h"
 #include "save_manager.h"
@@ -286,6 +286,14 @@ const std::vector<Section>& Sections() {
             @"Your careers with their progress; backups, restore, export and import; and a copy "
             @"in an iCloud Drive folder, kept in sync between your devices.",
             @""},
+       }, kTabGame},
+      {@"LAN multiplayer (preview)", @"Play with iPhones, iPads and the Android port on the same Wi-Fi. "
+       @"Use Xbox Live → Quick Match in the game. Keep the host app open; each player needs a different gamertag.",
+       {
+           {@"lan_mode", Type::kChoice, @"LAN mode", @"Applies when launching the game.", @"off",
+            {{@"Off", @"off"}, {@"Join a server", @"join"}, {@"Host on this device", @"host"}}},
+           {@"lan_server", Type::kText, @"Server address", @"For Join: the Android/iOS host or Python lobby server's local address.", @""},
+           {@"lan_gamertag", Type::kText, @"LAN gamertag", @"A different name for each player. Single-player saves keep their existing identity.", @""},
        }, kTabGame},
       {@"Career", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
@@ -907,6 +915,20 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
+  NSString* lanMode = Value(s, @"lan_mode");
+  const bool lan = [lanMode isEqualToString:@"join"] || [lanMode isEqualToString:@"host"];
+  a.push_back(std::string("--red_lan=") + b(lan));
+  a.push_back(std::string("--red_live=") + b(lan));
+  a.push_back(std::string("--grant_user_privileges=") + b(lan));
+  if (lan) {
+    NSString* endpoint = s[@"lan_resolved_ip"] ?: @"";
+    a.push_back("--red_dns=" + std::string(endpoint.UTF8String));
+    const std::string own = nfsmw::red::IpLocal();
+    if (!own.empty()) a.push_back("--red_ip=" + own);
+    NSString* name = Value(s, @"lan_gamertag");
+    if (name.length && GamertagValid(name)) a.push_back("--user_gamertag=" + std::string(name.UTF8String));
+    a.push_back("--red_registro=true");
+  }
   a.push_back("--ios_audio_mix_others=" + b(On(s, @"audio_mix_others")));
   a.push_back("--ios_audio_silent_mode=" + b(On(s, @"audio_silent_mode")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
@@ -1455,6 +1477,44 @@ NSString* AchievementSummary(const Achievements& a) {
 
 - (void)play {
   [self.view endEditing:YES];
+  const std::string mode = Value(_settings, @"lan_mode").UTF8String;
+  if (mode == "off") { [self launchSelectedGame]; return; }
+  const std::string server = Value(_settings, @"lan_server").UTF8String;
+  const std::string tag = Value(_settings, @"lan_gamertag").UTF8String;
+  self.navigationItem.rightBarButtonItem.enabled = NO;
+  self.tableView.userInteractionEnabled = NO;
+  self.navigationItem.titleView.userInteractionEnabled = NO;
+  const auto docs = _docs;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    const auto prepared = nfsmw::lan::Prepare(mode, server, tag, docs);
+    dispatch_async(dispatch_get_main_queue(), ^{
+      self.navigationItem.rightBarButtonItem.enabled = YES;
+      self.tableView.userInteractionEnabled = YES;
+      self.navigationItem.titleView.userInteractionEnabled = YES;
+      if (!prepared.error.empty()) {
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"LAN multiplayer"
+            message:[NSString stringWithUTF8String:prepared.error.c_str()]
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+      }
+      [self set:@"lan_resolved_ip" to:[NSString stringWithUTF8String:prepared.ip.c_str()]];
+      if (prepared.hosting) {
+        NSString* message = [NSString stringWithFormat:@"Server address: %s\n\nOn the other device, join this address. In the game, use Xbox Live → Quick Match. Keep this app in the foreground.", prepared.ip.c_str()];
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Hosting LAN multiplayer"
+            message:message preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Play" style:UIAlertActionStyleDefault
+            handler:^(UIAlertAction*) { [self launchSelectedGame]; }]];
+        [self presentViewController:alert animated:YES completion:nil];
+      } else { [self launchSelectedGame]; }
+    });
+  });
+}
+
+- (void)launchSelectedGame {
+
+  [self.view endEditing:YES];
   for (const fs::path& p : _isos) {
     if ([_isoName isEqualToString:[NSString stringWithUTF8String:p.filename().c_str()]]) {
       _done(p);
@@ -1666,7 +1726,8 @@ NSString* AchievementSummary(const Achievements& a) {
       const bool args = [key isEqualToString:@"extra_args"];
       UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, args ? 230 : 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
-      field.placeholder = args ? @"--option=value" : @"User";
+      const bool address = [key isEqualToString:@"lan_server"];
+      field.placeholder = args ? @"--option=value" : address ? @"192.168.1.10" : @"User";
       field.font = args ? [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular] : field.font;
       field.smartDashesType = UITextSmartDashesTypeNo;
       field.text = value;
@@ -1678,7 +1739,7 @@ NSString* AchievementSummary(const Achievements& a) {
       field.delegate = self;
       [field addAction:[UIAction actionWithHandler:^(UIAction*) {
                // Saved as typed, but a gamertag only while it is valid for Xbox 360.
-               const bool valid = args || GamertagValid(field.text);
+               const bool valid = args || address || GamertagValid(field.text);
                field.textColor = valid ? UIColor.labelColor : UIColor.systemRedColor;
                if (valid) {
                  [self set:key to:field.text];

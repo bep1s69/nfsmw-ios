@@ -1,5 +1,16 @@
 # Changelog
 
+## Multiplayer branch preview — separate from the controls release
+
+- **LAN multiplayer preview.** Adds hosting and joining for iPhone/iPad play and
+  Android compatibility testing. Based directly on [victorgbd's Android LAN
+  implementation](https://github.com/victorgbd/NFSMW-Recompiled-Mobile) and
+  [nfsmw-server-lan](https://github.com/victorgbd/nfsmw-server-lan). The networking
+  code and C++ lobby adaptation are copied/adapted from that work; credit for
+  the original implementation and adaptation belongs to victorgbd. This port
+  adds Darwin integration, the USA hook and its launcher controls. Device
+  cross-play testing is pending; this is not part of the touch-controls release.
+
 ## Unreleased
 
 - **Improve popup and list taps.** Added stacked alias-confirmation choices,

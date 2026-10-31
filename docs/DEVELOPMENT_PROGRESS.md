@@ -24,10 +24,18 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan, multiplayer implementation): approved starting LAN play for
+  **iOS↔iOS and iOS↔Android**. PC cross-play waits until those work. Rename branch
+  to `multiplayer` (local only); latest controls/test11 is the starting baseline.
+  Main must remain independently releasable for fixed touch controls; no network
+  work in its source, shared SDK or build output. Credit victorgbd for both the
+  original Android networking and copied/adapted C++ lobby/compatibility work in
+  CHANGELOG, explicitly acknowledging direct reuse. No push/merge/release approved.
+
 - October 31 (Stefan, multiplayer research): investigate Android LAN methodology,
   Android cross-play and original Windows PC compatibility. **Implementation is
-  NOT authorized until Stefan explicitly says to start; controls remain current
-  priority.** All multiplayer work stays on separate `codex/multiplayer`, with no
+  initially held; Stefan subsequently approved implementation (rule above).**
+  All multiplayer work stays on separate `multiplayer`, with no
   merge/push/release until ready, tested and explicitly authorized. Research-only
   branch forked from main `62c0dc7`; separate worktree
   `/private/tmp/nfsmw-ios-multiplayer` leaves the active controls checkout intact.
@@ -150,6 +158,58 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Workspace and build
 
+### Isolated multiplayer preview (branch `multiplayer` only)
+
+Do NOT use the ordinary `ios` preset for this branch: it shares the controls
+build directory. Current worktree `/private/tmp/nfsmw-ios-multiplayer`; SDK
+`/private/tmp/nfsmw-multiplayer-sdk`; build `/private/tmp/nfsmw-multiplayer-build`.
+The branch is based on main/test11 `19177b6`, merged in `f848ce3`.
+
+To reproduce isolation from an already prepared SDK, from this branch:
+
+```sh
+python3 tools/ios/create_multiplayer_sdk.py --source /Users/bep1s/Developer/GitHub/rexglue-sdk-ios --destination /private/tmp/nfsmw-multiplayer-sdk
+NFSMW_SDK=/private/tmp/nfsmw-multiplayer-sdk python3 tools/ios/patch_ios_multiplayer.py
+```
+
+The destination must not exist. Snapshot copies all prepared source/dependencies
+except Git/build metadata, then changes submodule validation to accept source
+folders without `.git`. Multiplayer patch refuses the canonical shared SDK and
+requires explicit `NFSMW_SDK`. Apply/revert/check is transactional. Preparing a
+fresh SDK on this branch also includes the multiplayer patch last; always pass
+an isolated destination. Preserve controls SDK changes as the snapshot baseline.
+
+Use a private copy of `ios/generated/` from the validated controls build (no
+shared writable generated directory); fresh generation also works with this
+branch's existing USA pipeline and isolated SDK. Native shaders may be shared
+read-only. Configure/build explicitly:
+
+```sh
+cmake -S ios -B /private/tmp/nfsmw-multiplayer-build -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0 -DCMAKE_BUILD_TYPE=Release -DNFSMW_SDK=/private/tmp/nfsmw-multiplayer-sdk -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
+cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6
+```
+
+Host checks (local listener permission required):
+
+```sh
+python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk --reference-server /private/tmp/nfsmw-server-lan-research
+python3 tools/ios/test_multiplayer_transport.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+python3 tools/ios/test_menu_touch.py
+```
+
+Reference server must be the pinned unchanged upstream tree in TECHNICAL.
+Game tab → LAN multiplayer (preview): mode `off` (default), `join`, `host`;
+`lan_server` IPv4/hostname and `lan_gamertag` (empty uses User). Preflight checks
+TCP10902; duplicate names/unreachable servers stop launch with an error. Host
+shows its address before game launch; use Xbox Live → Quick Match. Keep host
+foreground. Host stats in Documents/data/lan_server; log logs/servidor_lan.log.
+No discovery UI/background audio workaround added. iOS local-network prompt
+uses the added usage description; LiveContainer's permissions govern its process.
+Settings map to upstream `red_lan`, `red_live`, `grant_user_privileges`,
+`red_dns`, `red_ip`, with network diagnostics `red_registro=true` in preview.
+Extra Args still override settings. These are not real Xbox Live credentials.
+
+
 Main repository: `/Users/bep1s/Developer/GitHub/nfsmw-ios`.
 SDK: `/Users/bep1s/Developer/GitHub/rexglue-sdk-ios`, also on the battery branch,
 with extensive pre-existing local platform patches and submodule changes.
@@ -201,6 +261,33 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: multiplayer preview1 ready for device tests, local branch `multiplayer`.**
+  Latest test11 controls/main19177b6 merged as baseline; controls sources remain
+  byte-identical. Foreground Host/Join/Off(default), unique LAN gamertags,
+  Android-compatible EA lobby plus direct peer sockets and mapped USA hook.
+  Original Android implementation AND copied C++ adaptation credited to victorgbd
+  in branch-only CHANGELOG. Main remains on controls work, with only its existing
+  issue11 checkpoint note unstaged/HANDOFF untracked; shared SDK/build untouched.
+  Isolated SDK/source/generated/build commands in Workspace section below.
+  Host checks:25two-player lobby stages match upstream Python; real Darwin
+  sockets/endian/address/close checks, actual event-wait and USA hook fixtures
+  pass; test11 FE suite passes. Final IPA build/ZIP/signature/104shaders pass;
+  shaders identicaltest11. Both SDKdylibs differ after full isolated rebuild;
+  no GPU-code/energy/performance equivalence claim. Artifact:
+  `ios/build/NFSMW-multiplayer-preview1-test11.ipa`,30377384bytes,SHA256
+  `36afd106ecac81e371969c8da74f9fb4deba23d7dbdc80d0b91806792ab3bdb7`,
+  UUID `FA4C17B7-4509-3EFA-ADA8-74CB2EAD5E0A`,bundle0.5.1/build9.
+  Same bytes copied to main's ignored ios/build directory, no source changes there.
+  **Next:** Stefan's two iOS devices: distinct gamertags, same LAN, one Host,
+  other Join displayedIP, then Xbox Live→Quick Match; create/find/join, player
+  list, full race/results/return, then swap host. Keep both foreground, logging
+  ON, send both full logs plus device/OS/settings/edition. Then victorgbd USA
+  Android peer both host roles; matchedUSA baseline confirmed by Stefan.
+  No physical-device run, race-payload compatibility or acceptance yet. Test
+  disconnect/rejoin/permission denial/LAN-off single-player/save/control regression
+  before promotion. Discovery UI/background hosting not implemented. MixedPAL/USA
+  unclaimed. Original PC work held until mobile LAN works. No push/merge/tag/release.
+
 - **October 31: multiplayer feasibility researched on `codex/multiplayer` only.**
   No implementation/build/device test. Current upstream Android uses replacement
   EA Aries lobby + direct CommUDP race traffic, NOT System Link; the local sibling
@@ -209,7 +296,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   shares EA lobby vocabulary but native LAN and race wire compatibility remain
   unproved. Detailed pinned sources, local binary identity, integration points,
   staged plan and limitations in TECHNICAL; matching feature in BACKLOG.
-  **Next here: wait for Stefan's explicit start approval.** After approval, first
+  **Historical next action (now superseded by implementation approval):** first
   map the USA network hook and isolate SDK networking patches, then join an
   unchanged Android/Python lobby. Keep controls work on main. Main had pre-existing
   uncommitted `docs/DEVELOPMENT_PROGRESS.md`, `ios/src/game_scene_size.cpp`,

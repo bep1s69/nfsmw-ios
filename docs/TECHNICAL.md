@@ -12295,3 +12295,173 @@ Rankings continuation remain device-pending; preserve scope and existing menu
 regressions. No SDK/timing/profile changes, push/tag/release/version bump.
 Session changes committed locally; pre-existing13-line issue11 note unstaged,
 HANDOFF untracked and sibling SDK changes preserved.
+
+
+### October 31: multiplayer implementation approved; isolated test11-based LAN preview
+
+Stefan approved implementation now, explicitly includes iOS↔iOS as assumed
+scope and iOS↔Android; original Windows PC investigation waits until mobile
+LAN works. He requests proper credit for Android compatibility AND adaptation,
+calling out direct copy/paste. He requested the branch name simply multiplayer.
+Renamed local codex/multiplayer -> multiplayer, no remote branch created/pushed.
+Merged latest main/test11 `19177b6` into research branch in `f848ce3`; resolved
+three append-only documentation conflicts by retaining both histories. Main
+unchanged, still on main. Main's preserved unstaged13-line issue11 checkpoint
+note and untracked HANDOFF remain excluded. Previous control source changes
+were already committed by the controls session; source comparisons of
+`game_scene_size.cpp`, `menu_touch_policy.h`, `touch_controls.mm` and
+`test_menu_touch.py` are byte-identical main versus multiplayer after merge.
+
+Isolation: independent SDK source/dependencies snapshot via rsync excludes
+.git/out/.nfsmw-android at `/private/tmp/nfsmw-multiplayer-sdk`; private generated
+code copy in multiplayer worktree, build `/private/tmp/nfsmw-multiplayer-build`.
+Main SDK/build caches are never patched/reconfigured. Source is reproducible
+using new create_multiplayer_sdk.py and explicit NFSMW_SDK patch script;
+full commands and settings in DEVELOPMENT_PROGRESS (not another status file).
+Untracked game code stays ignored. Existing shaders are read-only shared assets.
+
+Implementation and provenance:
+- Direct import of victorgbd's `ios/motor/{red_lan.cpp,red_lan.h,servidor_ea.cpp,
+  servidor_ea.h}` at d534be88edf5bcd362445c84e5b79c61e29571e7 into
+  ios/src/multiplayer, retaining original comments plus explicit attribution.
+  This C++ server is itself victorgbd's adaptation of his Android/EA server;
+  credit is not limited to the idea. Branch-only CHANGELOG says copied/adapted,
+  links both original projects and attributes original and adaptation to him.
+- tools/ios/patches/multiplayer_sdk.patch ports network changes from the same
+  upstream nativo/sdk: xam_net, xsocket, xam_user, xgi_app, xlivebase_app,
+  xam_misc plus the socket header. Original BSD SDK headers kept; runtime/cvars and protocol stay
+  compatible with upstream. The patch preserves this port's sign-in diagnostic
+  and achievement code. Patch script supports check/revert/idempotency, rejects
+  canonical shared SDK, explicit destination required; last in prepare_sdk list.
+- Darwin changes: native sockaddr_in construction for bind/connect/sendto,
+  accepted family conversion, SO_NOSIGPIPE instead of MSG_NOSIGNAL, idempotent
+  Close (do not close recycled fd on destruction), and local-IP route detection
+  uses selected server instead of public DNS. New XNet LAN operations fail when
+  LAN is off. Unknown XLIVEBASE messages are NOT globally accepted: only
+  observed0x5000D game-start is acknowledged in LAN mode. Runtime XUID derives
+  from LAN IP as upstream; stored profile/content/save XUID unchanged.
+- Essential game hook USA828298E0 (PAL82829AD0) in game_lan.cpp. Initially
+  identified via neighboring mapped functions' -0x1f0 displacement, then actual
+  generated function reviewed: reads r4 address bytes4..7, walks {address,mask,
+  replacement}12-byte table, copies16-byte socket address to r3 and writes the
+  replacement IP. Called from two socket paths (generated .52/.84). This
+  substantiates function identity; not merely an assumed constant shift.
+  With red_lan and non127 address, returns original pointer directly; loopback
+  retains original service mapping. Non-LAN mode calls original import.
+- Launcher Game section: LAN mode Off(default)/Join/Host, server address and
+  gamertag. Preflight on background queue resolves endpoint, starts foreground
+  host if selected, checks gamertag/unreachable server; failure returns error
+  before game launch. Host shows real LAN address, never127.0.0.1. Unique names
+  required. Uses upstream flags; preview network logging on. Other Extra Args
+  override as usual. NSLocalNetworkUsageDescription added. No broadcast
+  discovery UI, multicast entitlement, silent background audio, rendering,
+  timing or control-input changes. Foreground host answers upstream discovery
+  queries but outgoing discovery not required for manual join. Existing server
+  stats/history at data/lan_server; save manager only scans16hex XUID folders,
+  so this folder cannot be mistaken for a career.
+
+Host validation actually observed:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: first sandbox run
+  exit1 because local bind30960 got Operation not permitted, not protocol error
+  (/private/tmp/nfsmw-multiplayer-host-tests1.log). Escalated run exit0 in
+  host-tests2.log, repeated after sixth SDK file added exit0 in host-tests3.log.
+  Actual C++ host compiled with clang++ C++23;25two-player protocol stages match
+  unchanged Python821b9b54cf1ded01ffe2e3fd05c38b7c4c906da6 after normalizing
+  startup-dependent fields only. Directory/login/persona/room creation/browse/
+  subscription/join/game-start(+ses)/leave/delete and TCP gamertag/UDP discovery
+  covered. Synthetic loopback clients use distinct names/MADDR, same source IP;
+  no claim of physical device identity/IP, actual race payload or Wi-Fi tested.
+  SDK patch apply/idempotency/status/revert and rejection without partial write
+  tested against copies of current controls SDK input; shared input untouched.
+- `python3 tools/ios/test_multiplayer_transport.py --sdk ...`: initial fixture
+  compile exit1 missing countof helper, corrected fixture, then escalated run
+  exit0 (/private/tmp/nfsmw-multiplayer-transport2.log). Compiles actual SDK
+  XSocket header/body and endian structures, only object ownership stubbed.
+  Real Darwin loopback UDP roundtrip/source port+IP, TCP connect/bind/accepted
+  address, SO_NOSIGPIPE and repeated close preserving a recycled fd pass.
+  Actual extracted WSAWaitForMultipleEvents passes wait-any vs wait-all,
+  relative100ns timeout, infinite/zero timeout, event index and invalid count.
+  Actual USA hook passes LAN-off original call, LAN peer bypass and loopback
+  original call. These do not test detached overlapped worker teardown against
+  a running game or its actual buffers.
+- `python3 tools/ios/test_menu_touch.py` exit0,
+  /private/tmp/nfsmw-multiplayer-menu-tests.log; full existing FE row/grid,
+  popup, option/camera/Rap Sheet regression fixture passes. UIKit/device
+  validation remains the controls checkpoint's matrix; no acceptance inferred.
+
+Build evidence/negative attempts:
+- Initial isolated CMake configure exit1 because source snapshot excluded .git
+  submodule markers. Snapshot helper now validates submodule source directories
+  instead; second configure exit0 (15.9s), configure2.log. No dependencies fetched
+  or upstream/shared SDK reset.
+- First full ipa build runtime link failed on duplicate XNetLogonGetMachineID/
+  XNetLogonGetTitleID because upstream moved these exports from misc to net.
+  Added the two matching upstream stub removals to same patch (sixth file).
+  Separate runtime target build exit0, runtime2.log. Full build's running generated
+  registry compilation allowed to finish; its later result recorded below.
+- Build/test log paths above are /private/tmp/nfsmw-multiplayer-*. They are local
+  disposable logs, not the only record; essential command/outcome facts are here.
+  No physical devices/OS/Extra Args applied yet. No energy/performance/cross-play
+  or release-readiness claim. Continue with IPA verification then device gate.
+
+
+Follow-up during preview build: Stefan confirms friend will use victorgbd's
+**USA** Android build; iOS↔iOS testing will use Stefan's own devices. This gives
+matched-USA first cross-play coverage; mixed PAL/USA remains unclaimed. CMake
+now rejects unpatched/shared SDK at configure time, before compiling. Additional
+socket adaptation: native descriptor invalidation uses atomic exchange; a pending
+receive retains its original object_ref so handle/object address recycling cannot
+impersonate the old socket. Cached local IP made atomic. Repeat real transport
+checks exit0 (transport3.log). These reduce lifetime races but do not establish
+real-game overlapped cancellation/teardown correctness; that stays in device gate.
+Host system for all host checks: macOS27.2 build26B123, AppleClang21/iPhoneOS27.2
+for iOS build. No phone OS version newly supplied.
+
+
+Final preview1 build and packaging:
+- Full build1 exit1 after762/908 printed steps (duplicate exports described
+  above; registry completed in about9minutes at highCPU). Runtime target fix
+  exit0. Build2 exit1: atomic descriptor participated in C++ ADL and selected
+  std::bind from the runtime PCH instead of POSIX bind. Qualified ::bind with
+  explicit descriptor load. Host fixture now includes <functional> as the real
+  PCH does; transport4.log exit0. Not a game/network/device failure.
+- Build3 `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6`
+  exit0,144planned steps. Final build4 same command exit0,3planned steps,
+  packaging/signing only (final source already compiled by build3). Existing
+  enum/fpcr/deprecation/duplicate-library warnings and actool simulator-service
+  warnings; no final compile/link/signature error. iPhoneOS27.2 target18.
+- Final patch apply/status/revert/idempotency/atomic rejection and unchanged
+  Python lobby comparison repeated successfully in host-tests4.log (exit0).
+  Final transport4.log and menu-tests.log exit0. Source patch now includes
+  seven SDK files (six CPP plus socket header); CMake patch-status check passes.
+- ZIP.testzip=None; codesign --verify --deep --strict exit0;
+  dwarfdump --uuid exit0.104metallibs byte-identical to test11 reference IPA.
+  Both SDKdylibs differ fromtest11 after independent full source rebuild;
+  runtime intentionally changed, GPU implementation not edited. Do not imply
+  byte-identical GPU/library build or controlled CPU-only binary A/B.
+
+Delivered local trial artifact (unique name, no previous file replaced):
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview1-test11.ipa`,
+30377384bytes,SHA256 `36afd106ecac81e371969c8da74f9fb4deba23d7dbdc80d0b91806792ab3bdb7`,
+UUID `FA4C17B7-4509-3EFA-ADA8-74CB2EAD5E0A`,bundle0.5.1/build9.
+Original same-byte copy and ignored JSON manifest in multiplayer worktree's
+`ios/build/`; app in `/private/tmp/nfsmw-multiplayer-build/NFSMW.app`.
+Runtime dylib SHA256be9100458ded7ee3a42401801c1e575400604beb99178a590b6a603dd7c4ff56;
+GPU dylib SHA2566eec215dbade88715907e762e61b7d38e78e3a6f77bc04b5da73ee8842089652.
+Neither binaries, SDK snapshot, logs nor game/generated data are staged.
+
+Next first device matrix: two Stefan iOS devices, distinct tags, sameLAN,
+foreground Host/Join manualIP, Xbox Live→Quick Match create/find/join; actual
+player list, full race/finish/results/return, both host roles. Send both logs
+(deviceOS/settings/Extra Args/artifact identity). Then matchedUSA victorgbd
+Android both host roles and iOS peer combinations. Test leave/rejoin/host loss,
+permission denial, background/resume behavior and LAN-off save/control/race
+regression. Shared lobby/transport fixtures do NOT prove original game racing,
+proper peer identity on physical networks, real cancellation, latency or session
+stability. PC cross-play remains deferred; no device result or release claimed.
+
+Main final read-only check: branchmain at19177b6; status still only preserved
+`docs/DEVELOPMENT_PROGRESS.md` modification and untrackedHANDOFF. No network code
+or changelog entered main; preview IPA is ignored. Local multiplayer commit only;
+no push/tag/merge/release. Snapshot and build commands remain in checkpoint.

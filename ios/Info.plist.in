@@ -93,6 +93,8 @@
 		</dict>
 	</dict>
 
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Play LAN races with nearby iPhones, iPads and Android devices, or host their game lobby.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
