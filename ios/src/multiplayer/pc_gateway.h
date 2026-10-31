@@ -18,5 +18,9 @@ std::string Frame(const std::string &command, const std::string &body,
 // Translate only the observed PC room build tag for the Xbox room parser.
 // This does not establish session/race compatibility.
 std::string AdaptRoom(const std::string &body);
+// PC-only local Xbox session/address envelopes; no peer/race payload rewrite.
+std::string AdaptGame(const std::string &body);
+std::string AdaptLogin(const std::string &body, const std::string &sourceIp);
+std::string AdaptUser(const std::string &body);
 std::string LocalStats(const std::string &name);
 } // namespace nfsmw::pc

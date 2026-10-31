@@ -13657,3 +13657,135 @@ mobile host remains deferred: initial discovery responder is bounded work
 (original384byte gEA UDP9999 and PC-facing TCP9900), but reverse session/race
 compatibility cannot be estimated until PC-host path tested. Do not add only
 advertising and call it cross-play. No PC/helper installation required by goal.
+
+## October 31 — preview7 enters PC room; preview8 PC peer/session envelopes
+
+Stefan's new device test reaches the original PC room. Host TKM's selected
+Mazda RX-8/BMW M3GTR and track changes appear live, but iOS remains Waiting
+for players to connect with a striped connection indicator by localbep1s.
+Three supplied screenshots show that state. No actual race reported.
+Priority remains PC hosting playable; reverse PC discovery still deferred.
+
+Inputs copied with copy2/no overwrite into
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview7_pc_room_waiting_`:
+
+| Suffix | Bytes | SHA256 |
+| --- | --- | --- |
+| boot.txt | 11996 | 6b3a7dab13ee9270e4a57ad1c35382720332a4afa665ea73dc97aa6c960a3e2f |
+| game.log | 411477 | 702956c85c71579629ef47b7233652585627bb0821332787d597a58e3a6629c5 |
+| screen1.png | 2303094 | 50988d9c2932eae18682785fb533f19040ee8e65e4686407fc1f39d59fcf95ec |
+| screen2.png | 3122310 | d81c0eacb1f7b3beada2f0b165fe13e1b9cf791dd0576a22094588051c38a7fb |
+| screen3.png | 2305926 | 99655503205387b93e7d93bc864408e5568931b25cb59533d05e6037fce5604b |
+
+Original pasteboard/items source directories:
+DB185E49-AE24-4F86-95D7-8440E97169C6/boot.txt;
+F9C453B6-0160-4948-B482-31A96CC3143F/nfsmw.log.
+Original screenshot names in table order under
+/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/:
+codex-clipboard-089ad2e5-c772-4ae9-ae68-d0dcd8c82222.png;
+codex-clipboard-6148c1d3-edc2-4ff1-b4dc-443da95dcb75.png;
+codex-clipboard-cb2db094-61fe-49c9-8f2e-4e84175ab5e7.png.
+Boot174lines, game2515lines. Exact installed executable hash/OS not newly
+established; observed room alias/native gateway consistent with preview7.
+
+Observed:
+- iOS .205 connects original PC .202; directory/persona/history pass.
+-23:30:05.257 room073.TKM version alias occurs; ujoi at05.268 succeeds05.385.
+- gjoi NAME=TKM at05.390 returns05.482, COUNT2, HOSTTKM. +mgm confirms05.653.
+  Both gjoi and later +mgm have SESS_bytes0 and PLATPARAMS_bytes0.
+- Live auxi/+usm traffic conveys car/performance changes; room +ust updates
+  E from534735613 to1635833520 at23:30:54.346. Multiple +mgm stillCOUNT2.
+- No UDP socket initialization, XNetXnAddrToInAddr or peer-specific XNetQosLookup
+  logged; QoS calls are service-only (cxna0/cina1), not proof of peer contact.
+  iOS toggles own SCF auxi0/1 while polling onln TKM. Log ends with lobby
+  updates, no crash/connected race evidence. Do not classify this as directory
+  failure, or blame PC firewall without actual attempted UDP packet evidence.
+
+Source investigation:
+- Existing mobile server gjoi/gset comments and behavior require the host's
+  Xbox SESS beginning'$' before the joining game connects. Original PC doesn't
+  implement Xbox Live session metadata. Missing SESS is a concrete control
+  difference; its being the only remaining obstacle is NOT established.
+- Traced actual ignored USA session decoder sub_82826978 in recomp.6.cpp:
+  it decodes three INDEPENDENT Binary7 blocks after'$': XNADDR36→info+8,
+  XNKEY16→info+44, XNKID8→info+0. They reset the bit accumulator at each
+  boundary. It is NOT a single continuous60byte Binary7 block. Expected
+  encoded length1+42+19+10=72bytes. Wrapper828278F0 tailcalls the decoder.
+- Actual generic address decoder sub_82826890 in recomp.130.cpp decodes a
+  bounded Binary7 block. Existing SDK LAN path puts the physical LANIPv4 in
+  XNADDR.ina and a per-IP MAC, maps XnAddr directly to that IPv4, and supplies
+  local XSession IDs/keys without Xbox service encryption. SDK source unchanged.
+- PC room's D=$ca01a8c0 corresponds to .202 as little-endianIPv4; mobile machine
+  address is $00090000c0a801cd^Binary7(XNADDR36). These are different peer
+  address encodings. Full later PC user MA not captured by96byte game logger;
+  don't claim all original peer MADDR field contents were observed.
+- Web search for Binary7 source yielded no useful result. Implementation was
+  independently derived from the locally available actual decoder, not from
+  the unrelated EA base64-like helper in protocol research. The latter is not
+  used. Credit for the original Android networking/adapted SDK remains intact.
+
+Preview8 PC-only implementation in pc_gateway.cpp/h:
+- AdaptGame: for received gjoi/gget/gset/gcre/+mgm/+ses, convert empty or known
+  PC '$'+8hex MADDRi to Xbox XUID^Binary7(XNADDR), using physical ADDRi.
+  Leaves existing Xbox blobs and unknown formats unchanged. No address
+  inference from loopback/current server endpoint; matches HOST to OPPOi.
+- If SESS empty, matching host has valid non-loopback unicastIPv4 and gameIDENT
+  nonempty, supply local Xbox session envelope. Uses actual decoder's three
+  blocks, stable deterministicID from hostXNADDR+IDENT, LAN-style key and
+  nonce. Supplies PLATPARAMS only if empty. Existing SESS never overwritten.
+  Missing/invalid host does not manufacture a session. These local records
+  are not real PC/Xbox Live credentials or a claim of authenticated encryption.
+- AdaptUser: for onln/+who/+usr, map empty/PC8hex MA into Xbox machine address
+  from A. Preserve unknown or already-Xbox MA. AdaptLogin sends physical source
+  IPv4 as PC8hex MADDR for auth/pers only when original has Xbox16hex^ form;
+  prior persona PERS alias retained. Allows original PC to receive a PC-style
+  peer address, then maps returned PC records back locally for Xbox game.
+- No fake readiness/SCF or COUNT forcing, no CommUDP/game packet translation,
+  no SDK modifications, no mobile-host changes, no PC helper/script/mod.
+  Underlying PC/Xbox race serialization/handshake may still differ. Session
+  envelope correctness is a necessary local step, not a successful PC race.
+
+Verification/results:
+- New tools/ios/test_pc_session.py compiles actual ignored guest session and
+  address decoders against bounded memory with ASan/UBSan. Verifies PC .202
+  decodes to bytesC0A801CA at info+8, LAN MAC, sessionID highbit, key layout,
+  stable lobby updates, distinct game IDs, existing session preservation,
+  invalid host rejection, both address directions and unknown formats retained.
+  Exit0, rerun after formatting exit0. No generated/proprietary source tracked.
+- Enhanced test_pc_gateway.py sends fragmented PC +mgm/onln through actual
+  C++ gateway, verifies COUNT/address retained,72byte SESS and Xbox machine
+  envelope returned; existing persona/history/Binary7/directory/shutdown pass,
+  ASan/UBSan exit0 with temporary local-listener access.
+- Actual generated room-filter regression and preflight test both pass exit0.
+  No shared/isolated SDK networking source touched. Compiled existing local
+  gateway CLI against latest source exit0; no new originalDLL live run this
+  turn, and no real PC racer test from Mac. Do not claim otherwise.
+- Isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6
+  exits0. ZIPCRC valid, codesign --verify --deep --strict exits0. Both runtime
+  andGPUdylibs and104metallibs BYTEIDENTICALpreview7. git diff --check exit0.
+  Private build log archived nfsmw-preview8-build.log,3287bytes,
+  SHA25610aac143322804b93d2dedc5fd63808abc6f5301968158ea00ce69d950e63526.
+
+Ready unique artifact copied to main ignored ios/build, prior IPAs preserved:
+NFSMW-multiplayer-preview8-pc-peer-session.ipa,30431007bytes,
+SHA2569b9dae9fd489b9c4ac6be58d4085863918f17da1a3a33ab0056b5aa073cdb959,
+appUUID35B56DBC-36E4-3E52-8EAF-D949C3091669,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2, companionJSON.
+
+Next: installpreview8, original PC LANroom stays open, phone Join→launch→
+XboxLive→QuickMatch. Check connection stripe clears, PC can start race, and
+both actually load/play. If not, collect boot/game/PC peer evidence to locate
+next handshake/packet boundary; do not just force greenready. Current tests
+prove local decoder compatibility only. Hostmissingguestnames and reverse
+PC discovery remain open/deferred. Work committed locally onmultiplayer;
+main's pre-existing checkpoint edit/HANDOFF, controls and sharedSDK preserved.
+No push, merge or release. No Windows network/security changes this turn.
+
+Final preview8 review tightened outgoing login recognition to16hex digits
+before'^'; unknown same-length formats preserved. Added regression, actual
+session decoder/gateway tests rerun exit0. Final rebuild exit0, repeated ZIP/
+signature/SDKdylib/shader verification passes. Final identity above replaces
+an internal pre-delivery package; no previously delivered preview overwritten.
+Additional archived nfsmw-preview8-final-build.log3057bytes,
+SHA2565f0037622df55e55bd536c8b08132fa21e94f48ff29468ad13c5afada0d516df.

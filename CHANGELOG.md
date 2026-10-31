@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Prepare PC peers for the connection test.** Translate PC LAN addresses and
+  provide the local Xbox session record required after joining a PC room.
+  PC rooms and live car/track updates now work on device; racing is unverified.
+
 - **Show PC rooms in the multiplayer test.** Adapt the observed PC room build
   tag for the iOS room browser. Login and directory discovery now work on device;
   joining and racing with PC still need testing. No PC helper script required.

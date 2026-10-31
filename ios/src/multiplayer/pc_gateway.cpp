@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <memory>
@@ -82,6 +83,132 @@ std::string AdaptRoom(const std::string &body) {
     at = end;
   }
   return body;
+}
+namespace {
+// Independently implemented from the actual USA decoder sub_82826978:
+// three separately padded Binary7 blocks, XNADDR36, XNKEY16, XNKID8.
+std::string Binary7(const std::string &raw) {
+  std::string out;
+  uint32_t buffer = 0;
+  int bits = 0;
+  for (unsigned char b : raw) {
+    buffer |= uint32_t(b) << bits;
+    bits += 8;
+    while (bits >= 7) {
+      out += char(0x80 | (buffer & 0x7f));
+      buffer >>= 7;
+      bits -= 7;
+    }
+  }
+  if (bits)
+    out += char(0x80 | buffer);
+  return out;
+}
+std::string Address(const std::string &ip) {
+  in_addr a{};
+  if (inet_pton(AF_INET, ip.c_str(), &a) != 1)
+    return {};
+  uint32_t host = ntohl(a.s_addr);
+  if (!(host >> 24) || (host >> 24) == 127 || (host >> 24) >= 224)
+    return {};
+  std::string addr(36, '\0');
+  std::memcpy(addr.data(), &a.s_addr, 4);
+  const unsigned char *b = reinterpret_cast<const unsigned char *>(&a.s_addr);
+  addr[10] = 0;
+  addr[11] = 0x1d;
+  addr[12] = char(0xd8);
+  addr[13] = char(b[1]);
+  addr[14] = char(b[2]);
+  addr[15] = char(b[3]);
+  return addr;
+}
+std::string Machine(const std::string &ip) {
+  auto addr = Address(ip);
+  if (addr.empty())
+    return {};
+  char uid[24];
+  const auto *b = reinterpret_cast<const unsigned char *>(addr.data());
+  snprintf(uid, sizeof(uid), "$00090000%02x%02x%02x%02x^", b[0], b[1], b[2],
+           b[3]);
+  return std::string(uid) + Binary7(addr);
+}
+bool PcMachine(const std::string &value) {
+  // Never replace existing Xbox/Xenon machine blobs, or unknown encodings.
+  if (value.empty())
+    return true;
+  if (value.size() != 9 || value[0] != '$')
+    return false;
+  return std::all_of(value.begin() + 1, value.end(), [](unsigned char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+           (c >= 'A' && c <= 'F');
+  });
+}
+} // namespace
+std::string AdaptLogin(const std::string &body, const std::string &sourceIp) {
+  auto machine = Field(body, "MADDR");
+  if (machine.size() < 19 || machine[0] != '$' || machine[17] != '^')
+    return body;
+  if (!std::all_of(machine.begin() + 1, machine.begin() + 17,
+                   [](unsigned char c) {
+                     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+                            (c >= 'A' && c <= 'F');
+                   }))
+    return body;
+  auto addr = Address(sourceIp);
+  if (addr.empty())
+    return body;
+  const auto *b = reinterpret_cast<const unsigned char *>(addr.data());
+  char text[12];
+  // PC virtual machine addresses are the little-endian IPv4 integer, as
+  // observed in the unmodified PC host's D/MA fields ($ca01a8c0 for .202).
+  snprintf(text, sizeof(text), "$%02x%02x%02x%02x", b[3], b[2], b[1], b[0]);
+  return Put(body, "MADDR", text);
+}
+std::string AdaptUser(const std::string &body) {
+  if (!PcMachine(Field(body, "MA")))
+    return body;
+  auto machine = Machine(Field(body, "A"));
+  return machine.empty() ? body : Put(body, "MA", machine);
+}
+std::string AdaptGame(const std::string &body) {
+  auto out = body;
+  std::string hostAddress;
+  for (int i = 0; i < 4; ++i) {
+    auto n = std::to_string(i);
+    auto ip = Field(body, "ADDR" + n);
+    if (Field(body, "OPPO" + n) == Field(body, "HOST") &&
+        !Field(body, "HOST").empty())
+      hostAddress = Address(ip);
+    if (PcMachine(Field(body, "MADDR" + n))) {
+      auto machine = Machine(ip);
+      if (!machine.empty())
+        out = Put(out, "MADDR" + n, machine);
+    }
+  }
+  if (!Field(body, "SESS").empty() || hostAddress.empty() ||
+      Field(body, "IDENT").empty())
+    return out;
+  // Local LAN identity only: the original PC doesn't implement Xbox Live
+  // sessions/keys. The existing SDK LAN path doesn't use Xbox encryption.
+  // Stable across lobby updates; no real Xbox service credentials generated.
+  uint64_t hash = 14695981039346656037ull;
+  for (unsigned char c : hostAddress + Field(body, "IDENT")) {
+    hash ^= c;
+    hash *= 1099511628211ull;
+  }
+  std::string id(8, '\0'), key(16, '\0'), nonce(8, '\0');
+  for (int i = 0; i < 8; ++i)
+    id[i] = char(hash >> (i * 8));
+  id[0] = char(static_cast<unsigned char>(id[0]) | 0x80);
+  for (int i = 0; i < 16; ++i)
+    key[i] = char(static_cast<unsigned char>(id[i % 8]) ^ (0x5a + i));
+  for (int i = 0; i < 8; ++i)
+    nonce[i] = char(static_cast<unsigned char>(id[i]) ^ 0xa5);
+  out =
+      Put(out, "SESS", "$" + Binary7(hostAddress) + Binary7(key) + Binary7(id));
+  if (Field(body, "PLATPARAMS").empty())
+    out = Put(out, "PLATPARAMS", Binary7(nonce));
+  return out;
 }
 std::string LocalStats(const std::string &name) {
   // Original PC LAN has no Xbox 'user' history endpoint. New local LAN
@@ -247,6 +374,14 @@ public:
               Log("added PC persona field");
             }
           }
+          if ((command == "auth" || command == "pers") && !own.empty()) {
+            auto loginBody = wire.substr(12);
+            auto adapted = AdaptLogin(loginBody, own);
+            if (adapted != loginBody) {
+              wire = Frame(command, adapted, wire.substr(4, 4));
+              Log("adapted local machine address for PC peers");
+            }
+          }
           if (command == "user") {
             auto persona = Field(body, "PERS");
             if (persona.empty())
@@ -279,6 +414,27 @@ public:
                   "race compatibility unverified");
               body = std::move(adapted);
               wire = Frame(command, body, wire.substr(4, 4));
+            }
+          }
+          if (command == "gjoi" || command == "gget" || command == "gset" ||
+              command == "gcre" || command == "+mgm" || command == "+ses") {
+            auto adapted = AdaptGame(body);
+            if (adapted != body) {
+              bool sessionAdded = Field(body, "SESS").empty() &&
+                                  !Field(adapted, "SESS").empty();
+              body = std::move(adapted);
+              wire = Frame(command, body, wire.substr(4, 4));
+              Log(sessionAdded ? "constructed local Xbox LAN session for PC "
+                                 "host; peer connection unverified"
+                               : "adapted PC game peer addresses");
+            }
+          }
+          if (command == "onln" || command == "+who" || command == "+usr") {
+            auto adapted = AdaptUser(body);
+            if (adapted != body) {
+              body = std::move(adapted);
+              wire = Frame(command, body, wire.substr(4, 4));
+              Log("adapted PC presence peer address");
             }
           }
           ok = Send(local, wire);

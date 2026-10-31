@@ -315,6 +315,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31 preview8: PC room joined, peer session adaptation ready.**
+  Preview7 on phone joins PC073.TKM (.202), gjoi/+mgm COUNT2, sees live car/
+  track updates, stays Waiting for players to connect. Logs: PC session has
+  no SESS/PLATPARAMS; no UDP socket, XNetXnAddrToInAddr or peer QoS logged.
+  Do not classify this as another discovery failure or established firewall
+  failure. PC control/lobby interoperability now DEVICE-CONFIRMED; racing not.
+  Preview8 adds PC-only local Xbox session record from matching HOST/OPPOi
+  physical ADDRi plus gameIDENT, stable across updates; converts PC MA/MADDRi
+  IPv4 forms into Xbox XUID^XNADDR and outgoing Xbox login MADDR into PC IPv4
+  form. Uses existing LAN SDK behavior, no shared/isolated SDK source changes,
+  no ready-flag forcing, no race payload rewrite. Existing sessions/unknown
+  encodings preserved; invalid/missing host gets no fabricated session.
+  Actual generated USA session/address decoder tests pass ASan/UBSan, as do
+  fragmented actual gateway, prior room filter and preflight. These establish
+  local envelope correctness, NOT PC peer handshake or race compatibility.
+  Ready `ios/build/NFSMW-multiplayer-preview8-pc-peer-session.ipa`,30431007bytes,
+  SHA2569b9dae9fd489b9c4ac6be58d4085863918f17da1a3a33ab0056b5aa073cdb959,
+  appUUID35B56DBC-36E4-3E52-8EAF-D949C3091669; runtimeUUID unchanged preview7.
+  Build/ZIP/signature pass; both SDK dylibs and104shaders identicalpreview7.
+  **Next:** PC original LAN room open, phonepreview8 Join/launch/QuickMatch,
+  check peer connection bar clears and PC can start race; capture boot/game
+  if not. Need actual packet exchange before further protocol conclusions.
+  Inputs (2logs/3screens) archivednfsmw_lan_preview7_pc_room_waiting_*.
+  Hostguestnames still OPEN, reversePCdiscovery deferred. All localmultiplayer;
+  controls/main pre-existing docs edit/HANDOFF and shared SDK preserved.
+
 - **October 31 preview7: PC room filter identified; device join test next.**
   Preview6 device logs pass native discovery/login and receive PC room005.TKM,
   COUNT1, but Xbox rejects its encoded P/V192359. Actual generated USA
@@ -2947,3 +2973,18 @@ before QoS and acceptance after the captured PC tag alias, not a real peer.
 The gateway check needs permission for bounded local TCP listeners. Both use
 ASan/UBSan. Build uses the existing isolated IPA command; install the uniquely
 named preview7 IPA, leave the PC in an existing LAN room, select Quick Match.
+
+### Preview8 PC session/address decoder check
+
+```sh
+python3 tools/ios/test_pc_session.py
+```
+
+Requires ignored generated USA files. Compiles the actual session decoder
+sub_82826978 and address decoder sub_82826890 against bounded memory, ASan/UBSan.
+Checks PC host IP/MAC, separate Binary7 block boundaries/key/ID, stable lobby
+updates, different game identities, existing session and unknown address
+preservation. Run alongside gateway, room-filter and preflight checks above.
+No real peer, PC racer or race is emulated by this check. Existing isolated IPA
+build command unchanged. Preview8 device flow same as preview7; observe peer
+connection before starting a race. No PC-side helper.

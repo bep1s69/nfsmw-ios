@@ -45,6 +45,8 @@ int main(){
   assert(Field(pers.substr(12),"PERS")=="Guest");assert(Field(pers.substr(12),"MADDR")==std::string("$")+char(0x80)+char(0xff));
   sendall(s,Frame("pers","PERS=Guest\tNAME=Guest"));
   sendall(s,Frame("+uss",room));
+  sendall(s,Frame("+mgm","IDENT=1\tHOST=TKM\tCOUNT=2\tOPPO0=TKM\tADDR0=192.168.1.202\tMADDR0=$ca01a8c0\tOPPO1=Guest\tADDR1=192.168.1.205"));
+  sendall(s,Frame("onln","N=TKM\tA=192.168.1.202\tMA=$ca01a8c0"));
   // The Xbox-only 'user' request must not reach the PC (which returns badc).
   auto ping=receive(s);assert(ping.substr(0,4)=="~png");
   std::string news="newsbadc";news+=std::string(3,'\0');news+=char(12);sendall(s,news);close(s);
@@ -53,6 +55,8 @@ int main(){
  int s=conn(30960);sendall(s,Frame("@tic","RC4+MD5-V2")+Frame("@dir","PROD=nfs-xbox-2006"));auto dir=receive(s);assert(Field(dir.substr(12),"PORT")=="30960" && Field(dir.substr(12),"SESS")=="42");close(s);
  s=conn(30960);sendall(s,Frame("addr","ADDR=127.9.9.9\nPORT=1234")+Frame("auth","GTAG=Guest")+Frame("pers",binary));assert(Field(receive(s).substr(12),"PERS")=="Guest");
  auto listed=receive(s);assert(listed.substr(0,4)=="+uss" && Field(listed.substr(12),"P")==Field(AdaptRoom(room),"P") && Field(listed.substr(12),"D")=="$ca01a8c0");
+ auto game=receive(s);assert(game.substr(0,4)=="+mgm" && Field(game.substr(12),"SESS").size()==72 && Field(game.substr(12),"COUNT")=="2" && Field(game.substr(12),"ADDR0")=="192.168.1.202");
+ auto user=receive(s);assert(user.substr(0,4)=="onln" && Field(user.substr(12),"MA").substr(0,18)=="$00090000c0a801ca^");
  sendall(s,Frame("user","PERS=Guest"));auto stats=receive(s);auto values=Field(stats.substr(12),"STAT");assert(std::count(values.begin(),values.end(),',')==43 && Field(stats.substr(12),"PERS")=="Guest");
  sendall(s,Frame("~png","TIME=1"));auto news=receive(s);assert(news.substr(0,8)=="newsbadc" && news.size()==12);close(s);
  backend.join();Stop();Stop();close(listener);
