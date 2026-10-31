@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
+#include <functional>
 #include <cctype>
 #include <chrono>
 #include <cstring>
@@ -94,9 +96,12 @@ void Destinos(std::vector<uint32_t>& propias, std::vector<uint32_t>& difusion, s
       difusion.push_back(ntohl(reinterpret_cast<sockaddr_in*>(i->ifa_broadaddr)->sin_addr.s_addr));
     }
     if (!i->ifa_netmask) continue;
-    const uint32_t mascara = ntohl(reinterpret_cast<sockaddr_in*>(i->ifa_netmask)->sin_addr.s_addr);
+    uint32_t mascara = ntohl(reinterpret_cast<sockaddr_in*>(i->ifa_netmask)->sin_addr.s_addr);
     const int prefijo = __builtin_popcount(mascara);
-    if (prefijo < 24 || prefijo > 30) continue;
+    if (prefijo > 30) continue;
+    // Keep scans bounded even on a broad LAN; manual address supports peers
+    // outside this device's /24 without scanning thousands of other machines.
+    if (prefijo < 24) mascara = 0xFFFFFF00u;
     const uint32_t base = ip & mascara;
     for (uint32_t h = base + 1; h < (base | ~mascara); ++h) {
       if (h != ip) red.push_back(h);
@@ -220,13 +225,35 @@ Comprobacion ComprobarGamertag(const std::string& ip, const std::string& gamerta
   return r;
 }
 
-std::optional<std::vector<Encontrado>> BuscarServidores() {
+static std::optional<std::vector<Encontrado>> BuscarPorUdp(
+    const std::function<void(const std::string&)>& trace) {
   std::vector<uint32_t> propias, difusion, red;
   Destinos(propias, difusion, red);
+  if (trace) {
+    std::string addresses;
+    for (auto ip : propias) addresses += Texto(ip) + " ";
+    trace("[lan-discovery] own=" + addresses + " direct_targets=" + std::to_string(red.size()));
+  }
   if (propias.empty()) return std::nullopt;
   std::vector<Encontrado> encontrados;
   const int s = socket(AF_INET, SOCK_DGRAM, 0);
   if (s < 0) return encontrados;
+  // Bind explicitly before sending: reply handling does not depend on a
+  // successful broadcast auto-binding the socket on iOS.
+  sockaddr_in local{};
+#if defined(__APPLE__)
+  local.sin_len = sizeof(local);
+#endif
+  local.sin_family = AF_INET;
+  if (bind(s, reinterpret_cast<sockaddr*>(&local), sizeof(local)) != 0) {
+    if (trace) trace("[lan-discovery] UDP bind failed errno=" + std::to_string(errno));
+    close(s); return encontrados;
+  }
+#if defined(__APPLE__)
+  // Custom broadcast needs a restricted entitlement in LiveContainer. Keep
+  // this socket unicast-only; TCP directories provide the portable fallback.
+  difusion.clear();
+#endif
   fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK);
   int uno = 1;
   setsockopt(s, SOL_SOCKET, SO_BROADCAST, &uno, sizeof(uno));
@@ -255,6 +282,7 @@ std::optional<std::vector<Encontrado>> BuscarServidores() {
 
   std::set<std::string> vistas;
   int finEnvio = -1;
+  int received = 0, rejected = 0, receiveError = 0;
   char buf[512];
   while (true) {
     const int ahora = pasado();
@@ -266,16 +294,153 @@ std::optional<std::vector<Encontrado>> BuscarServidores() {
     sockaddr_in de{};
     socklen_t largo = sizeof(de);
     const ssize_t n = recvfrom(s, buf, sizeof(buf), 0, reinterpret_cast<sockaddr*>(&de), &largo);
-    if (n <= 0) continue;
+    if (n <= 0) { if (n < 0) receiveError = errno; continue; }
+    ++received;
     const uint32_t ip = ntohl(de.sin_addr.s_addr);
     if (std::find(propias.begin(), propias.end(), ip) != propias.end()) continue;
     if (auto e = Leer(buf, size_t(n), ip); e && vistas.insert(e->ip).second) encontrados.push_back(*e);
+    else ++rejected;
   }
   parar = true;
   rondas.join();
   barrido.join();
   close(s);
+  if (trace) trace("[lan-discovery] UDP received=" + std::to_string(received) +
+      " rejected=" + std::to_string(rejected) + " hosts=" + std::to_string(encontrados.size()) +
+      " last_recv_errno=" + std::to_string(receiveError));
   return encontrados;
+}
+
+// Unicast fallback for iOS/LiveContainer environments where discovery replies
+// do not reach the UDP socket. Query the existing Aries directory; Android and
+// Python hosts already support it. No new server protocol or account reservation.
+static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets,
+                                           const std::function<void(const std::string&)>& trace) {
+  using Clock = std::chrono::steady_clock;
+  struct Probe {
+    int fd;
+    uint32_t ip;
+    Clock::time_point deadline;
+    bool connected = false;
+    size_t written = 0;
+    std::vector<uint8_t> received;
+  };
+  const auto deadline = Clock::now() + std::chrono::seconds(4);
+  constexpr size_t kConcurrent = 32;
+  constexpr int kDirectoryPort = 30960;
+  std::vector<Probe> active;
+  std::vector<Encontrado> hosts;
+  size_t next = 0, attempts = 0, connected = 0;
+  int lastError = 0;
+  const std::string body = std::string("PROD=nfs-xbox-2006\n") + '\0';
+  std::vector<uint8_t> request(12 + body.size(), 0);
+  std::memcpy(request.data(), "@dir", 4);
+  const uint32_t length = uint32_t(request.size());
+  request[8] = uint8_t(length >> 24); request[9] = uint8_t(length >> 16);
+  request[10] = uint8_t(length >> 8); request[11] = uint8_t(length);
+  std::memcpy(request.data() + 12, body.data(), body.size());
+  auto closeProbe = [](Probe& p) { if (p.fd >= 0) close(p.fd); p.fd = -1; };
+  while ((next < targets.size() || !active.empty()) && Clock::now() < deadline) {
+    while (active.size() < kConcurrent && next < targets.size()) {
+      uint32_t ip = targets[next++];
+      int s = socket(AF_INET, SOCK_STREAM, 0);
+      if (s < 0) { lastError = errno; continue; }
+      ++attempts;
+      SinSigpipe(s);
+      if (fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK) != 0) {
+        lastError = errno; close(s); continue;
+      }
+      sockaddr_in to{};
+#if defined(__APPLE__)
+      to.sin_len = sizeof(to);
+#endif
+      to.sin_family = AF_INET; to.sin_port = htons(kDirectoryPort); to.sin_addr.s_addr = htonl(ip);
+      int result = connect(s, reinterpret_cast<sockaddr*>(&to), sizeof(to));
+      if (result != 0 && errno != EINPROGRESS) { lastError = errno; close(s); continue; }
+      active.push_back({s, ip, Clock::now() + std::chrono::milliseconds(350)});
+    }
+    std::vector<pollfd> polls;
+    for (auto& p : active) polls.push_back({p.fd, short(p.written == request.size() ? POLLIN : POLLOUT), 0});
+    if (polls.empty()) continue;
+    int count = poll(polls.data(), polls.size(), 25);
+    if (count < 0 && errno != EINTR) { lastError = errno; break; }
+    for (size_t i = 0; i < active.size(); ++i) {
+      auto& p = active[i];
+      if (Clock::now() >= p.deadline) { closeProbe(p); continue; }
+      if (!polls[i].revents) continue;
+      if (polls[i].revents & POLLNVAL) { closeProbe(p); continue; }
+      if (!p.connected) {
+        int error = 0; socklen_t size = sizeof(error);
+        if (getsockopt(p.fd, SOL_SOCKET, SO_ERROR, &error, &size) != 0 || error != 0) {
+          lastError = error ? error : errno; closeProbe(p); continue;
+        }
+        p.connected = true; ++connected;
+      }
+      if (p.written < request.size()) {
+        ssize_t n = send(p.fd, request.data() + p.written, request.size() - p.written, 0);
+        if (n > 0) p.written += size_t(n);
+        else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+          lastError = errno; closeProbe(p); continue;
+        }
+      }
+      if (p.written != request.size()) continue;
+      uint8_t buf[4096];
+      ssize_t n = recv(p.fd, buf, sizeof(buf), 0);
+      if (n > 0) p.received.insert(p.received.end(), buf, buf + n);
+      else if (n == 0) { closeProbe(p); continue; }
+      else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+        lastError = errno; closeProbe(p); continue;
+      }
+      if (p.received.size() > 4096) { closeProbe(p); continue; }
+      if (p.received.size() < 12) continue;
+      const auto& r = p.received;
+      uint32_t size = uint32_t(r[8]) << 24 | uint32_t(r[9]) << 16 | uint32_t(r[10]) << 8 | r[11];
+      if (std::memcmp(r.data(), "@dir\0\0\0\0", 8) != 0 || size < 12 || size > 4096) {
+        closeProbe(p); continue;
+      }
+      if (r.size() < size) continue;
+      std::istringstream fields(std::string(reinterpret_cast<const char*>(r.data() + 12), size - 12));
+      std::string line, address; int port = 0;
+      while (std::getline(fields, line)) {
+        if (line.rfind("ADDR=", 0) == 0) address = Recortar(line.substr(5));
+        if (line.rfind("PORT=", 0) == 0) port = std::atoi(line.substr(5).c_str());
+      }
+      if (port == 10901 && IpValida(address)) {
+        hosts.push_back({Texto(p.ip), "LAN host", -1});
+        if (trace) trace("[lan-discovery] TCP directory verified " + Texto(p.ip));
+      }
+      closeProbe(p);
+    }
+    active.erase(std::remove_if(active.begin(), active.end(), [](const Probe& p) { return p.fd < 0; }), active.end());
+  }
+  for (auto& p : active) closeProbe(p);
+  if (trace) trace("[lan-discovery] TCP attempted=" + std::to_string(attempts) +
+      " connected=" + std::to_string(connected) + " hosts=" + std::to_string(hosts.size()) +
+      " last_errno=" + std::to_string(lastError));
+  return hosts;
+}
+
+std::optional<std::vector<Encontrado>> BuscarServidores(
+    std::function<void(const std::string&)> trace) {
+  auto found = BuscarPorUdp(trace);
+  if (!found || !found->empty()) return found;
+  if (trace) trace("[lan-discovery] no UDP replies accepted; checking TCP directories");
+  std::vector<uint32_t> own, broadcast, targets;
+  Destinos(own, broadcast, targets);
+  targets.erase(std::remove_if(targets.begin(), targets.end(), [&](uint32_t ip) {
+    return std::find(own.begin(), own.end(), ip) != own.end();
+  }), targets.end());
+  std::sort(targets.begin(), targets.end());
+  targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+  // Nearby addresses first, then wrap. Also bounds broader networks to a /24.
+  if (!own.empty()) {
+    uint32_t pivot = own.front();
+    std::stable_sort(targets.begin(), targets.end(), [pivot](uint32_t a, uint32_t b) {
+      return uint8_t(a - pivot) < uint8_t(b - pivot);
+    });
+  }
+  *found = BuscarPorTcp(targets, trace);
+  return found;
 }
 
 int PuntosInterfaz(const std::string& nombre) {

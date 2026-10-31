@@ -75,6 +75,36 @@ int main(int argc,char**argv) {
     return dest
 
 
+def compile_scan(tmp):
+    # Deterministic virtual LAN with one remote loopback host. Only interface
+    # inventory and UDP outgoing targets are substituted; actual poll/connect/
+    # partial-write/framing/parser/fallback code is compiled unchanged.
+    source = (ROOT / 'ios/src/multiplayer/red_lan.cpp').read_text()
+    start = source.index('void Destinos(')
+    end = source.index('void Preguntar(', start)
+    source = source[:start] + """void Destinos(std::vector<uint32_t>& own, std::vector<uint32_t>& broadcast,
+                      std::vector<uint32_t>& targets) {
+      own = {0x7f000002}; targets = {0x7f000001,0x7f000001,0x7f000002};
+    }
+
+""" + source[end:]
+    udp = source.index('static std::optional<std::vector<Encontrado>> BuscarPorUdp')
+    where = source.index('  Destinos(propias, difusion, red);', udp)
+    source = source[:where] + source[where:].replace('  Destinos(propias, difusion, red);',
+                '  Destinos(propias, difusion, red); red.clear();', 1)
+    source = '#include <iostream>\n' + source + r"""
+int main(int argc,char**argv) {
+ auto result = nfsmw::red::BuscarServidores([](const std::string& line){std::cout<<line<<"\n";});
+ if(!result || result->size()!=size_t(std::atoi(argv[1]))) return 1;
+ if(!result->empty() && (result->front().ip!="127.0.0.1" || result->front().jugadores!=-1)) return 2;
+ std::cout<<"TCP fallback scan passed\n";
+}
+"""
+    f=tmp/'scan.cpp';f.write_text(source);exe=tmp/'scan'
+    run(['clang++','-std=c++23','-O1','-pthread','-I'+str(ROOT/'ios/src/multiplayer'),str(f),'-o',str(exe)])
+    return exe
+
+
 class Client:
     def __init__(self, port):
         self.s = socket.create_connection(('127.0.0.1', port), timeout=3)
@@ -168,14 +198,19 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-lan-test-') as path:
     tmp=Path(path)
     patch_check(tmp)
     server=compile_server(tmp)
+    scanner=compile_scan(tmp)
     data,logs=tmp/'data',tmp/'logs';data.mkdir();logs.mkdir()
     proc,log=start([str(server),str(data),str(logs)],tmp,tmp/'cpp.log')
-    try: actual=scenario()
+    try:
+        actual=scenario()
+        run([str(scanner), "1"])
     finally: stop(proc,log)
     ref=tmp/'reference';ref.mkdir()
     shutil.copy(a.reference_server/'ea_server.py',ref/'ea_server.py')
     proc,log=start(['python3','ea_server.py','--ip','127.0.0.1','--log',str(ref/'server.log'),'--name','test'],ref,tmp/'python.log')
-    try: expected=scenario()
+    try:
+        expected=scenario()
+        run([str(scanner), "1"])
     finally: stop(proc,log)
     for (step,left),(step2,right) in zip(actual,expected):
         assert step==step2
@@ -184,3 +219,25 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-lan-test-') as path:
     assert any(cmd[:4]==b'gjoi' and f.get('COUNT')=='2' for step,msg in actual for cmd,f in msg)
     assert any(cmd[:4]==b'+ses' for step,msg in actual for cmd,f in msg)
     print('Lobby: C++ vs unmodified Python parity,',len(actual),'two-player stages; binary7 session/address preservation, create/join/start/leave, gamertag and discovery passed')
+
+    # A fragmented valid directory frame succeeds; malformed/oversized frames
+    # are rejected. No other LAN addresses are touched by the fixture.
+    import threading
+    for reply, wanted in [
+        (b'@dir'+b'\0'*4+struct.pack('>I',12+len(b'ADDR=127.0.0.1\nPORT=10901\n\0'))+b'ADDR=127.0.0.1\nPORT=10901\n\0', '1'),
+        (b'nope'+b'\0'*4+struct.pack('>I',4097), '0')]:
+        listener=socket.socket();listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        listener.bind(('127.0.0.1',30960));listener.listen(1);listener.settimeout(5)
+        def answer():
+            try:
+                connection,_=listener.accept()
+                with connection:
+                    connection.recv(1024)
+                    connection.sendall(reply[:5]);time.sleep(.02);connection.sendall(reply[5:])
+            finally:listener.close()
+        worker=threading.Thread(target=answer);worker.start()
+        started=time.monotonic()
+        try:run([str(scanner),wanted])
+        finally:worker.join(timeout=5)
+        assert time.monotonic()-started<6 and not worker.is_alive()
+    print('TCP discovery: UDP-blackhole fallback passes against both hosts; duplicate/self IPs excluded; fragmented directory accepted and invalid framing rejected')

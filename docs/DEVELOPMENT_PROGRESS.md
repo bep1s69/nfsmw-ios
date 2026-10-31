@@ -212,6 +212,13 @@ Back cancels setup and stops this device's host. Setup logs use [lan-setup] in
 boot.txt. UI discovery calls upstream BuscarServidores; broadcasts plus unicast
 fallback for /24..30, ignores own addresses, manual entry available. iOS/LiveContainer
 network permissions still apply; no multicast entitlement is assumed.
+Preview3 retains UDP10902 unicast search, explicitly binds before sending, and
+falls back to TCP30960 @dir queries if no UDP replies are accepted. This uses
+existing EA protocol, not a new host service. Scan is bounded to nearby /24;
+32concurrent/350msperprobe/4soverall TCP phase. Generic LAN host label when only
+TCP found it; no name/playercount advertised in that old directory response.
+[lan-discovery] diagnostics in boot.txt expose the failed stage. No multicast
+entitlement assumed, no broadcast on Apple discovery socket. ManualIP unchanged.
 Internal mode `off` (default), `join`, `host`;
 `lan_server` IPv4/hostname and `lan_gamertag` (empty uses User). Preflight checks
 TCP10902; duplicate names/unreachable servers stop launch with an error. Host
@@ -274,6 +281,35 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: preview2 failure isolated to discovery; preview3 TCP fallback ready.**
+  User DID choose Host on205 and Join on150. New21-line joinboot has8searches,
+  all0hosts; hostserver records replies to150 during repeated searches. Host
+  creates room with1player; guest neverlaunches. Screenshot agrees. This is
+  failure before shared lobby/peer racing, not proof of wrong user steps. Exact
+  UDP receive/drop cause still unproved (no receive diagnostics inpreview2).
+  Newlogs/screenshot archived and hashes recorded inTECHNICAL.
+  Preview3: explicitly bound unicastUDP discovery onApple; no broadcast on this
+  socket because restricted entitlement isn't assumed. IfUDP returnsnohosts,
+  probes unchanged EA TCP30960 directory, validates@dir/ADDR/PORT10901 and lists
+  reachable hostIP. No server changes or gamertag reservations during scan;
+  works with existing Android/Python protocol.32concurrent probes,350ms each,
+ 4s overall; nearby/24 bounded, excludes allownIPs/deduplicates. ManualIP remains.
+  Host names/counts unavailable through oldTCP directory, shown generically.
+  [lan-discovery] boot diagnostics show ownIPs,UDP reads/rejections/errors and
+  TCP attempts/connections/verifiedhost. Forced UDP-blackhole tests pass against
+  both host implementations, including fragmentation/malformedframe handling;
+  existing25-stage/binarysession/patch tests pass. Bothbuilds/ZIP/signature pass;
+ 104shaders and2SDKdylibs byte-identicalpreview2. Artifact:
+  `ios/build/NFSMW-multiplayer-preview3-tcp-discovery.ipa`,30393662bytes,
+  SHA256 `d9264dd84701cd01483e9a5a1d1f47b5ee0b654e79d3797117115e7f71bce043`,
+  UUID `F5EC48E6-6A61-37F9-89DC-1D402CC03C18`,bundle0.5.1/build9.
+  **Next FIRST:** preview3 onboth, Host205(orcurrentdisplayedIP), Join150search;
+  confirmhostlisted/selected and remoteconnectionready. Ifstill0sendjoinboot
+  andhostserverlog; manual currenthostIP bypassesdiscovery as separatecheck.
+  Onlythen launchboth andhostcreates/guestjoinssameoriginalgame room/race.
+  No physical preview3test or sharedroom/race acceptance. Main controls/source/
+  SDK untouched; no push/merge/tag/release. AndroidUSA/PC gates unchanged.
 
 - **October 31: multiplayer preview2 guided setup ready; preview1 workflow failed.**
   Six supplied files archived under Debug/31 October2026 (TECHNICAL hashes/paths).

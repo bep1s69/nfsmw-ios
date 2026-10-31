@@ -160,7 +160,7 @@ NSString* DefaultName() {
   [self refresh];
   dispatch_async(SetupQueue(), ^{
     nfsmw::servidor::Parar();  // never list this device as a join target
-    const auto found = nfsmw::red::BuscarServidores();
+    const auto found = nfsmw::red::BuscarServidores([](const std::string& line) { nfsmw::boot::Trace(line); });
     dispatch_async(dispatch_get_main_queue(), ^{
       if (self->_closing || generation != self->_generation) return;
       self->_busy = NO;
@@ -276,7 +276,7 @@ NSString* DefaultName() {
     if (size_t(ip.row) < _hosts.size()) {
       const auto& h = _hosts[size_t(ip.row)];
       cell.textLabel.text = Text(h.nombre);
-      cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %d in-game players", Text(h.ip), h.jugadores];
+      cell.detailTextLabel.text = h.jugadores < 0 ? Text(h.ip) : [NSString stringWithFormat:@"%@ · %d in-game players", Text(h.ip), h.jugadores];
       cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else cell.textLabel.text = size_t(ip.row) == _hosts.size() ? @"Search again" : @"Enter address manually…";
   } else {

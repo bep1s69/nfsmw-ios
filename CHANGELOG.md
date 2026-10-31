@@ -2,6 +2,11 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Find hosts when UDP discovery fails.** iOS now explicitly binds its
+  discovery socket and falls back to the existing EA TCP directory protocol.
+  Android and Python hosts need no changes. Discovery diagnostics go to boot.txt.
+  Actual shared-room and race testing remains pending.
+
 - **Clearer multiplayer setup.** A dedicated Host/Join screen finds nearby
   hosts, shows which lobby you are connected to, chooses a player name and
   explains who creates the race. Joining this device's own address is blocked.

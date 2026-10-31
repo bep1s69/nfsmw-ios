@@ -9,6 +9,7 @@
 #pragma once
 
 #include <optional>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,10 @@ struct Encontrado {
 
 // Los que contestan a "NFSMW_DISCOVER" (UDP), por orden de llegada; nullopt si este telefono no esta
 // en ninguna red local. Bloquea el plazo entero, 1,5 s o algo mas.
-std::optional<std::vector<Encontrado>> BuscarServidores();
+// iOS also probes the standard EA TCP directory when UDP discovery yields none.
+// Bounded to the nearby /24; trace receives diagnostics on this background thread.
+std::optional<std::vector<Encontrado>> BuscarServidores(
+    std::function<void(const std::string&)> trace = {});
 
 // Cuanto vale una interfaz como red local, por su nombre: la Wi-Fi 3, el punto de acceso 2, otra de
 // cable 1, otras 0; -1 = no es la LAN (datos moviles, VPN, AirDrop).

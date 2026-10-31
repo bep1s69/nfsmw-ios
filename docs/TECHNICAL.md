@@ -12599,3 +12599,106 @@ otherJoinselectsamehost/confirmremoteIP, Launchboth, originalgamehostcreaterace/
 guestjoin, send bothboot/game/server logs if blocked. Keep foreground; iOS first,
 AndroidUSA later; PC held. Main retains existing issue11 note/HANDOFF only;
 no source/SDK controls changes, push/merge/tag/release. Commit locally onmultiplayer.
+
+
+### October 31: preview2 followed Host/Join; UDP discovery replies not surfaced; preview3
+
+User says he followed the instructions and still could not play; screenshot
+shows Game Room with one host player and Waiting for minimum number of players.
+This supersedes any inference that the new attempt repeated the first setup
+mistake. New boot logs contain preview2 [lan-setup] markers despite cached13:50:31
+translation-unit stamp; no independent runtimeIPAUUID supplied.
+
+Preserved originals, exclusive-created byte/hash-verified copies under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+Sources again under shared-pasteboard/items base in preceding entry:
+
+| Archived filename | Source UUID/name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview2_join_boot.txt | 09F44540-8238-471E-B2CF-586FB55FD304/boot.txt | 1535 | 667845f04fbab615f5c356216a9971026d8bf753a84ea67b1480f7cb2cea6bba |
+| nfsmw_lan_preview2_host_boot.txt | 55ED7847-F652-4B13-BEB8-275F648591DF/boot.txt | 8050 | 3e595d3bbddba3696fd26f9014f9e1e4b9266b2276939fd2a3b9de75f51adde3 |
+| nfsmw_lan_preview2_host_game.log | 83A6266B-4B55-4F5A-9C80-5B899B0BE1B5/nfsmw.log | 566553 | 81ff0ad952a1baefe7e76390aa1ccb786f35a0e6c39951a1979779f5544939b1 |
+| nfsmw_lan_preview2_host_server.log | EDD2ACCC-8F7A-46F2-A0A3-820F89A65942/servidor_lan.log | 9317 | 62c368c9baa4eb7e66b32fff4f63e46c3badd504f5e8e3ce0f06024d379a8717 |
+| nfsmw_lan_preview2_host_waiting_room.png | /var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-dd600fbc-d4d5-42ab-abc9-647272210db5.png | 3132122 | 3521a96a9256ce287150a7a80ba9d8a0ebdc084a7883a5748d423336d1bf37c3 |
+
+Measured: host205starts17:46:41.881, Hostready17:46:52.151, Launch17:47:14.398,
+red_dns=red_ip=192.168.1.205 andgame17:47:14.427. LocalhostEAconnections
+17:47:41.933/41.964, roomcreated17:47:51.947, COUNT1. Host server specifically
+logs discovery queries from192.168.1.150 and successful sendto replies at
+17:47:55.260,17:48:15.230,17:48:30.382,17:48:40.622. Its implementation only
+logs answered after sendto succeeds. This does not establish remote delivery.
+Joinboot is21lines starting17:47:00.863, eight searches at03.518,20.260,54.818,
+57.575,17:48:14.851,30.293,39.844,42.953; eachreturns0hosts about1.5slater.
+One manualJoin17:48:28.644 usedEMPTYendpoint and was rejected beforecontact.
+No guest game launches or remotegamertagcheck, ujoi/gjoi/gsta observed.
+Cross-device clock alignment not independently measured; repeated hostname/IP
+logs identify the peer, not a claimed packet-latency measurement. Screenshot
+matches hostroom/oneplayer; exactdevices/OS still not newly supplied.
+
+Conclusion: discovery fails to surface the responding host, before shared
+lobby/peer gameplay. User followed the Host/Join flow. Lower-level cause of
+missing/filtered/rejected UDP data remains unproved becausepreview2onlylogged
+finalresultcount. Do not label this a game-race transport failure, an incorrect
+user procedure, or a confirmed Apple-entitlement bug. Hostquery/reply evidence
+rules out assuming the host was never running or no request reached it.
+
+Apple primary references consulted (browsed):
+https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy
+https://developer.apple.com/documentation/technotes/tn3151-choosing-the-right-networking-api
+They distinguish local-network permission from the restricted multicast/
+broadcast entitlement. TCP/unicast still require local-network access; changing
+transport does not bypass permissions. Existing live UDP transmission does NOT
+prove all receive traffic permitted. No new entitlement or permissions reset
+performed. Manual targetIP remains a separate unicast reachability check.
+
+Preview3 implementation within existing imported red_lan.cpp/h and setupscreen:
+- Explicitly bind IPv4 UDPsocket toANY:0 before any sends; Apple uses unicast
+  targets only on thissocket, avoiding reliance on privileged broadcast. Retain
+  unchanged NFSMW_DISCOVER wire format/parser and existingserverUDP10902.
+- If no UDP hostsaccepted, query existing Aries TCPdirectory30960 with framed
+  @dir/PROD=nfs-xbox-2006. Validate command/subcodes/12..4096totalframelength,
+  fragmentedread/write handling, ADDRIPv4 andPORT10901 before listingprobeIP.
+  No authentication, gamertagreservation, hostpatch or newserverprotocol.
+  Compatible with existing Android/Python directory, not proof of live Android
+  cross-play. Directory doesn't provide displayname/playercount; UIshowsgeneric
+  LANhost + IP rather than inventing a name or negative player count.
+- Nonblocking eventloop:32concurrent sockets,350msperprobe,4sTCPbudget;
+  SO_NOSIGPIPE onDarwin, close all pending descriptors, deduplicate and remove
+  ALL owninterfaceaddresses. Nearbyaddresses ordered first, wraparound. Broader
+  LANnets limited to own/24 rather than unbounded scanning; manual IP for peers
+  outside that /24. No outbound internet/broad network scan required.
+- Optional tracecallback from discovery into boot.txt logs ownIPs/targetcount,
+  UDPdatagrams/rejectedcount/lastrecverror, TCPattempts/connections/verifiedIPs/
+  lastsocketerror. Lets next test distinguish receive/filter/parse fromTCPfailure.
+  No guest network/race code, SDKsource, controls, timing orgraphics changes.
+
+Validation observed:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research` exit0,
+  /private/tmp/nfsmw-multiplayer-preview3-host.log. Existing25stage/binarysession/
+  SDKpatchchecks pass. NEWfixture compiles actual discovery implementation,
+  substitutes interfaceinventory with own127.0.0.2/remote127.0.0.1 and suppresses
+  all UDPoutgoingtargets. Actualfallback finds each unchangedC++/Pythondirectory
+  (oneattempt,oneconnection,onehost), removes duplicate/ownIPcandidates. Separate
+  responder fragments header/body acrosswrites: accepted. Wrongcommand/oversize
+  frame rejected. Eachscan boundedunder6s. This tests fallback despiteUDPblackhole,
+  not the actualdevices' UDPpolicy/discoveryUI. No game-room/race proof.
+- Two isolatedipa builds exit0: /private/tmp/nfsmw-multiplayer-preview3-build1.log
+  (initialcompile/configure) andbuild2.log(5plannedstepsfinaldedupfilter). Existing
+  actoolSimulatorService/deprecation/duplicate-lz warnings, no finalsource/link
+  error. Sourcepatchstatuses pass atconfigure. No otherSDK/controlbuildtouched.
+- ZIP.testzip=None, codesign --verify --deep --strict exit0,dwarfdump exit0;
+ 104metallibs andbothSDKdylibs byte-identicalpreview2. Uniqueartifactcopied and
+  byte-verified into main's ignoredios/build, no earlierpreviewreplaced.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview3-tcp-discovery.ipa`,
+30393662bytes,SHA256 `d9264dd84701cd01483e9a5a1d1f47b5ee0b654e79d3797117115e7f71bce043`,
+UUID `F5EC48E6-6A61-37F9-89DC-1D402CC03C18`,bundle0.5.1/build9.
+Matchingartifact/ignoredJSONinmultiplayerworktreeios/build. Next FIRST verify
+Joinlists/selectshost andreadyremoteIP onactualdevices. Ifnohost, sendjoinboot
+withnewUDP/TCPdiagnostics plushostserverlog; manual CURRENTdisplayedhostIP is
+separatecheck(205inthisrun). Onlyafterdiscovery/connect works, launchboth and
+hostcreates/guestjoinssamegame-room/fullrace. No physicalpreview3test yet,
+no sharedroom/raceacceptance or AndroidUSA/PCpromotion. Main19177b6/source,
+sharedSDK/controlbuild and preservedissue11note/HANDOFF untouched; localcommit
+only onmultiplayer, no push/merge/tag/release.
