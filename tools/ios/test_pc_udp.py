@@ -39,10 +39,11 @@ uint32_t RaceId(uint32_t){return remoteId;}
 void SetLocalRaceId(uint32_t,uint32_t id){localId=id;}
 uint32_t LocalRaceId(uint32_t){return localId;}
 }
-namespace nfsmw::boot {void Trace(const std::string&) {}}
+std::vector<std::string> logs;
+namespace nfsmw::boot {void Trace(const std::string&s) {logs.push_back(s);}}
 std::vector<uint8_t> sent;
 int result=8;
-const uint8_t packet[]={5,0,0,0,0xc5,0xb9,0x64,0xc6,0xde,0xad,0xbe,0xef};
+const uint8_t packet[64]={5,0,0,0,0xc5,0xb9,0x64,0xc6,0xde,0xad,0xbe,0xef};
 extern "C" REX_FUNC(sub_8282A4F0);
 extern "C" REX_FUNC(sub_8282A5A0);
 extern "C" REX_FUNC(__imp__sub_8282A4F0){
@@ -94,6 +95,12 @@ int main(){
   c=context();if(skip==4)c.lr=0x82500000;if(skip==5)c.r5.u64=4;
   sub_8282A5A0(c,base);assert(memcmp(mem+0x2000,packet,result)==0);
  }
+ red_lan=true;pc=true;Store32(base,0x104,0xc0a801ca);mem[0x103]=0x4a;
+ logs.clear();memcpy(mem+0x2000,original,12);mem[0x2027]=0xa5;
+ for(int i=0;i<40;++i){c=context();c.r5.u64=40;result=40;sub_8282A4F0(c,base);}
+ assert(std::count_if(logs.begin(),logs.end(),[](auto&s){return s.find("[pc-packet] TX")==0;})==32);
+ auto record=std::find_if(logs.begin(),logs.end(),[](auto&s){return s.find("[pc-packet] TX")==0;});
+ assert(record!=logs.end() && record->ends_with("A5") && sent[39]==0xa5);
 }
 '''
 with tempfile.TemporaryDirectory(prefix='nfsmw-pc-udp-') as d:

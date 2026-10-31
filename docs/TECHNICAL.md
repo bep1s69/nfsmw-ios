@@ -13999,3 +13999,98 @@ INIT gets accepted; further game/voice packet differences may remain. No PC
 mod/helper requirement. Hostguestnames stillopen, reversePCdiscoverydeferred.
 All changes/evidence committed localmultiplayer, mainpre-existingcheckpoint/
 HANDOFF/sharedSDK/controls preserved. No push/merge/release/security changes.
+
+## November 1 — preview10 connects and loads race, null factory result; preview11 diagnostics
+
+Stefan reports connection succeeded, then BOTH games crashed a few seconds into
+race loading. Supplied iOS game log copied immediately with copy2/no overwrite
+to `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`:
+`nfsmw_lan_preview10_pc_race_load_crash_game.log`,286105bytes/1707lines,
+SHA256cf78a624b6bc7ee2b6c9fbc8811050379f195bd360a7f8f73953719eeac74159.
+Original pasteboard/items source:
+8E05F619-6FF7-492E-B5AC-51D62F3F3AF2/nfsmw.log. No new boot or PC crash
+report supplied. Installed hash/OS not newly proven; traffic consistent with
+preview10. Both-game crash is user report; only iOS has a located exception.
+
+Observed:
+- Bidirectional CommUDP DATA/ACK traffic continues after peer handshake. Car/
+  setup messages252/204bytes exceed existing96byte kernel dump cap.
+- +ses received00:02:03.734, transitions to loadingregion03.899 and loadingtrack
+ 05.431. This establishes device success of PC peer connection/race-start
+  control, NOT successful race simulation or full packet compatibility.
+-00:02:06.504 unhandled guest read0 on game-created threadF800002C/entry82850668,
+  contextLR82474944, r3=0/r4=0/r5=0/r6=DE/r7=0, r30=BFA7CD08/r31=3F0888CD,
+  stack701EF5E0. No claim these register values are corrupt pointers/floats:
+  caller uses car record keys/other values in registers too.
+- Original USA sub_824743C0 calls8212BFB8 at82474940, then immediately reads
+ 0(r3) at82474944 withoutnullcheck. Actual8212BFB8 searches a registered
+  factory list by key, returns0 if unmatched, otherwise invokes callback and
+  returns callback result. Thus this log cannot distinguish missing factory
+  registration from matching constructor returningnull. No speculative null
+  bypass/fabricated object is a justified crash fix.
+- Caller builds parameters from participant/car record and spawn/config data.
+  Key argument comes from fixed ROM descriptor through820E1E38, not proven
+  directly received packet ID. Full setup data/constructor match needed before
+  diagnosing cross-platform serialization/content differences. PC crash not
+  symbolicated; could share/differ in cause.
+- GAMEPLAY.BIN failed-file warning also appears once in EACH previously working
+  mixed three-player game/current+rotated logs (both0guestAV). New log has one
+  such warning and1AV. Warnings alone don't establish missing game installation;
+  no reimport/change game assets recommended.
+
+Preview11 diagnostic-only changes:
+- New USA game_pc_race.cpp hooks8212BFB8 ONLY while native PCadapter active and
+  callerLR82474944. Up to8calls per launch. Logs requested factorykey, matching
+  registryentry/callback, scan count,3constructor arguments, participant,
+  localflag/carrecordkey BEFORE original and result AFTER original. Registry
+  scan cap256 entries; absent match at cap is inconclusive, not proof missing.
+  Registry address derived from actual original lis-32058/addi-7100 and checked
+  by static_assert(82C5E444). Initial source drafting mistyped82C6E444; corrected
+  to calculated constant before compilation/device artifact, no bad build sent.
+- Originalfactory/callback/result alwaysretained; diagnostic adds no ready,
+  allocation, content, packet endian/layout or physics/renderer change. No null
+  guard that would hide this failure or skip required race objects.
+- game_pc_udp.cpp adds bounded full packet traces toboot.txt at already-scoped
+  PC boundary: up to32RX/32TX packets33–2048bytes, entire normalized guest
+  header/payloadhex (existing kernelwirelog truncates96). Ignores routine small
+  timing/control packets to preserve capture budget for car/setup. Max128KiB
+  raw/256KiB hex across directions, plus prefixes. Logging honorsboot toggle.
+  No payload modifications beyond existing preview10 header/ID conversion.
+- pc::Active getter, CMake USA source addition. No generated source edits, SDK
+  source changes, mobile/Android host behavior changes. Credits preserved.
+  A diagnostic build may still crash; no prevention/fix claimed.
+
+Checks actually performed:
+- New test_pc_race.py compiles actual factorydiagnostic hook with bounded fake
+  registry/guest memory andASan/UBSan: registered callback returningnull versus
+  no registration distinguished, successful result preserved, non-PC/callsite
+  bypass and8call cap pass exit0. No implementation-mirroring dummy fix.
+- Extended actual UDP hook test verifies full trace includes byte40 (beyond
+  short prefix),32record cap and payload preservation; all prior handshake ID,
+  endian, endpoint/off/mobile/voice/error/stack checks pass exit0/ASan/UBSan.
+- Existing actual gateway test passes exit0; actual generated session/address
+  decoder and room-filter regressions pass exit0. No real PC/mobile race test
+  run by agent this turn; supplied device log is the crash evidence.
+- Isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6
+  exit0. nm confirms strong_sub_8212BFB8 plus original___imp__sub_8212BFB8.
+  ZIPCRC and codesign --verify --deep --strict pass0.104metallibs/GPUdylib
+  byte-identicalpreview10. Runtime differs only afterCMake regeneratedSDKstamp
+  and rebuiltdebug_overlay.cpp ([1/16]); no networking object/source rebuilt.
+  No shared SDK edit. git diff --check exit0.
+
+Unique ready diagnostic artifact copied to main ignored ios/build, no old
+preview replaced:NFSMW-multiplayer-preview11-pc-race-diagnostics.ipa,
+30431786bytes,SHA2566e72154e1fdf1c3796f8245d3a2265d52d8f153f9a472ecb328cfb4cff3f0832,
+appUUID89CE2C4E-5A6C-3705-A7FD-0B1D5964012F,
+runtimeUUID4D5257DA-DD90-352A-9B20-DE0228BD98FC, companionJSON.
+Archived buildlog inDebug/1November:nfsmw-preview11-build.log16919bytes,
+SHA256042ab6d7ab74329c3ba58a3efc2fc9fc548a466695a504a539922c433aac5e2d.
+
+Next: preview11 diagnostic, same original PC room and race, Loggingenabled;
+obtain BOTHboot.txt ([pc-race]/[pc-packet]) andnfsmw.log after failure, plus PC
+crashreport/details ifavailable. Use requestedkey/matchingcallback/result and
+completecar/setup PDUs to choose targetedtranslation/content fix. Avoid blind
+whole-payload word swapping, arbitrary factory fallback, or repeating wrong
+handshake fixes. Hostnames stillopen/reversePCdiscoverydeferred. All session
+source/evidence locallycommitted onmultiplayer, mainpre-existingdocsedit/
+HANDOFF/sharedSDK/controls preserved, no push/merge/release.

@@ -22,6 +22,24 @@ void Header(uint8_t *bytes) {
     std::swap(bytes[i + 1], bytes[i + 2]);
   }
 }
+void Packet(bool receive, const uint8_t *packet, uint32_t size) {
+  // Existing kernel logging truncates at96bytes; car/setup messages are longer.
+  // Bound both packet count and size. Header is normalized to guest order here.
+  if (size <= 32 || size > 2048)
+    return;
+  static std::atomic<unsigned> rxData{0}, txData{0};
+  if ((receive ? rxData : txData).fetch_add(1) >= 32)
+    return;
+  constexpr char digits[] = "0123456789ABCDEF";
+  std::string hex;
+  hex.reserve(size * 2);
+  for (uint32_t i = 0; i < size; ++i) {
+    hex += digits[packet[i] >> 4];
+    hex += digits[packet[i] & 15];
+  }
+  nfsmw::boot::Trace(std::string("[pc-packet] ") + (receive ? "RX" : "TX") +
+                     " guest bytes=" + std::to_string(size) + " hex=" + hex);
+}
 void Trace(bool receive, uint32_t size) {
   static std::atomic<unsigned> rx{0}, tx{0};
   if ((receive ? rx : tx).fetch_add(1) < 2)
@@ -53,6 +71,7 @@ extern "C" REX_FUNC(sub_8282A4F0) {
     if (auto id = nfsmw::pc::RaceId(ip))
       REX_STORE_U32(copy + 4, id);
   }
+  Packet(false, base + copy, size);
   Header(base + copy);
   ctx.r4.u64 = copy;
   __imp__sub_8282A4F0(ctx, base);
@@ -79,6 +98,7 @@ extern "C" REX_FUNC(sub_8282A5A0) {
     }
     if (command >= 1 && command <= 5 && id && id == nfsmw::pc::RaceId(ip))
       REX_STORE_U32(buffer + 4, nfsmw::pc::LocalRaceId(ip));
+    Packet(true, base + buffer, ctx.r3.u32);
     Trace(true, ctx.r3.u32);
   }
 }

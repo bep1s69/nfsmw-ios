@@ -315,6 +315,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November1 preview10 connected; both games reported crash during race load.**
+  New game log confirms bidirectional DATA/ack traffic and +ses, state4region
+ 00:02:03.899, state5track05.431, nullguestread06.504/LR82474944. Caller
+ 824743C0 dereferences result of classfactory8212BFB8 withoutnullcheck.
+  Factory may have no registration OR matchingcallbackreturned0; exactcause
+  notknown. PCcrash userreported, noPCdump/callstack supplied. Do NOT conflate
+  handshake success with whole race compatibility, or blind-swap application
+  payloads/force dummyobjects. GAMEPLAY.BIN warnings alsoin workingmobilelogs.
+  Preview11 DIAGNOSTIC only: PC-only exactfactorycallsite traces requestedkey,
+  matchingfactory/callback,args,participant/localflag/carrecord,result (8calls);
+  complete initial>32byte gamepackets, max32/direction and2048bytes/packet,
+  inboot.txt. Originalresults, handshake/packetcontents/payloads unchanged.
+  Actualfactory/UDPdiagnostic tests passASan/UBSan; gateway/guestdecoders/room
+  pass; build/ZIP/signature pass. Factorystronghook+originalimp verifiednm.
+  Ready `ios/build/NFSMW-multiplayer-preview11-pc-race-diagnostics.ipa`,30431786bytes,
+  SHA2566e72154e1fdf1c3796f8245d3a2265d52d8f153f9a472ecb328cfb4cff3f0832,
+  appUUID89CE2C4E-5A6C-3705-A7FD-0B1D5964012F,
+  runtimeUUID4D5257DA-DD90-352A-9B20-DE0228BD98FC. GPUdylib/104shaders identical
+  preview10; SDKruntimeonlydebug_overlay rebuiltforCMakeversionstamp, noSDK
+  source/networkchanges. NativePCtransportfunctionalityconfirmed, actualrace
+  stillfails. **Next:** preview11samePCroom test withLoggingenabled, obtain
+  BOTHboot.txt andnfsmw.log forfactory+fullsetupdata; PCcrashdetailsifavailable.
+  Thisbuilddoesnotclaimtopreventcrash. Rawnewlog archivedDebug/1November as
+  nfsmw_lan_preview10_pc_race_load_crash_game.log. Alllocalmultiplayer;
+  controls/mainpreexistingdocsedit/HANDOFF/sharedSDK preserved. No push/release.
+
 - **November1 preview10: header-only device experiment FAILED; PC listener ID learned.**
   Follow-up log23:54 shows10TX0100000000000000 (translatedLE) and10PCreplies
  05000000C5B964C6,10s timeout. Thus headerhook ran; do NOT offerpreview9again
@@ -3067,3 +3093,18 @@ test_pc_gateway.py covers endpoint isolation and Start/Stop ID-cache clearing.
 Existing build command unchanged. Observe `[pc-udp] PC listener connection ID
 learned` in boot and nonzero matching ID in actual outgoing UDP wire capture.
 Success still requires the game's real handshake and race, not a trace line.
+
+### Preview11 PC race-loader diagnostics
+
+```sh
+python3 tools/ios/test_pc_race.py
+python3 tools/ios/test_pc_udp.py
+```
+
+Existing isolated build command unchanged. Diagnostic factory hook only runs
+with nativePCadapter active and callerLR82474944; cap8calls, log before/after
+original without replacing result. Header hooks log max32initial packets per
+RX/TX when length33–2048, complete normalized guest header and original payload.
+With Logging enabled obtain BOTH boot.txt and nfsmw.log after a PC race load;
+boot contains [pc-race]/[pc-packet] lines absent from normal96byte kernel dumps.
+This is a diagnostic build, not a crash fix. No mobile/gameplay result changes.

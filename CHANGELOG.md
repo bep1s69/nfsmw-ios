@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Record PC race-loading failures.** Add bounded factory and packet diagnostics
+  after PC/iOS connections reached race loading and crashed. This diagnostic
+  build preserves game behavior and does not yet fix the race-loading crash.
+
 - **Match the PC listener’s connection ID.** Translate handshake identifiers
   between iOS and the selected PC host. The header-only test still timed out;
   the identifier adaptation needs device confirmation.

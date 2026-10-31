@@ -21,6 +21,7 @@ namespace {
 std::atomic<uint32_t> racePeer{0}, raceId{0}, localRaceId{0};
 }
 bool IsRacePeer(uint32_t ipv4) { return ipv4 && racePeer.load() == ipv4; }
+bool Active() { return racePeer.load() != 0; }
 void ObserveRaceId(uint32_t ipv4, uint32_t id) {
   if (IsRacePeer(ipv4) && id)
     raceId = id;

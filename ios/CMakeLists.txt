@@ -282,7 +282,7 @@ if(NFSMW_WITH_GAME)
             message(FATAL_ERROR "NFSMW: the generated code lacks the record pool edits "
                 "(${_pool}). Run: python3 tools/ios/patch_game_pool.py")
         endif()
-        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp src/multiplayer/game_lan.cpp src/multiplayer/game_pc_udp.cpp)
+        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp src/multiplayer/game_lan.cpp src/multiplayer/game_pc_udp.cpp src/multiplayer/game_pc_race.cpp)
         message(STATUS "NFSMW: ${_pool}")
         # Extra Options features (src/game_extra_options.cpp), with their edits
         # to the generated code (tools/ios/patch_game_extra_options.py).
