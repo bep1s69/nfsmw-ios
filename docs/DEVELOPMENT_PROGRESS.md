@@ -303,6 +303,28 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: Android hotspot gameplay and iOS Wi-Fi race completion confirmed.**
+  Stefan confirms Android race worked after correct hotspot address, intentional
+  quit; Android saw occasional remote-car flicker/proximity stutter. iOS host
+  still hid Android's name/connected row. Later confirms iOS↔iOS names display
+  correctly, so treat missing roster as Android-specific interoperability.
+  Wi-Fi follow-up: discovery finds phone192.168.1.205; guest192.168.1.200
+  (zestygooner/iPad) joins and user reports playing through the race, smoother
+  opponent movement/no flicker observed. Five Wi-Fi files archived under Debug/
+ 31 October2026/nfsmw_lan_wifi_race_completed_*; bothgame logs zero guestAV.
+  Do not claim Android↔iOS Wi-Fi tested: latest logs are two iOS devices.
+  Android supplied logs initially read (18:51–18:55, TKMachine/.6), but their
+  temporary pasteboard paths vanished before archive; exact failure recorded
+  in TECHNICAL. Need re-export for further raw analysis, not silently lost.
+  **Next:** Android release/build and its name-display behavior requested;
+  compare Android vs iOS roster/identity path while preserving working iOS
+  display. Android logs and renewed iOS host logs for name test needed. No
+  roster fix identified yet. Android Wi-Fi, rematch/reconnect/reliability also
+  unvalidated. Car flicker/stutter lower priority per Stefan; no speculative
+  transport/game timing changes. PC deferred. Preview5 ready, actual installed
+  preview4/5 not newly proven by append-only build stamp. No new IPA this turn.
+  All work local multiplayer; main controls/sharedSDK unchanged/no push.
+
 - **October 31: first Android test reaches lobby, fails peer connection; mixed interfaces.**
   User confirms Android on iPhone hotspot while iPhone Wi-Fi also enabled.
   Phone chose/advertised192.168.1.151, Android172.20.10.6, directory correctly

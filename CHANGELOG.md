@@ -14,7 +14,7 @@
 - **Find hosts when UDP discovery fails.** iOS now explicitly binds its
   discovery socket and falls back to the existing EA TCP directory protocol.
   Android and Python hosts need no changes. Discovery diagnostics go to boot.txt.
-  Two-player iPhone/iPad racing now confirmed over Personal Hotspot.
+  Two-player iPhone/iPad racing confirmed over Personal Hotspot and Wi-Fi.
 
 - **Clearer multiplayer setup.** A dedicated Host/Join screen finds nearby
   hosts, shows which lobby you are connected to, chooses a player name and

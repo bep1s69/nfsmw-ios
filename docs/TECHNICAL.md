@@ -13087,3 +13087,83 @@ then Android game logs/release identification if correctly advertised address
 still fails. Regular Wi-Fi remains separate, PC deferred. All changes local
 multiplayer; main/sharedSDK untouched, pre-existing main checkpoint modification
 and HANDOFF preserved. No push/merge/release.
+
+## October 31 — Android gameplay confirmed; Wi-Fi iOS race completed; Android-only roster defect
+
+User supplied Android-test boot/game/server logs at pasteboard/items:
+9B1A49B9-F7EC-4CAE-97B5-A61C0215945E/boot.txt,
+BB7A8B31-B762-412F-AA38-26933314F121/nfsmw.log,
+9A66AB06-E6F2-4AAE-9525-B2E274E3237C/servidor_lan.log.
+Read successfully first, respectively392/19054/770lines. Subsequent archive
+attempt failed FileNotFoundError (exit1): pasteboard directories no longer
+existed, confirmed ls exit1. No archive/hashes were captured; do NOT claim
+these three originals preserved. Earlier Android failure logs ARE archived.
+Need these re-exported if needed for raw follow-up. Retain parsed facts:
+- NewHost18:51:31.751, launch18:51:46.907, red_ip/red_dns172.20.10.1.
+- Auth bep1s .1 at18:52:03.171, TKMachine .6 at18:52:42.313; gjoi/COUNT=2
+ 18:52:46.956. gsta/+ses both18:53:02.820. UDP3658 continues both directions
+  through18:55:10.833. Zero guestAV in supplied phone log. Append-only records
+  include earlier sessions; build stamp Oct31 13:50:31 does not distinguish
+  preview4/5 (link-only changes). Expected preview4 Wi-Fi-disabled control
+  from preceding discussion, actual installed artifact hash not supplied.
+- User confirms they could play, he intentionally closed; iOS still did not
+  display Android name/connected row. Android reported occasional remote-car
+  flicker and stutter near iOS car. Do not label disconnect a crash.
+- User explicitly confirms iOS↔iOS names display correctly. This narrows
+  remaining roster symptom to Android interoperability on tested pairing,
+  not every host roster. Lobby server sends TKMachine/OPPO1/COUNT=2 to host,
+  phone recv log contains name; payload absence not established cause.
+- Older failure data SLUS differs iOS21351 vsAndroid21267, same CLST/VERS;
+  not proof of cause. Asked exact Android build/release and whether Android
+  keeps iOS name visible, answer pending. No game hook/SDK behavior changed.
+
+Wi-Fi control then user: host192.168.1.205, searching worked, race started and
+"played through it", opponent motion much smoother/no flickering observed.
+New logs identify guest192.168.1.200/zestygooner, both are iOS launchers. Thus
+Wi-Fi race acceptance is iOS↔iOS; Android-over-Wi-Fi not established. No reason
+to keep classifying all Wi-Fi discovery/racing as broken or claim a specific
+router/policy cause was fixed. No explicit network-settings diff supplied
+beyond advised PersonalHotspotOFF/sameWi-Fi. Device models/OS not newly given.
+
+Five new originals copied immediately with copy2/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_wifi_race_completed_`:
+
+| Suffix (role) | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| device_a_game.log (join) | 1347490 / 7620 | b6e75a311f04ccfe029104c4aff88584a23a85f8d181b8da796b1ca1f9dff5a2 |
+| device_a_boot.txt (join) | 8337 / 132 | f3a4c29fdd4b7ded4fdb1b83ff5acc0066f9cea49c2468d3cf0184fd41cbdf48 |
+| device_b_boot.txt (host) | 8050 / 129 | db0583c65660d2c27386579bcb94748b7c9f9bff0f0ec4ded3963f41c43f9c3d |
+| device_b_game.log (host) | 1269600 / 7248 | 708e838e32d7304fe85859bad85d91cc4ac4c0c36ddf06dc14e472dbfdb44152 |
+| server.log | 30403 / 208 | de8e40ad804e552a654a6eafccddf15238f6a17368c28845af66192d7d89127c |
+
+Original shared-pasteboard/items directories in table order:
+60E477EB-80B8-4AA8-A0FD-F28F1BDBFD0F/nfsmw.log,
+98C30B08-330C-4855-8294-26FB9E535768/boot.txt,
+B9FBFDDE-BC2F-4606-A5F5-F55FE3E0F018/boot.txt,
+029BA1BE-5A61-4040-8544-0F9B74EC824A/nfsmw.log,
+426A3BC0-19DE-4D89-A6D4-F2E0627141E0/servidor_lan.log.
+Hostready18:59:01.212, launch18:59:56.230. Joinsearch18:59:40.190 returns1
+remotehost18:59:41.694; ready18:59:43.615, launch18:59:57.948. Both use
+red_dns192.168.1.205, local red_ip205/200 respectively. Auth host19:00:12.457,
+guest19:00:26.426; gjoiCOUNT=2 at19:00:29.793, gsta19:00:45.244. Guest log
+ends19:02:12.937, server closesguest19:02:13.121, host log ends19:02:27.905.
+Both game logs zero guestAV, last lines truncated. Race completion is user's
+report; logs support session/race startup/traffic but no finish-specific packet
+was independently identified. Build stamp still13:50:31, no installed SHA;
+preview5 delivered but install not explicitly confirmed. No new flags supplied.
+
+Investigation only, no speculative roster patch/build. Inspected SDK user/session
+stubs, existing +mgm/OPPO serialization, game dispatch. Extracted local sibling
+XEX via existing tools/ediciones/imagen.py into ignored/private
+`/private/tmp/nfsmw-multiplayer-image-cache/*.img`,13434880bytes. Private game
+image not committed. +mgm table at828F2230 points8282E2E8, dispatches game event4
+through8281F3A0 to registered callbacks (32slots atobject+6312). This alone
+identifies no roster bug. Unsupported XLIVEBASE5000D/50079 observed but no proof
+related to missing Android name; preserve current scoped behavior. Broad web
+search for message constant returned unrelated results, used no claims from it.
+Need Android actual build/logs and roster handling comparison before changing
+working iOS behavior. Wi-Fi Android pairing/reliability/rematch also untested.
+Stefan prioritizes Wi-Fi and correct remote names; flicker/stutter lower priority.
+Records/changelog updated locally on multiplayer; main pre-existing checkpoint
+edit/HANDOFF preserved, sharedSDK/controlbuild untouched. No push/merge/release.
