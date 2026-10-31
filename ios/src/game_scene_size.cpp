@@ -1457,6 +1457,7 @@ struct Hint {
 struct MenuNode {
   uint32_t object,parent,hash,texture,type;
   float x,y,w,h;
+  uint32_t blue=0,green=0,red=0,alpha=0; // FEColor: four integer channels
 };
 struct MenuRect {
   float left,top,right,bottom;
@@ -1480,7 +1481,8 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     const float gx=px+sx*LoadF(base,data+28),gy=py+sy*LoadF(base,data+32);
     if (!std::isfinite(gx)||!std::isfinite(gy)) continue;
     if (nodes) nodes->push_back({o,parent,REX_LOAD_U32(o+0x10),REX_LOAD_U32(o+0x24),type,gx,gy,
-                                sx*LoadF(base,data+56),sy*LoadF(base,data+60)});
+                                sx*LoadF(base,data+56),sy*LoadF(base,data+60),
+                                REX_LOAD_U32(data),REX_LOAD_U32(data+4),REX_LOAD_U32(data+8),REX_LOAD_U32(data+12)});
     if (type==5) {
       if (depth>=8||REX_LOAD_U32(o+0x5C)!=kListVtable||REX_LOAD_U32(o+0x60)>200) continue;
       const auto child=REX_LOAD_U32(o+0x64);
@@ -1699,15 +1701,38 @@ void FindSelected(MenuModel& model,const std::vector<FocusFrame>& frames,const s
     const float d=std::hypot(frame.rect.X()-item.x,frame.rect.Y()-item.y);
     if (d<best) {best=d;model.selected=item.key;}
   }
-  if (model.selected || model.kind!=MenuLayout::RapSheet) return;
-  // Rap Sheet uses a broad filled highlight strip, rather than corner glyphs.
-  for (const auto& n:nodes) if ((n.type==1 || n.type==9) && std::abs(n.w)>=200 &&
-      std::abs(n.h)>=10 && std::abs(n.h)<=40) {
-    for (const auto& item:model.items) {
-      const float d=std::abs(n.y-item.y);
-      if (d<12 && d<best) {best=d;model.selected=item.key;}
+  if (model.selected) return;
+  if (model.kind==MenuLayout::Profile) {
+    // Text positions are baselines; the small focus corners surround the name,
+    // not the full-width touch row. Match vertical overlap, not the panel center.
+    float distance=1e9;uint32_t selected=0;
+    for (const auto& frame:frames) {
+      if (frame.rect.bottom-frame.rect.top>40) continue;
+      for (const auto& item:model.items) {
+        if (frame.rect.right<item.rect.left || frame.rect.left>item.rect.right) continue;
+        const float d=std::abs(frame.rect.Y()-(item.y+9));
+        if (d<14 && d<distance) {distance=d;selected=item.key;}
+      }
     }
+    model.selected=selected;
   }
+  if (model.kind!=MenuLayout::RapSheet) return;
+  // Every row can have a backing strip, including inactive rows. The selected
+  // label turns white; ordinary labels stay green. Require one unique white
+  // label on a modeled row, never infer focus from a strip's dimensions.
+  uint32_t selected=0;
+  for (const auto& n:nodes) if (n.type==2 && n.x<-100 && n.alpha>0 &&
+      n.blue>=220 && n.green>=220 && n.red>=220) {
+    const MenuItem* row=nullptr;float distance=15;
+    for (const auto& item:model.items) {
+      const float d=std::abs(n.y-(item.y-9));
+      if (d<distance) {distance=d;row=&item;}
+    }
+    if (!row) continue;
+    if (selected && selected!=row->key) {model.selected=0;return;}
+    selected=row->key;
+  }
+  model.selected=selected;
 }
 MenuModel BuildMenuModel(std::string_view name,const std::vector<MenuNode>& nodes,
                          const std::vector<Hint>& hints,const std::vector<FocusFrame>& frames) {
@@ -1757,6 +1782,11 @@ MenuModel BuildMenuModel(std::string_view name,const std::vector<MenuNode>& node
     for (const auto& n:nodes) if (n.type!=5 && n.texture==0xC6AFDD7E && n.x<-100 && n.y>-90 && n.y<175 &&
         std::abs(n.w)>=3 && std::abs(n.w)<=30 && std::abs(n.h)>=3 && std::abs(n.h)<=30)
       model.items.push_back({n.hash,{n.x-16,n.y-13,280,n.y+13},0,n.y});
+    // Rankings uses ten category labels rather than OPTION_NAME_i. Hashes and
+    // baselines were observed in test9's live FE tree; exclude numeric ranks.
+    if (name=="RapSheetRankings.fng") for (const auto& n:nodes)
+      if (n.type==2 && ((n.hash>=0x21A45336 && n.hash<=0x21A4533E) || n.hash==0x562EBA26))
+        model.items.push_back({n.hash,{-280,n.y-4,280,n.y+22},0,n.y+9});
     // ArrayScroller-style subpages expose named text rows.
     if (model.items.empty()) for (const auto& n:nodes) if (n.type==2 &&
         NamedIndex(n.hash,"OPTION_NAME_")>=0 && n.y>-155 && n.y<175) {
@@ -2025,6 +2055,16 @@ extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,
       return action;
     }
     if (item) {
+      if (model.kind==MenuLayout::Profile || model.kind==MenuLayout::RapSheet) {
+        static std::unordered_map<std::string,int> snapshots;
+        if (snapshots[pkg.name]++<3) {
+          for (const auto& n:pkg.nodes) if (n.type==2 || n.type==9 ||
+              n.texture==0x6FB79A55 || n.texture==0x475A90F5)
+            REXLOG_INFO("[touch-focus] {} hash {:08X} type {} at {:.1f},{:.1f} size {:.1f},{:.1f} BGRA {},{},{},{}",pkg.name,n.hash,n.type,n.x,n.y,n.w,n.h,n.blue,n.green,n.red,n.alpha);
+          for (const auto& f:pkg.frames)
+            REXLOG_INFO("[touch-focus-frame] {} {:.1f},{:.1f}..{:.1f},{:.1f}",pkg.name,f.rect.left,f.rect.top,f.rect.right,f.rect.bottom);
+        }
+      }
       const int arrow=OptionArrowAt(model,pkg.hints,*item,x,y);
       if (arrow) { REXLOG_INFO("[touch-option] {} row {:08X}: {}",pkg.name,item->key,arrow);return arrow; }
       REXLOG_INFO("[touch-select] {} item {:08X} selected {:08X}",pkg.name,item->key,model.selected);

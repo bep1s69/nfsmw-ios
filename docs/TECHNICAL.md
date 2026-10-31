@@ -11942,3 +11942,97 @@ and music acceptance not closed from this general report. No new on-device
 validation, SDK/timing/profile changes, push/tag/release/version bump. Preserve
 pre-existing13-line issue11 checkpoint note unstaged,HANDOFF untracked, sibling
 SDK modifications. Session code and records committed locally.
+
+
+### October 31: test9/log27 profile and Rap Sheet focus failures; test10 trial
+
+User report (ongoing iPhone 17 Pro Max test context; OS not independently
+established by this log): showcase pan still too weak and direction should
+reverse; profile/alias names not tappable; Rap Sheet main taps reverse-cycle
+entries although swiping now works; Vehicle Database swiping works; Infractions
+appears not to scroll; Rankings swipes work but direct row taps do not.
+No new safehouse-stall or other-app-music acceptance result supplied.
+
+Evidence archived exclusively without replacing originals, byte/hash verified
+in `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- `nfsmw_iphone_17pm_27_052_test9_profile_rap_camera.log`: 2147812 bytes, SHA256 `147802bdc166a2a3bd1ca8456b0c8d9093bb868ea6bcdc880a69e179db04edd5`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/A6D670EE-109C-4231-A950-AC884E409456/nfsmw.log`.
+- `nfsmw_iphone_17pm_27_rap_sheet.png`: 1329527 bytes, SHA256 `9a4ac2558009c421e781305db3d5e663ab638f359c6ba364f43fe5f2377a872c`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-d10dccd1-c2f8-4ed0-ab9b-7821b8bbed22.png`.
+- `nfsmw_iphone_17pm_27_infractions.png`: 1104141 bytes, SHA256 `eeaef0ebbeb2fd08cb49db38ae779cb720c28161c83b077d58a57dbe34b9b717`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-116fade7-11e5-491f-a21d-1beab93395f0.png`.
+- `nfsmw_iphone_17pm_27_rankings.png`: 1192726 bytes, SHA256 `87428552c03087ef0df2e1295fe5bbd0c04ee080b20085bd5ad50e4d8fbd3a29`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-eb317467-44da-4e50-85e7-12bca24c32b4.png`.
+
+Log27: 13,177 lines, one launch12:54:10.214, last13:00:20.654. Trial identified
+as test9-r2 by session context; a cached individual build-stamp log does not
+independently establish whole-IPA identity. Prior artifact identity above.
+Measured markers:
+- Eight profile taps12:54:24.598..27.023 hit rowBE8FA180 but selected00000000:
+  row hit detection succeeds; focus detection blocks selection safely.
+- RapSheetMain taps12:57:13.692 onward repeatedly report selectedE6362292,
+  independent of tapped row. Old broad-strip geometry can identify an inactive
+  row backing as focus (inference supported by code and supplied screenshot).
+- Rankings has80nodes/9hint candidates/0corner frames; real left-hand label
+  hashes21A45336..21A4533E and562EBA26, atx-278,y-97..146. Numeric rank labels
+  atx277 are different objects; old model did not create these category rows.
+- Main labels atx-272 are about9–10units ABOVE bullet centers, e.g128vs138.
+  They are text origins, not the center of the selectable row.
+- Challenge and Options transactions have selected/no-A completion markers;
+  these are measured traces, not blanket user acceptance of all layouts.
+
+Investigation of Infractions: local extracted image package-registration entry
+828FF2F0 maps RapSheetUS.fng to constructor822D5058 ->82246518. That creates a
+1-column/8-visible-row ArrayScroller via822E04C0. Population82246778 creates
+exactly8datum entries (category masks1,2,4,8,16,32,64,128). Screenshot displays
+all8categories. Input822466E0 forwards to822E1110; ordinary Up/Down select rows,
+not missing content beyond these8. Therefore no additional viewport scrolling
+is expected on the supplied layout; the scrollbar is misleading here. No
+right-stick rerouting or fabricated extra rows added. Vehicle Database/manual
+Rap Sheet navigation left unchanged.
+
+Test10 changes (no new flags, existing live preferences/defaults retained):
+- Snapshot FEColor four integer BGRA channels at data+0/4/8/12. Rap Sheet focus
+  uses one white left-side label on a modeled row, instead of any wide strip.
+  Green unselected labels/alternating row backings cannot claim focus. Ambiguous
+  or absent white focus cancels without A. Supplied screenshot supplies visible
+  white-vs-green distinction; actual runtime color values need device validation.
+- Rankings creates rows from observed category identities, centers9units below
+  text origins and excludes numeric-rank objects. Existing bounded controller
+  selection transaction still selects first, a second selected tap can accept.
+- Profiles with narrow focus corners match nearest text row vertically within
+ 14units (text origin+9), provided horizontal row overlap. Full-width panel
+  center need not lie inside the name highlight. No guessed first-profile
+  fallback; confirmation remains manual A. Profile-specific frame/text origin
+  offset remains a trial pending actual device result.
+- First3 profile/Rap Sheet row taps dump bounded per-package FE node colors/
+  geometry and focus frames (`[touch-focus]`, `[touch-focus-frame]`), even when
+  row hit succeeds. This closes the diagnostic blind spot of miss-only logging.
+- Showcase pan reverses both axes; start threshold0.5pt(previous2), analog
+  minimum0.8(previous0.35), saturation1pt(previous8) per touch sample. Values
+  remain within[-1,1]; maximum controller camera speed is unchanged. No claim
+  of proportionately faster motion once the original input was saturated.
+  Pinch retains test9 gain/floor; 50ms pulse expiration and release neutral
+  remain unchanged, as does free-roam map behavior.
+
+Validation: `python3 tools/ios/test_menu_touch.py` exit0 three runs. Tests compile
+actual model/walker/transaction logic: multiple backing strips, unique white
+focus/ambiguous/missing focus, real Ranking label IDs vs numeric ranks, narrow
+profile frame, reversed stronger pan and neutral/saturation. Existing popup,
+option/event/grid selection and map/gesture policy fixtures pass. Synthetic
+color/profile layout fixtures are not runtime device proof. Two cmake ipa
+builds run; final results/artifact recorded below. No SDK/timing/profile changes.
+
+Final validation/artifact: both cmake builds exit0, logs
+`/tmp/nfsmw-052-menu10-build.log` and `/tmp/nfsmw-052-menu10-build2.log`.
+Second build separates pan gain from CameraMotion so pinch remains unchanged.
+ZIP.testzip=None; codesign --verify --deep --strict exit0; dwarfdump --uuid exit0.
+104metallibs and2SDKdylibs byte-identicaltest9r2. git diff --check exit0.
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test10-profile-rap-pan.ipa`,
+30185747bytes,SHA256 `2a85b3579542469c1f27b44df4ac646fe0ac0923a672d9aee4028917d2eca55f`,
+UUID `0C48BE41-BDA4-3AA5-983A-7F246D329D2F`,bundle0.5.1/build9.
+Exclusive-created same bytes verified at
+`/Users/bep1s/Desktop/NFSMW-0.5.2-test10-profile-rap-pan.ipa`; prior builds retained.
+Ignored JSON metadata beside build. Next device test: strict-mode profile name
+select/manual A, main Rap Sheet/Rankings direct selection + swipes, slow pan
+both directions, Vehicle Database regression. Runtime white-color detection,
+profile origin offset and perceived camera gain remain unproven by host tests.
+No SDK/timing/profile edits or push/tag/release/version bump. Session changes
+committed locally; pre-existing13-line issue11 checkpoint note deliberately
+unstaged, HANDOFF untracked and sibling SDK modifications preserved.

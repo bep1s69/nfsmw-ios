@@ -193,6 +193,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31: test10 profile/Rap Sheet focus and showcase pan trial ready.**
+  Test9/log27 archived with3screenshots (TECHNICAL paths/hashes). User confirms
+  main Rap Sheet and Vehicle Database swipes; profile selection fails with
+  selected00000000, main Rap Sheet falsely always selects last row, Rankings
+  rows absent from model. Test10 uses unique white label focus (not backing
+  strips), observed Rankings row hashes, narrow profile highlight/text-row
+  vertical matching. Runtime FE color/profile geometry remains device-pending;
+  first3row taps log color/geometry even on successful hits. No forced focus/A
+  on missing/ambiguous state; profiles still require manual confirmation.
+  Showcase pan axes reversed; slow motion minimum0.8/full-scale1pt/start0.5pt.
+  Original maximum analog speed, pinch, release pulses and map path preserved.
+  Infractions original82246518/82246778 creates8entries/8visible slots; screenshot
+  shows all8, so no extra content to scroll. No changes to Vehicle Database.
+  Host test script three runs exit0;2normal ipa builds exit0; ZIP/signature pass;
+ 104metallibs/2SDKdylibs identicaltest9r2. Final artifact:
+  `ios/build/NFSMW-0.5.2-test10-profile-rap-pan.ipa`,30185747bytes,
+  SHA256 `2a85b3579542469c1f27b44df4ac646fe0ac0923a672d9aee4028917d2eca55f`,
+  UUID `0C48BE41-BDA4-3AA5-983A-7F246D329D2F`,bundle0.5.1/build9.
+  Same bytes verified on Desktop; ignored.json beside build.
+  **Next:** test profile/alias name taps (manual A), Rap Sheet main/Rankings
+  row taps and swipes, slow showcase pan direction/response with anywhere
+  gestures disabled; regress Vehicle Database. Remaining prior options/events
+  matrix still pending where not explicitly accepted. If profile/Rap focus
+  remains wrong, use new `[touch-focus]` / `[touch-focus-frame]` evidence, not
+  another unobserved layout guess. Safehouse stall/music acceptance stay open.
+  No push/tag/release/version bump, timing/profile/SDK edits. Preserve pre-existing
+ 13-line issue11 note unstaged, HANDOFF untracked and sibling SDK work.
+
 - **October 31: test9-r2 row/grid selection trial ready, device validation next.**
   Archived test8 rotated logs25/26 and six screenshots (TECHNICAL exact paths/
   hashes); user says much better, reports row/grid/Rap Sheet/camera gaps.

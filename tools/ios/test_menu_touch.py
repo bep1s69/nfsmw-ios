@@ -218,12 +218,19 @@ int main() {
  grid.push_back({81,0,0x444969FE,0,5,-240,170,1,1});
  std::vector<Hint> event_arrows;EventArrowHints(event_arrows,grid,gm);
  assert(event_arrows.size()==2 && event_arrows[0].button==Up && event_arrows[1].button==Down);
- // Rap Sheet's bullet rows + filled highlight, without corner frames.
+ // Rap Sheet bullet rows with white selected text, without corner frames.
  std::vector<MenuNode> rap;
  for (int i=0;i<6;++i) rap.push_back({uint32_t(90+i),0,uint32_t(100+i),0xC6AFDD7E,1,-270,28.f*i,12,12});
- rap.push_back({99,0,0,0,9,0,28,560,24});
+ // Multiple backings must not identify the last row as selected.
+ for (int i=0;i<6;++i) rap.push_back({uint32_t(200+i),0,0,0,9,0,28.f*i,560,24});
+ rap.push_back({99,0,0,0,2,-272,19,1,1,255,255,255,255});
  auto rm=BuildMenuModel("RapSheetMain.fng",rap,{},{});
  assert(rm.items.size()==6 && rm.selected==101 && ModelDragAt(rm,100,100)==VerticalDrag);
+ auto ambiguous=rap;
+ ambiguous.push_back({199,0,0,0,2,-272,47,1,1,255,255,255,255});
+ assert(BuildMenuModel("RapSheetMain.fng",ambiguous,{},{}).selected==0);
+ auto unselected=rap;unselected.back().blue=100;
+ assert(BuildMenuModel("RapSheetMain.fng",unselected,{},{}).selected==0);
  assert(SelectItem(rm,60,207,&rm.items[1])==1); // selected row opens
  om.selected=0;assert(SelectItem(om,30,208,&om.items[0])==-1); // no observable focus, no input
  gm.selected=gm.items[0].key;
@@ -239,9 +246,20 @@ int main() {
  assert(SelectItem(gm,50,210,&gm.items[3])==SelectionDone);
  std::vector<MenuNode> sub={{110,0,Hash("ARRAY_SCROLL_REGION"),0,1,0,0,300,200},
   {111,0,Hash("OPTION_NAME_1"),0,2,-100,-30,1,1},
-  {112,0,Hash("OPTION_NAME_2"),0,2,-100,0,1,1},{113,0,0,0,9,0,-30,300,24}};
+  {112,0,Hash("OPTION_NAME_2"),0,2,-100,0,1,1},{113,0,0,0,2,-110,-39,1,1,255,255,255,255}};
  auto rs=BuildMenuModel("RapSheetUS.fng",sub,{},{});
- assert(rs.items.size()==2 && rs.selected==Hash("OPTION_NAME_1"));
+ assert(rs.items.size()==2); // named subpage rows use the same label-focus rule
+ assert(rs.selected==Hash("OPTION_NAME_1"));
+ // Real ranking label identities, exclude the right-hand numeric ranks.
+ std::vector<MenuNode> ranks={{300,0,0x21A45336,0,2,-278,-97,1,1,100,255,170,255},
+   {301,0,0x21A45337,0,2,-278,-70,1,1,255,255,255,255},
+   {302,0,0x7711109C,0,2,277,-71,1,1,255,255,255,255}};
+ auto ranking=BuildMenuModel("RapSheetRankings.fng",ranks,{},{});
+ assert(ranking.items.size()==2 && ranking.selected==0x21A45337);
+ assert(ItemAt(ranking,0,-88)->key==0x21A45336);
+ // Narrow profile focus need not contain the full-width row's horizontal center.
+ auto narrow=BuildMenuModel("MC_List.fng",profiles,{},{{0,{-139,-61,-90,-41}}});
+ assert(narrow.selected==51 && SelectItem(narrow,41,212,&narrow.items[0])==SelectionDone);
  assert(WidgetDragAt("RapSheetVD.fng",{}, {},100,100)==VerticalDrag);
  grid[1].texture=1;grid[2].texture=2;
  const auto content_a=BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport;
@@ -249,6 +267,8 @@ int main() {
  assert(BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport==content_a);
  for (auto& node:grid) if (node.hash==Hash("EVENT_ICON_1")) node.texture=3;
  assert(BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport!=content_a);
+ assert(ShowcasePan(0)==0 && ShowcasePan(.5f)<-.8f && ShowcasePan(-.5f)>.8f);
+ assert(ShowcasePan(1)==-1 && ShowcasePan(-10)==1);
  assert(CameraMotion(0)==0 && CameraMotion(.5f)>.35f && CameraMotion(-2)<-.35f);
  assert(CameraMotion(8)==1 && CameraMotion(14,14)==1);
  // Popup choices are wide images; a hidden choice never enters the snapshot.

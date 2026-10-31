@@ -1071,15 +1071,15 @@ static CGFloat TouchOpacity() {
   _gLast = p;
   const CGFloat dx = p.x - _gStart.x, dy = p.y - _gStart.y;
   const CGFloat d = std::hypot(dx, dy);
-  if (d < (_gDragMode==nfsmw::menu_touch::CameraDrag?2:14) && !_gSwiping) return;
+  if (d < (_gDragMode==nfsmw::menu_touch::CameraDrag?.5:14) && !_gSwiping) return;
   if (!_gSwiping) REXLOG_INFO("[touch] menu swipe started, invert {}",REXCVAR_GET(ios_touch_menu_invert));
   _gSwiping = YES;
   if (!_gScrollAllowed) return;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
   if (_gDragMode==nfsmw::menu_touch::CameraDrag) {
     [self stopMenuRepeat];
-    const float x=nfsmw::menu_touch::CameraMotion(float(p.x-_gCameraLast.x));
-    const float y=nfsmw::menu_touch::CameraMotion(float(p.y-_gCameraLast.y));
+    const float x=nfsmw::menu_touch::ShowcasePan(float(p.x-_gCameraLast.x));
+    const float y=nfsmw::menu_touch::ShowcasePan(float(p.y-_gCameraLast.y));
     _gCameraLast=p;
     PulseCameraInput(x,y,0);
     return;

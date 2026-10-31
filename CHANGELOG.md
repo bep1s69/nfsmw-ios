@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Refine profile and Rap Sheet touch selection.** Improved selection detection
+  and Rankings row targets; reversed showcase panning and strengthened slow
+  drags. Device validation pending.
+
 - **Tap to select menu rows and events.** Profiles keep a separate confirmation;
   events can be launched with a second tap. Corrected options arrows, separated
   row/value swipes, expanded event-box and Rap Sheet navigation, and increased
