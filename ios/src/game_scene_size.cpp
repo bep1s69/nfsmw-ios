@@ -1526,11 +1526,11 @@ std::vector<FocusFrame> FocusFrames(const std::vector<MenuNode>& nodes,float max
   std::vector<FocusFrame> frames;
   std::vector<const MenuNode*> corners;
   for (const auto& n:nodes) if ((n.texture==0x6FB79A55 || n.texture==0x475A90F5) && n.type!=5 &&
-      std::abs(n.w)<=32 && std::abs(n.h)<=32) corners.push_back(&n);
+      std::abs(n.w)<=40 && std::abs(n.h)<=40) corners.push_back(&n);
   // A package can have both a large decorative frame and a selected-entry
   // frame at root level. Match geometry, not a nonzero/common parent alone.
   for (const auto* tl:corners) for (const auto* br:corners) {
-    if (tl->parent!=br->parent || tl->texture!=br->texture || br->x-tl->x<20 || br->x-tl->x>540 ||
+    if (tl->parent!=br->parent || tl->texture!=br->texture || br->x-tl->x<20 || br->x-tl->x>660 ||
         br->y-tl->y<12 || br->y-tl->y>max_height) continue;
     bool tr=false,bl=false;
     for (const auto* c:corners) if (c->parent==tl->parent && c->texture==tl->texture) {
@@ -1549,7 +1549,7 @@ void CorrectMenuHints(std::vector<Hint>& hints,bool car_select) {
   using namespace nfsmw::menu_touch;
   for (auto& h:hints) {
     if (car_select && h.group==0xFEA90A33) h.button=1<<10; // visible RB Showcase, not Y
-    if (h.texture!=0x1A6D3D2C) continue;
+    if (!car_select || h.texture!=0x1A6D3D2C) continue;
     const Hint* opposite=nullptr;
     for (const auto& other:hints) if (other.texture==h.texture && std::abs(other.x-h.x)<24 &&
         std::abs(other.y-h.y)>=28 && std::abs(other.y-h.y)<=130 &&
@@ -1560,6 +1560,7 @@ void CorrectMenuHints(std::vector<Hint>& hints,bool car_select) {
 }
 int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,float x,float y) {
   using namespace nfsmw::menu_touch;
+  if (name.starts_with("RapSheet")) return MenuRect{-280,-155,280,175}.Contains(x,y)?VerticalDrag:NoDrag;
   if (name=="Showcase.fng") return MenuRect{-280,-170,280,180}.Contains(x,y)?CameraDrag:NoDrag;
   if (name=="Car_Select.fng" || name=="MyCarsManager.fng") {
     for (const auto& up:hints) for (const auto& down:hints) if (up.button==Up && down.button==Down &&
@@ -1645,6 +1646,280 @@ bool ScrollAt(const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,
   }
   return false;
 }
+
+enum class MenuLayout { None, Options, Profile, Events, RapSheet };
+struct MenuItem {
+  uint32_t key;
+  MenuRect rect;
+  float x,y;
+  uint32_t content=0;
+};
+struct MenuModel {
+  MenuLayout kind=MenuLayout::None;
+  MenuRect bounds{0,0,0,0};
+  std::vector<MenuItem> items;
+  uint32_t selected=0;
+  uint64_t viewport=0;
+};
+int NamedIndex(uint32_t hash,std::string_view prefix) {
+  static const auto indices=[] {
+    std::unordered_map<std::string_view,std::unordered_map<uint32_t,int>> result;
+    for (const std::string_view p:{"LEFT_ARROW_","RIGHT_ARROW_","EVENT_ICON_","OPTION_NAME_"})
+      for (int i=0;i<100;++i) result[p][nfsmw::menu_touch::Hash(std::string(p)+std::to_string(i))]=i;
+    return result;
+  }();
+  const auto table=indices.find(prefix);
+  if (table==indices.end()) return -1;
+  const auto item=table->second.find(hash);
+  return item==table->second.end()?-1:item->second;
+}
+bool EventPackage(std::string_view name) {
+  return name=="ChallengeSeries.fng" || name=="SafeHouseRaceSheet.fng" || name=="InGameRaceSheet.fng" ||
+         name=="SafeHouseMilestones.fng" || name=="InGameMilestones.fng" ||
+         name=="SafeHouseBounty.fng" || name=="InGameBounty.fng";
+}
+bool OptionsPackage(std::string_view name) {
+  return name=="Options.fng" || name=="Track_Options.fng" || name=="Pause_Options.fng" ||
+         name=="UI_OptionsController.fng";
+}
+const MenuItem* ItemAt(const MenuModel& model,float x,float y) {
+  const MenuItem* best=nullptr;float distance=1e9;
+  for (const auto& item:model.items) if (item.rect.Contains(x,y)) {
+    const float d=std::hypot(x-item.x,y-item.y);
+    if (d<distance) {distance=d;best=&item;}
+  }
+  return best;
+}
+void FindSelected(MenuModel& model,const std::vector<FocusFrame>& frames,const std::vector<MenuNode>& nodes) {
+  float best=1e9;
+  for (const auto& frame:frames) for (const auto& item:model.items) {
+    // A moving entry highlight, never the entire panel or description frame.
+    if (frame.rect.bottom-frame.rect.top>item.rect.bottom-item.rect.top+12 ||
+        !frame.rect.Contains(item.x,item.y)) continue;
+    const float d=std::hypot(frame.rect.X()-item.x,frame.rect.Y()-item.y);
+    if (d<best) {best=d;model.selected=item.key;}
+  }
+  if (model.selected || model.kind!=MenuLayout::RapSheet) return;
+  // Rap Sheet uses a broad filled highlight strip, rather than corner glyphs.
+  for (const auto& n:nodes) if ((n.type==1 || n.type==9) && std::abs(n.w)>=200 &&
+      std::abs(n.h)>=10 && std::abs(n.h)<=40) {
+    for (const auto& item:model.items) {
+      const float d=std::abs(n.y-item.y);
+      if (d<12 && d<best) {best=d;model.selected=item.key;}
+    }
+  }
+}
+MenuModel BuildMenuModel(std::string_view name,const std::vector<MenuNode>& nodes,
+                         const std::vector<Hint>& hints,const std::vector<FocusFrame>& frames) {
+  using namespace nfsmw::menu_touch;
+  MenuModel model;
+  if (OptionsPackage(name)) {
+    model.kind=MenuLayout::Options;
+    for (const auto& left:hints) {
+      const int index=NamedIndex(left.group,"LEFT_ARROW_");
+      if (index<0) continue;
+      for (const auto& right:hints) if (NamedIndex(right.group,"RIGHT_ARROW_")==index &&
+          std::abs(right.y-left.y)<4 && right.x-left.x>40) {
+        const float y=(left.y+right.y)/2;
+        model.items.push_back({left.group,{-280,y-12,280,y+12},0,y});break;
+      }
+    }
+  } else if (EventPackage(name)) {
+    model.kind=MenuLayout::Events;
+    for (const auto& n:nodes) if (n.type!=5 && NamedIndex(n.hash,"EVENT_ICON_")>=0 &&
+        std::abs(n.w)>=20 && std::abs(n.w)<=100 && std::abs(n.h)>=20 && std::abs(n.h)<=100)
+      model.items.push_back({n.hash,NodeRect(n),n.x,n.y,n.texture});
+  } else if (name=="MC_List.fng") {
+    model.kind=MenuLayout::Profile;
+    // Prefer the named list viewport, then its visible panel geometry.
+    MenuRect panel{0,0,0,0};float area=0;
+    for (const auto& n:nodes) if (n.hash==Hash("ARRAY_SCROLL_REGION") && std::abs(n.w)>80 && std::abs(n.h)>30) {
+      panel=NodeRect(n);area=1e9;break;
+    }
+    if (!area) for (const auto& f:FocusFrames(nodes,440)) {
+      const float w=f.rect.right-f.rect.left,h=f.rect.bottom-f.rect.top;
+      if (w>=160 && h>=100 && w*h>area) {panel=f.rect;area=w*h;}
+    }
+    if (!area) for (const auto& n:nodes) if ((n.type==1 || n.type==9) &&
+        std::abs(n.w)>=160 && std::abs(n.w)<=600 && std::abs(n.h)>=160 && std::abs(n.h)<=440 && std::abs(n.w*n.h)>area) {
+      panel=NodeRect(n);area=std::abs(n.w*n.h);
+    }
+    if (area) {
+      panel.top+=35;panel.bottom-=45;
+      for (const auto& n:nodes) if (n.type==2 && panel.Contains(n.x,n.y)) {
+        auto same=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return std::abs(i.y-n.y)<4;});
+        if (same==model.items.end()) model.items.push_back({n.object,{panel.left,n.y-13,panel.right,n.y+13},panel.X(),n.y});
+      }
+    }
+  } else if (name.starts_with("RapSheet")) {
+    model.kind=MenuLayout::RapSheet;
+    // Repeated bullet squares at the left of the main menu, from test8 evidence.
+    for (const auto& n:nodes) if (n.type!=5 && n.texture==0xC6AFDD7E && n.x<-100 && n.y>-90 && n.y<175 &&
+        std::abs(n.w)>=3 && std::abs(n.w)<=30 && std::abs(n.h)>=3 && std::abs(n.h)<=30)
+      model.items.push_back({n.hash,{n.x-16,n.y-13,280,n.y+13},0,n.y});
+    // ArrayScroller-style subpages expose named text rows.
+    if (model.items.empty()) for (const auto& n:nodes) if (n.type==2 &&
+        NamedIndex(n.hash,"OPTION_NAME_")>=0 && n.y>-155 && n.y<175) {
+      if (std::none_of(model.items.begin(),model.items.end(),[&](const MenuItem& i){return std::abs(i.y-n.y)<4;}))
+        model.items.push_back({n.hash,{-280,n.y-13,280,n.y+13},0,n.y});
+    }
+    // Subpages use Scrollerina's named viewport and visible text slots.
+    if (model.items.empty()) for (const auto& region:nodes) if (region.hash==Hash("ARRAY_SCROLL_REGION") &&
+        std::abs(region.w)>60 && std::abs(region.h)>30) {
+      auto box=NodeRect(region);
+      for (const auto& n:nodes) if (n.type==2 && box.Contains(n.x,n.y)) {
+        if (std::none_of(model.items.begin(),model.items.end(),[&](const MenuItem& i){return std::abs(i.y-n.y)<4;}))
+          model.items.push_back({n.object,{box.left,n.y-13,box.right,n.y+13},box.X(),n.y});
+      }
+    }
+  }
+  if (model.items.empty()) return model;
+  std::stable_sort(model.items.begin(),model.items.end(),[](const MenuItem& a,const MenuItem& b){
+    return a.y==b.y?a.x<b.x:a.y<b.y;
+  });
+  for (const auto& item:model.items) {
+    uint64_t content=(uint64_t(item.key)<<32)|item.content;
+    content=(content^(content>>30))*0xBF58476D1CE4E5B9ull;
+    content=(content^(content>>27))*0x94D049BB133111EBull;
+    // Order-independent: hover animation can reorder near-equal row centers.
+    model.viewport^=content^(content>>31);
+  }
+  model.bounds=model.items.front().rect;
+  for (const auto& item:model.items) model.bounds.Include(item.rect);
+  if (model.kind==MenuLayout::Options) {
+    for (const auto& frame:FocusFrames(nodes,440)) {
+      auto panel=frame.rect;
+      if (panel.right-panel.left<300 || panel.bottom-panel.top<120) continue;
+      panel.top+=35;panel.bottom-=20;
+      if (panel.Contains(model.items.front().x,model.items.front().y)) model.bounds.Include(panel);
+    }
+  }
+  if (model.kind==MenuLayout::Events) {
+    // The entire event viewport, including gaps, is a drag surface.
+    for (const auto& n:nodes) if (n.hash==Hash("ARRAY_SCROLL_REGION") && std::abs(n.w)>50 && std::abs(n.h)>30)
+      model.bounds.Include(NodeRect(n));
+  }
+  FindSelected(model,frames,nodes);
+  return model;
+}
+void EventArrowHints(std::vector<Hint>& hints,const std::vector<MenuNode>& nodes,const MenuModel& model) {
+  if (model.kind!=MenuLayout::Events || model.items.empty()) return;
+  using namespace nfsmw::menu_touch;
+  for (auto& h:hints) if ((h.texture==0x1A6D3D2C || h.texture==Hash("ARROW")) &&
+      h.x<model.bounds.left+5 && h.y>=model.bounds.top-40 && h.y<=model.bounds.bottom+40) {
+    h.button=h.y<model.bounds.Y()?Up:Down;h.label=false;
+  }
+  for (const auto& n:nodes) if ((n.hash==0x444969FD || n.hash==0x444969FE) &&
+      n.x<=model.bounds.left+25 && n.y>=model.bounds.top-50 && n.y<=model.bounds.bottom+50) {
+    hints.erase(std::remove_if(hints.begin(),hints.end(),[&](const Hint& h){return std::hypot(h.x-n.x,h.y-n.y)<22;}),hints.end());
+    hints.push_back({n.hash,0,n.x,n.y,22,22,n.y<model.bounds.Y()?Up:Down,false});
+  }
+}
+int ModelDragAt(const MenuModel& model,float x,float y) {
+  using namespace nfsmw::menu_touch;
+  if (model.items.empty() || !model.bounds.Contains(x,y)) return NoDrag;
+  if (model.kind==MenuLayout::Events) return MenuDrag;
+  if (model.kind==MenuLayout::Options) {
+    const auto* item=ItemAt(model,x,y);
+    return item && item->key==model.selected?MenuDrag:VerticalDrag;
+  }
+  return VerticalDrag;
+}
+int OptionArrowAt(const MenuModel& model,const std::vector<Hint>& hints,const MenuItem& item,float x,float y) {
+  if (model.kind!=MenuLayout::Options || item.key!=model.selected) return 0;
+  for (const auto& h:hints) if (std::abs(h.y-item.y)<5 && std::abs(y-h.y)<=13 && std::abs(x-h.x)<=22 &&
+      (NamedIndex(h.group,"LEFT_ARROW_")>=0 || NamedIndex(h.group,"RIGHT_ARROW_")>=0))
+    return NamedIndex(h.group,"LEFT_ARROW_")>=0?nfsmw::menu_touch::Left:nfsmw::menu_touch::Right;
+  return 0;
+}
+// MENU_TOUCH_SELECTION_BEGIN
+struct ItemSelection {
+  int serial=0,stable=0,moves=0;
+  uint32_t package=0,target=0,last_selected=0;
+  MenuRect target_rect{0,0,0,0};
+  std::chrono::steady_clock::time_point began,last_move;
+  std::vector<int> path;
+  size_t step=0;
+  uint64_t viewport=0,initial_viewport=0;
+} item_selection;
+std::vector<int> GridPath(const MenuModel& model,const MenuItem& from,const MenuItem& to) {
+  using namespace nfsmw::menu_touch;
+  const auto rank=[&](float value,bool horizontal) {
+    std::vector<float> values;
+    for (const auto& i:model.items) values.push_back(horizontal?i.x:i.y);
+    std::sort(values.begin(),values.end());
+    std::vector<float> centers;
+    for (float v:values) if (centers.empty() || v-centers.back()>25) centers.push_back(v);
+    int best=0;
+    for (size_t i=1;i<centers.size();++i) if (std::abs(value-centers[i])<std::abs(value-centers[best])) best=int(i);
+    return best;
+  };
+  const int dx=rank(to.x,true)-rank(from.x,true),dy=rank(to.y,false)-rank(from.y,false);
+  std::vector<int> path;
+  // Establish the requested column before scrolling into a row that can move
+  // the viewport. ArrayScroller reuses EVENT_ICON slots while scrolling.
+  for (int i=0;i<std::abs(dx);++i) path.push_back(dx<0?Left:Right);
+  for (int i=0;i<std::abs(dy);++i) path.push_back(dy<0?Up:Down);
+  return path;
+}
+int ItemDirection(const MenuModel& model,const MenuItem& from,const MenuItem& to) {
+  using namespace nfsmw::menu_touch;
+  if (model.kind==MenuLayout::Events && std::abs(to.y-from.y)<std::max(12.f,(from.rect.bottom-from.rect.top)*.6f))
+    return to.x<from.x?Left:Right;
+  return to.y<from.y?Up:Down;
+}
+int SelectItem(const MenuModel& model,uint32_t package,int serial,const MenuItem* tapped) {
+  using namespace nfsmw::menu_touch;
+  const auto now=std::chrono::steady_clock::now();
+  const auto current=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return i.key==model.selected;});
+  if (item_selection.serial==serial) {
+    if (!item_selection.path.empty()) {
+      if (package!=item_selection.package || model.kind!=MenuLayout::Events || current==model.items.end() ||
+          now-item_selection.began>std::chrono::milliseconds(2800)) return -1;
+      const auto original=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return i.key==item_selection.target;});
+      if (model.viewport==item_selection.initial_viewport && original!=model.items.end() &&
+          std::hypot(original->x-item_selection.target_rect.X(),original->y-item_selection.target_rect.Y())>16) return -1;
+      // A page shift can leave focus on the same screen slot. Its content must
+      // change before counting that navigation step; an unacknowledged input
+      // times out instead of guessing the event or launching it.
+      const bool changed=current->key!=item_selection.last_selected || model.viewport!=item_selection.viewport;
+      item_selection.stable=changed?item_selection.stable+1:0;
+      if (item_selection.stable<2 || now-item_selection.last_move<std::chrono::milliseconds(220)) return WaitForChoice;
+      if (++item_selection.step>=item_selection.path.size()) return SelectionDone;
+      item_selection.last_selected=current->key;item_selection.viewport=model.viewport;
+      item_selection.last_move=now;item_selection.stable=0;
+      return SelectChoice|item_selection.path[item_selection.step];
+    }
+    const auto target=std::find_if(model.items.begin(),model.items.end(),[&](const MenuItem& i){return i.key==item_selection.target;});
+    if (package!=item_selection.package || target==model.items.end() || current==model.items.end() ||
+        std::hypot(target->x-item_selection.target_rect.X(),target->y-item_selection.target_rect.Y())>16 ||
+        now-item_selection.began>std::chrono::milliseconds(2800) || item_selection.moves>12) return -1;
+    if (current->key==target->key && now-item_selection.last_move>std::chrono::milliseconds(180)) {
+      if (++item_selection.stable>=2) return SelectionDone;
+    } else item_selection.stable=0;
+    if (current->key!=target->key && current->key!=item_selection.last_selected &&
+        now-item_selection.last_move>std::chrono::milliseconds(220)) {
+      item_selection.last_selected=current->key;item_selection.last_move=now;++item_selection.moves;
+      return SelectChoice|ItemDirection(model,*current,*target);
+    }
+    return WaitForChoice;
+  }
+  if (!tapped || current==model.items.end()) return -1;
+  if (current->key==tapped->key)
+    return model.kind==MenuLayout::Events || model.kind==MenuLayout::RapSheet?1:SelectionDone;
+  item_selection={};
+  item_selection.serial=serial;item_selection.moves=1;item_selection.package=package;
+  item_selection.target=tapped->key;item_selection.last_selected=current->key;
+  item_selection.target_rect=tapped->rect;item_selection.began=now;item_selection.last_move=now;
+  if (model.kind==MenuLayout::Events) {
+    item_selection.path=GridPath(model,*current,*tapped);
+    item_selection.viewport=item_selection.initial_viewport=model.viewport;
+    if (item_selection.path.empty() || item_selection.path.size()>12) return -1;
+    return SelectChoice|item_selection.path.front();
+  }
+  return SelectChoice|ItemDirection(model,*current,*tapped);
+}
+// MENU_TOUCH_SELECTION_END
 // MENU_TOUCH_HINTS_END
 }  // namespace
 
@@ -1669,6 +1944,7 @@ std::vector<MenuPackage> MenuPackages(uint8_t* base,uint32_t engine) {
     if (first) FindHints(base,first,0,0,1,1,0,false,0,pkg.hints,budget,&pkg.nodes);
     CorrectMenuHints(pkg.hints,pkg.name=="Car_Select.fng");
     pkg.frames=FocusFrames(pkg.nodes);
+    EventArrowHints(pkg.hints,pkg.nodes,BuildMenuModel(pkg.name,pkg.nodes,pkg.hints,pkg.frames));
     packages.push_back(std::move(pkg));
   }
   return packages;
@@ -1721,6 +1997,10 @@ extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float 
   using namespace nfsmw::menu_touch;
   for (const auto& pkg:packages) if (IsDialog(pkg)) return NoDrag;
   for (const auto& pkg:packages) {
+    const int mode=ModelDragAt(BuildMenuModel(pkg.name,pkg.nodes,pkg.hints,pkg.frames),x,y);
+    if (mode) return mode;
+  }
+  for (const auto& pkg:packages) {
     const int mode=WidgetDragAt(pkg.name,pkg.nodes,pkg.hints,x,y);
     if (mode) return mode;
   }
@@ -1735,6 +2015,23 @@ extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,
   for (const auto& pkg:packages) if (pkg.name=="WS_MW_LS_Splash.fng" || pkg.name=="MW_LS_Splash.fng") {
     REXLOG_INFO("[touch-widget] title screen: Start");return 1<<6;
   }
+  for (const auto& pkg:packages) {
+    const auto model=BuildMenuModel(pkg.name,pkg.nodes,pkg.hints,pkg.frames);
+    const auto* item=ItemAt(model,x,y);
+    if (item_selection.serial==serial && item_selection.package==pkg.address) {
+      const int action=SelectItem(model,pkg.address,serial,item);
+      if (action==nfsmw::menu_touch::SelectionDone || action==-1)
+        REXLOG_INFO("[touch-select] {} target {:08X}: {}",pkg.name,item_selection.target,action==nfsmw::menu_touch::SelectionDone?"selected, no A":"cancelled");
+      return action;
+    }
+    if (item) {
+      const int arrow=OptionArrowAt(model,pkg.hints,*item,x,y);
+      if (arrow) { REXLOG_INFO("[touch-option] {} row {:08X}: {}",pkg.name,item->key,arrow);return arrow; }
+      REXLOG_INFO("[touch-select] {} item {:08X} selected {:08X}",pkg.name,item->key,model.selected);
+      return SelectItem(model,pkg.address,serial,item);
+    }
+  }
+  if (item_selection.serial==serial) return -1;
   // A popup closed/replaced before focus confirmation: never accept its successor.
   if (popup.serial==serial) return -1;
   std::vector<Hint> hints;
@@ -1752,6 +2049,15 @@ extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,
   for (size_t i=0;i<std::min<size_t>(packages.size(),8);++i) {
     const auto& pkg=packages[i];
     REXLOG_INFO("[touch-scan] {} nodes {} candidates {} focus frames {}",pkg.name,pkg.nodes.size(),pkg.hints.size(),pkg.frames.size());
+    if (pkg.name=="MC_List.fng" || pkg.name.starts_with("RapSheet") || OptionsPackage(pkg.name) || EventPackage(pkg.name)) {
+      static std::unordered_map<std::string,int> samples;
+      if (samples[pkg.name]++<2) {
+        int count=0;
+        for (const auto& n:pkg.nodes) if ((n.type==2 || n.hash==nfsmw::menu_touch::Hash("ARRAY_SCROLL_REGION")) &&
+            n.y>-200 && n.y<190 && count++<24)
+          REXLOG_INFO("[touch-row-node] {} object {:08X} hash {:08X} type {} at {:.0f},{:.0f} size {:.0f},{:.0f}",pkg.name,n.object,n.hash,n.type,n.x,n.y,n.w,n.h);
+      }
+    }
   }
   std::stable_sort(hints.begin(),hints.end(),[&](const Hint& a,const Hint& b){return std::hypot(x-a.x,y-a.y)<std::hypot(x-b.x,y-b.y);});
   for (size_t i=0;i<std::min<size_t>(hints.size(),6);++i) {

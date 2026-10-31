@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan, test8 results): profile-name taps select only; A remains
+  manual. Options/race-details: vertical swipes select rows, horizontal swipes
+  on the highlighted row change its value; taps can select another row. Event
+  taps select first, a second tap on the selected event can launch. Try the
+  entire event box for swipes (Challenge/Blacklist races/milestones/bounty).
+  Add Rap Sheet page navigation, improve slow showcase motion and zoom gain.
+
 - October 31 (Stefan, test7 follow-up): strict menu gestures must still skip
   intro movies and advance Press Start. Add opt-in other-app music mixing;
   map/car-preview swipe areas, category Up/Down and showcase drag/pinch where
@@ -185,6 +192,39 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: test9-r2 row/grid selection trial ready, device validation next.**
+  Archived test8 rotated logs25/26 and six screenshots (TECHNICAL exact paths/
+  hashes); user says much better, reports row/grid/Rap Sheet/camera gaps.
+  Concrete options regression: car-arrow vertical-pair rule was applied to all
+  stacked LEFT_ARROW_i/RIGHT_ARROW_i rows. Now car-only. Wider selected frames
+  (660-unit limit, 40-unit corner glyphs) cover options/milestones. Added model
+  for Options/Track_Options rows, profile text rows, EVENT_ICON_i event tiles,
+  Rap Sheet bullets/named text slots/viewports. Known event scrollbar groups
+  send Up/Down. Options allow both axes on highlighted row, vertical elsewhere;
+  event swipe viewport includes gaps. Bounded Rap Sheet subpage drag fallback.
+  Selection uses existing controller inputs and observed focus, not native FE
+  click callbacks. Profiles/settings never auto-A. Events/Rap Sheet first tap
+  selects, an already-selected tap A. Event column-first path accounts for
+  viewport cell reuse through selected-slot/content changes. Cancel on missing
+  focus, replaced package or timeout; identical unobservable content shifts can
+  safely time out. Runtime layout coverage/feel remain unconfirmed.
+  Showcase starts at2pt instead14; small analog motions lifted above dead zone,
+  pan full-scale8pt instead35 and pinch14pt instead25, stop pulses unchanged.
+  Host actual walker/model/selection tests and three IPA builds pass. Final ZIP/
+  signature/104shaders/2SDKdylibs verified; shaders/SDK identical to test8.
+  `ios/build/NFSMW-0.5.2-test9-menu-selection-r2.ipa`,30185581bytes,
+  SHA256 `43ece719b7174715ccaab29029e17e91d38f35d042576897678819a9bd72d43c`,
+  UUID `7ADB4704-B768-3B41-B74E-55FC1195393A`, bundle0.5.1/build9. Same file verified on
+  Desktop (superseded internal test9 Desktop copy removed; build copy retained).
+  **Next:** profile tap doesn't load; Audio/Gameplay/Track options axes/arrows/
+  row taps; Challenge row2/3 targets across viewport shifts, second tap launch;
+  full event-box feel, Blacklist/milestones/bounty; Rap Sheet main/subpages;
+  slow showcase swipes and pinch. No additional options screenshots needed yet;
+  new failures should include log/layout evidence. Safehouse stall/music device
+  acceptance not established by this report; entries remain pending/open. No
+  push/tag/release or timing/profile/SDK edits. Preserve pre-existing issue11
+  note unstaged, HANDOFF untracked and sibling SDK work.
 
 - **October 31: test8 menu/audio trial ready; safehouse stall remains unresolved.**
   Test7/log24 contains the entire log23 prefix plus a new launch at01:28:39.820.

@@ -152,6 +152,105 @@ int main() {
                            {3,0,-21,-171,20,20,Left,false}};
  assert(WidgetDragAt("Track_Select.fng",{},tracks,100,0)==HorizontalDrag);
  assert(WidgetDragAt("WorldMapMain.fng",{},tracks,100,0)==NoDrag); // distinct map behavior
+
+ // Options contain repeated Left/Right columns, not rotated category arrows.
+ std::vector<Hint> options;
+ for (int i=1;i<=3;++i) {
+   const float y=-106+24*i;
+   options.push_back({Hash("LEFT_ARROW_"+std::to_string(i)),0x1A6D3D2C,38,y,20,20,Left,false});
+   options.push_back({Hash("RIGHT_ARROW_"+std::to_string(i)),0x1A6D3D2C,248,y,20,20,Right,false});
+ }
+ CorrectMenuHints(options,false);
+ assert(options[0].button==Left && options[1].button==Right && options[4].button==Left);
+ std::vector<FocusFrame> option_focus={{0,{-280,-96,276,-68}}};
+ auto om=BuildMenuModel("Options.fng",{},options,option_focus);
+ assert(om.items.size()==3 && om.selected==Hash("LEFT_ARROW_1"));
+ assert(OptionArrowAt(om,options,om.items[0],38,-82)==Left);
+ assert(OptionArrowAt(om,options,om.items[0],248,-82)==Right);
+ assert(OptionArrowAt(om,options,om.items[0],38,-58)==0);
+ assert(ModelDragAt(om,0,-82)==MenuDrag && ModelDragAt(om,0,-58)==VerticalDrag);
+ assert(ModelDragAt(om,350,-82)==NoDrag);
+ assert(SelectItem(om,30,200,&om.items[2])==(SelectChoice|Down));
+ assert(SelectItem(om,30,200,&om.items[2])==WaitForChoice);
+ om.selected=om.items[1].key;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(om,30,200,&om.items[2])==(SelectChoice|Down));
+ om.selected=om.items[2].key;item_selection.last_move-=std::chrono::milliseconds(200);
+ assert(SelectItem(om,30,200,&om.items[2])==WaitForChoice);
+ assert(SelectItem(om,30,200,&om.items[2])==SelectionDone); // NEVER A on arrival
+ assert(SelectItem(om,30,201,&om.items[2])==SelectionDone); // settings confirmation manual
+ // Real full-width selection frame, previously rejected by the 540-unit limit.
+ std::vector<MenuNode> wide;
+ for (auto [cx,cy]:{std::pair{-280.f,-96.f},{276.f,-96.f},{-280.f,-68.f},{276.f,-68.f}})
+   wide.push_back({uint32_t(wide.size()+1),0,0,0x6FB79A55,1,cx,cy,9,9});
+ assert(FocusFrames(wide).size()==1);
+ // Profile shadow text merges into one row. Selecting never loads the profile.
+ std::vector<MenuNode> profiles={{50,0,0,0,1,0,0,300,300},
+   {51,0,1,0,2,-130,-60,1,1},{52,0,2,0,2,-129,-59,1,1},
+   {53,0,3,0,2,-130,-30,1,1}};
+ auto pm=BuildMenuModel("MC_List.fng",profiles,{},{{0,{-140,-70,140,-50}}});
+ assert(pm.items.size()==2 && pm.selected==51 && ItemAt(pm,0,-30)->key==53);
+ assert(SelectItem(pm,40,202,&pm.items[0])==SelectionDone);
+ assert(SelectItem(pm,40,203,&pm.items[1])==(SelectChoice|Down));
+ pm.selected=53;item_selection.last_move-=std::chrono::milliseconds(200);
+ assert(SelectItem(pm,40,203,&pm.items[1])==WaitForChoice);
+ assert(SelectItem(pm,40,203,&pm.items[1])==SelectionDone);
+ // Event grid includes the entire named viewport, including gaps between tiles.
+ std::vector<MenuNode> grid={{70,0,Hash("ARRAY_SCROLL_REGION"),0,1,-135,70,180,150}};
+ for (int i=0;i<4;++i) grid.push_back({uint32_t(71+i),0,Hash("EVENT_ICON_"+std::to_string(i+1)),0,1,
+   -200.f+100*(i%2),30.f+70*(i/2),50,50});
+ auto gm=BuildMenuModel("ChallengeSeries.fng",grid,{},{{1,{-225,5,-175,55}}});
+ assert(gm.items.size()==4 && gm.selected==Hash("EVENT_ICON_1"));
+ assert(ModelDragAt(gm,-150,65)==MenuDrag && ItemAt(gm,-150,65)==nullptr);
+ assert(SelectItem(gm,50,204,&gm.items[3])==(SelectChoice|Right));
+ gm.selected=gm.items[1].key;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(gm,50,204,&gm.items[3])==WaitForChoice);
+ assert(SelectItem(gm,50,204,&gm.items[3])==(SelectChoice|Down));
+ gm.selected=gm.items[3].key;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(gm,50,204,&gm.items[3])==WaitForChoice);
+ assert(SelectItem(gm,50,204,&gm.items[3])==SelectionDone);
+ assert(SelectItem(gm,50,205,&gm.items[3])==1); // second tap can launch
+ gm.selected=gm.items[0].key;
+ assert(SelectItem(gm,50,206,&gm.items[3])==(SelectChoice|Right));
+ assert(SelectItem(gm,51,206,&gm.items[3])==-1); // replaced package cancels
+ item_selection.began-=std::chrono::milliseconds(3000);
+ assert(SelectItem(gm,50,206,&gm.items[3])==-1); // no forced accept on timeout
+ grid.push_back({80,0,0x444969FD,0,5,-240,10,1,1});
+ grid.push_back({81,0,0x444969FE,0,5,-240,170,1,1});
+ std::vector<Hint> event_arrows;EventArrowHints(event_arrows,grid,gm);
+ assert(event_arrows.size()==2 && event_arrows[0].button==Up && event_arrows[1].button==Down);
+ // Rap Sheet's bullet rows + filled highlight, without corner frames.
+ std::vector<MenuNode> rap;
+ for (int i=0;i<6;++i) rap.push_back({uint32_t(90+i),0,uint32_t(100+i),0xC6AFDD7E,1,-270,28.f*i,12,12});
+ rap.push_back({99,0,0,0,9,0,28,560,24});
+ auto rm=BuildMenuModel("RapSheetMain.fng",rap,{},{});
+ assert(rm.items.size()==6 && rm.selected==101 && ModelDragAt(rm,100,100)==VerticalDrag);
+ assert(SelectItem(rm,60,207,&rm.items[1])==1); // selected row opens
+ om.selected=0;assert(SelectItem(om,30,208,&om.items[0])==-1); // no observable focus, no input
+ gm.selected=gm.items[0].key;
+ assert(SelectItem(gm,50,209,&gm.items[3])==(SelectChoice|Right));
+ gm.items[3].x+=20;
+ assert(SelectItem(gm,50,209,&gm.items[3])==-1); // target moved or viewport repopulated
+ // Viewport repopulation acknowledges a vertical move even if focus stays in
+ // the same screen slot; selecting still never sends A.
+ gm.items[3].x-=20;gm.selected=gm.items[1].key;
+ assert(SelectItem(gm,50,210,&gm.items[3])==(SelectChoice|Down));
+ ++gm.viewport;item_selection.last_move-=std::chrono::milliseconds(230);
+ assert(SelectItem(gm,50,210,&gm.items[3])==WaitForChoice);
+ assert(SelectItem(gm,50,210,&gm.items[3])==SelectionDone);
+ std::vector<MenuNode> sub={{110,0,Hash("ARRAY_SCROLL_REGION"),0,1,0,0,300,200},
+  {111,0,Hash("OPTION_NAME_1"),0,2,-100,-30,1,1},
+  {112,0,Hash("OPTION_NAME_2"),0,2,-100,0,1,1},{113,0,0,0,9,0,-30,300,24}};
+ auto rs=BuildMenuModel("RapSheetUS.fng",sub,{},{});
+ assert(rs.items.size()==2 && rs.selected==Hash("OPTION_NAME_1"));
+ assert(WidgetDragAt("RapSheetVD.fng",{}, {},100,100)==VerticalDrag);
+ grid[1].texture=1;grid[2].texture=2;
+ const auto content_a=BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport;
+ std::reverse(grid.begin(),grid.end());
+ assert(BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport==content_a);
+ for (auto& node:grid) if (node.hash==Hash("EVENT_ICON_1")) node.texture=3;
+ assert(BuildMenuModel("ChallengeSeries.fng",grid,{},{}).viewport!=content_a);
+ assert(CameraMotion(0)==0 && CameraMotion(.5f)>.35f && CameraMotion(-2)<-.35f);
+ assert(CameraMotion(8)==1 && CameraMotion(14,14)==1);
  // Popup choices are wide images; a hidden choice never enters the snapshot.
  nodes={{0x90000,1,0xB8A7C6CC,0,1,2,82,154,32},
         {0x91000,1,0xB8A7C6CD,0,1,167,82,154,32}};
@@ -183,7 +282,7 @@ int main() {
  popup.last_move-=std::chrono::milliseconds(230);
  assert(PopupAction(pkg,106,167,82)==(SelectChoice|Right));
  assert(PopupAction(pkg,106,167,82)==WaitForChoice); // no repeat until focus moves
- puts("PASS: gesture policy; actual FE walker, root focus frames, rotated arrows, list/map/car regions and popup confirmation");
+ puts("PASS: FE walker, row/grid selection without auto-accept, option axes/arrows, event viewport, Rap Sheet, camera motion and popup safeguards");
 }
 '''
 with tempfile.TemporaryDirectory() as t:

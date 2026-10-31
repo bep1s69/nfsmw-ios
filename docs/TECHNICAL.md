@@ -11804,3 +11804,141 @@ Showcase drag/pinch, music before launch with mixing ON and silent-mode options.
 No on-device acceptance, new energy claims, SDK edits, FPS/profile timing policy
 changes,push/tag/release/version bump. Preserve pre-existing13-line issue11
 checkpoint note unstaged,HANDOFF untracked,and sibling SDK modifications.
+
+
+### October 31: test8 rotated logs25/26; test9-r2 direct row/grid selection
+
+Stefan: much better, but profile names should select without loading; Options
+subpages and Quick Race details need vertical row/horizontal value gestures and
+row taps. Challenge arrows fail; tapped events should select first, selected
+event second tap can launch. Try full event box for Challenge/Blacklist races/
+milestones/bounty. Rap Sheet main/subpages unresponsive beyond footer hints.
+Showcase pan works only for very fast swipes and is too weak; increase zoom too.
+Six screenshots show Rap Sheet, Circuit options, Audio, Gameplay and Challenge
+selections1/69 and10/69. Existing selected-first/manual-confirm rules recorded.
+Screenshots are enough for this trial; unseen subpage layouts may still need
+follow-up. No explicit safehouse comparison or external-music acceptance result.
+
+All evidence exclusive-created/byte-verified; originals retained. Folder:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_25_052_test8_menu_rows_previous.log`: 5242602 bytes, SHA256
+  `60d4a9993af1e346c100c34824fc178919d49b2e610d6c3e1cc5dba75702acb1`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/12E65251-96C0-4722-9F44-861D4805F641/nfsmw.1.log`.
+- `nfsmw_iphone_17pm_26_052_test8_menu_rows_current.log`: 377832 bytes, SHA256
+  `ea4ffd7665c9b2b2b69be485d1b6ba9f7ee7d8a85da5dcd69561f6cb86db2850`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/64D23917-166E-4795-A86B-A457DDA08177/nfsmw.log`.
+- `nfsmw_iphone_17pm_26_rap_sheet.png`: 1329527 bytes, SHA256
+  `9a4ac2558009c421e781305db3d5e663ab638f359c6ba364f43fe5f2377a872c`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-8061c964-a75c-48e4-a684-5bf2d640195f.png`.
+- `nfsmw_iphone_17pm_26_circuit_options.png`: 2077333 bytes, SHA256
+  `e7586aa53552f3ea5d8d6a2368723f765364abaa03aa736de7e1355ec961dec8`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-499cf18b-2760-44e7-ac1a-9ef4e49a02f2.png`.
+- `nfsmw_iphone_17pm_26_audio_options.png`: 2839950 bytes, SHA256
+  `ce57e8b63c82745ae0c46a71f6952aa646e585c251aa2642548a25cb94aa9573`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-6e4c60ea-3337-4c3d-8fa1-3193de2b2ff1.png`.
+- `nfsmw_iphone_17pm_26_gameplay_options.png`: 2803555 bytes, SHA256
+  `ea870c896ba8dbe58f35ba57b5c28fea5b37866c081c95fa13420b5ea7f897bc`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-0f426f7d-7c4e-4e38-bc60-b71074bc5baf.png`.
+- `nfsmw_iphone_17pm_26_challenges_1.png`: 2519750 bytes, SHA256
+  `bd5fe748129f065446b4b497e018aa60d5f67ceb3aa06097053e25e65aa900aa`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-c73985c9-b004-41b2-b951-31ad5553e1d1.png`.
+- `nfsmw_iphone_17pm_26_challenges_10.png`: 2522015 bytes, SHA256
+  `9b7c1c70cb0696a0196d9fca6ada282567d8491e5d8aef11e447c75482148c3e`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-3c987fd7-f1a9-42b9-ae57-150f52aff2e1.png`.
+
+Log25 (nfsmw.1.log) is32048 lines with three launches02:08:52.662,
+02:25:17.653 and02:41:33.552; two launch boundaries append inside partial lines.
+Ends03:00:04.155 on a partial memory line. Log26 (nfsmw.log) is2040 lines,
+starts03:00:04.155 CPU sample, ends03:03:42.963; no launch header. Inference:
+rotated continuation of the third launch, not a fourth run. Do not attribute all
+markers to one launch. iPhone17PM/test8 per ongoing user context; OS/whole IPA
+UUID not independently supplied. Printed build stamps are cached unit stamps.
+Screenshots40fps; logs include60/40 cap samples. No new Extra Args supplied.
+Playback mixing requested false first launch, true second/third; actual other
+music continuity unconfirmed. No [job-wait] warnings in either;14 watchdog
+notices in25, none26. They alone do not prove another user-visible freeze or
+resolution. Keep existing safehouse stall open and music acceptance pending.
+
+Concrete diagnosis:
+- Test8 CorrectMenuHints applied its spatial vertical-pair heuristic to ALL
+  texture1A6D3D2C arrows. Real options rows use LEFT_ARROW_i /RIGHT_ARROW_i
+  (e.g7BCD6704,7C51B6D7) stacked24units apart atx38/248 or232. Thus row
+  arrows were changed toUp/Down; user taps reproduce logged2048/4096 actions.
+  Rule now strictly car-select-only; options retain named Left/Right actions.
+- Standard selected options frame spans~560units, exceeding old540 limit.
+  Milestone highlight glyphs are36units, exceeding old32 limit. Selection-frame
+  bounds now allow660width/40glyph; incomplete/overlarge frames still rejected.
+- Live ArrayScroller labels confirmed in local game image: LEFT_ARROW_,
+  RIGHT_ARROW_, EVENT_ICON_, OPTION_NAME_, ARRAY_SCROLL_REGION(D276BA2F).
+  Challenge object42FDC04B is Hash(EVENT_ICON_12). InGameMilestones tree directly
+  showsEVENT_ICON_1..9, a298x173 named viewport, and444969FD/FE arrow groups at
+  its left. This supplies semantic targets rather than fixed screenshot pixels.
+- RapSheetMain misses show repeated small C6AFDD7E bullet images atx-270,
+  y-1/27/55/83/111/138; no corner frames. New main model uses those row bounds
+  and broad filled selection strip. Subpages support OPTION_NAME_i or text rows
+  inside ARRAY_SCROLL_REGION; bounded RapSheet content-area vertical swiping
+  fallback for remaining variants. Actual subpage coverage still unproven.
+
+Implementation/defaults:
+- BuildMenuModel derives options rows from indexed arrow pairs, profiles from
+  visible text rows inside list panel (merge shadow duplicates), event tiles
+  from EVENT_ICON_i, Rap Sheet rows as above. Named-index lookup cached, no
+  per-frame string/hash construction. Query only during touch/selection.
+- Profiles and settings return SelectionDone without A, including already-
+  selected row taps. Nonselected events/Rap Sheet navigate first and finish
+  without A; a NEW tap on an already selected item sends A. Footer A unaffected.
+  Popup auto-confirm remains its separate existing verified-highlight path.
+- SelectItem uses actual controller directions; observes current focus/filled
+  highlight between steps, bounded12moves/2.8s; UI wait deadline3s. Missing
+  focus, replaced package, moved target or timeout cancels without A. New touch,
+  cancel and layout still invalidate pending serial. No original FE hit-testing
+  or selection callbacks invoked and no guest UI state writes.
+- Event grids can recycle visible cells when scrolling (screenshots1/10).
+  Column-first navigation plan uses initial visible row/column difference;
+  each step requires changed selected slot OR changed visible icon content,
+  stable over two updates and220ms neutral interval. Content fingerprint hashes
+  key/texture pairs independent of geometry/order, so hover reordering is not a
+  viewport shift. First implementation assumed stable target geometry; reviewed
+  before handoff and replaced. If reused cells have identical visible content
+  AND unchanged selection slot, the step is unobservable and safely times out;
+  this is a remaining coverage limitation, never guessed event acceptance.
+- Options highlighted row accepts dominant-axis horizontal/vertical gestures;
+  other row/panel starts vertical only. Arrow hit boxes limited to their row;
+  tapping another row selects it. Full named event viewport including gaps is
+  a swipe surface. Event scrollbar groups resolveUp/Down, not image mirroring.
+- Showcase start2pt(previous14), analog pan full scale8pt(previous35), pinch
+  full scale14pt(previous25); nonzero analog floor.35 and ramp to1 compensates
+  dead zone. Slow-swipe diagnosis is inference from old per-sample delta/35
+  values, not measured runtime stick dead zone. Stop/release50ms pulse behavior,
+  camera direction and free-roam map unchanged. No new user-facing flag/default
+  menu inversion change. Sensitivity/feel need device check.
+- Limited [touch-row-node] miss diagnostics (two per package, up to24 text/
+  viewport nodes) added for layouts without adequate evidence. All data/captures
+  remain ignored; only derived names/offsets/results and paths documented.
+
+Validation:
+- `python3 tools/ios/test_menu_touch.py` all runs exit0. Compiles actual walker,
+  menu model, selection state machine and popup logic against fake FE trees.
+  New tests: stacked option arrows stayLeft/Right, full-width focus frame,
+  manual profile confirmation/shadow rows, both option axes, multi-step row
+  selection with no A, grid second-tap launch, whole-box gaps, scrolling reused
+  slot/content acknowledgement, order-independent fingerprint, replaced/moved/
+  missing-focus/timeout cancellation, Rap Sheet main/named subpage, camera floor/
+  saturation. Real UIKit/layout/feel and all pages are not proved by fixtures.
+- Three normal cmake ios ipa builds exit0: /tmp/nfsmw-052-menu9-build.log
+  (15plannedsteps),build2.log(5),build3.log(5). No errors; existing ARM asm,
+  enum/deprecated UIKit and duplicate-z warnings. Final build includes grid
+  viewport handling; first internal artifact not delivered.
+- Final ZIP integrity, codesign --verify --deep --strict,dwarfdump UUID pass;
+ 104metallibs and2SDKdylibs byte-identical to test8r2. gitdiff--check pass.
+
+Final artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test9-menu-selection-r2.ipa`,
+30185581bytes,SHA256 `43ece719b7174715ccaab29029e17e91d38f35d042576897678819a9bd72d43c`,
+UUID `7ADB4704-B768-3B41-B74E-55FC1195393A`,bundle0.5.1/build9.
+Same bytes verified on `/Users/bep1s/Desktop/NFSMW-0.5.2-test9-menu-selection-r2.ipa`;
+ignored .json beside build. Internal first test9 artifact retained in build
+folder:30183976bytes,SHA256c2e2aeaaab43de252a3cfc1ffb8bdd0a87f7027d8808f380c1487b609377cc75,
+UUIDFF7EA1FF-204F-3AFF-A6D3-9E4CD2B8D9EF. Its just-created Desktop copy was
+removed only after matching that hash and verifying finalr2; older test8 kept.
+
+Next: profile row selection/manual A; Audio/Gameplay/Track_Options row taps,
+Left/Right/value swipes and vertical navigation; Challenge row2/3 targets across
+page shifts, selected second-tap launch; full box feel and Blacklist/milestone/
+bounty regressions; Rap Sheet main and subpages; slow showcase pan/zoom. No more
+options screenshots needed until an uncovered layout remains. Safehouse stall
+and music acceptance not closed from this general report. No new on-device
+validation, SDK/timing/profile changes, push/tag/release/version bump. Preserve
+pre-existing13-line issue11 checkpoint note unstaged,HANDOFF untracked, sibling
+SDK modifications. Session code and records committed locally.
