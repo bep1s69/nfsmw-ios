@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October 31 (Stefan, multiplayer research): investigate Android LAN methodology,
+  Android cross-play and original Windows PC compatibility. **Implementation is
+  NOT authorized until Stefan explicitly says to start; controls remain current
+  priority.** All multiplayer work stays on separate `codex/multiplayer`, with no
+  merge/push/release until ready, tested and explicitly authorized. Research-only
+  branch forked from main `62c0dc7`; separate worktree
+  `/private/tmp/nfsmw-ios-multiplayer` leaves the active controls checkout intact.
+
 - October 31 (Stefan, test7 follow-up): strict menu gestures must still skip
   intro movies and advance Press Start. Add opt-in other-app music mixing;
   map/car-preview swipe areas, category Up/Down and showcase drag/pinch where
@@ -185,6 +193,22 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: multiplayer feasibility researched on `codex/multiplayer` only.**
+  No implementation/build/device test. Current upstream Android uses replacement
+  EA Aries lobby + direct CommUDP race traffic, NOT System Link; the local sibling
+  reference is outdated. Android/iOS Xbox-360 cross-play is a credible first goal,
+  not yet validated, especially USA versus upstream PAL Spain. Original PC binary
+  shares EA lobby vocabulary but native LAN and race wire compatibility remain
+  unproved. Detailed pinned sources, local binary identity, integration points,
+  staged plan and limitations in TECHNICAL; matching feature in BACKLOG.
+  **Next here: wait for Stefan's explicit start approval.** After approval, first
+  map the USA network hook and isolate SDK networking patches, then join an
+  unchanged Android/Python lobby. Keep controls work on main. Main had pre-existing
+  uncommitted `docs/DEVELOPMENT_PROGRESS.md`, `ios/src/game_scene_size.cpp`,
+  `ios/src/menu_touch_policy.h`, `ios/src/touch_controls.mm`,
+  `tools/ios/test_menu_touch.py`, and untracked `HANDOFF_CHATGPT.md`; none brought
+  into this branch or altered. Sibling Android/SDK local work also untouched.
 
 - **October 31: test8 menu/audio trial ready; safehouse stall remains unresolved.**
   Test7/log24 contains the entire log23 prefix plus a new launch at01:28:39.820.

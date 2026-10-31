@@ -11804,3 +11804,164 @@ Showcase drag/pinch, music before launch with mixing ON and silent-mode options.
 No on-device acceptance, new energy claims, SDK edits, FPS/profile timing policy
 changes,push/tag/release/version bump. Preserve pre-existing13-line issue11
 checkpoint note unstaged,HANDOFF untracked,and sibling SDK modifications.
+
+
+### October 31, 2026: Android LAN and original PC cross-play feasibility (research only)
+
+Authorization: Stefan requests investigation now, implementation only after his
+explicit go-ahead because controls are still being polished. Multiplayer stays on
+separate branch until ready/tested. Created local `codex/multiplayer` from
+main `62c0dc7` in `/private/tmp/nfsmw-ios-multiplayer`. No source/SDK/build/settings
+changes, binaries launched, sockets/server started, device tests, pushes or releases.
+Existing main controls changes/HANDOFF and modified sibling Android/SDK preserved;
+full filenames and next action in this branch's checkpoint. Main remains on main.
+Temporary worktrees/snapshots are convenience copies: durable references below
+are pinned upstream commits and this committed record.
+
+Sources actually inspected:
+- Local sibling NFSMW-Recompiled-Mobile HEAD `b61e4bf` (README says multiplayer
+  not working; diary wrongly proposes System Link). Do not use that as current
+  Android multiplayer evidence. Remote upstream was verified through web search
+  and fresh shallow clone, without updating the sibling reference.
+- https://github.com/victorgbd/NFSMW-Recompiled-Mobile/tree/d534be88edf5bcd362445c84e5b79c61e29571e7
+  snapshot `/private/tmp/nfsmw-multiplayer-upstream`. Read current README/release
+  notes, docs/diario/red-y-privilegios.md, tools/red/README.md;
+  nativo/sdk/src/kernel/xam/{xam_net.cpp,xam_user.cpp,apps/xlivebase_app.cpp,
+  apps/xgi_app.cpp}, nativo/sdk/src/system/xsocket.cpp;
+  nativo/app/src/nfsmw_red_sonda.cpp; Android MotorNativo/hosting references;
+  ios/motor/{red_lan.h,red_lan.cpp,servidor_ea.cpp,lanzador.mm,segundo_plano.mm},
+  ios/README.md and USA address table.
+- https://github.com/victorgbd/nfsmw-server-lan/tree/821b9b54cf1ded01ffe2e3fd05c38b7c4c906da6
+  snapshot `/private/tmp/nfsmw-server-lan-research`; README and ea_server.py.
+- Apple local-network privacy:
+  https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy
+  and broadcast/multicast entitlement:
+  https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.networking.multicast
+
+Observed upstream method and evidence limits:
+1. Xbox 360 Most Wanted has no System Link per upstream's actual menu/log
+   investigation. It revives the Xbox Live menu using a local replacement for
+   EA's 2005 DirtySock/Aries services. Earlier diary sections remain historical
+   and contradict the newer correction near its top. XSessionSearch broadcast
+   emulation alone is the wrong starting point for this game.
+2. Server directory TCP30960 -> lobby TCP10901; lobby messages use a12-byte
+   header (4-byte command,4-byte subcode, big-endian total length), newline
+   key=value body terminated by NUL, product nfs-xbox-2006. Login/auth/persona,
+   room create/search/join, member lists (+usm), game records, start/results and
+   heartbeat (~png every20s) are implemented. Correct user-set membership and
+   per-peer addresses/XUIDs matter; generic success stubs cannot replace them.
+3. Actual race is DirtySock ConnApi/CommUDP between phones on UDP3658; server
+   doesn't relay/translate racing data. README lists UDP6000 for voice; voice
+   operation was not independently verified here. Upstream diary reports a full
+   circuit, both result submissions and host-role switch on October16 between
+   RedMagic SM8750 and Galaxy A22; release0.5.0 names Snapdragon8Elite/A22 and
+   PAL Spain. These are upstream reports, not new tests on Stefan's port.
+4. Android can host the same lobby using ServidorEa.java in a foreground service;
+   Python ea_server.py on a PC is equivalent. A PC hosting this service is NOT
+   evidence the original Windows game can join. Launcher discovery UDP10902
+   sends NFSMW_DISCOVER and receives NFSMW_SERVER/NAME/PLAYERS. TCP10902 checks
+   GAMERTAG with FREE/IN_USE and reserves names. Host advertises its LAN IP,
+   not127.0.0.1. Distinct gamertags and per-device runtime XUIDs avoid collisions.
+5. Selecting server enables grant_user_privileges,red_lan,red_live,red_dns;
+   red_registro is diagnostic. red_live reports signed-in state2; red_lan exposes
+   actual LAN IP/link status; red_dns redirects game DNS/EA service lookup to
+   replacement host. XOnlineGetServiceInfo(0x45410004) must return that endpoint.
+6. Missing XNet keys/connect/QoS/session information are supplied in the LAN
+   context. Socket fixes include nonblocking FIONBIO, host-option translation,
+   errno->WSA errors, select nfds, byte order, getsockname/getpeername/getsockopt,
+   overlapped receiving/completion and events. In particular WSAWaitForMultipleEvents
+   must invert WinSock wait_all into kernel wait type, convert milliseconds to
+   negative relative100ns units, and return actual event index/timeout. Original
+   behavior can receive the first peer packet and then stop.
+7. Essential behavioral hook is in misleadingly named nfsmw_red_sonda.cpp:
+   PAL sub_82829AD0 bypasses DirtySock's catch-all xmap for non127 peer addresses,
+   while retaining loopback->EA service mapping. Without it UDP intended for a
+   friend goes to the lobby host instead. Other hooks in that file are diagnostic.
+   Our port is USA: no match for82829AD0/82819F48 in upstream USA TSV during this
+   inspection. This does not prove equivalents absent; map by game code/call
+   semantics before use. Do not transplant hard-coded PAL addresses blindly.
+
+Integration assessment (inferences/planned work, NOT implemented):
+- Android/iOS compatibility is plausible because both execute the same360 engine
+  and could use unchanged lobby/CommUDP protocols. Preserve Android wire format
+  and join its existing host first. Edition/version/content compatibility is an
+  open test gate: upstream evidence is PAL Spain, our target USA. A successful
+  lobby does not prove race loading, car/track IDs or simulation agreement.
+- Our SDK currently returns loopback XNADDR, link down, conversion errors and
+  placeholder strings, plus mostly no-op XGI sessions. grant_user_privileges
+  already exists defaultfalse. Relevant local files mirror upstream integration
+  points, but are part of extensively patched SDK. Port scoped changes as
+  reproducible tools/ios preparation patches on isolated SDK source/build paths;
+  avoid applying a broad upstream SDK replacement to shared active controls work.
+- Darwin requires careful sockaddr layout/length and socket-option translation.
+  Upstream generic POSIX socket code uses MSG_NOSIGNAL; adapt/verify Apple
+  SO_NOSIGPIPE and cancellation/socket lifetime behavior rather than assuming
+  Android code compiles/behaves identically. Reuse existing SDK object ownership.
+- Our Info.plist.in lacks NSLocalNetworkUsageDescription; custom broadcast
+  discovery needs entitlement/access handling. App entitlements do not control
+  LiveContainer's process: verify its permission and signed host entitlements on
+  actual devices. First milestone manual server IP + unicast avoids depending on
+  discovery. Add clear network error state and disabled-by-default LAN mode.
+- Upstream already has a C++ iOS lobby and synthetic protocol-comparison tests.
+  Its iOS README explicitly says launcher/LAN hosting features untested on an
+  iPhone, despite broad README claims. Useful reference, not proof for our Metal
+  port. Its background server uses looping silent audio; no approval to import
+  that audio/lifecycle behavior into this port. Prefer foreground hosting first
+  and test background/disconnect/rejoin deliberately later.
+
+Original PC files: static examination only, never executed or modified.
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files/speed.exe`,
+6029312bytes, SHA25680774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c.
+Python PE/header inspection: machine0x14c (x86), optional magic0x10b (PE32),
+5sections; no VS_FIXEDFILEINFO signature found, so exact patch/build version
+not established. Relevant ASCII strings with file offsets (not virtual addresses):
+- 0x49ae38 UI_PC_LAN_ServerSelect.fng;0x49f054 UI_PC_LAN.fng;
+  0x49e4e0 MainLAN;0x49f1a4 LANServerSelect: explicit PC-native LAN frontend.
+- 0x4b66fc NetworkLobbyPort;0x4b6720 NetworkLobbyIP;
+  0x4b6d48 original source path online/LobbyCore.cpp.
+- 0x49e258 DIRTYADDR;0x4b6fec USERSET0;0x4b7124 PLATPARAMS;
+  0x4b7130 SESS;0x4c6d5c MADDR%d: shared EA lobby vocabulary.
+- 0x4f42c8 *pcnfs06.ea.com;0x505dc4 NFS-2006;WS2_32.dll and WSARecv/WSARecvFrom
+  imports. Exact product negotiation and native LAN protocol not recovered here.
+
+PC conclusion: shared lobby concepts give a reason to investigate, not a proven
+cross-play path. Native PC LAN discovery/lobby may differ from360 online flow;
+start by capturing PC<->PC LAN create/join/start traffic, separately compare PC
+online Aries flow if accessible. Then compare transport handshake, packet types,
+reliability/framing, field byte order (x86 vs PPC), IDs and race state encoding
+against Android<->Android. Determine whether (a) direct wire compatibility,
+(b) lobby/discovery adapter only, or (c) ongoing race-payload translator / PC-side
+mod is required. No evidence yet rules any of these in/out. Lobby server cannot
+fix race payload mismatches because races bypass it. Do not promise unmodified
+PC LAN interoperability or estimate this as a simple server-IP setting.
+
+Proposed execution after explicit approval:
+1. Freeze source/edition/build identities; map USA hook; isolated SDK/network
+   opt-in, correct host socket/event tests, logged connection stages. No controls,
+   renderer, timing-policy or audio changes bundled with networking.
+2. Manual join of unmodified upstream Python or Android host: EA connection,
+   unique identity, create/find/join and both players visible. Establish whether
+   USA/PAL mixes; use a matched edition baseline if needed.
+3. Full iOS<->Android race in BOTH host roles, multiple tracks/cars, results,
+   return to lobby, host switching, leave/rejoin/disconnect and FPS-cap combinations.
+   Compare race time/state; do not change simulation speculatively.
+4. Optional iOS foreground server + discovery, byte-for-byte protocol parity;
+   iOS<->iOS, hotspot/router isolation, permission denial, lifecycle handling.
+5. Separate PC feasibility gate using packet evidence above; only then choose
+   direct compatibility or a bridge/mod. Keep it independent of Android support.
+6. Repeat current single-player/control regressions, with LAN off and on, before
+   considering any merge/release. Keep multiplayer branch isolated throughout.
+
+Commands/results and negative attempts: git status/log(-15), rg/source reads,
+Python regex/PE/hash inspection completed; shallow upstream clones exit0 at
+hashes above after network escalation. Initial worktree creation exit255 due
+sandbox .git ref write restriction; same requested operation escalated succeeded.
+Initial clone default sandbox exit128 (DNS); escalated clone succeeded. One
+PC regex script exit1 (unescaped +usm); corrected script completed. Several rg
+probes exit2 for guessed paths absent in these layouts, corrected to actual
+nativo/sdk and ios/motor sources; no files modified. First very large combined
+checkpoint/backlog read was output-truncated; checkpoint/latest evidence/feature
+sections were then read selectively. No build/test suite run because this is
+research-only; source inspection cannot establish device connectivity, PC wire
+compatibility, latency, stability or edition interoperability. Next action is
+Stefan's explicit approval to start; controls testing continues on main.
