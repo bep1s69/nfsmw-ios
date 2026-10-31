@@ -12702,3 +12702,100 @@ hostcreates/guestjoinssamegame-room/fullrace. No physicalpreview3test yet,
 no sharedroom/raceacceptance or AndroidUSA/PCpromotion. Main19177b6/source,
 sharedSDK/controlbuild and preservedissue11note/HANDOFF untouched; localcommit
 only onmultiplayer, no push/merge/tag/release.
+
+
+### October31: preview3 still fails; independent reachability controls; hotspot comparison pending
+
+Latestuser: iPhonehosting, iPadcannotdiscovereitherwhenhostisinQuickMatchor
+waitsinnativeprelaunchmenu. SameWi-Fiallowsdevices tocommunicate perStefan;
+LocalNetworkaccess is enabled for the app host on BOTH devices (explicitreply).
+Preserve those facts; no settings changed or repeat permission prompt demanded.
+Hypothesis from Stefan that server dies with launcher: code keeps global server/
+threads afterwindow closes, and suppliedserver logs show successfulgame login/
+roomcreation afterlaunch. Thus notsupported; freshprelaunchtestalsofails.
+
+Fournewfiles archived exclusive-create/byte/hashcheck, originalsretained. Folder
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+Shared-pasteboard/items sourcebase as earlierentries; UUID/name below:
+
+| Archived filename | Source UUID/name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview3_host_boot.txt | 086C25CB-30AD-4C3E-81EC-6AEEBCC07467/boot.txt | 8495 | 5b839eb80a04e989d8536afead6cf27d9a6c3f6df5579ec3cbb52c2413296557 |
+| nfsmw_lan_preview3_host_game.log | 8D597F67-D610-48FD-807F-EDD2054C621C/nfsmw.log | 224510 | 5a8349b523c4ed987b4159433bc352683135641dced45a16472e3f8f79ea1fcb |
+| nfsmw_lan_preview3_host_server.log | 04F3B543-FE3A-4615-843D-555CE04CFCC7/servidor_lan.log | 8850 | 4ee957917a04792c8d1a4e25af6aecc91f6673409a0f8124740695fb31efb101 |
+| nfsmw_lan_preview3_join_boot.txt | 5E4229A0-E288-4F4A-90ED-1E836FEEB25B/boot.txt | 2263 | 40df2632d4d77a827b558b9ea9300c9ef0faf42d76256fabf6c3c79d1880a2fd |
+
+Measured: phone205Hostready18:02:24.380, Launch29.130, red_dns=red_ip205,
+server starts24.364 then directory49.360/lobby49.380 withownclient; user/auth/
+room03:03.890, COUNT1. Server aftergame stillalive, no remoteconnection/UDPquery
+inthisfile. RestartHostonly18:03:27.636/server27.618; iPadscans18:03:08.478,
+30.519,40.978,44.319. EachUDP received0/rejected0/error0; own150/253targets.
+TCPfirsttwoabout2.96s,lasttwoabout0.39s; all253attempts/0connections/hosts0,
+last_errno61. That is LAST aggregate socketerror, not205-specificdiagnosis.
+No successfulremoteGAMERTAG/directory/gamejoin/peerracing in suppliedfiles.
+Phone/iPad identified byuser; OS not supplied. Preview3diagnosticmarkerspresent;
+cachedtranslation-unit13:50:31stampdoesnot independentlyprovewholeIPAUUID.
+
+Live control checks (all scoped to these local addresses/ports, no settings changed):
+- Macipconfig firstsandbox queryfailed machport; escalatedsuccess en0IP
+ 192.168.1.207. Initial .205/.150 ports30960/10901/10902 attempts timeout~0.6s;
+  initialphoneforegroundstateuncertain, not decisive. User then confirmed Host
+  andsaid restarted/wasinQuickMatch. Scoped .205ports30960/10901/10902 timeout
+  at3.006/3.002/3.002s; UDP10902NFSMW_DISCOVER replytimeout2s. iPad10902wasalso
+  probed butnoHostlistenerexpectedinJoinmode: do NOT countaspeerfailureproof.
+- `arp -n` resolved bothdeviceaddresses; `route -n get192.168.1.205` reports
+  directen0scopedlinkroute. DeviceARPresolvedaddressesdistinct; no recordedmatch
+  torouteraddress (routerARPentrymaynotexist). ARP doesnotproveTCPdelivery.
+- `xcrun devicectl list devices` exit1:CoreDeviceServiceinitializationtimedout;
+  no devicecontrol/install performed. `tcpdump -i en0 -nn -s96 -c6` scopedto
+ 205/TCP10902 exit1:cannotopen/dev/bpf0 Permissiondenied. This was OS capture
+  privilegefailure, not auto-reviewrejection. No privilegedcaptureorpcapmade.
+- Macnativefirewallread-only socketfilterfw reportsState0(disabled),blockallOFF,
+  Python.appincomingpermitted. systemextensionsctl list:0extensions;
+  scutil --nc list:noVPNserviceslisted. No firewall/VPN/privacyresetperformed.
+- StartedUNCHANGEDPython821b9b54 ea_server.py at18:11:40.148, --ip192.168.1.207
+  --name'Mac LAN diagnostic' --log/private/tmp/nfsmw-lan-mac-diagnostic.log.
+  LocalLANaddress @dircontrolreturnsvalidEAframe. Onlylocal207connectionsinlog,
+  no150/205discovery/TCPrecordsobserved. Userinitialanswer"Macappearsorconnects"
+  wasthenclarified: iPadbrieflylistedMacasconnected,butlatercouldnotfindit;
+  no correspondingremoteserverrecordindependentlyverifiedthatpositive. iPhone
+  cannotconnecttoMac peruser. Treat intermittentreportasuncertain,notverified
+  successfulLANsession. Neverusedserverforrace/auth/statsmutation.
+- Started stdlibHTTPserver --bind192.168.1.207:8080, serving ONLY temporary
+  `/private/tmp/nfsmw-lan-http-check/index.html` (LANcheckOK diagnosticpage).
+  User reports Safari onBOTHdevicescannotopen http://192.168.1.207:8080.
+  MacselfcheckreturnsHTTP/1.0 200OK, confirminglistenerstillalive. Serveronly
+  observedlocal207request. ItsBrokenPipe stacktrace was caused by OUR short
+  selfprobe reading40bytes thenclosing, not a remoteconnection/gamefailure.
+- Addedread-only `tools/ios/lan_path_probe.mm`, compiled:
+  clang++ -std=c++23 -fobjc-arc ... -frameworkFoundation -frameworkNetwork
+  -o/private/tmp/nfsmw-lan-path (exit0). AppleSDKheaderdocuments
+  nw_path_unsatisfied_reason_local_network_denied(3). No privateAPI used.
+  Target205:10902:preparing,state2,path_status1(satisfied),Wi-Fi1,reason0;
+ 5stimeout,connected0,local_network_denied0,exit1. Target150:10902same(no
+  listenerexpectedthere). PositiveMacself207:30960 producesstate3ready,
+  exit0/connected1. Closedlocal207:30961 yieldsstate1waiting,error_domain1/
+  errno61,reason0,5stimeout exit1; transcriptat
+  /private/tmp/nfsmw-lan-path-closed-port.log. Fixeddiagnostic-only readyflag
+  toremaintrueonceobserveddespitecancel, andpreservenonzero reason. Shared
+  state/callbackremoved/drainedbeforeexit, bounded5s. ThisisMacpathstate, NOT
+  proof ofiOSpermissionstate orallpolicyfilters beingabsent.
+- TemporaryPythonEA andHTTPprocesses stopped withSIGTERM via exactargv/logpath
+  match (onlyourtemporaryservers). No backgrounddiagnosticserviceleft. User's
+  phonehostnotstopped. No newIPA/buildofgame orSDK/controlsourcechange.
+
+Interpretation/next: normalLANreachabilityalsofailsinSafariagainstindependent
+server, so anotherdiscovery-onlyrewriteisnotjustified. Exactfilter/drop/location
+unresolved: couldbefurtherdevice/networkpolicyorlistenerexposure; do NOTclaim
+confirmedrouterisolation, userprocedureerror, Applepermissiondenial, orprove
+ourgamecodebugabsent. Bothloggedphonehostingmodesfail. Needcontrolledalternate
+path. Stefananswered"I'lltrythehotspot": iPadconnecttophonePersonalHotspot,
+restartHost/noteCURRENTaddress,often172.20.10.1, testJoinbeforelaunch. That
+answeriswillingness, NOT a result. Awaitactualoutcome/newendpoint/logs; keep
+priornegativeevidence. IfhostaddressremainsoldWi-Fi, inspectinterfacechoice;
+ifhotspotconnects, compareoriginalnetworkpathbeforemoretransportchanges.
+Sharedroom/race/iOS↔AndroidUSAstillunvalidated; PCheld.
+
+Allworkrecordedonmultiplayer174dc93baseline. Main19177b6stillonlypreserved
+issue11checkpointnoteanduntrackedHANDOFF; sources/SDK/controlbuilduntouched.
+New diagnostictoolandthisrecordcommittedlocally; no push/tag/merge/release.

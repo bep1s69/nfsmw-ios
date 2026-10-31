@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October31 (Stefan, preview3): iPhonehosts; iPadcannotfindit bothinQuickMatch
+  andwhilehostwaitsinlauncher. SameWi-Fi permitsdevicecommunication peruser;
+  LocalNetworkaccess enabledonBOTH devices. Treat these as confirmed user
+  reports; do not repeatedly suggest enabling them. He is now testing iPad on
+  iPhonePersonalHotspot as a controlled network-path comparison, not a fix yet.
+
 - October 31 (Stefan, LAN preview1): tried both hosting roles without managing
   to play; setup described as clunky and extremely unintuitive. Improve the
   Host/Join flow with visible shared-lobby state and explicit race-role guidance;
@@ -165,6 +171,20 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ### Isolated multiplayer preview (branch `multiplayer` only)
 
+Read-only Mac path diagnostic (does not change the IPA or network settings):
+
+```sh
+clang++ -std=c++23 -fobjc-arc tools/ios/lan_path_probe.mm -framework Foundation -framework Network -o /private/tmp/nfsmw-lan-path
+/private/tmp/nfsmw-lan-path <current-host-IP> 10902
+```
+
+Five-second bounded TCP attempt; reports Apple connection state/error/path reason,
+including local-network-denied if the API reports it. A zero denial reason does
+not prove every network policy permits traffic. Mac permission state is not
+proof of phone permission state. Use known-good listener and closed-port controls.
+Temporary diagnostic servers from October31 are STOPPED; do not assume207lobby
+or8080HTTP still running. Do not mistake approved/willing hotspot test for success.
+
 Do NOT use the ordinary `ios` preset for this branch: it shares the controls
 build directory. Current worktree `/private/tmp/nfsmw-ios-multiplayer`; SDK
 `/private/tmp/nfsmw-multiplayer-sdk`; build `/private/tmp/nfsmw-multiplayer-build`.
@@ -281,6 +301,32 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October31: preview3 still fails; network-path controls, hotspot result pending.**
+  Newhost/join evidence archived (TECHNICAL paths/hashes). FouriPadscans:UDP0,
+  TCP253attempts/0connections, last_errno61; this is aggregate last-error, NOT
+  proof205specificallyrefused. Host205selflogin/roomworks; freshHostonly18:03:27
+  alsoinvisible. Launcher shutdown not established cause: server serves game
+  afterlaunch; failurealsoinsetup. UserconfirmsWi-Fipeersallowed/permissionsON.
+  LiveMac(.207)checkwhileuserconfirmedhostforeground:phone30960/10901/10902
+  andUDP10902timeout. ARPresolved/directen0, MacnativefirewallOFF/noVPNorlisted
+  networkextensions. Network.frameworkpathreportsWi-Fi,satisfied,nolocal-denial,
+  butphoneconnecttimesout. MaccompatibleserverandHTTP8080controlverifiedlocally;
+  no remotedataobserved. UserinitiallysaidMacappeared/connectedonIPad,thenclarified
+  itbrieflyshowedconnectedbutcouldnotfinditagain; notverifiedbyserverlog. iPhone
+  alsofailsMacJoin. SafariHTTPcontrolfailsonBOTH devices peruser, independentof
+  game/LiveContainer. This establishesadditionalLANreachabilityfailure, notits
+  cause; do not concluderouterisolation/TCC/app-hostingbugwithoutmoreevidence.
+  TemporaryMacservers stoppedafterchecks. Packetcaptureunavailable:BPFpermission;
+  devicectlCoreDeviceServicefailedtoinitialize. No newIPA/app-source change.
+  Added read-only `tools/ios/lan_path_probe.mm` (macOSNetwork.frameworkCLI),
+  verifiedgoodselfconnection/closedportandnegativepeerpath. ExactcommandsTECHNICAL.
+  **Next:** userwilltryPersonalHotspot:restartHostonphone, noteCURRENTaddress,
+  iPadJoin/discover/manualaddress beforegame. Awaitactualoutcome ("I'lltry" is
+  NOTaresult). Ifhotspotworks, compareoriginalnetworkpath; ifnot, collectbothnew
+  boot/serverlogs andtargetedcurrentendpoint/path/listenerstatebeforechanging
+  transportagain. Sharedroom/race/AndroidUSAstillunvalidated; PCheld. Allworkon
+  localmultiplayer, maincontrols/SDK/build preserved. No push/merge/release.
 
 - **October 31: preview2 failure isolated to discovery; preview3 TCP fallback ready.**
   User DID choose Host on205 and Join on150. New21-line joinboot has8searches,
