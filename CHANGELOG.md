@@ -2,6 +2,11 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Translate PC car setup records.** Correct the car ID and numeric customization
+  fields exchanged with PC, targeting the remote-car creation failure during
+  race loading. Uses the existing PC save-conversion field map credited to
+  sprintstate and dbalatoni13. PC race completion still needs device testing.
+
 - **Record PC race-loading failures.** Add bounded factory and packet diagnostics
   after PC/iOS connections reached race loading and crashed. This diagnostic
   build preserves game behavior and does not yet fix the race-loading crash.

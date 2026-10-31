@@ -315,6 +315,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November1 preview12: remote car record byte order identified; targeted fix ready.**
+  Two new boot/game uploads are byte-identical (oneattempt00:10). Factory
+ 1396EBE1registered82A3E350/callback823D3F98 createslocalcarCD88083F with
+  resultBFADE00C, failsremote3F0888CD withresult0. Thus missingregistration
+  ruledout; nativecarrecord keybyte-reversed. FullRXsetuphas3F0888CD at24,
+  TXCD88083F at26 (variablegamertaglength), don'tpatchfixedpacketoffsets.
+  Actualserializer824D54B4 reads4rawbytes into participant+4432;824D5704
+  emits4nativebytes. Customization408bytes also raw at54FC/574C. Preview12
+  hooks these specific bitstream boundaries to reverse4bytecarID andtyped
+  customizationnumericfields using existingPCsaveimportmap (u16parts0..115,
+  u32physics/tunings/preset118..193; padding/bytehandleunchanged, hexoffsets).
+  No savedrecord mutation, forceddummyobject or guessedcompressedpacketparse;
+  PCmodeonly; mobilehostpathunchanged. Race/physicsPDUs nottranslated.
+  NewactualcarhookASan/UBSan testpasses capturedIDbothdirections, typedfields,
+  padding/handle/roundtrip/originalbuffer/off/otherfields andunexpectedlength.
+  UDP/factory/gatewayregressionspass; strongoriginal+hook entriesverifiednm.
+  Ready `ios/build/NFSMW-multiplayer-preview12-pc-car-records.ipa`,30431970bytes,
+  SHA2569e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d,
+  appUUIDAC77427C-C73A-31CF-A1F2-CBD93A4DE9F6,
+  runtimeUUIDDE9DB5F9-8E8C-3A59-A412-0BD728F3161C. Build/ZIP/signaturepass,
+  GPUdylib/104shaders identicalpreview11; runtimeonlySDKbuildstampoverlayrebuild.
+  **Next:** preview12samePCroom/racewithLoggingon; confirmbothcarcreations
+  succeed/load, thenrace. Devicefixacceptancepending; otherappdatadifferences
+  mayremain. BOTHboot/game iffails. InputsarchivedDebug/1Nov as
+  nfsmw_lan_preview11_pc_car_factory_{a,b}_{boot.txt,nfsmw.log}. NoPCdumpyet.
+  Alllocalmultiplayer; controls/mainpreexistingdocsedit/HANDOFF/sharedSDK
+  preserved; no push/merge/release. Hostnamesopen/reversediscoverydeferred.
+
 - **November1 preview10 connected; both games reported crash during race load.**
   New game log confirms bidirectional DATA/ack traffic and +ses, state4region
  00:02:03.899, state5track05.431, nullguestread06.504/LR82474944. Caller
@@ -3108,3 +3136,17 @@ RX/TX when length33–2048, complete normalized guest header and original payloa
 With Logging enabled obtain BOTH boot.txt and nfsmw.log after a PC race load;
 boot contains [pc-race]/[pc-packet] lines absent from normal96byte kernel dumps.
 This is a diagnostic build, not a crash fix. No mobile/gameplay result changes.
+
+### Preview12 PC native car field regression
+
+```sh
+python3 tools/ios/test_pc_car.py
+```
+
+Compiles actual USA game_pc_car.cpp hooks with original bitstream capture
+stubs andASan/UBSan. Captured4bytecarID plus typed408byte customization map,
+roundtrip/padding/handle/savedbuffer preservation, PCoff/othercallsite/bitwidth
+bypass. Unexpectedreadlength retained/logged, not falsely claimed protected
+from originaldecoder's unchecked length. Existing isolatedbuild unchanged;
+no new codegeneration/SDK patch. Observe [pc-car] conversion and [pc-race]
+factory results inboot after PCrace load. Existing rawpacketdiagnostics kept.

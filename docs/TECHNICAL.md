@@ -14094,3 +14094,110 @@ whole-payload word swapping, arbitrary factory fallback, or repeating wrong
 handshake fixes. Hostnames stillopen/reversePCdiscoverydeferred. All session
 source/evidence locallycommitted onmultiplayer, mainpre-existingdocsedit/
 HANDOFF/sharedSDK/controls preserved, no push/merge/release.
+
+## November 1 — preview11 identifies byte-reversed remote car key; preview12 field conversion
+
+Stefan uploaded two boot/game pairs with no additional text. All four archived
+with copy2/no overwrite inDebug/1November2026, prefix
+`nfsmw_lan_preview11_pc_car_factory_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| a_boot.txt | 16141 / 200 | 5483b5302635c7037558170db2fab1036160ad4b42a156ba78bdba42d28ba7a5 |
+| a_nfsmw.log | 344004 / 2056 | ce4b0f7946a15589a1e0fa7172a5792fd75cc4ff37ad657b0596e70242cae0f3 |
+| b_boot.txt | 16141 / 200 | 5483b5302635c7037558170db2fab1036160ad4b42a156ba78bdba42d28ba7a5 |
+| b_nfsmw.log | 344004 / 2056 | ce4b0f7946a15589a1e0fa7172a5792fd75cc4ff37ad657b0596e70242cae0f3 |
+
+Original pasteboard/items directories in table order:
+548E5372-58E3-4C50-A9CA-CAF9BE0BA5DA/boot.txt;
+1B1DB0FB-3916-47DA-9A70-DEFFFCD801A8/nfsmw.log;
+76A512C0-F365-457E-BE3B-E1008F0D8B54/boot.txt;
+244CD642-01F7-4612-82C0-FF04CE657C8E/nfsmw.log.
+Hashes establish duplicates of ONEattempt, not repeated independent confirmation.
+Exact installed hash/OS not in logs; diagnostic behavior consistentpreview11.
+
+Definitive new diagnostic evidence00:10:46:
+- Factory key1396EBE1 matchedregistry82A3E350/callback823D3F98, walked2, for
+  BOTH local and remote participants. Missing classregistration is ruledout.
+- Local participantACBECD10/local1/car_recordCD88083F succeeds resultBFADE00C
+  at46.702. RemoteAD418CD0/local0/car_record3F0888CD returns0 at46.703.
+  Same3constructor arguments9FB193F0,A6B47FAC,701EF6E0. Failing callback, not
+  missingfactory; localpositivecontrol and byte-reversed remote key established.
+- Game immediately has same nullread/LR82474944,1AV. PCcrash no fresh report
+  or dump; previous both-game crash remains user evidence only.
+- Full received setup packet252bytes contains raw3F0888CD atbyte24; local TX
+ 264bytes containsCD88083F atbyte26. Variable TKM/bep1s name lengths account
+  for different positions. Do NOT patch absolute UDP packet offsets or assume
+  all packet words have the same encoding. Dumps show existing header/ID
+  transport worked; source game/car data remains native-endian raw memory.
+
+Source tracing and relevant existing work:
+- Actual USA player-profile serializer at824D56D8 stores4byte car record key in
+  participant+4432, emits length4/16bits, then emits each native byte through
+ 825380E8 atLR824D5704 (sourcebase r30/indexr31). Decoder calls82538320 at
+ 824D54B4 with destinationparticipant+4432 and expected4bytes. This generic
+  reader writes raw8bit bytes and returns wire-declared length.
+- Serializer also emits flag and raw408byte participant+4440 customization,
+  byte loopLR824D574C; decoder rawreadLR824D54FC. Genericbitstream scalar/
+  compression layer is separate. This is an actual native-memory boundary,
+  not a reason to swap arbitrary compressed game PDUs.
+- Existing ios/src/save_convert.cpp already maps FECustomizationRecord0x198
+  between PC/Xbox: int16 part indices[0,0x116), padding116/117, u32 physics/
+  tunings/active/preset[0x118,0x194), bytehandle194 andpadding195–197.
+  Original converter credits sprintstate/nfs-mw-save-editor GPL3 and
+  dbalatoni13/nfsmw field layout. Reuse that established map; retain credits
+  innewheader/CHANGELOG. Network conversion does NOT reuse save-specific
+  fillerCD→AA normalization or change profile/save formats.
+- An exploratory strict UTF8 read of boot failed on rawping subcode byteD7;
+  used errors=replace for text, kept original bytes/hash. No input lost.
+
+Preview12 implementation (USA/nativePCmode only):
+- New game_pc_car.cpp strong hooks for825380E8 and82538320 retain originals.
+  Read side: after original returns complete expected4/408bytes from EXACT
+  profile callsites, convert typednumeric field bytes in destination; preserve
+  original result. Unexpected length logs and gets no conversion. Existing
+  reader ignores capacity BEFORE returning; this change is not a malformed-
+  length safety fix and must not be represented as preventing buffer overflow.
+- Write side: only8bit emits from exact4/408byte profile loops select the
+  opposite-endian sourcefield byte through r4; original emits8bits, saved car
+  source memory never modified. Part indices swap2, numeric physics/tunings/
+  preset swap4, handle/bytes/padding stay. Map is involutive/bothdirections.
+- pc_car_layout.h holds tiny purefield-byte mapping derived fromexisting
+  saveconverter. No guessed fixedoffsetpacket parser, globalraw-memory swap,
+  dummyfactoryobject, nullskip or readiness forcing. Other raw fields and
+  numeric bitstream writes unchanged. Non-PC Activefalse path calls originals.
+- CMake adds new USAhook source; no codegen/SDK/sharedSDK/controlsource edits.
+  Existing boot/factory/packetdiagnostics retained for nextgate. Actual physical
+  race/vehicle-state PDUs are not newly translated; further differences may
+  remain after this specific car setup mismatch.
+
+Checks:
+- New test_pc_car.py compiles actualhook withASan/UBSan and original bitstream
+  reader/writer capture stubs. Capturedremote3F0888CD→CD88083F, reverseoutput
+ 3F0888CD; expectedu16part, float1.0, preset11223344 fields; bytehandle/padding
+  preserved; 408byte involution, bothways roundtrip, sourcecarbuffer untouched.
+  Non-PC/othercallsites/otherbitwidths/shortunexpectedrawread untouched. Exit0.
+  Does not execute wholegame/customization constructor or entirecompression.
+- Existing actual UDPheader/ID/fulltrace and factory diagnostic tests pass0;
+  actualgateway/control/handshake lifecycle tests pass0 with temporarylisteners.
+- Isolated cmake --build ... --target ipa -j6 exit0. nm confirms strong
+ 825380E8/82538320 and separateoriginal__imp__ entries. git diff --check0.
+- ZIPCRC/signature --verify --deep --strict pass0;104metallibs/GPUdylib
+  BYTEIDENTICALpreview11. Runtime different onlySDKversionstamp regeneration/
+  debug_overlay.cpp rebuild ([1/11]); noSDKsource/networkobject edits.
+
+Unique ready artifact copied into main ignored ios/build, prior IPAs preserved:
+NFSMW-multiplayer-preview12-pc-car-records.ipa,30431970bytes,
+SHA2569e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d,
+appUUIDAC77427C-C73A-31CF-A1F2-CBD93A4DE9F6,
+runtimeUUIDDE9DB5F9-8E8C-3A59-A412-0BD728F3161C, companionJSON.
+ArchivedDebug/1November:nfsmw-preview12-build.log15157bytes,
+SHA256a285a01098a162d28c0cfda832c1dbc7e974bec15cc560a0fd9c6db1261128e3.
+
+Next: preview12samePCroom/race, Loggingon. Verify both factorycreations return
+validobjects and track loads, thenactualdriving. Ifnextfailure, BOTHboot/game
+logs; do not call wholePCracecompatible fromcar setupcorrectness alone.
+Remote-car failure targeted, deviceacceptancepending. Hostguestnamesopen,
+reversePCdiscoverydeferred. Allsessioncode/evidencecommittedlocalmultiplayer;
+mainpre-existingcheckpointedit/HANDOFF/sharedSDK/controls preserved. No push,
+merge, release, Windows/firewall/gameasset/save mutations.
