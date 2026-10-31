@@ -320,19 +320,20 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
   struct Probe {
     int fd;
     uint32_t ip;
+    int port;
     Clock::time_point deadline;
     bool connected = false;
     size_t written = 0;
     std::vector<uint8_t> received;
   };
   const auto deadline = Clock::now() + std::chrono::seconds(4);
-  constexpr size_t kConcurrent = 32;
-  constexpr int kDirectoryPort = 30960;
+  constexpr size_t kConcurrent = 64;
+  constexpr int kDirectoryPorts[] = {30960, 9900};
   std::vector<Probe> active;
   std::vector<Encontrado> hosts;
   size_t next = 0, attempts = 0, connected = 0;
   int lastError = 0;
-  const std::string body = std::string("PROD=nfs-xbox-2006\n") + '\0';
+  const std::string body = std::string("REGN=NA\nCLST=192641\nNETV=0\nPROD=nfs-xbox-2006\n") + '\0';
   std::vector<uint8_t> request(12 + body.size(), 0);
   std::memcpy(request.data(), "@dir", 4);
   const uint32_t length = uint32_t(request.size());
@@ -340,9 +341,10 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
   request[10] = uint8_t(length >> 8); request[11] = uint8_t(length);
   std::memcpy(request.data() + 12, body.data(), body.size());
   auto closeProbe = [](Probe& p) { if (p.fd >= 0) close(p.fd); p.fd = -1; };
-  while ((next < targets.size() || !active.empty()) && Clock::now() < deadline) {
-    while (active.size() < kConcurrent && next < targets.size()) {
-      uint32_t ip = targets[next++];
+  while ((next < targets.size() * 2 || !active.empty()) && Clock::now() < deadline) {
+    while (active.size() < kConcurrent && next < targets.size() * 2) {
+      int port = kDirectoryPorts[next % 2];
+      uint32_t ip = targets[next++ / 2];
       int s = socket(AF_INET, SOCK_STREAM, 0);
       if (s < 0) { lastError = errno; continue; }
       ++attempts;
@@ -354,10 +356,10 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
 #if defined(__APPLE__)
       to.sin_len = sizeof(to);
 #endif
-      to.sin_family = AF_INET; to.sin_port = htons(kDirectoryPort); to.sin_addr.s_addr = htonl(ip);
+      to.sin_family = AF_INET; to.sin_port = htons(port); to.sin_addr.s_addr = htonl(ip);
       int result = connect(s, reinterpret_cast<sockaddr*>(&to), sizeof(to));
       if (result != 0 && errno != EINPROGRESS) { lastError = errno; close(s); continue; }
-      active.push_back({s, ip, Clock::now() + std::chrono::milliseconds(350)});
+      active.push_back({s, ip, port, Clock::now() + std::chrono::milliseconds(350)});
     }
     std::vector<pollfd> polls;
     for (auto& p : active) polls.push_back({p.fd, short(p.written == request.size() ? POLLIN : POLLOUT), 0});
@@ -399,14 +401,19 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
         closeProbe(p); continue;
       }
       if (r.size() < size) continue;
-      std::istringstream fields(std::string(reinterpret_cast<const char*>(r.data() + 12), size - 12));
+      std::string text(reinterpret_cast<const char*>(r.data() + 12), size - 12);
+      std::replace(text.begin(), text.end(), '\t', '\n');
+      while (!text.empty() && text.back() == '\0') text.pop_back();
+      std::istringstream fields(text);
       std::string line, address; int port = 0;
       while (std::getline(fields, line)) {
         if (line.rfind("ADDR=", 0) == 0) address = Recortar(line.substr(5));
         if (line.rfind("PORT=", 0) == 0) port = std::atoi(line.substr(5).c_str());
       }
-      if (port == 10901 && IpValida(address)) {
-        hosts.push_back({Texto(p.ip), "LAN host", -1});
+      if (((p.port == 30960 && port == 10901) || (p.port == 9900 && port == 9900)) && IpValida(address)) {
+        auto existing = std::find_if(hosts.begin(), hosts.end(), [&](const auto& h) { return h.ip == Texto(p.ip); });
+        if (existing == hosts.end()) hosts.push_back({Texto(p.ip), port == 9900 ? "PC LAN host" : "LAN host", -1});
+        else if (port == 9900) existing->nombre = "PC LAN host";
         if (trace) trace("[lan-discovery] TCP directory verified " + Texto(p.ip));
       }
       closeProbe(p);
@@ -423,8 +430,8 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
 std::optional<std::vector<Encontrado>> BuscarServidores(
     std::function<void(const std::string&)> trace) {
   auto found = BuscarPorUdp(trace);
-  if (!found || !found->empty()) return found;
-  if (trace) trace("[lan-discovery] no UDP replies accepted; checking TCP directories");
+  if (!found) return found;
+  if (trace) trace("[lan-discovery] checking mobile and PC TCP directories");
   std::vector<uint32_t> own, broadcast, targets;
   Destinos(own, broadcast, targets);
   targets.erase(std::remove_if(targets.begin(), targets.end(), [&](uint32_t ip) {
@@ -439,8 +446,22 @@ std::optional<std::vector<Encontrado>> BuscarServidores(
       return uint8_t(a - pivot) < uint8_t(b - pivot);
     });
   }
-  *found = BuscarPorTcp(targets, trace);
+  for (const auto& host : BuscarPorTcp(targets, trace)) {
+    auto existing = std::find_if(found->begin(), found->end(), [&](const auto& h) { return h.ip == host.ip; });
+    if (existing == found->end()) found->push_back(host);
+  }
   return found;
+}
+
+std::string IpHacia(const std::string& ip) {
+  int fd=socket(AF_INET,SOCK_DGRAM,0);if(fd<0)return IpLocal();
+  sockaddr_in target{};target.sin_family=AF_INET;target.sin_port=htons(9900);
+  std::string own;
+  if(inet_pton(AF_INET,ip.c_str(),&target.sin_addr)==1 && connect(fd,reinterpret_cast<sockaddr*>(&target),sizeof(target))==0){
+    sockaddr_in local{};socklen_t n=sizeof(local);
+    if(getsockname(fd,reinterpret_cast<sockaddr*>(&local),&n)==0)own=Texto(ntohl(local.sin_addr.s_addr));
+  }
+  close(fd);return own.empty()?IpLocal():own;
 }
 
 int PuntosInterfaz(const std::string& nombre) {

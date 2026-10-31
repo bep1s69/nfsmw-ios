@@ -13,15 +13,22 @@ code=r'''
 #include <arpa/inet.h>
 #include <cassert>
 #include <iostream>
-int binds=0,checks=0,stops=0,failures=0;
+int binds=0,checks=0,stops=0,failures=0,pcStarts=0;bool pcHost=false;
 nfsmw::red::Comprobacion check=nfsmw::red::Comprobacion::kLibre;
 namespace nfsmw::red {
 std::string IpLocal(){return "192.168.1.150";}
+std::string IpHacia(const std::string&){return IpLocal();}
 bool IpValida(const std::string& s){in_addr a{};return inet_pton(AF_INET,s.c_str(),&a)==1;}
 bool DireccionValida(const std::string& s){return IpValida(s)||s=="friend.local";}
 std::string ResolverIpv4(const std::string& s){return s=="friend.local"?"192.168.1.205":s;}
 std::string GamertagEfectivo(const std::string& s){return s.empty()?"User":s;}
 Comprobacion ComprobarGamertag(const std::string&,const std::string&){++checks;return check;}
+}
+namespace nfsmw::boot {void Trace(const std::string&) {}}
+namespace nfsmw::pc {
+bool Probe(const std::string&){return pcHost;}
+void Stop(){}
+bool Start(const std::string&, std::function<void(const std::string&)>, std::string*) {++pcStarts;return true;}
 }
 namespace nfsmw::servidor {
 void Parar(){++stops;}
@@ -43,6 +50,10 @@ int main(int argc,char**argv){
  assert(Prepare("join","192.168.1.205","iPad150",dir).error.find("already in use")!=std::string::npos);
  check=nfsmw::red::Comprobacion::kSinRespuesta;
  assert(Prepare("join","192.168.1.205","iPad150",dir).error.find("did not answer")!=std::string::npos);
+ pcHost=true;int beforePc=checks;
+ auto pc=Prepare("join","192.168.1.205","iPad150",dir);
+ assert(pc.error.empty() && pc.pc && pc.ip=="192.168.1.205" && pc.own_ip=="192.168.1.150" && checks==beforePc && pcStarts==1);
+ pcHost=false;
  check=nfsmw::red::Comprobacion::kLibre;failures=2;
  auto hosted=Prepare("host","","iPad150",dir);
  assert(hosted.error.empty() && hosted.hosting && hosted.ip=="192.168.1.150" && binds==3);

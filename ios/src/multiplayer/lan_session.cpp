@@ -2,6 +2,8 @@
 #include "lan_session.h"
 #include "red_lan.h"
 #include "servidor_ea.h"
+#include "pc_gateway.h"
+#include "../boot_trace.h"
 #include <thread>
 #include <chrono>
 
@@ -9,6 +11,7 @@ namespace nfsmw::lan {
 Prepared Prepare(const std::string& mode, const std::string& server,
                  const std::string& gamertag, const std::filesystem::path& docs) {
   Prepared result;
+  pc::Stop();
   if (mode == "off") {
     servidor::Parar();
     return result;
@@ -28,7 +31,8 @@ Prepared Prepare(const std::string& mode, const std::string& server,
                                  : "Enter the LAN server's IPv4 address or local hostname.";
     return result;
   }
-  if (!result.hosting && result.ip == red::IpLocal()) {
+  result.own_ip = result.hosting ? result.ip : red::IpHacia(result.ip);
+  if (!result.hosting && result.ip == result.own_ip) {
     result.error = "That is this device's address. Choose Host here, or join the address shown on the OTHER device.";
     return result;
   }
@@ -52,6 +56,13 @@ Prepared Prepare(const std::string& mode, const std::string& server,
     result.error.clear();
   } else {
     servidor::Parar();
+  }
+  // Native PC hosts have no custom launcher/gamertag service on10902.
+  // Detect their real directory first, including hosts with an old helper.
+  if (!result.hosting && pc::Probe(result.ip)) {
+    result.pc = true;
+    if (!pc::Start(result.ip, [](const std::string& line) { boot::Trace(line); }, &result.error)) return result;
+    return result;
   }
   const auto tag = red::ComprobarGamertag(result.ip, gamertag);
   if (tag == red::Comprobacion::kEnUso)

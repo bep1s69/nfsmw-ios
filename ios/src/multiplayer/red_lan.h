@@ -51,12 +51,14 @@ struct Encontrado {
 std::optional<std::vector<Encontrado>> BuscarServidores(
     std::function<void(const std::string&)> trace = {});
 
-// Cuanto vale una interfaz como red local, por su nombre: la Wi-Fi 3, el punto de acceso 2, otra de
+// Cuanto vale una interfaz como red local, por su nombre: la Wi-Fi 3, el punto de acceso 4, otra de
 // cable 1, otras 0; -1 = no es la LAN (datos moviles, VPN, AirDrop).
 int PuntosInterfaz(const std::string& nombre);
 
 // La IP de este telefono en la red local, la que tienen que poner los demas: la de la Wi-Fi o la del
 // punto de acceso. "" si no hay ninguna.
 std::string IpLocal();
+// Local address selected by the OS route to this host (no datagram sent).
+std::string IpHacia(const std::string& ip);
 
 }  // namespace nfsmw::red

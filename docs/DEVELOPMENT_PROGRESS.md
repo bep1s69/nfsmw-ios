@@ -315,6 +315,42 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31 preview6: native PC discovery/login adapter ready; device test next.**
+  Laptop succeeds via helper on hotspot172.20.10.8 but game fails disconnect%
+  query. Logs prove PC personaPERSempty (Xbox sendsGTAG only), then repeated
+  Xbox `user` requests returnuserbadc. New in-app loopback adapter handles these
+  control differences: addsPERS fromGTAG, fresh localLAN history44zero entries,
+  forwardsotherEAframes/binaryfields unchanged. Does not importPC/official
+  stats or translate racepayloads; actualPC/mobile room/race still unvalidated.
+  Launcher now scans originalPC9900 plusmobile30960 directly, validates tab/
+  newline@dir responses, probesnativePCbeforecustom10902preflight and routes
+  gameEAcontrol throughlocal127.0.0.1 adapter. PCneedsNO Python/helper/mod.
+  RealphysicalsourceADDR preserved toPC, joinred_ip selectedbyOSroute tohost
+  toavoidloopback/wrong-interfacepeeridentity. LANoff/Hoststopadapter; no
+  changes tosharedSDK/mobilehostprotocol. Mobilechoicesremainavailable.
+  Actual originalserver.dll test passes directory/auth/PERS/presence with name,
+  nativeadapter userhistoryresponsevalid; C++ASan/UBSan gatewaytests, mobile
+ 25stageparity, nativePC9900 tabdiscovery, preflight/interface/receive/touch pass.
+  Build/ZIP/signature pass.104shaders/GPUdylib identicalpreview5; runtime rebuilt
+  onlydebug_overlay forgeneratedSDKversion/buildstamp (networksourcepatch
+  unchanged/applied, sourceoverlayidenticalsharedSDK). RuntimeUUIDFBF94504-
+ 0804-3C58-9C40-E28D663FE4C2. Unique IPA
+  `ios/build/NFSMW-multiplayer-preview6-native-pc-lan.ipa`,30408180bytes,
+  SHA256bbdf36fc64c194bdeffd6ffafbd43c122e76303ff8a810932d478ab009f99079,
+  appUUIDF5F24A7A-FB0F-3B4D-BCE3-33E6DF8B6A13,0.5.1/build9.
+  **Next:** normalPCgame LANhost, stopoldPythonbridge, installpreview6, Join/
+  searchorcurrentPCIP, launchXboxLiveQuickMatch; verifygets pastlogin, roomjoin,
+  thenrace. Captureboot/gameandPCroomstateifnextgatefails. No PCraceclaim.
+  Newfiveinputlogs archived asnfsmw_lan_pc_laptop_and_three_player_*.
+  Same logs prove mixedWi-Fi3players(.205bep1s/.133TKMachine/.149iPhone149)
+  completedrace21:35:25–27 positions1/2/3, smoothperuser, noguestAV. Earlier
+  AndroidWi-Fifailuresretained/intermittent, latestsuccessnowproven. Host's
+  missingnames affectsBOTH guestplatforms inthisrun (earlierAndroid-only
+  narrowing superseded); guestsseehostname, serverdeliversallnames. StillOPEN,
+  no speculativeUI/rosterpatch. Maincontrols/sharedSDKuntouched/localonly.
+  VMfirewallactioncode correctionandapprovedchanges/rollbackinTECHNICAL;
+  earlierexplicitBLOCKclaimwasincorrect (Action2=Allow). No furtherVMchanges.
+
 - **October31 user PC test: server/bridge READY in Parallels Shared network.**
   FirstWindows142:9900 refused beforeEA negotiation (PC listener/state/address
   not proven). Later Windows11 VM10.211.55.3 directory succeeds/PORT9900 and
@@ -2851,3 +2887,21 @@ Run CrossOver wine --bottle thattemporarypath --no-gui --workdir gamecopypath
 pc_server_probe.exe. Needs copied server.cfg in working directory. Probe actual
 bindIP from Wine log (not127.0.0.1: DLL may bind LAN only). All source game files
 read-only; don't repurpose existing BeamNG bottle. No system settings changes.
+
+
+### Preview6 native PC test and checks
+
+The older Pythonbridge ZIP is diagnostic history; preview6 does not require it.
+Create/keep a LAN room open in original PC Most Wanted; on iOS Join/Search (or
+manual currentPCIPv4), launchXboxLive→QuickMatch. UsesoriginalPC TCP9900. New
+adapter listensONLY127.0.0.1:30960 onthephone. Do notenter127.0.0.1 yourself.
+LANenabledonlythroughHost/Join; singleplayerstilloff. PCmodeautodetected byvalid
+native9900directory. Searchalsoqueriesmobile30960 whenUDPmobilehostsfound,
+4sTCPbudget/64concurrentprobes, maxnearby/24. No restrictedmulticastentitlement.
+OfflinePCmode startswith emptyXbox-stylelocalLANhistory; noofficial/PCaccount
+history claimed, norecordsuploaded. NativePCroomfilters/session/raceformats
+remainnextgate, noforcedversion/contentconversion.
+`python3 tools/ios/test_pc_gateway.py` exercisesactualC++adapter withASan/UBSan.
+`python3 tools/ios/test_lan_setup.py` includesPCpreflightwithout10902.
+Existingmultiplayer.py nowalso tests fragmented/tabseparatednative9900reply.
+Buildremainsisolatedcmake--build/private/tmp/nfsmw-multiplayer-build--targetipa.

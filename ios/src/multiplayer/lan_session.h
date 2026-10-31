@@ -6,7 +6,9 @@ namespace nfsmw::lan {
 struct Prepared {
   std::string ip;
   std::string error;
+  std::string own_ip;
   bool hosting = false;
+  bool pc = false;
 };
 // Blocking network work: run on a background queue before launching the game.
 Prepared Prepare(const std::string& mode, const std::string& server,

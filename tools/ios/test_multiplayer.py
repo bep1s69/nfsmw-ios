@@ -223,11 +223,12 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-lan-test-') as path:
     # A fragmented valid directory frame succeeds; malformed/oversized frames
     # are rejected. No other LAN addresses are touched by the fixture.
     import threading
-    for reply, wanted in [
-        (b'@dir'+b'\0'*4+struct.pack('>I',12+len(b'ADDR=127.0.0.1\nPORT=10901\n\0'))+b'ADDR=127.0.0.1\nPORT=10901\n\0', '1'),
-        (b'nope'+b'\0'*4+struct.pack('>I',4097), '0')]:
+    for port, reply, wanted in [
+        (30960, b'@dir'+b'\0'*4+struct.pack('>I',12+len(b'ADDR=127.0.0.1\nPORT=10901\n\0'))+b'ADDR=127.0.0.1\nPORT=10901\n\0', '1'),
+        (9900, b'@dir'+b'\0'*4+struct.pack('>I',12+len(b'ADDR=127.0.0.1\tPORT=9900\0'))+b'ADDR=127.0.0.1\tPORT=9900\0', '1'),
+        (30960, b'nope'+b'\0'*4+struct.pack('>I',4097), '0')]:
         listener=socket.socket();listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-        listener.bind(('127.0.0.1',30960));listener.listen(1);listener.settimeout(5)
+        listener.bind(('127.0.0.1',port));listener.listen(1);listener.settimeout(5)
         def answer():
             try:
                 connection,_=listener.accept()

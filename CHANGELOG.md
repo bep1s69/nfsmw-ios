@@ -2,6 +2,14 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Test joining PC LAN hosts directly.** Finds the original PC game's LAN
+  directory without a PC helper script. Handles the different persona field
+  and unavailable Xbox history query inside iOS. PC room joining and racing
+  still need device testing; PC mode uses empty local LAN history.
+
+- **Choose the address for the joined network.** Joining uses the local address
+  selected by the route to the host, including when Wi-Fi and hotspot coexist.
+
 - **Use the hotspot address while hosting.** Prefer the active Personal Hotspot
   interface when Wi-Fi is also connected, so hotspot guests receive the host's
   address on their network. Android device retest pending.

@@ -4,6 +4,7 @@
 #include "lan_session.h"
 #include "red_lan.h"
 #include "servidor_ea.h"
+#include "pc_gateway.h"
 #include "../launcher.h"
 #include "../boot_trace.h"
 #include <regex>
@@ -90,7 +91,7 @@ NSString* DefaultName() {
       self->_ready = NO;
       self->_generation++;
       self->_status = @"Name changed. Tap Host or Join again to reconnect.";
-      dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); });
+      dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); nfsmw::pc::Stop(); });
       self.navigationItem.rightBarButtonItem.enabled = NO;
       [self.tableView reloadSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(2,3)] withRowAnimation:UITableViewRowAnimationNone];
     }
@@ -105,7 +106,7 @@ NSString* DefaultName() {
     } else if (![Text(nfsmw::red::IpLocal()) isEqualToString:self->_endpoint]) {
       self->_ready = NO; self->_generation++;
       self->_status = @"Your Wi-Fi address changed. Tap Host to reconnect.";
-      dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); });
+      dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); nfsmw::pc::Stop(); });
       [self refresh];
     }
   }];
@@ -125,7 +126,7 @@ NSString* DefaultName() {
     _closing = YES; _generation++;
     _settings[@"lan_mode"] = @"off";
     nfsmw::launcher::WriteSettings(_docs, _settings);
-    dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); });
+    dispatch_async(SetupQueue(), ^{ nfsmw::servidor::Parar(); nfsmw::pc::Stop(); });
     [_timer invalidate];
   }
 }
@@ -159,6 +160,7 @@ NSString* DefaultName() {
   nfsmw::boot::Trace("[lan-setup] searching for another host");
   [self refresh];
   dispatch_async(SetupQueue(), ^{
+    nfsmw::pc::Stop();
     nfsmw::servidor::Parar();  // never list this device as a join target
     const auto found = nfsmw::red::BuscarServidores([](const std::string& line) { nfsmw::boot::Trace(line); });
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -166,7 +168,7 @@ NSString* DefaultName() {
       self->_busy = NO;
       if (found) self->_hosts = *found;
       self->_status = !found ? @"No local Wi-Fi connection. Connect both devices to the same Wi-Fi and try again."
-        : self->_hosts.empty() ? @"No hosts found. On the other device, open Multiplayer and tap Host. Keep it open, then search again. You can also enter its address below."
+        : self->_hosts.empty() ? @"No hosts found. On the other device, tap Host, or create a LAN room in the PC game. Keep it open, then search again. You can also enter its address below."
         : @"Tap the host on the other device to join its lobby.";
       nfsmw::boot::Trace("[lan-setup] search found " + std::to_string(self->_hosts.size()) + " remote hosts");
       [self refresh];
@@ -215,10 +217,13 @@ NSString* DefaultName() {
       } else {
         self->_ready = YES; self->_endpoint = Text(prepared.ip); self->_preparedName = self->_name.text;
         self->_settings[@"lan_resolved_ip"] = self->_endpoint;
+        self->_settings[@"lan_pc"] = prepared.pc ? @"true" : @"false";
+        self->_settings[@"lan_own_ip"] = Text(prepared.own_ip);
         self->_settings[@"lan_server"] = self->_endpoint;
         self->_status = prepared.hosting
           ? [NSString stringWithFormat:@"Hosting as %@\nAddress: %@\n\nOn the other device, tap Join and select %@. Keep this app open.", self->_name.text,self->_endpoint,self->_name.text]
           : [NSString stringWithFormat:@"Connected to %@\nAddress: %@\n\nYou are using the OTHER device’s lobby. You do not need to host here.", self->_serverName,self->_endpoint];
+        if (prepared.pc) self->_status = [NSString stringWithFormat:@"PC LAN host: %@\nReady to test joining. Keep the PC’s LAN room open. Use a different player name. PC racing compatibility is still being tested.", self->_endpoint];
         nfsmw::launcher::WriteSettings(self->_docs, self->_settings);
         nfsmw::boot::Trace("[lan-setup] ready " + role + " server=" + prepared.ip);
         if (launch) {
@@ -263,7 +268,7 @@ NSString* DefaultName() {
   } else if (ip.section == 1) {
     NSString* role = ip.row == 0 ? @"host" : @"join";
     cell.textLabel.text = ip.row == 0 ? @"Host a game" : @"Join a game";
-    cell.detailTextLabel.text = ip.row == 0 ? @"Start a lobby on this device" : @"Find a lobby on another device";
+    cell.detailTextLabel.text = ip.row == 0 ? @"Start a lobby on this device" : @"Find a mobile or PC LAN lobby";
     cell.imageView.image = [UIImage systemImageNamed:ip.row == 0 ? @"wifi" : @"magnifyingglass"];
     cell.accessoryType = [_role isEqualToString:role] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
   } else if (ip.section == 2) {

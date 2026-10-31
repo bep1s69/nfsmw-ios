@@ -34,6 +34,7 @@
 #include "multiplayer/lan_session.h"
 #include "multiplayer/lan_setup.h"
 #include "multiplayer/servidor_ea.h"
+#include "multiplayer/pc_gateway.h"
 #include "multiplayer/red_lan.h"
 #include "hud_editor.h"
 #include "touch_controls.h"
@@ -922,8 +923,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back(std::string("--grant_user_privileges=") + b(lan));
   if (lan) {
     NSString* endpoint = s[@"lan_resolved_ip"] ?: @"";
-    a.push_back("--red_dns=" + std::string(endpoint.UTF8String));
-    const std::string own = nfsmw::red::IpLocal();
+    const bool pc = [s[@"lan_pc"] isEqualToString:@"true"] && [lanMode isEqualToString:@"join"];
+    a.push_back("--red_dns=" + (pc ? std::string("127.0.0.1") : std::string(endpoint.UTF8String)));
+    const std::string own = std::string((s[@"lan_own_ip"] ?: @"").UTF8String);
     if (!own.empty()) a.push_back("--red_ip=" + own);
     NSString* name = Value(s, @"lan_gamertag");
     if (name.length && GamertagValid(name)) a.push_back("--user_gamertag=" + std::string(name.UTF8String));
@@ -1480,6 +1482,7 @@ NSString* AchievementSummary(const Achievements& a) {
   // explicit action in its own screen, not a sticky mode from a previous run.
   [self set:@"lan_mode" to:@"off"];
   nfsmw::servidor::Parar();
+  nfsmw::pc::Stop();
   [self launchSelectedGame];
 }
 

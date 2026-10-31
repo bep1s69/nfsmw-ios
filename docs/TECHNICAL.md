@@ -13380,3 +13380,171 @@ scripts/build/IPA or tests; documentation-onlylocalmultiplayercommit.
 User's requested finalUX: nativeportfind/joinoriginalPCserverwithnoPCsidehelper;
 experimentalPythonbridge isnotacceptanceofhelperrequirement. No push/release;
 mainpre-existingcheckpoint/HANDOFF preserved, sharedSDK/sourceuntouched.
+
+## October 31 — laptop PC login failure, completed three-player race, native PC preview6
+
+Stefan supplied boot, rotated/current game logs, mobile server log and Windows
+PowerShell transcript. All five copied immediately with copy2/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_pc_laptop_and_three_player_`:
+
+| Suffix | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 40516 / 609 | d91c11213cd2857049b3a84e8d5beb2291ae13d90cded51d6097b8b485f43482 |
+| game_previous.log | 5242710 / 29260 | 33d910c7f348e2e0fd522277cd4514ca549eba4f57419ebc2213df298fe6df36 |
+| game.log | 2804812 / 15769 | 44cb6ac428ec945d67049db413af5f187f1ebe5095ae3437e93b9e2e4927e5a7 |
+| server.log | 227932 / 1443 | 8e0af1e2aebd1af02768976a909d2547f4dd0b6dc050c052f4f45ec4d45c75e5 |
+| windows_powershell.txt | 3816 / 55 | 2866c78fe9ba578f751eb4a80e6f5bd5c239ff5bf51c2d87a5450b6d1c2a4d77 |
+
+Original pasteboard/items directories in table order:
+D638FDBE-1361-450B-BBCF-CAE040319503/boot.txt;
+0FAF099A-2B1A-470C-B2A3-45DD0A79E185/nfsmw.1.log;
+25221FF1-12C5-48F3-8992-CFF8504AFDED/nfsmw.log;
+BA668504-58CF-4D1B-8D41-C9EDDD7D2E92/servidor_lan.log;
+3D379620-AF78-432F-B42A-04EC97D49AFB/Windows PowerShell.txt.
+Device/OS/build not newly established beyond previous test artifacts; append-only
+build stamp remains Oct31 13:50:31, so exact installed preview4/5 hash not proven.
+No new Extra Args reported beyond logged LAN settings.
+
+PC observations, separate from the mobile host session:
+- User switched to a real Windows laptop after VM difficulties. PC directory
+  and Python bridge respond locally on Wi-Fi192.168.1.202, then hotspot172.20.10.8.
+  First hotspot probe refused before restart; later original directory replies
+  correctly with9900, bridgeREADY and phone .1 directory-relayed messages.
+- Phone discovery finds1host20:55:57.917; joins .8, launches20:56:05.196.
+  Red_dns .8, red_ip .1. Another successful preflight/launch20:58:11.655.
+- Both game attempts reach originalPC9900 and auth succeeds. Xbox persona
+  request includes GTAG/XUID/PUID/MID/MADDR but no PERS. PC replies `PERS=`;
+  subsequent +who has emptyN and P8. This differs from our mobile server's
+  implicit GTAG-to-persona fallback.
+- Phone then requests `user PERS=bep1s`; original PC replies `userbadc` repeatedly
+  (20:56:37/49/59 and20:58:37). User reports could not determine disconnect
+  percentage. These are concrete persona/history protocol differences after
+  working discovery/login; not a remaining launcher permission failure.
+- No PC room join or mixed PC/mobile racing is evidenced. Different PC/Xbox
+  CLST/NETV/content/session formats remain later gates; do not force them equal
+  or claim the percentage error is now device-confirmed fixed.
+
+Mobile session: phone host192.168.1.205 authenticates21:19:29.427; TKMachine
+(Android .133)21:19:48.145; iPhone149 (.149)21:19:54.202. COUNT3 notification
+sent to host21:19:59.434; gsta/+ses to all21:20:15.067. Server records results
+21:35:25.349 bep1s1st,21:35:25.354 TKMachine2nd,21:35:27.167 iPhone1493rd.
+User says smooth/enjoyable. Both supplied game logs contain zero guest AVs.
+Thus mixed iOS/Android Wi-Fi race completion for3players is now evidenced;
+previous Wi-Fi failures remain historical/intermittent, not universal blockers.
+Host still cannot see either guest name; guests see host. This supersedes the
+previous Android-only narrowing. Server contains both names/roster fields;
+exact frontend/cache/connection-state cause not established. No speculative
+roster, synchronization or renderer patch made. Keep this defect open.
+
+Prior VM session accounting/correction (unfinished when usage review failed):
+- Read-only prlctl confirmed bridgedWi-Fi, local listeners .154:30960/10902
+  (PythonPID11028) and9900(gamePID9984), network categoryPublic. Mac probes to
+  all3TCP ports andUDP10902 timed out despite listeners.
+- I incorrectly called numeric firewall Action2 "Block". It means ALLOW;
+  Block is4, verified against Microsoft MSFT_NetFirewallRule documentation and
+  our later explicit -ActionAllow output. Existing Python rules were allow,
+  so they did not prove a blocking cause. Corrected user-facing commentary.
+  https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/wfascimprov/msft-netfirewallrule
+- User explicitly approved scoped VM security changes. Network2/Ethernet changed
+  Public→Private. First prlctl command lost quoted display-name boundaries;
+ 4rule calls failed positional-parameter errors, although profile change worked.
+  Corrected via standard PowerShell EncodedCommand (UTF16LE) transport: four
+  NFSMW-PC-Experiment-{Bridge-TCP,Bridge-UDP,Game-TCP,Game-UDP} rules created,
+  Enabled/Inbound/Allow/Private, local192.168.1.154, remoteLocalSubnet. Programs:
+  Python C:\Users\bep1s\AppData\Local\Python\pythoncore-3.15-arm64\python.exe,
+  game C:\Mac\Home\Desktop\PC Game Files\speed.exe. TCP30960/10902 forPython,
+  UDP10902 forPython, TCP9900 andUDP3658 forgame. Firewall never disabled;
+  original public rules unchanged. Changes remain in old VM, no laptop changes.
+- Follow-up Mac retest was NOT executed: automatic approval review failed due
+  usage limit, explicitly not an unsafe-action finding. No claim of fixed VM
+  reachability. No bypass attempted. Latest task uses laptop; no further VM
+  setting changes. To revert ONLY our changes if user requests: remove those
+  four exact rule names and set Ethernet profile backPublic. No unsolicited
+  revert performed, since authorization/preferences persist.
+
+Preview6 implementation (local multiplayer only):
+- pc_gateway.cpp/h: bounded PC9900 directory probe, loopback-only control
+  adapter at127.0.0.1:30960, max8clients, owned/joined threads,2sI/O deadlines,
+  serialized Start/Stop, shutdown wakes clients, accepted/native fds owned until
+  worker closes. No detached worker/FD recycling hazard. Backend is original
+  PC9900; no PC program/helper/script/modified game required.
+- Rewrite successful directory ADDR/PORT to local adapter so subsequent EA
+  control traffic passes through. Pass other frames/subcodes and binary7 data
+  byte-for-byte. Incoming Xbox pers lackingPERS gets GTAG alias, preserving
+  provided PERS. Outgoing addr uses physical backend socket source, not the
+  guest's loopback source. Race sockets remain direct through existing USAhook.
+- Xbox-only user history query handled locally with mobile server's44-value
+  STAT/LWSTAT/LMSTAT empty-history schema, LGAME0/LAST/EXPR. PC LAN has no Xbox
+  history endpoint; these are fresh local LAN defaults, NOT imported PC/official
+  statistics. No remote-account stat claim/upload; no race/leaderboard/content
+  translation, no swallowed errors for other commands. New PCroom search and
+  returned room metadata/subcode diagnostics in boot.txt, no password logging.
+- Launcher probes native PC9900 first on Join; uses adapter when validated,
+  instead of requiring custom10902gamertag service. lan_pc saved only for that
+  preparedJoin; red_dns loopback internally, displayed host remains actualPCIP.
+  lan_own_ip follows OS UDP route to realhost (connect/getsockname, sends no
+  datagram) so simultaneous hotspot/Wi-Fi doesn't advertise wrong peeraddress.
+  Host uses chosenhostaddress. OrdinaryPlay/Back/newHost/Join stop adapter.
+- Discovery scans originalPC9900 and existingmobile30960 directories (64total
+  concurrent,350ms/probe,4sTCPdeadline, nearby/24), parsesPCtab/newline fields,
+  deduplicates, scans even if a mobileUDP host also replied. NativePC result
+  labelledPC LAN host. Still uses unicast probes, no restricted multicast
+  entitlement. Existing mobile hosting/protocol untouched. No new SDK patch.
+  No PC race compatibility guarantee from preflight success.
+
+Checks and actual results:
+- test_pc_gateway.py compiles actual C++ withASan/UBSan: fragmented header/body,
+  directory routing, persona alias, preserve binary7 highbytes, actual source
+  address replacing guest127.9.9.9,44entry local history, unknown newsbadc12byte
+  pass-through, no forwardedunsupporteduser, shutdown/idempotentStop: exit0.
+- test_lan_setup.py adds PC detection/preflight bypassing10902, preserves route
+  selectedownIP; existingselfjoin, malformedIP, cancel, duplicate/unreachable,
+  retiringlistener retry checks pass/exit0. test_lan_interface.py, actual SDK
+  async receive regressionASan/UBSan and test_menu_touch.py all pass/exit0.
+- test_multiplayer.py unchangedmobile25stage C++/Python/binary7/session parity,
+  patch lifecycle and UDPblackholefallback pass; new fragmented nativePC9900
+  tab-separated @dir fixture passes. Final command exit0, transcript below.
+- Compiled actual gateway CLI in/private/tmp and ran against USER'S ORIGINAL
+  server.dll in existingdisposableCrossOver bottle for30s. Directory returns
+  adapterloopback as intended; complete mobileauth accepts; GTAG-onlypers now
+  returns PERS=NativePhone and +who N=NativePhone; A/LA=192.168.1.152 instead of
+  loopback. Local user query returns zero-status validSTAT schema, no userbadc.
+  This reproduces/fixes the captured CONTROL protocol defects in host tests;
+  no real mobilegame/PCgame mixedroom or race tested. Boundedgateway25s and
+  originalDLL30s both exit/normalshutdown. No long-lived service installed.
+- CMake builds (initial, route/address correction, formattedfinal) all exit0,
+  unchangedisolatedbuildcommand. Final codesign --verify --deep --strict exit0,
+  ZIPCRC valid,104metallibs andGPUdylib byte-identicalpreview5. Initial packaging
+  assertion that BOTH SDKdylibs wouldmatch failed; inspection shows only
+  debug_overlay.cpp rebuilt afterCMake regeneratedSDKversion.h (fc81453/time
+ 2259). Sourceoverlay hashes matchsharedSDK exactly; networkingpatch --status
+  applied andall7canonical sharedsources stillmatchsavedbaseline. No networking
+  object rebuilt. RuntimeUUID changed forSDKbuildstamp, not a sourceSDKchange.
+
+New unique artifact, copied from worktree into main's ignored ios/build only:
+`NFSMW-multiplayer-preview6-native-pc-lan.ipa`,30408180bytes,
+SHA256bbdf36fc64c194bdeffd6ffafbd43c122e76303ff8a810932d478ab009f99079,
+appUUIDF5F24A7A-FB0F-3B4D-BCE3-33E6DF8B6A13,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2,0.5.1/build9.
+CompanionJSON records identity; no earlier artifact overwritten.
+
+Build/test logs archived alongside inputs in Debug/31 October2026:
+- nfsmw-preview6-build.log14220bytes SHA2565385243f27ac013f99d3f93b779a2fb75c381093f10beafc94f3b67df536fc33;
+  nfsmw-preview6-final-build.log3564bytes SHA256617f0f5f02137ef908aa50a57e5a316d01b4a536f22402be8a38b7ea50d1729d;
+  nfsmw-preview6-package-build.log3397bytes SHA25636cddecd73badd2323d16eb21c5f8a35853a3820be6a7bf9aa142902001dcd83.
+- nfsmw-preview6-protocol-final.log2178bytes SHA2565c3cd830e2ade01b6522b3062cf5f0fd6fc92e4fffafeae82f75ed0cbdcd765b.
+- nfsmw-preview6-gateway-live.log250bytes SHA256aefafd85ffa04d2043940f8fa329f6ab5c41e09a982b86feae8a722b89c05d99;
+  nfsmw-preview6-original-server.log2575bytes SHA256bcd2e19cdc00b4e8b9929d4c4d4bd6ac191083487a933731bd700fdc776ec4d5.
+
+Next device test: stop oldPythonbridge, originalPCgame createsLANroom, iOS
+preview6Join/search or manualCURRENTPCIPv4; launchXboxLive/QuickMatch. Check
+login, actualroomvisibility/join, thenrace. CapturePCroom state andboot/game
+logs ifnextgatefails (possiblefilters/session/serialization differences). No
+forcedversion bypass or PC-side mod. Hostmissingnames remains separate/open,
+includingiOSguests now; preserve actualthreeplayer race success. Credits to
+victorgbd original networking/C++adaptation remain; PCgatewaydownstreamwork
+andlocalstats schema based on that protocol. PCdocs research credit retained.
+All source/evidence records locallycommitted onmultiplayer; mainpre-existing
+checkpointedit/HANDOFF preserved, sharedSDK/controlsreleaseunchanged. No push,
+merge, tag orrelease; device PCacceptance pending.
