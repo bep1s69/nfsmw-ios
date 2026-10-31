@@ -7,6 +7,10 @@ namespace nfsmw::pc {
 // True only while the native PC adapter is active, for its selected PC IPv4.
 // IPv4 uses guest/network numeric order (e.g. 0xc0a801ca).
 bool IsRacePeer(uint32_t ipv4);
+void ObserveRaceId(uint32_t ipv4, uint32_t connectionId);
+uint32_t RaceId(uint32_t ipv4);
+void SetLocalRaceId(uint32_t ipv4, uint32_t connectionId);
+uint32_t LocalRaceId(uint32_t ipv4);
 bool Probe(const std::string &ip);
 // In-app loopback adapter. Only PC control traffic uses this path; races stay
 // peer to peer. No PC-side helper or modification is required.

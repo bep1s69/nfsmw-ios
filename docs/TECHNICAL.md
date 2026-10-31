@@ -13908,3 +13908,94 @@ behavior. No forced connected flag. Device acceptance of header experiment
 pending; no claim of full PC gameplay. Hostguestnames stillopen, reversePC
 hosting deferred; all session source/evidence committed locally onmultiplayer.
 No push, merge, tag orrelease authorized/performed.
+
+## November 1 — header-only test fails on device; PC listener-ID translation preview10
+
+Stefan supplied another game log while preview9 was being handed off, reports
+same error. Initially I assumed preview9 hadn't been installed because no
+final download link was sent yet; corrected immediately after reading actual
+wire bytes. Log has translated TX0100000000000000, so the new header hook
+(or equivalent build) DID run. Exact installed hash not in log. Do not ask
+Stefan to rerun preview9 as if it had not been tried.
+
+Archived without overwrite in same Debug/31October test folder under historical
+name `nfsmw_lan_preview8_pc_peer_timeout_followup_game.log`:312267bytes/1918lines,
+SHA256a5740a8f3d492101d97eb2236d928a1ff44a20196306512a2a43d2186abcba94.
+Name assigned before inspection and kept for evidence continuity; it actually
+shows preview9-style header transformation. Original pasteboard/items source
+C54559F3-77AE-4051-9D4A-DE1CA4189050/nfsmw.log. No matching new boot supplied.
+First analysis snippet had unmatched parenthesis/SyntaxError, no data parsed;
+corrected snippet produced counts below, exit0. Archive had already succeeded.
+
+Observed23:54:10.360 mapsPC192.168.1.202, opens3658/6000;10raceTX packets
+0100000000000000,10PC replies05000000C5B964C6; socketcloses20.368 (~10s),
+voice20.833. Bidirectional race-port access remains confirmed. Header swap
+alone FAILED on device. Existing PC lobby join still works; no race.
+
+Original PC binary investigation, read-only user-owned speed.exe (same hash
+80774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c):
+- Python parsed PE sections to map file offsets/VA, no proprietary content
+  copied into tracked files. No capstone installed; used Xcode llvm-objdump
+  --disassemble --start-address=0x840000 --stop-address=0x859000 speed.exe,
+  output private nfsmw-pc-commudp-disassembly.txt2102307bytes,
+  SHA256be694ebe3737d6dc4bb89ef6405ac7abcde1bc09b58e119a73996fea41de8cf3.
+  Archived alongside input logs, never staged. Early candidates at84Dxxx
+  were modem transport, not proof about CommUDP; traced UDP constructor
+ 8517A9/string8C7064 and callbacks back to850xxx instead.
+- PC CommUDP main receive/control around8505E0–850CBD uses native little-endian
+  header words, same state/connectionID offsets0x94/0x98 as Xbox148/152.
+-850A13–850A3F reads listener connectionID atstate+0x98, sends opcode5 with it
+  while state3/listening. Therefore captured5 is listener advertisement,
+  NOT established NAK/auth rejection. Prior commentary's interpretation was
+  explicitly uncertain; don't label it NAK in future diagnostics.
+-850710–850725 checks incoming opcode1 then matches ACK/ID with listener's
+  state+0x98 before selecting the listener.850C4F–850C57 repeats the ID match
+  before accepting/opening it. Xbox8289CB3C–CBBC matches receivedopcode5
+  against its own connecting ID at+152; it doesn't adopt an arbitraryremoteID.
+  Local packets requestID0; PCadvertisesnativeC664B9C5. Byte order translation
+  fixes representation but cannot reconcile two different logical IDs.
+
+Preview10 source change (same selected endpoint/PC-only hooks):
+- After normalizing received header, recognize opcode5 with nonzero PC ID
+  from selectedPC3658/CommUDP caller; cache that advertisedID, log learned.
+- Capture native localID from outgoing handshake opcodes1–3; substitute PCID
+  in that private outgoing buffer only once learned. For incoming handshake
+  opcodes1–5 whose ID matches learnedPCID, translate back to native localID.
+  Both engines still run original handshake/listener matching; no fake green,
+  no drop/error swallowing, no opcode substitution or forcedconnected state.
+- Data acknowledgements/sequence numbers are NOT connectionIDs and never get
+  this ID substitution; existing header byte-order normalization still applies.
+  All payload bytes preserved. Port6000/voice, otherpeers/mobile paths unchanged.
+- Added atomic local/PC ID state to gateway, scoped to selectedPCtarget and
+  cleared on Start/Stop; observations from otherIPs ignored. Current scope one
+  selectedPC endpoint, not multi-PC host discovery or general peer mesh.
+- This explains an additional concrete mismatch; whether connection succeeds
+  after mapping remains DEVICEPENDING. Actual race serialization still unknown.
+
+Checks:
+- Actualhook ASan/UBSan test extended: capturedopcode5 learnsC664B9C5, delivers
+  opcode5/localID0 internally, nextINIT wirebecomes01000000C5B964C6 while
+  original caller buffer retains0000000100000000. DATA ACK equal to that
+  numeric token is not substituted; payload unchanged. Existing endpoint,
+  LANoff/mobile/voice/non-CommUDP/short/error/stack bypass checks pass/exit0.
+- Actualgateway test adds foreignIPignored, remote/localIDstore andStopclears;
+  existing fragmented control/persona/session checks pass/exit0 with temporary
+  listener access. Actualguest session/address decoder and room filter pass0.
+- Isolated cmake --build ... --target ipa -j6 exit0. ZIPCRC/signature verification
+  exit0; bothSDKdylibs and104shaderlibs BYTEIDENTICALpreview9. No SDK/generation/
+  renderer/control source edits. git diff --check exit0.
+
+Ready unique artifact (main ignored ios/build, previousIPAs preserved):
+NFSMW-multiplayer-preview10-pc-connection-id.ipa,30421055bytes,
+SHA256697c3d9c5d14a85b8d1974a0d5da928823ec9afc568c5747ee6938e97643b75c,
+appUUID9BCA14F6-5127-3567-995B-9E912E79F7E1,
+runtimeUUID325ECA6F-B026-3D4A-A158-0618E2381E30, companionJSON.
+Archived nfsmw-preview10-build.log4380bytes,
+SHA2566c9cf64b8d15ee6b852678094e62e0e5ac3b19629595b739452df37fdb0ee282.
+
+Next: preview10, same PC LANroom, Join/launchXboxLive/QuickMatch; verify
+actual handshake thenrace. New boot/game evidence will show whether ID-mapped
+INIT gets accepted; further game/voice packet differences may remain. No PC
+mod/helper requirement. Hostguestnames stillopen, reversePCdiscoverydeferred.
+All changes/evidence committed localmultiplayer, mainpre-existingcheckpoint/
+HANDOFF/sharedSDK/controls preserved. No push/merge/release/security changes.

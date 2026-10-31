@@ -53,6 +53,9 @@ int main(){
  });
  assert(Probe("127.0.0.1"));std::string error;assert(Start("127.0.0.1",{},&error));
  assert(IsRacePeer(0x7f000001) && !IsRacePeer(0xc0a801ca));
+ ObserveRaceId(0xc0a801ca,99);assert(RaceId(0x7f000001)==0);
+ ObserveRaceId(0x7f000001,0xc664b9c5);SetLocalRaceId(0x7f000001,7);
+ assert(RaceId(0x7f000001)==0xc664b9c5 && LocalRaceId(0x7f000001)==7);
  int s=conn(30960);sendall(s,Frame("@tic","RC4+MD5-V2")+Frame("@dir","PROD=nfs-xbox-2006"));auto dir=receive(s);assert(Field(dir.substr(12),"PORT")=="30960" && Field(dir.substr(12),"SESS")=="42");close(s);
  s=conn(30960);sendall(s,Frame("addr","ADDR=127.9.9.9\nPORT=1234")+Frame("auth","GTAG=Guest")+Frame("pers",binary));assert(Field(receive(s).substr(12),"PERS")=="Guest");
  auto listed=receive(s);assert(listed.substr(0,4)=="+uss" && Field(listed.substr(12),"P")==Field(AdaptRoom(room),"P") && Field(listed.substr(12),"D")=="$ca01a8c0");
@@ -60,7 +63,7 @@ int main(){
  auto user=receive(s);assert(user.substr(0,4)=="onln" && Field(user.substr(12),"MA").substr(0,18)=="$00090000c0a801ca^");
  sendall(s,Frame("user","PERS=Guest"));auto stats=receive(s);auto values=Field(stats.substr(12),"STAT");assert(std::count(values.begin(),values.end(),',')==43 && Field(stats.substr(12),"PERS")=="Guest");
  sendall(s,Frame("~png","TIME=1"));auto news=receive(s);assert(news.substr(0,8)=="newsbadc" && news.size()==12);close(s);
- backend.join();Stop();Stop();assert(!IsRacePeer(0x7f000001));close(listener);
+ backend.join();Stop();Stop();assert(!IsRacePeer(0x7f000001) && RaceId(0x7f000001)==0 && LocalRaceId(0x7f000001)==0);close(listener);
  std::cout<<"PASS: actual PC gateway directory/persona/physical-source address/44-value local history, Binary7 preservation, fragmented frames, badc pass-through, captured PC room build alias with unchanged peer address, and clean shutdown\n";
 }
 '''

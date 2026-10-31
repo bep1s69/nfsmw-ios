@@ -31,7 +31,14 @@ test=r'''
 #include "nfsmw_pch.h"
 #include "pc_gateway.h"
 bool red_lan=true,pc=true;
-namespace nfsmw::pc{bool IsRacePeer(uint32_t ip){return ::pc && ip==0xc0a801ca;}}
+namespace nfsmw::pc{
+uint32_t remoteId=0,localId=0;
+bool IsRacePeer(uint32_t ip){return ::pc && ip==0xc0a801ca;}
+void ObserveRaceId(uint32_t,uint32_t id){remoteId=id;}
+uint32_t RaceId(uint32_t){return remoteId;}
+void SetLocalRaceId(uint32_t,uint32_t id){localId=id;}
+uint32_t LocalRaceId(uint32_t){return localId;}
+}
 namespace nfsmw::boot {void Trace(const std::string&) {}}
 std::vector<uint8_t> sent;
 int result=8;
@@ -60,8 +67,18 @@ int main(){
  assert(memcmp(mem+0x2000,original,12)==0); // caller buffer untouched, retries safe
  c=context();result=-1;sub_8282A4F0(c,base);assert(c.r1.u32==0xe000 && c.r3.s32==-1);
  result=12;c=context();sub_8282A5A0(c,base);
- const uint8_t rx[]={0,0,0,5,0xc6,0x64,0xb9,0xc5,0xde,0xad,0xbe,0xef};
+ const uint8_t rx[]={0,0,0,5,0,0,0,0,0xde,0xad,0xbe,0xef};
  assert(memcmp(mem+0x2000,rx,12)==0 && c.r3.s32==12);
+ assert(nfsmw::pc::remoteId==0xc664b9c5);
+ // A subsequent INIT keeps the game's local ID zero but requests PC's ID on wire.
+ memcpy(mem+0x2000,original,12);c=context();result=12;sub_8282A4F0(c,base);
+ const uint8_t mapped[]={1,0,0,0,0xc5,0xb9,0x64,0xc6,0xde,0xad,0xbe,0xef};
+ assert(sent==std::vector<uint8_t>(mapped,mapped+12) && memcmp(mem+0x2000,original,12)==0);
+ // Established DATA acknowledgements are sequence numbers, never mapped IDs.
+ const uint8_t data[]={0x10,0,0,1,0xc6,0x64,0xb9,0xc5,0xde,0xad,0xbe,0xef};
+ memcpy(mem+0x2000,data,12);c=context();sub_8282A4F0(c,base);
+ assert(sent[4]==0xc5 && sent[5]==0xb9 && sent[6]==0x64 && sent[7]==0xc6);
+ memcpy(mem+0x2000,rx,12);
  result=-1;c=context();sub_8282A5A0(c,base);assert(c.r3.s32==-1 && memcmp(mem+0x2000,rx,12)==0);
  for(int skip=0;skip<6;++skip){
   red_lan=true;pc=true;Store32(base,0x104,0xc0a801ca);mem[0x103]=0x4a;

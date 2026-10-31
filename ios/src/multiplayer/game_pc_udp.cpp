@@ -45,6 +45,14 @@ extern "C" REX_FUNC(sub_8282A4F0) {
   REX_STORE_U32(ctx.r1.u32, uint32_t(savedStack));
   const uint32_t copy = ctx.r1.u32 + 128;
   std::memmove(base + copy, base + source, size);
+  const uint32_t ip = REX_LOAD_U32(ctx.r7.u32 + 4);
+  const uint32_t command = REX_LOAD_U32(copy);
+  if (command >= 1 && command <= 3) {
+    const uint32_t localId = REX_LOAD_U32(copy + 4);
+    nfsmw::pc::SetLocalRaceId(ip, localId);
+    if (auto id = nfsmw::pc::RaceId(ip))
+      REX_STORE_U32(copy + 4, id);
+  }
   Header(base + copy);
   ctx.r4.u64 = copy;
   __imp__sub_8282A4F0(ctx, base);
@@ -60,6 +68,17 @@ extern "C" REX_FUNC(sub_8282A5A0) {
   if (comm && buffer && ctx.r3.s32 >= 8 && ctx.r3.u32 <= capacity &&
       ctx.r3.u32 <= 2048 && PcEndpoint(base, peer)) {
     Header(base + buffer);
+    const uint32_t ip = REX_LOAD_U32(peer + 4);
+    const uint32_t command = REX_LOAD_U32(buffer);
+    const uint32_t id = REX_LOAD_U32(buffer + 4);
+    // Original PC850A13–3F emits opcode5 with its listener's connection ID.
+    // Xbox's connecting CommUDP uses its own ID to match replies at8289CB3C.
+    if (command == 5 && id) {
+      nfsmw::pc::ObserveRaceId(ip, id);
+      nfsmw::boot::Trace("[pc-udp] PC listener connection ID learned");
+    }
+    if (command >= 1 && command <= 5 && id && id == nfsmw::pc::RaceId(ip))
+      REX_STORE_U32(buffer + 4, nfsmw::pc::LocalRaceId(ip));
     Trace(true, ctx.r3.u32);
   }
 }

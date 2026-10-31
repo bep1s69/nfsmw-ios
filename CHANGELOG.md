@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Match the PC listener’s connection ID.** Translate handshake identifiers
+  between iOS and the selected PC host. The header-only test still timed out;
+  the identifier adaptation needs device confirmation.
+
 - **Test PC race packet headers.** Adapt the two transport-header fields for
   the selected PC host. iOS now exchanges race packets with PC, but the peer
   handshake still times out; this experiment needs device confirmation.

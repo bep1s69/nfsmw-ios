@@ -315,6 +315,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November1 preview10: header-only device experiment FAILED; PC listener ID learned.**
+  Follow-up log23:54 shows10TX0100000000000000 (translatedLE) and10PCreplies
+ 05000000C5B964C6,10s timeout. Thus headerhook ran; do NOT offerpreview9again
+  or callheader-onlyfixdeviceaccepted. Exactinstalledhashnotestablished.
+  Originalspeed.exe disassembly identifies CommUDP8505E0 receive/control;
+ 850A13–3F emits opcode5 with listener's connectionID at+0x98. Listener
+  acceptsINIT1 only withmatchingID (850710–725/850C4F–57). Phone requests0,
+  PC advertisesC664B9C5; header swap alone doesn't reconcilelogicalidentity.
+  Preview10 learns ID ONLYfromselectedPCopcode5, maps outgoinghandshake1–3
+  ID toPC and incomingmatchinghandshake1–5 ID backtooriginalclientID.
+  Originalconnectedstate stillrequiresactualhandshake; no readyforcing.
+  DataACK/sequence andpayloadunchanged. PCtarget/local+remoteIDs clearedon
+  Start/Stop; mobile/voice bypass unchanged. TestsactualUDP hooks+gateway ID
+  lifecycle/session+room passASan/UBSan; build/ZIP/signature pass.
+  Ready `ios/build/NFSMW-multiplayer-preview10-pc-connection-id.ipa`,30421055bytes,
+  SHA256697c3d9c5d14a85b8d1974a0d5da928823ec9afc568c5747ee6938e97643b75c,
+  appUUID9BCA14F6-5127-3567-995B-9E912E79F7E1; runtime325ECA6F-B026-3D4A-
+ A158-0618E2381E30. BothSDKdylibs/104shaders identicalpreview9.
+  **Next:** preview10samePCroomJoin/QuickMatch, inspectactualhandshake/race.
+  Identifier translation devicepending; noPCraceclaim. Latestlogarchivehas
+  historicalmislabelnfsmw_lan_preview8_pc_peer_timeout_followup_game.log;
+  preservepath, dataactuallyshowsheadertranslatedpreview9-styleexecution.
+  PrivatePCdisassemblyarchived inDebug/31October, no proprietarycodetracked.
+  Alllocalmultiplayer, controls/mainpre-existingdocsedit/HANDOFF/sharedSDK
+  preserved. Hostnamesopen/reversediscoverydeferred. Nopush/release.
+
 - **October31 preview9: bidirectional PC race UDP confirmed; header experiment ready.**
   Preview8 now opens3658/6000, XnAddr maps PC.202, sends/receives race datagrams.
   Two joins (~23:42:39/23:42:58) timeout ~10s; each repeats8byte requests and
@@ -3032,3 +3058,12 @@ it atomically. Native adapter remains required for this transport experiment.
 No SDK source patch or codegen step added; existing isolated build command.
 Check executable nm shows strong sub_8282A4F0/sub_8282A5A0 and original __imp__
 entries. Device handshake and race remain acceptance tests, not host stubs.
+
+### Preview10 handshake ID regression
+
+Existing test_pc_udp.py now covers the captured PC opcode5 listener ID,
+subsequent INIT mapping, local-ID reply mapping and DATA ACK preservation.
+test_pc_gateway.py covers endpoint isolation and Start/Stop ID-cache clearing.
+Existing build command unchanged. Observe `[pc-udp] PC listener connection ID
+learned` in boot and nonzero matching ID in actual outgoing UDP wire capture.
+Success still requires the game's real handshake and race, not a trace line.

@@ -18,9 +18,22 @@
 #include <vector>
 namespace nfsmw::pc {
 namespace {
-std::atomic<uint32_t> racePeer{0};
+std::atomic<uint32_t> racePeer{0}, raceId{0}, localRaceId{0};
 }
 bool IsRacePeer(uint32_t ipv4) { return ipv4 && racePeer.load() == ipv4; }
+void ObserveRaceId(uint32_t ipv4, uint32_t id) {
+  if (IsRacePeer(ipv4) && id)
+    raceId = id;
+}
+uint32_t RaceId(uint32_t ipv4) { return IsRacePeer(ipv4) ? raceId.load() : 0; }
+void SetLocalRaceId(uint32_t ipv4, uint32_t id) {
+  if (IsRacePeer(ipv4))
+    localRaceId = id;
+}
+uint32_t LocalRaceId(uint32_t ipv4) {
+  return IsRacePeer(ipv4) ? localRaceId.load() : 0;
+}
+
 std::string Field(const std::string &body, const std::string &key) {
   size_t at = 0;
   while (at < body.size()) {
@@ -542,12 +555,14 @@ bool Probe(const std::string &ip) {
 void Stop() {
   std::lock_guard<std::mutex> lock(gatewayMutex);
   racePeer = 0;
+  raceId = localRaceId = 0;
   gateway.reset();
 }
 bool Start(const std::string &ip,
            std::function<void(const std::string &)> trace, std::string *error) {
   std::lock_guard<std::mutex> lock(gatewayMutex);
   racePeer = 0;
+  raceId = localRaceId = 0;
   gateway.reset();
   for (int i = 0; i < 8; ++i) {
     auto g = std::make_unique<Gateway>();
