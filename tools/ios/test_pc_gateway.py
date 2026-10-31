@@ -24,6 +24,14 @@ int main(){
  std::string binary="MADDR=$";binary+=char(0x80);binary+=char(0xff);binary+="\nGTAG=Guest\0";
  auto fixed=Put(binary,"PERS","Guest");assert(Field(fixed,"MADDR")==std::string("$")+char(0x80)+char(0xff));
  assert(Field(Put("PERS=Old\tX=1\0","PERS","New"),"PERS")=="New");
+ const std::string room="I=1\tT=0\tSF=KV\tCF=JKM-\tO=TKM\tS=4\tN=005.TKM\tD=$ca01a8c0\tP=V%3d192359%0aP%3d1%0aE%3d534735613%0aL%3d3%0aM%3d2%0a";
+ assert(Field(AdaptRoom(room),"P")=="V%3d192641%0aP%3d1%0aE%3d534735613%0aL%3d3%0aM%3d2%0a");
+ assert(Field(AdaptRoom(room),"D")=="$ca01a8c0");
+ for(auto p:{"V%3d192641%0a", "V%3d194010%0a", "V%3d1923590%0a", "AV%3d192359%0a", "X%3dV%3d192359%0a"}) {
+  auto body=Put(room,"P",p);assert(AdaptRoom(body)==body);
+ }
+ assert(Field(AdaptRoom("P=V%3D192359%0A"),"P")=="V%3D192641%0A");
+ assert(Field(AdaptRoom("P=E%3d1%0aV%3d192359"),"P")=="E%3d1%0aV%3d192641");
  int listener=socket(AF_INET,SOCK_STREAM,0);int yes=1;setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(yes));
  sockaddr_in a{};a.sin_family=AF_INET;a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);a.sin_port=htons(9900);assert(bind(listener,(sockaddr*)&a,sizeof(a))==0 && listen(listener,4)==0);
  std::thread backend([&]{
@@ -36,6 +44,7 @@ int main(){
   assert(receive(s).substr(0,4)=="auth");auto pers=receive(s);
   assert(Field(pers.substr(12),"PERS")=="Guest");assert(Field(pers.substr(12),"MADDR")==std::string("$")+char(0x80)+char(0xff));
   sendall(s,Frame("pers","PERS=Guest\tNAME=Guest"));
+  sendall(s,Frame("+uss",room));
   // The Xbox-only 'user' request must not reach the PC (which returns badc).
   auto ping=receive(s);assert(ping.substr(0,4)=="~png");
   std::string news="newsbadc";news+=std::string(3,'\0');news+=char(12);sendall(s,news);close(s);
@@ -43,10 +52,11 @@ int main(){
  assert(Probe("127.0.0.1"));std::string error;assert(Start("127.0.0.1",{},&error));
  int s=conn(30960);sendall(s,Frame("@tic","RC4+MD5-V2")+Frame("@dir","PROD=nfs-xbox-2006"));auto dir=receive(s);assert(Field(dir.substr(12),"PORT")=="30960" && Field(dir.substr(12),"SESS")=="42");close(s);
  s=conn(30960);sendall(s,Frame("addr","ADDR=127.9.9.9\nPORT=1234")+Frame("auth","GTAG=Guest")+Frame("pers",binary));assert(Field(receive(s).substr(12),"PERS")=="Guest");
+ auto listed=receive(s);assert(listed.substr(0,4)=="+uss" && Field(listed.substr(12),"P")==Field(AdaptRoom(room),"P") && Field(listed.substr(12),"D")=="$ca01a8c0");
  sendall(s,Frame("user","PERS=Guest"));auto stats=receive(s);auto values=Field(stats.substr(12),"STAT");assert(std::count(values.begin(),values.end(),',')==43 && Field(stats.substr(12),"PERS")=="Guest");
  sendall(s,Frame("~png","TIME=1"));auto news=receive(s);assert(news.substr(0,8)=="newsbadc" && news.size()==12);close(s);
  backend.join();Stop();Stop();close(listener);
- std::cout<<"PASS: actual PC gateway directory/persona/physical-source address/44-value local history, Binary7 preservation, fragmented frames, badc pass-through and clean shutdown\n";
+ std::cout<<"PASS: actual PC gateway directory/persona/physical-source address/44-value local history, Binary7 preservation, fragmented frames, badc pass-through, captured PC room build alias with unchanged peer address, and clean shutdown\n";
 }
 '''
 with tempfile.TemporaryDirectory(prefix='nfsmw-pc-gateway-') as d:

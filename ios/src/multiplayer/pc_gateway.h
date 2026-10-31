@@ -15,5 +15,8 @@ std::string Put(std::string body, const std::string &key,
                 const std::string &value);
 std::string Frame(const std::string &command, const std::string &body,
                   const std::string &subtype = std::string(4, '\0'));
+// Translate only the observed PC room build tag for the Xbox room parser.
+// This does not establish session/race compatibility.
+std::string AdaptRoom(const std::string &body);
 std::string LocalStats(const std::string &name);
 } // namespace nfsmw::pc

@@ -13548,3 +13548,112 @@ andlocalstats schema based on that protocol. PCdocs research credit retained.
 All source/evidence records locallycommitted onmultiplayer; mainpre-existing
 checkpointedit/HANDOFF preserved, sharedSDK/controlsreleaseunchanged. No push,
 merge, tag orrelease; device PCacceptance pending.
+
+## October 31 — preview6 receives PC room but Xbox rejects its build tag; preview7
+
+Stefan reports native PC discovery/login got further, but the actual PC room
+was absent. Asks how hard reverse PC discovery of mobile hosting would be;
+explicit priority is PC hosting playable first. No reverse hosting code added.
+All source work stays local on multiplayer; no push/merge/release. Main's
+pre-existing docs/DEVELOPMENT_PROGRESS.md edit and untracked HANDOFF_CHATGPT.md
+remain preserved, as do shared SDK/controls source and prior IPAs.
+
+Three supplied logs archived with copy2/no overwrite in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview6_pc_room_missing_`:
+
+| Suffix | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 27701 / 428 | 48dc9ee1773959aa898d7152cbee089199d0abc18d59072e55c22438b4b037fa |
+| game.log | 1326044 / 8078 | 09f55802cfd0f2273d8fdbb537da096f79c317b8c50f618c559446802e7d4bc6 |
+| server.log | 8498 / 53 | 4a9ad50c3920f45d000eb43721441b9d9dfcc5e4d77dacb739f070ee717698c1 |
+
+Original pasteboard/items sources in table order:
+2D4BCDBD-B89A-4A16-861E-106EE397AE21/boot.txt;
+D93AC8FB-4BE4-49D3-ABE3-4AB073FEB520/nfsmw.log;
+4E75D630-E914-41F0-B7EB-C5EBCCA968CC/servidor_lan.log.
+Exact installed hash not present in logs, but native adapter behavior consistent
+with preview6. Boot still reports old append-only build stamp13:50:31; do not
+use it to identify the executable. Device/OS not newly established. USA ISO,
+red_dns127.0.0.1, red_ip192.168.1.205, gamertagbep1s, 40fps, Balanced,
+1560x720, sim_rate120, native_at_timefalse extra arg logged.
+
+Observed PC-host sequence (separate later iPhone-host control session):
+- 23:14:34.914 direct TCP scan verifiesPC192.168.1.202; setup/launch ready.
+- 23:15:09 directory/persona pass via local adapter;23:15:20.819 local LAN
+  history supplied. No previous disconnect-percentage gate reported now.
+- 23:15:20.839 Xbox usea flags-2147474432/mask-2147457535. PC returns COUNT1
+  at20.890 and +uss at20.900, body114bytes: room005.TKM, ownerTKM, SF=KV,
+  CF=JKM-, S=4, D=$ca01a8c0, P=V%3d192359%0aP%3d1%0aE%3d534735613%0aL%3d3%0aM%3d2%0a.
+  Thus PC directory/login AND room enumeration work, despite absent game UI.
+- Later search23:15:40 flags-2147473920 returns no room; second launch23:17
+  likewise COUNT0 for those flags. This is a different requested filter; do
+  not claim every search returned the room, or that its filter is fixed.
+- Later iOS-host control logs advertise V192641. Game also creates rooms on
+  the PC service in the later run; that does not prove a PC racer joins them.
+  No captured PC/mobile peer or completed mixed PC/mobile race evidence.
+
+Source finding: ignored generated USA sub_82546178 (nfsmw_recomp.119.cpp)
+parses room parameter V through828157A0/82815DD0, compares with192641 at
+825461B4–C8, marks mismatch, returns0 at82546254→8254622C BEFORE calling
+825462D8/82824C58 peer QoS. Room discovery isn't the remaining network
+problem in the COUNT1 attempt; build mismatch is an established rejection.
+Other possible PC session/race differences remain untested. No assumption
+that PC build192359 and Xbox192641 have identical race serialization.
+
+Preview7 change, confined to PC gateway:
+- AdaptRoom aliases ONLY observed percent-encoded P/V192359 to192641 at a
+  complete parameter boundary. Handles upper/lower escape hex and preserves
+  other P values/unknown builds. Applies to received +uss/+ust and room
+  ujoi/ucre/uadm responses. Preserves EA subcode and all other fields including
+  PC little-endian-IP descriptionD, flags, capacities and Binary7. No race,
+  platform-session, player-address, SDK, renderer or mobile-host changes.
+- Adds boot trace for outgoing room/game joins and incoming session metadata
+  field lengths/count/host; nonzero EA response subcodes retained/logged.
+  No credentials/session keys dumped into boot. Existing game logging remains.
+- This is an experimental metadata alias to reach the next protocol boundary,
+  NOT a proof that the server/racers are cross-compatible. User's requested
+  direct PC-host workflow still uses unmodified PC with no helper script.
+
+Checks:
+- test_pc_gateway.py enhanced with captured PC room, fragmented +uss, byte
+  preservation of D/other fields, exact tag boundaries, case variants and
+  unchanged unknown versions. First sandbox run aborts on bind (no listener
+  permission), exit1; rerun with approved local-listener access passes exit0
+  under ASan/UBSan. Final rerun after diagnostics also exit0. Existing persona,
+  history, physical address, Binary7, badc12byte and shutdown checks pass.
+- New test_pc_room_filter.py extracts actual ignored generated sub_82546178
+  into temporary compilation, bounded fake memory/dependency stubs. Tests
+  captured192359 rejects BEFORE QoS,192641 accepts/reachesQoS, adapter's
+  transformed captured P passes, unknown194010 still rejects. ASan/UBSan exit0.
+  First harness incorrectly asserted that an existing-map-entry helper would
+  never be called; failed exit1. Corrected stub simulates the existing entry
+  and insertion-success flag; actual guest code left unchanged. Final exit0.
+  It isolates actual version control flow, does not emulate real peers/racing.
+  Generated/proprietary source never added to tracked test files.
+- Existing test_lan_setup.py passes exit0, confirms PC/mobile preflight paths.
+- Both isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa
+  -j6 runs exit0. Initial command sequence continued to build after failed
+  harness; corrected validator then passed before final build. Final build
+  has normal actool/CoreSimulatorService unavailable diagnostic, exits0.
+- ZIP CRC valid; codesign --verify --deep --strict exit0; all104metallibs and
+  GPUdylib byte-identicalpreview6. RuntimeUUID unchanged (no SDK rebuild).
+  git diff --check exit0. No broader mobile/network code changes this turn.
+
+Unique artifact copied to main ignored ios/build, no old artifact replaced:
+`NFSMW-multiplayer-preview7-pc-room-discovery.ipa`,30424196bytes,
+SHA2564709104bbeae6e14ecd6844283916ea148eb1255c25e39f8ab417642f0ec2dd3,
+appUUIDF2E7FC8A-971D-3F10-BEA2-25A5E56AE2C5,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2, companionJSON.
+Build logs archived in same Debug directory:
+nfsmw-preview7-build.log3326bytes SHA2569b246b6a3b2232ac6368732ed8e85d5cbde9e29caa6e2c832ad9217350d37255;
+nfsmw-preview7-final-build.log2929bytes SHA256b736149c728c411581eafd7299b97f0af98a780de84b1e12918f62ef23542b3d.
+
+Next device test: PC original LANroom open, phonepreview7 Join/search/current
+PCIP, launchXboxLive→QuickMatch. Verify room display, then join and race.
+Capture boot/game if next stage fails; room/session/address formats may need
+further work. Hostmissingguestnames remains OPEN. Reverse PC discovery of
+mobile host remains deferred: initial discovery responder is bounded work
+(original384byte gEA UDP9999 and PC-facing TCP9900), but reverse session/race
+compatibility cannot be estimated until PC-host path tested. Do not add only
+advertising and call it cross-play. No PC/helper installation required by goal.

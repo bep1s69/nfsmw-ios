@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Show PC rooms in the multiplayer test.** Adapt the observed PC room build
+  tag for the iOS room browser. Login and directory discovery now work on device;
+  joining and racing with PC still need testing. No PC helper script required.
+
 - **Test joining PC LAN hosts directly.** Finds the original PC game's LAN
   directory without a PC helper script. Handles the different persona field
   and unavailable Xbox history query inside iOS. PC room joining and racing

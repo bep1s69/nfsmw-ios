@@ -315,6 +315,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31 preview7: PC room filter identified; device join test next.**
+  Preview6 device logs pass native discovery/login and receive PC room005.TKM,
+  COUNT1, but Xbox rejects its encoded P/V192359. Actual generated USA
+  sub_82546178 compares against192641 and returns0 before QoS on mismatch.
+  Preview7 aliases ONLY that observed PC room build in PC-mode control
+  metadata (+uss/+ust/ujoi/ucre/uadm); unknown versions, room flags, peer
+  description, addresses and session/race payloads remain unchanged.
+  Actual generated-validator test reproduces rejection and reaches QoS/return1
+  with the alias (dependency stubs, NOT a real peer/race). ASan/UBSan gateway
+  tests and existing preflight pass. Missing host guest names remain OPEN.
+  Ready `ios/build/NFSMW-multiplayer-preview7-pc-room-discovery.ipa`,30424196bytes,
+  SHA2564709104bbeae6e14ecd6844283916ea148eb1255c25e39f8ab417642f0ec2dd3,
+  appUUIDF2E7FC8A-971D-3F10-BEA2-25A5E56AE2C5, runtime unchanged frompreview6.
+  Build/ZIP/signature pass; GPUdylib/104shaders unchanged. No PC-side helper.
+  **Next:** original PC LANroom remains open, phonepreview7 JoinPC/search,
+  XboxLive→QuickMatch; verify room visible, then join and race. New boot
+  diagnostics report join/subcodes and session field lengths without passwords.
+  Do not infer race compatibility from metadata adaptation. PC discovering an
+  iPhone host is requested but deferred by Stefan until PC-host joining works;
+  needs original PC UDP9999 discovery and TCP9900 protocol hosting in iOS,
+  plus reverse session/peer compatibility. No PC-host-side script/mod required
+  by intended UX. Raw3logs archived asnfsmw_lan_preview6_pc_room_missing_*;
+  preview6 historical device-test-next wording below is now superseded.
+  Work remains isolated on localmultiplayer; main's pre-existing checkpoint
+  edit and untracked HANDOFF preserved. No shared SDK or controls edits.
+
 - **October31 preview6: native PC discovery/login adapter ready; device test next.**
   Laptop succeeds via helper on hotspot172.20.10.8 but game fails disconnect%
   query. Logs prove PC personaPERSempty (Xbox sendsGTAG only), then repeated
@@ -2905,3 +2931,19 @@ remainnextgate, noforcedversion/contentconversion.
 `python3 tools/ios/test_lan_setup.py` includesPCpreflightwithout10902.
 Existingmultiplayer.py nowalso tests fragmented/tabseparatednative9900reply.
 Buildremainsisolatedcmake--build/private/tmp/nfsmw-multiplayer-build--targetipa.
+
+### Preview7 PC room filter regression
+
+Alongside the preview6 checks, run:
+
+```sh
+python3 tools/ios/test_pc_room_filter.py
+python3 tools/ios/test_pc_gateway.py
+```
+
+The first requires the ignored generated USA code and compiles its actual
+sub_82546178 with bounded memory/dependency stubs. It tests version rejection
+before QoS and acceptance after the captured PC tag alias, not a real peer.
+The gateway check needs permission for bounded local TCP listeners. Both use
+ASan/UBSan. Build uses the existing isolated IPA command; install the uniquely
+named preview7 IPA, leave the PC in an existing LAN room, select Quick Match.

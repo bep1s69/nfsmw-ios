@@ -58,6 +58,31 @@ std::string Frame(const std::string &command, const std::string &body,
   std::memcpy(out.data() + 8, &size, 4);
   return out;
 }
+std::string AdaptRoom(const std::string &body) {
+  // PC room captured in preview6: P=V%3d192359%0a... . The original Xbox
+  // sub_82546178 rejects that value before initiating QoS (expects192641).
+  // Restrict the alias to this observed build; preserve unknown versions and
+  // every other field, especially description/addresses and Binary7 payloads.
+  auto params = Field(body, "P");
+  std::string lower = params;
+  std::transform(
+      lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
+        return c >= 'A' && c <= 'Z' ? char(c + ('a' - 'A')) : char(c);
+      });
+  size_t at = 0;
+  while ((at = lower.find("v%3d192359", at)) != std::string::npos) {
+    const size_t end = at + 10;
+    bool start = at == 0 || (at >= 3 && lower.substr(at - 3, 3) == "%0a");
+    bool finish = end == params.size() || lower.substr(end, 3) == "%0a" ||
+                  lower.substr(end, 6) == "%0d%0a";
+    if (start && finish) {
+      params.replace(at + 4, 6, "192641");
+      return Put(body, "P", params);
+    }
+    at = end;
+  }
+  return body;
+}
 std::string LocalStats(const std::string &name) {
   // Original PC LAN has no Xbox 'user' history endpoint. New local LAN
   // identity starts with empty history, same schema as the mobile host.
@@ -234,6 +259,11 @@ public:
           if (command == "usea")
             Log("PC room search NAME=" + Field(body, "NAME") + " flags=" +
                 Field(body, "CUSTFLAGS") + " mask=" + Field(body, "CUSTMASK"));
+          if (command == "ujoi" || command == "gjoi" || command == "gget" ||
+              command == "gset")
+            Log("client " + command + " NAME=" + Field(body, "NAME") +
+                " room=" + Field(body, "ROOM") +
+                " ident=" + Field(body, "IDENT"));
           ok = Send(remote, wire);
         } else {
           if (command == "@dir" && wire.substr(4, 4) == std::string(4, '\0')) {
@@ -241,12 +271,31 @@ public:
             wire = Frame(command, body);
             Log("PC directory routed through in-app adapter");
           }
+          if (command == "+uss" || command == "+ust" || command == "ujoi" ||
+              command == "ucre" || command == "uadm") {
+            auto adapted = AdaptRoom(body);
+            if (adapted != body) {
+              Log("aliased PC room build 192359 to Xbox room build 192641; "
+                  "race compatibility unverified");
+              body = std::move(adapted);
+              wire = Frame(command, body, wire.substr(4, 4));
+            }
+          }
           ok = Send(local, wire);
           if (command == "pers")
             Log("PC persona response received");
           if (command == "+uss" || command == "+ust")
             Log("PC room N=" + Field(body, "N") +
                 " params=" + Field(body, "P"));
+          if (command == "ujoi" || command == "gjoi" || command == "gget" ||
+              command == "gset" || command == "+mgm" || command == "+ses")
+            Log("PC " + command + " NAME=" + Field(body, "NAME") + " HOST=" +
+                Field(body, "HOST") + " COUNT=" + Field(body, "COUNT") +
+                " SESS_bytes=" + std::to_string(Field(body, "SESS").size()) +
+                " PLATPARAMS_bytes=" +
+                std::to_string(Field(body, "PLATPARAMS").size()));
+          if (wire.substr(4, 4) != std::string(4, '\0'))
+            Log("PC response " + command + " subtype=" + wire.substr(4, 4));
           if (wire.substr(4, 4) == "badc")
             Log("PC does not support command " + command);
         }
