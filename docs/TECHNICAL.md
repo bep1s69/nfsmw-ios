@@ -13182,3 +13182,41 @@ connection/directory redirect/auth failure, and Android identity details for
 one-way roster display. No source fix/root-cause claim/new IPA or tests.
 Updated checkpoint/backlog locally on multiplayer, main/sharedSDK untouched;
 no push/merge/release. Pre-existing main checkpoint edit/HANDOFF preserved.
+
+
+### October31 — new iPhone Wi-Fi failure logs; Android log location verified
+
+Archived immediately/no overwrite under Debug/Most Wanted (2005) Debug/
+31 October2026, prefix nfsmw_lan_android_wifi_manual_failure_:
+- host_boot.txt:16100bytes/258lines,
+  SHA256086b812779ed309df74c77f337df861d550208b799b459842a588426bf990f3b;
+  source pasteboard/items/270B321D-2C38-4586-B80B-B9B9FBF4B701/boot.txt.
+- host_game.log:952793bytes/5775lines,
+  SHA2569b0b416288a4b984bf46cd56743bc5254a51a8dae9cc2a1ded3e49055a429896;
+  source1F81EFDB-F7AD-4323-8ABA-809C86162CFA/nfsmw.log.
+- host_server.log:11888bytes/85lines,
+  SHA2569fb0bc162f6076049938419f1e0089fe76996398b65a5babfd1f493edf164f6b;
+  sourceDE0BCE21-1C5A-42C5-A1BB-5AEE9394593C/servidor_lan.log.
+Same original pasteboard root as previous entries. Host192.168.1.205 logs
+UDP10902 searches from192.168.1.133 at19:05:07.944/18.696/32.828, replies
+sent. No remote TCP directory30960/lobby10901/gamertag10902 entries; ONLY self205
+connections19:05:18.969/18.999 and19:06:27.610/27.640, selfauth succeeds,
+selfroomCOUNT1. Indicates remote directory connection not observed on host;
+not proof of network filter, wrong user input, stopped host or cause.
+
+User asks where Android logs are. Verified pinned upstream Java and current
+main via raw GitHub (browser blob fetch failed cache miss, raw succeeded).
+Ajustes.carpetaLogs uses getExternalFilesDir(null)/logs; applicationId
+io.github.nfsmwrecomp => internal shared storage Android/data/
+io.github.nfsmwrecomp/files/logs/nfsmw.log when enabled. MotorNativo.argumentos
+chooses /dev/null/log_leveloff for !DEBUG&&!REGISTRO; DEBUG/REGISTRO writes
+that log, red_registro only enabled with REGISTRO in pinned snapshot. Ordinary
+release may have no file; Xenos also disables release logging. No verified UI
+export-logs button; don't confuse saved-games export with logs. Android/data
+file-manager restrictions may require PC/ADB; no invasive workaround needed.
+Sources: github.com/victorgbd/NFSMW-Recompiled-Mobile main android/app/src/main/
+java/io/github/nfsmwrecomp/{Ajustes,MotorNativo}.java and build.gradle.kts.
+No Android debug APK built/installed; ask for available file only, not invent
+release logging switch. Exact friend's build remains unknown beyond "latest".
+Documentation only; no new tests/build/code or claimed fix, local multiplayer,
+main controls/sharedSDK untouched, pre-existing main checkpoint/HANDOFF preserved.

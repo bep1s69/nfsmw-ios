@@ -303,6 +303,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October31 Android Wi-Fi host evidence received/archived:** host205 serves
+  its own directory/login twice19:05/19:06; UDP discovery requests from133 at
+ 19:05:07/18/32, replies logged, but NO remote directory/lobby TCP or gamertag
+  check recorded. This narrows failure before Android directory reaches host,
+  not proof of router/TCP filtering. Android logs still needed if generated:
+  default release disables game logging; native REGISTRO/debug build writes
+  Android/data/io.github.nfsmwrecomp/files/logs/nfsmw.log. Do not ask friend to
+  hunt indefinitely for a file normal release may never create. No source fix.
+
 - **October 31 Android follow-up:** friend reports latest victorgbd release
   (exact version unknown), sees iOS host name in hotspot game room. On regular
   Wi-Fi Android fails discovery/gets stuck connecting to EA even after MANUAL
