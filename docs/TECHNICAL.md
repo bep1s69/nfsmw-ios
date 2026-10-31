@@ -13167,3 +13167,18 @@ working iOS behavior. Wi-Fi Android pairing/reliability/rematch also untested.
 Stefan prioritizes Wi-Fi and correct remote names; flicker/stutter lower priority.
 Records/changelog updated locally on multiplayer; main pre-existing checkpoint
 edit/HANDOFF preserved, sharedSDK/controlbuild untouched. No push/merge/release.
+
+
+### October 31 — Android Wi-Fi manual-current-address failure confirmed
+
+Friend reports "latest" victorgbd build (exact release not supplied), sees iOS
+host's name in game room (hotspot previously worked). User reports Android
+cannot find host in prelaunch and hangs connecting to EA; asked network and
+manual address, response explicitly "Wi-Fi; current address entered manually"
+for192.168.1.205. Do not attribute to stale172.20.10.1/search-only. No logs from
+THIS failed Android Wi-Fi attempt supplied yet; latest paired logs are iOS
+success. Need Android nfsmw.log and same-attempt host boot/server to distinguish
+connection/directory redirect/auth failure, and Android identity details for
+one-way roster display. No source fix/root-cause claim/new IPA or tests.
+Updated checkpoint/backlog locally on multiplayer, main/sharedSDK untouched;
+no push/merge/release. Pre-existing main checkpoint edit/HANDOFF preserved.

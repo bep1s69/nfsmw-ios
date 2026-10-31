@@ -303,6 +303,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **October 31 Android follow-up:** friend reports latest victorgbd release
+  (exact version unknown), sees iOS host name in hotspot game room. On regular
+  Wi-Fi Android fails discovery/gets stuck connecting to EA even after MANUAL
+  current host192.168.1.205 entered. User explicitly confirms manual currentIP;
+  do not repeat stale-address/search-only explanations. iOS↔iOS Wi-Fi works.
+  Next required evidence: Android nfsmw.log plus iPhone boot/server from SAME
+  failed Wi-Fi attempt to locate directory/service/login boundary; also compare
+  Android roster/identity against working iOS. No fix yet, no new build.
+
 - **October 31: Android hotspot gameplay and iOS Wi-Fi race completion confirmed.**
   Stefan confirms Android race worked after correct hotspot address, intentional
   quit; Android saw occasional remote-car flicker/proximity stutter. iOS host
