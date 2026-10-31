@@ -2,10 +2,15 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Fix a crash when another player connects.** Keep a copy of the game's
+  temporary receive-buffer descriptors until the packet arrives. The hotspot
+  test reached both devices before exposing this memory overwrite. The fix
+  passes regression checks; device race testing remains pending.
+
 - **Find hosts when UDP discovery fails.** iOS now explicitly binds its
   discovery socket and falls back to the existing EA TCP directory protocol.
   Android and Python hosts need no changes. Discovery diagnostics go to boot.txt.
-  Actual shared-room and race testing remains pending.
+  Shared-room connection now confirmed over Personal Hotspot; racing pending.
 
 - **Clearer multiplayer setup.** A dedicated Host/Join screen finds nearby
   hosts, shows which lobby you are connected to, chooses a player name and

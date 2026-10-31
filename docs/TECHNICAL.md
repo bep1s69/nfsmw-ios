@@ -12799,3 +12799,127 @@ Sharedroom/race/iOS↔AndroidUSAstillunvalidated; PCheld.
 Allworkrecordedonmultiplayer174dc93baseline. Main19177b6stillonlypreserved
 issue11checkpointnoteanduntrackedHANDOFF; sources/SDK/controlbuilduntouched.
 New diagnostictoolandthisrecordcommittedlocally; no push/tag/merge/release.
+
+## October 31, 2026 — hotspot connects; preview3 async descriptor corruption, preview4 fix
+
+Stefan reports host172.20.10.1 on iPhone Personal Hotspot, iPad in-game Join,
+then BOTH devices closed with no crash report in Settings. Device models/OS
+not newly established; app running through LiveContainer, Local Network access
+already confirmed on both. Preview3 test controls retained, no new Extra Args
+reported. Do not interpret missing OS report as absence of a guest crash.
+
+Original inputs (shared-pasteboard/items under
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/`):
+1FE51C71-BA78-44DA-9731-990167DE7A5F/boot.txt,
+A82156F8-33D8-4FC3-8EA9-477D15DE8FA2/nfsmw.log,
+767A8924-0023-4ADA-A41E-7A9CA8F70ED2/servidor_lan.log,
+BC32A090-3780-4651-83EA-8666A38A3C7C/nfsmw.log,
+C46BD2C9-2CC4-4A54-98FD-0B959C7FADB8/boot.txt.
+Archived with copy2, preserving originals/no overwrite, under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+
+| Archived file | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| nfsmw_lan_preview3_hotspot_host_boot.txt | 17999 / 281 | 1708835cdb41768e4983f8b05ae62fb1dd11f84a30c18e7e2ccda72570d43ab7 |
+| nfsmw_lan_preview3_hotspot_host_game.log | 2375706 / 14081 | c1fb693cbe560ffa0d2407677c0bf2657f4a6c8c3eede82df375465ebe92de71 |
+| nfsmw_lan_preview3_hotspot_host_server.log | 33075 / 243 | 5862d2afbdce682f33b1752d0ef89fef19b850f999cdb6b34b7956f74726be7b |
+| nfsmw_lan_preview3_hotspot_join_game.log | 220813 / 1328 | 19ee649b0feaf97fc1922f04a0f604d2c5269ef4cfaadcceb87b993223456f18 |
+| nfsmw_lan_preview3_hotspot_join_boot.txt | 14844 / 212 | d392ab1739ada294ca6e677455c2786b39ff01557965d6bb3dc639201bf6e6a8 |
+
+Observed sequence:
+- Phone Host ready18:24:11.441 IP172.20.10.1; launch18:24:32.957.
+  iPadIP172.20.10.5 scan18:24:25.363 UDP1host, Joinready18:24:30.065;
+  another scan18:25:07.298 UDP1, launch18:25:11.439 with remote red_dns.1,
+  local red_ip.5. Launcher listener survives launch and serves remote game.
+- Server18:25:38.569 gjoi/COUNT=2, names bep1s/zestygooner, peer addresses
+ 172.20.10.1/.5. This is real shared lobby, not just launcher preflight.
+- iPad sends21bytes UDP3658 at18:25:38.785, async receives21 at38.786;
+  phone sends21 at38.792, async receives21 at38.798. Prefix00000100 in both.
+- iPad immediately faults38.786/.787; phone38.801. Both read guest0x160,
+  LR82829FE4, r11=0x100, receiver entry82829E88, r1=705DFCE0. Thread handles
+  respectivelyF80000E0/F80000E4; guestIDs1E/22. Server .5 disconnect38.799.
+  These are matching software failures after successful bidirectional P2P.
+- Follow-up phoneHost18:26:24 and padscan18:26:32 UDP1/Joinready36.120 do not
+  establish another race. No completed race or driving was logged/claimed.
+- Correction to previous control interpretation: join boot18:12:03.956 TCP
+  verifies192.168.1.205, ready18:12:10/18/19 endpoint205. The brief listing
+  attributed by user to Mac actually reached PHONE, not207. Thus original
+  Wi-Fi is intermittently reachable at least for directory/preflight; failed
+  probes/Safari remain facts, but blanket router isolation is not established.
+
+Source proof (USA generated code, ignored local proprietary output):
+- `ios/generated/default/nfsmw_recomp.5.cpp:sub_82829DB0`: frame144bytes,
+  WSABUF array at frame+96/+100 => caller receiverSP-48/-44; len576 and pointer
+  socket+173. Actual game receive storage stays on heap, descriptor is transient.
+- `sub_82810DC8` passes proper fromlen8th/overlapped9th arguments to import;
+  no argument-count fix needed here. Existing signature is correct.
+- Old SDK receive captures guest descriptor ADDRESS and detached worker
+  re-reads it only at arrival (`RedRepartir`); API must instead capture VALUES.
+- Receiver `sub_82829E88` waits events, then calls NetCritEnter8282B2F8 at
+  LR82829FE4. That callee saves r27 at receiverSP-48 (same descriptor slot).
+  r27 is global socket-list address0x829118D0 (sign-extended64bits). Old worker
+  can therefore read lenFFFFFFFF, destination829118D0, and overwrite21bytes
+  of global network state. Packet prefix00000100 becomes listhead0x100;
+  receiver loads listnode+96 => read0x160, exactly both logged faults.
+  Scheduling of overwrite was not captured directly, but alias, packet bytes,
+  resulting pointer/fault, and deterministic regression corroborate this cause.
+- Thread getter8262EA20 reads PCR+100 then thread+14C; not the0x160 access.
+  Existing stack-top256-byte pad is unrelated and unchanged. No AV swallowing,
+  null-list workaround, game logic bypass or changed synchronization.
+
+Fix in isolated SDK `src/kernel/xam/xam_net.cpp`, reproducible tracked
+`tools/ios/patches/multiplayer_sdk.patch`: copy vector<XWSABUF> at receive entry,
+use that snapshot for both synchronous scatter and worker completion; lambda
+owns snapshot by value. Guest actual buffers/OVERLAPPED/from outputs retain
+normal lifetime requirements. Default uses fix on multiplayer; no new switch.
+Preserve victorgbd original implementation/adaptation credit; this correction
+is downstream work, not a reason to remove credit.
+Microsoft provider contract supports descriptor capture before returning:
+https://learn.microsoft.com/en-us/previous-versions/windows/embedded/ms911770(v=msdn.10)
+and https://learn.microsoft.com/en-gb/windows/win32/api/winsock2/nf-winsock2-wsarecv .
+
+Checks:
+- Added `python3 tools/ios/test_multiplayer_receive.py --sdk <sdk>` compiles
+  ACTUAL SDK receive/scatter/address/overlapped code with actual endian/pointer
+  types, ASan+UBSan, deterministic gated socket and kernel/event doubles.
+  Pending receive returns997; caller reuses array as unrelated saved data;
+  completion must preserve unrelated canary, fill original8+13-byte buffers,
+  report21bytes and signal event. Also checks immediate completion.
+  First fixture compile failed (variable `memory` collided with namespace),
+  corrected to guest_memory; no application-source consequence.
+  Fixed implementation exit0, no sanitizer findings. Negative control uses
+  old HEAD patch applied to copied baseline in
+  `/private/tmp/nfsmw-preview3-receive-control`; exit1/SIGABRT at canary
+  `guest[i]==0`, demonstrating actual unrelated memory overwrite. Transcript
+  `/private/tmp/nfsmw-preview3-receive-control.log`. This is not a whole-game test.
+- `test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: exit0,
+ 25-stage C++/Python parity, binary7 preservation, TCP fallback and patch
+  apply/idempotency/status/revert/atomic rejection pass. Log
+  `/private/tmp/nfsmw-preview4-protocol-tests.log`.
+- `test_multiplayer_transport.py --sdk ...`: actual Darwin TCP/UDP, close
+  ownership, wait-any/all/index, USA routing hook pass. `test_lan_setup.py`
+  and `test_menu_touch.py` also pass (combined command exit0).
+- Build `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6`
+  produced new signed IPA; log `/private/tmp/nfsmw-multiplayer-preview4-build.log`.
+  Final build command also exit0, transcript
+  `/private/tmp/nfsmw-multiplayer-preview4-final-build.log`; diff --check exit0,
+  SDK patch --status applied/exit0. Unique delivered artifact remains the
+  first verified preview4 copy and its recorded SHA above/below.
+  actool reports unavailable CoreSimulatorService, but packaged IPA and signature
+  verification succeeded; no simulator/device launch performed from Mac.
+
+Artifact copied under unique name to worktree ios/build and main checkout's
+ignored ios/build for user access (no controls artifact overwritten):
+`NFSMW-multiplayer-preview4-receive-fix.ipa`,30393878bytes,
+SHA256 e2b352835356a97c8accf3a55db9236c2d4e2f2d29eea552084a25a021fd2390.
+Bundle0.5.1/build9. Main executableUUID F5EC48E6-6A61-37F9-89DC-1D402CC03C18
+UNCHANGED frompreview3 because only runtime library changed. New runtimeUUID
+6FEF5993-683D-3AD0-BF01-0B465BFF3EA0. ZIP test passes; codesign --verify --deep
+--strict exit0;104metallibs andGPUdylib byte-identicalpreview3, runtime differs.
+Companion JSON records identity. Device acceptance pending: install on BOTH,
+repeat hotspot phoneHost/padJoin, shared room then start/drive race; capture
+both game logs/server/boot if it fails. AndroidUSA follows; PC held. Original
+Wi-Fi reachability remains a separate open issue. No push/merge/release.
+Main19177b6 pre-existing modified checkpoint and untracked HANDOFF preserved;
+shared SDK untouched. All session source/docs committed on local multiplayer.

@@ -27,8 +27,9 @@ input paths, test commands, outcomes and next action for each experiment.
 - October31 (Stefan, preview3): iPhonehosts; iPadcannotfindit bothinQuickMatch
   andwhilehostwaitsinlauncher. SameWi-Fi permitsdevicecommunication peruser;
   LocalNetworkaccess enabledonBOTH devices. Treat these as confirmed user
-  reports; do not repeatedly suggest enabling them. He is now testing iPad on
-  iPhonePersonalHotspot as a controlled network-path comparison, not a fix yet.
+  reports; do not repeatedly suggest enabling them. The Personal Hotspot test
+  subsequently reached a shared room and exchanged peer packets, then both
+  devices crashed (October 31 preview3); see current checkpoint.
 
 - October 31 (Stefan, LAN preview1): tried both hosting roles without managing
   to play; setup described as clunky and extremely unintuitive. Improve the
@@ -301,6 +302,35 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October 31: hotspot reaches both peers; preview4 fixes receive descriptor lifetime.**
+  Preview3 phone 172.20.10.1 and iPad 172.20.10.5 discover/connect, share room
+  (COUNT=2), then exchange 21-byte UDP3658 handshakes. Both immediately fault
+  at guest0x160, LR82829FE4, r11=0x100. Source identifies an async WSABUF
+  descriptor retained on a returned stack frame: NetCrit reuses that exact
+  slot to save r27 (global socket-list pointer); packet prefix00000100 then
+  overwrites the list head. Copy descriptors before returning/pending; worker
+  owns the copy. No protocol, game assets, controls or main/shared SDK changes.
+  Actual receive regression reproduces unrelated-memory overwrite with preview3,
+  passes fixed code under ASan/UBSan, including scatter and immediate delivery.
+  Existing protocol25-stage/discovery/transport/setup/touch tests pass.
+  Preview4 build/ZIP/signature pass,104shader libraries andGPU dylib unchanged;
+  runtime dylib changed (UUID6FEF5993-683D-3AD0-BF01-0B465BFF3EA0).
+  IPA `ios/build/NFSMW-multiplayer-preview4-receive-fix.ipa`,30393878bytes,
+  SHA256 e2b352835356a97c8accf3a55db9236c2d4e2f2d29eea552084a25a021fd2390.
+  Main executable UUID unchanged F5EC48E6-6A61-37F9-89DC-1D402CC03C18:
+  this fix lives in runtime, so identify IPA by SHA/name/runtimeUUID.
+  **Next:** install preview4 on BOTH devices; repeat phoneHost/iPadJoin over
+  Personal Hotspot, then check shared room/race start and driving. Device fix
+  and full race remain unvalidated; AndroidUSA follows, PC held. Original
+  Wi-Fi intermittent reachability remains unresolved, separate from this crash.
+  New boot also shows prior brief directory success was PHONE205, not Mac207;
+  do not treat the user's earlier transient listing as verified Mac contact.
+  All five logs archived; exact identities/source proof in TECHNICAL.
+  Added regression command:
+  `python3 tools/ios/test_multiplayer_receive.py --sdk /private/tmp/nfsmw-multiplayer-sdk`.
+  Work stays local `multiplayer`; main's pre-existing modified checkpoint and
+  untracked HANDOFF preserved. No push/merge/release.
 
 - **October31: preview3 still fails; network-path controls, hotspot result pending.**
   Newhost/join evidence archived (TECHNICAL paths/hashes). FouriPadscans:UDP0,
