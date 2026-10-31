@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- October31 (Stefan, PC UX): final goal is native PC discovery/join directly
+  from this port, no extra script/software on PC. Experimental bridge is only
+  investigation tooling, not the accepted final user flow.
+
 - October31 (Stefan, after mobile device tests): explicitly approved investigating
   PC cross-play now with remaining usage; this supersedes earlier PC hold for
   this investigation. Keep everything on local multiplayer, preserve mobile
@@ -310,6 +314,17 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
+
+- **October31 user PC test: server/bridge READY in Parallels Shared network.**
+  FirstWindows142:9900 refused beforeEA negotiation (PC listener/state/address
+  not proven). Later Windows11 VM10.211.55.3 directory succeeds/PORT9900 and
+  bridgeREADY, but iPhoneJoin says LANserver noresponse. Read-only prlctl confirms
+  runningWindows11 net0 type=shared. SharedNAT guests normally inaccessible
+  directly from physicalLAN; this is a concrete reachability obstacle before
+  phonePCcompatibility test. No VM configuration changed. Next user switches
+  VM network to Bridged on actualMacWi-Fi, gets newLANIPv4, restartsPCgame LAN
+  host/bridge usingnewIP, phonejoinsnewIP. Await result, don't claim racefix.
+  Desiredfinalflow noPChelper recordedabove. No newIPA/sourcefix thisturn.
 
 - **October31 PC investigation: original server accepts mobile-style login.**
   User supplied server.dll(380928bytes)/server.cfg(1462bytes). Original DLL

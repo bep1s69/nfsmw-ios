@@ -13351,3 +13351,32 @@ Standalone handoff `ios/build/NFSMW-PC-LAN-experiment.zip` (worktree and main
 ignored build folder),5348bytes SHA2562818da4dd3ee4742eac3c6906afe019379704540fbaf8d41dafa8e066c6b6fe5.
 Contains onlytwo Python scripts and explicitlyexperimental instructions, no
 proprietary files. ZIPCRC passes. Existing mobileIPA artifacts not overwritten.
+
+
+### October31 — user PC probe succeeds in Shared-NAT Parallels, phone cannot reach
+
+User pasted firstWindowsPython3.13 attempt PC192.168.1.142:9900 WinError10061,
+probeexitfailure/bridgeunhandledtraceback beforelistening. No proof game9900
+listener was active/correctinterface there. Turninterrupted afterread-only
+status/scriptinspection; no partialsourceedit or process started in that turn.
+
+Latestuser: ParallelsWindows11, folderC:\Mac\Home\Desktop\NFSMW-PC-LAN-experiment;
+firstpython aliasmissing, laterPythonworking. @dir Xboxprofile10.211.55.3
+returnsADDRsame/PORT9900/SESS1793469773; bridgeinitialdirectorySESS1793469774,
+READY. iPhoneJoin thatIPv4saysLANserverdidnotrespond. This provesPCdirectory
+andbridge start insideVM, NOT phone-to-VMreachability or lobby/race.
+Read-only Macprlctl listinitialsandboxfailedconnectservice; escalatedread
+succeedsWindows11running, list-i filterreports`net0 (+) type=shared`.
+No configmutation/noVMrestart performed. OfficialParallels networkmodesKB4948
+andv20NetworkPreferences docs: Shared createsvirtualrouter/privateVMsubnet,
+VMnormallynotdirectlyreachablefromexternalphysicalLAN; Bridged joinsphysical
+networkwithownaddress. This is a verified obstacle, not proof it is the only
+remainingfailure. Do not suggest usingMacIPwhileleavingdirectoryADDRprivate:
+bridge preservesoriginalADDR; phone lobby/race wouldstilltargetprivateVM.
+Next: user selectsBridged onactivephysicalWi-Fi, notesnewWindowsIPv4sameLANas
+phone, restartsPCgameLANhost andbridgewithnewIP, retriesphoneJoin. Preserve
+workingmobilebehavior; no firewalldisabling or speculativegamepatch. No new
+scripts/build/IPA or tests; documentation-onlylocalmultiplayercommit.
+User's requested finalUX: nativeportfind/joinoriginalPCserverwithnoPCsidehelper;
+experimentalPythonbridge isnotacceptanceofhelperrequirement. No push/release;
+mainpre-existingcheckpoint/HANDOFF preserved, sharedSDK/sourceuntouched.
