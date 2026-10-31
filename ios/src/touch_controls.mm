@@ -1071,15 +1071,15 @@ static CGFloat TouchOpacity() {
   _gLast = p;
   const CGFloat dx = p.x - _gStart.x, dy = p.y - _gStart.y;
   const CGFloat d = std::hypot(dx, dy);
-  if (d < 14 && !_gSwiping) return;
+  if (d < (_gDragMode==nfsmw::menu_touch::CameraDrag?.5:14) && !_gSwiping) return;
   if (!_gSwiping) REXLOG_INFO("[touch] menu swipe started, invert {}",REXCVAR_GET(ios_touch_menu_invert));
   _gSwiping = YES;
   if (!_gScrollAllowed) return;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
   if (_gDragMode==nfsmw::menu_touch::CameraDrag) {
     [self stopMenuRepeat];
-    const float x=std::clamp(float((p.x-_gCameraLast.x)/35),-1.f,1.f);
-    const float y=std::clamp(float((p.y-_gCameraLast.y)/35),-1.f,1.f);
+    const float x=nfsmw::menu_touch::ShowcasePan(float(p.x-_gCameraLast.x));
+    const float y=nfsmw::menu_touch::ShowcasePan(float(p.y-_gCameraLast.y));
     _gCameraLast=p;
     PulseCameraInput(x,y,0);
     return;
@@ -1181,7 +1181,7 @@ static CGFloat TouchOpacity() {
         if (std::abs(delta)>2) {
           _gSwiping=YES;
           _gPinchStart=distance;
-          PulseCameraInput(0,0,std::clamp(float(delta/25),-1.f,1.f));
+          PulseCameraInput(0,0,nfsmw::menu_touch::CameraMotion(float(delta),14.f));
         }
       }
       return;
@@ -2067,9 +2067,9 @@ void MenuTapResult(int serial, int button) {
     if (button==nfsmw::menu_touch::WaitForChoice || (button>0 && (button&nfsmw::menu_touch::SelectChoice))) {
       if (g_tap_selecting.exchange(serial)!=serial) {
         // A popup selection must never fall back to accepting the old choice.
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,int64_t(1.0*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,int64_t(3.0*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
           int expected=serial;
-          if (g_tap_pending.compare_exchange_strong(expected,0)) REXLOG_INFO("[touch] popup selection timed out; ignored");
+          if (g_tap_pending.compare_exchange_strong(expected,0)) REXLOG_INFO("[touch] target selection timed out; ignored");
         });
       }
       if (button>0) PressMenuButton(button&~nfsmw::menu_touch::SelectChoice);
@@ -2079,6 +2079,9 @@ void MenuTapResult(int serial, int button) {
     if (!g_tap_pending.compare_exchange_strong(expected, 0)) return;  // answered by the 0.2 s fallback
     // A hint whose button is not known yet (-1): nothing, rather than a
     // wrong button.
+    if (button==nfsmw::menu_touch::SelectionDone) {
+      REXLOG_INFO("[touch] target selected; confirm remains manual");return;
+    }
     if (button < 0) {
       REXLOG_INFO("[touch] menu tap ignored: unrecognised or unconfirmed target");
       return;

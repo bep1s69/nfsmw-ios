@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Improve popup and list taps.** Added stacked alias-confirmation choices,
+  corrected profile-row detection, and kept Rankings selection moving through
+  highlight animations. Slightly increased slow showcase pan response.
+  Device validation pending.
+
+- **Refine profile and Rap Sheet touch selection.** Improved selection detection
+  and Rankings row targets; reversed showcase panning and strengthened slow
+  drags. Device validation pending.
+
+- **Tap to select menu rows and events.** Profiles keep a separate confirmation;
+  events can be launched with a second tap. Corrected options arrows, separated
+  row/value swipes, expanded event-box and Rap Sheet navigation, and increased
+  showcase camera responsiveness. Device validation pending.
+
 - **Keep your music playing.** An optional Audio setting lets other apps' music
   continue alongside the game when launching it.
 - **More menu gesture coverage.** Strict touch navigation now includes startup

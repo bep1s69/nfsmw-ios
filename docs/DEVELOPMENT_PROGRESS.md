@@ -32,6 +32,13 @@ input paths, test commands, outcomes and next action for each experiment.
   branch forked from main `62c0dc7`; separate worktree
   `/private/tmp/nfsmw-ios-multiplayer` leaves the active controls checkout intact.
 
+- October 31 (Stefan, test8 results): profile-name taps select only; A remains
+  manual. Options/race-details: vertical swipes select rows, horizontal swipes
+  on the highlighted row change its value; taps can select another row. Event
+  taps select first, a second tap on the selected event can launch. Try the
+  entire event box for swipes (Challenge/Blacklist races/milestones/bounty).
+  Add Rap Sheet page navigation, improve slow showcase motion and zoom gain.
+
 - October 31 (Stefan, test7 follow-up): strict menu gestures must still skip
   intro movies and advance Press Start. Add opt-in other-app music mixing;
   map/car-preview swipe areas, category Up/Down and showcase drag/pinch where
@@ -209,6 +216,94 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   `ios/src/menu_touch_policy.h`, `ios/src/touch_controls.mm`,
   `tools/ios/test_menu_touch.py`, and untracked `HANDOFF_CHATGPT.md`; none brought
   into this branch or altered. Sibling Android/SDK local work also untouched.
+
+- **October 31: test11 alias popup/profile/Rankings selection trial ready.**
+  Test10/log28 and alias confirmation screenshot archived (TECHNICAL exact
+  paths/hashes). Log identifies profile first-row exclusion: content viewport
+  was trimmed as outer dialog; now keeps full named region and OPTION_NAME_i
+  rows. Profiles remain select-only/manual A. Rankings aborted on transient
+  unobservable focus after first move; now bounded wait through color fade,
+  two stable focus observations before next Rap Sheet move. Steady white vs
+  green color detection confirmed by runtime channels. MC_Main_GC stacked
+  BUTTON1..3 choices now supported, live Up/Down geometry and observed highlight
+  before A; covered MC_Main cannot intercept MC_List. Small showcase pan gain
+  raised0.8->0.95floor/full-scale1->0.5pt, maximum analog camera speed unchanged.
+  One initial host assertion failed due gating applied to Options too; scoped
+  stability gate to Rap Sheet. Two subsequent host runs/build/ZIP/signature
+  pass;104metallibs/2SDKdylibs identicaltest10. Final artifact:
+  `ios/build/NFSMW-0.5.2-test11-popup-profile-selection.ipa`,30185722bytes,
+  SHA256 `c328f6dcdbaebf25739b1579e163d9ef17995a44032b16596ec0f9a0712afd6d`,
+  UUID `A05B9FB0-96C2-3E84-B317-357567642887`,bundle0.5.1/build9.
+  Same bytes verified on Desktop; ignored JSON beside build, older IPAs kept.
+  **Next:** direct alias No/Yes choices, first/other profile names then manual
+  A, distant Rankings taps up/down across highlight fade, small showcase pan.
+  MC_Main live geometry and Rankings continuation remain device-pending. If
+  maximum pan is still too slow, inspect guest camera response; virtual stick
+  is already capped at1. Prior remaining menu matrix/safehouse stall/music
+  acceptance remain pending where not explicitly accepted. No SDK/timing/profile
+  edits, push/tag/release/version bump. Preserve pre-existing13-line issue11
+  checkpoint note unstaged,HANDOFF untracked and sibling SDK changes.
+
+- **October 31: test10 profile/Rap Sheet focus and showcase pan trial ready.**
+  Test9/log27 archived with3screenshots (TECHNICAL paths/hashes). User confirms
+  main Rap Sheet and Vehicle Database swipes; profile selection fails with
+  selected00000000, main Rap Sheet falsely always selects last row, Rankings
+  rows absent from model. Test10 uses unique white label focus (not backing
+  strips), observed Rankings row hashes, narrow profile highlight/text-row
+  vertical matching. Runtime FE color/profile geometry remains device-pending;
+  first3row taps log color/geometry even on successful hits. No forced focus/A
+  on missing/ambiguous state; profiles still require manual confirmation.
+  Showcase pan axes reversed; slow motion minimum0.8/full-scale1pt/start0.5pt.
+  Original maximum analog speed, pinch, release pulses and map path preserved.
+  Infractions original82246518/82246778 creates8entries/8visible slots; screenshot
+  shows all8, so no extra content to scroll. No changes to Vehicle Database.
+  Host test script three runs exit0;2normal ipa builds exit0; ZIP/signature pass;
+ 104metallibs/2SDKdylibs identicaltest9r2. Final artifact:
+  `ios/build/NFSMW-0.5.2-test10-profile-rap-pan.ipa`,30185747bytes,
+  SHA256 `2a85b3579542469c1f27b44df4ac646fe0ac0923a672d9aee4028917d2eca55f`,
+  UUID `0C48BE41-BDA4-3AA5-983A-7F246D329D2F`,bundle0.5.1/build9.
+  Same bytes verified on Desktop; ignored.json beside build.
+  **Next:** test profile/alias name taps (manual A), Rap Sheet main/Rankings
+  row taps and swipes, slow showcase pan direction/response with anywhere
+  gestures disabled; regress Vehicle Database. Remaining prior options/events
+  matrix still pending where not explicitly accepted. If profile/Rap focus
+  remains wrong, use new `[touch-focus]` / `[touch-focus-frame]` evidence, not
+  another unobserved layout guess. Safehouse stall/music acceptance stay open.
+  No push/tag/release/version bump, timing/profile/SDK edits. Preserve pre-existing
+ 13-line issue11 note unstaged, HANDOFF untracked and sibling SDK work.
+
+- **October 31: test9-r2 row/grid selection trial ready, device validation next.**
+  Archived test8 rotated logs25/26 and six screenshots (TECHNICAL exact paths/
+  hashes); user says much better, reports row/grid/Rap Sheet/camera gaps.
+  Concrete options regression: car-arrow vertical-pair rule was applied to all
+  stacked LEFT_ARROW_i/RIGHT_ARROW_i rows. Now car-only. Wider selected frames
+  (660-unit limit, 40-unit corner glyphs) cover options/milestones. Added model
+  for Options/Track_Options rows, profile text rows, EVENT_ICON_i event tiles,
+  Rap Sheet bullets/named text slots/viewports. Known event scrollbar groups
+  send Up/Down. Options allow both axes on highlighted row, vertical elsewhere;
+  event swipe viewport includes gaps. Bounded Rap Sheet subpage drag fallback.
+  Selection uses existing controller inputs and observed focus, not native FE
+  click callbacks. Profiles/settings never auto-A. Events/Rap Sheet first tap
+  selects, an already-selected tap A. Event column-first path accounts for
+  viewport cell reuse through selected-slot/content changes. Cancel on missing
+  focus, replaced package or timeout; identical unobservable content shifts can
+  safely time out. Runtime layout coverage/feel remain unconfirmed.
+  Showcase starts at2pt instead14; small analog motions lifted above dead zone,
+  pan full-scale8pt instead35 and pinch14pt instead25, stop pulses unchanged.
+  Host actual walker/model/selection tests and three IPA builds pass. Final ZIP/
+  signature/104shaders/2SDKdylibs verified; shaders/SDK identical to test8.
+  `ios/build/NFSMW-0.5.2-test9-menu-selection-r2.ipa`,30185581bytes,
+  SHA256 `43ece719b7174715ccaab29029e17e91d38f35d042576897678819a9bd72d43c`,
+  UUID `7ADB4704-B768-3B41-B74E-55FC1195393A`, bundle0.5.1/build9. Same file verified on
+  Desktop (superseded internal test9 Desktop copy removed; build copy retained).
+  **Next:** profile tap doesn't load; Audio/Gameplay/Track options axes/arrows/
+  row taps; Challenge row2/3 targets across viewport shifts, second tap launch;
+  full event-box feel, Blacklist/milestones/bounty; Rap Sheet main/subpages;
+  slow showcase swipes and pinch. No additional options screenshots needed yet;
+  new failures should include log/layout evidence. Safehouse stall/music device
+  acceptance not established by this report; entries remain pending/open. No
+  push/tag/release or timing/profile/SDK edits. Preserve pre-existing issue11
+  note unstaged, HANDOFF untracked and sibling SDK work.
 
 - **October 31: test8 menu/audio trial ready; safehouse stall remains unresolved.**
   Test7/log24 contains the entire log23 prefix plus a new launch at01:28:39.820.
