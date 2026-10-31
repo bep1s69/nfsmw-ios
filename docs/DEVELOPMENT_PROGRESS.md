@@ -315,6 +315,29 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November1 preview12: first PC-hosted iOS gameplay CONFIRMED; intentional quit.**
+  Stefan reports itworked, thenclarifieslogsendedbecausehequit, NOcrash.
+  NativePCendpoint192.168.1.133:9900 (newaddress, don'treuse202), hostNAME,
+  room012.NAME; phone.205. Bothfactorycreations succeed00:20:51.265–266:
+  localCD88083F→BFAD520C, remoteA800B5BB→BFAD9AEC (differentcarrecord).
+  State6inworld00:20:55.212, bidirectional3658through00:22:49; logends50.295.
+ 1705RX/1668TX loggedrace datagrams,0guestAV. Userintentionalquitexplainsend;
+  do NOT reopencrash/timeoutbasedonlogending. NativePCgameplayworkswithout
+  PChelper; race-loadingcar-IDfix deviceconfirmed for thissession. Preserve
+  preview12asfirstknownworkingPCbaseline, source4ae8893/artifactSHA256
+ 9e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d.
+  No new source/IPA thisturn; testsnotrerunforrecordonlychange. Readyartifact
+  unchanged `ios/build/NFSMW-multiplayer-preview12-pc-car-records.ipa`.
+  **Next validation:** finish/results andrematch, widercars/tracks/customization,
+  mobile regression beforecleanup/release. No rank/results in suppliedlog;
+  userdidnotreportcompletedrace. Do NOT claimallmodes/platformsvalidated.
+  ReversePCdiscovery/iOShost stilldeferredpendingPChostvalidation/polish;
+  hostmissingmobileguestnames stillopen. No unsolicitednewfeaturework now.
+  New2logs archivedDebug/1November:nfsmw_lan_preview12_pc_gameplay_success_*.
+  Alllocalmultiplayer, controls/mainpreexistingcheckpoint/HANDOFF/sharedSDK
+  untouched, no push/merge/release authorized. OldpendingPCgameplayentries
+  below arehistorical andsupersededbythissuccessfuldevicetest.
+
 - **November1 preview12: remote car record byte order identified; targeted fix ready.**
   Two new boot/game uploads are byte-identical (oneattempt00:10). Factory
  1396EBE1registered82A3E350/callback823D3F98 createslocalcarCD88083F with

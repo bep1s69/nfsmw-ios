@@ -2,6 +2,11 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Play against a PC LAN host.** First on-device iOS/PC gameplay test succeeded
+  with native PC discovery and no PC helper script. Both cars loaded and the
+  session ran until the player quit. Full race results and rematches remain
+  to be tested before release.
+
 - **Translate PC car setup records.** Correct the car ID and numeric customization
   fields exchanged with PC, targeting the remote-car creation failure during
   race loading. Uses the existing PC save-conversion field map credited to

@@ -14201,3 +14201,66 @@ Remote-car failure targeted, deviceacceptancepending. Hostguestnamesopen,
 reversePCdiscoverydeferred. Allsessioncode/evidencecommittedlocalmultiplayer;
 mainpre-existingcheckpointedit/HANDOFF/sharedSDK/controls preserved. No push,
 merge, release, Windows/firewall/gameasset/save mutations.
+
+## November 1 — preview12 first confirmed PC-hosted iOS gameplay, intentional quit
+
+Stefan says "holy moly it actually worked", supplies boot/game. Later explicitly
+clarifies logs ended because he quit the game, it did NOT crash. Treat this as
+successful user gameplay followed by intentional exit; do not infer a new
+failure or timeout from the final truncated log line. No new code/build/IPA.
+
+Both files immediately archived with copy2/no overwrite under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`, prefix
+`nfsmw_lan_preview12_pc_gameplay_success_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 25279 / 279 | 886a8632a59cfc8942fa6cd696f8ce25179b3e0914d8bebdde35ed5ed4709491 |
+| game.log | 1619263 / 9096 | 5c78fae5dad840af40b6de0998b2c423a7ce7eaeda58696d7325a755026dc541 |
+
+Original pasteboard/items sources:
+20D3A0AA-F753-4F4B-BB14-ED5F43DFA6F4/boot.txt;
+4638FB9D-F0AC-4910-AFBF-F4AEE698D03F/nfsmw.log.
+Exact installed executable hash/OS not embedded in logs; behavior and supplied
+preview12 trial identify it as the currentcar-conversion test. Known delivered
+artifact remainsNFSMW-multiplayer-preview12-pc-car-records.ipa30431970bytes,
+SHA2569e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d,
+appUUIDAC77427C-C73A-31CF-A1F2-CBD93A4DE9F6,
+runtimeUUIDDE9DB5F9-8E8C-3A59-A412-0BD728F3161C; source4ae8893.
+Do not rebuild/replace this knownworkingbaseline merely to update documentation.
+
+Observed sequence:
+- Native PCservice NOW192.168.1.133:9900, not prior202. Launcher PCadapter
+  ready00:20:06.449/08.624; phone red_ip192.168.1.205, red_dnsloopback,
+  red_lan/live/registroenabled. Endpoint133 previously belonged to Android in
+  older sessions; current native9900adapter/PCroom proves endpointcontext has
+  changed, don't reuse old platform inference by IP alone.
+- PCroom012.NAME/hostNAME, COUNT2, +ses00:20:48.421. Conversion logs4/408bytes
+ 48.511. No Python/helper needed in this nativePCpath; no PCmod introduced.
+- Factory00:20:51.259–266 same registered1396EBE1/callback823D3F98: local
+  carCD88083F createsBFAD520C; remotecarA800B5BB createsBFAD9AEC. RemoteID
+  differs fromlocal; it wasn't just copying the localcar/forcing an object.
+  This device-confirms the targeted car setup fix got past the priornullresult.
+- Game state4region48.674, state5track50.184, state6inworld55.212. Race UDP
+  send/receive remains active through00:22:49, game log ends00:22:50.295.
+  ~115seconds afterinworld. Counted1705RX/1668TX3658data lines,0Unhandled
+  guestAV,0rank sends. No results/finish/rematch established by these logs.
+- Stefan's explicit intentional quit explains sessionend; no recorded or
+  userreported crash in this successful test. Do not keep race-loadcrash as
+  unresolved for this scenario; mark fixedpreview12 while retaining evidence.
+
+Scope/next step:
+First PC-hosted iOS gameplay is CONFIRMED. The method keeps originalPCgame
+unchanged, nativeiOSdirectory/controladapter and game-side transport/car
+field conversion. Existing mobilecredits retained, nativePC/carfieldmap
+credits already in source/changelog. No blanket claim of allvehicles/tracks,
+physics edgecases, finish/results/rematch or manyplayer interoperability.
+Next meaningful validation is fullrace/results/rematch, then widercars/tracks
+and mobile regression before diagnosticcleanup/release. ReversePCdiscovery/
+iOShost remains deferred while PChost path validated/polished; hostmissing
+mobileguestnames stillopen. No unsolicitedfeatureimplementation thisturn.
+
+Documentation-only localmultiplayer checkpoint/changelog/backlog update;
+gitstatus initiallyclean in isolatedworktree. Mainpre-existing checkpoint
+edit/untrackedHANDOFF preserved, sharedSDK/controls untouched, no testsrerun
+for docs-only change. No newIPA, push, merge, tag orrelease.
