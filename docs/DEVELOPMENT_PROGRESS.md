@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1: `dev-0.5` (0.6.0) now contains 0.5.2 `main` and `multiplayer`
+  (ced4ff6). Build it only against the multiplayer-patched SDK, into
+  `~/Library/Caches/nfsmw-ios/build-0.6` (TECHNICAL, November 1, 0.6.0
+  merges); the plain `ios` preset is for `main`. Run
+  `patch_game_extra_options.py` first. Low-RAM devices / memory use is a
+  0.6.0 goal (Stefan).
+
 - November 1 (Stefan, 0.6.0 priorities): first all feasible Extra Options
   (including useful Xbox 360 prototype debug menu items) and performance/
   battery work; later better keyboard support, a menu redesign, a touch pass

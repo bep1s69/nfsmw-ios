@@ -15196,3 +15196,35 @@ PC joined (20:41:30), iPad joined (iOS roster 2 -> 3 at 20:41:42.817); host
 sent `+ust C=3 -> amog` at 20:41:42.810 and the PC's room list showed all
 three players. PC room-list gap FIXED on device. Logs:
 `nfsmw_lan_preview18_test3_room_count_*` (iPhone host).
+
+
+### November 1: 0.6.0 merges on `dev-0.5` (Stefan approved)
+
+`main` gained a record commit for the issue 11 note (Stefan: commit it). On `dev-0.5`: merge of `main` (v0.5.2 + plan + issue 11) = 94f28ee.
+Conflicts resolved as planned: launcher.mm keeps the IPA104 Extra Options
+arguments and main's fixed `--nfsmw_sim_rate=120` (dev-0.5's
+`sim_120_hz` switch logic dropped; main removed that switch); CHANGELOG
+drops dev-0.5's duplicate "Import PC saves" line (released in 0.4.0) and
+renames its section to 0.6.0; BACKLOG drops dev-0.5's older PC import entry
+for main's; other docs keep both sides. `python3
+tools/ios/patch_game_extra_options.py` exit 0 (markers, car-limit,
+shadow-size, skip-movies, laps, opponents, traffic, heat; 1 file written);
+`cmake --preset ios && cmake --build --preset ios --target ipa -j 6` exit 0.
+
+Merge of `multiplayer` (08b2a71) = ced4ff6: conflicts only in CHANGELOG
+(multiplayer notes moved under 0.6.0, "not part of the touch-controls
+release" wording dropped) and BACKLOG/DEVELOPMENT_PROGRESS/TECHNICAL (both
+sides kept). From here `dev-0.5` needs the multiplayer-patched SDK: CMake
+stops unless `patch_ios_multiplayer.py --status` says applied, so the
+`ios` preset with the shared SDK no longer configures. Built against
+`/private/tmp/nfsmw-multiplayer-sdk` (status "applied"; `main` changed no
+SDK patch since the snapshot base 19177b6) into
+`~/Library/Caches/nfsmw-ios/build-0.6` (cmake command of the multiplayer
+build procedure, `-B` changed), 914 steps, exit 0, `unzip -tq` ok. Copy:
+`ios/build/NFSMW-0.6.0-dev1-merge.ipa`, 30468050 bytes, SHA-256
+ec0d6ddad4b5a16d47ff5540b3a1d56f7f4311f7009f93adddb2fcc317bc4e7f. Not run
+on a device; the IPA104 Extra Options are still untested. Open question:
+the SDK lives in /private/tmp (lost on reboot); recreate with
+`create_multiplayer_sdk.py` + `patch_ios_multiplayer.py`, or move the
+patch into the shared SDK, which Stefan has to decide.
+
