@@ -133,6 +133,12 @@
 // fld/fdiv/fadd, mov edx,[esi+E0], mov eax,[esi+DC]). On the 360 the same
 // clamp is in sub_82117950 (the 0-14 clamp, then lfs 220(r31), lfs
 // 224(r31)); nfsmw_heat_override() writes them first while the setting is on.
+// The in-game options' Heat +1 / -1 (0.6) add to the new heat just before
+// that clamp (f31 there; nfsmw_heat_step, tools/ios/patch_game_extra_options.py),
+// so the event's limits still apply (the override widens them). The clamped
+// value goes to r17's virtual +8, the same call the prototype's debug menu
+// Set Heat makes (callback 0x822A45E8 there).
+//
 // Only that clamp: the PC mod also raises the maximum heat in menus and in
 // SetHeatLevel (to 10), not ported, so heat above 5 is experimental.
 //
@@ -474,6 +480,25 @@ extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
   const int32_t hi = std::max(lo, Setting(REXCVAR_GET(nfsmw_heat_max), 1, 10, "heat override maximum", logged_max));
   REX_STORE_U32(object + 220, FloatBits(float(lo)));
   REX_STORE_U32(object + 224, FloatBits(float(hi)));
+}
+
+// Heat +1 / -1 from the in-game options (see HEAT LEVEL OVERRIDE above):
+// asked for on the main thread, added once the next time a pursuit's heat
+// is updated.
+namespace {
+std::atomic<int32_t> heat_steps{0};
+}  // namespace
+
+extern "C" void nfsmw_heat_step_request(int32_t steps) {
+  heat_steps.fetch_add(steps);
+  REXLOG_INFO("[extra-options] heat {:+d} asked for", steps);
+}
+
+extern "C" double nfsmw_heat_step(double heat) {
+  const int32_t steps = heat_steps.exchange(0);
+  if (steps == 0) return heat;
+  REXLOG_INFO("[extra-options] heat {:.2f} {:+d} (then the event's limits)", heat, steps);
+  return heat + steps;
 }
 
 // A new car's record (see IMPOUND STRIKES above). A leaf: r3 is still the

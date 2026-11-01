@@ -29,6 +29,7 @@ keeps a second run from touching anything.
   traffic    sub_822C4FB8: li r8,10 / li r9,30 / li r10,50
                                                      nfsmw_traffic_density(1/2/3)
   heat       sub_82117950: lfs f0,220(r31) (x1)      nfsmw_heat_override(r31)
+  heat-step  sub_82117950: after that, f31 (the new heat) += nfsmw_heat_step(f31)
 """
 
 import argparse
@@ -61,6 +62,10 @@ extern "C" int32_t nfsmw_traffic_density(int32_t level);
 DECLS3_MARK = "nfsmw-extra-options-3"
 DECLS3 = f"""// LOCAL PATCH - iOS ({DECLS3_MARK}): Extra Options, 0.5.
 extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base);
+"""
+DECLS4_MARK = "nfsmw-extra-options-4"
+DECLS4 = f"""// LOCAL PATCH - iOS ({DECLS4_MARK}): Extra Options, 0.6.
+extern "C" double nfsmw_heat_step(double heat);
 """
 
 
@@ -122,6 +127,17 @@ def before_load_edit(freg, base, offset, call, mark):
     return re.compile(rf"\t// lfs {freg},{offset}\({base}\)$"), edit
 
 
+def heat_step_edit():
+    """After the heat override's call: f31, the pursuit's new heat before
+    its clamp, gets the in-game options' pending +1/-1."""
+    def edit(match, _):
+        old = ["\tctx.fpscr.disableFlushMode();",
+               "\tnfsmw_heat_override(ctx.r31.u32, base);  // nfsmw-heat"]
+        new = old + ["\tctx.f31.f64 = nfsmw_heat_step(ctx.f31.f64);  // nfsmw-step-heat"]
+        return old, new
+    return re.compile(r"\t// lfs f0,220\(r31\)$"), edit
+
+
 # feature -> [(function, (pattern, edit), expected count)]
 FEATURES = {
     "markers": [
@@ -175,11 +191,17 @@ FEATURES = {
         ("sub_82117950",
          before_load_edit("f0", "r31", 220, "nfsmw_heat_override(ctx.r31.u32, base)", "nfsmw-heat"), 1),
     ],
+    # The in-game options' Heat +1 / -1 (0.6): f31 is the heat about to be
+    # clamped and set (r17's virtual +8, as the prototype's Set Heat calls).
+    "heat-step": [
+        ("sub_82117950", heat_step_edit(), 1),
+    ],
 }
 MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
          "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3),
          "laps": ("nfsmw-laps", 4), "opponents": ("nfsmw-opponents", 6),
-         "traffic": ("nfsmw-traffic", 3), "heat": ("nfsmw-heat", 1)}
+         "traffic": ("nfsmw-traffic", 3), "heat": ("nfsmw-heat", 1),
+         "heat-step": ("nfsmw-step-heat", 1)}
 
 
 def fail(msg):
@@ -229,7 +251,11 @@ def main():
                         continue
                     old, new = edit(mm, lines)
                     span = lines[i + 1:i + 1 + len(old)]
-                    if span == old:
+                    # Already edited first: an edit that only adds lines
+                    # after the old ones would otherwise match again.
+                    if lines[i + 1:i + 1 + len(new)] == new:
+                        pass
+                    elif span == old:
                         lines[i + 1:i + 1 + len(old)] = new
                         changed = True
                     elif span != new:
@@ -242,6 +268,8 @@ def main():
             if inc is None:
                 fail(f"{path.name}: no #include \"nfsmw_funcs.*.h\" for the declarations")
             head = "\n".join(lines[:120])
+            if DECLS4_MARK not in head:
+                lines.insert(inc + 1, "\n" + DECLS4.rstrip("\n"))
             if DECLS3_MARK not in head:
                 lines.insert(inc + 1, "\n" + DECLS3.rstrip("\n"))
             if DECLS2_MARK not in head:

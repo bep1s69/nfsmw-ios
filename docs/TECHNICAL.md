@@ -15349,3 +15349,36 @@ cores per sysctl): full 0.6 builds with `-j 6` (913 steps) took about 10 and
 earlier full-build timing is recorded to compare with; `-j 6` dates from the
 older machine and leaves half the cores idle.
 
+
+### November 1: heat 1-10 choices, Change heat +1/-1, -j 12 (dev5, 0.6.0)
+
+Stefan: why are 7 and 9 missing (they were simply not in the Highest heat
+choice list, which had 6, 8, 10; Lowest heat had only 1-5): both lists now
+1-10, above 5 marked experimental. Change heat: the prototype's Set Heat
+(float widget, callback 0x822A45E8) sets the player's heat through an
+interface's virtual +8 and copies it into the career car records
+(0x822F0B10). The USA heat update sub_82117950 makes the same call (r17,
+virtual +8) with the new heat f31 after the event clamp at +220/+224, so the
+patch script's new `heat-step` edit adds `nfsmw_heat_step(f31)` right after the
+override hook, before the clamp; `nfsmw_heat_step_request()` (in-game sheet
+row "Change heat", not a setting: nothing saved; controller left/right =
+-1/+1) queues the steps. Applied at the next heat update, inside the event's
+limits.
+
+Patch script fixes found doing this: an edit that only adds lines after its
+old ones (before_load_edit: heat) matched again on a re-run and inserted a
+second call; the script now checks for the edited form first. The mark
+"nfsmw-heat" was also a prefix of the first name tried for the new mark, so
+`--status` counted 3/1; the new mark is "nfsmw-step-heat". The generated file
+was repaired by hand to one call each; two re-runs then wrote 0 files and
+`--status` shows heat 1/1, heat-step 1/1. Inference: earlier re-runs (e.g.
+the October 27/November 1 patch runs) may have doubled the heat call in an
+older generated tree; it was single here before today's run (status 1/1).
+
+Build `-j 12` (incremental, 15 steps, 13 s; not a full-build timing),
+Info.plist 0.6.0 / 11, `unzip -tq` ok, `_nfsmw_heat_step` referenced from
+nfsmw_recomp.51. `ios/build/NFSMW-0.6.0-dev5-heat.ipa` (Desktop; dev4 to
+Trash), 30487578 bytes, SHA-256
+f6573f716b2c0508004d71f225860119e8ca0033196eae5c2c59f4edacba7996. Not run on
+a device.
+

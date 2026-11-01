@@ -363,15 +363,16 @@ const std::vector<Section>& Sections() {
             @"Options' HeatLevelOverride.",
             @"false"},
            {@"heat_min", Type::kChoice, @"Lowest heat", @"With the override on: the heat never drops "
-            @"below this.",
+            @"below this. Above 5 is experimental.",
             @"1",
-            {{@"1", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"4", @"4"}, {@"5", @"5"}}},
+            {{@"1", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"4", @"4"}, {@"5", @"5"},
+             {@"6", @"6"}, {@"7", @"7"}, {@"8", @"8"}, {@"9", @"9"}, {@"10", @"10"}}},
            {@"heat_max", Type::kChoice, @"Highest heat",
             @"With the override on: the heat never goes above this. The game's is 5; 6 to 10 "
             @"are experimental (more cops on PC; untested on the Xbox 360 game).",
             @"5",
             {{@"1", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"4", @"4"}, {@"5 (game)", @"5"},
-             {@"6", @"6"}, {@"8", @"8"}, {@"10", @"10"}}},
+             {@"6", @"6"}, {@"7", @"7"}, {@"8", @"8"}, {@"9", @"9"}, {@"10", @"10"}}},
            {@"speeding_limit", Type::kChoice, @"Speeding",
             @"The speed at which the police can give you a Speeding infraction. The game's is "
             @"241 km/h (150 mph).",

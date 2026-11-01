@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1 (Stefan): builds use `-j 12` (M2 Pro, 12 cores; `-j 6` was
+  for the old Mac). Time the next full build and record it in TECHNICAL.
+  Version 0.6.0 (code 11) from dev5 on.
+
 - November 1 (Stefan): nothing still in use may live in /private/tmp
   (cleared on reboot). Multiplayer SDK, LAN reference server, upstream
   source and the `multiplayer` worktree are now in `~/Developer/GitHub/`
@@ -266,7 +270,7 @@ read-only. Configure/build explicitly:
 
 ```sh
 cmake -S ios -B /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0 -DCMAKE_BUILD_TYPE=Release -DNFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
-cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 6
+cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12
 ```
 
 Host checks (local listener permission required):
@@ -320,7 +324,7 @@ The Android reference repository is the sibling `NFSMW-Recompiled-Mobile`.
 Build from the main repository's `ios` directory:
 
 ```sh
-cmake --build --preset ios --target ipa -j 6
+cmake --build --preset ios --target ipa -j 12
 ```
 
 The actual build directory is `/Users/bep1s/Library/Caches/nfsmw-ios/build`;
