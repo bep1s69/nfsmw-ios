@@ -81,7 +81,7 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
             @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
-            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back",
+            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back", @"mouse_look_speed", @"mouse_look_invert",
             // Extra Options (all live except the Old Bridge barrier, set when the world loads)
             @"infinite_nos", @"infinite_speedbreaker", @"sb_recharge_time", @"sb_recharge_speed", @"sb_mass",
             @"no_cops", @"show_non_pursuit_cops", @"heat_override", @"heat_min", @"heat_max", @"speeding_limit",
@@ -110,7 +110,7 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
       "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
       "nfsmw_hud_race_y",              "nfsmw_hud_layout",      "ios_touch_steering",
-      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back",
+      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back", "nfsmw_mouse_look_speed", "nfsmw_mouse_look_invert",
       // Extra Options: read where the game uses them (game_extra_options.cpp);
       // the values in the game's data are written again by
       // nfsmw_extra_options_tunables().

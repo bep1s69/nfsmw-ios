@@ -127,6 +127,10 @@
   and Esc goes back in menus, Space is the handbrake and Esc pauses while
   driving. Menu hints show the key to press while you use the keyboard; a
   controller button or a touch brings the usual icons back.
+- **Mouse look.** With keyboard controls, the mouse or trackpad turns the
+  chase camera around the car while driving (pointer locked while driving,
+  free in menus); it swings back behind the car when you stop. Speed and
+  invert in the Keyboard settings.
 - **Keys for the Actions.** While driving, 1 resets the car, 2 toggles auto
   drive, 3 and 4 lower and raise the heat; change them under Keyboard
   controls > Actions.

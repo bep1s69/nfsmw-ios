@@ -688,6 +688,16 @@ const std::vector<Section>& Sections() {
             @"Play with a hardware keyboard (Magic Keyboard, Bluetooth or USB): its keys act as "
             @"the controller, together with the touch controls and any gamepad.",
             @"true"},
+           {@"mouse_look", Type::kSwitch, @"Mouse look",
+            @"With keyboard controls: the mouse or trackpad turns the chase camera around the car "
+            @"while driving (the pointer is locked then, free in menus). It swings back behind the "
+            @"car when you stop.",
+            @"true"},
+           {@"mouse_look_speed", Type::kChoice, @"Mouse look speed", @"How far the camera turns per mouse movement.",
+            @"1",
+            {{@"Slow", @"0.5"}, {@"Normal", @"1"}, {@"Fast", @"1.5"}, {@"Very fast", @"2.5"}}},
+           {@"mouse_look_invert", Type::kSwitch, @"Invert mouse look", @"Moving the mouse up looks down.",
+            @"false"},
            {@"keyboard_bindings", Type::kLink, @"Customize keyboard controls",
             @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
             @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
@@ -1037,6 +1047,14 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
+  // Mouse look (camera_look.cpp): the SDK's mouse mode only locks the pointer;
+  // its right-stick part is off (patch_ios_mouse_axes.py).
+  a.push_back("--mnk_mouse=" + b(On(s, @"keyboard") && On(s, @"mouse_look")));
+  a.push_back("--mnk_mouse_x=false");
+  a.push_back("--mnk_mouse_y=false");
+  a.push_back("--nfsmw_mouse_look=" + b(On(s, @"mouse_look")));
+  a.push_back("--nfsmw_mouse_look_speed=" + str(@"mouse_look_speed"));
+  a.push_back("--nfsmw_mouse_look_invert=" + b(On(s, @"mouse_look_invert")));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
   }

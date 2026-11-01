@@ -27,6 +27,7 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+#include <rex/input/mnk/mnk_input_driver.h>
 
 #include "keyboard_context.h"
 
@@ -108,6 +109,9 @@ void Prepare() {
 
 void SetMenu(bool menu) {
   if (!REXCVAR_GET(mnk_mode)) return;
+  // Mouse look (camera_look.cpp): the SDK locks the pointer only while this
+  // is on, so menus keep a free pointer.
+  rex::input::mnk::SetMouseLookActive(!menu);
   {
     std::lock_guard lock(binds_mutex);
     if (!ready) Prepare();

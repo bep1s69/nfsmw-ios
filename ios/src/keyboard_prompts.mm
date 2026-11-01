@@ -34,6 +34,7 @@
 
 REXCVAR_DECLARE(bool, mnk_mode);
 
+extern "C" void nfsmw_look_mouse(float dx, float dy) __attribute__((weak));  // camera_look.cpp
 extern "C" void nfsmw_reset_car_request() __attribute__((weak));        // game_extra_options.cpp
 extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));        // same
 extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
@@ -73,6 +74,38 @@ void RunAction(const std::string& action) {
   if (action == "action_auto_drive" && nfsmw_toggle_auto_drive) nfsmw_toggle_auto_drive();
   if (action == "action_heat_down" && nfsmw_heat_step_request) nfsmw_heat_step_request(-1);
   if (action == "action_heat_up" && nfsmw_heat_step_request) nfsmw_heat_step_request(1);
+}
+
+// MOUSE LOOK (camera_look.cpp): GameController's mouse handler is SDL's too
+// (SDL_uikitevents.m OnGCMouseConnected), so ours is chained after it, never
+// in its place; SDL sets it again on a reconnect, so it is chained again
+// shortly after each one.
+void ChainMouse(GCMouse* mouse) {
+  GCMouseInput* input = mouse.mouseInput;
+  if (!input || !nfsmw_look_mouse) return;
+  static void* chained = nullptr;  // the handler we installed last
+  GCMouseMoved current = input.mouseMovedHandler;
+  if (current && (__bridge void*)current == chained) return;
+  GCMouseMoved ours = ^(GCMouseInput* in, float dx, float dy) {
+    if (current) current(in, dx, dy);
+    if (nfsmw::battery::InMenu() == 0) nfsmw_look_mouse(dx, dy);
+  };
+  input.mouseMovedHandler = ours;
+  chained = (__bridge void*)input.mouseMovedHandler;
+  REXLOG_INFO("[keyboard] mouse look attached{}", current ? " (after SDL's handler)" : "");
+}
+
+void WatchMice() {
+  for (GCMouse* m in GCMouse.mice) ChainMouse(m);
+  [NSNotificationCenter.defaultCenter addObserverForName:GCMouseDidConnectNotification
+                                                  object:nil
+                                                   queue:NSOperationQueue.mainQueue
+                                              usingBlock:^(NSNotification* n) {
+                                                GCMouse* m = n.object;
+                                                // After SDL's own observer set its handler.
+                                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2),
+                                                               dispatch_get_main_queue(), ^{ ChainMouse(m); });
+                                              }];
 }
 
 void PollActionKeys(GCKeyboardInput* input) {
@@ -262,6 +295,7 @@ extern "C" void nfsmw_keyboard_install_prompts() {
   if (!window) return;
   nfsmw::keyboard::SetMenuList(nfsmw::launcher::MenuKeyBinds());
   LoadActionKeys();
+  WatchMice();
   prompts = [[NFSKeyPrompts alloc] initWithFrame:window.bounds];
   [window addSubview:prompts];
   REXLOG_INFO("[keyboard] key prompts installed");

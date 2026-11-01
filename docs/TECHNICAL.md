@@ -15878,3 +15878,36 @@ to leave the vertical axis out. Applied to
 `~/Developer/GitHub/nfsmw-multiplayer-sdk` (status 2/2; multiplayer patch
 still "applied"); not yet to the shared SDK; nothing uses it yet.
 
+
+### November 2: mouse look through a chase-camera hook (dev24)
+
+Stefan agreed to the camera hook (it also serves swipe look and Showcase
+touch later). PC: the Widescreen Fix's FreeLook pattern
+`E8 ? ? ? ? 8B 4E ? 8D 84 24` lands at 0x47DCBC in CubicCameraMover::Update
+(0x47D3C0; its vtable 0x894CC8, slot 2; the camera-data pattern at
+0x47D416 is in the same function), calling eCreateLookAtMatrix 0x6CF0A0 (15
+callers). USA: sub_82171DE8 is the only function loading all five of that
+Update's float constants (65, 15, 5.333, 4, 1.5; consts.py in the scratchpad);
+its call after `sth r8,196(r7)` (PC word +0xC4) is `bl sub_8243CBF0` with
+r3 out, r4 from, r5 to, r6 up (the PC's push order), returning to
+0x821725E4 (`ctx.lr` there in nfsmw_recomp.79.cpp); the next call takes
+[r31+16] and r1+176 as the PC's [esi+0x10]. View: PC +0x9C = +0x98 ->
+USA +172 = +168; PC +0xA4 = USA +180, so look-behind +177.
+`ios/src/camera_look.cpp` wraps sub_8243CBF0, acts only for that return
+address, chase views 2/3 and not looking back, and moves `from` around `to`
+by a yaw/pitch offset (pitch -20..60 degrees, 0.15 degrees per count x
+speed), easing back after 1.5 s idle; reset on a new view, a pause over
+250 ms or a jump over 20 units (as the Widescreen Fix). Mouse deltas:
+GameController's mouseMovedHandler is SDL's, so keyboard_prompts.mm chains
+ours after it (re-chained 0.5 s after a mouse connects); only counted while
+driving. Pointer lock: the SDK's mnk_mouse (relative mode -> SDL pointer
+lock), active only while driving (`SetMouseLookActive(!menu)` in
+keyboard_context.cpp), its stick part off by the reworked SDK patch
+(mnk_mouse_x/y, both false from the launcher; the first version broke the
+SDK's `.range()` statement, reverted and fixed; status 2/2, multiplayer
+still applied). Launcher (Keyboard section) and in-game: Mouse look (on),
+speed, invert. Build exit 0, wrapper T in camera_look.cpp.o, `unzip -tq` ok;
+`ios/build/NFSMW-0.6.0-dev24-mouse-look.ipa` (Desktop; dev23 to Trash), 30523517 bytes, SHA-256 42769aa48f499d5fe1e9947b86d1446c10628a6eaa8bd25c50fa09a22e12d173. Not run on a
+device; unknowns: GameController's dy sign (invert switch), whether the
+pointer lock engages, whether views 2/3 are the chase views on the 360.
+
