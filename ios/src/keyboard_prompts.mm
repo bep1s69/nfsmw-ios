@@ -28,6 +28,7 @@
 
 #include "battery.h"
 #include "keyboard_context.h"
+#include "launcher.h"
 #include "menu_touch_policy.h"
 #include "touch_controls.h"
 
@@ -202,6 +203,7 @@ extern "C" void nfsmw_keyboard_install_prompts() {
     }
   }
   if (!window) return;
+  nfsmw::keyboard::SetMenuList(nfsmw::launcher::MenuKeyBinds());
   prompts = [[NFSKeyPrompts alloc] initWithFrame:window.bounds];
   [window addSubview:prompts];
   REXLOG_INFO("[keyboard] key prompts installed");

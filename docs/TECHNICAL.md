@@ -15681,3 +15681,24 @@ Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev14-keyboard-fix.ipa`
 c7c37d17e5ae6845ee539af31171ccb3acc126fc032c1f2b04523bfdefbff086. Not run
 on a device.
 
+
+### November 2: dev13 keyboard log: the menu set never arrived (dev15)
+
+The right dev13 log (Stefan; one session 00:22): `~/Developer/Debug/Most
+Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev13_keyboard_session.log`.
+At 00:22:19.037 `[keyboard] one set of keys`: `nfsmw_menu_keybinds` was empty,
+so the driving set stayed on everywhere (A = Space only: Return did nothing;
+S = brake/LT, which scrolled the load list; arrows = RT/LT). That explains
+the Return and load-screen reports; the iPadOS focus inference of dev14 is
+not needed for them (the unfocusable buttons stay, harmless). Prompts
+switched on/off as designed (00:22:24 on, 00:24:06 off, 00:24:13 on). Why the
+command-line value was lost is not established (CLI11 parsing of a value with
+'=' and ';' is the suspect; not tested). dev15: the launcher no longer passes
+it; the game reads the menu set from settings.json itself
+(`launcher::MenuKeyBinds()`, handed over by keyboard_prompts.mm at install,
+before the first state change); the cvar, if given, still wins. The log line
+now gives the list's real length. Build exit 0, `unzip -tq` ok;
+`ios/build/NFSMW-0.6.0-dev15-keyboard.ipa` (Desktop; dev14 to Trash), 30521017
+bytes, SHA-256 bd6cde09de62b878fa123194dce7c6fe953fc700b07ffe83840e18f6b7b054a2.
+Not run on a device.
+

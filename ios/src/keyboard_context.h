@@ -12,6 +12,8 @@ namespace nfsmw::keyboard {
 void SetMenu(bool menu);
 // Each frame (game thread): a switch waiting for the keys to be released.
 void Service();
+// Main thread, before the game starts: the menu set (launcher::MenuKeyBinds).
+void SetMenuList(std::string list);
 // Main thread: a key is down now.
 void SetAnyKeyDown(bool down);
 

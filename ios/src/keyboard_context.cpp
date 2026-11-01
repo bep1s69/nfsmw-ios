@@ -31,8 +31,8 @@
 
 REXCVAR_DECLARE(bool, mnk_mode);
 REXCVAR_DEFINE_STRING(nfsmw_menu_keybinds, "", "Input",
-                      "The keys in menus: keybind_<input>=<keys>;... (the launcher's Menus list); "
-                      "empty: the driving keys everywhere");
+                      "The keys in menus: keybind_<input>=<keys>;... Empty: the launcher's Menus list "
+                      "(settings.json, SetMenuList)");
 
 #define NFSMW_BINDS(X)                                                                          \
   X(keybind_a) X(keybind_b) X(keybind_x) X(keybind_y) X(keybind_left_trigger)                  \
@@ -62,6 +62,7 @@ std::array binds = {NFSMW_BINDS(NFSMW_ENTRY)};
 constexpr size_t kCapacity = 256;
 bool ready = false;
 bool have_menu_set = false;
+std::string settings_list;  // SetMenuList, from settings.json
 int context = -1;  // 0 driving, 1 menus (what the strings hold)
 int wanted_context = -1;
 bool blanked = false;
@@ -75,7 +76,9 @@ void Prepare() {
     b.menu = b.driving;
     s.reserve(kCapacity);
   }
-  std::string_view list = REXCVAR_GET(nfsmw_menu_keybinds);
+  const std::string cvar = REXCVAR_GET(nfsmw_menu_keybinds);
+  std::string_view list = cvar.empty() ? std::string_view(settings_list) : std::string_view(cvar);
+  const size_t list_size = list.size();
   while (!list.empty()) {
     const size_t end = list.find(';');
     const std::string_view item = list.substr(0, end);
@@ -90,7 +93,7 @@ void Prepare() {
     }
   }
   REXLOG_INFO("[keyboard] {} keys (menu list {} characters)", have_menu_set ? "menu and driving" : "one set of",
-              REXCVAR_GET(nfsmw_menu_keybinds).size());
+              list_size);
 }
 
 }  // namespace
@@ -122,6 +125,8 @@ void Service() {
     for (const Bind& b : binds) REXLOG_INFO("[keyboard]   {} = {}", b.name, b.storage());
   }
 }
+
+void SetMenuList(std::string list) { settings_list = std::move(list); }
 
 void SetAnyKeyDown(bool down) { any_key_down.store(down, std::memory_order_relaxed); }
 

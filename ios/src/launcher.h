@@ -15,6 +15,8 @@ namespace nfsmw::launcher {
 
 // The app's Documents/ folder (LiveContainer's redirected one, inside it).
 std::filesystem::path Documents();
+// The keyboard's menu key set from settings.json (keyboard_context.cpp).
+std::string MenuKeyBinds();
 
 // The ISOs in Documents/, alphabetically.
 std::vector<std::filesystem::path> FindIsos(const std::filesystem::path& documents);

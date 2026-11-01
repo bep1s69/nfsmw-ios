@@ -1020,13 +1020,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
-  std::string menu_binds;  // "keybind_a=Return,Space;keybind_b=..." (keyboard_context.cpp)
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
-    menu_binds += std::string(menu_binds.empty() ? "" : ";") + kb.setting.UTF8String + "=" +
-                  KeyBindValue(s, kb, true).UTF8String;
   }
-  a.push_back("--nfsmw_menu_keybinds=" + menu_binds);
   NSString* aa = Value(s, @"antialiasing");
   const bool msaa = Msaa(s);
   a.push_back("--gpu_sin_msaa=" + b(!msaa));
@@ -2067,6 +2063,18 @@ fs::path Run(const fs::path& documents) {
 
 std::vector<std::string> SettingsArguments(const fs::path& documents) {
   return Arguments(LoadSettings(documents));
+}
+
+// The menu key set, "keybind_a=Return,Space;keybind_b=..." (keyboard_context.cpp).
+// Read from settings.json by the game itself: as a command-line value
+// (--nfsmw_menu_keybinds) it arrived empty (dev13 log: "one set of keys").
+std::string MenuKeyBinds() {
+  NSDictionary<NSString*, NSString*>* s = LoadSettings(Documents());
+  std::string list;
+  for (const KeyBind& kb : KeyBinds()) {
+    list += std::string(list.empty() ? "" : ";") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb, true).UTF8String;
+  }
+  return list;
 }
 
 std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {
