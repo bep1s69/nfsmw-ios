@@ -15228,3 +15228,30 @@ the SDK lives in /private/tmp (lost on reboot); recreate with
 `create_multiplayer_sdk.py` + `patch_ios_multiplayer.py`, or move the
 patch into the shared SDK, which Stefan has to decide.
 
+
+### November 1: /private/tmp move (Stefan: nothing in use in a volatile folder)
+
+Moved with `mv` (same volume) and `git worktree move`; the SDK holds no
+absolute /private/tmp paths (`grep -rIl` empty) and
+`patch_ios_multiplayer.py --status` still says applied at the new place.
+
+| Old /private/tmp path | New path |
+|---|---|
+| `nfsmw-multiplayer-sdk` | `~/Developer/GitHub/nfsmw-multiplayer-sdk` |
+| `nfsmw-server-lan-research` | `~/Developer/GitHub/nfsmw-server-lan-research` |
+| `nfsmw-multiplayer-upstream` | `~/Developer/GitHub/nfsmw-multiplayer-upstream` |
+| `nfsmw-ios-multiplayer` (worktree, `multiplayer`) | `~/Developer/GitHub/nfsmw-ios-multiplayer` |
+| `nfsmw-pc-crossplay-game`, `nfsmw-pc-crossplay-bottle`, `nfsmw-multiplayer-image-cache` | `Debug/Most Wanted (2005) Debug/Multiplayer/` (same names) |
+| research folders, `nfsmw-*.log`, `nfsmw_lan_*` evidence, scripts, disassembly dumps, `nfsmw-test6-inspect` | `Debug/Most Wanted (2005) Debug/Multiplayer/tmp archive 2026-11-01/` (same names) |
+| `nfsmw-multiplayer-build` | left in place (rebuildable); 0.6 builds use `~/Library/Caches/nfsmw-ios/build-0.6` |
+
+Left in /private/tmp: python/swift bytecode caches and `nfsmw-multiplayer-build`.
+The Wine bottle was not started after the move; CrossOver may need it
+re-registered. Current-instruction paths in DEVELOPMENT_PROGRESS/BACKLOG
+were rewritten; historical TECHNICAL entries keep the old paths.
+Rebuild of `dev-0.5` 6bd4705 against the moved SDK
+(`-DNFSMW_SDK=~/Developer/GitHub/nfsmw-multiplayer-sdk`, `build-0.6`): 913
+steps, exit 0, `unzip -tq` ok; NFSMW.ipa 30468060 bytes, SHA-256
+199b9a36a7b6a46fb66aa6bcc3ad8323450f91a95c54dc8f9007d9f3ce97efaa (not copied
+to ios/build; same source as NFSMW-0.6.0-dev1-merge.ipa).
+

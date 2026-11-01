@@ -24,6 +24,15 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1 (Stefan): nothing still in use may live in /private/tmp
+  (cleared on reboot). Multiplayer SDK, LAN reference server, upstream
+  source and the `multiplayer` worktree are now in `~/Developer/GitHub/`
+  (`nfsmw-multiplayer-sdk`, `nfsmw-server-lan-research`,
+  `nfsmw-multiplayer-upstream`, `nfsmw-ios-multiplayer`); the PC cross-play
+  Wine bottle/game, image cache and archived research/logs are in
+  `~/Developer/Debug/Most Wanted (2005) Debug/Multiplayer/`. Older records
+  that name /private/tmp paths: see TECHNICAL, November 1, "/private/tmp move".
+
 - November 1: `dev-0.5` (0.6.0) now contains 0.5.2 `main` and `multiplayer`
   (ced4ff6). Build it only against the multiplayer-patched SDK, into
   `~/Library/Caches/nfsmw-ios/build-0.6` (TECHNICAL, November 1, 0.6.0
@@ -89,7 +98,7 @@ input paths, test commands, outcomes and next action for each experiment.
   All multiplayer work stays on separate `multiplayer`, with no
   merge/push/release until ready, tested and explicitly authorized. Research-only
   branch forked from main `62c0dc7`; separate worktree
-  `/private/tmp/nfsmw-ios-multiplayer` leaves the active controls checkout intact.
+  `/Users/bep1s/Developer/GitHub/nfsmw-ios-multiplayer` leaves the active controls checkout intact.
 
 - October 31 (Stefan, test8 results): profile-name taps select only; A remains
   manual. Options/race-details: vertical swipes select rows, horizontal swipes
@@ -232,15 +241,15 @@ Temporary diagnostic servers from October31 are STOPPED; do not assume207lobby
 or8080HTTP still running. Do not mistake approved/willing hotspot test for success.
 
 Do NOT use the ordinary `ios` preset for this branch: it shares the controls
-build directory. Current worktree `/private/tmp/nfsmw-ios-multiplayer`; SDK
-`/private/tmp/nfsmw-multiplayer-sdk`; build `/private/tmp/nfsmw-multiplayer-build`.
+build directory. Current worktree `/Users/bep1s/Developer/GitHub/nfsmw-ios-multiplayer`; SDK
+`/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`; build `/Users/bep1s/Library/Caches/nfsmw-ios/build-0.6`.
 The branch is based on main/test11 `19177b6`, merged in `f848ce3`.
 
 To reproduce isolation from an already prepared SDK, from this branch:
 
 ```sh
-python3 tools/ios/create_multiplayer_sdk.py --source /Users/bep1s/Developer/GitHub/rexglue-sdk-ios --destination /private/tmp/nfsmw-multiplayer-sdk
-NFSMW_SDK=/private/tmp/nfsmw-multiplayer-sdk python3 tools/ios/patch_ios_multiplayer.py
+python3 tools/ios/create_multiplayer_sdk.py --source /Users/bep1s/Developer/GitHub/rexglue-sdk-ios --destination /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk
+NFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk python3 tools/ios/patch_ios_multiplayer.py
 ```
 
 The destination must not exist. Snapshot copies all prepared source/dependencies
@@ -256,19 +265,19 @@ branch's existing USA pipeline and isolated SDK. Native shaders may be shared
 read-only. Configure/build explicitly:
 
 ```sh
-cmake -S ios -B /private/tmp/nfsmw-multiplayer-build -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0 -DCMAKE_BUILD_TYPE=Release -DNFSMW_SDK=/private/tmp/nfsmw-multiplayer-sdk -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
-cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6
+cmake -S ios -B /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0 -DCMAKE_BUILD_TYPE=Release -DNFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
+cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 6
 ```
 
 Host checks (local listener permission required):
 
 ```sh
-python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk --reference-server /private/tmp/nfsmw-server-lan-research
-python3 tools/ios/test_multiplayer_transport.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+python3 tools/ios/test_multiplayer.py --sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk --reference-server /Users/bep1s/Developer/GitHub/nfsmw-server-lan-research
+python3 tools/ios/test_multiplayer_transport.py --sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk
 python3 tools/ios/test_menu_touch.py
 python3 tools/ios/test_lan_setup.py
-python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4>
-python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4> --simulate-broadcast-failure
+python3 tools/ios/test_pc_host.py --sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4>
+python3 tools/ios/test_pc_host.py --sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4> --simulate-broadcast-failure
 python3 tools/ios/test_lan_interface.py
 python3 tools/ios/test_lan_roster.py
 python3 tools/ios/test_pc_gateway.py
@@ -466,7 +475,7 @@ Host for PCs remains separate; no mixed mode or release authorization.
 Both native PC-host→iOS-join AND iOS-host→native-PC-join now have device-confirmed
 racing, without a PC helper/script/mod. Reverse PC hosting is still a separate
 opt-in **Host for PCs (Experimental)** / host_pc mode, one phone + one PC.
-Continue on local `multiplayer` in `/private/tmp/nfsmw-ios-multiplayer`; no
+Continue on local `multiplayer` in `/Users/bep1s/Developer/GitHub/nfsmw-ios-multiplayer`; no
 push/merge/release authorized. Controls/main and shared SDK remain separate.
 
 Preview15 result: phone192.168.101.106, PC192.168.101.163/useramog. Listener ID
@@ -506,7 +515,7 @@ experiment is recorded above and in newest TECHNICAL; no push/release.
 
 **Previous preview14 checkpoint context (superseded where noted above):**
 Stefan is low on Codex usage and requests the shared record be ready for Claude.
-Continue in `/private/tmp/nfsmw-ios-multiplayer`, local branch `multiplayer`.
+Continue in `/Users/bep1s/Developer/GitHub/nfsmw-ios-multiplayer`, local branch `multiplayer`.
 Canonical main checkout remains controls-only with its pre-existing modified
 checkpoint and untracked HANDOFF preserved. No push/merge/release authorized.
 If starting from main, `git worktree list` locates this checkout, or read
@@ -934,7 +943,7 @@ Older deferred/pending paragraphs below are historical.
   do not treat the user's earlier transient listing as verified Mac contact.
   All five logs archived; exact identities/source proof in TECHNICAL.
   Added regression command:
-  `python3 tools/ios/test_multiplayer_receive.py --sdk /private/tmp/nfsmw-multiplayer-sdk`.
+  `python3 tools/ios/test_multiplayer_receive.py --sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`.
   Work stays local `multiplayer`; main's pre-existing modified checkpoint and
   untracked HANDOFF preserved. No push/merge/release.
 
@@ -3343,9 +3352,9 @@ Passive originalPC discovery capture (one bounded60s maximum):
 384-byte gEA announcements, does not broadcast a fabricated host.
 
 Mac original-DLL-only test reproduction (no PC racer): create disposable
-CrossOver bottle `/private/tmp/nfsmw-pc-crossplay-bottle` with cxbottle --create
+CrossOver bottle `'/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/Multiplayer/nfsmw-pc-crossplay-bottle'` with cxbottle --create
 --template win10_64; APFS clone original folder to /private/tmp gamecopy; build
-own PE with `python3 tools/ios/pc_lan_server_harness.py --dll /private/tmp/nfsmw-pc-crossplay-game/server.dll --output /private/tmp/nfsmw-pc-crossplay-game/pc_server_probe.exe --seconds 30`.
+own PE with `python3 tools/ios/pc_lan_server_harness.py --dll '/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/Multiplayer/nfsmw-pc-crossplay-game/server.dll' --output '/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/Multiplayer/nfsmw-pc-crossplay-game/pc_server_probe.exe' --seconds 30`.
 Run CrossOver wine --bottle thattemporarypath --no-gui --workdir gamecopypath
 pc_server_probe.exe. Needs copied server.cfg in working directory. Probe actual
 bindIP from Wine log (not127.0.0.1: DLL may bind LAN only). All source game files
@@ -3367,7 +3376,7 @@ remainnextgate, noforcedversion/contentconversion.
 `python3 tools/ios/test_pc_gateway.py` exercisesactualC++adapter withASan/UBSan.
 `python3 tools/ios/test_lan_setup.py` includesPCpreflightwithout10902.
 Existingmultiplayer.py nowalso tests fragmented/tabseparatednative9900reply.
-Buildremainsisolatedcmake--build/private/tmp/nfsmw-multiplayer-build--targetipa.
+Buildremainsisolatedcmake--build/Users/bep1s/Library/Caches/nfsmw-ios/build-0.6--targetipa.
 
 ### Preview7 PC room filter regression
 
