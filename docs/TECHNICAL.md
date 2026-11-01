@@ -15857,3 +15857,24 @@ no pursuit was running, so the heat update that applies them never ran
 drops steps older than 2 s. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev23.ipa` (Desktop;
 dev22 to Trash), 30525676 bytes, SHA-256 a3b2eb967cedb528035aa7795dae625918ccf99791facc5f604a4fb65382d200. Not run on a device.
 
+
+### November 2: mouse look assessment; SDK patch for the vertical axis
+
+Stefan: the game does not capture the Magic Keyboard's pointer, which sticks
+at the screen edge. Found: the SDK already has mouse look (`mnk_mouse`,
+`mnk_sensitivity`): it asks SDL for relative mode, which SDL's iOS backend
+turns into iPadOS pointer lock (SDL_uikitviewcontroller.m prefersPointerLocked)
+with GameController mouse deltas, and adds the deltas to the right stick
+(only while `SetMouseLookActive(true)`). The launcher never turned
+`mnk_mouse` on, hence a free pointer. But NFSMW has no look-around action
+while driving: the game's camera actions are CHANGE, LOOKBACK, PULLBACK,
+DEBUG, ENABLE_ICE (prototype strings), and the right stick's up/down shifts
+gear. So mouse look while driving needs a camera hook of our own (as the PC
+Widescreen Fix's FreeLook), not the SDK's stick emulation; the stick
+emulation alone would only work in Showcase and on the world map.
+New SDK patch `tools/ios/patch_ios_mouse_axes.py` (in prepare_sdk.py before
+the multiplayer patch): cvar `mnk_mouse_y` (default true = SDK behaviour)
+to leave the vertical axis out. Applied to
+`~/Developer/GitHub/nfsmw-multiplayer-sdk` (status 2/2; multiplayer patch
+still "applied"); not yet to the shared SDK; nothing uses it yet.
+
