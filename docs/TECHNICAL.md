@@ -15728,3 +15728,25 @@ Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev16-keyboard.ipa`
 247adc2def19dfc164ef3cc12491dadb021d69c44dfb69f26f891bd5afd11afd. Not run on
 a device.
 
+
+### November 2: dev15 key-cap screenshots; placement and stray caps (dev17)
+
+Stefan's six dev15 screenshots (iPad; load save, loading dialog, main menu,
+options, audio options, Blacklist), archived as
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/iphone_0.6.0_dev15_keyboard_IMG_0345..0350.png`.
+Measured on them (1000x750 copies): every cap sat closer to the screen's
+middle than its icon by the same factor, about 1.09 in x and y (B icon
+-438 px from centre, cap -401; bottom bar icon +325, cap +297). So the menu
+units are 480 tall for the whole screen height, not 480 / 0.92 as the menu
+taps assume: the caps now use h / 480 (the taps are unchanged; inference:
+they tolerate it). Caps were also bigger than the icons (the scan's 20-unit
+minimum half size). Stray caps with no icon under them: "Enter" left of the
+load box (also on the loading dialog), "X" above Back in options and in the
+Blacklist screen's middle, "[" "]" at the top of audio options. Inference:
+icons faded out by their FEColor alpha, not flagged hidden. The scan now
+carries each icon's drawn size and an alpha-0 test down the groups
+(Hint::icon_w/icon_h/shown); caps use the drawn size and skip what is not
+shown. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev17-keyboard.ipa`
+(Desktop; dev16 to Trash; includes dev16's changes), 30512090 bytes, SHA-256
+ef34386eb20a4b1464ebbd85ed65b741328e36d4fd2dbe11ee67712e83b69c5f. Not run on a device.
+

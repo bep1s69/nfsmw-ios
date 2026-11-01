@@ -1453,6 +1453,8 @@ struct Hint {
   float x,y,half_w,half_h;
   int button;
   bool label;
+  float icon_w=0, icon_h=0;  // drawn size, without the tap margin
+  bool shown=true;           // neither it nor a group above it at alpha 0
 };
 struct MenuNode {
   uint32_t object,parent,hash,texture,type;
@@ -1472,7 +1474,8 @@ struct MenuRect {
 MenuRect NodeRect(const MenuNode& n) { return {n.x-std::abs(n.w)/2,n.y-std::abs(n.h)/2,n.x+std::abs(n.w)/2,n.y+std::abs(n.h)/2}; }
 struct FocusFrame { uint32_t parent; MenuRect rect; };
 void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,int depth,
-               bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget,std::vector<MenuNode>* nodes=nullptr,uint32_t parent=0) {
+               bool parent_text,int inherited_action,std::vector<Hint>& out,int& budget,std::vector<MenuNode>* nodes=nullptr,uint32_t parent=0,
+               bool parent_shown=true) {
   for (uint32_t o=first;Plausible(o)&&REX_LOAD_U32(o)!=kListVtable&&budget>0;o=REX_LOAD_U32(o+4)) {
     --budget;
     if (REX_LOAD_U32(o+0x1C)&kMenuHidden) continue;
@@ -1480,6 +1483,9 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     if (!Plausible(data)) continue;
     const float gx=px+sx*LoadF(base,data+28),gy=py+sy*LoadF(base,data+32);
     if (!std::isfinite(gx)||!std::isfinite(gy)) continue;
+    // FEColor's alpha (data+12, 0-255): a group or icon faded out is not
+    // shown, though not flagged hidden (the keyboard caps' stray ones, dev15).
+    const bool shown=parent_shown && REX_LOAD_U32(data+12)!=0;
     if (nodes) nodes->push_back({o,parent,REX_LOAD_U32(o+0x10),REX_LOAD_U32(o+0x24),type,gx,gy,
                                 sx*LoadF(base,data+56),sy*LoadF(base,data+60),
                                 REX_LOAD_U32(data),REX_LOAD_U32(data+4),REX_LOAD_U32(data+8),REX_LOAD_U32(data+12)});
@@ -1493,7 +1499,7 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
       const float xs=LoadF(base,data+56),ys=LoadF(base,data+60);
       if (std::isfinite(xs)&&std::isfinite(ys))
         FindHints(base,child,gx,gy,sx*xs,sy*ys,depth+1,text||parent_text,
-                  ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget,nodes,o);
+                  ButtonOfObject(REX_LOAD_U32(o+0x10))?ButtonOfObject(REX_LOAD_U32(o+0x10)):inherited_action,out,budget,nodes,o,shown);
       continue;
     }
     if (type!=1&&type!=9&&type!=10&&type!=11&&type!=12) continue;
@@ -1508,7 +1514,8 @@ void FindHints(uint8_t* base,uint32_t first,float px,float py,float sx,float sy,
     // Keep small unknown icons for a diagnostic only; never guess their action.
     if (button || (std::abs(w)>=10&&std::abs(h)>=10))
       out.push_back({hash,texture,gx,gy,std::max(20.f,std::abs(w)/2+5),
-                     std::max(20.f,std::abs(h)/2+5),button,parent_text&&button>0&&button!=nfsmw::menu_touch::Left&&button!=nfsmw::menu_touch::Right});
+                     std::max(20.f,std::abs(h)/2+5),button,parent_text&&button>0&&button!=nfsmw::menu_touch::Left&&button!=nfsmw::menu_touch::Right,
+                     std::abs(w),std::abs(h),shown});
   }
 }
 const Hint* HintAt(const std::vector<Hint>& hints,float x,float y) {
@@ -2104,8 +2111,8 @@ extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,in
     // Only icons with a text label next to them (A Accept, Y Game Stats):
     // the hint bar's. Bare icons elsewhere got caps where the game shows no
     // hint (dev15, Stefan).
-    if (n>=max || !h.button || !h.label || (h.button & (Left|Right|Up|Down))) continue;
-    out[5*n]=h.x;out[5*n+1]=h.y;out[5*n+2]=h.half_w;out[5*n+3]=h.half_h;out[5*n+4]=float(h.button);++n;
+    if (n>=max || !h.button || !h.label || !h.shown || (h.button & (Left|Right|Up|Down))) continue;
+    out[5*n]=h.x;out[5*n+1]=h.y;out[5*n+2]=h.icon_w/2;out[5*n+3]=h.icon_h/2;out[5*n+4]=float(h.button);++n;
   }
   return n;
 }

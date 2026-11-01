@@ -12,8 +12,8 @@
 // touch_controls.mm), so nothing else's input handler is replaced.
 //
 // The hints come from the touch scan (game_scene_size.cpp,
-// nfsmw_menu_hints_list), in the packages' units: 480 / 0.92 tall from the
-// middle of the screen, as menu taps (touch_controls.mm).
+// nfsmw_menu_hints_list), in the packages' units: 480 tall from the middle of
+// the screen (measured on the dev15 screenshots; the menu taps use 480 / 0.92).
 
 #import <GameController/GameController.h>
 #import <UIKit/UIKit.h>
@@ -150,7 +150,9 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
   _shownSerial = serial;
   for (UIView* v in self.subviews.copy) [v removeFromSuperview];
   const CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
-  const CGFloat s = h * 0.92 / 480.0;
+  // 480 units tall: the caps over the hint bar landed 9% too close to the
+  // middle with the menu taps' 0.92 (dev15 screenshots, Stefan, November 2).
+  const CGFloat s = h / 480.0;
   for (size_t i = 0; i + 5 <= now.size(); i += 5) {
     const char* bind = BindFor(int(now[i + 4]));
     if (!bind) continue;
@@ -159,7 +161,7 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
     // A small dark key cap the size of the icon under it, white text, as
     // the game's own hint icons (dev15 caps were too big and too light,
     // Stefan). The scan's half sizes include 5 units of tap margin.
-    const CGFloat icon = MAX(12, (now[i + 3] - 5) * 2 * s);
+    const CGFloat icon = MAX(12, now[i + 3] * 2 * s);
     UILabel* cap = [[UILabel alloc] init];
     cap.text = Caption(k);
     cap.textAlignment = NSTextAlignmentCenter;
