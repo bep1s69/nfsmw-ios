@@ -21,6 +21,7 @@
 
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -63,10 +64,30 @@ constexpr size_t kCapacity = 256;
 bool ready = false;
 bool have_menu_set = false;
 std::string settings_list;  // SetMenuList, from settings.json
+std::mutex binds_mutex;     // Service (game thread) and Reload (main thread)
 int context = -1;  // 0 driving, 1 menus (what the strings hold)
 int wanted_context = -1;
 bool blanked = false;
 std::atomic<bool> any_key_down{false};
+
+// "keybind_a=...;keybind_b=..." into the menu or driving lists.
+bool ParseInto(std::string_view list, bool menu) {
+  bool any = false;
+  while (!list.empty()) {
+    const size_t end = list.find(';');
+    const std::string_view item = list.substr(0, end);
+    list = end == std::string_view::npos ? std::string_view() : list.substr(end + 1);
+    const size_t eq = item.find('=');
+    if (eq == std::string_view::npos) continue;
+    for (Bind& b : binds) {
+      if (item.substr(0, eq) == b.name) {
+        (menu ? b.menu : b.driving) = std::string(item.substr(eq + 1, kCapacity - 1));
+        any = true;
+      }
+    }
+  }
+  return any;
+}
 
 void Prepare() {
   ready = true;
@@ -77,36 +98,27 @@ void Prepare() {
     s.reserve(kCapacity);
   }
   const std::string cvar = REXCVAR_GET(nfsmw_menu_keybinds);
-  std::string_view list = cvar.empty() ? std::string_view(settings_list) : std::string_view(cvar);
-  const size_t list_size = list.size();
-  while (!list.empty()) {
-    const size_t end = list.find(';');
-    const std::string_view item = list.substr(0, end);
-    list = end == std::string_view::npos ? std::string_view() : list.substr(end + 1);
-    const size_t eq = item.find('=');
-    if (eq == std::string_view::npos) continue;
-    for (Bind& b : binds) {
-      if (item.substr(0, eq) == b.name) {
-        b.menu = std::string(item.substr(eq + 1, kCapacity - 1));
-        have_menu_set = true;
-      }
-    }
-  }
+  const std::string_view list = cvar.empty() ? std::string_view(settings_list) : std::string_view(cvar);
+  have_menu_set = ParseInto(list, true);
   REXLOG_INFO("[keyboard] {} keys (menu list {} characters)", have_menu_set ? "menu and driving" : "one set of",
-              list_size);
+              list.size());
 }
 
 }  // namespace
 
 void SetMenu(bool menu) {
   if (!REXCVAR_GET(mnk_mode)) return;
-  if (!ready) Prepare();
-  if (!have_menu_set) return;
-  wanted_context = int(menu);
+  {
+    std::lock_guard lock(binds_mutex);
+    if (!ready) Prepare();
+    if (!have_menu_set) return;
+    wanted_context = int(menu);
+  }
   Service();
 }
 
 void Service() {
+  std::lock_guard lock(binds_mutex);
   if (!ready || !have_menu_set || wanted_context < 0 || context == wanted_context) return;
   if (context >= 0 && any_key_down.load(std::memory_order_relaxed)) {
     if (!blanked) {
@@ -127,6 +139,20 @@ void Service() {
 }
 
 void SetMenuList(std::string list) { settings_list = std::move(list); }
+
+void Reload(const std::string& driving, const std::string& menu) {
+  std::lock_guard lock(binds_mutex);
+  if (!ready) {
+    settings_list = menu;
+    return;
+  }
+  ParseInto(driving, false);
+  have_menu_set = ParseInto(menu, true) || have_menu_set;
+  if (context >= 0) {
+    for (Bind& b : binds) b.storage().assign(context ? b.menu : b.driving);
+  }
+  REXLOG_INFO("[keyboard] keys changed in the options");
+}
 
 void SetAnyKeyDown(bool down) { any_key_down.store(down, std::memory_order_relaxed); }
 

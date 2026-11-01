@@ -14,6 +14,9 @@ void SetMenu(bool menu);
 void Service();
 // Main thread, before the game starts: the menu set (launcher::MenuKeyBinds).
 void SetMenuList(std::string list);
+// Main thread: both sets changed (the in-game keyboard editor), as
+// "keybind_a=...;..." lists; the current one is applied at once.
+void Reload(const std::string& driving, const std::string& menu);
 // Main thread: a key is down now.
 void SetAnyKeyDown(bool down);
 

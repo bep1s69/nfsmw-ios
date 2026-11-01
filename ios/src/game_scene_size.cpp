@@ -2101,7 +2101,10 @@ extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,in
     // the arrow keys already are (Stefan, dev13: caps on the main menu's
     // arrows and none on A/Y). The labelled icons (A Accept) are the ones.
     using namespace nfsmw::menu_touch;
-    if (n>=max || !h.button || (h.button & (Left|Right|Up|Down))) continue;
+    // Only icons with a text label next to them (A Accept, Y Game Stats):
+    // the hint bar's. Bare icons elsewhere got caps where the game shows no
+    // hint (dev15, Stefan).
+    if (n>=max || !h.button || !h.label || (h.button & (Left|Right|Up|Down))) continue;
     out[5*n]=h.x;out[5*n+1]=h.y;out[5*n+2]=h.half_w;out[5*n+3]=h.half_h;out[5*n+4]=float(h.button);++n;
   }
   return n;

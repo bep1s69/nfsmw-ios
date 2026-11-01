@@ -164,10 +164,12 @@ const std::vector<KeyBind>& KeyBinds() {
       {@"keybind_right_shoulder", @"Change camera / next tab", @"RB", @"V", @"E,PageDown"},
       {@"keybind_back", @"Reset car", @"Back", @"R", @"R"},
       {@"keybind_start", @"Pause / start", @"Start", @"Escape,P", @"P"},
-      {@"keybind_dpad_up", @"D-pad up", @"D-pad", @"I", @"I"},
-      {@"keybind_dpad_down", @"D-pad down", @"D-pad", @"K", @"K"},
-      {@"keybind_dpad_left", @"D-pad left", @"D-pad", @"J", @"J"},
-      {@"keybind_dpad_right", @"D-pad right", @"D-pad", @"L", @"L"},
+      // The D-pad in free roam (touch_controls.mm's ENTER/MAP/SMS/LIST): the
+      // PC's keys for them (Stefan: B for the Blacklist).
+      {@"keybind_dpad_up", @"Enter shop / engage event", @"D-pad up", @"Return,I", @"I"},
+      {@"keybind_dpad_down", @"Blacklist", @"D-pad down", @"B,K", @"K"},
+      {@"keybind_dpad_left", @"World map", @"D-pad left", @"M,J", @"J"},
+      {@"keybind_dpad_right", @"SMS messages", @"D-pad right", @"T,L", @"L"},
       {@"keybind_rstick_left", @"Right stick left", @"right stick", @"", @""},
       {@"keybind_rstick_right", @"Right stick right", @"right stick", @"", @""},
       {@"keybind_lstick_press", @"Left stick click", @"L3", @"", @""},
@@ -2075,6 +2077,20 @@ std::string MenuKeyBinds() {
     list += std::string(list.empty() ? "" : ";") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb, true).UTF8String;
   }
   return list;
+}
+
+// The driving set, the same way (the in-game keyboard editor applies both).
+std::string DrivingKeyBinds() {
+  NSDictionary<NSString*, NSString*>* s = LoadSettings(Documents());
+  std::string list;
+  for (const KeyBind& kb : KeyBinds()) {
+    list += std::string(list.empty() ? "" : ";") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String;
+  }
+  return list;
+}
+
+UIViewController* MakeKeyBindsEditor(NSMutableDictionary<NSString*, NSString*>* settings, void (^save)(void)) {
+  return [[NFSKeyBindsController alloc] initWithSettings:settings save:save];
 }
 
 std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {

@@ -55,6 +55,7 @@ extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  /
 extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));               // same
 extern "C" void nfsmw_reset_car_request() __attribute__((weak));               // same
 extern "C" void nfsmw_open_debug_car_customize() __attribute__((weak));        // same
+extern "C" void nfsmw_keyboard_reload() __attribute__((weak));                 // keyboard_prompts.mm
 extern "C" void nfsmw_teleport_request(int32_t landmark) __attribute__((weak));  // same
 extern "C" int32_t nfsmw_landmark_count() __attribute__((weak));               // same
 extern "C" const char* nfsmw_landmark(int32_t i, const char** area) __attribute__((weak));
@@ -266,7 +267,12 @@ UIWindow* GameWindow() {
     [[UIBarButtonItem alloc] initWithTitle:@"Touch controls"
                                      style:UIBarButtonItemStylePlain
                                     target:self
-                                    action:@selector(customizeTouch)]
+                                    action:@selector(customizeTouch)],
+    // The keyboard's keys (both sets), applied at once (Stefan, November 2).
+    [[UIBarButtonItem alloc] initWithTitle:@"Keyboard"
+                                     style:UIBarButtonItemStylePlain
+                                    target:self
+                                    action:@selector(customizeKeyboard)]
   ];
   _tabControl = [[UISegmentedControl alloc] initWithItems:_tabs];
   _tabControl.selectedSegmentIndex = _tab;
@@ -326,6 +332,17 @@ UIWindow* GameWindow() {
 - (void)updateHudButton {
   self.navigationItem.leftBarButtonItem.enabled =
       [nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"];
+}
+
+- (void)customizeKeyboard {
+  __weak NFSInGameOptions* weak = self;
+  UIViewController* editor = nfsmw::launcher::MakeKeyBindsEditor(_settings, ^{
+    NFSInGameOptions* me = weak;
+    if (!me) return;
+    nfsmw::launcher::WriteSettings(me->_docs, me->_settings);
+    if (nfsmw_keyboard_reload) nfsmw_keyboard_reload();
+  });
+  [self.navigationController pushViewController:editor animated:YES];
 }
 
 - (void)customizeTouch {

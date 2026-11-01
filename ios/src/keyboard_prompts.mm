@@ -156,20 +156,24 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
     if (!bind) continue;
     const std::string k = nfsmw::keyboard::MenuKey(bind);
     if (k.empty()) continue;
+    // A small dark key cap the size of the icon under it, white text, as
+    // the game's own hint icons (dev15 caps were too big and too light,
+    // Stefan). The scan's half sizes include 5 units of tap margin.
+    const CGFloat icon = MAX(12, (now[i + 3] - 5) * 2 * s);
     UILabel* cap = [[UILabel alloc] init];
     cap.text = Caption(k);
     cap.textAlignment = NSTextAlignmentCenter;
-    cap.font = [UIFont systemFontOfSize:MAX(10, now[i + 3] * 2 * s * 0.55) weight:UIFontWeightSemibold];
+    cap.font = [UIFont systemFontOfSize:MAX(8, icon * 0.5) weight:UIFontWeightHeavy];
     cap.adjustsFontSizeToFitWidth = YES;
-    cap.minimumScaleFactor = 0.5;
-    cap.textColor = UIColor.blackColor;
-    cap.backgroundColor = [UIColor colorWithWhite:0.92 alpha:1];
-    cap.layer.cornerRadius = 4;
-    cap.layer.borderColor = [UIColor colorWithWhite:0.4 alpha:1].CGColor;
-    cap.layer.borderWidth = 1;
+    cap.minimumScaleFactor = 0.6;
+    cap.textColor = [UIColor colorWithWhite:0.95 alpha:1];
+    cap.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.92];
+    cap.layer.cornerRadius = icon * 0.22;
+    cap.layer.borderColor = [UIColor colorWithWhite:0.85 alpha:0.9].CGColor;
+    cap.layer.borderWidth = MAX(1, icon * 0.06);
     cap.clipsToBounds = YES;
-    const CGFloat ch = MAX(14, now[i + 3] * 2 * s);
-    const CGFloat cw = MAX(ch, [cap.text sizeWithAttributes:@{NSFontAttributeName : cap.font}].width + 8);
+    const CGFloat ch = icon;
+    const CGFloat cw = MIN(icon * 2.6, MAX(ch, [cap.text sizeWithAttributes:@{NSFontAttributeName : cap.font}].width + icon * 0.35));
     cap.frame = CGRectMake(w / 2 + now[i] * s - cw / 2, h / 2 + now[i + 1] * s - ch / 2, cw, ch);
     [self addSubview:cap];
   }
@@ -207,4 +211,9 @@ extern "C" void nfsmw_keyboard_install_prompts() {
   prompts = [[NFSKeyPrompts alloc] initWithFrame:window.bounds];
   [window addSubview:prompts];
   REXLOG_INFO("[keyboard] key prompts installed");
+}
+
+// The in-game options' keyboard editor saved: both sets again, applied now.
+extern "C" void nfsmw_keyboard_reload() {
+  nfsmw::keyboard::Reload(nfsmw::launcher::DrivingKeyBinds(), nfsmw::launcher::MenuKeyBinds());
 }

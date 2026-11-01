@@ -15702,3 +15702,29 @@ now gives the list's real length. Build exit 0, `unzip -tq` ok;
 bytes, SHA-256 bd6cde09de62b878fa123194dce7c6fe953fc700b07ffe83840e18f6b7b054a2.
 Not run on a device.
 
+
+### November 2: dev15 keyboard works; editor in game, D-pad actions, quieter caps (dev16)
+
+Stefan (dev15): keys "function pretty well now"; some caps appear where the
+game shows no hint; caps too big, ugly, out of place; asked for the key
+editor in the in-game options and for Blacklist (B on PC), map and SMS
+keys. Log: `~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev15_keyboard.log`
+(00:39:57 "menu and driving keys (menu list 575 characters)", lists as
+expected). Changes:
+- Free roam's D-pad is enter/engage (up), world map (left), SMS (right),
+  Blacklist (down) (touch_controls.mm ENTER/MAP/SMS/LIST). Driving defaults
+  now name them and use the PC's keys: Return,I / M,J / T,L / B,K; menu set
+  keeps I/J/K/L. (Return engages while driving, no longer the handbrake.)
+- In-game options: a "Keyboard" button pushes the launcher's key list
+  (`launcher::MakeKeyBindsEditor`); each save writes settings.json and calls
+  `nfsmw_keyboard_reload()` -> `keyboard::Reload(DrivingKeyBinds(),
+  MenuKeyBinds())`, which applies the current set at once (a mutex now guards
+  the lists between the game thread's Service and this).
+- Caps: only hints with a text label (the hint bar's "A Accept" kind), no
+  bare icons; drawn the icon's size (scan half size minus its 5-unit tap
+  margin), dark key cap with a light border and heavy white text.
+Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev16-keyboard.ipa`
+(Desktop; dev15 to Trash), 30512010 bytes, SHA-256
+247adc2def19dfc164ef3cc12491dadb021d69c44dfb69f26f891bd5afd11afd. Not run on
+a device.
+
