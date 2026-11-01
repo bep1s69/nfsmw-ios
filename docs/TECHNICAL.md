@@ -14783,3 +14783,12 @@ relayed, lobby on 10901 direct, ujoi/gjoi COUNT=2, gsta at 18:53:57.858. iPad
 UDP broadcast announcement still fails with EHOSTUNREACH (expected; direct
 announcements succeed). Logs: `Debug/1 November 2026/nfsmw_lan_preview17_auto_test1_*`
 (iPhone server and rotated game log also contain older sessions).
+
+Preview17 device test 1b, simultaneous sign-in (Stefan: pass, “doesn't matter
+in practice which hosts”): iPhone .106 signed in at 18:59:25.375, iPad .112 at
+18:59:26.180. Both UDP scans saw nothing. The iPhone's TCP sweep found nothing
+and it hosted at 18:59:29.790. The iPad's sweep was still running, reached the
+new iPhone lobby on both 30960 and 9900 at 18:59:30.256, classified it as mobile
+(not PC) and joined at 18:59:30.688; one lobby, COUNT=2, gsta 18:59:49.822.
+The overlapping TCP sweep resolved this case before the post-host re-check was
+needed. Logs: `nfsmw_lan_preview17_auto_test1b_simultaneous_*`.
