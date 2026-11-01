@@ -250,6 +250,7 @@ python3 tools/ios/test_lan_setup.py
 python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4>
 python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4> --simulate-broadcast-failure
 python3 tools/ios/test_lan_interface.py
+python3 tools/ios/test_lan_roster.py
 python3 tools/ios/test_pc_gateway.py
 python3 tools/ios/test_pc_udp.py
 ```
@@ -333,7 +334,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-**November 1 current handoff — preview15 reverse gameplay CONFIRMED, Claude next:**
+**November 1 current handoff — preview16 PC guest name FIXED on device, Claude next:**
+Stefan authorized fixing host missing connected-player rows. Preview16 adds
+LAN-only USA room-count synchronization from the actual native slot0 member
+list before the member-change callback forwards room data to the frontend, and
+before the original name lookup. No networking/session/ready flag change.
+Code-supported cause: host create record.C stays1 while +usm adds guests; native
+82545A88 forwards that record unchanged. Exact callback fixture reproduces
+stale count1 with2members and forwards2 after repair. Direct guest indexed-name
+lookup already works; don't claim the name parser itself rejects Guest.
+Stefan tested preview16 during this session and explicitly reports “it works
+now i can see the pc's player name”. PC guest name display FIXED/DEVICE-CONFIRMED
+inpreview16 for this pairing. No newlogs/deviceOS supplied for that confirmation.
+Do not leave it labeled candidate/unvalidated for PC. iOS/Android guest roster
+regressions and guest leave/rejoin/carupdate still need separate device checks.
+
+LATEST IPA:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview16-host-roster.ipa`
+30439031bytes, SHA256
+`f15c4ae4dcb8a6da1b70accac921677d14f08fe0aa6eed03a73df2d0d99c18b4`,
+appUUID90D3671A-2F4C-34FB-A002-3997B0ED8EB4; runtime unchanged.
+Next device tests: iOS/Android guest rows, guest leave/rejoin/car changes and a
+short race regression; PC guest name already confirmed visible.
+If still hidden, collect boot/game/server logs and inspect [lan-roster] count
+repair trace and actual frontend row enumeration/filter, not protocol bytes.
+Original gameplay-ready baseline remains preview15; all previous IPAs preserved.
+Host for PCs remains separate; no mixed mode or release authorization.
+
+**Confirmed preview15 baseline (unchanged by this experiment):**
 Both native PC-host→iOS-join AND iOS-host→native-PC-join now have device-confirmed
 racing, without a PC helper/script/mod. Reverse PC hosting is still a separate
 opt-in **Host for PCs (Experimental)** / host_pc mode, one phone + one PC.
@@ -353,12 +381,12 @@ Validation limits/next work for Claude:
 1. Phone-host→PC-join: finish/results/return-to-room/rematch/endurance still
    UNTESTED. PC-host path already passed long session/finish/return/rematch in
    preview13; preserve that baseline instead of repeating first validation.
-2. Diagnose host missing guest names (iOS/Android/PC guests); server has names,
-   gameplay connects, so distinguish roster UI/identity lookup from network.
+2. Preview16 PC guest name now visible per user. Verify same roster repair for
+   iOS/Android guests and leave/rejoin; avoid reopening first PC-name validation.
 3. Mixed hosting/multiple-PC integration remains deferred, separate PC mode
    retained. Broader vehicles/tracks/mobile regressions before any release.
 
-LATEST IPA (unchanged, no new source/build this evidence-only turn):
+Preview15 confirmed gameplay IPA (preserved):
 `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview15-pc-host-listener.ipa`
 30438761bytes, SHA256
 `c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1`,
@@ -372,8 +400,8 @@ and supplied current3logs without “2”. All6 copied/verified in requested
 `nfsmw_lan_preview15_reverse_gameplay_success_{boot.txt,game.log,server.log}`.
 Old lost clipboard paths remain historical only; no files pending reattachment.
 Exact provenance/sizes/evidence in newest TECHNICAL. Main pre-existing modified
-checkpoint/untracked HANDOFF preserved. All session work is documentation-only
-on local multiplayer; no new IPA, source change, tests, push or release.
+checkpoint/untracked HANDOFF preserved. That evidence-only turn was documentation-only. The current preview16 code/test/build
+experiment is recorded above and in newest TECHNICAL; no push/release.
 
 **Previous preview14 checkpoint context (superseded where noted above):**
 Stefan is low on Codex usage and requests the shared record be ready for Claude.

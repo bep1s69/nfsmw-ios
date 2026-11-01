@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Refresh the host's player count.** Keep the LAN room's displayed count in
+  sync with its parsed member list before refreshing the frontend. The iOS
+  host now shows the PC guest's name, confirmed on device in preview16.
+
 - **Race against a PC guest.** Preview15 now reaches gameplay with iOS hosting
   and the original PC game joining, without extra PC software. Both hosting
   directions have worked on device. Phone-hosted finishes and rematches still

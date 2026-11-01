@@ -14600,3 +14600,83 @@ Claudehandoff currentcheckpoint updated, missingarchiveworkresolved. Initially
 cleanworktree280a07f; thisturn docs/changelog only, no code/newIPA/tests needed.
 Mainpre-existingcheckpointedit/untrackedHANDOFF/sharedSDK/controls preserved;
 alllocalmultiplayer, nopush/merge/tag/releaseauthorized.
+
+
+## November1 preview16 host roster count synchronization candidate
+
+Stefan explicitly requests fixing iOS host not seeing connected player rows.
+Initially clean99564f5 multiplayerworktree. Currentdevice evidence from archived
+nfsmw_lan_preview15_reverse_gameplay_success_game.log: phone TCP10901 receives
++usm S0/I4/Namog/G1002 repeatedly; this is NOT dropped servernames. Existing
+server ucre supplies ownrecord.C1, auto-subscribeshost0 and emits+usm, later
+ujoi/auxi sends guest+usr/+usm but doesn't refreshhostroommetadata.C. Server log
+has allnames; gameplay works. No new user inputs/archives this turn.
+
+Private original image used to resolve +usm8282E988 / +ust8282EE08 dispatch,
+from existing /private/tmp/nfsmw-multiplayer-image-cache/aebdf3c14d1e4e4ed2c130d94bc1a0e97bd6d5bf39bdfdef33c3909c9cc4ba4c.img.
+No proprietary code/image copied into trackedfiles. Generated USA parser confirms
+slot0list24: member changes update real list then callback82545A88; callback's
+r5 roommodel+360 holds native list, ListCount8281BB60 reads list+24. Room record
+atmodel+372, S/capacity+32 (model404), C/count+36 (model408), O/name+16(model388).
+Original callback forwards &record to frontend without syncing C to memberlist.
+Code-supported inference: stalehost.C1 cankeep frontend showing onlyhost despite
+validguestmembership; this has not yet been confirmed by runtime model trace.
+Earlier commentary called the native lookup a first-opponent search: corrected
+by executing original82544A78. It selects host when index0 and guest by index1;
+direct indexed guest lookup succeeds even withC1. Do not record false proof
+that original guest name lookup itself rejectsGuest. Need actualfrontend
+acceptance todeclare symptomfixed.
+
+Implementation new ios/src/multiplayer/game_lan_roster.cpp (USA target only):
+- red_lan guard; original82545A88 before-forward and82544A78 before-lookup sync
+  model.C from actual native memberlist count. Require model/list/nonzeroRoomID,
+  capacity1–4,actual<=capacity; unchangedcount/offline/invalid skip. Bounded12
+  [lan-roster] previous→actual traces. No invented players, stringreplacement,
+  readiness/connectionflags, race/header/car/SDK/backendprotocol modifications.
+- Callback refresh uses same actual memberlist (including real leave counts),
+  then calls original implementation with originalargs. Lookup also covers
+  subsequently stale room replies, runs under existing caller's roster lock
+  when called via825449F0. Hostandguest LAN uses samehook; alreadycorrectcounts
+  unchanged. No independent UI overlay or new setting.
+
+Verification/negative evidence:
+New tools/ios/test_lan_roster.py extracts original generated82544A78 and82545A88
+into private temporary fixture (proprietaryimplementation nevertracked).
+First fixture exit1/SIGABRT at expectednull assertion: wrongassumption about
+index0 selectingopponent, NOT an ASan finding. Actualfunctionreturnedhost;
+corrected testmodels this behavior and tests actualcallback.Cforwarding.
+Final python3 tools/ios/test_lan_roster.py exit0 ASan/UBSan: nativecallbackpasses
+C1withtwo parsedmembers; hook makesactualcallbackpassC2; originalindexedlookup
+returns realGuest; leave2→1, offline, invalidroom/capacity-inconsistentcounts
+unchanged. Stub frontend observes recordC, not full actual UIrendering. This
+proves propagation/guard behavior, not that all screen filters arefixed.
+cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6 exit0 twice
+(initialbuild and finalcomment/testcorrection build); CMake regenerated for
+newUSA source. codesign --verify --deep --strict exit0, unzip -t exit0/noerrors,
+git diff --check clean. No unrelated tests repeated: unchangednetwork/PC/car
+paths retain previous validation. No device test or release claim.
+Buildlogs archived Debug/1November2026/nfsmw-preview16-build.log and
+nfsmw-preview16-build-final.log; test failure retained in this evidence.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview16-host-roster.ipa,30439031bytes,
+SHA256f15c4ae4dcb8a6da1b70accac921677d14f08fe0aa6eed03a73df2d0d99c18b4,
+appUUID90D3671A-2F4C-34FB-A002-3997B0ED8EB4;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preservepreview15confirmed
+bothhostingdirections; no changes to transport or gateway. Next host iOS with
+PC ormobileguest, check row/name/connection/carupdates/leave-rejoin/short race.
+If stillhidden need actualfrontendrowfilter and count traces beforebroaderpatch.
+SharedClaudehandoff current; mainpre-existingcheckpointedit/untrackedHANDOFF,
+sharedSDK andcontrolbuildpreserved. Alllocalmultiplayer, nopush/merge/release.
+
+
+Preview16 same-session acceptance update: while documentation/commit was being
+completed, Stefan tested the readyIPA and reports “it works now i can see the
+pc's player name”. Thus PC guest-name visibility on iOS host DEVICECONFIRMED/
+FIXEDinpreview16 for thispairing; not merely a candidate anymore. No new runtime
+logs, deviceOS, leave/rejoin or iOS/Android roster result supplied. Record this
+as user's visual confirmation, not independently measured modelmemory. This
+supports stale room.C synchronization as effective fix for tested symptom;
+doesn't prove every UI/state edgecase. Preserve16artifact/no extra code/build;
+next iOS/Androidguest andleave/rejoin/shortgamechecks. Currentcheckpoint/backlog/
+changelog updated to supersede candidate/pending language in investigationlog.
