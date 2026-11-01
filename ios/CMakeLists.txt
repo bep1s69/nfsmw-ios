@@ -152,8 +152,8 @@ endif()
 # -----------------------------------------------------------------------------
 #  The app
 # -----------------------------------------------------------------------------
-set(NFSMW_VERSION "0.5.2")
-set(NFSMW_VERSION_CODE "10")
+set(NFSMW_VERSION "0.6.0")
+set(NFSMW_VERSION_CODE "11")
 # The name under the icon: the full title does not fit on the home screen.
 set(NFSMW_DISPLAY_NAME "NFS Most Wanted")
 set(NFSMW_IOS_MIN "${CMAKE_OSX_DEPLOYMENT_TARGET}")

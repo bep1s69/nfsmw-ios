@@ -15338,3 +15338,14 @@ to Trash), 30486668 bytes, SHA-256
 9a9a716c93ef8fa3641ee6f57be68cfe3e01dd722352d4c5410185eef76dd641. Not run on
 a device; the sheet's length with ~36 more rows was not looked at.
 
+
+### November 1: version 0.6.0 (code 11) from the next build
+
+Stefan: bump to 0.6.0 from the next build. `ios/CMakeLists.txt`
+NFSMW_VERSION 0.5.2 -> 0.6.0, NFSMW_VERSION_CODE 10 -> 11 (dev1-dev4 IPAs
+still report 0.5.2). Build timing on Stefan's upgraded Mac (Apple M2 Pro, 12
+cores per sysctl): full 0.6 builds with `-j 6` (913 steps) took about 10 and
+11 minutes (from the launch and IPA file times; not timed precisely). No
+earlier full-build timing is recorded to compare with; `-j 6` dates from the
+older machine and leaves half the cores idle.
+
