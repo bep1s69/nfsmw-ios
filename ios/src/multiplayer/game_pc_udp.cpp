@@ -80,7 +80,8 @@ extern "C" REX_FUNC(sub_8282A4F0) {
 }
 extern "C" REX_FUNC(sub_8282A5A0) {
   const uint32_t buffer = ctx.r4.u32, capacity = ctx.r5.u32, peer = ctx.r7.u32;
-  const bool comm = CommCaller(uint32_t(ctx.lr));
+  const uint32_t caller = uint32_t(ctx.lr), reference = ctx.r31.u32, socket = ctx.r3.u32;
+  const bool comm = CommCaller(caller);
   // This DirtySock API returns only after dequeuing a completed datagram;
   // unlike WSARecvFrom, no pending asynchronous buffer remains at this point.
   __imp__sub_8282A5A0(ctx, base);
@@ -93,8 +94,21 @@ extern "C" REX_FUNC(sub_8282A5A0) {
     // Original PC850A13–3F emits opcode5 with its listener's connection ID.
     // Xbox's connecting CommUDP uses its own ID to match replies at8289CB3C.
     if (command == (nfsmw::pc::Hosting() ? 1u : 5u)) {
+      const bool changed = !nfsmw::pc::HasRaceId(ip) || nfsmw::pc::RaceId(ip) != id;
       nfsmw::pc::ObserveRaceId(ip, id);
-      nfsmw::boot::Trace("[pc-udp] PC connection ID learned");
+      if (changed) nfsmw::boot::Trace("[pc-udp] PC connection ID learned");
+    }
+    // USA8289C4D8 returns into the CommUDP listener selection loop. Its r31
+    // is the current reference: +128 socket, +148 state3/listening, +152 ID.
+    // The first INIT must already carry that ID to pass8289C590/C61C. Waiting
+    // for an outgoing reply to learn it is circular: rejected INITs get none.
+    if (nfsmw::pc::Hosting() && command == 1 && caller == 0x8289C4D8 &&
+        reference && !(reference & 3) && REX_LOAD_U32(reference + 128) == socket &&
+        REX_LOAD_U32(reference + 148) == 3) {
+      const uint32_t localId = REX_LOAD_U32(reference + 152);
+      const bool changed = !nfsmw::pc::HasLocalRaceId(ip) || nfsmw::pc::LocalRaceId(ip) != localId;
+      nfsmw::pc::SetLocalRaceId(ip, localId);
+      if (changed) nfsmw::boot::Trace("[pc-udp] host listener ID captured before INIT matching");
     }
     if (command >= 1 && command <= 5 && nfsmw::pc::HasRaceId(ip) &&
         nfsmw::pc::HasLocalRaceId(ip) && id == nfsmw::pc::RaceId(ip))

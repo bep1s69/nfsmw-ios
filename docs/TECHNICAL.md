@@ -14469,3 +14469,78 @@ unicast queued but PC invisible inspect PC UDP9999 traffic/filter/receiver befor
 protocol changes. After discovery test TCP9900→login→room→peerready→race. Handoff
 updated for Claude, localmultiplayer only; main pre-existing checkpoint edit and
 untrackedHANDOFF preserved, sharedSDK untouched. No push/merge/release.
+
+
+## November1 preview14 DEVICE discovery success, reverse INIT stall; preview15
+
+New supplied paths under /Users/bep1s/Library/Group Containers/
+group.com.apple.coreservices.useractivityd/shared-pasteboard/items/:
+66235DDC-F288-4630-93D9-5D556380C66A/boot.txt (8844bytes,141lines),
+77967B7D-E17B-4BAD-BB68-5B9EE8ED9A76/nfsmw.log (639296bytes,3853lines),
+0BFF9BEB-5A15-435B-8BA7-59205020B2CD/servidor_lan.log (20199bytes,140lines).
+All3read on initial analysis call. Later exactpath reads/copy failed ENOENT:
+archive attempt to requestedDebug/1November2026/nfsmw_lan_preview14_reverse_handshake_*
+exit1 FileNotFoundError before first file copied; later non-escalated attempt to
+save to/private/tmp alsoexit1 sameerror. Do NOT claim rawfiles archived. Fullraw
+preservation PENDING reattach; only observed facts captured in tool result and
+this record survive. Not an approval rejection. Earlier preview13 archives
+remain intact. Do not reconstruct originals from excerpts or invent provenance.
+
+Measured/user evidence:
+- User PC now finds/joins room, then waits indefinitely; phone doesn't show PC
+  name, consistent with separate pre-existing host roster bug. No race started.
+- Phone host_pc192.168.101.106 ready17:15:20.909/22.158. PC192.168.101.163
+  connects9900 at17:16:06.914, authenticates/personaamogus06.987/07.001,
+  usea COUNT1 at09.980, ujoi room036.bep1s COUNT2 at10.001; G1002/playerpresence
+  updates continue20.114. Server output log is canonical pre-recipient PC
+  conversion (PORT10901/XboxMADDR/P192641 in log), NOT proof wrong wireformat.
+- Phone bind3658 at17:16:10.036.10incoming8-byte datagrams10.081–19.710:
+  nativePC INIT1 with little-endian ID4749E364 (wire0100000064E34947).
+  No sendto3658 in supplied game log; boot confirms header conversion and
+  repeated “PC connection ID learned” but no TX. Thus discovery/login/room
+  SUCCESS, handshake blocked before outboundreply; no carrecords/race evidence.
+  User hypothesizes same crossplay issues reversed. Existing header and car
+  hooks already activate for both roles; avoid double conversion.
+
+Cause/inference and code:
+USA generated CommUDP receive at8289C4D8 has r31 current reference, +128socket,
++148state, +152connectionID. Listener state3 selection at8289C590 compares
+receivedINIT1 ID with native listener ID; acceptance repeats matching later.
+Previously reverse hook learned PCID from incoming1, but localID only on an
+outgoingcontrol. A rejected firstINIT generates no reply, so localID never
+becomes known: circular bootstrap. Inference strongly supported by0TX;
+actual native listenerID was not logged, so do not claim measured value0.
+Preview15 exactcaller8289C4D8/Hosting/selectedPC3658/INIT1 scope additionally
+checks nonzeroalignedreference, its socket matches originalreceive socket and
+state3. Captures its actualID (including0), then maps receivedPCID tolocalID
+before returning to original selection. Originalstate/readiness untouched;
+no forcedgreen, fakecar or synthetic successfulconnection. Existing outgoing
+control inverse mapping uses actualPCID. Joinmode path unchanged, DATA ACKs
+untouched, car field-map unchanged. ID-learn trace now emits only on change
+rather than every repeatedINIT; new hostcapturetrace makes device test clear.
+
+Verification:
+python3 tools/ios/test_pc_udp.py exit0 ASan/UBSan: capturedINIT4749E364 arrives
+BEFOREanyTX, exact listenerrefsocket/state sampled, localID0 mapped immediately,
+reply5 inverse mapping; wrongsocket/state/callsite skip sampling; original join,
+zero-ID reverse, DATApayload/ACK, stack/callerbuffer/off/mobile/voice/short/error
+paths remainpassing. This compiles actualhook with boundedguest-memory stubs;
+not a real native handshake or execution of full generated listener loop.
+cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6 exit0;
+codesign --verify --deep --strict builtapp exit0. git diff --check clean.
+Buildlog nfsmw-preview15-build.log archived inDebug/1November2026 (own build log,
+not missing input logs). No sharedSDK/main/controlchanges. No fullsuite rerun
+because only scopedUDP hook changed and its full regression passed.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview15-pc-host-listener.ipa,30438761bytes,
+SHA256c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1,
+appUUID FEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preserve13/14.
+Next samephonehostPCguest, Loggingon: hostlistenerIDcapture, firstTX5/replies,
+ready/room thenrace. If still0TX investigate actualreference state/socket and
+originallistener acceptance; ifreadythenloadfails inspect carfactory/recordlogs
+before moreconversion changes. Mainpre-existing checkpoint edit/HANDOFF remain
+preserved, worktree initiallyclean0bdb70a. Alllocalmultiplayer, nopush/release.
+Claudehandoff currentcheckpoint updated; request newcopies of missing3logs for
+required originalarchive rather than silentlydropping that unfinishedwork.

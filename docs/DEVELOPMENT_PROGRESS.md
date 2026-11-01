@@ -333,7 +333,35 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-**November 1 current handoff — preview14 reverse discovery retry, Claude next:**
+**November 1 current handoff — preview15 listener-ID handshake retry, Claude next:**
+Preview14 DEVICE confirms reverse discovery + PC login/room join now work.
+Phone192.168.101.106, PC192.168.101.163/useramogus; receives10 INIT1 packets
+17:16:10–19 (wire0100000064E34947, peerID4749E364), ZERO outbound3658 packets.
+Existing receive header conversion executes; no race/car records reached.
+Preview15 captures host ID from actual listening CommUDP reference before
+first INIT comparison (exact USA receive caller8289C4D8, r31+128socket match,
++148state3, +152ID). This avoids waiting for a reply that cannot be sent until
+INIT is accepted. Mode/peer/port/callsite scoped; original listener still decides
+readiness. PC-join mapping and shared car serializer remain unchanged. Actual
+hook ASan/UBSan regression tests and build/signing pass; device result pending.
+
+LATEST IPA:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview15-pc-host-listener.ipa`
+30438761bytes, SHA256
+`c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1`,
+appUUID FEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58; runtime unchanged.
+Next: same phone-host PC-join test with Logging on. Need first TX reply, native
+peer acceptance, then race loading. Car conversions already both directions;
+change further fields only if evidence after handshake requires it. Missing
+mobile-host guest names remains separate/open. Previous builds preserved.
+
+**Input archive exception:** the3new clipboard logs were read successfully once,
+then their exact source paths disappeared before archive copy (FileNotFoundError
+both ordinary read and escalated copy). Original raw archive is PENDING reattach,
+not falsely claimed complete. Names/paths/observed findings in newest TECHNICAL.
+Do not confuse earlier archived preview13 logs with these preview14 inputs.
+
+**Previous preview14 checkpoint context (superseded where noted above):**
 Stefan is low on Codex usage and requests the shared record be ready for Claude.
 Continue in `/private/tmp/nfsmw-ios-multiplayer`, local branch `multiplayer`.
 Canonical main checkout remains controls-only with its pre-existing modified
@@ -365,7 +393,7 @@ hotspot /28, caps broad LANs at local /24, excludes own/network/broadcast/VPN/
 cellular, paces sends and logs direct target/success/error counts. No PC helper,
 new entitlement or firewall changes. Host for PCs remains opt-in host_pc with
 one PC guest; mobile Host and PC Join/race code unchanged. Local injected
-EHOSTUNREACH test passes; actual PC acceptance of unicast is DEVICE UNVALIDATED.
+EHOSTUNREACH test passes; subsequent preview14 device test confirms PC discovery/login/room join.
 
 Ready IPA:
 `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview14-pc-direct-discovery.ipa`

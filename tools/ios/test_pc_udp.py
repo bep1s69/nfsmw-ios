@@ -16,7 +16,7 @@ prefix=r'''
 #include <vector>
 #include <cstring>
 struct Reg {union{uint64_t u64=0;int64_t s64;uint32_t u32;int32_t s32;};};
-struct PPCContext{Reg r1,r3,r4,r5,r7,r8;uint64_t lr=0;};
+struct PPCContext{Reg r1,r3,r4,r5,r7,r8,r31;uint64_t lr=0;};
 #define REX_FUNC(n) void n(PPCContext&ctx,uint8_t*base)
 #define REXCVAR_DECLARE(t,n) extern t n
 #define REXCVAR_GET(n) (n)
@@ -100,6 +100,23 @@ int main(){
   sub_8282A5A0(c,base);assert(memcmp(mem+0x2000,packet,result)==0);
  }
  red_lan=true;pc=true;Store32(base,0x104,0xc0a801ca);mem[0x103]=0x4a;
+ // Captured reverse-host failure: PC INIT4749E364 arrives before any TX.
+ // Capture local listener ID from exact original receive callsite immediately.
+ nfsmw::pc::host=true;nfsmw::pc::remoteKnown=false;nfsmw::pc::localKnown=false;
+ packet[0]=1;packet[4]=0x64;packet[5]=0xe3;packet[6]=0x49;packet[7]=0x47;
+ Store32(base,0x3080,0xf8000128);Store32(base,0x3094,3);Store32(base,0x3098,0);
+ c=context();c.lr=0x8289c4d8;c.r31.u64=0x3000;c.r3.u64=0xf8000128;result=8;
+ sub_8282A5A0(c,base);
+ assert(nfsmw::pc::localKnown && nfsmw::pc::localId==0 && nfsmw::pc::remoteId==0x4749e364);
+ assert(Load32(base,0x2000)==1 && Load32(base,0x2004)==0); // original listener match now succeeds
+ Store32(base,0x2000,5);Store32(base,0x2004,0);c=context();result=8;sub_8282A4F0(c,base);
+ assert(sent[4]==0x64 && sent[5]==0xe3 && sent[6]==0x49 && sent[7]==0x47);
+ // Wrong state/socket/callsite must not sample another reference's listener ID.
+ for(int skip=0;skip<3;++skip) {
+  nfsmw::pc::localKnown=false;Store32(base,0x3094,skip==0?4:3);
+  c=context();c.lr=skip==2?0x8289c7b4:0x8289c4d8;c.r31.u64=0x3000;c.r3.u64=skip==1?99:0xf8000128;
+  sub_8282A5A0(c,base);assert(!nfsmw::pc::localKnown && Load32(base,0x2004)==0x4749e364);
+ }
  // Reverse role: original PC initiates with ID zero. Zero is a known ID.
  nfsmw::pc::host=true;nfsmw::pc::remoteKnown=false;nfsmw::pc::localKnown=false;
  packet[0]=1;memset(packet+4,0,4);result=12;c=context();sub_8282A5A0(c,base);

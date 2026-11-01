@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Test the first PC guest handshake.** Read the mobile host's listener ID
+  before matching the first PC request, targeting a room join that receives
+  requests but never replies. Reverse racing still needs device testing.
+
 - **Retry PC discovery when broadcast fails.** Experimental PC hosting now also
   sends lobby announcements directly to nearby LAN devices. Targets the logged
   iOS broadcast failure; discovery on a real PC still needs testing.
