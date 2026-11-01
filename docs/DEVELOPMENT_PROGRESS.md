@@ -334,6 +334,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+**Session closed at Stefan's request (November 1):** Stop development/testing
+now to conserve usage. Resume with Claude only when Stefan returns. Sourcefix
+commit0b6ef8e; localmultiplayer clean at session-close audit; latestIPA hash
+rechecked and matches below. No release/push/merge. Local ignored AGENTS.md and
+CLAUDE.md entrypoints ensured in this worktree, pointing to this record. They
+remain untracked/ignored per project rule; no other session edits left pending.
+Main's pre-existing checkpoint edit/HANDOFF remain deliberately preserved.
+
 **November 1 current handoff — preview16 PC guest name FIXED on device, Claude next:**
 Stefan authorized fixing host missing connected-player rows. Preview16 adds
 LAN-only USA room-count synchronization from the actual native slot0 member
@@ -372,9 +380,9 @@ Preview15 result: phone192.168.101.106, PC192.168.101.163/useramog. Listener ID
 captured17:22:59.210, first RX/TX8bytes sameinstant,21byte exchange59.343/.349.
 Both car factories succeed17:23:18.173/.174 (remote5A784095/localCD88083F).
 State6 in-world17:23:22.204, race traffic until17:23:57.663,569RX/582TX3658,
-zero guestAV. Stefan reports race started and everything went well. Missing PC
-name on phone game-room list remains OPEN, same pre-existing host roster bug;
-PC sees host. Do not reopen fixed discovery/handshake/car loading without
+zero guestAV. Stefan reports race started and everything went well. PC name
+was missing in that preview15 test, subsequently FIXED/confirmed in preview16
+above. PC sees host. Do not reopen fixed discovery/handshake/car loading without
 regression evidence. Do not infer crash or intentional quit merely from log end.
 
 Validation limits/next work for Claude:
