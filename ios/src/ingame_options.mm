@@ -12,11 +12,10 @@
 //     every frame;
 //   - the HUD's size and positions, post-processing: game_scene_size.cpp,
 //     every frame;
-//   - the 30/60 fps cap, 30 fps when warm, 30 fps in menus, 0.75x when hot:
+//   - all four fps caps, 30 fps when warm, 30 fps in menus, 0.75x when hot:
 //     battery.mm (ChooseCap, SettingsChanged).
-// The rest wait for the next launch, and the sheet says so: 40/120 fps (or
-// from them: they change the console's screen refresh and the threads'
-// priorities at launch), MSAA, and what Battery mode sets that is read once
+// Performance profiles also apply live, through performance::Choose.
+// The rest wait for the next launch: MSAA and what Battery mode reads once
 // (anisotropic filtering, shadow quality...). Documents/extra_args.txt is
 // not read here: a setting changed here wins over it until the next launch.
 //
@@ -40,8 +39,11 @@
 #include <rex/logging.h>
 
 #include "battery.h"
+#include "performance_profile.h"
 #include "ingame_options.h"
 #include "launcher.h"
+#include "hud_editor.h"
+#include "touch_controls.h"
 
 extern "C" void NativeSettingsChanged();  // native_renderer.mm
 
@@ -51,9 +53,9 @@ std::atomic<bool> sheet_open{false};
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
 
 NSArray<NSString*>* Keys() {
-  return @[ @"scale", @"metalfx_mode", @"fps_cap", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_scale", @"hud_safe_zone",
-            @"hud_left_x", @"hud_left_y", @"hud_right_x", @"hud_right_y", @"hud_race_x", @"hud_race_y" ];
+  return @[ @"scale", @"metalfx_mode", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
+            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
+            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back" ];
 }
 
 // The settings that only the native renderer has (left out without it).
@@ -72,11 +74,15 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_sin_posprocesado",        "nfsmw_motion_blur",
       "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
       "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
-      "nfsmw_hud_race_y"};
+      "nfsmw_hud_race_y",              "nfsmw_hud_layout",      "ios_touch_steering",
+      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back"};
   return flags;
 }
 
-bool LiveCap(NSString* fps) { return [fps isEqualToString:@"30"] || [fps isEqualToString:@"60"]; }
+bool LiveCap(NSString* fps) {
+  return [fps isEqualToString:@"30"] || [fps isEqualToString:@"40"] ||
+         [fps isEqualToString:@"60"] || [fps isEqualToString:@"120"];
+}
 
 std::pair<std::string, std::string> Split(const std::string& arg) {
   const size_t eq = arg.find('=');
@@ -146,6 +152,34 @@ UIWindow* GameWindow() {
       [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                     target:self
                                                     action:@selector(close)];
+  // The HUD editor (the launcher's Customize HUD), while Custom HUD is on.
+  // And the touch controls' editor (Stefan, Oct 29).
+  self.navigationItem.leftBarButtonItems = @[
+    [[UIBarButtonItem alloc] initWithTitle:@"Customize HUD"
+                                     style:UIBarButtonItemStylePlain
+                                    target:self
+                                    action:@selector(customizeHud)],
+    [[UIBarButtonItem alloc] initWithTitle:@"Touch controls"
+                                     style:UIBarButtonItemStylePlain
+                                    target:self
+                                    action:@selector(customizeTouch)]
+  ];
+  [self updateHudButton];
+}
+
+- (void)updateHudButton {
+  self.navigationItem.leftBarButtonItem.enabled =
+      [nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"];
+}
+
+- (void)customizeTouch {
+  [self presentViewController:nfsmw::touch::MakeLayoutEditor(nfsmw::launcher::SettingValue(_settings, @"touch_steering"))
+                     animated:YES
+                   completion:nil];
+}
+
+- (void)customizeHud {
+  [self presentViewController:nfsmw::hud::MakeEditor(_settings, ^{ [self apply]; }) animated:YES completion:nil];
 }
 
 - (void)close {
@@ -189,7 +223,8 @@ UIWindow* GameWindow() {
   for (const auto& a : then) before.insert(Split(a));
   for (const auto& a : now) {
     const auto [name, value] = Split(a);
-    if (LiveFlags().count(name) || (live_cap && name == "ios_fps_cap")) continue;
+    if (LiveFlags().count(name) || (live_cap && name == "ios_fps_cap") ||
+        name == "nfsmw_performance_mode" || name == "nfsmw_performance_source") continue;
     if (native && name == "swap_post_effect") continue;  // the emulated renderer's FXAA
     if (before[name] != value) return YES;
   }
@@ -216,13 +251,17 @@ UIWindow* GameWindow() {
 
 - (void)set:(NSString*)key to:(NSString*)value {
   _settings[key] = value;
+  if ([key isEqualToString:@"performance_mode"] || [key isEqualToString:@"battery_mode"]) {
+    nfsmw::performance::Choose(std::string(nfsmw::launcher::SettingValue(_settings, @"performance_mode").UTF8String));
+  }
   [self apply];
+  [self updateHudButton];
   [self.tableView reloadData];
   [self showFocus];
 }
 
 - (BOOL)locked:(const nfsmw::launcher::MenuRow&)r {
-  return nfsmw::launcher::SetByBatteryMode(_settings, r.key);
+  return nfsmw::launcher::SetByBatteryMode(_settings, r.key) || nfsmw::launcher::HudLocked(_settings, r.key);
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
@@ -250,7 +289,10 @@ UIWindow* GameWindow() {
   const bool locked = [self locked:r];
   NSString* value = nfsmw::launcher::SettingValue(_settings, r.key);
   c.text = [self waitsForLaunch:r.key] ? [r.title stringByAppendingString:@" · next launch"] : r.title;
-  c.secondaryText = locked ? [@"Set by Battery mode. " stringByAppendingString:r.summary] : r.summary;
+  c.secondaryText = !locked ? r.summary
+                    : nfsmw::launcher::HudLocked(_settings, r.key)
+                        ? [@"Turn on Custom HUD to change. " stringByAppendingString:r.summary]
+                        : [@"Set by Battery mode. " stringByAppendingString:r.summary];
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;

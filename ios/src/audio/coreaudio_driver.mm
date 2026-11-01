@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL_events.h>
 
+#include <rex/cvar.h>
 #include <rex/logging.h>
 #include <rex/system/xmemory.h>
 
@@ -21,6 +22,14 @@
 #include <time.h>
 
 #include "../boot_trace.h"
+
+// The launcher's "Play sound in silent mode" (Audio tab).
+REXCVAR_DEFINE_BOOL(ios_audio_silent_mode, false, "Audio",
+                    "Play the game's sound with the phone's silent switch on (Playback session category)");
+
+REXCVAR_DEFINE_BOOL(ios_audio_mix_others, false, "Audio",
+                    "Keep other apps' music playing alongside the game; takes effect at game launch")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace rex::audio::ios {
 
@@ -76,9 +85,18 @@ void ActivateSessionOnce() {
       const auto start = std::chrono::steady_clock::now();
       AVAudioSession* session = AVAudioSession.sharedInstance;
       NSError* error = nil;
-      // SoloAmbient, the iOS default for games: it respects the silent switch
-      // and stops other apps' audio.
-      [session setCategory:AVAudioSessionCategorySoloAmbient error:&error];
+      const bool silent_mode = REXCVAR_GET(ios_audio_silent_mode);
+      const bool mix = REXCVAR_GET(ios_audio_mix_others);
+      // Ambient mixes while respecting the silent switch. Playback needs the
+      // explicit mixing option when sound-in-silent-mode is enabled.
+      const auto category = silent_mode ? AVAudioSessionCategoryPlayback :
+                            mix ? AVAudioSessionCategoryAmbient : AVAudioSessionCategorySoloAmbient;
+      const AVAudioSessionCategoryOptions options = silent_mode && mix ? AVAudioSessionCategoryOptionMixWithOthers : 0;
+      if (![session setCategory:category withOptions:options error:&error]) {
+        REXLOG_WARN("[coreaudio] audio category failed: {}",error.localizedDescription.UTF8String);
+      }
+      nfsmw::boot::Trace(fmt::format("audio: {} mixing {}",category.UTF8String,mix?"on":"off"));
+      REXLOG_INFO("[coreaudio] category {} mixing requested {}",category.UTF8String,mix);
       [session setPreferredSampleRate:kSampleRate error:nil];
       // ~5 ms per callback, one game block's worth (256 / 48000).
       [session setPreferredIOBufferDuration:256.0 / kSampleRate error:nil];

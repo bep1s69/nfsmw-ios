@@ -37,6 +37,7 @@
 
 #include "display_rate.h"
 #include "lifecycle.h"
+#include "metal_display_pacer.h"
 
 REXCVAR_DEFINE_BOOL(ios_display_match_cap, false, "GPU",
                     "iOS: ask the display for exactly the frame rate cap's refresh rate at 30, 40 "
@@ -49,6 +50,9 @@ REXCVAR_DEFINE_BOOL(ios_display_120_at_60, false, "GPU",
 namespace {
 std::atomic<int> current_cap{60};
 std::atomic<int> asked_hz{60};
+// What was last published to the SDK (frame_clock.cpp reads it).
+std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
+std::atomic<uint64_t> managed_frame_period_ns{0};
 }  // namespace
 
 @interface NFSDisplayRate : NSObject
@@ -58,11 +62,23 @@ std::atomic<int> asked_hz{60};
 @implementation NFSDisplayRate
 - (void)tick:(CADisplayLink*)link {
   nfsmw::lifecycle::OnDisplayTick();
+  nfsmw::metal_pacer::Tick();
   using Publish = void (*)(uint64_t, uint64_t);
   static Publish publish = reinterpret_cast<Publish>(dlsym(RTLD_DEFAULT, "nfsmw_display_vsync"));
   if (publish) {
     const double period = link.targetTimestamp - link.timestamp;
-    if (period > 0) {
+    uint64_t metal_timestamp_ns = 0, metal_period_ns = 0;
+    if (nfsmw::metal_pacer::GuestGrid(metal_timestamp_ns, metal_period_ns)) {
+      // The 40 fps Metal link can make this CADisplayLink report 80 Hz.
+      // 120 / 80 is not an integer: rounding a split publishes 80 or 160
+      // Hz and breaks both the guest vblank lock and even world-frame time.
+      // Keep a virtual 120 Hz grid phase-locked to the managed 40 cadence.
+      managed_frame_period_ns.store(metal_period_ns * 3, std::memory_order_relaxed);
+      published_period_ns.store(metal_period_ns, std::memory_order_relaxed);
+      published_ns.store(metal_timestamp_ns, std::memory_order_release);
+      publish(metal_timestamp_ns, metal_period_ns);
+    } else if (period > 0) {
+      managed_frame_period_ns.store(0, std::memory_order_relaxed);
       // The guest vblank's rate at the 30, 40 and 60 caps: 60, 120 and 60 Hz.
       const int cap = current_cap.load(std::memory_order_relaxed);
       const double guest_hz = cap == 40 ? 120.0 : cap == 30 || cap == 60 ? 60.0 : 0.0;
@@ -72,8 +88,14 @@ std::atomic<int> asked_hz{60};
         // refresh, with twice the period.
         static bool odd = false;
         odd = !odd;
-        if (odd) publish(uint64_t(link.timestamp * 1e9), uint64_t(2.0 * period * 1e9));
+        if (odd) {
+          published_period_ns.store(uint64_t(2.0 * period * 1e9), std::memory_order_relaxed);
+          published_ns.store(uint64_t(link.timestamp * 1e9), std::memory_order_release);
+          publish(uint64_t(link.timestamp * 1e9), uint64_t(2.0 * period * 1e9));
+        }
       } else {
+        published_period_ns.store(uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)), std::memory_order_relaxed);
+        published_ns.store(uint64_t(link.timestamp * 1e9), std::memory_order_release);
         publish(uint64_t(link.timestamp * 1e9), uint64_t(period * 1e9) / uint64_t(std::max(split, 1L)));
       }
     }
@@ -103,20 +125,48 @@ void RequestRateForCap(int fps_cap) {
   const bool high = fps_cap == 40 || fps_cap == 120 || (fps_cap == 60 && REXCVAR_GET(ios_display_120_at_60));
   const bool match = REXCVAR_GET(ios_display_match_cap) && (fps_cap == 30 || fps_cap == 40 || fps_cap == 60);
   const float preferred = match ? float(fps_cap) : high ? 120.0f : 60.0f;
-  current_cap.store(fps_cap);
+  if (current_cap.exchange(fps_cap) != fps_cap) {
+    published_ns.store(0, std::memory_order_release);
+    published_period_ns.store(0, std::memory_order_relaxed);
+    managed_frame_period_ns.store(0, std::memory_order_relaxed);
+    using Publish = void (*)(uint64_t, uint64_t);
+    static Publish clear = reinterpret_cast<Publish>(dlsym(RTLD_DEFAULT, "nfsmw_display_vsync"));
+    if (clear) clear(0, 0);
+    nfsmw::metal_pacer::Tick();
+  }
   asked_hz.store(int(preferred));
   if (!link) {
     target = [[NFSDisplayRate alloc] init];
     link = [CADisplayLink displayLinkWithTarget:target selector:@selector(tick:)];
     [link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   }
+  // The 40 cap: 120 Hz as the minimum too (0.4.2). With 80-120 the frame
+  // trace (IPA127) showed every frame finished on an even 25 ms, but shown
+  // 16.7 / 33.3 ms apart in stretches: the screen at 60 Hz there.
   link.preferredFrameRateRange =
       match ? CAFrameRateRangeMake(preferred, preferred, preferred)
-            : CAFrameRateRangeMake(high ? 80.0f : 30.0f, preferred, preferred);
+            : CAFrameRateRangeMake(fps_cap == 40 ? 120.0f : high ? 80.0f : 30.0f, preferred, preferred);
   REXLOG_INFO("[display] cap {} fps: asking for {:.0f} Hz{} (screen max {} Hz)", fps_cap, preferred,
               match ? ", the cap's rate" : "", int(UIScreen.mainScreen.maximumFramesPerSecond));
 }
 
 bool MatchesCap() { return REXCVAR_GET(ios_display_match_cap); }
+
+uint64_t ManagedFramePeriodNs() {
+  return managed_frame_period_ns.load(std::memory_order_relaxed);
+}
+
+uint32_t TakeManagedMissedSlots(uint32_t maximum) {
+  return nfsmw::metal_pacer::TakeMissedSlots(maximum);
+}
+
+uint64_t ManagedAssignedFrames() {
+  return nfsmw::metal_pacer::AssignedFrames();
+}
+
+void LatestVblank(uint64_t& time_ns, uint64_t& period_ns) {
+  time_ns = published_ns.load(std::memory_order_acquire);
+  period_ns = published_period_ns.load(std::memory_order_relaxed);
+}
 
 }  // namespace nfsmw::display

@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,7 @@
 #include "audio/coreaudio_driver.h"
 #include "battery.h"
 #include "boot_trace.h"
+#include "performance_profile.h"
 #include "launcher.h"
 #include "memory_report.h"
 #include "probe.h"
@@ -184,6 +186,8 @@ void ApplyBatteryExperiment(std::vector<std::string>& args) {
 // cores; an explicit --ios_utility_qos / --ios_utility_qos_guest wins.
 int utility_qos_efficiency_cores = -1;
 const char* utility_qos_source = "default";
+std::string performance_mode = "balanced", performance_source = "default";  // launcher
+bool performance_tablet = false;  // Balanced with 6+ efficiency cores: the original behaviour
 
 void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   int cores = 0;
@@ -191,21 +195,43 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   if (sysctlbyname("hw.perflevel1.physicalcpu", &cores, &size, nullptr, 0) != 0) cores = 0;
   utility_qos_efficiency_cores = cores;
   const bool on = cores >= 6;
-  // Above 60 fps (the 120 cap) the main and GPU command threads need the
+  // Until 0.4.3: above 60 fps (the 120 cap) the main and GPU command threads need the
   // performance cores' headroom: adaptive there (adaptive_qos.cpp), so the cap
   // is still reached while frames have time to spare. With fewer efficiency
   // cores (iPhones, M1 iPads) adaptive at every cap: at 30/40 fps or in light
   // scenes they run on the efficiency cores, and switch back when frames are late.
   // The other guest threads at Utility on every device (since October 22: the
   // iPhone 17 Pro held 60 with it in every run from October 21).
+  // Performance (launcher, since 0.4.3; docs/TECHNICAL.md, Oct 29): "balanced"
+  // adaptive on every device, never Utility while driving (adaptive_qos.cpp;
+  // the iPads' fixed Utility for the main and GPU threads is gone with it);
+  // "max" no Utility QoS for any game or render thread; "eco" (the default
+  // with Battery mode on) every one of them at Utility, no boost.
+  // Balanced with 6+ efficiency cores (the M-series iPads; Stefan, Oct 29):
+  // the original, measured behaviour (main/GPU fixed at Utility below the 120
+  // cap, adaptive with the old rules above it, no driving boost).
   int cap = 60;
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
   }
-  const bool high_cap = cap > 60;
-  const std::pair<const char*, bool> defaults[] = {{"--ios_utility_qos", on && !high_cap},
-                                                   {"--ios_utility_qos_guest", true},
-                                                   {"--ios_adaptive_qos", !on || high_cap}};
+  for (const auto& arg : args) {
+    if (arg.find('=') == std::string::npos) continue;
+    const std::string value = arg.substr(arg.find('=') + 1);
+    if (OptionName(arg) == "--nfsmw_performance_mode") performance_mode = value == "max" || value == "eco" ? value : "balanced";
+    if (OptionName(arg) == "--nfsmw_performance_source") performance_source = value;
+  }
+  const bool max = performance_mode == "max", eco = performance_mode == "eco";
+  performance_tablet = !max && !eco && on;
+  nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")" +
+                     (performance_tablet ? ", tablet profile: 6+ efficiency cores, original behavior" : ""));
+  nfsmw::performance::CaptureOverrides(args, cores);
+  const auto policy = nfsmw::performance::Resolve(eco ? 0 : max ? 2 : 1, cores, cap);
+  const std::pair<const char*, bool> defaults[] = {
+      {"--ios_utility_qos", policy.main_utility},
+      {"--ios_utility_qos_guest", policy.guest_utility},
+      {"--ios_adaptive_qos", policy.adaptive},
+      {"--nfsmw_adaptive_qos_original", policy.original},
+      {"--nfsmw_native_render_utility", policy.render_utility}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });
@@ -219,12 +245,47 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
 
 // Documents/extra_args.txt: one argument per line; blank lines and lines
 // starting with '#' are ignored. Each replaces any argument with the same
-// option name already in `args`.
+// option name already in `args`. UTF-8, or UTF-16 with its byte-order mark
+// (a file passed through the Mac's clipboard/TextEdit came as UTF-16 LE and
+// every argument was ignored, Oct 28).
+void ApplyArgumentLines(NSString* text, std::vector<std::string>& args);
+
 void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
-  std::ifstream in(file);
-  if (!in) {
+  NSData* data = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:file.c_str()]];
+  if (!data) {
     return;
   }
+  NSString* text = nil;
+  const auto* bytes = static_cast<const uint8_t*>(data.bytes);
+  if (data.length >= 2 && ((bytes[0] == 0xFF && bytes[1] == 0xFE) || (bytes[0] == 0xFE && bytes[1] == 0xFF))) {
+    text = [[NSString alloc] initWithData:data encoding:NSUTF16StringEncoding];  // the mark picks the order
+    nfsmw::boot::Trace("extra_args.txt: UTF-16, converted");
+  }
+  if (!text) {
+    text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  }
+  if (!text) {
+    nfsmw::boot::Trace("extra_args.txt: not UTF-8 or UTF-16; ignored");
+    return;
+  }
+  if ([text hasPrefix:@"\uFEFF"]) {
+    text = [text substringFromIndex:1];  // a UTF-8 byte-order mark
+  }
+  ApplyArgumentLines(text, args);
+}
+
+// The launcher's Extra arguments field: the same, separated by spaces (or
+// lines), applied after extra_args.txt.
+void ApplyLauncherArguments(const fs::path& docs, std::vector<std::string>& args) {
+  NSString* text = nfsmw::launcher::ReadSettings(docs)[@"extra_args"];
+  if (!text.length) return;
+  NSArray<NSString*>* words =
+      [text componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+  ApplyArgumentLines([words componentsJoinedByString:@"\n"], args);
+}
+
+void ApplyArgumentLines(NSString* text, std::vector<std::string>& args) {
+  std::istringstream in(text.UTF8String);
   std::string line;
   while (std::getline(in, line)) {
     const auto a = line.find_first_not_of(" \t");
@@ -266,9 +327,6 @@ void ApplyExtraArguments(const fs::path& file, std::vector<std::string>& args) {
 // from GetWindowedAppCreator(), as on desktop.
 int RunGame(int argc, char* argv[], const fs::path& docs) {
   namespace boot = nfsmw::boot;
-  // The audio session, activated off the game's threads while the rest starts
-  // (coreaudio_driver.mm: setActive can block).
-  rex::audio::ios::PrepareAudioSession();
   boot::Trace("game: parsing the arguments");
   std::vector<std::string> experiment_args(argv, argv + argc);
   ApplyBatteryExperiment(experiment_args);
@@ -278,7 +336,12 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   experiment_argv.push_back(nullptr);
   auto leftovers = rex::cvar::Init(int(experiment_args.size()), experiment_argv.data());
   rex::cvar::ApplyEnvironment();
+  // The audio session, activated off the game's threads while the rest starts
+  // (coreaudio_driver.mm: setActive can block). After the arguments: its
+  // category follows ios_audio_silent_mode.
+  rex::audio::ios::PrepareAudioSession();
   rex::InitLoggingEarly();
+  nfsmw::performance::Initialize();
   // Before OnInitialize, which loads MoltenVK: it reads its settings from the
   // environment when it starts.
   setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", REXCVAR_GET(ios_async_submits) ? "0" : "1", 1);
@@ -302,6 +365,11 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
+  REXLOG_INFO("[performance] {} ({}): {}", performance_mode, performance_source,
+              performance_mode == "max"   ? "no Utility QoS for any game or render thread"
+              : performance_mode == "eco" ? "every game and render thread at Utility QoS, no boost"
+              : performance_tablet        ? "tablet profile: 6+ efficiency cores, original behavior"
+                                          : "Utility only outside driving (adaptive QoS), boosted while driving");
   REXLOG_INFO("[utility-qos] {} efficiency cores; main/GPU threads {}, other guest threads {}, adaptive {} ({})",
               utility_qos_efficiency_cores, rex::cvar::Query<bool>("ios_utility_qos") ? "on" : "off",
               rex::cvar::Query<bool>("ios_utility_qos_guest") ? "on" : "off",
@@ -410,6 +478,7 @@ int main(int argc, char* argv[]) {
       boot::Trace("setting: " + a);
     }
     ApplyExtraArguments(docs / "extra_args.txt", texts);
+    ApplyLauncherArguments(docs, texts);
     // The Logging switch off: no more boot trace either.
     if (std::find(texts.begin(), texts.end(), std::string("--log_level=off")) != texts.end()) {
       boot::Trace("logging off");

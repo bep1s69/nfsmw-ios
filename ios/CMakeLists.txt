@@ -142,8 +142,8 @@ endif()
 # -----------------------------------------------------------------------------
 #  The app
 # -----------------------------------------------------------------------------
-set(NFSMW_VERSION "0.3.0")
-set(NFSMW_VERSION_CODE "3")
+set(NFSMW_VERSION "0.5.2")
+set(NFSMW_VERSION_CODE "10")
 # The name under the icon: the full title does not fit on the home screen.
 set(NFSMW_DISPLAY_NAME "NFS Most Wanted")
 set(NFSMW_IOS_MIN "${CMAKE_OSX_DEPLOYMENT_TARGET}")
@@ -154,6 +154,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
 add_executable(nfsmw MACOSX_BUNDLE
     src/ios_main.mm
     src/launcher.mm
+    src/hud_editor.mm
     src/save_manager.mm
     src/save_import.cpp
     src/save_convert.cpp
@@ -265,7 +266,7 @@ if(NFSMW_WITH_GAME)
             message(FATAL_ERROR "NFSMW: the generated code lacks the record pool edits "
                 "(${_pool}). Run: python3 tools/ios/patch_game_pool.py")
         endif()
-        target_sources(nfsmw PRIVATE src/game_pool.cpp)
+        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp)
         message(STATUS "NFSMW: ${_pool}")
         # Extra Options features (src/game_extra_options.cpp), with their edits
         # to the generated code (tools/ios/patch_game_extra_options.py).
@@ -278,7 +279,7 @@ if(NFSMW_WITH_GAME)
                 "(${_extra}). Run: python3 tools/ios/patch_game_extra_options.py")
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
-            src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/native_draw_census.cpp
+            src/game_scene_size.cpp src/game_state.cpp src/game_job_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp
             src/native_metal_probe.mm src/native_renderer.mm)
 # Line tables for the native renderer (no code change): Time Profiler samples
 # from a device trace map to source lines (dsymutil the app's NFSMW).
@@ -319,6 +320,7 @@ set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -g
         src/gpu_capture.mm
         src/ingame_options.mm
         src/display_rate.mm
+        src/metal_display_pacer.mm
         src/lifecycle.mm
         src/memory_report.mm
         src/touch_controls.mm

@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "hud_editor.h"
 #include "touch_controls.h"
 #include "save_manager.h"
 #include <dlfcn.h>
@@ -80,37 +81,6 @@ std::vector<Choice> Percent(NSString* game) {
   for (int i = 0; i <= 100; i += 10) {
     NSString* v = [NSString stringWithFormat:@"%d", i];
     c.push_back({[v isEqualToString:game] ? [v stringByAppendingString:@" (game)"] : v, v});
-  }
-  return c;
-}
-
-// The HUD's size, 70% to 130%.
-std::vector<Choice> HudSizes() {
-  std::vector<Choice> c;
-  for (int i = 70; i <= 130; i += 5) {
-    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
-    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
-  }
-  return c;
-}
-
-// The HUD's safe zone, 80% to 110% by 2.
-std::vector<Choice> HudSafeZones() {
-  std::vector<Choice> c;
-  for (int i = 80; i <= 110; i += 2) {
-    NSString* v = [NSString stringWithFormat:@"%.2f", i / 100.0];
-    c.push_back({i == 100 ? @"100% (game)" : [NSString stringWithFormat:@"%d%%", i], v});
-  }
-  return c;
-}
-
-// A HUD side moved, in HUD units (640 across at 4:3): -160 to 160 by 10,
-// with arrows (less: left or up).
-std::vector<Choice> HudOffsets(NSString* less, NSString* more) {
-  std::vector<Choice> c;
-  for (int i = -160; i <= 160; i += 10) {
-    NSString* v = [NSString stringWithFormat:@"%d", i];
-    c.push_back({i == 0 ? @"0 (game)" : [NSString stringWithFormat:@"%@ %d", i < 0 ? less : more, abs(i)], v});
   }
   return c;
 }
@@ -297,6 +267,17 @@ NSString* ScaleSummary() {
       px.height, px.height / 720.0];
 }
 
+bool SupportsHighFrameRates() {
+  // Screen capability, not its temporary refresh rate under Low Power Mode.
+  return UIScreen.mainScreen.maximumFramesPerSecond >= 120;
+}
+
+std::vector<Choice> FrameRateChoices() {
+  if (SupportsHighFrameRates()) return {{@"30", @"30"}, {@"40", @"40"},
+                                       {@"60", @"60"}, {@"120", @"120"}};
+  return {{@"30", @"30"}, {@"60", @"60"}};
+}
+
 const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
       {@"Saves", nil,
@@ -454,7 +435,8 @@ const std::vector<Section>& Sections() {
             ScaleSummary(),
             @"1",
             {{@"0.85x · 612p", @"0.85"}, {@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
-             {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"}, {NativeScaleTitle(), @"native"}}},
+             {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"},
+             {NativeScaleTitle(), @"native"}}},
            {@"metalfx_mode", Type::kChoice, @"MetalFX",
             @"Native renderer: Apple's MetalFX builds each frame from several, with the game's "
             @"motion: finer detail (thin, distant things stay whole) and anti-aliasing of its "
@@ -465,19 +447,17 @@ const std::vector<Section>& Sections() {
             {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
              {@"Anti-aliasing only", @"drawn"}}},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
-            @"30 saves battery and heat. 60 is the game's own. 40 and 120 are experimental: "
-            @"they run the console's screen refresh at 120 Hz, which the game was not made "
-            @"for, so some things may run too fast.",
-            @"60",
-            {{@"30", @"30"}, {@"40 (experimental)", @"40"}, {@"60", @"60"},
-             {@"120 (experimental)", @"120"}}},
+            @"30 saves battery and heat. Higher caps make motion smoother when the game "
+            @"can keep up. 40 and 120 are available on 120 Hz displays. With Battery mode: "
+            @"30 or 40 (60 and 120 become 30).",
+            @"60", FrameRateChoices()},
            {@"auto_cap", Type::kSwitch, @"30 fps when warm or on Low Power",
-            @"At the 60 cap: 30 fps while Low Power Mode is on or the phone is warm, back to 60 "
+            @"At the 40 and 60 caps: 30 fps while Low Power Mode is on or the phone is warm, back "
             @"once it is off and cool again.",
             @"false"},
            {@"menu_cap", Type::kSwitch, @"30 fps in menus and pause",
-            @"At the 60 cap: 30 fps in menus, pause screens and loading, which redraw much the "
-            @"same picture; 60 again as soon as driving starts.",
+            @"At the 40 and 60 caps: 30 fps in menus, pause screens and loading, which redraw much "
+            @"the same picture; back as soon as driving starts.",
             @"false"},
            {@"heat_scale", Type::kSwitch, @"0.75x when hot",
             @"Native renderer: the render resolution drops to 0.75x while the phone is hot (iOS "
@@ -485,39 +465,33 @@ const std::vector<Section>& Sections() {
             @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
-            @"marked \"Set by Battery mode\" (0.85x, 30 fps, no MetalFX, FXAA, half-size shadows, car "
+            @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
             @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
-            @"menus and pause, 0.75x when hot). Each can also be chosen on its own with Battery "
-            @"mode off.",
+            @"menus and pause, 0.75x when hot) and keeps the frame rate cap at 30 or 40 (60 and 120 "
+            @"become 30). Each can also be chosen on its own with Battery mode off.",
             @"false"},
+           {@"performance_mode", Type::kChoice, @"Performance",
+            @"Which CPU cores the game's threads ask for. Eco: the efficient ones always (the "
+            @"default with Battery mode on), for battery life over smoothness. Balanced: the "
+            @"efficient ones in menus and loading, the fast ones while driving (iPads with 6 or "
+            @"more efficient cores keep their original, tested setting). Max: always the "
+            @"fast ones, for the steadiest frame rate. Sound and the screen's timing keep their "
+            @"own priority in every mode. iOS takes this as a hint, not a fixed choice of cores.",
+            @"balanced",
+            {{@"Eco", @"eco"}, {@"Balanced", @"balanced"}, {@"Max", @"max"}}},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
        }, kTabGraphics},
       {@"HUD", @"Also in the options while playing (the gear in pause screens, or L3+R3), where "
                @"they apply at once: the HUD shows them as soon as driving starts again.",
        {
-           {@"hud_scale", Type::kChoice, @"HUD size",
-            @"The size of the speedometer, minimap and the rest of the race HUD (the mirror "
-            @"too). Each keeps its place. Menus keep their size.",
-            @"1.00", HudSizes()},
-           {@"hud_safe_zone", Type::kChoice, @"HUD safe zone",
-            @"How far out toward the screen's edges the HUD's pieces sit. Lower: further in "
-            @"from the edges.",
-            @"1.00", HudSafeZones()},
-           {@"hud_left_x", Type::kChoice, @"Minimap: left / right",
-            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"←", @"→")},
-           {@"hud_left_y", Type::kChoice, @"Minimap: up / down",
-            @"Moves the minimap and the heat meter beside it.", @"0", HudOffsets(@"↑", @"↓")},
-           {@"hud_right_x", Type::kChoice, @"Speedometer: left / right",
-            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
-            HudOffsets(@"←", @"→")},
-           {@"hud_right_y", Type::kChoice, @"Speedometer: up / down",
-            @"Moves the speedometer and the nitrous and speedbreaker meters around it.", @"0",
-            HudOffsets(@"↑", @"↓")},
-           {@"hud_race_x", Type::kChoice, @"Race info: left / right",
-            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"←", @"→")},
-           {@"hud_race_y", Type::kChoice, @"Race info: up / down",
-            @"Moves the race standings, laps and times at the top right.", @"0", HudOffsets(@"↑", @"↓")},
+           {@"hud_custom", Type::kSwitch, @"Custom HUD",
+            @"Off: the game's own HUD size and layout. On: the layout from Customize HUD applies.",
+            @"false"},
+           {@"hud_editor", Type::kLink, @"Customize HUD",
+            @"Move each part of the HUD by hand, change its size, and set the HUD's overall size and "
+            @"safe zone. Race / free roam and pursuit each have a tab.",
+            @""},
        }, kTabGraphics},
       {@"Graphics", nil,
        {
@@ -581,6 +555,30 @@ const std::vector<Section>& Sections() {
             @"Move and resize the on-screen buttons and sticks (both the Pad and the Drive "
             @"layouts), and set their size and opacity.",
             @""},
+           {@"touch_steering", Type::kChoice, @"Steering",
+            @"Drive layout. Dynamic: a joystick comes up wherever your thumb lands in the bottom-left "
+            @"quarter of the screen and fades out when you lift it. Fixed: the steering circle stays "
+            @"in its place. Buttons: one button for left, one for right.",
+            @"dynamic",
+            {{@"Dynamic joystick", @"dynamic"}, {@"Fixed joystick", @"fixed"}, {@"Two buttons", @"buttons"}}},
+           {@"touch_idle_opacity", Type::kChoice, @"Dim when not touched",
+            @"Drive layout: after 3 seconds without a touch the controls fade to this share of their "
+            @"opacity, so they hide less of the road. Any touch brings them back.",
+            @"0.35",
+            {{@"Off", @"1"}, {@"Half", @"0.5"}, {@"Low", @"0.35"}, {@"Very low", @"0.2"}}},
+           {@"touch_menu_gestures", Type::kSwitch, @"Swipe and tap in menus",
+            @"With layouts switching by themselves: no buttons in menus and pause screens. Swipe to "
+            @"move (the left stick that way), tap to accept (A), tap with two fingers to go back (B). "
+            @"The PAD button brings the full gamepad back for that menu.",
+            @"true"},
+           {@"touch_menu_empty_accept", Type::kSwitch, @"Tap and swipe anywhere",
+            @"Tap empty space to accept (A) and swipe anywhere to navigate. Turn off to tap "
+            @"visible controls and start swipes only inside recognised scrollable areas.", @"false"},
+           {@"touch_menu_two_finger_back", Type::kSwitch, @"Two-finger tap to go back",
+            @"Tap with two fingers in menus to press Back (B). Independent of tap and swipe anywhere.", @"true"},
+           {@"touch_menu_invert", Type::kSwitch, @"Invert menu swipes",
+            @"Reverse the direction used to navigate menus. Off keeps the current direction. "
+            @"World-map cursor dragging is unchanged.", @"false"},
            {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
             @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
             @"DRIVE/PAD button still switches by hand.",
@@ -600,6 +598,13 @@ const std::vector<Section>& Sections() {
        }, kTabControls},
       {@"Audio", nil,
        {
+           {@"audio_silent_mode", Type::kSwitch, @"Play sound in silent mode",
+            @"Off: the game is quiet when the phone's silent switch is on, like most iOS games. "
+            @"On: the game's sound plays anyway.",
+            @"false"},
+           {@"audio_mix_others", Type::kSwitch, @"Keep other music playing",
+            @"Let music from another app continue alongside the game. You can lower the game's "
+            @"music volume separately in its audio settings. Applies when launching the game.", @"false"},
            {@"audio_starve_reset", Type::kSwitch, @"Audio stream reset",
             @"When a sound stream runs out of data, drop what it had decoded but not yet played "
             @"(Xenia Canary's fix for stale sounds in NFS). Leave it on: off, music cuts out. "
@@ -608,12 +613,6 @@ const std::vector<Section>& Sections() {
        }, kTabAudio},
       {@"Performance", @"To test what each thing costs on your device. The defaults are the recommended ones.",
        {
-           // A new key (was sim_120, on by default in IPA94-100): a value saved
-           // under the old one does not carry over.
-           {@"sim_120_hz", Type::kSwitch, @"120 Hz simulation",
-            @"The game moves its world 60 times a second. On, 120 times at any frame rate "
-            @"(always on with the 120 fps cap). It did not remove the judder at 60 fps.",
-            @"false"},
            {@"iso_stream", Type::kSwitch, @"Read the ISO in pieces",
             @"Reads the disc image as the game needs it instead of mapping all 7.8 GB into "
             @"memory. Used automatically when mapping fails (devices with less address space); "
@@ -680,6 +679,10 @@ const std::vector<Section>& Sections() {
             @"Native renderer, with \"0.75x when hot\" on (or Battery mode): acts as if the phone "
             @"were hot for 30 s of every minute, to see the resolution switch. The log says when.",
             @"false"},
+           {@"extra_args", Type::kText, @"Extra arguments",
+            @"Options for testing, passed to the game at launch, separated by spaces, e.g. "
+            @"--nfsmw_hud_watch=true. They win over these settings and Documents/extra_args.txt.",
+            @""},
        }, kTabAdvanced},
   };
   return sections;
@@ -727,6 +730,9 @@ NSMutableDictionary<NSString*, NSString*>* LoadSettings(const fs::path& docs) {
       }
     }
   }
+  // Retire temporary stress selections saved by the 0.5.1 test builds.
+  if (s[@"scale"] && ![s[@"scale"] isEqualToString:@"native"] &&
+      [s[@"scale"] doubleValue] > 2.0) s[@"scale"] = @"1";
   return s;
 }
 
@@ -745,7 +751,6 @@ bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"scale" : @"0.85",
-    @"fps_cap" : @"30",
     @"metalfx_mode" : @"off",
     @"antialiasing" : @"fxaa",
     @"anisotropic" : @"3",
@@ -763,12 +768,46 @@ NSString* BatteryValue(NSString* key) {
   return values[key];
 }
 
+// The HUD settings that Custom HUD switches on (0.4.2, Stefan: a master
+// switch, so a player who never touches them gets the game's own HUD), with
+// the game's values used while it is off.
+NSString* HudDefault(NSString* key) {
+  static NSDictionary<NSString*, NSString*>* values = @{
+    @"hud_scale" : @"1.00",
+    @"hud_safe_zone" : @"1.00",
+    @"hud_left_x" : @"0",
+    @"hud_left_y" : @"0",
+    @"hud_right_x" : @"0",
+    @"hud_right_y" : @"0",
+    @"hud_race_x" : @"0",
+    @"hud_race_y" : @"0",
+    @"hud_layout" : @"",
+  };
+  return values[key];
+}
+
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
+  if (NSString* game = HudDefault(key); game && ![s[@"hud_custom"] isEqualToString:@"true"]) {
+    return game;
+  }
   if (NSString* forced = BatteryValue(key);
       forced && [s[@"battery_mode"] isEqualToString:@"true"] && On(s, @"native_renderer")) {
     return forced;
   }
   NSString* v = s[key];
+  if ([key isEqualToString:@"fps_cap"] && !SupportsHighFrameRates() &&
+      ([v isEqualToString:@"40"] || [v isEqualToString:@"120"])) v = @"60";
+  if (!v.length && HudDefault(key)) return HudDefault(key);  // no row of its own (the HUD editor's)
+  // Battery mode keeps the cap at 30 or 40, as chosen (Stefan, Oct 28; it
+  // forced 30 before 0.4.2): 60 and 120 become 30.
+  if ([key isEqualToString:@"fps_cap"] && [s[@"battery_mode"] isEqualToString:@"true"] &&
+      On(s, @"native_renderer") && !([v isEqualToString:@"30"] || [v isEqualToString:@"40"])) {
+    return @"30";
+  }
+  // Performance: Eco by default with Battery mode on; a choice made wins.
+  if (!v && [key isEqualToString:@"performance_mode"] && [s[@"battery_mode"] isEqualToString:@"true"]) {
+    return @"eco";
+  }
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
     if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
     if ([v isEqualToString:@"1560x720"]) return @"wide";
@@ -829,8 +868,12 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_speeding_limit=" + str(@"speeding_limit"));
   a.push_back("--nfsmw_excessive_speeding_limit=" + str(@"excessive_speeding_limit"));
   a.push_back("--nfsmw_reckless_driving_limit=" + str(@"reckless_driving_limit"));
-  const bool sim_120 = On(s, @"sim_120_hz") || [Value(s, @"fps_cap") isEqualToString:@"120"];
-  a.push_back(std::string("--nfsmw_sim_rate=") + (sim_120 ? "120" : "60"));
+  // 120 Hz simulation at every cap (0.4.3; its Advanced switch removed). At
+  // 40 a 25 ms frame is 1.5 of the game's 1/60 s world steps (frames
+  // alternated 1 and 2 steps, camera log, Oct 28). At 60 the first ~15 s of
+  // a pursuit moved the world on 2 of 3 frames, which 120 Hz removes (iPad
+  // camera logs, Oct 29). --nfsmw_sim_rate=60 in Extra Args for tests.
+  a.push_back("--nfsmw_sim_rate=120");
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).
   NSString* scale = Value(s, @"scale");
@@ -857,17 +900,26 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_wide_scene_width=1560");
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
+  a.push_back("--nfsmw_performance_mode=" + str(@"performance_mode"));
+  a.push_back(std::string("--nfsmw_performance_source=") +
+              (s[@"performance_mode"].length ? "setting"
+               : [s[@"battery_mode"] isEqualToString:@"true"] ? "battery_mode"
+                                                              : "default"));
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
-  a.push_back("--nfsmw_hud_left_x=" + str(@"hud_left_x"));
-  a.push_back("--nfsmw_hud_left_y=" + str(@"hud_left_y"));
-  a.push_back("--nfsmw_hud_right_x=" + str(@"hud_right_x"));
-  a.push_back("--nfsmw_hud_right_y=" + str(@"hud_right_y"));
-  a.push_back("--nfsmw_hud_race_x=" + str(@"hud_race_x"));
-  a.push_back("--nfsmw_hud_race_y=" + str(@"hud_race_y"));
+  // The HUD editor's layout (it replaced the per-side offsets of 0.4.2).
+  // Never empty: "--nfsmw_hud_layout=" took the next argument as its value
+  // (IPA158 log, Custom HUD off: "[hud] layout: --ios_gpu_capture=false").
+  a.push_back("--nfsmw_hud_layout=" + (str(@"hud_layout").empty() ? std::string("none") : str(@"hud_layout")));
   a.push_back("--ios_gpu_capture=" + b(On(s, @"gpu_capture")));
   a.push_back("--ios_touch_controls=" + b(On(s, @"touch_controls")));
   a.push_back("--ios_touch_auto_layout=" + b(On(s, @"touch_auto_layout")));
+  a.push_back("--ios_touch_steering=" + str(@"touch_steering"));
+  a.push_back("--ios_touch_menu_gestures=" + b(On(s, @"touch_menu_gestures")));
+  a.push_back("--ios_touch_menu_empty_accept=" + b(On(s, @"touch_menu_empty_accept")));
+  a.push_back("--ios_touch_menu_two_finger_back=" + b(On(s, @"touch_menu_two_finger_back")));
+  a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
+  a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
@@ -924,6 +976,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
+  a.push_back("--ios_audio_mix_others=" + b(On(s, @"audio_mix_others")));
+  a.push_back("--ios_audio_silent_mode=" + b(On(s, @"audio_silent_mode")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
   // No Vulkan at all when the native renderer draws everything
   // (tools/ios/patch_ios_native_backend.py).
@@ -1541,7 +1595,7 @@ NSString* AchievementSummary(const Achievements& a) {
     NSString* f = [self sectionAt:section].footer ?: @"";
     return [f stringByAppendingString:
                   @"Documents/extra_args.txt, if present, is applied after these settings "
-                  @"and wins."];
+                  @"and wins; Extra arguments after both."];
   }
   return [self sectionAt:section].footer;
 }
@@ -1603,10 +1657,13 @@ NSString* AchievementSummary(const Achievements& a) {
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
   const bool battery_locked = native && On(_settings, @"battery_mode") && BatteryValue(o.key);
+  const bool hud_locked = (HudDefault(o.key) || [o.key isEqualToString:@"hud_editor"]) && !On(_settings, @"hud_custom");
   const bool inactive =
-      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked;
+      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked || hud_locked;
   c.text = o.title;
-  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary] : o.summary;
+  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary]
+                    : hud_locked   ? [@"Turn on Custom HUD to change. " stringByAppendingString:o.summary]
+                                   : o.summary;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   NSString* key = o.key;
   NSString* value = Value(_settings, key);
@@ -1631,7 +1688,8 @@ NSString* AchievementSummary(const Achievements& a) {
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
             // The native renderer greys other settings out (or back in).
-            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"]) {
+            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"] ||
+                [key isEqualToString:@"hud_custom"]) {
               [self.tableView reloadData];
             }
           }]
@@ -1669,13 +1727,17 @@ NSString* AchievementSummary(const Achievements& a) {
     }
     case Type::kLink: {
       cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-      cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+      cell.selectionStyle = inactive ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
+      cell.contentView.alpha = inactive ? 0.45 : 1.0;
       break;
     }
     case Type::kText: {
-      UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 170, 34)];
+      const bool args = [key isEqualToString:@"extra_args"];
+      UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, args ? 230 : 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
-      field.placeholder = @"User";
+      field.placeholder = args ? @"--option=value" : @"User";
+      field.font = args ? [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular] : field.font;
+      field.smartDashesType = UITextSmartDashesTypeNo;
       field.text = value;
       field.autocorrectionType = UITextAutocorrectionTypeNo;
       field.autocapitalizationType = UITextAutocapitalizationTypeNone;
@@ -1684,8 +1746,8 @@ NSString* AchievementSummary(const Achievements& a) {
       field.returnKeyType = UIReturnKeyDone;
       field.delegate = self;
       [field addAction:[UIAction actionWithHandler:^(UIAction*) {
-               // Saved as typed, but only while it is valid for Xbox 360.
-               const bool valid = GamertagValid(field.text);
+               // Saved as typed, but a gamertag only while it is valid for Xbox 360.
+               const bool valid = args || GamertagValid(field.text);
                field.textColor = valid ? UIColor.labelColor : UIColor.systemRedColor;
                if (valid) {
                  [self set:key to:field.text];
@@ -1723,8 +1785,18 @@ NSString* AchievementSummary(const Achievements& a) {
       [self.navigationController pushViewController:nfsmw::saves::MakeSaveManager(_docs) animated:YES];
       return;
     }
+    if (o.type == Type::kLink && [o.key isEqualToString:@"hud_editor"]) {
+      if (!On(_settings, @"hud_custom")) return;  // greyed out
+      [self presentViewController:nfsmw::hud::MakeEditor(_settings,
+                                                          ^{
+                                                            SaveSettings(self->_docs, self->_settings);
+                                                          })
+                         animated:YES
+                       completion:nil];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"touch_layout"]) {
-      [self presentViewController:nfsmw::touch::MakeLayoutEditor() animated:YES completion:nil];
+      [self presentViewController:nfsmw::touch::MakeLayoutEditor(Value(_settings, @"touch_steering")) animated:YES completion:nil];
       return;
     }
     if (o.type == Type::kLink && [o.key isEqualToString:@"keyboard_bindings"]) {
@@ -1861,6 +1933,10 @@ NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* k
 
 bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
   return On(settings, @"native_renderer") && On(settings, @"battery_mode") && BatteryValue(key);
+}
+
+bool HudLocked(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
+  return HudDefault(key) && !On(settings, @"hud_custom");
 }
 
 std::vector<std::string> ArgumentsFor(NSDictionary<NSString*, NSString*>* settings) { return Arguments(settings); }

@@ -7143,3 +7143,5327 @@ IPA107 result (Stefan, iPad, Oct 27): "I think it worked": My Cars offers 89
 cars, as the PC save should (the name refers to My Cars, including the
 temporary 350 cars such as the helicopter). The one career car matches the PC
 save. No log sent.
+
+## October 27, 2026: PC save import (into 0.4.0)
+
+Developed on `dev-0.5` (full record there, in TECHNICAL: "PC vs Xbox 360
+saves", "IPA105 PC save import", "IPA105 crash ...", "IPA106 result ...")
+and brought here on Stefan's approval once it worked.
+
+`ios/src/save_convert.cpp` converts a PC v1.3 save (63,596 bytes, `20CM`) to
+the Xbox 360 layout (62,688 bytes, `MC02`, version 0x10D): every 2- and
+4-byte value byte-swapped field by field, Lua table flag bits reordered,
+0xCD fillers to 0xAA, header CRC32s and MD5s recomputed. The map follows the
+Xbox loader's read order (sub_822C3A60 -> sub_822C2998 -> sub_822C2D30):
+gameplay section 0x34-0x4034, cash and settings, profile id, race count and
+300 records (0x42AD), unlock bytes, 63x12 words, alias, 30 records at
+0x5A51, FEPlayerCarDB (PC 0x5BC5 / Xbox 0x5BCD, 36,040 bytes), then a byte,
+3032 bytes of career stats and the current car of 11 modes. Taken from a
+career on the device (the template): the header prelude, the check word at
+0x5A2D (the loader refuses a value that differs from the game's), the
+options block (132 bytes on PC, 140 on the Xbox) and the end of the tail.
+Field map source: sprintstate/nfs-mw-save-editor (GPL-3.0), the dbalatoni13
+nfsmw decompilation (CC0), the generated code.
+
+Failed attempts kept: IPA105 crashed on load (race count left
+little-endian: the loader's signed clamp let a negative count overrun a
+stack buffer); IPA106 loaded but crashed after My Cars (template car handles
+left in the 11 current-car slots). IPA107 (dev-0.5): works, Stefan on the
+iPad: My Cars shows the save's 89 cars, career, racing and saving work.
+Logs: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa105_pc_save_crash_ipad.log`,
+`nfsmw_ipa106_pc_save_missing_cars_crash_ipad.log`.
+
+Import (`ios/src/save_manager.mm`): files starting `20CM` count as saves and
+are converted with the first local career as template; none on the device
+gives a message. Import failures now say why.
+
+IPA108 (`ios/build/NFSMW-pc-save-import-108.ipa`, branch `frame-pacing-60`,
+30093277 bytes, SHA256 prefix 165a17bfde4427f6, UUID
+79034B76-F201-3BD9-80B8-2B1DBF5257AC, `unzip -t` ok), build exit 0: IPA103
+plus PC save import; the binary has the import message and none of the 0.5
+Extra Options cvars (`strings`). Not run on a device yet.
+
+## October 27, 2026: 0.4.0 release build
+
+Stefan approved (Oct 27) RELEASING steps 1-4; he publishes the GitHub
+release himself. Version 0.4.0, code 4 (`ios/CMakeLists.txt`), CHANGELOG
+"Unreleased" became 0.4.0, README version line.
+- SDK `prepare_sdk.py --status` exit 0. Reported partial blocks, the same
+  SDK tree as the tested IPA103-108 builds: `ios_timing` 11 of 15,
+  `ios_ui_tick` 1 of 3, `ios_qos` 0 of 4 (replaced by `ios_utility_qos`,
+  applied), `ios_save_log` 2 of 3 (the save create/open lines do appear in
+  device logs). Not changed for the release.
+- `ios_resolve_stats` defaults to true in its patch script, as in v0.3.0
+  (RELEASING says diagnostics off); left as released before, noted here.
+- Game patches: pool 63 of 63, extra-options fully applied (0.4 set, no
+  `heat`).
+- Build exit 0 (existing build dir, its configuration kept), `codesign
+  --verify --deep --strict` ok, Info.plist com.bep1s.nfsmwios, 0.4.0 / 4,
+  208 metallibs, `unzip -t` ok, `git status --ignored`: ios/build,
+  ios/generated, assets ignored; nothing of the game tracked.
+- `ios/build/NFS-Most-Wanted-0.4.0.ipa`, 30093267 bytes, SHA-256
+  685328f8ceb4c96fc2a2e9cace64ceacc1c0cd59926752071903f12efbee54ca, UUID
+  D0F38C8B-8764-3CB5-8495-03BA3D561288. Same sources as IPA108 plus the
+  version bump; this exact file not installed on a device (RELEASING step 5's
+  fresh-container race is Stefan's).
+
+## October 27, 2026: 0.4.1 fixes from SpeedBreaker (IPA109)
+
+Branch `release-0.4.1` off `main` (e0151ce). Source: SpeedBreaker
+(github.com/SpeedBreakerProject/speedbreaker, GPL-3.0, same USA disc), v0.1.8
+`runtime/apu/ea_cpu_budget.*` and v0.1.4 `runtime/video/vblank_timer.cpp`,
+`presenter.cpp`; their findings, not re-measured here.
+
+- EA SND budget (D-004). Checked in `ios/generated/default`: sub_82601528
+  (`nfsmw_recomp.68.cpp`) computes f1 (fsubs, then fcmpu against a constant)
+  and calls sub_82601788 (`nfsmw_recomp.71.cpp`), which saves f1 and r3 and
+  calls sub_826016B8 (`.78`) and sub_825D04B8 (`.122`) in a loop: the same
+  structure SpeedBreaker describes, so the USA addresses match. Hook in
+  `ios/src/game_audio_budget.cpp` (USA addresses, not translated by
+  tools/ediciones); the object defines a strong `_sub_82601788` (nm `T`).
+- Vblank thread priority: `tools/ios/patch_ios_vblank_realtime.py`, applied to
+  the SDK's `src/graphics/graphics_system.cpp`; period = 1/guest vblank rate
+  at thread start, computation 1 ms, constraint 2 ms, preemptible.
+- Pacing watchdog in `ios/src/native_renderer.mm` (the existing
+  present-at-time grid; SpeedBreaker's present-after-vblank scheme was not
+  copied because ours already locks the 60 cap's vblank to the display and
+  paces on a presentedTime grid).
+- Build `cmake --build --preset ios --target ipa -j 6` exit 0 (existing
+  build dir; graphics_system.cpp, game_audio_budget.cpp, native_renderer.mm
+  rebuilt). Strings present: `[ea-budget]`, `nfsmw_ea_cpu_budget`, `[native]
+  pacing off`, and `[ios-vblank] real-time priority` / `ios_vblank_realtime`
+  in `librexgpu-xenos.dylib`. Info.plist 0.4.1 / 5, 208 metallibs, `unzip -t`
+  ok, `codesign --verify --deep --strict` ok.
+- `ios/build/NFSMW-0.4.1-audio-pacing-109.ipa`, 30103705 bytes, SHA-256
+  385ab46ee195aa5d708d0908894cdee2b5936a10935b5267fd45e6a86dcf37f3, UUID
+  5031C546-2A4A-3676-AA5C-F8A9765CB08E. Not run on a device: whether the fade
+  is gone, whether `thread_policy_set` succeeds on iOS and whether pacing gets
+  more even are untested.
+
+IPA109 first run (Oct 27, 23:16-23:20, Stefan: free roam and the test
+race; Apple A19 Pro, so the iPhone 17 Pro Max; 60 cap, Battery group on). Log
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa109_freeroam_race.log`.
+- `[ios-vblank] real-time priority (16.67 ms period): set` on both vblank
+  threads (boot and game); 60 cap locked to the display.
+- Pacing (paced, 50 windows of 300 frames): the first (loading) 255 off the
+  grid, then 0 off in 33 windows, 1-6 in 13, 8-21 in 4 (23:18:56-23:19:16).
+  The off frames are almost all 4-refresh (33 ms) gaps, i.e. missed frames,
+  not uneven presents. The watchdog did not fire. 48 screen gaps of 50+ ms,
+  clustered at loads and at 23:20:47 (texture decode hitch, 121 textures).
+- `[ea-budget]` once, at 23:20:40.677, 1 ms after `[coreaudio] sudden drop:
+  block peak -140.0 dB after -6.3 dB` (an end-of-race or scene change,
+  inference). Without the fix EA would have expelled voices there.
+- Not shown by this log: whether the engine sound stayed audible
+  (Stefan's ears), and no A/B against `nfsmw_ea_cpu_budget=true` or
+  `ios_vblank_realtime=false`.
+
+## October 27, 2026: IPA110, issue #5 and iOS 18 target
+
+- `common/src/nfsmw_app.h`: `PonerSiNadieLoPidio` checks
+  `rex::cvar::GetFlagSource(name) != Source::kDefault` instead of
+  `HasNonDefaultValue` (GitHub #5). The launcher passes
+  `--readback_resolve=` on the command line (`ios/src/launcher.mm`), source
+  kCommandLine, so Off now stays `none`. Not run yet.
+- iOS 18: `CMAKE_OSX_DEPLOYMENT_TARGET` 18.0. Shaders: `sh
+  tools/native/build_shaders.sh -` exit 0, 101 translated, the 3 `_dbg`
+  variants rebuilt, all 104 libraries `apple-ios18.0.0`;
+  constant_ranges, texture_masks, vertex_inputs, camera_constants identical
+  to the IPA109 set (so the same translated shaders). `cmake --preset ios`
+  then build exit 0 (899 steps): no unguarded-availability warnings, only
+  deprecations (UIScreen.screens/setScreen:/connect notifications for the
+  external display, CC_MD5 in save_convert). minos 18.0 for NFSMW,
+  librexgpu-xenos, librexruntime; MoltenVK 14.0. Metal 3.1 needs iOS 17,
+  residency sets iOS 18, MetalFX iOS 16; lodBias already behind
+  `@available(iOS 26.0)`.
+- `ios/build/NFSMW-0.4.1-ios18-110.ipa`, 30101026 bytes, SHA-256
+  f07918eda76d983728fd6c9954ea9fb6126cdd82bcd817cfde6633c83d905526, UUID
+  21164B43-FE9B-339D-899C-12545E646386, Info.plist MinimumOSVersion 18.0,
+  208 metallibs, `unzip -t` ok, codesign ok. Not run on any device; whether
+  it runs on iOS 18 is unknown (runtime-only failures, e.g. a shader
+  library the OS cannot load, would only show there).
+
+IPA110 on the iPhone 17 Pro Max (iOS 27.2), Oct 27 23:50-23:53, two
+sessions (log `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/27 October 2026/nfsmw_ipa110_iphone.log`,
+which also holds the IPA109 run; screenshot `ipa110_metal_hud.png` there).
+Stefan: works. Log: build Oct 27 23:45, real-time vblank set, no shader
+library load failures, `[ea-budget]` once (23:53:03). Pacing after loading:
+0-5 of 300 off. GPU 13-15 ms/frame driving at 1x. Apple's Metal HUD agrees
+(GPU 13.70 ms, frame interval 16.95 ms) and shows the same small frame-interval
+spikes Stefan feels: missed frames, not a logging artefact.
+Stefan: Accurate exposure is greyed out with the native renderer (it only
+affects Vulkan); he plans to remove that option once older-iOS users confirm
+the native renderer works for them.
+
+## October 28, 2026: IPA110 donut-stutter trace (iPhone)
+
+iPhone 17 Pro Max, iOS 27.2, IPA110, 1x/60. Stefan's Game Performance trace
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/28 October 2026/ipa110_i-think_donut_stutters_game_performance_iphone.trace`
+(12:54:45, 31.2 s) and log `nfsmw_ipa110_i_think_donut_stutters_iphone.log`
+there (session from 12:53:51). Stutters expected after 0:15 (donuts).
+- Trace: presents stop for 1.23 s (4.7 s), 3.47 s (9.0 s), 7.56 s (15.5 s) and
+  0.98 s (23.1 s); Instruments flags them as main-thread hangs. Over those
+  13 s the time profile has ~100 samples from all threads instead of ~1300/s.
+  The game log shows the game running normally then (300 frames every 5 s,
+  `pacing: 0 of 300` through 12:54:51-12:55:17), so these are gaps in the
+  recording (the Mac's disk was nearly full, the Instruments temp file
+  9.3 GB), not freezes. They cover most of the donut period.
+- Captured parts: present interval median 16.67 ms, one frame over 20 ms
+  (25.8 ms at 2.7 s).
+- Log during donuts: 2100-3050 draws per frame (vs ~380 in normal driving), GPU
+  7.4-7.7 ms/frame, 0 over 45 ms, no `hitch:` lines (>40 ms), pacing 4 frames
+  one refresh late in 12:54:42-46, then 0-1 per 300. Renderer
+  `rendering` 15.8-15.9 ms/frame while RenderFrame is ~8% of a core in the
+  profile, so that time is mostly waiting, not encoding.
+- Inference: at 1x/60 the donuts did not drop frames on screen. Whatever
+  Stefan felt is not a present-timing hitch at 1x; untested whether it is
+  content-side (uneven game steps) or only at 1.5x MetalFX, where the GPU is
+  ~13.7 ms. Next: short re-trace with free disk space, or at 1.5x.
+
+Second trace, same day: `ipa110_donut_stutters_game_performance_iphone.trace`
+(13:19:04.75, 30.0 s, 1x/60) and `nfsmw_ipa110_donut_stutters_iphone.log`,
+same folder. Disk had 86 GB free and the trace still has two gaps (5.5 s at
+6.3 s, 9.1 s at 16.35 s), so the gaps are not (only) disk space.
+- Log: during donuts before the trace (13:18:03-13:19:03, 2400-4500 draws)
+  pacing 0-2 of 300 off; from 13:19:04 4-8 of 300 off per 5 s, each one 120 Hz
+  refresh pair late ("4:" gaps = 33 ms), matching Stefan's Metal HUD spikes.
+  GPU 12.5-14.8 ms/frame average at 1x, game-thread recording 6-7.5 ms.
+- Trace: GPU frame span median 12.7 ms, p90 15.4 ms. 13 frames span 19-37 ms
+  but their GPU busy time is normal (12-15.6 ms): the GPU sits idle ~15 ms
+  (one refresh) inside them, right after an in-process
+  `coreanimation.command-buffer` (assembly encoder). Command buffers are
+  committed on time (~every 16 ms) around them.
+- All 13 slow frames coincide with one of the 35 in-process Core Animation
+  commits in the trace (0.64-0.69, 2.06-2.83 burst, 12.11, 13.08, 13.54,
+  15.43, 15.64, 28.68, 29.35 s). This is the IPA86/IPA88 FPS-label mechanism:
+  a UIKit layer change over the game's layer delays that refresh's frame.
+- Source of the commits (inference, not yet proven): the touch overlay,
+  `touch_controls.mm` `sendState` calls `setNeedsDisplayInRect:` whenever a
+  control's look changes (stick knob moves, presses/releases), which donuts
+  do constantly. The FPS counter already draws into the native frame.
+- Proposed: a no-code check (donuts with a controller, touch overlay hidden),
+  then draw the touch controls into the native frame like the FPS counter, or
+  stop redrawing them on press/knob moves. Not approved or built yet.
+
+Touch overlay check, same day (log uploaded by Stefan,
+`nfsmw_ipa110_touch_controls_off_iphone.log`; two sessions, 1x/60,
+DualShock 4). Run 1 (13:33, touch controls hidden): two windows with 22-24
+frames shown as 25 + 8 ms pairs (`3:` gaps), otherwise 0. Run 2 (13:34:46,
+touch controls disabled): donuts 13:35:16-13:35:46 with 0 of 300 off in every
+window; Stefan saw 0 Metal HUD spikes. Driving afterwards: 1 late frame in
+13:35:51-56 (58 ms hitch at 13:35:57, 52 ms outside the recording, i.e. the
+game side; adaptive QoS had been on Utility since 13:35:26 and boosted
+again) and 1 in 13:35:56-36:01. GPU 11.5-14.8 ms/frame while driving at 1x.
+Result: the touch overlay's redraws cause the HUD spikes during donuts
+(hidden is not enough; disabled removes them). Stefan still feels the game
+stutter with an even screen, donuts and driving: that is D-005's judder
+(content motion uneven, swaps even), not a frame-timing miss.
+
+### IPA111: touch controls drawn into the native frame
+
+Stefan approved (Oct 28). Branch `touch-overlay-native` (off `main`).
+`touch_controls.mm`: with the native layer showing and not editing, the
+touch view's `setNeedsDisplay`/`setNeedsDisplayInRect:` no longer touch its
+layer; the changed rectangle is redrawn (same `drawRect:`, view opacity as a
+transparency layer) into a kept BGRA bitmap at the screen scale, at most once
+per run loop turn, and handed to `nfsmw_native_set_touch_overlay`. The layer
+is emptied once. The mode follows the native layer (0.5 s check, and on each
+redraw request); `[touch] drawn into the native frame / by UIKit` logged.
+`native_renderer.mm`: one shared texture, updated only in the changed
+rectangle, blended (premultiplied) over the whole drawable before the FPS
+counter. Known limit: the texture is written while an earlier frame may read
+it (at worst a knob half-moved for one frame). Cvar `ios_touch_native`,
+default true (Extra Args `--ios_touch_native=false` restores the UIKit layer).
+Built `ios/build/NFSMW-0.4.1-touch-native-111.ipa`, 30106035 bytes, SHA-256
+beaf16d0f4719a07cb423e7ae112aa90bd3c068b7c9f6dac8ee49c69f1b537e4, UUID
+B2072EDF-FFA9-31F1-A567-AD08C7E5EDE4, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device. Test: donuts at 1x/60 with touch controls on: no
+Metal HUD spikes, `pacing` 0 of 300 off as with them disabled; the controls
+look the same (opacity, pressed colours, knob) and still respond.
+
+Colour filter switch (Stefan, Oct 28: turn off only the yellow filter, keep
+bloom/blur): not built. The filter is part of the visual treatment
+(sub_822246F0): it binds five textures (scene r5, effect params at view+332
+/+340/+344 with globals 0x82A2C4B8/0x82A2C4C4, r6) and sets constants in
+sub_82223D40/sub_82223BB8 (a 3x3-looking matrix times a scalar, likely the
+colour transform) before sub_82224240 (blur) and sub_82224380. Which constant
+or texture carries the tint is not identified yet; the translated pixel
+shaders have no names (cache `shaders/msl`).
+
+IPA111 result (Stefan, Oct 28, iPhone 17 Pro Max, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa111_touch_controls_iphone.log`, runtime build
+BA87D48F-...): `[touch] drawn into the native frame` logged; Metal HUD
+"virtually stutter free" during donuts with the touch controls on; pacing 0-4
+of 300 off per window after loading. Fixed for the touch overlay. The game
+world still judders at random moments (D-005), with an even screen.
+
+### IPA112: frame-step clock (experiment for D-005)
+
+Stefan approved (Oct 28). Hypothesis: the main thread's clock reads jitter
+~1 ms around the vblank they follow, so each frame's world/camera step is
+slightly uneven at 60 fps while the screen gets an even 60. SDK hook
+`tools/ios/patch_ios_frame_clock.py` (in prepare_sdk.py): a filter on
+`Clock::QueryGuestTickCount` (all mftb/KeQueryPerformanceCounter reads).
+`ios/src/frame_clock.cpp`: cvar `nfsmw_frame_clock_ms` (default 0 = off).
+On the game's main thread only (first caller of the deferred-call hook
+sub_823C8290), reads less than that many ms after the latest guest vblank
+(the display refresh display_rate.mm publishes) return the vblank's time;
+later reads stay real; never backwards. Logs `[frame-clock] on` and, every
+300 vblanks, the main thread's reads by time after the vblank (<1, 1-2, 2-4,
+4-8, 8-12, 12+ ms) and how many were snapped. Risks: a wait that polls the
+clock right after a vblank waits up to the window longer; if the frame's
+read sits near the window's edge, steps of 0/2 vblanks (worse). Also has
+IPA111's touch fix.
+Built `ios/build/NFSMW-0.4.1-frame-clock-112.ipa`, 30098542 bytes, SHA-256
+d5e2bde35bf5d219caf5cf594aec0bd508c6a4e128ff705ae97f9d400835c0cf, UUID
+8BDD84C4-5899-3DDC-84DF-0534275C8503, 208 metallibs, `unzip -t` ok,
+codesign ok. Not run on a device. Test (1x/60): donuts/driving with
+`--nfsmw_frame_clock_ms=8`, then without, same spot; send the log.
+
+IPA112 first test (Oct 28): no `[frame-clock] on` in either session
+(`nfsmw_ipa112_60hz_clock_iphone.log`, 14:14 and 14:18): boot.txt shows the
+14:18 run's `extra_args.txt` was UTF-16 LE with a byte-order mark (copied via
+the Mac), so the argument reached the parser as garbage and the switch was
+off. Not a frame-clock result.
+
+IPA113: `ios_main.mm` `ApplyExtraArguments` reads `extra_args.txt` as UTF-16
+(either order, by its mark) or UTF-8 (a UTF-8 mark is dropped); boot.txt says
+`extra_args.txt: UTF-16, converted`. Checked the decoding on the Mac with a
+UTF-16 LE file. Also has IPA112's frame clock and IPA111's touch fix.
+`ios/build/NFSMW-0.4.1-frame-clock-utf16-113.ipa`, 30099717 bytes, SHA-256
+3fda5a78242583414519ea8c009141c212ce9164930e20eddc8f6758b3ea8cfd, UUID
+DB56663F-5840-3B84-AE44-3F52A7B37F20, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device.
+
+IPA113 run with the switch (Oct 28 14:26-14:27, iPhone, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa113_utf_fix.log`): `[frame-clock] on: main
+thread 17f88d, reads up to 8 ms` (the UTF-16 file was read). The main-loop
+thread reads the clock ~3 times per vblank, spread over the whole frame, and
+the spread drifts: 8-12 ms after the vblank at first (774 of 906), later
+4-8 ms (583 of 900); only 16-759 of ~900 reads per 300 vblanks snapped. So
+the game's loop is not in step with the vblank: its phase drifts against the
+display, and an 8 ms window snaps some frames' reads and not others. The
+swaps (`between swaps` lines) run on another thread (t1570948) than the
+main loop (1570957). Pacing 0-5 of 300 off. Inference: the snap as built
+cannot give equal steps; a clock that advances one period per swap (on the
+thread that swaps) would.
+
+IPA114: frame clock v2 (`nfsmw_frame_clock_swap`, default false). On the
+main loop thread and the thread that swaps (native renderer swap), the guest
+clock advances by whole refresh periods at each swap (as many as really
+passed, normally 1) and runs on the real clock in between, held at one tick
+short of the next period; past two periods without a swap it runs again
+(one period behind until the next swap). Never backwards per thread. Logs
+`[frame-clock] v2 on` and every 300 swaps the periods per swap and how far
+the virtual clock is behind the real one. Other threads untouched.
+`ios/build/NFSMW-0.4.1-frame-clock-v2-114.ipa`, 30111876 bytes, SHA-256 f5090d2bd341a49b93f53db9e1b4a39c6748c2ec1fa8a4746fa71c12e1c25a1d, UUID FA7EB3D8-FF71-3E6D-9C53-B8D8466FAA53, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: extra_args.txt
+`--nfsmw_frame_clock_swap=true` (drop `--nfsmw_frame_clock_ms`), donuts at
+1x/60, then without.
+
+IPA114 result (Stefan, Oct 28 14:32-14:33, iPhone, 1x/60; log
+`Debug/28 October 2026/nfsmw_ipa114_clock_v2_iphone.log`): `[frame-clock] v2
+on`; in gameplay 296-300 of every 300 swaps advanced exactly one period (the
+main loop and swap threads saw an exact 1/60 per frame); pacing 0-4 of 300
+off (14 in the last window). The virtual clock fell behind the real one by
+up to 312 ms near the end (late frames counted as one period). Stefan: the
+judder "still seems to be there", can't tell better or worse (it varies by
+itself). So exact per-frame time on those two threads does not visibly fix
+it: the uneven-step hypothesis is weakened (other threads' clock reads, e.g.
+physics or camera on a worker, are not covered). No objective judder
+measure yet.
+
+Screen recording (Stefan, Oct 28 14:37, iPhone, 1x/60, Motion blur and
+Post-processing off, donuts; `Debug/28 October 2026/ScreenRecording_10-28-2026
+14-37-39_1.MP4`, 37.4 s, 1320x2868, 2226 frames). Measured with an
+AVFoundation script (per-frame mean luma difference on a 64x36 grid;
+scratch tool, not in the repo). Recorder frame intervals: 2192 of 2225 at
+16.6-16.7 ms. During motion a frame normally differs from the one before by
+~4-6 (grey levels); 133 frames are near-identical (< 0.15) to the previous
+one: an exact repeat of the picture. They come as stretches where every
+other frame repeats (11.10-12.24 s: 26 repeats in 1.1 s; 15.57-16.30 s:
+18), i.e. 30 fps motion shown at 60, plus scattered single repeats
+(3.3-5.2 s, 6.3, 8.4, 25.7, 26.0 s). This is the judder, measured: the
+screen gets 60 refreshes but only 30 distinct pictures in those stretches.
+Whether the game swaps identical frames, or the renderer presents a frame
+twice, needs the game log of the same run (none sent yet).
+Game log of the recorded run (`nfsmw_ipa114_screen_recording_iphone.log`,
+frame clock v2 on): the display went 48 -> 60 Hz at 14:37:39.67 (the
+recording starting). Over 14:37:45-14:38:05, which covers the video's
+repeat stretches (11-12 s, 15.6-16.3 s), every window is `pacing: 0 of 300
+off`, 60.0 frames/s on screen and 300 of 300 swaps one period. So the game
+swapped and the renderer presented 60 frames a second, each 16.7 ms apart,
+yet every other picture was identical in those stretches. IPA92 (iPad) found
+no frame repeating the previous one's vertex constants. Inference: the
+picture repeats although the frame is new: the displayed texture (the
+frame's last colour resolve, or a resolve kept from an earlier frame,
+`1 resolves from earlier frames` in every gameplay line) is at times the
+previous frame's picture. Next (proposed): a diagnostic that compares a row
+of the displayed picture with the previous frame's and logs each repeat
+with the final resolve's address and source.
+
+IPA115: repeated-picture diagnostic (Stefan approved, Oct 28). Cvar
+`nfsmw_native_repeat_log`, default TRUE in this diagnostic build (turn off
+or remove before a release). Each frame blits a 2-row strip (up to 1024
+pixels) across the middle of the displayed picture (`final_texture`, before
+MetalFX/FXAA) to a shared buffer; on GPU completion it is compared with the
+previous frame's strip. In gameplay (over 300 draws) each byte-identical
+repeat logs `[native] repeat: frame N ...` (first 200): which resolve of the
+frame was displayed, how many colour resolves, the address and whether it
+is the previous frame's, draws drawn of total, resolves kept from earlier
+frames; every 300 frames a count. Frame clock switches stay off by default.
+`ios/build/NFSMW-0.4.1-repeat-log-115.ipa`, 30104610 bytes, SHA-256
+075ef8096767bc4ef718d30163407bf7d52aa9045a766c8e8fe029e9df20bf31, UUID
+CDBB8433-2F60-3150-958D-B83BAF2E9C0F, 208 metallibs, `unzip -t` ok, codesign
+ok. Not run on a device. Test: no extra_args needed; donuts until the
+judder shows; send the log (a screen recording too if easy).
+
+IPA115 result (Stefan, Oct 28 14:51-14:53, iPad, 60 cap, extra_args still
+with `--nfsmw_frame_clock_swap=true`; log
+`Debug/28 October 2026/nfsmw_ipa115_stutters_ipad.log`): Stefan saw the
+judder ("plenty"). The repeat diagnostic found 0 repeated pictures in every
+300-frame window of gameplay except one: 4 frames at 14:52:31 (frames
+1453-1456, a burst of quick frames, the final resolve alternating 092DA000 /
+0958C000, all 2165 draws drawn). Pacing 0 of 300 off in every window, 60.0
+frames/s, frame clock 300 of 300 one period. So on the iPad the judder comes
+with every displayed picture new and on time: it is not repeated frames.
+The iPhone recording's every-other-frame repeats (11-12 s, 15.6-16.3 s) did
+not show up here; whether they came from the screen recorder (the display
+switched 48 -> 60 Hz when it started) or only happen on the iPhone is open.
+Remaining explanation: uneven motion between distinct frames (content), or
+perception. Next: a motion-per-frame measurement from a recording (the
+first script's shift estimate failed; needs a 2D estimate).
+
+IPA115 on the iPhone (Oct 28 ~14:55-14:58; log
+`Debug/28 October 2026/nfsmw_ipa115_stutters_iphone.log`): Stefan saw the
+judder. 0 repeated pictures in 20 of 21 windows; one burst of 4 at
+14:57:02.82-.87 (frames 1690-1693, 12-17 ms apart, final resolve alternating
+09222000 / 08DBB000). Same as the iPad: the judder comes with new pictures on
+time. So the screen recording's every-other-frame repeats (14:37) were most
+likely made by the recorder (the display went 48 -> 60 Hz when it started),
+not by the game. Remaining: uneven motion between distinct frames.
+
+Stefan's clue (Oct 28 15:00): an area gets smoother the more he does donuts
+there, and stays smoother in later runs (after relaunching). iPad recording
+`ScreenRecording_10-28-2026 15-00-44_1.mov` (3200x2400, 25.4 s) and log
+`nfsmw_ipa115_dnuts_ipad.log`. Second measurement script (block matching on
+a 384x216 luma grid, upper picture): 162 recorded repeats, in stretches
+where every other recorded frame repeats (6.95-7.81 s, 13.43-14.06 s, ...)
+and single double-steps then zero-steps (5.20-5.23 s). The game log for the
+same seconds: 0 repeated pictures, pacing 0 of 300 off, display 60 Hz
+throughout. So the screen recorder's frames are not a faithful record of
+what was shown (it repeats/skips frames by itself); recordings cannot measure
+this judder. Pipelines in that log: all 163 made from the cache (23 ms in
+all), no draws left out after the first frame, so the across-runs cache is
+not the pipeline cache. Candidate: iOS' file cache of the game data (the
+game streams the city from the ISO; a reread area comes from memory).
+Proposed no-code check: restart the device (clears the file cache) and drive
+the "smooth" area again.
+
+Restart test (Stefan, Oct 28 ~15:08): after restarting the device, even
+leaving the safehouse "felt like 30 fps" with the counter at 60. Confirms
+the judder depends on iOS' file cache, i.e. on cold disc reads: the ISO is
+mapped (DiscImageFile::ReadSync = memcpy from the mapping), so a first read
+page-faults the data in from flash on the game thread that reads.
+
+IPA116: `tools/ios/patch_ios_iso_readahead.py` (in prepare_sdk.py), SDK
+`disc_image_file.cpp`. Cvar `ios_iso_readahead_mb`, default 16: after a read,
+madvise(MADV_WILLNEED) on the next 16 MB of the image (again only when reads
+have used up half the last advised stretch of that file), so the kernel
+reads ahead in the background. `[iso-read]` every 5 s per thread: reads,
+KiB, ms reading, slowest (first 400 lines). `nfsmw_native_repeat_log` now
+default false. Frame clock switches still default off.
+`ios/build/NFSMW-0.4.1-iso-readahead-116.ipa`, 30109492 bytes, SHA-256
+7387778bb6bbff8a8227c63ecd5aafe88ad7463d038187b4a9f30aa38444f40c, UUID
+8442B440-6748-3100-9622-A4D98599FA61, 208 metallibs, `unzip -t` ok,
+codesign ok. Copied to iCloud Drive/NFSMW (also zipped). Not run on a
+device. Test: empty extra_args.txt, restart the device, leave the
+safehouse; then the same with `--ios_iso_readahead_mb=0` after another
+restart; send both logs.
+
+IPA116 result (Stefan, Oct 28 15:13-15:14, iPad, no device restart, no
+extra args; log `Debug/28 October 2026/nfsmw_ipa116_ipad.log`): "just
+driving around was pretty bad". `[iso-read]`: all disc reads on one thread
+(XThread10713, a loader, not the main loop), 8-71 reads per 5 s, 0.5-40 ms
+spent reading per 5 s, slowest single read 11.9 ms (3.3-5 ms typical). The
+main loop thread did no disc reads. So in this run disc reads cost the game
+very little and not on its main thread; they do not explain the judder here.
+The restart observation (worse after a device restart) is not explained yet.
+
+Stefan (Oct 28 ~15:17): at the 30 fps cap too, some parts of a donut feel
+better paced than others. So the unevenness is not specific to 60 fps and
+seems to depend on where the car/camera points within the donut.
+Proposed next diagnostic: log the game's camera per frame from the world
+draws' view matrix (the renderer already sees c0-c15; IPA92 hashed them) and
+the per-frame change of its position and angle, to measure whether the
+game's own camera motion is uneven.
+
+IPA117: camera-motion diagnostic (Stefan approved, Oct 28). Cvar
+`nfsmw_native_camera_log`, default TRUE in this build. In NativeDraw each
+draw's c0-c3 is hashed; at the swap the frame's most common one (static
+world draws share the view-projection) is the camera; its w row (c3.xyz) or
+column (c0-c2 .w), whichever has length ~1, is the forward axis. Per frame
+the angle turned; every 60 frames of 3D scene (over 300 draws, turning over
+0.05 deg/frame): `[camera] 60 frames: turn X deg/frame, spread Y%, N off
+their neighbours by over 25%` and the 60 values (first 600 lines). Same
+thread as IPA92's content hash. Unknown whether the most common matrix is
+the world's in every scene (HUD matrices could win). ISO read-ahead (16 MB)
+and its log stay on.
+`ios/build/NFSMW-0.4.1-camera-log-117.ipa`, 30113544 bytes, SHA-256 32a62a90cda67b0a91e6a7def931736533eb4638235710573ee18429d5696338, UUID F12C371A-F27F-3346-8864-755D7B112877, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: donuts (any cap), note roughly
+when it feels uneven; send the log.
+
+IPA117 result (Stefan, Oct 28 15:22, iPad, no extra args, judder clearly
+visible; log `Debug/28 October 2026/nfsmw_ipa117_camera_ipad.log`): 16
+`[camera]` lines. The camera turns a steady ~2.0-2.3 deg/frame in donuts,
+but in stretches the values go 4.40 0.00 4.40 0.00 ... (e.g. 15:22:36,
+15:22:42: 20-30 frames in a row), single pairs elsewhere (4.17 0.02, 3.96
+0.00). So the game's camera moves only every other frame in those stretches:
+its world/camera steps 0 or 2 fixed ticks per frame. This is the judder,
+measured in the game's own data. (Isolated 85-88 / 178 deg values: another
+camera's matrix, probably the mirror's, won the vote for one frame.)
+Explanation: the fixed 1/60 step accumulator, with the frame's clock reads
+right at a tick boundary. IPA114's v2 clock let the clock run within a frame
+(base + real time since the swap), so reads on either side of a boundary
+remained possible.
+
+IPA118: `nfsmw_frame_clock_hold` (default false, with
+`nfsmw_frame_clock_swap`): within a frame the clock stands still at the
+swap's virtual time (runs again after two periods without a swap). Camera
+log and read-ahead still on.
+`ios/build/NFSMW-0.4.1-frame-clock-hold-118.ipa`, 30115297 bytes, SHA-256 165eb6f58fdafc6b4c277eeed9d418d958d97def59a25abc443c947e1739817c, UUID 09457470-1622-38D1-A232-5ACC39C83AEF, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: extra_args.txt
+`--nfsmw_frame_clock_swap=true` and `--nfsmw_frame_clock_hold=true`, donuts;
+the camera lines should show no 2x/0 pairs.
+
+IPA118 result (Stefan, Oct 28 15:26, iPad, frame clock swap + hold on; log
+`Debug/28 October 2026/nfsmw_ipa118_camera_ipad.log`): still the 30 fps
+feeling; camera lines still full of 2x/0 pairs (163 pairs of 3-9 deg then
+~0 in 18 lines, e.g. 15:26:28 four-plus seconds of 4.4/0). v2 reported 300
+of 300 swaps one period. So the camera's steps do not come from the main
+loop/swap threads' clock reads. New explanation (inference): the world and
+camera update on the guest vblank (display-locked), while the game's drawing
+loop runs at its own ~60 (paced only by our in-flight limit, the swap
+returning at once); two unlocked 60 Hz loops drift, and when they line up
+badly a frame draws the camera state the previous frame drew, the next one
+a state two vblanks on.
+
+IPA119: `nfsmw_native_swap_vsync` (default false): NativeSwap returns 0.5
+ms after the display refresh at or after the swap (the 360's swap waits for
+the vblank), keeping the drawing loop in step with the vblank. Logs
+`[native] swap vsync on`. Camera log, read-ahead stay on.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: extra_args.txt only
+`--nfsmw_native_swap_vsync=true`; donuts; camera lines should show no 2x/0
+pairs. Risk: a frame over 16.7 ms waits to the next refresh (33 ms), as on
+the 360.
+
+IPA119 result (Stefan, Oct 28 15:29, iPad; log
+`Debug/28 October 2026/nfsmw_ipa119_lag_ipad.log`): `swap vsync on`; the
+game ran at 18-25 fps (20.1 frames/s, pacing 217 of 300 off, gaps of 2-7+
+refreshes). So the game already waits for the guest vblank itself after its
+swap: our wait made it miss that vblank and wait for the next. The drawing
+loop is therefore already in step with the vblank, and the "two unlocked
+loops" explanation is wrong as stated. Switch stays default off (do not
+use). Open: where the camera's 2x/0 steps come from (main loop and swap
+threads have exact per-frame time, frames are drawn once per vblank). Next
+lead: find the camera/world update in the game code and log its time step
+and caller thread.
+
+Main loop found (Oct 28): sub_823B0008 polls mftb>>2, converts the time
+since the last frame to seconds (scale at 0x82A2BEF8), waits until it is over
+a constant (0x820624E8), clamps it (0x82062824), and runs the frame
+sub_823AFE20 with r3 = fctiwz(elapsed * rate (0x82062DAC)), i.e. truncated,
+then restarts its count from now (the remainder is lost). sub_823AFE20 turns
+r3 back into a time step (r3 * 0x820AFE00 * 0x82062AD0) for the world
+(sub_823C6500) and calls World_Service (sub_824CE048). Inference: frame
+periods jitter around a whole number of ticks, so truncation sometimes gives
+one tick less (remainder lost) and the frames around it more: the camera's
+2x/0 steps.
+
+IPA120: `tools/ios/patch_game_frame_ticks.py` (generated code, USA; also run
+by generate_code.py): before that fctiwz, f9 goes through
+`nfsmw_frame_ticks` (frame_clock.cpp). Cvar `nfsmw_frame_ticks` default 1:
+the remainder is carried to the next frame (ticks add up to elapsed time);
+0 = the game's truncation. Logs the constants once (`[frame-ticks] main
+loop: rate ..., waits for over ..., clamps at ...`) and every 300 frames
+elapsed x rate by band and the ticks run. Camera log and read-ahead stay on.
+`ios/build/NFSMW-0.4.1-frame-ticks-120.ipa`, 30116964 bytes, SHA-256 d554629c46ace70ed32fe3d6d7d28ed56d78b2748c4324290f7952ae9eab9d78, UUID F7A7C868-6ECD-3C64-B92D-A4767158E5A4, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: empty extra_args.txt; donuts;
+then `--nfsmw_frame_ticks=0` to compare.
+
+IPA120 result (Stefan, Oct 28 16:15-16:16, iPad, no extra args, mode 1;
+log `Debug/28 October 2026/nfsmw_ipa20_camera_ipad.log`): "seems much
+better although maybe it was just luck". Constants logged: rate 65536
+ticks/s (the "ticks" are 1/65536 s units: ~1092 a frame), wait constant
+0.25, clamp 32000. So the truncation loses under 1/65536 s per frame and the
+carry (mode 1) changes the step by at most that: numerically almost a no-op;
+the tick-truncation explanation is wrong as stated. Camera log, counted the
+same way (a value 1-10 deg followed by <0.05): IPA117 113 pairs in 960
+frames, IPA118 197 in 900, IPA120 6 in 2400 (isolated zeros 117 / 206 / 4).
+The measured judder dropped ~40x in this run, but the change cannot explain
+it; needs an A/B with `--nfsmw_frame_ticks=0` in the same conditions.
+IPA120 on the iPhone (Oct 28 ~16:19; log
+`Debug/28 October 2026/nfsmw_ipa120_camera_iphone.log`, mode 1): Stefan:
+better than before. Camera: 94 pairs in 3420 frames (2.7%), isolated zeros
+113. No iPhone camera log before IPA120 to compare with (iPad IPA117/118:
+12-22%).
+
+IPA120 A/B (Stefan, Oct 28 ~16:25-16:30, iPad, same spot, warmed up first,
+force-quit between runs): mode 1 (`nfsmw_ipa120_on_ipad.log`) 18 pairs in
+3960 frames; mode 0 (`nfsmw_ipa120_off_ipad.log`, the game's truncation) 0
+pairs in 2040 frames; Stefan: "off was very smooth too". So the tick carry
+does nothing (as its numbers said). The judder rate tracks the session's
+state, not any switch: 12-22% of frames in the runs after the 15:08 device
+restart (IPA117/118, 15:22-15:26), 0-0.25% an hour later on the same iPad
+(16:15-16:30), 2.7% on the iPhone. Consistent with Stefan's observations
+(worse after a device restart, better the more an area is driven), i.e.
+something that warms up over time across launches (iOS file cache, or
+memory/paging state), though the measured disc reads are small and off the
+main loop. Next (proposed): an Instruments trace right after a device
+restart, during donuts, to see what the main loop thread does in the 2x/0
+stretches (camera log on to mark them).
+
+Time Profiler trace, waiting threads on (Stefan, Oct 28 18:35, iPad Pro M4,
+IPA120 mode 1, no restart; `Debug/28 October 2026/ipa120_stutters_time_profile_ipad.trace`
+runs 1 (18:35:50, 20.5 s) and 2 (18:36:42, 22.9 s), log
+`nfsmw_ipa120_stutters_time_profile_ipad.log`). Camera log: run 1 mostly
+clean (0-4 pairs per second, single ones), run 2 with stretches of 4-11
+pairs per second (t = 7.5-13.5 s). The pattern is often not adjacent: a
+double step, then one to three normal steps, then a zero (4.3 2.2 0.0,
+3.8 1.9 1.9 0.0): the drawn camera runs one step ahead for a few frames and
+then falls back in line. That looks like the drawing picking up the camera
+already advanced for the next frame (an ordering between the update and the
+drawing that varies), rather than uneven time steps. Main XThread in the
+trace: no different activity within 50 ms before the judder frames than
+elsewhere (most stack frames unsymbolicated, `?`); it runs almost all the
+time (the main loop polls the clock). Not conclusive.
+
+Next test (proposed to Stefan, Oct 28 ~18:45, no build): the ordering-race
+idea. Our Utility QoS placement (guest threads on efficiency cores; iPad
+log: 4 efficiency cores, main/GPU off, other guest threads on, adaptive on;
+iPhone log: main/GPU on, guest on, adaptive off) changes the threads' relative
+timing versus the 360. extra_args: `--ios_utility_qos=false`,
+`--ios_utility_qos_guest=false`, `--ios_adaptive_qos=false`; device restart,
+donuts as in run 2; compare camera-log pairs.
+
+QoS-off result (Stefan, Oct 28 18:45, iPad restarted, IPA120, extra_args
+`--ios_utility_qos=false --ios_utility_qos_guest=false
+--ios_adaptive_qos=false`, logged `main/GPU threads off, other guest threads
+off, adaptive off (Extra Args)`; log
+`nfsmw_ipa120_stutters_after_restart_qos_off_ipad.log`): Stefan: donuts still
+stuttered, but leaving the safehouse no longer stuttered "like crazy".
+Camera: 75 pairs in 1440 frames (5.2%), in the donut seconds 18:45:34-46
+(2-16 per second). So Utility QoS is not the cause of the donut judder
+(maybe of the worse post-restart driving).
+Threads (time profile, run 2): the game's main loop sub_823B0008 and its
+frame sub_823AFE20 run on one guest thread (XThread9793); draws reach the
+native renderer on the CP thread ("GPU Commands", NativeDraw/NativeSwap),
+and RenderFrame on the render queue. Constants arrive as type-0 register
+writes copied into the ring by the game (Oct 22 census: no LOAD_ALU_CONSTANT
+traffic listed), so the CP cannot read a newer camera than the game wrote:
+the step-ahead pattern is in what the game itself emitted.
+
+Render hand-off found (Oct 28, from the trace's stacks): the main loop thread
+(XThread9793, entry sub_8284FE40) spends its idle time in sub_823B0008 >
+sub_823AFE20 > sub_823AFC68 > sub_82441050 > sub_82441DB0 > Sleep(0) (100 us
+sleeps, KeDelayExecutionThread): waiting for the render state 0x82A2CF40 to
+leave 1. sub_82441050 picks the frame's drawing path: if [0x82912F50+32] == 6
+(and 0x82A2D1B4 == 0), flag 0x828FBB50 = 1 and sub_82441EF0 sets state 1 and
+hands the frame to the render thread (Main XThread, entry sub_82593A58, busy
+most of the time), and the main loop goes on to update the next frame while
+it is drawn; otherwise sub_82441E70 (no hand-off). Hypothesis: the render
+thread reads camera data that the main loop is already updating for the next
+frame, so the drawn camera is one update ahead for 1-3 frames whenever the
+two threads' timing lines up that way (varies with load, warm-up, cores).
+
+IPA121: `tools/ios/patch_game_render_handoff.py` (generated code; also in
+generate_code.py) and cvar `nfsmw_render_single_thread` (default false,
+read once, logs `[render-handoff] gameplay frames ...`): the state-6 test
+in sub_82441050 fails, so gameplay frames take the sub_82441E70 path.
+Unknown whether that path draws gameplay correctly (it may be the
+single-threaded draw, or something else). Camera log and read-ahead on.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: extra_args
+`--nfsmw_render_single_thread=true`; check the picture, fps and camera pairs.
+
+IPA121 result (Stefan, Oct 28 18:54-18:55, iPad, extra_args
+`--nfsmw_render_single_thread=true`; log `nfsmw_ipa121_judder_ipad.log`):
+picture and 60 fps fine; "still juddered like crazy" at a new location (end
+of the log). Camera: 18:55:06-19 10-18 pairs per second (2.2 2.2 4.4 0.0 ...),
+pacing 0-1 of 300 off. No `[render-handoff]` line at all: the switch's
+function is only called when the state-6 test passes, so in this run
+gameplay frames never took the hand-off path (sub_82441EF0); the hypothesis
+"render thread reads the next frame's camera" is not what happens here (the
+hand-off is not used, or not in this state). Note: judder strongest at a
+place visited for the first time.
+
+IPA122: `[frame-steps] 60 frames | ...`: per main-loop frame, the elapsed
+value it runs with (f0 = the r3 ticks / 65536, expected ~1.00 per 1/60 s if
+f0 counts frames), 60 a line, beside the camera log. Tests "a slow frame
+gives a double step, the next a near-zero one, while presentation stays
+even" (judder worst at places seen for the first time). Same switches as
+IPA121 (all experiments default off; frame_ticks carry 1, negligible).
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: empty extra_args; drive to a new
+place and do donuts.
+
+IPA122 result (Stefan, Oct 28 ~19:00, iPad, new location, no extra args;
+log `nfsmw_ipa122_judders_ipad.log`): the main loop's per-frame elapsed
+time (`[frame-steps]`, in ms: f0 is milliseconds) alternates ~13.5 / ~19.5
+ms nearly every frame, and has stalls of 30-45 ms followed by quick frames of
+4.5-6.8, 6, 9-12 ms (e.g. 44.35 6.23 6.50 9.04; 30.65 4.53 11.68). The camera
+in the same seconds: steady 2.2 deg except 4.4/0 and 6.6/0/0 sequences, i.e.
+the world steps fixed 1/60 ticks from these elapsed times, a 44 ms frame 2-3
+ticks, the quick ones 0. Presentation stays on the 16.7 ms grid (frames
+buffered), so the motion is uneven while the frame timing is perfect.
+Cause (inference, well supported): the game's main loop is not paced by the
+refresh; it runs until the GPU queue pushes back (pacing wait / ring space),
+in bursts.
+
+IPA123: `nfsmw_frame_pace` (default TRUE, 60 cap only): patch_game_frame_ticks.py
+now also inserts `nfsmw_frame_pace()` right after the frame call in
+sub_823B0008; it waits until 0.3 ms after the next display refresh unless the
+frame ended under 2 ms after one. Logs `[frame-pace] on` and every 300
+frames how many waited / started at once. Frame steps and camera logs stay.
+`ios/build/NFSMW-0.4.1-frame-pace-123.ipa`, 30119960 bytes, SHA-256 3c2cdff4f7a8d3ff4d96830c683849b4c2ce21b4eb9386d0ed77e1d895bacff6, UUID FD2AC64E-830C-37F7-AD92-3438710F85DD, 208 metallibs, `unzip -t`
+ok, codesign ok. Not run on a device. Test: empty extra_args; new location,
+donuts; frame steps should sit near 16.7 and camera pairs vanish. Off:
+`--nfsmw_frame_pace=false`.
+
+IPA123 result (Stefan, Oct 28 19:05, iPad; log `nfsmw_ipa123_lowfps_ipad.log`):
+"crazy low fps everywhere, menu included": 27-55 frames/s; frame steps 0.3
+... 166 ms (many 80-130 ms). Pacing the loop itself stacks with the GPU
+queue's back-pressure. nfsmw_frame_pace now default false (do not use).
+
+IPA124: `nfsmw_frame_ticks` mode 2, default: in the existing hook before the
+main loop's fctiwz, the frame's elapsed time f0 (ms) is replaced by one
+display period (16.67 ms at 60 Hz), or more periods when real time has run
+over 0.75 of a period ahead (frames missed on screen too); a debt beyond -2
+or +4 periods resyncs (loading). The loop itself is not slowed. Rationale:
+the screen shows one game frame per refresh (pacing 0 of 300 off), so the
+world should advance one refresh per frame.
+`ios/build/`,  bytes, SHA-256 , UUID ,  metallibs, `unzip -t`
+, codesign . Not run on a device. Test: empty extra_args; new location,
+donuts; camera pairs should vanish, fps unchanged. Off:
+`--nfsmw_frame_ticks=0`.
+
+IPA124 result (Stefan, Oct 28 ~19:10-19:14, iPad, no extra args; log
+`Debug/28 October 2026/nfsmw_ipa124_possible_fix_ipad.log`): "a bit of
+judder" once ~15 s after leaving the safehouse; donuts at several new
+locations judder-free; the test race's usual judder spot "buttery smooth";
+60 fps throughout. Camera log: 3 pairs in 6120 frames (0.05%; 19:12:13,
+:14, :36), versus 113-197 per ~900 frames in IPA117/118 and 10-18 per second
+at new places in IPA121/122. fps lines: 23 of 27 windows 60.0, the rest
+57.6-59.9. First fix that removes the measured judder at new places. Next:
+iPhone test; then remove the failed experiments and decide defaults.
+
+IPA124 on the iPhone (Stefan, Oct 28 ~19:16; log
+`nfsmw_ipa124_possible_fix_iphone.log`): no judder driving or doing donuts at
+three spots that had it before; camera 0 pairs in 4080 frames; 60 fps (one
+30.1 window: loading). Stefan: ship it in 0.4.2 with the touch fix and UTF-16.
+
+### 0.4.2 cleanup (Oct 28)
+
+Kept: touch controls in the native frame (IPA111), UTF-16 extra_args.txt
+(IPA113), the even frame time (`tools/ios/patch_game_frame_ticks.py` +
+`ios/src/frame_clock.cpp`, cvar `nfsmw_frame_ticks` 2 default / 0 off; the
+remainder-carry mode 1 removed), the camera log and repeat log as off-by-
+default diagnostics (`nfsmw_native_camera_log`, `nfsmw_native_repeat_log`).
+Removed (reverted from the SDK / generated code, scripts deleted, results
+kept above): frame clock v1/v2/v3 (`patch_ios_frame_clock.py`, cvars
+nfsmw_frame_clock_ms/_swap/_hold), swap vsync (nfsmw_native_swap_vsync),
+main-loop pacing (nfsmw_frame_pace), render hand-off switch
+(`patch_game_render_handoff.py`), ISO read-ahead and read timing
+(`patch_ios_iso_readahead.py`), the frame-steps log. Version 0.4.2 (code 6).
+
+30 / 40 fps check (Stefan, Oct 28 19:25-19:29, iPhone, IPA124; log
+`nfsmw_ipa124_30_40_fps_tests.log`): no judder, even pacing, but at 40 fps
+"the mirror picture, the map rotation etc. seem much higher fps than the main
+game". Camera log at 40: per-frame turns alternate 2.26 / 4.52 deg (1 and 2
+world ticks) through whole seconds: the world steps in fixed 1/60 s ticks and
+a 25 ms frame is 1.5 ticks, so frames alternate 16.7 / 33.3 ms of world
+motion (a 30 fps-like cadence in a 40 fps picture), while the mirror and map
+follow the frame's real time. At 30: mostly 4.6 (2 ticks) with occasional
+6.9 / 2.3. Proposed: 120 Hz simulation (`nfsmw_sim_rate` 120, exactly 3 ticks
+per 25 ms frame) automatically at the 40 cap, as already at the 120 cap; to
+be tested (game speed at 120 Hz simulation was never checked).
+
+Battery mode (Stefan, Oct 28): keeps the frame rate cap at 30 or 40 as
+chosen (60 and 120 become 30), instead of forcing 30: launcher.mm Value()
+and the setting texts; `fps_cap` removed from BatteryValue (no longer
+greyed out). For 0.4.2.
+
+Power Profiler, iPhone 17 Pro Max, IPA124, 1x/60, test race (Oct 28 19:22,
+`ipa124_test_race_power_profile_iphone.trace`, 140.7 s, log
+`nfsmw_ipa124_test_race_power_profile_iphone.log`): not charging, brightness
+33%, thermal Nominal throughout. Duration-weighted: estimated system drain
+40.6 pp/h; LiveContainer CPU impact 8.88, GPU 1.75, display 0.67, CPU
+instructions ~2.97 G/s; log 59.6-60.0 fps, CPU 76-97% of a core. Oct 21
+iPhone baseline (549 s, brightness 47%, no Utility QoS): drain 37.6, CPU impact
+21.0, display 1.99, 9.85 G instr/s. CPU work is far lower now; the drain
+estimate is not comparable (140 s, race start and loading included, Power
+Profiler's estimate swings 22-62 per second here). A longer (10 min) run is
+needed for a drain figure.
+
+0.4.2 release candidate (Oct 28): `ios/build/NFS-Most-Wanted-0.4.2.ipa`,
+30115301 bytes, SHA-256
+95d3897cbbbc821c59b9c858aec22009bee96c29b9b17d0cfa096f6033bfab32, NFSMW UUID
+F597DB27-A2D6-38B1-99FF-ABBA29E5F173, 208 metallibs, `unzip -t` ok,
+`codesign --verify --deep --strict` ok, bundle com.bep1s.nfsmwios 0.4.2 (6).
+Contains: even frame time (nfsmw_frame_ticks 2), touch controls in the native
+frame, UTF-16 extra_args.txt, Battery mode 30/40 choice; diagnostics off.
+Not yet run on a device as a release build (fresh container). Branch
+`touch-overlay-native`, not merged, tagged or pushed.
+
+120 Hz simulation at the 40 cap (Stefan wants it in 0.4.2): launcher.mm
+passes `--nfsmw_sim_rate=120` when the cap is 40 (as at 120) or the switch is
+on; the 120 Hz simulation switch text updated. With nfsmw_frame_ticks 2 the
+period at the 40 cap is the 120 Hz guest grid (8.33 ms), so a 25 ms frame gets
+exactly 3 periods. Game speed at 120 Hz simulation still unverified (check a
+lap / speedometer against 60). The sim rate is set at startup: changing the
+cap to 40 in the in-game menu does not switch it until a restart.
+Release candidate 2: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30115889 bytes,
+SHA-256 c67ac530a0d9f07a7b8e684db69292f3448ddf88014274b1055fd679dc85f485, UUID
+FD902E47-6A66-395E-986E-3FA0723B9B86, 208 metallibs, `unzip -t` ok, codesign
+--deep --strict ok. Not run on a device.
+
+0.4.2 RC2 test (Stefan, Oct 28 ~21:45, iPhone, fresh install; log
+`nfsmw_0.4.2rc2_tests_iphone.log`): Battery mode at 40: "great (not perfect)";
+`sim rate: 120 Hz set`, 39.3-40.0 fps; a race "just like I know it" (game
+speed normal with 120 Hz simulation, by feel); 60 fps checked on IPA124 ("99%
+perfect"). Camera log off in the release build. Pacing at 40: ~200 of 300 off
+the 25 ms grid, refresh gaps 2/3/4 in about equal parts, the same as IPA124:
+presentation at the 40 cap is uneven (pre-existing, BACKLOG). Minimap position
+bug reported (BACKLOG).
+
+Custom HUD master switch (Stefan, Oct 28, for 0.4.2): launcher key
+`hud_custom` (switch "Custom HUD", default off) at the top of the HUD section
+and in the in-game options. While off, Value() returns the game's values for
+hud_scale / hud_safe_zone / hud_left_x/_y / hud_right_x/_y / hud_race_x/_y
+(1.00, 1.00, 0...), so the launcher passes those and the in-game menu applies
+them live; the rows are greyed out ("Turn on Custom HUD to change.", new
+`HudLocked`); saved choices are kept for when it is on. Whether this avoids
+the minimap bug is not known (the bug may also happen at the game's values:
+the wide-scene HUD offset is not part of this switch).
+Release candidate 3: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30116322 bytes,
+SHA-256 b8618590cb2770ed3fcad7b884f5d73ba35443228801c6ce96ec1632199f2960, UUID
+D78B1872-D3E4-3516-95D1-7196DF28628D, 208 metallibs, `unzip -t` ok, codesign
+--deep --strict ok. Not run on a device.
+
+40 fps presentation fix (Stefan, Oct 28: before the final 0.4.2 tests):
+native_renderer.mm paced presentation (caps below the display rate, e.g.
+40 on 120 Hz) now keeps a fixed grid: each frame's target is the previous
+target + one interval, moved on by whole intervals until it is at least the
+recent GPU time (EMA of the frame GPU time, `recent_gpu_seconds`) + 4 ms
+from now; restart from the last shown frame only when the previous target is
+more than 4 intervals away. Before, the grid restarted from the last frame
+actually shown each time, and frames finishing near their target were shown
+16.7 / 25 / 33 ms apart (~200 of 300 off the grid at 40 on the iPhone). Cost:
+up to one interval of extra latency when frames cannot make the next slot.
+Release candidate 4: `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117907 bytes,
+SHA-256 83c4a791fd8890ed12629517e49ef346bc0addf3314c0aaafabeafd47f75a3c8, UUID 62DD5A51-C3B3-3292-A332-492D65743636, 208 metallibs, `unzip -t` ok, codesign --deep --strict
+ok. Not run on a device. Test: 40 cap (and 30) on the iPhone; pacing lines
+should read mostly `3:` (40) / `4:` (30) and few off the grid.
+
+RC4 test (Stefan, Oct 28 22:02-22:07, iPhone, a lap of the test race each;
+logs `nfsmw_0.4.2rc4_40fps_race_iphone.log`, `nfsmw_0.4.2rc4_30fps_race_iphone.log`):
+30 fps clean (0-5 of 300 off, gaps 4:293-300). 40 fps not fixed: steady
+windows exactly `2:100 3:100 4:100` (shown 16.7 / 25 / 33.3 ms apart in a
+repeating cycle), others 130-291 of 300 off. Reading: on the fixed grid, one
+frame in three still misses its slot by one refresh (33.3) and the next two
+are on time (16.7, then 25): the margin (average GPU time + 4 ms) is too
+small for the compositor at 40.
+RC5: the margin is the recent longest GPU time (decaying max, x0.98 a frame)
++ 12.5 ms. `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117858 bytes, SHA-256
+683c4105882c5180fdf03c09d82757c796e6f2cf8034d67665e8f6680f28c98b, UUID
+E649837C-FDBE-3D84-980B-7DB6BAA36692, 208 metallibs, codesign ok; copied to
+iCloud Drive Desktop as NFS-Most-Wanted-0.4.2-rc5.ipa (RC4's copy removed;
+RC4 is rebuildable from 1619e70). Not run on a device.
+
+RC5 test (Stefan, Oct 28 22:10, iPhone, 40 cap; log
+`nfsmw_0.4.2rc5_40fps_iphone.log`): frame-time counter "jumping all over the
+place"; pacing worse: 190-282 of 300 off, many 8.3 ms gaps (1:46-88) beside
+4:106-178, steady windows again 2:100 3:100 4:100. A wider margin does not
+help: presentAtTime targets do not control the 40 cap here.
+(ios_display_match_cap, asking the display for 40 Hz, was tried Oct 24: iOS
+ran a 60 Hz pattern.)
+RC6: at the 40 cap only, `presentDrawable:afterMinimumDuration:` 21 ms (the
+interval - 4 ms): the system keeps each frame at least 21 ms after the one
+before, i.e. three 120 Hz refreshes. Other paced caps keep RC5's grid (30 was
+clean in RC4). `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30117012 bytes, SHA-256
+e2e500026ee635de4ee870641b3e87cb3a3caec3f160f26924678b858314c622, UUID
+6BED9CE3-879B-3256-A583-4ACDF0EA43C4, codesign ok; iCloud Desktop as
+NFS-Most-Wanted-0.4.2-rc6.ipa (RC5 copy removed). Not run on a device.
+
+RC6 test (Stefan, Oct 28 22:15, iPhone, 40 cap; log
+`nfsmw_0.4.2rc6_40fps_iphone.log`, also holds the RC5 session): "still not
+it". Pacing in the RC6 session: steady windows `2:100 3:100 4:100` again,
+others 3:~100 4:98-167 5:18-80. The same 16.7 / 25 / 33.3 ms cycle with
+three different presentation methods (shown-anchored target, fixed grid,
+minimum duration): the unevenness is upstream of presentation (when the
+frames are produced or committed at the 40 cap), not how they are scheduled.
+Not solved for 0.4.2; needs a per-frame diagnostic (CP swap time, commit,
+target, shown) at the 40 cap.
+
+Stefan (Oct 28): not in a rush; fix 40 fps before releasing. IPA126
+frame-trace diagnostic (cvar `nfsmw_native_frame_trace`, default TRUE in
+this build): per frame, CACurrentMediaTime at the renderer's swap (NativeSwap,
+after the cap wait), at the hand-over to Metal (present call), the GPU end
+(GPUEndTime) and shown (presentedTime). Every 60 shown frames: four lines of
+gaps between consecutive frames per stage and one line of per-frame
+latencies (swap->handed / handed->GPU end / GPU end->shown). RC6's 40-cap
+minimum-duration present still in. `ios/build/NFSMW-0.4.2-frame-trace-126.ipa`, 30120996 bytes, SHA-256 57071e301dc149af161a39356bd4b4da238901512d2deee65b04666a866e6bfe,
+UUID B208FD8F-3000-3DA0-BB17-DEEABA5C8587, codesign ok; iCloud Desktop copy. Not run on a device.
+IPA126 run (Stefan, Oct 28 22:21, iPhone, 40 cap; log
+`nfsmw_ipa126_frame_trace_40fps_iphone.log`): no `[frame-trace]` line at all
+(13 pacing lines), so the trace did not run: most likely an earlier build
+was installed (the log has no build marker that tells them apart; the
+dylibs are unchanged since RC1). IPA127 adds a startup line `[frame-trace] on
+(IPA127)`: `ios/build/NFSMW-0.4.2-frame-trace-127.ipa`, 30119905 bytes, SHA-256
+43c78cb9c49d663b6b4527ef121555881cfb4d8142c1c43968330abbf6071ec6, UUID
+6B21ED6E-72D6-3F15-A435-1890D6E374DC, codesign ok; iCloud Desktop copy
+replaces IPA126's.
+
+IPA127 frame trace (Stefan, Oct 28 22:28-22:30, iPhone, 40 cap; log
+`nfsmw_ipa127_frame_trace_40fps_iphone.log`, 241 trace lines; Stefan
+stopped early, "it started dropping frames": one 809 ms gap in the log).
+In gameplay the renderer's swap, the hand-over to Metal and the GPU end are
+all an even ~25 ms apart (24-26), but the shown times alternate 16.7 / 33.3
+in stretches (e.g. "16.7 33.3" x4, then 25.0 x11, then x7 again), with GPU
+end -> shown alternating ~12 / ~20 ms. Everything up to the GPU is even: the
+unevenness is in the display stage, a 60 Hz pattern (only multiples of 16.7)
+in those stretches, although the display link reports 120 Hz and the frames
+ask for at least 21 ms (RC6). Menus: 33.3 cadence.
+IPA128: at the 40 cap the display link's range is 120-120 Hz (was 80-120),
+startup marker IPA128. `ios/build/NFSMW-0.4.2-frame-trace-128.ipa`, 30120373 bytes, SHA-256 5a966291f8d8caf28531f6a74c819a34243562c87d3e188b12d9d3e7d3b3975c, UUID 3B2066B4-9A0F-3524-9F7D-BEE641781EE3,
+codesign ok; iCloud Desktop copy replaces 127. Not run on a device.
+
+IPA128 test (Stefan, Oct 28 22:34-22:37, iPhone, 40 cap; log
+`nfsmw_ipa128_frame_trace_40fps_iphone.log`): "fps randomly drops to 32",
+since one or two builds. Windows at 32.8-36.2 fps: swap -> hand-over 37-58
+ms (frames waiting in the render queue), hand-over gaps 33 / 33 / 25 (three
+frames per 91.7 ms), GPU 15-16 ms/frame; 40.0 windows show 2:100 3:100 4:100
+again. Reading: RC5/RC6 (later targets, minimum-duration presents) hold
+drawables longer; the renderer waits for a free drawable and the pipeline
+backs up to ~33 fps. The 120 Hz minimum did not remove the 16.7/33.3 cycle.
+IPA129: RC4's presentation restored (fixed grid, average GPU time + 4 ms; no
+minimum-duration path), 120-120 Hz display range at the 40 cap kept, trace
+on, marker IPA129. `ios/build/NFSMW-0.4.2-frame-trace-129.ipa`, 30120043 bytes, SHA-256 c0e5d333405705feac48a3f75934d316164058fcfaa077db0aaaa9e13d5b461e, UUID 014D557F-264C-3FF7-987F-4F13E0C500D3, codesign
+ok; iCloud Desktop copy replaces 128. Not run on a device.
+
+IPA129 test (Stefan, Oct 28 22:39-22:41, iPhone, 40 cap, Battery mode; log
+`nfsmw_ipa129_frame_trace_40fps_iphone.log`): no fps drops (39.7-40.0), but
+the shown gaps settle into an exact repeating 25.0 / 16.7 / 33.3 cycle while
+swap, hand-over and GPU end stay ~25 ms (+-2): GPU end -> shown alternates
+~37 / ~28 / ~37 ms, i.e. one frame in three is shown a refresh earlier than
+its neighbours. Stefan also asked whether "30 fps in menus" still works: the
+log says `(the caps only at the 60 fps cap)`: menus/warm 30 apply only at
+the 60 cap, so not at Battery mode's 40.
+IPA130: the trace also logs each paced frame's target (shown minus target,
+target minus hand-over), to see whether those frames are shown before their
+target. `ios/build/NFSMW-0.4.2-frame-trace-130.ipa`, 30120133 bytes, SHA-256 7be63fc5ebd1282921d807c045b8ec4a2197a9880702d9295947b81b250a2b1d, UUID E2CE10C7-0C6F-3D45-B395-67815BEDAD3F, codesign ok; iCloud
+Desktop copy replaces 129.
+
+IPA130 test (Stefan, Oct 28 22:45, iPhone, 40 cap; log
+`nfsmw_ipa130_frame_trace_40fps_iphone.log`): shown gaps the exact cycle
+16.7 / 33.3 / 25.0; shown minus target +4.5 / +12.8 / +12.8 ms in turn,
+target 36-45 ms after the hand-over (plenty of time). So no frame is shown
+before its target; the grid sits ~4.5 ms off the screen's refreshes and two
+frames in three come one refresh later than the nearest one.
+IPA131: (1) paced targets snapped to the refresh grid of the last frame shown
+(base + round((target - base) * hz) / hz) and asked half a refresh early;
+(2) "30 fps in menus" / "30 fps when warm" at the 40 cap too (Stefan): battery.mm
+controls 30/40/60; new SDK patch `tools/ios/patch_ios_cap_30_at_120.py` (in
+prepare_sdk.py): the vblank thread records a 120 Hz rate (`nfsmw_vblank_120`,
+in librexgpu-xenos) and the 30 cap then counts 4 vblanks; texts updated.
+`ios/build/NFSMW-0.4.2-frame-trace-131.ipa`, 30120635 bytes, SHA-256 fd2c0b3327810291dda96e50a88296c6772d3b9b5a6fcc459d486c29079a3c44, UUID 5CDA82B8-0258-3E7B-9D96-0258A2D6D9E7, codesign ok; iCloud Desktop
+copy replaces 130. Not run on a device.
+
+IPA131 test (Stefan, Oct 28 23:13-23:15, iPhone, 40 cap, Battery mode; log
+`nfsmw_ipa131_frame_trace_40fps_iphone.log`, also holds the IPA130 session):
+menu 30 at the 40 cap works (`[battery] cap 30 fps: menu`, 24-30 fps in
+menus, back to `cap 40 fps: driving`). 40 fps: targets now on the refresh
+grid (shown minus target exactly +8.3 / +8.3 / +0.0, target 35-38 ms after
+the hand-over), but iOS still shows two frames in three one refresh after
+their target: the same 33.3 / 25 / 16.7 cycle. iOS does not honour
+presentAtTime at 40 on this panel. Next test without a build:
+`--nfsmw_native_present_at_time=false` (present when ready; the GPU ends
+are an even 25 +- 2 ms).
+
+No-pacing test at 40 (Stefan, Oct 28 23:18-23:19, iPhone, IPA131 with
+`--nfsmw_native_present_at_time=false`; log
+`nfsmw_ipa131_no_present_at_time_40fps_iphone.log`): 40.0 fps; shown gaps
+mostly 25.0 with occasional 29.2 / 20.8 pairs (gaps in 120 Hz refreshes
+3:147-237 of 300, the rest 4 or 2, from those pairs), versus the paced exact
+33.3 / 25 / 16.7 cycle. Menus at 30 unpaced: 4:273-291.
+RC7 (final candidate): no present-at-time pacing at the 40 cap (`cap != 40`
+in `paced`); the other paced caps use RC4's grid again (the refresh
+snapping of IPA131 removed: untested at 30, RC4's 30 was 0-5 of 300 off);
+display link 120-120 Hz at the 40 cap kept; menu/warm 30 at the 40 cap kept;
+frame trace kept as a diagnostic, default off. `ios/build/NFS-Most-Wanted-0.4.2.ipa`, 30121346 bytes,
+SHA-256 2ba5875914bbe2b4ca4d6345e0be7f310f97121485ac05c733458595abde1496, UUID 5B410821-DFE9-321E-9B90-3326194FC25C, 208 metallibs, codesign --deep --strict ok; iCloud
+Desktop as NFS-Most-Wanted-0.4.2-rc7.ipa. Not run on a device.
+
+### October 28: IPA132 careers from the old Black Edition switch (GitHub issue 8)
+
+Report: 0.4.0/0.4.1 show "NAME appears to be damaged and cannot be used" for a
+career (user's `data.zip`; Stefan reproduced it with the same save). Not file
+corruption: the MC02 header size, the three EA CRC32s and the trailing MD5 all
+match. The first record table (file offset 0x5BCD, slot 0 = 0x12345678) has 88
+slots in use with pool indices up to 85, 13 of them >= 75; Stefan's toggle-off
+`MF` save uses 44, max 43. Cause (inferred from code): the pre-0.4 switch set
+byte 0x82A2CE05 (see D-007); in `sub_822CBC00`'s loop, at 0x822CBD68
+(`lbz r4,-12795`), CE05 != 0 makes it create an extra record
+(`bl sub_822CB458`). 0.4 never sets CE05, so those records are missing when
+the career loads. Fix, `ios/src/game_pool.cpp`: when the game opens a save
+(save hook, Open), count slots with an index >= 75 in the file
+(`Documents/data/*/454107D9/00000001/<name>/<name>`); set CE05 = 1 if any,
+else 0, and log `[pool] save '...': N entries past 75 (old Black Edition
+switch); byte 82A2CE05 = 0|1`. CE06 (Black Edition) is untouched. Untested
+assumption: the records are built after the save is opened (if they are built
+at boot, the byte comes too late and the error stays). Both bytes on together
+was never run before. Built `ios/build/NFSMW-legacy-records-132.ipa`, UUID
+06F495E4-2656-365D-B1BD-F177AE237DCE, SHA256 564f2a4d0787ef71..., ZIP test OK,
+208 metallibs. To test: the issue 8 save loads; a toggle-off career still
+loads (log shows byte = 0).
+
+IPA132 result (Stefan, iPad, Oct 28): BEPPY loads; NAME still "damaged" although
+the log shows `13 entries past 75 ... byte 82A2CE05 = 1` at its open, before
+the load. Stefan's device has no `save_extras/NAME.pool` (no "wait" line for
+NAME). A copy of NAME with the 13 slots >= 75 cleared (free slot pattern) and
+the header recomputed, imported, is also "damaged". Offline checks of NAME, all
+pass: header size, three CRC32s, trailing MD5, the gameplay section's own MD5
+(0x34) and its structure (8 persistent activities, timers, types, milestones,
+traps, hiding bits, bin bytes as `save_convert.cpp` parses them). So CE05 alone
+and the missing overflow alone are not the cause (negative results).
+
+### October 28: IPA133 save loader probe (temporary, D-010)
+
+The career loader `sub_822C3A60(profile, buffer, size, r6, mode)` fails (r3 =
+0) in two places: the word after the gameplay section (mode 0: where
+`sub_822C2998` stopped; else buffer+16+23033) differs from word +8 of the
+object at `0x82A2C684`, or `sub_822C3718` returns 0. `ios/src/game_load_probe.cpp`
+wraps the three and logs `[load-probe]` lines (inputs, the compared words,
+results). IPA132's CE05 change is still in. Built
+`ios/build/NFSMW-load-probe-133.ipa`, UUID 4EE16A65-4732-3F06-960F-15BC4CAA9596,
+SHA256 8907165e892d19a9..., ZIP test OK, 208 metallibs. Test: load NAME and
+BEPPY, send the log.
+
+IPA133 result (Stefan, iPad, Oct 28): NAME: `load -> 0 | word at buffer+23049
+= 2C9B8528, game expects 55ADA3B6 (DIFFERENT)`, sub_822C3718 never reached.
+BEPPY: sub_822C3718 -> 1, word 55ADA3B6 = expected, load -> 1. The word is the
+ID just before the profile name (file offset 0x5A2D); Stefan's MF save from
+Xenia in August has 55ADA3B6 too. Cause: the career's player ID, not Black
+Edition and not damage. The gameplay section was 23033 bytes in both.
+
+### October 28: IPA134 load careers saved under another player ID (D-010)
+
+`ios/src/game_save_id.cpp` (replaces the probe): when `sub_822C3A60` returns 0
+in mode 0 and the 4 bytes where `sub_822C2998` stopped differ from word +8 of
+the object at 0x82A2C684, they are replaced by that value in the load buffer
+and the loader runs again from the same entry registers; logs `[save-id]`.
+The IPA132 CE05 change is reverted (game_pool.cpp as at 7af8dc0). Built
+`ios/build/NFSMW-save-id-134.ipa`, UUID FF5B5C60-7ED0-3D5B-80B7-3E0238CE916C,
+SHA256 296129a8f4c39cca..., ZIP test OK, 208 metallibs. To test: NAME loads
+(cars visible; without its .pool the 13 overflow records may be empty), saves,
+reloads; BEPPY unchanged.
+
+IPA134 result (Stefan, Oct 28): `[save-id] career saved with player ID
+2C9B8528, this device has 55ADA3B6: loaded with the device's ID -> 0`: the
+rerun after the failed load also fails (the first pass probably changes the
+buffer or the profile). Negative result.
+
+### October 28: IPA135 replace the ID before the loader runs (D-010)
+
+`game_save_id.cpp` now writes the device's ID at buffer+16+23033 (the
+gameplay read was 23033 bytes for NAME and BEPPY) before the only call of
+`sub_822C3A60`, and logs `sub_822C3718`'s result (temporary). Built
+`ios/build/NFSMW-save-id-135.ipa`, UUID D321BE83-F4A8-3DE4-A087-89608083B2DF,
+SHA256 b187ec7a818b06d1..., ZIP test OK, 208 metallibs.
+
+IPA135 result (Stefan, Oct 28): NAME: `sub_822C3718 -> 0`, load -> 0 (BEPPY
+-> 1). The ID check now passes. `sub_822C3718` is an MD5 (constants
+0x67452301...) over buffer+16, size-32 bytes, compared with the 16 bytes at
+r5: the buffer is the file from 0x24 (size 62652 = 62688-0x24), so it is the
+file's trailing MD5 of [0x34, end-16), which includes the ID we changed.
+
+### October 28: IPA136 recompute the MD5 after changing the ID (D-010)
+
+After writing the device's ID, `game_save_id.cpp` recomputes the MD5 of
+buffer+16..size-16 into the last 16 bytes (CC_MD5); the temporary
+`sub_822C3718` log is removed. Built `ios/build/NFSMW-save-id-136.ipa`, UUID
+268EAF62-8265-36D5-B8ED-A9225D7145DD, SHA256 ef8387d5714f6f03..., ZIP test OK,
+208 metallibs.
+
+IPA136 result (Stefan, Oct 28): NAME loads (`[save-id] ... -> 1`); its Black
+Edition cars invisible and upgrades missing on the iPad (no NAME.pool there).
+With the user's `NAME.pool` (Oct 29, 34612 bytes, 1 table, overflow entries
+75-86 in use) still invisible: no `put back` line in any run. Offline: its
+slots differ from the save's table in one slot (138: the side file has a
+record, index 86, that the save has free), so the exact 4000-byte comparison
+in `RestoreIfLoaded` never matched. Also, the 00:43 run has no `[save-id]`
+line, so the NAME imported then was the copy resaved on the iPad, not the
+original.
+
+### October 29: IPA137 put the side file back when the overflow slots match (D-010)
+
+`game_pool.cpp`: `RestoreIfLoaded` matches a table when every slot of it that
+points into the overflow (index 75-149) equals the saved slot and there is at
+least one, instead of all 200 slots; after copying the saved overflow, entries
+no slot points to are freed (`... put back (N unused freed)`). Built
+`ios/build/NFSMW-pool-match-137.ipa`, UUID BF0AEB20-7548-3421-81A5-C131C56ADDF5,
+SHA256 ce225cf032dcae14..., ZIP test OK, 208 metallibs. Test: import
+`~/Desktop/NAME-original` (the user's original NAME, header and NAME.pool),
+load it, expect `[save-id] ... -> 1` and `put back (1 unused freed)`, cars
+visible.
+
+IPA137 result (Stefan, iPad, Oct 29): the user's original NAME with its
+NAME.pool imported loads, with the Black Edition cars visible and upgraded
+(screenshot). D-010 fixed.
+
+### October 29: 0.4.2 release build
+
+`touch-overlay-native` (RC7 pacing, D-010 save fixes, Lunquell credit)
+fast-forwarded into `main` at b933b6a. Temporary probes removed (load probe,
+`sub_822C3718` log); frame trace default off. `ios/build/NFS-Most-Wanted-0.4.2.ipa`,
+30121770 bytes, SHA-256 f872797da3eadcf028aa5fa2b7dfb9cf383d9ffe84437f92b15f93dc60411ed7,
+UUID 1C6B1AAE-39A4-3916-BAE2-9FEB126DAAC6, 208 metallibs, ZIP test OK,
+codesign --deep --strict ok; copied to the iCloud Desktop. No tag or GitHub
+release (Stefan).
+
+### October 29: 0.4.2-diag1, diagnostic build for the iOS 26 native crash (D-011)
+
+Report (GitHub user, `.ips` and log in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/`):
+iPhone18,2 (17 Pro Max), iOS 26.7.2 23H128, 0.4.2 build 6. EXC_BAD_ACCESS
+(SIGSEGV) KERN_INVALID_ADDRESS 0x9a0 on queue `nfsmw.native`, 1-2 s after Play
+(first native frames, front end loading). Top frame AGXMetalG18P
+`-[AGXG18PFamilyRenderContext drawIndexedPrimitives:...] +240` (`ldr x9,
+[x8,#0x9a0]`, x8 null: the driver reads an empty slot of the encoder's
+state), called from `(anonymous namespace)::RenderFrame +67772` (the NativeSwap
+block); the only indexed draw is the game draw in `native_renderer.mm`. Pure
+Vulkan works on that phone; native works on Stefan's 17 Pro Max on iOS 27.
+Cause not known.
+
+Change (branch `diag-ios26-native-crash` off `main` 0.4.2, Stefan approved
+via the coordinator, logs only, no draw skipped):
+- `ios_main.mm` `StartDiagnostics`, first thing in `main()` after the
+  Documents folders: opens `Documents/logs/native_diag.txt`; unless
+  extra_args.txt has `--nfsmw_diag_metal_validation=false` (cvar, default
+  true; read by a plain text scan, so a UTF-16 extra_args.txt is not seen),
+  sets `MTL_DEBUG_LAYER=1`, `MTL_DEBUG_LAYER_ERROR_MODE=nslog`,
+  `MTL_DEBUG_LAYER_WARNING_MODE=nslog` (report and continue, so the crash
+  still happens), `MTL_SHADER_VALIDATION=0`, `OS_ACTIVITY_DT_MODE=YES` (NSLog
+  copied to stderr) and points stderr at native_diag.txt. nfsmw.log gets a
+  `[diag] D-011 diagnostic build` line with both switches.
+- `native_renderer.mm`, cvar `nfsmw_diag_draw_log` (default true): for the
+  first 5 frames with draws (at most 400 lines) one line per new game encoder
+  (pass, encoder class, attachments: colour 0/1/4 and depth/stencil
+  format/sample count/size, visibility buffer) and per game draw (index count,
+  index buffer and length vs offset + count*4, pso and PipelineKey formats,
+  samples, alpha spec, motion, the pass's attachments, depth-stencil state,
+  visibility slot, nil vertex buffers among the shader's inputs 9..30) and
+  per full-screen `drawPrimitives` (encoder, attachments). Each line is
+  written with write() + fsync() before the draw. Differences are flagged
+  `MISMATCH` with a name (index-overrun, c0-format, c0-samples, c1-presence,
+  c1-format, c4-presence, c4-format, depth, stencil, no-depth-state,
+  visibility, vertex-buffer, nil-encoder). If validation is active the encoder
+  class should be an MTLDebug... wrapper instead of AGX....
+- Version `0.4.2-diag1` (CFBundleShortVersionString, build 6), shown in the
+  launcher and the first line of native_diag.txt.
+
+Built `ios/build/NFS-Most-Wanted-0.4.2-diag1.ipa`, SHA-256
+ec33bb733fc385adb8cab88157c40e8a64f22929316e5ec4e68f7437230c0cf2, UUID
+0C78385E-6C9D-38A1-A5E8-FC03B4EFFB48, 208 metallibs, ZIP test OK, codesign --deep --strict ok. Not run on a
+device yet. Unverified: whether iOS 26/27 honours MTL_DEBUG_LAYER for an app
+launched without Xcode (the encoder class in native_diag.txt shows it), and
+whether NSLog output reaches stderr with OS_ACTIVITY_DT_MODE. Expected cost:
+validation slows encoding; the draw log syncs up to 400 lines once.
+Next: Stefan checks it starts and plays on his iOS 27 phone (native_diag.txt
+written, no false MISMATCH), then the GitHub user runs it and sends
+native_diag.txt, nfsmw.log and the .ips.
+
+0.4.2-diag1 smoke test (Stefan, iPhone 17 Pro Max, iOS 27, Oct 29): plays.
+`native_diag.txt` (copy in `.../29 October 2026/diag1 Stefan iOS27/`): 157
+lines, 5 frames; every game encoder is `MTLDebugRenderCommandEncoder`, so
+MTL_DEBUG_LAYER is honoured without Xcode; no validation message reached the
+file (none raised, or NSLog not copied to stderr: not distinguishable from
+this run); 0 MISMATCH. Frame 1 drew no game draw (pipelines not ready), only
+full-screen passes. All draws: triangle lists, 32-bit indices in range,
+sample count 1, depth 260 (Depth32Float_Stencil8) on every pass. The
+`nfsmw.log` sent with it is an older one (last start Oct 29 00:49, build
+Oct 28 21:56), not from this run. Next: the GitHub user's run on iOS 26.
+
+0.4.2-diag1 on the GitHub user's iPhone 17 Pro Max, iOS 26 (Oct 29; copies in
+`.../29 October 2026/diag1 GitHub user iOS26/`): **no crash**, the game
+plays, but as low as 17 fps (user; SpeedBreaker 60). Log: build Oct 29
+11:24:38, validation on, draw log on, native backend, scale 1.0, MSAA off,
+cap 40; `pacing: 300 of 300 frames off the 25.0 ms grid`; frame 1801: 3008
+draws. native_diag.txt: 148 lines, 0 MISMATCH, no validation message,
+encoders `MTLDebugRenderCommandEncoder`, attachments 1600x736.
+Inference (not proven): the debug layer stands between the renderer and
+AGX (it forwards every call itself and retains every object it is given),
+which hides the crash; the low frame rate is that layer's CPU cost on ~3000
+draws a frame, not representative. Either the crash needs AGX to receive
+our calls directly (driver state bug), or an object we use is freed early
+and the layer's retains keep it alive. Next: the same build with
+`--nfsmw_diag_metal_validation=false` in extra_args.txt (UTF-8): draw log
+only, expected to crash, the last native_diag.txt line names the draw.
+
+0.4.2-diag1 with `--nfsmw_diag_metal_validation=false`, GitHub user, iOS
+26.7.2 23H128 (Oct 29; copies in `.../29 October 2026/diag1 GitHub user iOS26
+validation off/`): crashes as before (.ips: SIGSEGV 0x9a0 in AGX
+`drawIndexedPrimitives` +240, RenderFrame +75648, queue nfsmw.native).
+native_diag.txt ends at frame 2, draw 5 (0 MISMATCH). **Cause found:** on
+iOS 26 AGX hands out every new render encoder at the same address
+(frame 1: 0x10e9543f0 for all ten game passes; frame 2: 0x10e903f00). The
+renderer's per-encoder caches (`EncoderState::For`, `bias_encoder`,
+`visibility_encoder`) detect a new encoder by comparing that pointer, so on
+iOS 26 they never reset. Draw 5 is the first draw on a new encoder whose
+pipeline equals the previous draw's (draw 4 and 5: pso 0x12e3b0000), so
+`setRenderPipelineState` is skipped and the new encoder draws with no
+pipeline: the null state slot. (Depth state, vertex buffers 9+, depth bias
+and visibility were already skipped the same way since draw 2, without a
+crash.) On iOS 27, and under the debug layer, each encoder has a new
+address, so the caches reset and nothing shows. Proposed fix (not made,
+awaiting Stefan): at the game encoder's creation, clear the trackers
+(`state.enc = nil; bias_encoder = nil; visibility_encoder = nil;`, as
+`clip_mode_encoder` already is) so the reset no longer depends on the
+address.
+
+### October 29: 0.4.2-diag2, the D-011 fix (test build)
+
+Stefan approved the fix. `native_renderer.mm`: when the game's encoder is
+made, `state.enc`, `bias_encoder` and `visibility_encoder` are cleared (as
+`clip_mode_encoder` already was), so the pipeline, depth-state, vertex
+buffer, depth bias and visibility caches reset on every new encoder whatever
+its address. The draw log stays on (`nfsmw_diag_draw_log`); Metal validation
+now defaults to off (`--nfsmw_diag_metal_validation=true` in extra_args.txt
+turns it on), so the test runs the real driver path and speed. Version
+0.4.2-diag2, build 6. `ios/build/NFS-Most-Wanted-0.4.2-diag2.ipa`, SHA-256
+1ebbce856ffe83e7ca6127201640d4e648635fed50c6b195600936925b66ff76, UUID
+A085D51D-CA3F-3C16-B853-51FAC0B5A2DE, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok; copied to the iCloud Desktop (~/Desktop). Not run yet.
+Expected on iOS 26: no crash, and native_diag.txt shows the same encoder
+addresses with draws continuing past frame 2 draw 5. Next: Stefan checks it
+on iOS 27, the GitHub user on iOS 26 (frame rate with validation off too).
+
+0.4.2-diag2 result (Stefan, Oct 29): the fix is confirmed to work on iOS 26
+(the GitHub user's iPhone 17 Pro Max). No logs received for this run.
+D-011 fixed in the test build; not yet on `main`.
+
+### October 29: 0.4.3 release build (D-011 fix on `main`)
+
+Stefan: "yes". Only the D-011 fix went onto `main` (the encoder-state reset
+in `native_renderer.mm`, as in diag2); none of the diagnostic code (no
+validation switch, no draw log: `strings` finds no `nfsmw_diag`/`native_diag`
+in the binary). Version 0.4.3, build 7; CHANGELOG entry (likely also GitHub
+issues 4 and 7, iOS 26 native black screen: not confirmed).
+`ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30121690 bytes, SHA-256
+30335eacaf0179b0a07a3c7d9b4b09e66b485820cd07b4560fb02cbbd3a1e968, UUID
+0597A31B-3378-341D-9061-392288540C7A, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok. Not run on a device (the same fix was confirmed in
+diag2). The diagnostic branch `diag-ios26-native-crash` stays local. No
+tag, push or GitHub release.
+
+### October 29: 0.4.3 additions, silent-mode switch and Game Mode key
+
+Stefan approved (via the coordinator) two more 0.4.3 changes, still build 7.
+- Audio: the session category was `AVAudioSessionCategorySoloAmbient`
+  (respects the silent switch, stops other apps' audio). New launcher switch
+  "Play sound in silent mode" (Audio tab, key `audio_silent_mode`, default
+  off) passes `--ios_audio_silent_mode`; cvar `ios_audio_silent_mode`
+  (coreaudio_driver.mm, default false) picks
+  `AVAudioSessionCategoryPlayback` instead. `PrepareAudioSession()` moved in
+  `RunGame` from before to just after `rex::cvar::Init` (a few lines; the
+  category needs the parsed value). boot.txt says `audio: Playback (sound in
+  silent mode)` or `audio: SoloAmbient`. The separate "mute game audio, keep
+  other apps' music" idea is untouched.
+- Info.plist: `LSSupportsGameMode` true (GCSupportsGameMode was already
+  there), for certificate sideloading; LiveContainer handles its own.
+Rebuilt `ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30112243 bytes, SHA-256
+612b799a8387814df2309930e9a53b52c2dcf0c6c57a0de416517be91c0b30d5, UUID
+E03ED4ED-B0A2-3803-AB23-5F239940A093, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok, plist has both Game Mode keys. Replaces the earlier
+0.4.3 IPA (30335eac...). Not run on a device. Test: silent switch on;
+switch off -> no game sound, boot.txt `audio: SoloAmbient`; switch on, Play
+-> sound, `audio: Playback`.
+
+0.4.3 (7942b6b build, SHA-256 612b799a...) result (Stefan, Oct 29): the
+"Play sound in silent mode" switch works. LSSupportsGameMode not tested
+(all three of his sideload app slots are in use); a plist key only.
+
+Minimap position fix (Oct 29, approved by Stefan). Bug: after leaving the
+safe house a second time, or finishing/restarting a race, the minimap's map
+and icons are drawn inward from its ring (IMG_4038; a GitHub user's
+IMG_4045), also with Custom HUD off. Cause (inferred from the code, not
+traced): the HUD is rebuilt, often at the old HUD's address, and its minimap
+at the old minimap's address. MoveMinimap only treats a minimap as new when
+its address changes or (when the game did not just switch widescreen) its
++184 differs from what was written; the new HUD's first update switches it
+to widescreen, so `switched` was true, the old offset state (m.x = -extra)
+was kept and the new minimap, its children and +184 got no wide-scene shift
+(105 HUD units at 1560x720); the pivot (set outright by the game) was still
+moved, and the ring moves with the left group. Fix (game_scene_size.cpp,
+sub_822AA6D0 hook): the widescreen flag hud+816 only changes inside the
+game's call, so a flag that differs from the value left after the previous
+call, or another HUD address, marks a new HUD and resets g_minimap. IPA138
+`ios/build/NFSMW-minimap-138.ipa` (0.4.3 + fix): SHA-256
+9c2816c04f65535db4b67453eaba04651dffcd89c1b0df6a25907103a0eb4bcf, 30111768
+bytes, UUID 26C71920-3AE0-3D23-89C2-B47DC4EA1492, 208 metallibs, `unzip -t`
+ok, codesign --deep --strict ok. Not run on a device yet.
+
+IPA138 result (Stefan, Oct 29, iPhone, Custom HUD off): exiting the safe
+house twice and finishing a race no longer move the minimap out of place.
+Race restart not separately reported.
+
+Screen log for the Custom HUD (Oct 29, D-006, approved by Stefan: log first).
+Cause found by reading the code: the HUD size scales the frontend's single
+shared matrix (sub_82453768 while sub_82440D80 runs, rebuilt about every
+frame: `[hud] matrix built (1000)` 28 s in, IPA129 log) whenever
+battery::InMenu() is 0, so any package drawn while driving is scaled too.
+The engine's pushed packages: IsPackagePushed (sub_82284D70) reads
+FEngine = *cFEng, then sub_822F5A98 walks the list at FEngine+216, first at
++8; each node (the package) has +4 next, +12 name pointer, +16 name hash.
+IPA139 (game_state.cpp -> nfsmw_ui_log in game_scene_size.cpp, game flow
+state 6 only): `[ui] screens: <names> (HUD size, menu)` whenever the list
+changes; `[ui-tree] <name> <address> (up | 3 s later)` with DumpObjects
+(400 objects at most) when a package comes up and 180 frames later.
+Diagnostic only, no behaviour change. `cmake --build --preset ios --target
+ipa -j 6` exit 0; `ios/build/NFSMW-ui-log-139.ipa` SHA-256
+90f6c8006dbd052fa8f7e2bd814104d3a4f8fb577ee2910b42dbbb7dad749dfd, 30118882
+bytes, `unzip -tq` ok. Not run yet. Not proven: that +216 holds every
+drawn package (sub_82284D70 has a second path through sub_822D71A0).
+
+IPA139 result (Stefan, Oct 29, iPad, Custom HUD at 70%, log
+`Debug/29 October 2026/nfsmw_ipa139_ui_log_70pct_ipad.log`): a bust, then a
+race. Screens pushed while driving (HUD size 0.70, menu 0): HUD_SingleRace,
+FadeScreen, EA_TRAX, BUSTED_OVERLAY.fng (the bust's TV overlay: a 640x470
+frame, 350x538 side pieces, a 1046x540 cover), InGamePhotoMaster.fng (the
+same TV frame at a race's end, 3 s before PostRace_Results), and
+Autosave_Overlay.fng (an icon group at 220,-182, top right). Under menus
+(Pause_Main, PostRace_Results) the size is 1: InGameBackground (the asphalt
+picture) is at full size there (Stefan: it goes full screen at the
+statistics). No Infractions.fng was pushed: the pursuit pop-ups are in
+HUD_SingleRace itself (inference). The list walk at FEngine+216 matches
+what IsPackagePushed reports (the menu changes line up with `[game] menu`).
+
+Fix (IPA140, Stefan's approved plan): game_state.cpp reports
+BUSTED_OVERLAY.fng or InGamePhotoMaster.fng pushed while driving
+(nfsmw_hud_full_size, logged `[hud] full-screen overlay`); HudScale() is
+then 1, as under a menu (the HUD is hidden under them; the pieces' offsets
+keep the setting, as for the pause screen). Autosave_Overlay.fng now goes
+through nfsmw_hud_fit_overlay like EA_Trax.fng (kept at the HUD's corner).
+The screen log stays in for the chase pieces. With Custom HUD off the scale
+is 1 and nothing changes. `cmake --build --preset ios --target ipa -j 6`
+exit 0; `ios/build/NFSMW-hud-full-size-140.ipa` SHA-256 3864f4b821468a8f4e7e969af5d21c223bae5ff698657bac7f0c2fd883b3b454, 30128438 bytes,
+`unzip -tq` ok. Not run yet. Open: the misplaced pieces during chases and
+the bounty/infraction pop-ups (in HUD_SingleRace; need a screenshot to
+match them to the tree).
+
+IPA140 result (Stefan, Oct 29, iPad, 70%, log `Debug/29 October 2026/
+nfsmw_ipa140_pursuit_70pct_ipad.log`, screenshots `ipa140_70pct_IMG_0330-0332.png`):
+the bust overlay is right (`[hud] full-screen overlay up: HUD size 1` while
+BUSTED_OVERLAY.fng is up); the asphalt picture is right; at a race's end the
+HUD shows for about half a second at size 1 with its pieces still moved for
+0.7 (off screen) while InGamePhotoMaster.fng comes up. Stefan: on the iPhone
+the bust overlay and the asphalt picture let the game show at the sides
+(the IPA91 note). Pursuit pieces misplaced at 70% (IMG_0330/0331): the
+infraction list ("Ramming a Police Vehicle") sits mid-left, away from the
+INFRACTIONS badge in the corner, and "PURSUIT CTS" sits mid-right below the
+bounty box. The HUD tree logged 3 s after the HUD came up has the infraction
+text groups at about (-349, -222) HUD units, but drawn they are at about
+(-224, -114) in the matrix's units: the HUD's script places them when the
+pursuit starts (inference), so the tree must be logged during a pursuit.
+
+IPA141: the size-1 override of IPA140 is gone. nfsmw_hud_fit_full
+(game_scene_size.cpp, called by game_state.cpp every frame in the world,
+under menus too) divides every object's position (at any depth) and every
+non-group's size in BUSTED_OVERLAY.fng, InGamePhotoMaster.fng and
+InGameBackground.fng by the matrix's scale (s = the HUD size while driving,
+else 1; x also by 1280/width on a wide scene), so they are drawn at size 1
+and the screen's width while the HUD keeps its size. Fit takes x and y
+scales now. The screen log also logs each package's tree every 600 frames
+while driving. `cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fit-full-141.ipa` SHA-256 e4bb63ea2af27a05c9cfe2ebb3dcac0a6c986b6e9eba9a94d442d0d8b7a22028, 30118885 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that widening is right for the iPhone (text in
+those packages is stretched as well).
+
+IPA141 result (Stefan, Oct 29, iPad, log `Debug/29 October 2026/
+nfsmw_ipa141_pursuit_race_70pct_ipad.log`, `ipa141_IMG_0333-0335.png`): the
+race-end flash is gone, but the photo screen loses some text and its
+diagonal-stripe image at the bottom grows every few seconds (inference:
+Fit takes the game's per-frame animated values as a new base and divides
+again, so animated sizes compound). Stefan: revert it (a half-second flash
+outside gameplay is preferable). He also felt the D-005-style judder for the
+whole first race and in chases; the log's `[native] pacing` lines show 0 of
+300 frames off the 16.7 ms grid through the race (17:36:39-17:37:34) and
+the 600-frame tree dumps (about 400 lines each) left no off-grid frames, so
+the judder is not in the presented frame timing; cause not found. The
+loading screen's short bleed at the top and bottom on the iPad (IPA84) is
+still there.
+
+Chase HUD, 70% vs 100% (tree dumps 17:39:49 and 17:40:41): the infraction
+badge, "INFRACTIONS" label and list rows (left group children 3345911D,
+05C8C7A8-AB, D9B62133) are moved with the top-left corner in the dump, and
+the label is drawn under the badge, but the list's rows were drawn where
+the game puts them, scaled about the middle (screenshot at about -224,-120
+HUD units, the game's own position): the script slides them in after the
+HUD's update (inference). "PURSUIT CTS" and the rows above it (right inner
+group children EA903012, 3F8644CA, D60FC075 at y -32, 3, 41) were assigned
+to the race info and moved up toward the top right; at 100% they sit just
+above the speedometer.
+
+IPA142: game_scene_size.cpp and game_state.cpp back to IPA140 (size 1
+while BUSTED_OVERLAY.fng or InGamePhotoMaster.fng is up; one tree dump per
+screen and one 180 frames later; no fit of whole packages). Then: the right
+side's middle rows go with the speedometer; the pieces' offsets are kept
+(g_offset) and, after the HUD's matrix is built for drawing
+(sub_82440D80), any piece whose position differs from what was written is
+moved again (logged `[hud] piece ... placed again`, 20 lines at most).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-pursuit-142.ipa` SHA-256 310c8375070dd2a3f7371d5a1e205596a6ff71f31a08c1455a706fef6332dab6, 30130972 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that the matrix is built after the script's
+update and before the HUD is drawn in the same frame.
+
+IPA142 result (Stefan, Oct 29, iPad, 70%, log `Debug/29 October 2026/
+nfsmw_ipa142_pursuit_70pct_ipad.log`): "PURSUIT CTS" is right; the
+infraction rows flash between the old and the new place. The 20 `placed
+again` lines went to D60FC075 (PURSUIT CTS, sliding in, y 16.6 to -6.5 a
+frame at a time) and three others; none to the rows. sub_82440D80 is called
+from sub_82442310 (the frame's post chain), not right before the HUD is
+drawn, so a piece the game places at another time is drawn unmoved on some
+frames (inference). Stefan also felt the game run like a lower frame rate
+for the first ~20 s of the chase while the counter showed 60; the pacing
+lines show 144 and 30 of 300 frames off the grid while loading, then 0-4
+in the world: like D-005 (the game's own timing), not this HUD work
+(inference; not investigated here).
+
+IPA143: a group piece found placed again by the game is given back to the
+game (its position stays the game's) and its children are moved instead
+(Piece::by_children, g_child_moved; logged once per piece). Assumes the game
+does not also place the children. `cmake --build --preset ios --target ipa
+-j 6` exit 0; `ios/build/NFSMW-hud-rows-143.ipa` SHA-256 5f5af15806b087244c4ff0f7dd8dbf3e48d287ec479218ca76857da365232d6d, 30130428 bytes,
+`unzip -tq` ok. Not run yet.
+
+IPA143 result (Stefan, Oct 29, iPad, 70%): the infraction rows stay under their badge; fixed.
+
+IPA143 on iPhone (Stefan, Oct 29, 70%, log `Debug/29 October 2026/
+nfsmw_ipa143_pursuit_70pct_iphone.log`, screenshots `ipa143_iphone_IMG_4050,
+4052, 4053.png`; an earlier upload was an Oct 28 log with logging off, kept
+as `nfsmw_oct28_build_iphone_sent_oct29.log`): the bust overlay is right;
+the busted/evade bar's marker is missing; the loading screen's black box
+covers about 0.74 of the width and 0.87 of the height (screenshot), which
+matches the matrix's HD title-safe 0.92 and the wide scene's 1280/1560
+(0.755 and 0.92; inference); the asphalt picture shows the game at its
+edges too. The log: 7B422BA3 and E0B1430B (the bar's groups, bottom centre)
+were given to the game (by_children); the marker inside is placed by the
+game too, so it was drawn unmoved (about 92 HUD units lower: off the
+bottom) (inference).
+
+IPA144: by_children only for top-left pieces (the infraction rows); the
+others are moved again late, as in IPA142. Fade packages and
+InGameBackground.fng are fitted in every game state, under menus too: their
+images 400 units wide or more (types 1 and 9) divided by the HUD size
+(driving only) times the kept title-safe scale (HD 0.92, SD only with
+nfsmw_hud_title_safe), x also by 1280/width on a wide scene. On the iPad
+(SD, 4:3) only the HUD size applies, as before, now also undone under menus.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fit-safe-144.ipa` SHA-256 996345e70b8c01f069e5873e583ad46b614232edf88901349a939777d2ca00ab, 30130938 bytes, `unzip -tq`
+ok. Not run yet. Not proven: that the asphalt picture's pieces are static
+(IPA141 showed fitting animated pieces compounds).
+
+IPA144 result (Stefan, Oct 29, iPhone, logs `Debug/29 October 2026/
+nfsmw_ipa144_iphone_part1.log` and `_part2.log`, screenshots
+`ipa144_iphone_IMG_4055, 4057, 4058.png`): the busted/evade bar works; the
+loading screen's black box now covers about 1970 of 2000 and 875 of 921
+screenshot pixels (thin edges left); the asphalt picture behind the results
+is closer to full but still shows the game at the sides; the pause menu
+shows two dark vertical bands (InGameBackground.fng is also the pause
+menu's dimmed backdrop; its fitted pieces no longer line up).
+
+IPA145: InGameBackground.fng no longer fitted (back to its old edges on
+the iPhone); fade images drawn 10% larger on top of the fit (g_fit_grow).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-fade-grow-145.ipa` SHA-256 f755d286daf36645555bf7c3de99984fdd3f3047e521a475dca562320a876c1d, 30131166 bytes, `unzip -tq`
+ok. Not run yet.
+
+IPA145 result (Stefan, Oct 29, iPhone and iPad; log `Debug/29 October 2026/
+nfsmw_ipa145_iphone.log`, `ipa145_ipad_pause.jpeg`, `ipa145_iphone_pause.jpeg`):
+the loading screen no longer bleeds on either device, but its pieces twitch
+a little (kept as a known issue unless an easy fix turns up); the pause menu
+looks as before, but on the iPhone its darkening covers only the middle,
+not the whole screen as on the iPad; the asphalt picture still has side
+margins on the iPhone. InGameBackground.fng's tree (IPA145 log): group
+2716CDBF (size 1 x 2: a group's size is its scale) holds three pictures, a
+510-wide middle and two 254-wide sides at x +-382 (1018 units across), and
+two groups of 1200-wide bars at the top and bottom.
+
+IPA146: nfsmw_hud_fit_backdrop fits only InGameBackground.fng's top-level
+groups (position and scale divided by the same full-screen scale as the
+fades, FullScreenScale), so its pieces keep together. `cmake --build
+--preset ios --target ipa -j 6` exit 0; `ios/build/NFSMW-hud-backdrop-146.ipa`
+SHA-256 7b0dfa47a8818145d02e0b9c13632eb9e4526dd914ac54e98e2430ea6a2114c8,
+30121610 bytes, `unzip -tq` ok. Not run yet.
+
+IPA146 result (Stefan, Oct 29): the pause menu's darkening covers the whole
+iPhone screen; the asphalt-and-leaves picture behind the results still shows
+the game at the sides, so it is not InGameBackground.fng (inference: it is
+InGamePhotoMaster.fng's top-level 640x480 image 0xBCC00F05, IPA139's tree).
+New: pausing while the song box (EA_Trax.fng) shows puts it back at full
+size and off the screen (it kept the offsets for 0.7 under the menu's size
+1).
+
+IPA147: nfsmw_hud_fit_photo fits only that image (full-screen scale, then
+enlarged to cover the screen's aspect keeping 4:3, cut at the top and
+bottom; 1.625 at 1560x720, 1 on the iPad); nfsmw_hud_fit_overlay runs under
+menus too with the HUD size 1 there. `cmake --build --preset ios --target
+ipa -j 6` exit 0; `ios/build/NFSMW-hud-photo-147.ipa` SHA-256 062d567384c8b7dd2820eeadc67b7edbc9b4b10a0319e36256915843c5d0e9bb, 30132806
+bytes, `unzip -tq` ok. Not run yet.
+
+IPA147 result (Stefan, Oct 29, iPhone, log `Debug/29 October 2026/
+nfsmw_ipa147_iphone.log`): the leaves picture is unchanged although the log
+shows 0xBCC00F05 fitted (1377.72 x 847.83): it is not that picture (it is
+hidden 3 s later, flags 40000000). The leaves picture's package is still
+unknown (PostRace_Results.fng is the remaining candidate; not checked).
+Under the pause menu the song box's spinning part is in the right place but
+drawn at full size, as everything is under menus (HUD size 1).
+
+IPA148: the photo fit removed (no effect, nothing gained); the song box's
+fit under menus kept. Known issues: the leaves picture's side margins on
+the iPhone, the song box at full size under the pause menu, the loading
+screen's slight twitch. `cmake --build --preset ios --target ipa -j 6` exit
+0; `ios/build/NFSMW-hud-148.ipa` SHA-256 88fb432d53bcddaf1e8a4c481af9050ed380eec9ba68f7144f9ff1001c53d254, 30121834 bytes, `unzip -tq` ok.
+
+Leaves picture, one more round (Stefan, Oct 29): IPA139's tree shows the
+results' InGameBackground.fng is the same package as the pause backdrop
+(group 2716CDBF: 1018 x 996 units with its scale), so IPA146's group fit
+reaches it; full-size 19.5:9 is about 1040 units across, and the iPhone
+screenshots show about 5% margins per side (the gap between the two is not
+explained). IPA149: the backdrop's groups are drawn 15% larger on top of the
+fit. `cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-backdrop-149.ipa` SHA-256 1f75315a3d8a51050dd564a46f6d3949282f3e9a8500265448a218c05f82b477, 30122061 bytes, `unzip -tq`
+ok. Not run yet. Song box under the pause menu: Stefan accepts full size
+there if every piece is in place; asked for a screenshot.
+
+IPA149 result (Stefan, Oct 29, iPhone, `nfsmw_ipa149_iphone.log`,
+`ipa149_iphone_results_IMG_4062.png`): the leaves picture is unchanged
+again (about 95 of 2000 screenshot pixels of margin at each side), so none
+of the fits so far reach it: it is not drawn through these packages' images
+as assumed (cause unknown). The 15% enlargement is removed again (source
+only, not built); the leaves margins stay a known issue. The song box under
+the pause menu: good enough (Stefan).
+
+Stefan's next request (Oct 29): replace the HUD options with a visual
+Customize HUD editor (pre-launch and in-game menus): every HUD element
+shown, tabs for race/free roam and pursuit, tap and drag each element
+anywhere without overlapping others, master sliders for safe zone and HUD
+size, and, if not too much work, a size per element.
+
+Customize HUD editor (Oct 29, approved by Stefan: outlines for now).
+- hud_editor.mm/.h (new, in the nfsmw executable beside launcher.mm): a
+  full-screen landscape editor. Tabs Race / Free roam and Pursuit; each
+  element an outline at its place and size (boxes from the 100% iPad
+  screenshots IMG_0334/0335, 3.125 points per HUD unit); drag to move (kept
+  on screen, never moved onto another shown element, sliding along an
+  obstacle); tap to select, Smaller/Bigger for its own size (50-200%, not
+  the minimap or the mirror, whose pictures are drawn apart from their
+  pieces); HUD size (70-130%, 5% steps) and safe zone (80-110%, 2% steps)
+  sliders; Reset; Done. Geometry: the editor's view stands for the screen;
+  4:3 is the game's SD layout (sides at 221, 480 units tall), wider is HD
+  (0.92 title-safe kept: 480 / 0.92 units tall, sides 341 plus the wide
+  scene's extra for 720 x aspect, at most 1600).
+- Settings: hud_layout ("name:x,y,size;..." in HUD units) with hud_scale
+  and hud_safe_zone; the launcher's HUD section is now Custom HUD plus a
+  Customize HUD row (greyed while Custom HUD is off); the old size, safe
+  zone and per-side offset rows are gone and the per-side offset arguments
+  are no longer passed. In-game options: a Customize HUD button (top left)
+  opens the same editor; changes apply at once (nfsmw_hud_layout is live).
+- game_scene_size.cpp: cvar nfsmw_hud_layout parsed when it changes
+  (`[hud] layout: ...`); new element kPursuitPoints (the right side's
+  middle rows, moved with the speedometer's corner by default, as in
+  IPA142); each piece is moved and, with its element's own size e, scaled
+  about the element's corner (MoveScaled: position a + d + (p - a) * e,
+  size times e; a group's size is its scale); the anchor is taken in the
+  piece's parent's units from the groups it is in (Piece::parents).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-editor-150.ipa` SHA-256 656a6e25bc96e215b6013f11b2e6b837efafc8c753f5d88bf14b8b541d16c1d1, 30141561 bytes, `unzip -tq`
+ok. Not run yet: the editor has not been seen on a device, and the boxes'
+match with the game's drawn HUD at other sizes, safe zones and screens is
+untested.
+
+IPA150 result (Stefan, Oct 29, iPhone: "seems to work fine";
+`ipa150_iphone_editor_IMG_4064.png`, `ipa150_iphone_ingame_IMG_4063.png`):
+at 70% with the minimap and mirror moved to the bottom middle, the game draws
+the minimap, mirror and speedometer where their outlines were (mirror box
+848-1103 x 570-660 screenshot points, drawn about 870-1130 x 565-640).
+Pursuit elements and per-element sizes not shown in these screenshots.
+
+### October 29: touch controls step 1, steering modes (IPA151)
+
+Stefan's plan (BACKLOG "Touch controls overhaul"), step 1, approved Oct 29.
+- `touch_controls.mm`: cvar `ios_touch_steering` (dynamic / fixed /
+  buttons, default dynamic) picks the DRIVE layout's steering. fixed: the
+  old circle. buttons: two round buttons (◀ ▶, layout names `drive.◀`,
+  `drive.▶`) that push the left stick to -1 / +1 (Control::left_x; both
+  held: straight). dynamic: a horizontal stick (Control::dynamic) that
+  takes any touch in the bottom-left quarter not on another control
+  (added last, so nitrous and look back win), centres itself under the
+  thumb (kept whole on screen), is drawn only while held, then fades out
+  in 0.25 s (30 Hz timer, Control::fade). The redraw tracks each control's
+  last drawn bounds so the old spot is cleared when it moves (Look() hashes
+  its centre and fade). The setting is checked twice a second with the
+  native-mode timer and the layout rebuilt when it changes (`[touch]
+  steering: ...`).
+- Editor: the dynamic joystick is not placed; its zone is outlined
+  (dashed, "STEERING thumb anywhere here"). MakeLayoutEditor takes the
+  launcher's touch_steering, since the cvar is only set at game start.
+- Launcher: Touch controls › Steering (choice, `--ios_touch_steering`);
+  in-game options: same row, live (LiveFlags).
+`cmake --build --preset ios --target ipa -j 6` (in ios/) exit 0;
+`ios/build/NFSMW-touch-steering-151.ipa` SHA-256
+4453294ac42817cc68796cec724b3dc2a033285e13d4d50a684f02b809e802e8, 30134292
+bytes, `unzip -tq` ok. Not run on a device.
+
+### October 29: touch controls step 2, look and hit areas (IPA152)
+
+Stefan asked for step 2 before testing step 1 (both in IPA152).
+- Hit areas (`Control::Distance`, 1 at the edge of what a control takes):
+  round buttons 1.45 x radius + 6 pt (was 1.15 x), sticks 1.4 x (was
+  1.35 x), rectangles 18 pt slack (was 8). `controlAt` takes the nearest
+  control under the touch (was the first in the list); the dynamic
+  joystick only where no other control is.
+- Icons: in the DRIVE layout, SF Symbols for the buttons (`SymbolFor`:
+  flame.fill nitrous, eye.fill look back, stopwatch.fill speedbreaker,
+  exclamationmark.brakesignal handbrake, pedal.accelerator.fill /
+  pedal.brake.fill, camera.fill, pause.fill, arrow.counterclockwise reset,
+  chevrons for shifting, triangles for the steering buttons); text when a
+  symbol is missing. PAD layout unchanged.
+- Idle dimming: cvar `ios_touch_idle_opacity` (default 0.35, 1 = off):
+  in the DRIVE layout, 3 s after the last touch with no finger down, the
+  view's alpha eases to opacity x that over ~0.3 s (30 Hz timer, a full
+  redraw per step); a touch brings it back at twice the speed. Checked
+  with the 2 Hz native-mode timer. Launcher Touch controls › Dim when not
+  touched (Off / Half / Low / Very low), live in the in-game options.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-look-152.ipa` SHA-256
+bc94c957d7928bceaee5890c74e67ff958ccd7186232016b88937ef01c738072, 30136879
+bytes, `unzip -tq` ok; copied to iCloud Desktop (Stefan away). Not run on
+a device.
+
+### October 29: touch controls step 3, first part: menus by swipe and tap (IPA153)
+
+Stefan asked for step 3 before testing (all in IPA153).
+- cvar `ios_touch_menu_gestures` (default true; launcher Touch controls ›
+  Swipe and tap in menus), with `ios_touch_auto_layout`: in the PAD layout
+  (menus, pause screens) no controls are built or drawn, only the pills.
+  The view takes every touch (hitTest), except where another view over the
+  game takes it (the options gear).
+- One gesture from the first finger down to the last up. The first
+  finger's way past 14 pt pushes the left stick along the larger of across
+  and down (one axis, so a menu moves one way), full at 40 pt; released
+  when the fingers lift. No swipe, under 0.4 s: A (one finger) or B (two
+  fingers at once) for 0.1 s, haptic tap, `[touch] menu tap: A/B` logged.
+- The PAD pill shows the full gamepad in that menu (until the next layout
+  change).
+- Not done: a tap on a prompt ("B Back", "Y Restart"...) pressing that
+  button, as on Android. The prompts are in different places per screen
+  (BACKLOG); they need finding in the FE packages first.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-menus-153.ipa` SHA-256
+1ac5737f720356cb07c9ef1f47f8607a8a0b5fe8a42237e53050283db48869fb, 30155729
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA152. Not run on a
+device; the game's menus following the left stick is assumed, not checked.
+
+### October 29: IPA153 confirmed; D-pad buttons and HUD watch (IPA154)
+
+Stefan (Oct 29): IPA153 tested, "worked as expected" (steering modes,
+icons, dimming, menu swipe/tap). Asked for the driving D-pad as buttons
+shown only where they apply (controls screen `ipa153_controls_screen_dpad_IMG_4065.png`:
+up Enter Shop / Engage Event, left World Map, right SMS System, down
+Blacklist; down also the race's / pursuit's details).
+- `touch_controls.mm`: DRIVE layout D-pad replaced by four round buttons
+  ENTER (kUp, flag.checkered), MAP (kLeft, map.fill), SMS (kRight,
+  message.fill), LIST (kDown, list.number) in a diamond where the D-pad
+  was; presses logged (`[touch] MAP`...) as markers. All always shown
+  for now.
+- Finding the states: the PC executable's package names (strings of
+  `PC Game Files/speed.exe`) have no free roam or pursuit HUD of their own
+  (HUD_SingleRace.fng; HUD_Drag.fng for drag races, usable for step 4).
+  Diagnostic cvar `nfsmw_hud_watch` (default true in IPA154,
+  game_scene_size.cpp WatchTree): every 30 HUD updates, the HUD package's
+  objects (from the right group's first sibling, as DumpTree) whose flags
+  (+1C) changed, logged `[hud-watch] object hash type depth flags old ->
+  new pos` (at most 60 lines per pass; `new HUD tree` when it is rebuilt).
+  To read with Stefan's run: free roam, an event circle, a race, a pursuit.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-dpad-watch-154.ipa` SHA-256
+0023ef560759a3cf712247c71ccc5573b50369d0e0933e214cf831ee0353f50c, 30148567
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA153. Not run.
+
+### October 29: IPA154 HUD watch result; context buttons and log size (IPA155)
+
+Stefan's IPA154 run (iPhone, 20:15-20:18, five logs of 5 MB in
+`Debug/29 October 2026/ipa154_hud_watch_iphone/`, `all.log` joined):
+free roam, an event circle, a shop/safehouse circle, a race started from
+the circle (LIST then the race sheet), quit to the menu, back to free roam.
+Map pressed in the race did nothing (the world map is not offered in
+races). Flags +1C: 0x00800000 set = shown (43800000 shown, 40000000 /
+42000000 hidden).
+- Circle prompt: 3B1B624A (type 1, at -5,-90 over the road) with
+  0A729B1B (its D-pad picture, depth 4) shown 20:16:24-34 and from
+  20:16:52 to the race (the 4-way picture group 3345911D blinked at
+  20:16:52).
+- Race: the position markers 4FDDD64C-4FDDD64F (type 1, left, x -24)
+  hidden in free roam, one shown from the race's start (20:17:40) on.
+  4183E0A1-4 / 2AF89FD7-A (standings names / values) blink in the race.
+- No pursuit identified in this run.
+- Log size: 12,016 `[hud] overlay package` lines each with a 60-object
+  `[hud-tree]` dump: two overlays up at once took turns as "the last one
+  said" (nfsmw_hud_fit_overlay, and the same pattern in the fade one),
+  so both were dumped every frame. Now once per package (FirstTime, a set).
+IPA155:
+- game_scene_size.cpp UpdateDriveContext: every 15 HUD updates, walks the
+  HUD package's objects for the above, logs `[hud] drive context: race /
+  free roam, in a circle` on change, and hands it to
+  nfsmw::touch::SetDriveContext (atomic). nfsmw_hud_watch now default off.
+- touch_controls.mm: the DRIVE layout is rebuilt (2 Hz check) when the
+  context changes: ENTER only in a circle, MAP and SMS only outside races,
+  LIST always; the editor shows all four.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-context-155.ipa` SHA-256
+67d96566c5641a0cf449bbe7f68bf0e6e76f2e4c0822a5c6649638feca2333af, 30149614
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA154. Not run.
+
+### October 29: circle prompt ring (IPA156)
+
+Stefan (IPA154, Custom HUD; layout `infractions:-8,100`): in an event or
+safehouse circle the prompt icon sat over his old minimap place and its
+spinning ring alternated between around the icon and ~1 cm lower. IPA154
+log: `[hud] piece 3345911D placed again by the game (3.0,-189.0): its
+children moved from now on`. The prompt (3B1B624A, icon 38 x 38) and its
+group 3345911D (ring parts inside 35236DBE) are children of the left group
+at y -190, so AddPieces took them as top-left (infractions) pieces and
+moved them 100 units down; the game places 3345911D's group and its
+animated children again on some frames (by_children), hence the flashing.
+Fix: AddPieces skips these two hashes (NotAPiece): drawn where the game
+puts them, top middle, as without Custom HUD. The context detection
+(3B1B624A shown) is unchanged.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-prompt-156.ipa` SHA-256
+69261e77fe6bd25acf3016f738cba119832934e5b44340ac54c8d80560e47060, 30150039
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA155. Not run.
+
+### October 29: Extra arguments in the launcher (IPA157)
+
+Stefan asked for it (no field existed; flags went only in
+Documents/extra_args.txt). Launcher Advanced tab, last section: text row
+`extra_args` ("Extra arguments", monospaced, smart dashes off, saved as
+typed). ios_main.mm: ApplyExtraArguments' line handling split out as
+ApplyArgumentLines (dash / quote / option-name fixes, SetArgument);
+ApplyLauncherArguments splits the field on whitespace and applies it
+after extra_args.txt, so it wins. The Advanced footer says so.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-extra-args-157.ipa` SHA-256
+afde2f97d546f14de27d98168fc789a4f8ebe91ac84d02bb17bf3b4aaf45fd2b, 30150546
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA156. Not run.
+
+### October 29: IPA157 pursuit run; up = details, held controls (IPA158)
+
+Stefan (IPA157, challenge-series pursuit with `--nfsmw_hud_watch=true`,
+`Debug/29 October 2026/nfsmw_ipa157_pursuit_iphone.log`, screenshots
+`ipa157_pursuit_IMG_4066.png` (pursuit), `_4067.png` (circle)):
+- `[hud] drive context: race` from 20:33:15 (the pursuit event shows a
+  race marker), so MAP/SMS were hidden and LIST (down) did nothing; the
+  game's details in races and pursuits are on D-pad up (Stefan).
+- 20:33:30, 55, 59: 3345911D with 35236DBE shown for ~0.4 s at 3,-189
+  (the D-pad prompt group: the game's "press up" hint after an
+  infraction), context "race, in a circle" meanwhile. Stefan sees this
+  ring at the prompt's place while his infractions are lower (moved by
+  Custom HUD): the game itself puts the group there (not moved since
+  IPA156). Left as is; to compare with Custom HUD off.
+- The DRIVE controls flashed up at start: NFSTouchView began in the
+  remembered layout (nfsmw.touch.driving) until the first game-state tick.
+IPA158 (touch_controls.mm):
+- followGame starts in the PAD layout.
+- Up: STATS (chart.bar.fill) in a race / pursuit event (kInRace), ENTER
+  in a circle otherwise; MAP always; SMS and LIST outside events.
+- A context change rebuilds the layout keeping held controls
+  (_keepTouches: owners remapped by ControlIdent, knob and the dynamic
+  stick's centre restored; a button that went away is released). Before,
+  any context change (a circle, the infraction hint) released everything,
+  gas and steering included, for a moment.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-pursuit-158.ipa` SHA-256
+5c9c75155e04637ec35803124c4ea18469cc9dd63e0a5064d2509efb2910b901, 30150624
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA157. Not run.
+
+### October 29: IPA158 runs; pursuit context, grouped D-pad buttons (IPA159)
+
+Stefan (IPA158): `nfsmw_ipa158_a_iphone.log` (Custom HUD on, a free-roam
+pursuit, map opened at 20:44:34 during it) and `nfsmw_ipa158_b_iphone.log`
+(the same run plus a challenge pursuit with Custom HUD off, 20:46:43-).
+- Free-roam pursuit: context stayed "free roam". At 20:44:26 the pursuit
+  HUD came up; after a 0.4 s flash of the whole set, FD9152B1 (group at
+  73,8, the pursuit panel on the right) with 951092B5-BA, 6A144066,
+  8E3653A6 stayed shown. Not shown in the IPA154 race. Used: FD9152B1
+  shown = kInPursuit.
+- Challenge pursuit: "race" (markers); the map does not open there (10
+  MAP presses, no WorldMapMain.fng); STATS (up) opened
+  PostRace_Pursuit.fng... (20:46:51, the details screen).
+- Infraction ring: Stefan, Custom HUD off: the ring, the infractions icon
+  and its text are all at that place: the game's own layout. Nothing to
+  fix; with Custom HUD the infractions text moves and the ring does not.
+- `[hud] layout: --ios_gpu_capture=false` with Custom HUD off: the
+  launcher passed `--nfsmw_hud_layout=` (empty) and the parser took the
+  next argument as its value, so ios_gpu_capture was not set. Now
+  `none` when empty (no colon: no element).
+IPA159:
+- touch_controls.mm: up = STATS in an event or a pursuit, ENTER in a
+  circle otherwise; MAP outside events (free roam and its pursuits); SMS
+  and LIST in free roam without a pursuit. The four are `grouped`: placed
+  around `drive.ACTIONS` (position and size from the layout, times the
+  overall size); the editor shows one D-pad "ACTIONS" for them, which
+  applyCustomLayout places; individual saves from IPA154-158 are ignored.
+- game_scene_size.cpp: kInPursuit (touch_controls.h), logged as ", pursuit".
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-actions-159.ipa` SHA-256
+df60db91e2eb5c354ca388c612e3ca6331ffd69609709366ce720289939d2704, 30151321
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA158. Not run.
+
+### October 29: IPA159 run; editor, SMS, prompt diagnostic (IPA160)
+
+Stefan (IPA159, `Debug/29 October 2026/nfsmw_ipa159_pursuit_iphone.log`,
+`ipa159_IMG_4068.png` SMS with DRIVE controls, `_4069` Blacklist, `_4070`
+map, `_4071` circle, `_4072` pause):
+- The touch editor drew drive.ACTIONS as a D-pad (Stefan wants the
+  buttons): now drawn as the four (ENTER, MAP, SMS, LIST) at
+  layoutDriving's places for its radius.
+- SMS (20:52:44, 20:54:29): no `[game] menu` line; SMS_Message.fng /
+  SMS_MailBoxes.fng / SMS_Mailboxes.fng (PC names) added to the menu
+  packages (game_state.cpp). Unverified that the X360 names match.
+- Free-roam pursuit (from ~20:54:23, infraction hint at that time): context
+  stayed "free roam"; FD9152B1 is not a steady pursuit sign (no hud-watch
+  this run). Needs a run with `--nfsmw_hud_watch=true` and a longer pursuit
+  without menus.
+- Circle icon: one ENTER icon for event and shop/safehouse circles.
+  Diagnostic: on entering a circle, `[hud] circle prompt <obj>: <0x60
+  bytes of the object> | data <0x60 bytes of its data>` once, to find the
+  icon's texture.
+- Darkened backdrop: present in the pause menu, absent in the world map,
+  Blacklist (InGameReputationOverview / bio) and SMS. Not investigated;
+  asked whether it is the same with Custom HUD off.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-actions-160.ipa` SHA-256
+b286078f68686f7f07e25aea5e1f17df6ebc3f5cb8d3b88b259d7eb968b14ea0, 30151842
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA159. Not run.
+
+### October 29: IPA160 run; pursuit sign, circle icons, defaults (IPA161)
+
+Stefan: with Custom HUD off the SMS screen is darkened
+(`ipa160_customhud_off_IMG_4073.png`): the missing backdrop is ours
+(BACKLOG). His editor screenshot (`ipa160_customhud_off_IMG_4074.png`)
+gave the new default DRIVE layout: NOS (.9,.38) and LOOK BACK (.765,.38),
+both unit x .42, above speedbreaker / handbrake; drive.ACTIONS at
+(.11,.36) above UP/DOWN; the rest as before. Positions are fractions of
+the view and sizes in `unit` (min(w/16, h/9)), so the same layout fits the
+iPad without overlaps (checked on paper at 1180 x 820). In-game options:
+a "Touch controls" bar button opens MakeLayoutEditor (the launcher's
+steering setting); Done relayouts the live view (LiveView, g_view).
+
+IPA160 run (`Debug/29 October 2026/nfsmw_ipa160_circles_pursuit_iphone.log`,
+`--nfsmw_hud_watch=true`): an event circle 21:06:07, then shop /
+safehouse circles 21:06:33, 21:06:41; a free-roam pursuit 21:07:12-38
+(PostRace_Pursuit.fng at 21:07:39).
+- `[hud] circle prompt`: word +24 of 3B1B624A (its texture) E9638D3E in
+  the event's circle, 0ED39F69 in the others (and at rest).
+- Pursuit: FD9152B1 and the race markers only flash at its start (0.4 s,
+  context "race, pursuit"). Steady for the whole pursuit: the bar's labels
+  FC39CB0A / 875E92EB (texts at 45,259 / 65,261), 40000002 before,
+  43800002 / 43000002 / 42000002 during, 40000002 after; the same in the
+  IPA158 log a. The 0x03000000 bits, not 0x00800000, are used for them
+  (42000002 is shown, after the fade in).
+IPA161: kInPursuit from those labels (mask 0x03000000); kRaceCircle from
+the prompt's word; up = RACE (flag.checkered) in an event's circle, ENTER
+(door.left.hand.open) in the others.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-defaults-161.ipa` SHA-256
+bb7a53daf04665a7903246bf34235982057fd128e15b62f5caad7083017332b1, 30152560
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA160. Not run.
+
+### October 29: IPA161 confirmed; top row (IPA162)
+
+Stefan (IPA161): pursuit buttons, circle icons and the new defaults work.
+CAM and PAUSE covered the rear-view mirror (`ipa161_mirror_cam_pause_IMG_4075.png`);
+the top right holds the race / pursuit info, so (his choice) one row
+along the top edge: PAD pill right edge at w x .46 - unit x .6, CAM at
+w x .46 and PAUSE at w x .54 (centred on the pills' middle, h x .02 +
+unit x .25), HIDE from w x .54 + unit x .6. A saved CAM / PAUSE position
+still wins.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-top-row-162.ipa` SHA-256
+e950565bbd5b0bef27743b22ce3e6856961476a3a3123419eadc7202737e5438, 30152472
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA161. Not run.
+
+### October 29: IPA162 confirmed; drag race layout (IPA163)
+
+Stefan (IPA162): "looks fresh"; next, the drag controls (step 4).
+- game_state.cpp: HUD_Drag.fng pushed while in the world (PC package name
+  from speed.exe, not yet seen on X360) -> nfsmw::touch::SetDragRace,
+  logged `[game] drag race HUD up / gone`.
+- touch_controls.mm: the DRAG layout, a kind of DRIVE layout (`_drag`,
+  layout names `drag.*`): lane ◀ / ▶ (left stick -1 / +1, P(.07/.20, .80),
+  unit x .6), shift DOWN / UP (right stick, P(.07/.20, .50), UP bigger),
+  NOS P(.765, .80), BRAKE (LT) P(.765, .50) small, GAS (RT) P(.9, .74)
+  tall, CAM / PAUSE in the top row. Switches with the 2 Hz context check;
+  held controls are carried over by name (`held.*`), so the gas held when
+  the drag HUD comes up stays held. Editor: Pad / Drive / Drag tabs.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-drag-163.ipa` SHA-256
+483b8648b3b06ecb6a04dd391d3920b79b5fe6d09700a762f152cca05471b3c4, 30154600
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA162. Not run.
+
+### October 29: IPA163 confirmed; button hints, first part (IPA164)
+
+Stefan (IPA163): the drag layout works; nitrous over the gas (P(.9,.45)),
+brake where nitrous was (P(.765,.80)). Next: in menus a tap on a button
+hint ("B Done", "A Read", "Y Delete" in SMS) presses that button, in every
+menu with hints.
+- FE names are bStringHash (h = h x 33 + c from 0xFFFFFFFF): BACKGROUND =
+  2716CDBF (WorldMapMain's backdrop group), EVENTICON = 3B1B624A (circle
+  prompt), ENGAGE_MECHANIC = 3345911D, "PC BACK" = C0A32823 (the PC's
+  mouse hints), BACK_BUTTON 1C7FCF8B, READ_BUTTON 23AFB3F6, DELETE_BUTTON
+  D18B818D (SMS hints, group B3A69E89 at -91,192); their pictures are
+  named CROSS 02959349, TRIANGLE 6851AAF5, SQUARE 7A8B6BD0 (CIRCLE
+  54A68051), slots that do not match the button shown (BACK_BUTTON's is
+  TRIANGLE, shown as B).
+- Package units to the screen (iPhone, IPA159 SMS screenshot): hint
+  pictures at x -250 / -150 / -48 drawn at 178 / ~238 / 293 of 640, y 192
+  at 256 of 294: 0.569 px per unit = h x 0.92 / 480 (HD title-safe), from
+  the middle. Not checked on the iPad.
+- game_scene_size.cpp nfsmw_menu_hint_at: walks every package up (cFEng
+  +216+8 list, as nfsmw_ui_log), finds hint groups (two children: a text
+  and a 24-34 unit picture; the PC's have three), absolute positions with
+  each group's scale, logs `[touch-hint] <package> hint <group> texture
+  <picture +24> at x,y` and the tap's result; hit box from 20 units left
+  of the picture to 85 right, +-20 up/down. ButtonOf: BACK_BUTTON = B,
+  others unknown (-1: nothing pressed, logged).
+- touch_controls.mm: a one-finger menu tap stores its place in package
+  units; game_state.cpp's frame hook answers (MenuTapResult): the hint's
+  button, A when no hint, nothing for an unknown hint; A if no answer in
+  0.2 s. Two fingers: B as before.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-hints-164.ipa` SHA-256
+048114713b4d30af4e1ee0cf9749d1a883cee5be65d2bdde89ffe5365301cb61, 30169066
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA163. Not run.
+
+### October 29: button hint table (IPA165)
+
+Stefan's IPA164 taps (`Debug/29 October 2026/nfsmw_ipa164_hint_taps_iphone.log`):
+the hints' picture word +24 is the hash of a PS2 name: CROSS 02959349,
+TRIANGLE 6851AAF5, SQUARE 7A8B6BD0, CIRCLE 54A68051. Screens and their
+order on screen: SMS_MailBoxes (TRIANGLE -250 "B Done", CROSS -150 "A
+Read", CIRCLE -48 "Y Delete"), WorldMapMain (TRIANGLE -246 "B Back",
+SQUARE 81,114 "X Toggle Icon Visibility"), MainMenu_Sub (TRIANGLE -279
+"B Back", CROSS -171 "A Accept"), MainMenu (CROSS -280, CIRCLE -158 =
+"GAME STATS GROUP"): CROSS = A, TRIANGLE = B, SQUARE = X, CIRCLE = Y,
+consistent everywhere. Taps landed where expected (package units match
+the screen). Pause_Main's hints were missed: their groups have three
+children (text, picture, a second text; e.g. 6A218478 at -219,36 in
+2FE74244 at -14.4,30.8: picture at -248,67). Also counted as hints: the
+SMS list's rows (texture CFFB7033) and HUD_SingleRace's FA9C840C.
+IPA165: a hint is a group with 2-3 children, a text and a 24-34 unit
+picture with one of the four textures (ButtonOfTexture); the button from
+that table; of overlapping boxes the one starting nearer left of the tap.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-hints-165.ipa` SHA-256
+d0b85a9cfe5519e2631baa8b77cffcf784055b150cb782773d7306e29cf8657a, 30169585
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA164. Not run.
+
+### October 29: IPA165 confirmed; the world map by touch (IPA166)
+
+Stefan (IPA165): the hints work, tap anywhere = A and two fingers = B to
+keep (also needed for "press start"). The world map
+(`ipa165_world_map_IMG_4077.png`) moves its cursor with the right stick,
+zooms with LT / RT (pictures beside "Zoom 1.5X") and changes the category
+with the arrows by its name; none were reachable.
+- game_state.cpp: WorldMapMain.fng pushed -> nfsmw::touch::SetMapUp; a
+  menu swipe then moves the right stick in any direction (not one axis).
+- game_scene_size.cpp nfsmw_menu_hint_at: with WorldMapMain up, fixed
+  spots before the hints: LT (-245,169) and RT (23,169) (D1CDA594 /
+  9345E4A7 in its ui-tree), the arrows (43,-184) / (234,-184) (measured on
+  the screenshot), +-28 x +-24 units: the triggers (kHintLT / kHintRT,
+  bits 20 / 21) or D-pad left / right (a guess: the category arrows'
+  button is not on screen). PressMenuButton holds them 0.15 s, triggers
+  included.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-touch-map-166.ipa` SHA-256
+a377bfe4b39914923b9986023451df74a3a0c4e218600afd144555a936e93918, 30169927
+bytes, `unzip -tq` ok; on iCloud Desktop in place of IPA165. Not run.
+
+### October 29: race/pursuit start feels low frame rate at 60 fps (logs only, no change)
+
+Stefan: for roughly the first 20-30 s of races and pursuits (and the
+transition into them) the world feels like a low frame rate while the
+counter shows 60. Logs `Debug/29 October 2026/nfsmw_ipa141_pursuit_race_70pct_ipad.log`
+and `nfsmw_ipa142_pursuit_70pct_ipad.log` (iPad, cap 60, Low Power Mode off,
+thermal nominal). Measured:
+- Display steady at 60 Hz (`[display] refresh now 60 Hz`, no change later).
+- After `game flow state 6`: one load hitch (IPA142 frame 1656, 193 ms,
+  327 textures decoded), then pacing 0-2 of 300 frames off the 16.7 ms grid,
+  worst 8-33 ms; frame numbers advance 300 per 5 s, so the main loop runs
+  at 60 and each frame is shown once, on time, from the first seconds on.
+- `[cpu]` rises from 89% to 179% of a core between the first and second
+  10 s of the IPA142 pursuit.
+- iPad: adaptive QoS off (6 E cores), every game thread on Utility the whole
+  time. iPhone logs (e.g. IPA159): adaptive boost is on from boot for 40 s
+  and runs out about 19 s into the world ("back to Utility"), then returns
+  after late frames: the first seconds are boosted, not slowed.
+Inference (not measured): the presentation side is not the cause; what is
+left is the content's motion, as in D-005 before IPA124 (frame_clock.cpp
+gives the world one period per frame; raw frames >= 250 ms bypass it and a
+far-off debt resyncs). QoS cannot explain the iPad case. No camera log was
+on in these runs, so the world's step per frame at the start is unknown.
+Proposed next (existing switches, no build): a start-of-race run with
+`--nfsmw_native_camera_log=true`, then the same with `--nfsmw_frame_ticks=0`,
+and on the iPad `--ios_utility_qos=false --ios_utility_qos_guest=false`.
+
+### October 29: GitHub iOS 26 tester, diag2 logs (lower resolution, worse performance)
+
+Logs: `Debug/29 October 2026/diag2 GitHub user iOS26/nfsmw.log` and
+`native_diag.txt` (0.4.2-diag2, iPhone 440x956 points, 4 E cores, cap 60,
+Low Power Mode off, thermal nominal; no crash this run, a race was played).
+- Resolution: `internal resolution 0.850x (setting 0.85)`, FXAA off, so it
+  is his chosen scale, not Battery mode: drawable 1330x612 stretched to
+  2868x1320. Stefan's same-size iPhone at 1x gets 1564x720.
+- Performance: in the world, 0-2 of 300 frames off the grid until
+  `[adaptive-qos] back to Utility` (19:47:18.6, 14.5 s into the race, the
+  40 s boot boost running out). From 19:47:23: render-queue hitches of
+  ~31 ms with 23-25 ms "waiting for a drawable" every other frame, then
+  pacing 150 of 300 frames off the grid (gaps 2:150 4:150: alternating
+  16.7 / 33.3 ms, ~40 fps shown) until he quit at 19:47:54. The boost never
+  came back during those 30 s: adaptive_qos.cpp OnSwap counts late guest
+  swaps on the GPU command thread, which stayed on time; the shown frames
+  were the late ones. It re-boosted only on the menu.
+Inference: the iPhone's adaptive QoS lets the render path drop to Utility
+and its late-frame detector cannot see drops on the presentation side. Same
+finding as the "back to Utility" note from the crash thread; fix belongs there.
+
+### October 29: start judder runs on the iPad (camera log), 120 Hz simulation
+
+Logs `Debug/29 October 2026/start_judder_ipad/` (iPad, cap 60, challenge
+series pursuit, cold start each run, `--nfsmw_native_camera_log=true`).
+Counted per camera line (60 frames): frames where the camera did not move.
+- run1 (sim 60, default): from 1 s to ~14.5 s after `game flow state 6`,
+  11-22 of every 60 frames still, in a repeating 3-frame pattern
+  (e.g. 0.22 0.00 0.42 0.19 0.00 0.37: step, nothing, double step): the
+  world moves on 2 of 3 frames, ~40 fps of motion on a clean 60 fps screen.
+  At 21:57:17 it stops by itself (0 still), with short returns later
+  (16, 23 still at +22/+23 s). Stefan: "started with the judders but then
+  fixed itself".
+- run2, run2_2, run2_3 (`--nfsmw_sim_rate=120`): 0-1 still frames per 60
+  from 2 s in (one 7 and one 5 later). The first ~8-10 s still show an
+  uneven 3-frame sawtooth (e.g. 0.63 0.42 0.20; 30-42 of 60 frames off
+  their neighbours by >25%, run2_3 lower), no freezes. Stefan: "much
+  better", consistent over 3 runs.
+- Presentation the same in all (0-13 of 300 frames off grid in the world);
+  `[cpu]` in the world 139-199% (sim 60) vs 181-192% (sim 120): no
+  measurable cost.
+Inference: something feeding the camera updates at a 20 Hz cadence for the
+first ~15 s of the pursuit; with 60 world steps a second that shows as a
+missing step every third frame, with 120 only as unevenness. Cause not
+identified. Runs 3/4 (frame_ticks 0, QoS off) skipped by Stefan's choice.
+
+### October 29: IPA167, 120 Hz simulation by default; pursuit heat ring
+
+Stefan (after the start judder runs): make 120 Hz simulation permanent,
+hide the option; and fix the heat ring (with its spinning circle) that sat
+off the heat badge in his iPad screenshot
+(`start_judder_ipad/run2_2_IMG_0337.png`, HUD 70%).
+- launcher.mm: "120 Hz simulation" switch removed, always
+  `--nfsmw_sim_rate=120`; cvar default 120 (game_extra_options.cpp).
+  `--nfsmw_sim_rate=60` in Extra Args still selects 60.
+- game_scene_size.cpp: the circle prompt's ring and its group
+  (3B1B624A / 3345911D) were left out of the HUD pieces since IPA156 so the
+  circle prompt stays at the top middle. In a pursuit the game puts the
+  same two at the heat badge (-124.3,-280.3 in the left group, IPA141's
+  `[hud-tree]`), so they stayed while the badge moved. Now top-left pieces
+  moved only while the game has them left of x -60 (the prompt sits at
+  3,-189 or -5,-89); otherwise a position written here is given back.
+  Not in ReapplyHudPieces.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-sim120-ring-167.ipa` SHA-256
+80a0f2fa4e24e109d50482a2d4105069706b4b0921fe75141b7a439df5f28f43, 30169009
+bytes, 208 metallib, `unzip -tq` ok. Not run. To check: pursuit on the iPad
+at 70% (ring on the badge), an event / shop circle (prompt still at the
+top middle), start smoothness at 60.
+
+### October 29: IPA167 ring unchanged; IPA168 moves it before drawing
+
+Stefan (IPA167): ring still in the same place in the chase, and the shop
+circle's icon and ring are off too; both belong where the heat badge is.
+IPA141's -124.3,-280.3 was IPA141's own written position, not the game's:
+the game puts the ring at 3,-189 / -5,-89 always, so IPA167's x < -60 test
+never matched (no change). IPA168: the ring pieces (3B1B624A, 3345911D) are
+always top-left pieces, moved in the HUD update and again in
+ReapplyHudPieces (after the game's last placement, before drawing).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-hud-ring-168.ipa` SHA-256
+2d6386defbe0558ba0deccb1851947cf484c37a74e9498ac922507b46d5314a3, 30169579
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA167.
+Not run. Watch for flashing (IPA154) and for the ring following a moved
+infractions element in the Customize HUD editor.
+
+### October 29: IPA168 confirmed; iPad DRIVE layout in the thumb zones (IPA169)
+
+Stefan: IPA168's heat ring and circle prompt are right on the iPad and the
+iPhone. He asked to keep the DRIVE layout but condense it into the zones his
+thumbs reach (`Debug/29 October 2026/ipa168_ipad_thumb_zones.jpeg`, red
+lines; read as fractions of the screen: left below ~.62 and left of
+~.35-.38, right below ~.62 and right of ~.62-.72).
+- touch_controls.mm layoutDriving: on a screen under 1.6:1 (`tablet`) the
+  same arrangement at new defaults: DOWN (.045,.70), UP (.115,.68), D-pad
+  middle (.245,.72; IPA170: (.083,.503), above the zone), steering thumb zone x 0-.37 / y .62-1 (fixed stick
+  at (.13,.86)); LOOK BACK (.795,.665), NOS (.915,.665), SPEEDBREAKER /
+  HANDBRAKE (.795/.915,.775) at radius .6 unit (was .8), BRAKE / GAS
+  (.795/.915,.92) 1.35 units tall (was 1.75). CAM, PAUSE, RESET unchanged.
+  iPhone unchanged. Positions saved in the editor still override them
+  (editor Reset gives the new defaults).
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-ipad-thumbs-169.ipa` SHA-256
+b0112f47c72c57053248cc6ef1685dd70bddb2128b44460ce8011658768e2c6e, 30169886
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA168.
+Not run.
+
+### October 29: IPA170, iPad D-pad default from Stefan's layout
+
+Stefan (IPA169, `ipa169_ipad_layout_IMG_0339.png`, his edited layout): fine
+for the iPad; the D-pad buttons need not be in the thumb zone (rarely
+pressed): he moved them up to about (.083,.503). IPA170 makes that the
+iPad default (touch_controls.mm `pad` and the editor's ACTIONS group);
+everything else as IPA169. Stefan: thread done after this.
+`cmake --build --preset ios --target ipa -j 6` exit 0;
+`ios/build/NFSMW-ipad-thumbs-170.ipa` SHA-256
+6091f3765b4baae8f81d669581f35d8524d7f766d220b88b9a7c611e1e5b8e07, 30169916
+bytes, 208 metallib, `unzip -tq` ok; on iCloud Desktop in place of IPA169.
+
+### October 29: 0.4.3 Performance setting (Eco / Balanced / Max), QoS while driving
+
+Stefan approved (via the coordinator) after the GitHub tester's diag2 log
+(Vipe95, iPhone 17 Pro Max, iOS 26.7.2, cap 60, scale 0.85; evidence above,
+commit 966d165): 60 fps while adaptive QoS was boosted, then
+`[adaptive-qos] back to Utility` at 19:47:18 and 60 -> 49 -> a flat 40 fps,
+rendering 15.8 -> ~23 ms/frame with GPU ~11 ms; re-boost only at 19:47:54
+(`2 late frames of 120, 36 s on Utility`): a steady 40 at 1.5x the 60
+budget was rarely counted late. Changes:
+- `adaptive_qos.cpp`: game_state.cpp reports driving (in the world, no menu
+  up) with `SetDriving`; while driving the mode is pinned boosted (main, GPU
+  command thread, guest threads by override, render queue), with a 5 s hold
+  after driving stops. Outside driving a frame is late when its swap interval
+  is over 1.1x the cap's budget, or (`OnRendered`, from RenderFrame) its
+  encoding time without the drawable wait is over the budget; 3 late frames
+  in the last 60 boost (was 2 of 120 over 1.2x).
+- Launcher Graphics option "Performance" (`performance_mode`: eco /
+  balanced / max; default balanced, eco when Battery mode is on and nothing
+  was chosen; a choice wins). `--nfsmw_performance_mode` and
+  `--nfsmw_performance_source` (setting / battery_mode / default).
+  `ApplyUtilityQosDefault` (ios_main.mm) now sets, unless Extra Args name them:
+  Balanced: ios_utility_qos false, ios_utility_qos_guest true,
+  ios_adaptive_qos true, nfsmw_native_render_utility true (adaptive on every
+  device; the iPads' fixed Utility for main/GPU threads, default with >= 6
+  efficiency cores since Oct 21, is gone, so iPad battery may differ: not
+  measured). Max: all four false (no Utility). Eco: ios_utility_qos true,
+  guest true, adaptive false, render utility true, and the on-demand pipeline
+  compile queue at Utility (was User Initiated). Not changed in any mode:
+  CoreAudio's RemoteIO thread and the real-time vblank thread
+  (`ios_vblank_realtime`), so no crackles, voice cuts or pacing loss.
+- Log: nfsmw.log `[performance] <mode> (<source>): ...`, boot.txt
+  `performance: <mode> (<source>)`; `[adaptive-qos] driving: boosted until
+  driving stops`, `[adaptive-qos] User Initiated (driving)`, `[adaptive-qos]
+  driving stopped: Utility allowed again`, late boosts now say `of 60`.
+- `.github/ISSUE_TEMPLATE/performance.yml` (new) and `bug_report.yml` (new,
+  with a Performance report section): device, iOS, install method, version,
+  settings including Performance, Low Power Mode, nfsmw.log from a run with a
+  race, FPS counter screenshots.
+Built `ios/build/NFS-Most-Wanted-0.4.3.ipa` (0.4.3 / 7), 30170540 bytes,
+SHA-256 15db3c3904fc24184568f627069f78ed908200830e46980c5a8a0ad2493bf0a2,
+UUID CA509B8F-9082-30B4-BB9E-4D53DBE1CF15, 208 metallibs, ZIP test OK,
+codesign --deep --strict ok; on the iCloud Desktop. Not run yet. Suggested
+A/B: the same 15 min route (free roam + one race + a pursuit) from a full
+charge-matched start, IPA 612b799a (previous 0.4.3) vs this one at Balanced,
+then Max and Eco: fps counter, `[native] frame` lines, battery % used.
+
+0.4.3 Balanced tablet profile (Stefan, Oct 29): with 6+ efficiency cores
+(the old `ApplyUtilityQosDefault` condition, not "is an iPad"), Balanced is
+the pre-4c0b7eb behaviour: ios_utility_qos on below the 120 cap (main/GPU
+fixed at Utility), adaptive only at the 120 cap and then with the original
+rules (new cvar `nfsmw_adaptive_qos_original`: 2 late of 120 over 1.2x, no
+render-time test, no driving boost); guest Utility and render-queue Utility
+as before. Phones (4 efficiency cores) keep the new Balanced; Eco and Max
+unchanged everywhere. Log: nfsmw.log `[performance] balanced (default):
+tablet profile: 6+ efficiency cores, original behavior` and the
+`[utility-qos] 6 efficiency cores; main/GPU threads on ...` line; boot.txt
+`performance: balanced (default), tablet profile: 6+ efficiency cores,
+original behavior`. Rebuilt `ios/build/NFS-Most-Wanted-0.4.3.ipa`, 30161274
+bytes, SHA-256 5f467ae57e84f2056c242e91b6fcf3082aee554ea23562f3081d5f8a366ae129,
+UUID A4AD715B-9069-3574-B1EB-0395719DBF59, 208 metallibs, ZIP test OK,
+codesign ok; on the iCloud Desktop. Not run yet.
+
+### October 29: first performance report, 0.4.3 Balanced on the iPhone (D-012)
+
+Stefan, iPhone 17 Pro Max (iOS 27), 0.4.3 Performance build (log: build Oct
+29 22:38:47, `[performance] balanced (default): ... boosted while driving`),
+cap 60, 1.0x, no MetalFX/FXAA/MSAA, Battery options off. ~15 min: mostly
+career races, ~2 min free roam, a short chase. Battery 40% -> 33% (7% in 15
+min, about 28 %/h; one run, no matched A/B yet). Log and the race-finished
+screenshot in `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29
+October 2026/0.4.3 Stefan iPhone 15min balanced/`. Measured (the `[native]
+frame` lines, 300 frames each): 60.0 fps in nearly every window in the
+world (lowest 56-57 at loading edges); rendering ~12-15 ms/frame, GPU
+~12-15 ms/frame while driving (so the GPU is near the 16.7 ms budget at 1x);
+pacing 0 of 300 off the grid in steady driving. `[adaptive-qos]`: boosted at
+each driving start, `driving stopped` at menus/results, `back to Utility`
+5 s later, 2 late boosts in menus/loading; no `back to Utility` while
+driving. Thermal: nominal 237 lines, fair 30. Inference: the 60 -> 40 drops
+seen before (D-012) did not occur in this run; the drain is not comparable
+to the iPad's or earlier iPhone numbers without the A/B on the same route.
+
+### October 29: 0.5.0 release build (was 0.4.3)
+
+Stefan: today's `main` ships as 0.5.0; the `dev-0.5` work becomes 0.6.0.
+Version 0.5.0, build 8 (`ios/CMakeLists.txt`); CHANGELOG section renamed
+(entries unchanged), README version and roadmap updated. No code change
+since 67cc815. `ios/build/NFS-Most-Wanted-0.5.0.ipa`, 30161271 bytes, SHA-256
+1f2bae93d8fee7dac3dcd370307a77f4c7a0c21e37d0bdd500ec73a2a62ea7ef, UUID
+CB57E7C1-B00C-3D00-9492-83EC07AB39B5, 208 metallibs, ZIP test OK, codesign
+--deep --strict ok; on the iCloud Desktop. No tag, push or GitHub release.
+
+### October 29: D-013, the race-finished photo counts as a menu (0.5.0)
+
+Stefan's 0.4.3 log: the end-of-race photo screen (Continue / Race Stats /
+Restart, screenshot `race_finished_screen.png`) is `InGamePhotoMaster.fng`,
+pushed alone over the HUD (22:52:47.998) and not in `kMenuPackages`, so the
+game counted as "driving" and the DRIVE controls stayed. `game_state.cpp`:
+added last to `kMenuPackages` (PushedPackage returns the lowest index, so
+other menus still win), and the full-size drawing it had while "driving"
+kept when it is the only menu up. Effects as for other menus: PAD layout
+with menu taps on button hints, `[game] menu: InGamePhotoMaster.fng`,
+menu cap (if on), adaptive QoS `driving stopped`. Rebuilt
+`ios/build/NFS-Most-Wanted-0.5.0.ipa` (0.5.0 / 8), 30161686 bytes, SHA-256
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f, UUID
+BCE7DE85-E64A-3893-9ACB-EF8FBAE520B4, 208 metallibs, ZIP test OK, codesign
+ok; on the iCloud Desktop. Not run yet: check that the taps hit the photo's
+prompts and that the photo still fills the screen.
+
+### October 29: 0.5.0 published
+
+Stefan confirmed the D-013 fix on device and approved pushing and
+publishing. CHANGELOG 0.5.0 rewritten (read-first note, most important
+first, detailed touch controls section, Known issues, Vipe95 credit); no
+code change since e33924f, so the release IPA is the tested build:
+`ios/build/NFS-Most-Wanted-0.5.0.ipa`, SHA-256
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f. RELEASING
+checks: prepare_sdk --status all applied, pool 63/63 and extra-options
+applied, `git status --ignored` shows no game files, generated code or IPAs
+tracked. `main` pushed, tag v0.5.0, GitHub release with the IPA.
+
+README: "Tested devices" table under Performance and battery (Stefan
+approved), first row from the Oct 29 performance report (iPhone 17 Pro Max,
+iOS 27, LiveContainer2, Balanced, ~60 fps, ~28 %/h). GitHub Discussions is
+not enabled on the repository (has_discussions false, Oct 29); the text
+points to an issue until it is. Committed locally, not pushed (Stefan
+approves the push separately).
+
+### October 30: Codex familiarization with the port since the battery work
+
+Stefan requested a catch-up only. Reviewed AGENTS.md, DEVELOPMENT_PROGRESS,
+BACKLOG, CHANGELOG, recent TECHNICAL evidence, RELEASING, commit history
+(`git log --oneline -15`, expanded history), branch tips, the implementation
+diff from battery-optimization to main, relevant current source, and
+`dev-0.5:docs/MOD_FEATURES.md`. Read-only Git/source inspection commands
+completed with exit 0. Current main: 4e2ac87, tracking origin/main at the
+same commit; 0.5.0 build 8 is published per the existing release record.
+
+Caught up on QoS/polling/cache/GPR/CP optimizations and their measurement
+limits; sun occlusion; live options and HUD editing; save sidecar and
+achievement sync, Xbox/PC imports and player-ID repair; audio budget and
+real-time vblank; in-frame FPS/touch overlays, even world frame timing and
+120 Hz simulation; iOS 26 encoder-state reset; redesigned menu/driving/drag
+touch controls; Performance profiles, silent-mode audio and report templates.
+The dev-0.5 branch targets 0.6.0: extra Speedbreaker/infraction/impound/heat
+options remain untested there; PC import was already brought to main.
+
+Status reconciliation: the final October 29 publication entry confirms
+D-013 was device-tested before release (older checkpoint/backlog says
+untested); released IPA SHA-256 is
+a3e285c87054e8d3bdf5a21b0cac9ac2741191d4256d2df2c0e0fc805e9f9b1f.
+D-012 has one successful ~15 min iPhone Balanced run, no matched battery
+A/B. Remaining visual work includes results-picture margins, loading
+twitch, race-end HUD zoom and missing menu dimming with Custom HUD.
+The iPhone 11 kill/memory hypothesis remains unconfirmed pending evidence
+and is preserved as another session's uncommitted checkpoint note.
+
+Startup status: modified docs/DEVELOPMENT_PROGRESS.md (that issue 11 note),
+untracked HANDOFF_CHATGPT.md. Sibling rexglue-sdk-ios has extensive existing
+source, untracked and submodule modifications; all preserved. Only this
+session's documentation is committed. No source change, build, test run,
+push or release; this review adds no runtime validation. Next action is
+Stefan's chosen task; the existing 0.6.0 plan and deferred bugs remain.
+
+### October 30: D-014 iPhone 14 Pro Max 60/~40 cycling, log analysis
+
+Input (read only): `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm.log`,
+23,976 lines, concatenated launches from Oct 13/26/30. Relevant build
+Oct 29 22:38:47. Stefan: native 1x/60, cycling every ~20-30 s, previously
+absent on this phone; tried Balanced and Max. OS and install method not
+confirmed. Inspected recent launches, display/game/QoS transitions, frame
+summaries, presentation gaps, GPU pass profiles and native_renderer.mm
+presentation/timing code; no new execution/device test or build.
+
+Balanced 00:16:21 launch: 4 E cores, adaptive on, User Initiated boost at
+00:16:23.039, driving at 00:16:55.688. All steady driving render-entry
+summaries User Initiated 300/300; no Utility transition before pause
+00:18:02.331 (Utility only at 00:18:07.331). Yet at 00:17:57.801 frame
+5101: 40.0 fps, GPU 17.58 ms; presentation: 150 gaps of 16.7 ms and 150
+of 33.3 ms. Another 40.0 window at 00:19:44.489, GPU 20.31 ms. This is
+not a steady 25 ms display cadence despite the perceived evenness.
+
+Max launch 00:22:32.187: performance max (setting), main/GPU Utility off,
+guest Utility off, adaptive off. Renderer Utility requested off; Default
+300/300 entries throughout. 1x, MetalFX/FXAA/MSAA off, cap 60; menu/warm
+caps and hot resolution reduction off, Low Power Mode off. Frame windows:
+- 00:23:18.712: 60.0 fps, GPU 14.75 ms, render 14.48 ms, pacing 0/300.
+- 00:23:25.784: 42.4 fps, GPU 17.75 ms, render 21.29 ms, gaps 175 x
+  16.7 / 125 x 33.3 ms (125/300 off the 60 grid).
+- 00:23:31.956: 48.6 fps, GPU 17.52 ms.
+- 00:23:36.960: 60.0 fps, GPU 14.86 ms, pacing 0/300.
+Thermal nominal in CPU samples through 00:23:32.353, fair by
+00:23:42.355. Balanced also drops well before fair. Nominal does not
+measure clocks or prove absence of power/thermal clock limits.
+
+Individual GPU profiles support actual pass-cost variation, not just CPU
+waiting: 00:23:16.208 frame 2250: 47 passes/blits, 14.20 ms incremental,
+14.90 ms span; 00:23:22.017 frame 2550: same count, 18.35 / 19.07 ms;
+00:23:29.456 frame 2850: 18.73 / 19.41 ms; 00:23:34.456 frame 3150:
+14.16 / 14.87 ms. Cube faces 1.97 -> 2.65 -> 2.76 -> 2.02 ms; shadow
+passes 1.09 -> 1.73 -> 1.98 -> 1.63; resolve blits .63 -> .90 -> .92 ->
+.77. Same pass counts do not establish identical draw/shader workloads.
+GPU span is GPUEndTime-GPUStartTime (earlier buffer start if early commits);
+render time includes drawable waits, so higher render time is not proof
+of slower CPU encoding. Exact physical GPU clocks were not captured.
+
+Inference: D-012's adaptive return-to-Utility mechanism is excluded for
+these Max drops and does not align with Balanced drops. GPU cost crossing
+16.67 ms is associated with lost refreshes. GPU operating-point variation
+and changing scene cost remain candidates. Presentation may amplify it:
+native_renderer.mm ~7235 estimates readiness from recent GPU span plus
+4 ms, chooses the next whole 60 Hz slot and presents 2 ms early; no frame
+target trace was enabled, so a pacing/power feedback cycle is unproven.
+No stable in-game 40 cap or regular QoS timer explains these observations.
+
+Next diagnostic (existing switches, no source/build): Max, otherwise same
+settings, cold quit/relaunch with
+`--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`.
+Hold the camera/car stationary where possible for 2-3 min, keep Low Power
+Mode off, supply log. Removes scheduled presentation while tracing submit,
+GPU completion and display times. If cycling persists with pass-time
+swings, focus on GPU work/operating point; if it disappears, presentation
+feedback becomes the leading target. This is a proposed test, not a result.
+
+Git status/log checked; preserved pre-existing issue 11 checkpoint note,
+untracked HANDOFF_CHATGPT.md and sibling SDK work. Analysis commands exited
+0 except a final rg for guessed QoS label spellings (exit 1: no match);
+subsequent exact `render scheduling` extraction found the samples above.
+Only documentation changed; no push/tag/release.
+
+### October 30: D-014 presentation-off test succeeds; archive evidence rule
+
+Stefan: "issue was fixed" after the proposed test. Supplied
+`/Users/bep1s/Downloads/nfsmw 2.log`, archived byte-for-byte without overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_2_present_at_time_off.log`.
+631472 bytes, 3903 lines, SHA-256
+dc0e9a3375aacaf09f073ee938ea4eadd8a3595de824762a57b5c8943073e7b2.
+Kept beside the original nfsmw_iphone_14pm.log to preserve the comparison;
+source in Downloads retained. Exclusive-create copy and byte equality
+verification exited 0. Initial read/status/log and summary extraction
+commands exited 0. No evidence contents committed.
+
+Run October 30 00:33:07.565-00:34:41.592, iPhone 14 Pro Max (Stefan),
+build Oct 29 22:38:47; Max confirmed, adaptive/Utility off, native 1x/60,
+MetalFX/FXAA/MSAA off. OS and IPA hash/UUID not supplied. Test requested
+`--nfsmw_native_present_at_time=false --nfsmw_native_frame_trace=true`;
+log pacing summaries have no "paced" suffix, consistent with presentation
+disabled (exact argument values are not echoed by the supplied log).
+World entered 00:33:42.774. Eleven full steady-world windows (frames
+2101-5101, 00:33:49.933-00:34:40.020) at 59.6-60.0 fps; GPU summaries
+7.67-15.06 ms. No ~40 plateau. Final slow-GPU diagnostics at the tail
+are retained; this short run does not establish absence of all hitches.
+
+Inference: the successful presentation-off test strongly implicates the
+scheduled presentation path in D-014; not proof of the exact GPU/pacing
+feedback mechanism or a universal device fix. No source/default change,
+new build or broader performance validation. Workaround confirmed; next,
+if requested, investigate/design the permanent presentation fix.
+
+New Stefan rule: save all supplied logs/photos/other test evidence under
+Most Wanted (2005) Debug with descriptive names similar to the preceding
+log, retaining the full test history. Recorded in working rules. Preserve
+pre-existing issue 11 checkpoint note and untracked HANDOFF_CHATGPT.md;
+commit only this session's documentation, no push/release.
+
+### October 30: presentation defaults recommendation and remaining 40 fps work
+
+Stefan asked whether the two Extra Args should be removed/defaults changed,
+and how to fix 40 fps pacing. Read current native_renderer.mm cvars and
+presentation/trace code, display_rate.mm and October 28 RC4-RC7 evidence.
+Read-only inspection completed; no source change/build/device test.
+
+Clarification: nfsmw_native_present_at_time defaults true but current
+`paced` explicitly excludes cap 40 (since RC7). nfsmw_native_frame_trace
+already defaults false; remove its diagnostic true override after testing.
+The successful D-014 log has no [frame-trace] lines, so trace activation
+was not demonstrated. Its unpaced summaries and Stefan's observation
+support the presentation-off workaround. Keep that false override until a
+build changes the default behavior. Recommendation (not implemented):
+disable scheduled presentation at 60 by default, retain opt-in for A/B;
+leave the separately tested 30 path initially unchanged, validate 30/60
+and menu transitions on Stefan's other devices before broadening scope.
+World-step fix (nfsmw_frame_ticks=2) and 120 Hz simulation are separate
+from scheduled presentation and should stay enabled.
+
+Historical 40 evidence: RC4/5/6 and IPA130/131 tried fixed targets, larger
+margins, afterMinimumDuration, 120 Hz minimum and refresh snapping; none
+solved the recurring 16.7/25/33.3 cycle, some starved drawables (~32 fps).
+RC7 bypasses scheduled presentation at 40 after IPA131's unpaced test
+improved to mostly 25 ms with occasional 20.8/29.2 pairs. Therefore the
+current residual 40 issue needs a fresh current-build trace, not repetition
+of those failed changes: cold launch at 40, Low Power Mode off, trace true,
+present_at_time false; compare swap/handed/GPU-end/shown intervals. Desired
+presentation is every third 120 Hz refresh (25 ms), with enough GPU headroom;
+40 on a 60 Hz output cannot be evenly spaced. If only shown intervals are
+uneven, investigate display/drawable/compositor scheduling rather than
+world time or QoS. If earlier stages are uneven, fix that stage first.
+
+Potential larger experiment, not an established fix: CAMetalDisplayLink
+for Metal-layer drawable delivery and system presentation timestamps,
+while preserving guest vblank and PM4 order. Consulted primary Apple docs:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframeraterange
+Apple describes variable-display timing control and best-effort frame-rate
+requests affected by hardware/system policies; no guarantee of perfect
+40 fps. No migration, new flag or source work approved by this discussion.
+Next: agreed 60-default source change or current 40-cap trace; avoid
+claiming the 60 test already validates a 40 fix. Existing private/uncommitted
+issue 11 note and HANDOFF_CHATGPT.md preserved.
+
+### October 30: D-014 default fix approved and built
+
+Stefan: fix the iPhone 14 Pro Max issue permanently first, then tackle
+40 fps pacing. Isolated implementation in ios/src/native_renderer.mm:
+- Existing nfsmw_native_present_at_time stays true, description updated.
+- New nfsmw_native_present_at_time_60 defaults false; cap eligibility is
+  30, or 60 with that opt-in. The master, watchdog and display-rate checks
+  still apply. Default 60 takes plain presentDrawable like the successful
+  manual workaround. Set both controls true for the previous 60 path.
+- No change to 30, 40, 120, QoS, world-frame timing, simulation or shaders.
+  Trace remains false by default. CHANGELOG Unreleased entry added.
+
+Initial combined edit/build command used ios/ cwd for repository-relative
+paths: edit failed FileNotFoundError (no mutation), ordinary build failed
+ninja lock/cache write permission (exit 1). Corrected edit at repository
+root, git diff --check exit 0; build with authorized cache access:
+`cmake --build --preset ios --target ipa -j 6` in ios/, exit 0. Five compiler
+warnings (existing fpcr operand width and UIKit screen API deprecations),
+linker duplicate -lz warning. No SDK source edit or regenerated game code.
+An ancillary ps check was denied by the sandbox; cache inspection succeeded.
+
+Copied ignored local artifact (exclusive name):
+`ios/build/NFSMW-0.5.0-14pm-60fps-fix.ipa`, 30172940 bytes, SHA-256
+d56bcfeab2324b41b0d7632999067444cfeed6ad2f12288c01be3d5eb3699208,
+UUID D7D325E7-784F-36DD-94BA-96D226418869, version 0.5.0 build 8
+(test filename distinguishes it; no release/version bump).
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+xcrun dwarfdump --uuid exit 0; git diff --check exit 0.
+Initial shader equality assertion included __MACOSX/._ AppleDouble entries
+and failed because their metadata differs. Corrected comparison filters
+Payload/: all 104 actual shader libraries byte-identical to released
+NFS-Most-Wanted-0.5.0.ipa. Both ZIPs have 208 names ending metallib when
+metadata is counted; earlier records' 208 count includes that metadata.
+No shader rebuild. No runtime claim from these packaging checks.
+
+Device test pending: cold launch 1x/60, remove
+--nfsmw_native_present_at_time=false and --nfsmw_native_frame_trace=true
+from both launcher Extra Args and extra_args.txt if present; Max first,
+then Balanced. Check cycling does not return, then short 30/menu transition
+check and other owned devices. Do not enable new 60 opt-in for normal play.
+Keep 40 source unchanged until the 60 fix is validated, then collect current
+40 trace and localize residual pacing (prior negative experiments retained).
+Pre-existing uncommitted issue 11 note, HANDOFF_CHATGPT.md and SDK work
+preserved. Local commit only; no push/tag/release or new device run.
+
+### October 30: D-014 Balanced confirmed; 0.5.1 scope and 40 fps investigation
+
+Stefan confirms new default-fix IPA: ~1 minute police chase on iPhone 14
+Pro Max at Balanced, no issues; prior cycling appeared much sooner. Refers
+to NFSMW-0.5.0-14pm-60fps-fix.ipa documented above (SHA-256 d56bcfea..., UUID
+D7D325E7-784F-36DD-94BA-96D226418869). User-reported device result, no new
+log/photo or OS version supplied in this message. No archival file exists
+for this run beyond this report; no fabricated runtime measurements.
+This validates the default change on that phone, not all devices/settings.
+
+Impact explained: change applies to all devices at 60 fps, so pacing and
+latency may differ elsewhere; cannot guarantee zero regressions. 30 keeps
+its tested scheduled path; 40/120 unchanged. World timing, simulation,
+QoS and image quality unchanged. Short other-device 60 and 30/menu checks
+remain before release. Stefan's 0.5.1 hotfix scope: these two fixes only
+(D-014 and 40 fps pacing). Recorded in working rules, no version bump yet.
+
+Read current swap cap (SDK patch scripts), display link publication,
+native render queue/in-flight limit and drawable acquisition/presentation.
+40 counts three guest 120 Hz vblanks between swaps; native serial queue
+then encodes, obtains nextDrawable and presents when ready. A 120 Hz
+CADisplayLink request is already enforced at 40. No source mutation made.
+Requested current-build 40 fps trace, 1-2 min, Low Power Mode off, device
+identified, nfsmw_native_frame_trace=true; awaiting evidence.
+
+Independent read-only reanalysis of historical
+`Debug/28 October 2026/nfsmw_ipa131_no_present_at_time_40fps_iphone.log`:
+script includes records after game flow state 6, disables inclusion on
+Pause menu; not a matched new run. Parsed all numeric trace gap fields:
+- swap: 1740 gaps, mean 25.247 ms, 1633 within 1 ms of 25.
+- handed: 1740, mean 25.248 ms, 1033 within 1 ms.
+- GPU end: 1723, mean 25.244 ms, 682 within 1 ms.
+- shown: 1723, mean 25.242 ms; exact rounded bins 25.0:644,
+  29.2:464, 20.8:430, 33.3:97, 16.7:64, remaining 24 other values.
+There are 259 frame-trace lines in the full file. Rounded log measurements,
+not exact physical scanout timing. Missing GPU/shown entries excluded;
+includes transients, no claim of a controlled steady-only population.
+This corrects any impression that historical unpaced 40 was perfectly
+smooth: it improved on the exact 16.7/25/33.3 cycle but residual variation
+remained. Near-even swaps plus display gap variation motivates inspecting
+frame/display synchronization if current trace reproduces it. Historical
+GPU completion also has jitter, so do not attribute all variation solely
+to the compositor without fresh evidence. Wider target delays and minimum
+duration already failed; do not repeat them as assumed fixes.
+
+Read/analysis commands exit 0. No source change/build/new device execution,
+no push/tag/release. Pre-existing issue 11 checkpoint text and untracked
+HANDOFF_CHATGPT.md preserved. Next: supplied current 40-cap trace, then
+an isolated evidence-based fix proposal/implementation within 0.5.1 scope.
+
+Stefan selected the iPhone 14 Pro Max for the pending 40 fps run. Test
+instructions: same Balanced/1x, choose 40 before cold launch, Low Power
+Mode off, frame_trace true; force-quit LiveContainer first (startup guest
+vblank rate matters). Result/log not yet received.
+
+### October 30: latest 14 Pro Max 40 fps trace; CAMetalDisplayLink design review
+
+Input `/Users/bep1s/Downloads/nfsmw 3.log` archived byte-for-byte, exclusive
+create (no overwrite), source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_3_40fps_trace.log`.
+1993511 bytes, 11724 lines; SHA-256
+5e201f8df8325ee0f29b5513bf8755962a86cb1ca8f1682c0f2e412d232dd2af.
+Copy and equality verification exit 0. Last line truncated; last complete
+timestamp 00:51:18.482. File contains three launches, parsed separately:
+line 1 00:33:07 (prior Max/60 run); line 3904 00:44:19.626
+Balanced/60; line 8097 includes a partial prior line then new launch
+00:49:40.080 Balanced/40. Log startup build timestamp remains Oct 29
+22:38:47 (ios_main object unchanged); user was testing the new IPA, exact
+IPA identity from previous entry, not independently echoed in this file.
+Device iPhone 14 Pro Max per Stefan, OS not supplied.
+
+Balanced/60 run: world entered 00:45:37.081, 10 complete subsequent frame
+windows 4501-7201 00:45:42.543-00:46:27.604 at 59.7-60.0 fps, no ~40
+plateau. The result now has log corroboration. No other-device regression
+test established by this file.
+
+Latest 40 run: native 1x, MetalFX/FXAA/MSAA off, Balanced; Low Power Mode
+off, thermal nominal in CPU samples. Display requested/reported 120 Hz,
+guest vblank real-time 8.33 ms and locked to display; frame trace on at
+00:49:41.377. World at 00:50:13.526, driving boost held; steady render
+QoS samples User Initiated 300/300. 300-frame windows 1501-3601 show
+39.9-40.0 fps, GPU 11.46-22.41 ms, recording 2.67-3.87 ms, encoding
+2.62-3.54 ms. Presentation is unpaced as expected.
+
+Parsed trace gap rows emitted at/after 00:50:23.000 (the first such row
+includes the preceding 60 gaps; no claim of frame-perfect cutoff):
+2220 numeric gaps per stage, rounded as logged:
+- swap mean 25.027 ms, population sd .747; 2200 within 1 ms of 25.
+- handed mean 25.028, sd 1.192; 1671 within 1 ms.
+- GPU end mean 25.033, sd 1.583; 1512 within 1 ms.
+- shown mean 25.020, sd 2.870; 1613 within 1 ms. Bins 25.0:1613,
+  29.2:214, 20.9:170, 20.8:116, 33.4:62, 16.7:35,
+  37.5:7, 12.5:2, 62.6:1.
+Shows stable production with jitter increasing through GPU/display; about
+27% of shown gaps differ from 25 ms by >1 ms. No 60/~40 cycling mechanism
+or QoS transition. No exact physical scanout/clock measurement; timestamp
+quantization alone does not prove panel refresh changes. GPU can approach
+25 ms budget, so presentation scheduling cannot cure genuinely late frames.
+
+Inspected iOS 27.1 SDK CAMetalDisplayLink.h: API available iOS 17+, below
+project target 18; update supplies drawable, targetTimestamp and
+targetPresentationTimestamp; link exposes preferredFrameLatency and
+preferredFrameRateRange. Re-read layer setup, nextDrawable placement and
+serial render/in-flight control. Read/analysis commands exit 0.
+
+Proposed an isolated default-off 40-only CAMetalDisplayLink experiment.
+Stefan selected "Review the design first": NO 40 source edits authorized
+by that response; no experiment code/build made. Review design:
+1. Attach Metal display link to primary layer only under a new test flag
+   and effective cap 40. Keep existing CADisplayLink/guest 120 Hz timing,
+   even world-frame time and simulation intact.
+2. On system callbacks, pass the supplied drawable + presentation timestamp
+   to the existing serial native renderer via a bounded handoff. Acquire
+   before encoding each experimental frame, rather than late nextDrawable;
+   never render/wait on the main thread. One frame per callback, preserve
+   ordering, existing in-flight limit, resource/writeback lifetimes.
+3. Present against system timing, not the old EMA GPU-time+4 ms target
+   grid. Start with bounded/default two-frame latency, measure actual
+   input-to-display/queue latency (possible tradeoff; not guaranteed lower).
+4. Lifecycle/cap switch: invalidate/pause link and wake waits on background,
+   layer loss or leave-40; discard stale updates with a generation marker.
+   Never acquire from nextDrawable while the Metal display link owns that
+   layer's acquisition. Restore legacy acquisition only after handoff is
+   stopped. 30/menu transition, 60/120 and external-display legacy paths
+   preserved; off switch restores current implementation.
+5. Logs: active path, callback cadence, system target, missed deadlines,
+   acquisition/queue wait; retain existing frame trace for comparable
+   before/after results. Test at same 1x/40 Balanced on this phone, then
+   30 menus/pause-resume/background and other owned ProMotion device.
+   Success = mostly 25 ms shown gaps, sustained ~40 without extra queue
+   growth or unacceptable latency; no rollout if not improved.
+
+This is a candidate API integration, not proven fix; requesting 40 via
+CADisplayLink alone was already tried and failed in older tests. The new
+part is system drawable delivery coordinated with the Metal layer. Prior
+RC4-RC7 failed target-delay/minimum-duration experiments stay rejected.
+Next: Stefan reviews/approves design before implementation. 0.5.1 still
+only D-014 and 40 pacing; no unrelated changes, version bump or release.
+Pre-existing issue 11 checkpoint text and HANDOFF_CHATGPT.md preserved.
+
+### October 30: approved CAMetalDisplayLink 40 fps experiment implemented
+
+Stefan after design review: "if this is the only solution then its worth
+trying". Clarified not the only possible solution; approved candidate is
+an isolated default-off test. No claim of runtime benefit yet.
+
+Changes:
+- New ios/src/metal_display_pacer.{h,mm}, added to ios/CMakeLists.txt.
+  Cvar nfsmw_native_metal_display_40 false, restart required. Only the
+  primary Metal layer/effective 40 cap uses CAMetalDisplayLink; callbacks
+  requested at 40, preferredFrameLatency 2. Existing CADisplayLink still
+  publishes the guest 120 Hz vblank; game frame time/simulation/QoS intact.
+- Single retained pending update, replaced if unused; render queue acquires
+  its drawable/target before encoding. One update per managed frame, 100 ms
+  sleeping timeout, no legacy nextDrawable fallback while link owns layer.
+  Timed-out/stale frames still encode/commit world work and writebacks,
+  without presenting a stale drawable. Main never waits for renderer.
+- Frame leases count legacy CPU encoding too; start only between leases,
+  preventing simultaneous link/nextDrawable acquisition. Attach ownership
+  established before publishing present_layer to render queue. A generation
+  invalidates pending/acquired updates across transitions. Stop invalidates
+  link before returning ownership to legacy; no live-link timeout fallback.
+- display_rate.mm tick manages eligibility; lifecycle.mm stops/wakes before
+  guest pause and restarts on resume. Off flag returns immediately. 30/60/
+  120 use existing paths; current 60 fix remains; external layer's separate
+  presentation code unchanged. Main primary-link experiment with external
+  display connected has not been runtime-tested.
+- Native renderer presents at system targetPresentationTimestamp without
+  EMA GPU+4 ms estimation or previous-frame target rounding. Uses existing
+  command queue/order, completion handlers/writebacks/resource lifetime.
+  Acquisition wait included in existing drawable-wait accounting so it
+  does not falsely count as CPU encoding lateness for adaptive QoS.
+- [metal-display-40] start/stop, every-120 callback gap/target lead, every-300
+  acquisition avg/max and >4 ms presentation target misses/drops. Existing
+  per-frame trace records system target too; independent of legacy 30 fps
+  watchdog. Off-by-default experiment has no new user-facing setting or
+  changelog fix claim; 0.5.1 remains limited to the two authorized fixes.
+
+Checks/failures:
+- git diff --check exit 0.
+- Initial `cmake --build --preset ios --target ipa -j 6` (ios/, authorized
+  cache access) exit 1: new pacer variable `link` conflicts with POSIX link.
+  Repeated saved failure: ios/build/metal-display-40-build.log, exit 1,
+  12 compiler errors. Renamed variable metal_link. No SDK source edit.
+- Corrected build exit 0, saved ios/build/metal-display-40-build-success.log.
+  Subsequent manual ownership review moved Attach before present_layer
+  publication to close initial ownership race. Final build exit 0, saved
+  ios/build/metal-display-40-build-final.log (5 usual native renderer
+  fpcr/UIKit warnings, duplicate -lz linker warning).
+- CMake regenerated because new file/header added, built hook/edition app
+  objects and SDK debug_overlay.cpp/version-related runtime output. Runtime
+  dylib bytes differ from previous 60-fix IPA; GPU dylib byte-identical.
+  No SDK gameplay/platform source changes by this session. Do not claim
+  both SDK dylibs are byte-identical to baseline.
+- Manual review: legacy acquisition cannot overlap link startup; stop wakes
+  waiters, no cap/stop stale target used for presentation; background stop
+  occurs before g_pause; disabled path does not take pacer mutex or own
+  drawables. This is source review, not a UIKit lifecycle runtime test.
+
+Unique ignored artifact: ios/build/NFSMW-0.5.0-metal-display-40-test.ipa,
+30171875 bytes, SHA-256
+bad106dc1a6ee3707710c3a83df4abd8bbde2424bde09fa5c03ef7cc9cf62f43,
+UUID 4A2222D3-4733-3082-B290-16B8A8309473, version 0.5.0 build 8 (test
+filename distinguishes it; no hotfix version bump yet).
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+xcrun dwarfdump --uuid exit 0. All 104 Payload shader libraries byte-
+identical to NFSMW-0.5.0-14pm-60fps-fix.ipa; 208 ZIP names count metadata.
+These checks do not establish display cadence or input latency on device.
+
+Next test: same 14 Pro Max, Balanced/1x/40, Low Power Mode off; select 40
+before launch, cold force-quit LiveContainer. Extra Args:
+--nfsmw_native_metal_display_40=true --nfsmw_native_frame_trace=true
+No need to re-enable legacy present_at_time or its 60 opt-in. Run same
+chase 1-2 min, note smoothness and any extra input delay, supply log for
+archival/comparison. If improved, short pause/resume, 30 fps in menus and
+background/resume, other owned ProMotion device; only then consider default
+and 0.5.1. Off switch restores baseline. No new device run, release, push
+or tag. Existing issue 11 checkpoint note, HANDOFF_CHATGPT.md and sibling
+SDK source/submodule work preserved; only session changes committed.
+
+### October 30: 40 fps Metal display-link test crashes twice; API error corrected
+
+Stefan: tried twice, crashed both times. Supplied
+`/Users/bep1s/Downloads/nfsmw 4.log`, archived byte-for-byte without overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_4_metal_display_40_crash.log`.
+53692 bytes, 361 lines, SHA-256
+3c8d6650f3a74d13d096fbc7c650453a920a90ab73a7ff69b590d884571fc80a.
+Copy/equality check exit 0. Input retained. Two launches only, lines 1/182:
+01:03:21.572 and 01:03:28.617. Link starts at 01:03:22.672 / 01:03:29.521;
+trace on and frame-1 renderer summaries follow. Logs end at 01:03:23.006 /
+01:03:29.909, both at "pipelines: 13 draws left out while theirs compiled".
+No gameplay or pacing sample reached. Balanced, cap40/display120, native
+1x, same 14 Pro Max per test context; OS not supplied. User tested artifact
+bad106dc... (UUID 4A2222D3-4733-3082-B290-16B8A8309473), exact installed
+file not independently echoed. No fatal signal, exception or crash stack in
+nfsmw.log; do not infer the exact faulting instruction from buffered logs.
+
+Source/API investigation found a concrete defect introduced by this
+experiment: its managed-drawable branch called
+[cb presentDrawable:drawable atTime:system_target]. Apple explicitly warns
+that time-targeted presentation methods assert with CAMetalDisplayLink:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylinkdelegate/metaldisplaylink(_:needsupdate:)
+Strong match to startup termination around initial presentation, but no
+.ips/boot.txt supplied to prove these exact crash stacks. Correcting a
+known API violation is justified without claiming stack-level confirmation.
+
+Corrected managed branch uses plain [cb presentDrawable:drawable], which
+calls drawable.present after Metal schedules the rendering buffer. This
+preserves GPU-write dependencies; never call atTime or minimumDuration on
+system-supplied drawables. targetPresentationTimestamp now diagnostic only.
+Apple plain drawable API and scheduling recommendation:
+https://developer.apple.com/documentation/metal/mtldrawable/present()
+Apple commit/present deadline is targetTimestamp, not the later estimated
+targetPresentationTimestamp:
+https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/update/targettimestamp
+Stale update filtering corrected to use targetTimestamp. Added scheduled-
+handler deadline diagnostics, protected against concurrent callbacks.
+Existing 30/60/120, game/QoS behavior and default-off test flag unchanged.
+
+An intermediate commit-then-direct-drawable.present implementation compiled
+(exit 0, ios/build/metal-display-40-plain-present-build.log), but was not
+copied/delivered: further primary-doc review selected the plain command-
+buffer convenience method to guarantee rendering is scheduled first.
+This intermediate build is not a device result. Final build/check evidence
+and device-test next step follow. No new crash-log capture requested until
+this documented API defect is corrected; if it persists, .ips and boot.txt
+are needed rather than guessing from nfsmw.log. Existing unrelated issue
+11 checkpoint note, HANDOFF_CHATGPT.md and SDK work preserved.
+
+Final corrected build: `cmake --build --preset ios --target ipa -j 6`
+(ios/, authorized cache access), exit 0; saved ignored log
+`ios/build/metal-display-40-plain-scheduled-build.log`. Existing fpcr/UIKit
+warnings (5 in native renderer), duplicate -lz linker warning. Plain
+managed branch has no timed API call; legacy 30 timing remains separate.
+New artifact `ios/build/NFSMW-0.5.0-metal-display-40-test2.ipa`,
+30172251 bytes, version 0.5.0 build 8, SHA-256
+87ea6d83729966b2704889271de251a4e2a315ce5700fcf801337b04dd8778f5,
+UUID 9AC76DA4-519A-3A7D-91A6-146C0DEBE6D7.
+ZIP testzip no bad entry; codesign --verify --deep --strict exit 0;
+dwarfdump --uuid exit 0; git diff --check exit 0. All 104 payload shaders
+and both SDK dylibs byte-identical to failed test1. No SDK source mutation.
+These checks do not prove crash removal or smoother 40 fps on device.
+
+Next: install test2, same Balanced/1x/40 and Low Power Mode off, cold
+LiveContainer launch, nfsmw_native_metal_display_40=true and
+nfsmw_native_frame_trace=true. Confirm it starts before running the chase;
+then compare shown gaps and input latency, plus menu/background transitions
+if promising. If still crashes, request .ips and Documents/logs/boot.txt
+for actual failure stack/type. Do not promote or claim a 40 fix without
+runtime evidence. Default remains off; 60 fix unchanged. Local commit only,
+no push/tag/release. All source/log analysis commands completed exit 0;
+one broad Apple search returned no results, markdown doc fetch failed
+(unsupported type), a guessed WWDC URL was unrelated and discarded;
+primary delegate/present/deadline pages above supplied the API evidence.
+
+### October 30: test2 cadence improves but feels worse; virtual guest grid test3
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 5.log, "worked but honestly
+felt worse". Follow-up clarifies mostly more jerky world motion, some extra
+input lag; lag not bad, accepts roughly one extra frame if it means truly
+smooth 40 fps. Recorded this preference in working rules. Do not dismiss
+subjective result because presentedTime intervals improve.
+
+Archived byte-for-byte (exclusive create, no overwrite), source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_5_metal_display_40_test2_worse.log`.
+629677 bytes, 3395 lines, SHA-256
+a0554679e6bfbdbb82fa6a2aeaf864068948b9c6dc00b94e5446fc683c17f84f.
+Copy/verify exit 0. One launch 01:07:43.814, Balanced/native1x/40,
+MetalFX/FXAA/MSAA off, Low Power Mode off, nominal CPU thermal samples.
+Device 14 Pro Max per established test, OS not supplied; test2 identity
+from prior handoff (87ea6d83..., 9AC76DA4-519A-3A7D-91A6-146C0DEBE6D7),
+not independently echoed in runtime startup stamp. Metal link starts
+01:07:44.848; ordinary CADisplayLink reports 80 Hz at 01:07:46.006 (requested
+120), persists until stop at 01:09:01.281, after which 120 reported again.
+World entered 01:08:18.240. No startup assertion recurs in this supplied run.
+
+Analyzed numeric trace rows emitted at/after 01:08:26.000 (each row covers
+preceding 60 gaps; rounded values). 1440 gaps/stage:
+- swap mean 25.046 ms, sd 1.277.
+- handed mean 25.055, sd 1.274.
+- GPU end mean 25.066, sd 1.770.
+- shown mean 25.035, sd .728; bins 25.0:1435, 37.5:3, 41.7:1, 20.8:1.
+Most 300-frame driving summaries 40.0 fps and 0/300 off grid; one 39.8
+window, no target-deadline misses in steady summaries. GPU 8.46-20.62 ms
+in selected 40 windows, rendering increases with pacing wait (not all CPU
+work). System target about 49 ms ahead; latency requested 2 unchanged.
+
+Baseline nfsmw 3.log latest run, trace rows >=00:50:23.000, 2220 entries:
+mean swap->handed / handed->GPU end / GPU end->shown 3.06/20.64/3.72 ms,
+sum 27.42. Test2 selected 1440 entries 17.27/20.01/26.35, sum 63.63 ms.
+Per-row mean swap->shown grows ~54.49 -> ~70.83 ms then ends ~63.12 ms;
+drawable wait summaries rise .00 ->19.78 ms. This measures renderer handoff
+to presentedTime, not total input-to-photon latency; gameplay/workload not
+bit-identical, so 36.21 ms difference is not a controlled input-lag A/B.
+Nonetheless it exposes a substantial latency tradeoff, even while screen
+intervals improve. Test2 not an accepted fix.
+
+Found separate concrete guest-clock conversion defect exposed by 80 Hz:
+display_rate.mm used split=lround(period*120), published period/split.
+At 79.98/80/80.02 Hz that arithmetic yields about 159.96/160/80.02 Hz,
+not 120. These are code-derived examples, not logged actual guest rates;
+test2 lacked published-period/camera logs. Wrong period fails SDK's +/-10%
+120 Hz lock condition and feeds frame_clock.cpp a 6.25 or 12.5 ms quantum.
+Inference: plausible cause of world-motion regression; no camera trace
+proves it yet. Do not tune away input latency and assume world fixed.
+
+Isolated correction, still under default-off nfsmw_native_metal_display_40:
+- Metal callback derives nominal 40-slot cadence from consecutive system
+  estimated-presentation timestamps, not callback arrival jitter; normalizes
+  2/3 missed callbacks, divides into 3 virtual guest ticks. First uses 25 ms.
+- Publishes latest nonfuture tick on that phase and corresponding ~8.33 ms
+  period through new metal_pacer::GuestGrid; ordinary display tick uses it
+  only while experiment owns layer at cap40. Clears clock on stop/start.
+- No integer division of 80 Hz display-link period in managed mode. Existing
+  guest timing path elsewhere unchanged. Callback log now shows guest grid.
+  Two-frame preferred latency and presentation path unchanged to isolate
+  this bug. No SDK source edits, graphics changes or 60-fix changes.
+
+Validation: host extracted actual callback arithmetic block and checked
+3000 updates across 25/25.025/24.99 ms cadences, 1/2/3-slot gaps and arrival
+jitter: expected three guest periods per slot within 1 ns, published tick
+nonfuture and less than one period old; passed. Retained reproducible test
+`python3 tools/ios/test_metal_display_guest_grid.py` (xcrun clang++ -std=c++17
+-O2), exit 0: PASS 3000 updates. Tests clock arithmetic, not UIKit behavior,
+locking, presentation or world-motion smoothness. git diff --check exit 0.
+`cmake --build --preset ios --target ipa -j 6` in ios/ exit 0, saved
+ignored ios/build/metal-display-40-guest-grid-build.log; usual 5 native
+renderer fpcr/UIKit warnings and duplicate -lz linker warning.
+
+Unique artifact ios/build/NFSMW-0.5.0-metal-display-40-test3.ipa,
+30172263 bytes, version0.5.0/build8, SHA-256
+06e1b78301b5ed3bf2d2a475d4f0350c1c5d7aa39c59e9e63bcff6e563950b97,
+UUID 29F35A9F-1923-38A5-A256-AAD17E3CAE3F. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit 0, dwarfdump --uuid exit 0.
+All 104 actual payload shader libraries and both SDK dylibs byte-identical
+to test2. No runtime validation of test3 yet.
+
+Next device test: same 14 Pro Max Balanced/1x/40, Low Power Mode off,
+cold LiveContainer; Extra Args nfsmw_native_metal_display_40=true,
+nfsmw_native_frame_trace=true, add nfsmw_native_camera_log=true to check
+world as well as presentation. Same 1-2 min chase, report motion and lag.
+Compare guest grid log, world camera steps, presentation cadence and
+latency drift. If successful, then decide whether to reduce latency;
+keep this change isolated first. No promotion/default change, version bump,
+push/tag/release. Preserve issue 11 note, HANDOFF_CHATGPT.md and SDK work.
+
+### October 30: test3 still feels like periodic stuck frames; isolate world clock
+
+Stefan: "still seemed to have a few stuck frames ... every 5s or so".
+Input /Users/bep1s/Downloads/nfsmw 6.log archived byte-for-byte (exclusive
+create, no overwrite), original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_6_metal_display_40_test3_stuck_frames.log`.
+574262 bytes, 2947 lines, SHA-256
+bcb18bb990ab7064f9104fd1994b2a032884ee5d1eeba4885ef374d1e00c5f51.
+Copy/equality verification and read-only analysis commands exit 0.
+One launch 01:16:06.498; world at 01:16:37.619; experimental link stopped
+01:17:25.051, subsequent GPU hitches occur after stop (not evidence of a
+steady-state 5 s hitch). Final log line partial. Test3 identity from handoff:
+06e1b783..., UUID 29F35A9F-1923-38A5-A256-AAD17E3CAE3F; device 14 Pro Max
+per established test, OS not supplied. Balanced, native1x/40, no MetalFX/
+FXAA/MSAA, Low Power Mode off, nominal CPU thermal samples. Frame trace,
+camera log and managed Metal path active. Ordinary link 80 Hz, managed
+virtual guest grid logs ~8.3400 ms (one 8.3398), fixing prior conversion.
+
+Trace rows emitted >=01:16:49.000 and <01:17:24.000 (rounded numeric
+values; rows cover preceding 60 gaps), 1440 gaps/stage:
+- swap mean25.026 ms, sd .702.
+- handed mean25.038, sd1.242.
+- GPU end mean25.048, sd1.600.
+- shown mean25.017, sd .678; bins25.0:1437,37.5:1,16.7:1,45.9:1.
+No recurring 5 s display-gap pattern observed. Four steady 300-frame
+windows through 01:17:11.805 have 0/300 off-grid; later window has 3/300,
+39.8 fps. GPU generally ~19-22 ms after warm-up; no steady deadline misses
+in summaries, apart from later two presentation misses >4 ms. Actual
+screen-stall cause is not proven from presentedTime alone.
+
+Mean trace latency components swap->handed / handed->GPU end / ->shown:
+7.40/20.92/25.20 ms, sum53.51 vs test2 selected63.63 and baseline27.42.
+This is renderer handoff latency, not input-to-photon; different workloads
+and selection windows, no controlled energy or total input-lag claim.
+Drawable wait ~.44-.49 ms through most driving (previous test2 steadily
+grew to19.78); final window 9.89/max18.78. Source review: integer guest
+clock defect corrected as intended, but experiment still not accepted.
+
+Camera trace shows uneven turn magnitudes in some windows but cannot
+prove whole-picture freezes: it measures rotation, not translation or a
+hash of displayed pixels. Near-zero rotation can be natural, and the
+most-common view-projection vote may switch to a different scene camera
+(large angle jumps). Do not label all flagged neighbors as actual judder.
+Only three isolated <.02-degree values with both immediate neighbors>.15
+were found across camera windows; not a 5 s sequence. No new world-clock
+input/output diagnostic exists in this build. No logged periodic task
+established as the cause; native draw-census has 5 s interval but this log
+contains no active draw-census evidence.
+
+Next diagnostic (existing switch, NO source/build): same test3 IPA,
+Balanced/1x/40, Low Power Mode off, existing metal_display_40/frame_trace/
+camera_log true; add only --nfsmw_frame_ticks=0 and cold-launch. This uses
+the game's original main-loop elapsed time while leaving the successful
+40 screen presentation and sim120 intact. Compare same chase for 1 min,
+world smoothness, perceived stuck moments and log. It is an isolation
+trial for interaction with our even-world-frame correction, not a proposal
+to remove that proven 60 fps fix globally. Restore default2 afterward.
+Earlier 60 fps timing investigations do not validate this new managed-40
+configuration. If original world timing helps, design a 40-specific clock
+change; if not, use targeted world-step/repeated-picture diagnostics before
+further presentation rewrites. No source change/new IPA, no promoted 40
+fix, version bump, push/tag/release. Preserve issue11 note, HANDOFF and SDK.
+
+### October 30: frame_ticks=0 trial worse; world-update diagnostic test4
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 7.log: "even worse in terms of
+those judders" after requested frame_ticks=0 isolation on test3. Archived
+byte-for-byte, exclusive create, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_7_metal_display_40_frame_ticks_off_worse.log`.
+653676 bytes, 3470 lines, SHA-256
+9c741b2b0401c21d114b83b7480b9857e6aef177738119158eb58c7090035e0f.
+Read/copy/equality check exit 0. One launch01:21:12.490; world01:21:44.446;
+link stopped01:22:31.109, partial tail01:22:31.694. Device14 Pro Max per
+ongoing test, OS not supplied; test3 IPA identity previously recorded
+06e1b783..., 29F35A9F-1923-38A5-A256-AAD17E3CAE3F, not independently
+echoed by this file. Balanced/native1x/40, MetalFX/FXAA/MSAA off; ordinary
+link80Hz, managed guest grid~8.3400ms, camera/trace active. nfsmw.log does
+not echo frame_ticks value, so mode0 setting is per requested/user trial,
+not independently verified; new logger below explicitly reports mode.
+
+Trace rows emitted >=01:21:55.000 and <01:22:30.000, rounded numbers,
+1440 numeric gaps/stage:
+- swap mean25.021ms, sd.549.
+- handed mean25.020, sd1.068.
+- GPU end mean25.028, sd1.317.
+- shown mean25.000, sd0: all1440 gaps25.0ms.
+Latency components3.41/20.48/25.56ms, sum49.45ms renderer handoff->shown;
+not total input latency. All five full steady 300-frame summaries1501-2701
+40fps,0/300 off-grid. Camera32 windows, not a full-picture freeze detector.
+No world-clock or repeat-strip diagnostics in this log. User still feels
+worse with original world time; do not remove the proven correction or
+promote perfect presentedTime stats as accepted smoothness. Restore mode2.
+
+Next is diagnostic only, not another speculative behavior change:
+new nfsmw_frame_ticks_log default false in frame_clock.cpp buffers60 world
+updates then logs mode/rate/wait/clamp and per-call raw/given milliseconds,
+quantum, post-correction debt, host call interval and resync marker. Bounded
+160 batches. Same result arithmetic/early bypass paths; enabled tracing
+only observes. No new world timing mode, presentation tweak or default
+change. Mode read once, TraceTicks returns original result verbatim.
+
+Validation: source differential host harness generated at
+/tmp/nfsmw_world_clock_differential.cpp compared actual pre-change
+frame_clock.cpp (git show HEAD:... while HEAD=b6bb9b9) with current source,
+inside separate namespaces with unique function names. Fake cvar/display
+and formatting/log stubs isolate arithmetic. xcrun clang++ -std=c++17 -O2,
+24000 sequential calls with mode0/1/2, logging on/off every60 calls,
+periods8333333/8340000/16666667/0ns, elapsed jitter10-39.9ms and bypass
+cases0/-1/250/1000/NaN: double return bit patterns identical in every case.
+Output PASS24000, exit0. Test does not validate actual log I/O overhead or
+on-device timing; essential case description/results recorded here rather
+than relying on temporary harness. git diff --check exit0.
+Build `cmake --build --preset ios --target ipa -j 6` in ios/ exit0,
+ignored log ios/build/metal-display-40-world-diagnostic-build.log; only
+frame_clock.cpp rebuilt then link/package (duplicate -lz warning).
+
+New ignored IPA ios/build/NFSMW-0.5.0-metal-display-40-test4-diag.ipa,
+30184005 bytes, version0.5.0/build8, SHA-256
+68e859cd2e645e3c25439344bdcc544afd9eb33234b8fd86d82a803c50d7ef05,
+UUID542EEA4F-55E5-35D4-9FD7-A407F0100234. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit0, dwarfdump --uuid exit0; all104
+payload metallibs and both SDK dylibs byte-identical to test3. No runtime
+result yet; no accepted 40 fix, 0.5.1 release/version bump/push/tag.
+
+Next run test4, same Balanced/1x/40, Low Power Mode off, cold LiveContainer.
+Replace test Extra Args with:
+--nfsmw_native_metal_display_40=true --nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2 --nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+Remove prior camera_log override to reduce unrelated diagnostics (rotation
+vote was inconclusive). Existing repeat diagnostic copies only a 2-row,
+up-to1024-pixel strip asynchronously after render; detects exact strip
+repeats, not necessarily full-frame freeze. Correlate moving-chase repeats
+with raw/given world steps and screen cadence over~1min; diagnostic work
+has overhead, not an energy comparison. This will discriminate irregular
+world time from repeated captured content, without changing game timing
+behavior again. Preserve issue11 checkpoint note, HANDOFF and SDK work.
+
+### October 30: log8 exposes unequal world steps; whole-frame 40 driving trial
+
+Stefan supplied /Users/bep1s/Downloads/nfsmw 8.log and asked what frame_ticks=2
+means, thinking it was new. Clarified: 2 is an algorithm selector, not a
+number of ticks/frames/FPS. It has been the compiled default since IPA124 /
+0.4.2 (October28); explicitly setting2 restores that default after the
+previous temporary0 trial. 0 uses original elapsed-time calculation. No
+new mode introduced by the diagnostic. This log explicitly confirms mode2.
+No new subjective outcome was stated with log8.
+
+Archived byte-for-byte, exclusive create, original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_8_metal_display_40_world_diagnostic.log`.
+755120 bytes,3171 lines,SHA-256
+482824cfdfd865f73f390ddadb5540665f8eedb6323d11341e99c1f75ca0b865.
+Copy/verify/read analysis exit0. One launch01:29:29.685,world01:30:00.448,
+stop/120Hz return~01:31:02.470,partial final line. Device14 Pro Max per
+test context,OS not supplied,test4 identity from handoff68e859cd...,
+542EEA4F-55E5-35D4-9FD7-A407F0100234 (not echoed independently). Balanced,
+native1x/40, no MetalFX/FXAA/MSAA; managed link active,ordinary80Hz. New
+world logger58 batches explicitly mode2,rate65536,wait.25,clamp32000.
+
+Selected emitted rows >=01:30:04.000 and <01:31:01.000 (each batch covers
+preceding60 updates/gaps, rounded values):2280 world-update records and
+2280 numeric shown gaps. Shown all25.0ms. World given-time bins:
+25.02:1901,33.36:180,16.68:160,8.34:37,25.05:2. Raw interval3.002-74.437ms,
+mean25.0218ms; mean given24.8225ms. Thus~16.5% of observed world updates
+receive8.34/16.68/33.36ms instead of a full~25ms step while output cadence is even. This
+is a concrete timing discrepancy, not a proof that every such step caused
+a particular perceived stall; world and renderer counters have different
+startup offsets and are not aligned frame-for-frame by this aggregation.
+Repeat-strip diagnostics: only3 repeats immediately after entering world
+(frames1037-1039,01:30:00.569-.615), then every steady300-picture summary
+reports0 repeats. Sampled strip changes, not proof of entire-image state.
+
+Inference/target: mode2 at40 quantizes/catches debt in guest-vblank8.34ms
+units. Main thread can stall then catch up behind a presentation queue
+that still shows one frame every25ms. Feeding those frames1/2/4 rather
+than3 simulation-tick-sized durations can make content move unevenly.
+Previous mode0 trial worsened perceived motion. Next isolated trial is one
+complete frame duration per world update only while driving under the
+managed40 path, preserving stable screen presentation.
+
+Implementation:
+- display_rate publishes atomic ManagedFramePeriodNs (3*managed guest
+  period) with the managed grid; resets to0 on valid legacy ticks. New
+  C++ declaration in display_rate.h avoids ObjC dependencies in clock.
+- frame_clock mode2,valid ordinary elapsed time,positive managed period,
+  battery::InMenu()==0 and effective cap40: give exactly that full frame
+  duration (~25.02ms),clear debt. No intra-frame8.34ms catch-up corrections
+  in this specific experimental driving branch. Existing mode0/loading
+  bypasses,menus,legacy40,30/60/120 code paths stay unchanged. No new flag;
+  still gated by default-off Metal experiment through managed grid.
+- Diagnostic logs remain to verify distribution; no new graphics/QoS/
+  shader or SDK source change, no promotion/default change.
+
+Validation: host source differential against pre-change45784ba clock,
+separate namespaces with cvar/display/menu stubs and formatting no-op.
+24000 cases: managed period0/positive but non-driving or cap30/60/120,
+clock modes0/1/2,log on/off,period changes,elapsed jitter and bypass values:
+returns bit-identical. Replay actual2280 raw intervals above through new
+managed40 driving branch: all return25.02ms within1e-9ms; loading/bypass
+and mode0 guards passed. xcrun clang++ -std=c++17 -O2 on generated
+/tmp/nfsmw_world_40_step_test.cpp exit0. Test recipe/limits captured here;
+not runtime evidence or actual game speed verification. git diff --check0.
+`cmake --build --preset ios --target ipa -j 6` in ios/ exit0, saved ignored
+`ios/build/metal-display-40-world-step-build.log`; usual fpcr compile /
+duplicate -lz link warnings.
+
+New ignored IPA ios/build/NFSMW-0.5.0-metal-display-40-test5-world-step.ipa,
+30174076bytes,version0.5.0/build8,SHA-256
+f918c1dfd21a9286fb0af94c73691c9dbd209600f0b5e2f387abec29d04254b9,
+UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5. ZIP CRC/testzip passed,
+codesign --verify --deep --strict exit0,dwarfdump --uuid0.104 payload
+metallibs and both SDK dylibs byte-identical to test4. No test5 device run.
+
+Next same14 Pro Max Balanced/1x/40,cold LiveContainer,Low Power Mode off,
+keep test4's five arguments unchanged: metal_display_40=true,
+frame_trace=true,frame_ticks=2,frame_ticks_log=true,native_repeat_log=true
+(all full nfsmw_ prefixes from previous entry). Same~1min chase; observe
+world smoothness and normal game speed; inspect given times and cadence.
+Before any default rollout, must assess real elapsed game speed, genuine
+missed-display/under40 behavior, menus/background and other devices:
+constant per-frame stepping can slow simulation if sustained FPS is below
+40. Do not silently ship that limitation as a complete generic cap fix;
+actual missed-frame compensation would need separate evidence/design if
+required. This is a narrow steady40 diagnostic trial, not an accepted0.5.1
+fix. No release/version bump/push/tag; issue11/HANDOFF/SDK work preserved.
+
+### October 30: test5 steady 40 succeeds on 14 Pro Max (log9)
+
+Stefan: "felt like heaven in terms of everything". Input
+/Users/bep1s/Downloads/nfsmw 9.log archived byte-for-byte (exclusive create,
+no overwrite; source retained):
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_9_metal_display_40_test5_smooth.log`.
+878561bytes,3791lines,SHA-256
+dab08fa9187cb8a432b6fbe449309dd46b9291b727d3c3151af3bc516ea48fca.
+Copy/verify/read analysis exit0. One launch01:37:49.886;world01:38:28.608;
+link stop and ordinary120Hz return~01:39:30.119;partial final line.
+14 Pro Max per ongoing test,OS not supplied;test5 identity from handoff
+f918c1df...,UUIDBB804486-977E-3A1C-A832-4BFF813E5FD5 (not independently
+echoed by runtime). Balanced/native1x/40,no MetalFX/FXAA/MSAA;managed link,
+world-clock logger mode2,trace and repeat-strip diagnostics active. Same
+five arguments as previous entry, default-off experiment explicitly on.
+
+Numeric trace/world rows emitted >=01:38:40.000 and <01:39:29.000 (each
+batch covers preceding60 entries; rounded values),1980 per stage:
+- world given1978x25.02ms +2x25.05;raw mean25.03346ms,given25.02003ms,
+  sum given/raw=.999464 (~99.95%). No8.34/16.68/33.36 world-step pairs
+  in this selected driving interval. This approximates pacing relative to
+  elapsed main-loop time, not an independent game/lap timer verification.
+- swap mean25.033ms,sd.894;handed25.033,sd1.000;GPU end25.035,sd1.520.
+- shown mean25.013ms,sd.420:1978x25.0,1x41.7,1x33.4.
+  One39.8fps300-frame window,others steady40.0fps. No recurring large
+  world-time discontinuities like log8; initial loading transients excluded.
+- trace latency swap->handed / ->GPU end / ->shown11.53/20.30/25.99ms,
+  sum57.82ms;renderer handoff latency,not input-to-photon or a controlled
+  latency A/B. Accepted subjective feel for this run, not a universal
+  latency guarantee. GPU after warm-up~17-21ms,below25ms budget.
+- Only2 repeated-strip samples at initial world entry01:38:28.748/.758,
+  frames1322/1323. All steady300-picture summaries0 repeats. Strip samples
+  are partial image evidence,not a full-image equality proof.
+
+Outcome: steady managed40 driving trial successful by user and diagnostics
+on this device/settings. Keep test5 as known-good comparison. No source or
+build change this turn, no default promotion/version bump/release yet.
+60fps D-014 fix remains confirmed separately. 0.5.1 scope still just these
+2 fixes; do not silently add other features or diagnostics to normal use.
+
+Remaining before final default/release candidate:
+1. Genuine under40 behavior: constant per-frame world step can slow the
+   simulation if GPU cannot sustain40. Need a short deliberately heavier
+   current-build run (briefly raise render resolution then restore1x) and
+   compare world given-time/elapsed ratio,not only frame pacing. This
+   is a correctness boundary,not a new feature or battery experiment.
+   If confirmed, compensate actual missed output slots without restoring
+   raw-loop-driven8.34ms corrections that caused the observed judder.
+2. Pause/menu30 and background/resume transitions, then40 again; and short
+   40/60 check on another owned ProMotion device. Keep same known-good
+   build/arguments until those results indicate a required change.
+3. Only after correctness checks, enable intended40 behavior by default,
+   diagnostics off,update0.5.1/build9 and changelog,build/verify clean IPA,
+   device smoke then await Stefan's explicit push/tag/release permission.
+
+No claim that sustained under40 is solved or that other devices are
+validated. Preserve pre-existing issue11 checkpoint note,HANDOFF_CHATGPT.md
+and sibling SDK source/submodule state. Session changes documentation only.
+
+### October 30: log10 proves GPU-limited slow motion; missed-slot test6 built
+
+Stefan raised resolution through the options to native and drove a heavy
+chase to lower FPS. Input /Users/bep1s/Downloads/nfsmw 10.log archived
+byte-for-byte, exclusive create, original retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_14pm_10_metal_display_40_native_heavy_chase.log`.
+1594023bytes,7546lines,SHA-256
+a02689116aa373dd4e13bee2345df2bddca4803a7a8e7e2efd9c53dc605f6e15.
+Copy/verify/read analysis exit0. One launch01:47:27.334. First world at
+01:48:00.645, second heavy chase world01:49:11.918; pause01:50:11.795;
+restored1x01:50:16.522 and40fps01:50:29.510. Test5 known-good identity
+f918c1df...,BB804486-977E-3A1C-A832-4BFF813E5FD5 per handoff, not independently
+echoed. Device14 Pro Max per continuing test,OS not supplied. Balanced,
+native renderer,cap40,no MetalFX/FXAA/MSAA,Low Power Mode off;thermal
+nominal then fair in later chase. Runtime live scales1->1.25->1.5->1.75->2
+->1.792(native)->1.0; native1.792 from01:48:47.312 to01:50:16.522.
+
+Native heavy-chase windows:40fps/GPU23.09ms at01:49:20.061,40/GPU23.13
+at01:49:27.568;35.9/26.67 at01:49:35.914;32.3/32.86 at01:49:52.727;
+31.7/33.33 at01:50:02.196;27.4/38.63 at01:50:13.130 (last includes
+pause edge). Actual GPU cost exceeds25ms, so genuine below-cap evidence.
+
+World-clock rows emitted >=01:49:45.000 and <01:50:11.000,780 rounded
+samples, cover25872.099ms raw main-loop time but only19515.662ms given:
+ratio.7543. Individual60-update row ratios.615-.990. Full-frame branch
+continues giving~25.02ms while actual updates slow. Thus test5 measurably
+slows simulation under sustained GPU-limited output, as anticipated; no
+release/default promotion. This is main-loop time accounting,not an
+independent stopwatch/lap-time result, but a concrete code/data defect.
+Attempted target-gap reconstruction in this late interval found0 trace
+rows: frame_trace diagnostic counter was exhausted before heavy phase;
+use summary pacing/world evidence,do not fabricate per-frame target slots.
+
+Correction (experimental managed40 driving only):
+- New pure C++ ManagedFrameSlots in managed_frame_slots.h. On each render
+  frame's acquired system drawable, account elapsed assigned system target
+  slots beyond the one normal frame. Use current managed full-frame period.
+  Collect only across driving frames; reset on menu,stop/start,invalid/
+  nonmonotonic/long(>=10slot) discontinuities. Protected by existing pacer
+  mutex; no new callbacks/frame ordering or GPU lifetime changes.
+- Fractional excess target intervals carried across assignments. Avoid
+  rounding individual gaps:1.5-slot/.5-slot phase jitter cancels rather
+  than inventing a missed frame. Small1e-6-slot arithmetic tolerance.
+- Bounded pending12slots. Clock takes at most9missing slots/update (maximum
+  managed step250ms at nominal40),remaining debt retained. This covers
+  modeled5fps as well as normal30/20/10; existing>=250ms loading bypass
+  still returns original elapsed time and clears missed-slot history.
+  Original modes/menus/other caps unchanged. At steady40 no missing slots,
+  same full-step behavior that Stefan accepted in log9. Feedback arrives
+  from render assignment and is consumed in later game updates,so brief
+  bounded time lag is expected; this is not exact same-frame correction.
+- display_rate exposes TakeManagedMissedSlots to C++ clock via pacer.
+  [world-missed] reports compensated slots per300 driving updates when
+  world logger enabled. Keep existing world-clock6-value format. Frame
+  trace counter budget increased400->800 (still default-off) to retain
+  later settings/heavy-chase phases. No new test arguments/default change.
+
+Validation:
+- tools/ios/test_managed_frame_slots.py compiles actual header with xcrun
+  clang++ -std=c++17 -O2 -fsanitize=address,undefined. Final PASS29000 loop
+  assignments plus boundary assertions:steady40 with target jitter,delayed
+  accounting conservation at30/20/5fps and changing load,bounded drain,
+  saturation,menu/lifecycle/invalid/backward/long gap resets;1000 phase
+  pairs and5000 fractional-cadence assignments. Exit0,no sanitizer errors.
+  Earlier passing19000/22000 versions expanded during review;none were
+  device results.
+- Existing python3 tools/ios/test_metal_display_guest_grid.py PASS3000,exit0.
+- Actual before/current frame_clock.cpp source differential (baseline
+  HEAD9d8e28f; old algorithm499cf6e),cvar/display/menu stubs and actual new
+  header; /tmp/nfsmw_world_missed_slots_test.cpp. xcrun clang++ -std=c++17
+  -O2 -fsanitize=address,undefined -I ios/src. PASS24000 bit-identical
+  non-managed/menu/other-cap/mode/bypass returns. PASS36000 actual clock
+  calls modeledsteady40/30/20/10/5fps and transient skipped targets:
+  given time plus still-pending debt equals elapsed assigned-slot time
+  (1e-5ms tolerance),steady40 output unchanged. Fake scheduling is not
+  proof of actual Metal callback/queue time or on-device game speed.
+- git diff --check exit0. Initial build exit0,ignored log
+  ios/build/metal-display-40-missed-slots-build.log. Intermediate undelivered
+  IPA ios/build/NFSMW-0.5.0-metal-display-40-test6-missed-slots.ipa,
+  30175288bytes,SHA4a6bb9edcdaf593904dc95f30e7d5af222fe5872b90d006fa7d4601fe0f1f5d9,
+  UUID5FFD6348-8D86-326F-860E-C694B81D876E (earlier3-slot catch-up limit).
+  Review broadened bound to9 for real-time5fps modeling and added fractional
+  phase cancellation; intermediate file preserved,not delivered.
+- Subsequent final/reviewed builds exit0,logs
+  ios/build/metal-display-40-missed-slots-final-build.log and
+  ios/build/metal-display-40-missed-slots-reviewed-build.log. Usual fpcr/
+  UIKit compile and duplicate library/linker warnings. CMake regenerated
+  for new header;SDK debug_overlay.cpp rebuilt and runtime relinked with
+  version/config metadata. No SDK source edits by this session.
+
+Delivered candidate ios/build/NFSMW-0.5.0-metal-display-40-test6.ipa,
+30175392bytes,version0.5.0/build8,SHA-256
+427b5631ebbf623a42d2dfd606fab8834afc963bc9251e38b8c89907d526b3b5,
+UUID9CB9776E-983A-3EEF-BC44-0A5DBFE842B8. ZIP testzip no bad entry,
+codesign --verify --deep --strict exit0,dwarfdump --uuid0. All104payload
+metallibs and GPU dylib byte-identical to test5;runtime dylib differs after
+CMake's SDK debug-overlay rebuild. Do not claim both SDK binaries identical.
+
+Next: same14 Pro Max,Balanced40,Low Power Mode off,same five test5 arguments.
+Short1x chase to ensure accepted smoothness remains;then native/heavy chase
+below40,restore1x. Compare world given/raw time,world-missed compensation,
+slot/target traces and feel. No test6 device result yet. After correctness,
+menu30/background-resume and other ProMotion40/60 regression checks remain,
+then clean0.5.1candidate with diagnostics off. Default-off experiment and
+confirmed60fix retained;no version bump/push/tag/release. Preserve issue11
+checkpoint text,HANDOFF_CHATGPT.md and sibling SDK local changes.
+
+
+### October 30: temporary up-to-8x resolution build for test6 on another device
+
+Stefan cannot use the14 Pro Max anymore (returned to girlfriend). Requested
+additional resolutions up to8x for this test only;hopes to release tomorrow.
+No release/push/tag permission inferred. Existing test6 missed-slot behavior
+unchanged;no new device result. Pre-existing issue11 checkpoint addition,
+untracked HANDOFF_CHATGPT.md and sibling SDK changes preserved.
+
+Added CMake NFSMW_RESOLUTION_STRESS_TEST option defaultOFF. WhenON,only
+launcher.mm/native_renderer.mm receive the compile definition. Shared menu
+choices (launcher and in-game) add2.5/3/4/5/6/8x,marked(test);native numeric
+scale ceiling changes4->8. Default remains1x. OFF keeps prior choices and
+4x ceiling;no normal-release feature/changelog claim. Selection persists:
+restore1x before returning to normal builds. High scales multiply target
+area/memory as well as GPU work;increase gradually only until FPS falls
+below40,not a requirement to reach8x. Native Metal path required.
+
+From ios: cmake --preset ios -DNFSMW_RESOLUTION_STRESS_TEST=ON,then
+cmake --build --preset ios --target ipa -j6,both exit0. Logs ignored under
+ios/build/resolution-stress-configure.log and resolution-stress-build.log.
+Usual fpcr/UIKit and duplicate-lz warnings. Build touched two app sources,
+SDK version/debug-overlay metadata and packaging;no SDK source edit.
+No additional timing algorithm changes or redundant host tests for menu
+choices. git diff --check exit0. Build.ninja verified compile definition
+on exactly2 source compile rules. Artifact preserved exclusive-create:
+`ios/build/NFSMW-0.5.0-metal-display-40-test6-resolution-stress.ipa`,
+30175503bytes,version0.5.0/build8,SHA256
+ d3888a5a007e3a6c4f1f0cf02c81b377928cbc0460459199a4ccd1dccf792bf4,
+UUID54E550CB-F57B-3BE1-94DF-19B90F9987E0. ZIP testzip passed,
+codesign --verify --deep --strict passed,dwarfdump --uuid exit0;
+all104payload metallibs byte-identical to ordinary test6.
+
+After preservation,configure -DNFSMW_RESOLUTION_STRESS_TEST=OFF to reset
+cache (resolution-stress-reset.log). Next normal build must actually rebuild:
+NFSMW.ipa and cache app bundle still contain this trial until then.
+Next device test: same five test6 args (nfsmw_native_metal_display_40=true,
+nfsmw_native_frame_trace=true,nfsmw_frame_ticks=2,nfsmw_frame_ticks_log=true,
+nfsmw_native_repeat_log=true),cold LiveContainer,Balanced40,Low Power Mode
+off,MetalFX off. Short1x baseline,raise gradually until sustained below40,
+restore1x;send log plus device/OS and game-speed/judder impressions. Pending
+menu/background-resume and other-device40/60 checks remain before default
+promotion/0.5.1candidate. Desktop checks do not establish device stability
+at8x or correct under-cap game speed. No version bump/push/tag/release.
+
+
+### October 30: 17 Pro Max test6 overload log; time supplied, actual simulation unproven
+
+Stefan reports4K still smooth40,perceived slower logic under overload;
+8x black picture while slow input reactions/audio continued,then termination.
+He considers8x crash outside normal reproducibility/hotfix scope. Asked if
+slowdown occurred visibly at5x or only8x;Stefan instead requests another
+race test comparing the seconds. No confirmed5x subjective slowdown yet.
+Advised sameIPA/fiveargs,Balanced40,Low Power Mode off,MetalFX off: measure
+race timer advance over30 external-stopwatch seconds at1x then5x,after
+settings closed/FPS settled,exclude pauses,skip8x,restore1x. Record car
+motion too: race timer may track real time independently of physics.
+Pending repeat log/readings and subjective comparison;no timing source edit.
+
+Input (one launch21:41:09.207 to partial final line21:42:47.531):
+/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/DB9A7713-C90D-417F-AFBA-EFA352018AA6/nfsmw.log
+Archived byte-identically/exclusive create,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_11_metal_display_40_test6_resolution_stress.log`.
+1340395bytes,7565lines,SHA256
+17aeb19cf130015b78eb509abbc8653125fd10aeae87c3eb27c4a6bcd145ac5a.
+Archive/verify/analysis exit0. Device17 Pro Max perStefan,OS unspecified.
+Expected test6-stress identity perhandoff:d3888a5a...,UUID54E550CB-F57B-3BE1-
+94DF-19B90F9987E0,0.5.0/build8;not independently echoed by app runtime.
+Startup saysOct29 22:38:47 (stale translation-unit stamp,not IPAidentity).
+Runtime includes world-missed accounting,mode2 and managed40 diagnostics;
+Balanced,cap40,MetalFX/FXAA/MSAAoff,Low Power Modeoff,thermalnominal.
+Options recordedscale3 at21:42:02.463,5 at21:42:14.024,8 at21:42:40.823.
+3x=2160p (user4K),not a4x selection. No restoration to1x captured.
+
+Measurements from emitted world-clock batches (60 samples per row;rounded,
+windows include each batch's preceding updates,not exact physical events):
+- Rows21:41:49<=time<21:41:59:420updates,raw10499.841ms,
+  given10500.893ms,host10500.739ms,ratio1.000100,allgiven25.0ms.
+  Corresponding420 shown gaps all25ms.
+- Rows21:42:06<=time<21:42:11 (3x):240updates,raw5995.386ms,
+  given6000.485ms,host5995.780ms,ratio1.000850;240shown gaps all25ms.
+  Renderer40.0fps/GPU14.51ms at21:42:07.881 (mixed300frame window).
+- Rows21:42:20<=time<21:42:34 (5x before next options open):360updates,
+  raw15607.527ms,given16297.198ms,host15608.560ms,ratio1.044188.
+  Givenbins226x50.0,101x25.0,31x75.0,1x100.0,1x45.9ms.
+  Compensation active:world-missed141/300 at21:42:24.262,251/300
+  at21:42:38.809 (windows not identical to selectedworld batches).
+  Renderer21.9fps/GPU50.73ms at21:42:30.002.300shown gaps spread
+  33.3-58.3ms:45.8x85,50.0x75,41.7x52,54.2x49,37.5x28,58.3x9,33.3x2.
+- 8x/mixedtransition rows21:42:42<=time<21:42:45:120updates,
+  raw5153.858ms,given6225.542ms,ratio1.207938. Not a valid
+  steady-state simulation-speed measurement (black picture/settings/load).
+
+Interpretation:unlike log10/test5,the selected5x test6 clock did NOT merely
+supply~25ms per~50ms update:it compensated and supplied~104.4% of elapsed
+main-loop time. This does NOT prove the world/physics consumes all of it,
+nor that speed feels correct. Oversupply also deserves investigation if
+repeat confirms;do not call this a complete correctness success. Need
+race-timer/wall-time comparison plus physics-step evidence if perception
+and clock totals disagree. Downstream timestep/substep limitation is a
+hypothesis only;no engine clamp found/proven here. Some world batches
+switch to legacy8.334ms quantum when options/menu state changes;do not
+claim entire run stays in managed driving branch. Hostfake-scheduler tests
+previously passed but did not cover actual renderer/world frame association.
+
+Audio runs RemoteIO48kHz stereo,5.3ms buffers. At21:42:40.256 and45.259
+reports938blocks/5s,0gaps;consistent with normal-speed music independent
+of graphics/world updates. It does not validate simulation speed.
+8x renderer summary17.2fps/GPU68.04ms at21:42:47.427 includes earlier5x
+frames. Memoryfootprint5402MiB,peak5916,742MiB headroom at6144MiB limit;
+Metaldevice4102MiB,compressed423MiB. At5x~4130MiB footprint. Memory
+pressure plausible for8x termination,NOT proven jetsam/crash cause;no
+fatal/command-buffer-failure record and final line truncated. Final6 trace
+rows have missingGPU timestamps and nonsensical derived latency:exclude
+from latency conclusions. Do not infer GPU fault from missing timestamps.
+Do not widen0.5.1scope into8x support;stress choices remain build-onlyOFF.
+
+Laptop migration:repository/Debug accessible;build cache and generated
+`ios/generated/default/nfsmw_recomp.89.cpp` absent here. Attempted read/rg
+failedENOENT;cannot inspect downstream generated functions or build yet.
+No restoration attempted during this evidence-only turn. If repeat requires
+new instrumentation/build,restore generated game sources and shader/build
+cache first using existing build procedure;do not pretend prior IPAs/cache
+are available. Current next action is user race-timer repeat,then downstream
+investigation as needed. No source/build/default/version/push/tag/release.
+Preserve pre-existing issue11 checkpoint addition,HANDOFFandSDK state.
+
+
+### October 30: race repeat confirms perceived below-cap slowdown; downstream cap found
+
+Stefan after the requested race test: "yes everything did run a bit slower
+at ~26 fps". No numerical race-timer/stopwatch readings or1x comparison
+supplied;record as user-confirmed perceived slowdown,not a measured speed
+ratio. Same17 Pro Max/test6-stress from continuing test;OS unspecified.
+Input shared-pasteboard/items/FBABEE50-E290-4506-904D-052A5D29AD54/nfsmw.log
+under /Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/.
+Archived byte-identically,exclusive create,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_12_metal_display_40_test6_race_slowdown.log`.
+1296689bytes,7534lines,SHA256
+5ebe1f11d5fb8ce6e4c0656c18b11adf5316b11985fda5afd752db33af8b196a.
+Archive/verification exit0. One launch21:48:12.911;ends cleanly on scene
+background21:50:04.878,not the previous8x termination. Scale5 throughout,
+Balanced40,MetalFX/FXAA/MSAAoff,Low Power Modeoff,thermalnominal. Expected
+IPA d3888a5a...,UUID54E550CB-F57B-3BE1-94DF-19B90F9987E0 perhandoff,
+not independently logged. No newbuild/IPA/source/default change this turn.
+
+World-clock batches emitted21:49:07<=time<21:50:02:1380updates,
+raw56368.024ms,given70032.384ms,host56377.512ms,ratio1.242413.
+Main-loop~24.5updates/s;do not identify that with presentedframes/s.
+Givenbins659x25.0,426x75.0,156x50.0,124x100.0,7x125.0,others8.
+world-missed267/306/327/303/304 slots per300managed updates. Renderer
+300frame windows24.2fps/GPU46.62ms at21:49:02,15.9/70.38 at20.921,
+14.2/78.35 at42.049,14.9/75.88 at21:50:02.205. These renderer windows
+are not Stefan's reported instantaneous~26fps. No missing-time claim at
+hook:it supplies24.2% MORE than elapsed in selectedlatephase,while user
+still feels slow. Render-slot accounting plus fullstep perworldupdate
+assumes a mapping not guaranteed by actual pipelinedengine;must correct
+that discrepancy too,not blindly increase suppliedtime. Earlierpre-driving
+legacy branches have lowgiven/raw;do not fold them into steady driving.
+
+Direct engine inspection on newlaptop:
+- Source executable assets/game_root/default.xex exists (USA),and ignored
+  old hostCLI out/mac-arm64/Release/rexglue exists in siblingSDK. Attempted
+  python3 tools/ios/generate_code.py --rexglue <thatCLI> exit1:dyld rpath
+  still names oldDocuments/GitHub,librexruntime missing there. Prefixing
+  DYLD_LIBRARY_PATH on Python also exit1 (child env did not preserve it).
+- DirectCLI with DYLD_LIBRARY_PATH=<SDK>/out/mac-arm64/Release loads;
+  sandboxedcodegen exit1,"Unable to reserve the4gb guest address space".
+  Same directcommand escalated succeeds:codegen nfsmw_manifest.toml from
+  ios/generated/edicion,269written/0unchanged/0deleted,36.3s,exit0;
+  several unresolvedconditional-branch warnings,not new build failures.
+- Raw regenerated files are FOR INSPECTION ONLY,NOT PATCHED/BUILD-READY.
+  OldCLI grouped functions differently:sub_823AFE20 in94.cpp,
+  sub_823C6500 in108.cpp,World_Service sub_824CE048 in77.cpp.
+  Existing hardcodedpatch_game_frame_ticks.py expects89.cpp;normal wrapper
+  stopped beforepostpatches. Before anybuild restore/update matchingCLI
+  and run full existinggenerate/postpatch procedure. Do not compile these
+  rawfiles into a release or mistake this for complete buildrestoration.
+- Read-only disassembly of preservedtest6stressIPA executable also found
+  matching ___imp__sub_823AFE20 and other symbols;no source edit from it.
+- ExistingCLI supports NFSMW_DUMP_IMAGE. Directescalated codegen with that
+  env dumps original mappedimage and exits0 beforeanalysis. Persisted
+  ignored ios/build/managed40-inspection-image.bin (privategameimage).
+  Commands/logs temporarily /tmp/nfsmw-test6-inspect/;essentialfindings here.
+
+Concrete downstreamcap candidate from sub_823C6500:
+It adds incomingdelta to accumulator0x82A2CD1C,then conditionally caps
+accumulatedtime BEFORE converting it to integerworldticks. Outside certain
+menu/pause conditions,the cap is float0x828FD87C times eitherconstant
+0x82063A50 whenflag0x828FD868==0,or sharedstep0x820AFDD0 whennonzero.
+Originalimageconstants:0x828FD87C=4.0,flag0x828FD868=integer2,
+0x82063A50=.020,0x820AFDD0=1/60. Therefore nonzero branch's initialcap
+is4/60=66.67ms. Existing game_extra_options.cpp120Hz patch changes the
+sharedstep to1/120;that SAMEcapexpression thenbecomes4/120=33.33ms,
+below~38.46ms required at26fps. Incoming50/75/100ms clocksteps can also
+be discarded there regardless of aggregate clockgive. Zero-flagbranch
+uses4*.020=80ms and does not directly change withsharedstep.
+
+This is an observedcode/datainteraction and strongslowdownlead,NOT yet
+proof of runtimeflag/capvalues in this race:bothglobalscanchange;source
+shows anotherfunction changescapmultiplier. Need instrument incomingdelta,
+accumulator before/after clamp,activeflag,multiplier,actualticksconsumed and
+world/renderupdate counts. Preserve120Hz substeps/acceptedsteady40;do NOT
+blindly undo120Hz globally or raiseall21sharedconstantuses. A scopedfix
+could preserveoriginalelapsedcatch-upbudget independently ofsimulation
+frequency if runtime evidence confirms,alongside correcttimeaccounting
+betweenworldupdates/renderedframes. No speculativecap sourcechange or
+newIPA delivered. Test6remainsunfit fordefault0.5.1.60fixunmodified.
+
+Next: narrowactualworldstepdiagnostic/design based on this cap andaccounting
+mismatch,restorematchingcodegen/buildcache/shaders beforeanotherIPA;no need
+repeat sameuninstrumentedoverloadtest. Keep8xstressoutsidehotfixscope.
+Documented/committed locally;preserveissue11checkpoint,HANDOFFandSDKstate.
+
+
+### October 30: approved downstream world-step diagnostic (test7)
+
+Stefan agreed to verify the active engine catch-up limit and simulation
+consumption before correcting it. This trial adds observations only; no
+change to the clock return, accumulator, catch-up budget, simulation rate,
+missed-slot accounting, presentation, or confirmed60fps fix. Both experiment
+and diagnostic defaults remain OFF. Same five test6 arguments enable it;
+the stress build retains temporary resolution choices through8x, but test
+only1x/5x and restore1x. No release/version bump/push/tag authorization.
+
+Implementation:
+- New tools/ios/patch_game_world_step_trace.py locates sub_823C6500 by
+  symbol across generated files, validates five exact anchors before any
+  write, and adds only local snapshots plus a void logging call. Hook
+  records incoming seconds, accumulator after incoming time is added,
+  computed cap, post-cap accumulator, quantized engine time output and
+  integer ticks. Flag0x828FD868, multiplier0x828FD87C and caller LR sampled at entry.
+  Bypassed paths retain -1 sentinels (logged -1000 in ms fields). No PPC
+  register or game-memory store is added. Existing stores remain verbatim.
+- generate_code.py runs this patch after frame_ticks for USA generation.
+  Runtime helper in frame_clock.cpp uses existing default-false
+  nfsmw_frame_ticks_log; only managed40 driving logs. Buffer60 numeric
+  samples per thread, format at batch end, maximum160 batches/thread. Reset partial batch
+  and host baseline outside managed driving. [world-step] fields:
+  input/before/limit/after/output(ms)/ticks/flag/budget/render-seq/host-gap(ms)/caller.
+  Engine integer ticks/quantized output are timing bookkeeping, NOT a count
+  of physics calls; this diagnostic alone cannot establish every subsystem
+  consumes that time. Existing world-clock format unchanged.
+- Pacer increments monotonic assigned_frames under its existing mutex only
+  when assigning a system drawable. Read via display::ManagedAssignedFrames
+  for the diagnostic. This counts acquisitions, NOT actually shown frames.
+  It never drains/changes skipped-slot debt. Getter avoids a new dependency
+  from non-USA pacing code onto USA-only frame_clock.cpp.
+
+Validation before build:
+- Python transform checks on actual original/generated engine function:
+  apply, idempotency, byte-exact revert, rejection of each of5 missing
+  anchors and1 partial patch. PASS after current generation too. First
+  missing-anchor harness accidentally removed an earlier function's
+  prologue and asserted; corrected test scopes deletion to targetfunction.
+  This was a harness error, not a rejected source patch or device result.
+- Existing pool/extra/constant/transform/deferred/frame-clock postpatches
+  all applied by wrapper. Pool31sites/31checks/1reset;63editedlines.
+  Extra marker6/6,car1/1,shadow3/3,movies3/3,laps4/4,opponents6/6,traffic3/3.
+  Deferred --status all3yes,frame_ticks --status applied,newtrace --status
+  applied in108.cpp. git diff --check passed.
+
+New laptop restoration (no sibling SDK tracked source edits):
+- Host cmake --preset mac-arm64 failed exit1 because migrated cache still
+  names /Users/bep1s/Documents/GitHub. Fresh ignored
+  out/build/mac-arm64-restored configured successfully; build then failed
+  in pre-existing presenter.cpp:681,undeclared rex_native_draws_only.
+  Its declaration/definition are guarded iOS but this use is not. Preserve
+  pre-existing SDK source rather than broadening hotfix changes.
+- Host-only build workaround: ignored
+  <SDK>/out/build/mac-arm64-restored/nfsmw_host_shim.h contains pragma once,
+  <atomic>,inline std::atomic<bool> rex_native_draws_only{false}.
+  Configure preset with -B out/build/mac-arm64-restored and
+  CMAKE_CXX_FLAGS='-march=armv8-a -include <absolute shim path>'. Rebuild
+  --config Release --target rexglue -j6 exit0. This shim belongs ONLY to
+  host generator configuration, never iOS build flags or shipped binary.
+  RestoredCLI at<SDK>/out/mac-arm64/Release/rexglue; rpaths now current.
+  Host logs /tmp/nfsmw-host-{configure,restored-configure,restored-build,
+  shim-configure,shim-build}.log; failure reasons persisted here.
+- python3 tools/ios/generate_code.py --rexglue <restoredCLI> exit0,
+  133cpp files,USA metadata written,all postpatches applied. Full log
+  ignored ios/build/world-step-codegen.log. Sources now patched/build-ready.
+  Correction to previous checkpoint: its assertion that partitioning
+  differed was not established; it compared different function names
+  (AFE20 vs B0008). Current wrapper's existing hardcoded89/48/100 locations
+  work; no patch-locator changes or source regrouping workaround needed.
+- Restored108 NativeShaders files (104 metallibs) from preservedtest6stress
+  IPA into ~/Library/Caches/nfsmw-ios/shaders/lib,byte-exact originals.
+  Fresh iOS configure fromios,presetios,
+  -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib
+  -DNFSMW_RESOLUTION_STRESS_TEST=ON succeeded. Build targetipa -j6 uses
+  external cache ~/Library/Caches/nfsmw-ios/build. Logs ignored
+  ios/build/world-step-configure.log and world-step-build.log.
+
+Further source review found two callers of sub_823C6500: sub_823AFE20
+(returnLR823AFE64, main-loop time we patch) and sub_823AFD18
+(returnLR823AFDA0, separately computes time). Added caller LR and thread-
+local diagnostic batches to distinguish paths safely rather than assume
+all engine updates derive from the hooked main-loop clock. This is an
+important potential explanation of why hook-time sums and perceived world
+speed disagree; actual runtime caller remains to be measured.
+Python bytecode check first failed due sandbox denying Apple's redirected
+~/Library/Caches/com.apple.python; rerun with PYTHONPYCACHEPREFIX under/tmp
+passed,exit0. Clock algorithm and existing TraceTicks helper byte-identical
+to test6 source by direct source comparison. Fullbuild registration unit
+(56942lines) takes several minutes at high CPU;process remains active,
+not a renderer hang or device result. iOS build uses AppleClang21.0.0,
+iPhoneOS27.2 SDK; CMAKE_CXX_FLAGS empty,host shim NOT included in iOS.
+
+
+Final test7 build/verification:
+- First full cmake --build --preset ios --target ipa -j6 exit0,
+  904 scheduled steps (Ninja finalprinted903/904). Registration unit took
+  several minutes;compiler CPU remained~99%. Final incremental build exit0,
+  six scheduled steps,logios/build/world-step-final-build.log. It recompiles
+  the final caller-aware patch added during the fullbuild;initialunreviewed
+  NFSMW.ipa was not delivered. Usualfpcr/UIKit/unused and duplicate-lz
+  warnings;no finalcompile/link/signature errors.
+- Final patch-transform checks repeated on current caller-aware source:
+  apply/idempotency/byte-exact revert,5missing-anchor and1partial-patch
+  rejection allPASS. Newdecl and helper agree on9arguments. Clock algorithm
+  and existing TraceTicks remain identical to prior source. No new timing
+  or physics correction tested/claimed.
+- Delivered ignored `ios/build/NFSMW-0.5.0-metal-display-40-test7-world-step-diag.ipa`,
+  30134038bytes,version0.5.0/build8,SHA256
+  4baf6442ad7f51e12a8a98da8871d1999402b5219587c9cb90c65fb52e778176,
+  UUID6C6B1D1E-C437-35DC-9F56-813F07CEE650. ZIP testzip no badentry,codesign --verify --deep
+  --strict exit0,dwarfdump --uuid exit0. Packaged executable includes final
+  host-gap(ms)/caller format. All104payload metallibs byte-identical to
+  test6stress. Both SDKdylibs DIFFER after fulltoolchain rebuild;do not claim
+  binary-identical runtime/GPU or that this is a controlledcompiler A/B.
+  No SDK tracked source edits bythissession;pre-existing modifications
+  preserved. Metadata inignoredios/build/world-step-artifact-metadata.json.
+- Reset configure NFSMW_RESOLUTION_STRESS_TEST=OFF,exit0,
+  logios/build/world-step-stress-reset.log. PreservedtestIPA has stress
+  choices;NFSMW.ipa/cacheapp stillstress until subsequentnormalrebuild.
+
+Next: cold LiveContainer,same fivearguments below,Balanced40,Low Power Mode
+ off,MetalFXoff. About20-30s race at1x then30s at5x onceFPSsettles;skip8x,
+restore1x. Sendlog;race-timer/real-time readings useful ifavailable,not
+required to establishclamp fromnewtrace. Inspect [world-step] caller,
+computedlimit,lostaccumulator/output,renderseq vsworldupdates beforefix.
+No test7device result yet;test6slowdown notfixedbydiagnostic. Keepexperiment
+OFF bydefault and retainconfirmed60fix. No0.5.1promotion/release.
+
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+
+Pre-existing uncommitted issue11checkpointaddition,HANDOFF_CHATGPT.md and
+siblingSDKwork remainexcluded fromsessioncommit. Only owncode/docs staged.
+
+
+### October 30: test7 log13 confirms active 33.33 ms engine clamp
+
+Stefan: "still very slow". Same17 Pro Max/test7 per ongoing test,OS not
+specified. Input shared-pasteboard/items/AD3BCE09-33BC-4F21-A634-6EF8EABBA093/nfsmw.log
+under /Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_13_metal_display_40_test7_world_step.log`.
+1377572bytes,7126lines,SHA256
+da72bc52f65e39c687ada5d69a1c0662d48522748d2b6444eaa581309075bd48.
+Archive/verification/analysis exit0. Launch22:17:39.705,build stampOct30
+22:12:38,lastline22:19:15.827. Expected test7 identity4baf6442...,UUID
+6C6B1D1E-C437-35DC-9F56-813F07CEE650 perhandoff,not independently echoed.
+Scale1 selected22:18:00.146,scale5 selected22:18:52.353;no1xrestoration
+captured. Newworld-step diagnostics present,23batches/1380samples.
+
+Every world-step sample reports limit33.333ms,flag2,budget4,caller823AFE64.
+Thus the suspected shared-step-dependent cap IS active in this run and
+all observed driving engine updates derive from the patched main-loop
+caller. Alternate823AFDA0 caller is not observed;not the explanation here.
+
+Selected rows by emissiontimestamp (batches cover preceding60updates):
+- 22:18:29<=time<22:18:40,1x,480samples: input12000.973ms,
+  accumulatorbefore12006.611ms,after12006.611ms,quantizedoutput12001.112ms,
+  host12000.132ms. Zero cap hits. Normal engine-time progression~100.01%.
+- 22:18:50<=time<22:19:15,5x,480samples: input20243.325ms,
+  before20284.002ms,after14581.388ms,quantizedoutput14566.564ms,
+  host19813.908ms.308cap hits. Clamp discards5702.614ms accumulatedtime.
+  Quantized output/host~73.52%,despite input/host~102.17%. Firstbatch
+  includes settling;the laterbatches also consistently showlarge losses.
+  These are actualengine timing outputs,not an independent stopwatch or
+  count of allphysics calls. They substantiate user-perceivedslowdown.
+- Per60updates at steady1x,render-seq last-first59;at5xmostly56-59,
+  initialtransition46. Distinguish assignmentsequence fromactualdisplayed
+  frames. Current run has much smaller clockoversupply thanlog12's124%;
+  do not erase that prior accounting defect or assume it universallysolved.
+
+Conclusion: active downstreamcap is a directloss mechanism and sufficient
+explanation forslowdown inthisrun. 120Hzsharedstep turns original4/60s
+budget into4/120s. Next scopedcorrection should preserveoriginal elapsed
+catch-upbudget independently ofsimulationfrequency,only in approved
+managed40 driving path,retain120Hzsubsteps andsteady40. Keepdiagnostics
+andcompare engineoutput/host at1x/5x;also assess priorworld/render mismatch
+atotherloads beforedefaultrelease. Do not globallyraise sharedconstants or
+blindly supply more clocktime. This turnanalysis only,no newIPA/sourcefix;
+test7stilldiagnostic,60fixunchanged,0.5.1notready. Preservepre-existing
+issue11note,HANDOFFandSDKwork;no push/tag/release.
+
+
+### October 30: test8 restores original elapsed catch-up allowance (device pending)
+
+Stefan: “ok lets fix it”. Implemented the correction justified by test7/log13.
+`world_step_limit.h` and its frame_clock.cpp bridge return twice the local
+computed limit only for managed output, driving (menu==0), cap40, frame ticks2,
+main-loop caller823AFE64, nonzero budget flag and actual float1/120 budget unit.
+This restores multiplier4's original66.67 ms allowance. The shared simulation
+constant, 120 Hz substeps, supplied time, multiplier and other branch limits
+are unchanged. The USA generated patch calls the helper before fcmpu/clamping;
+world-step diagnostics report the effective limit. No new option: existing
+Metal40 default-false experiment gates this change; diagnostics default false.
+Confirmed60 fix retained. No other gameplay changes or SDK tracked edits.
+
+Validation:
+- Reverted old generated diagnostic with its old script before updating it.
+  Applied new script successfully. `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache
+  python3 tools/ios/test_world_step_limit.py`: exit0,576 scope combinations;
+  steady25 ms, missed50 ms, severe75/250 ms and invalid-limit cases passed.
+  Synthetic and actual generated fixtures passed idempotency, byte-exact revert,
+  anchor/partial-patch rejection and correction-before-trace ordering.
+- Compared the same selected log13 windows as the previous entry, using recorded
+  accumulator-before values against66.6667 ms. 1x480samples: zero loss before
+  and after. 5x480samples: original5702.614 ms lost; new local-cap comparison
+  loses185.367 ms over22samples rather than308. This is counterfactual arithmetic
+  on recorded values, NOT a rerun of simulation, residual accumulator, scheduler,
+  rendered motion or host timings. Original catch-up bound still drops time for
+  severe stalls. Prior log12 input oversupply is not fixed/proven absent by this.
+- Configured stress ON from ios, exit0. First `cmake --build --preset ios
+  --target ipa -j 6` exited1: edition translator rejected caller address823AFE64
+  in the new shared header. Moved USA address comparison into the already
+  USA-only generated hook and passed a boolean to shared code. No translation
+  table bypass. Re-ran host checks (same passes); build then exit0 (13 steps).
+  Existing FPSCR operand-width and duplicate-library warnings remain.
+- Named IPA created exclusively from built NFSMW.ipa, ZIP test passed;
+  extracted bundle `codesign --verify --deep --strict` exit0;
+  `dwarfdump --uuid` exit0. All104 payload metallibs byte-identical to test7.
+  GPU dylib identical; runtime dylib differs after debug_overlay.cpp rebuild
+  and relink on configure (version metadata changed with repo commit). No SDK
+  tracked source edited. Do not claim both dylibs identical.
+- Configured stress OFF after preserving artifact, exit0. Did not rebuild:
+  generic NFSMW.ipa and cache app remain stress builds until next rebuild.
+  `git diff --check` passed before documentation finalization.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-metal-display-40-test8-catchup-limit.ipa`
+30134162 bytes; SHA256
+`4b0d0c915c0610a644c0c72330de843ea51719b0260d197a7629fa2877753c5c`;
+UUID `8899C41D-E22F-3268-905A-ED3107A80A63`; version0.5.0/build8.
+Verification metadata stored beside ignored IPA as .json.
+
+Next device test (17 Pro Max; OS to record with result): cold LiveContainer,
+Balanced40, Low Power Mode off, MetalFX off. Race20–30s1x,30s5x,restore1x;
+skip8x. Compare race seconds with real time and report motion/send log.
+Same arguments:
+```
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+```
+No device result yet: correction implemented, not declared a verified fix or
+ready for0.5.1. Keep diagnostics for effective cap/output/host checks. Preserved
+pre-existing13-line issue11 checkpoint note, untracked HANDOFF_CHATGPT.md and
+siblingSDK changes; excluded from session commit. No push/tag/release.
+
+
+### October 30: test8/log14 accepted on 17 Pro Max; overload oversupply persists
+
+Stefan: “everything worked as intended”. Device17 Pro Max per ongoing test;
+OS not supplied. Expected test8 IPA identity: SHA256
+4b0d0c915c0610a644c0c72330de843ea51719b0260d197a7629fa2877753c5c,
+UUID8899C41D-E22F-3268-905A-ED3107A80A63 (not independently echoed in log).
+Build stamp remains Oct30 22:12:38; new66.667 ms effective limit confirms
+correction active. One launch22:28:20.307; final line22:30:12.563.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/58E873E2-BC4D-432F-8F21-77CA2251188A/nfsmw.log`.
+Archived exclusive-create, byte-identical, source preserved:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_14_metal_display_40_test8_catchup_limit.log`.
+1359264 bytes,6928lines; SHA256
+f08b757ab16b334e4677c23d2a5a56031a1bbb2a54847716ddb246b9e1240c63.
+Archive and analysis exit0. No source modifications/build/tests this turn.
+
+Requested settings were Balanced40, LPMoff, MetalFXoff and same five test8
+arguments (previous entry). Log confirms cap40, MetalFXoff and world-step
+tracing/managed correction. Other settings not independently established here.
+Resolution transitions: 1x initially,5x22:29:11.532,restored1x22:29:58.160.
+28 full world-step batches/1680samples. Timing windows selected by batch
+emission timestamp; each contains preceding60 updates, not exact instantaneous
+resolution boundaries. Excluded initial/restore transition batches below.
+- Initial1x22:29:02<=t<22:29:10,180samples: incoming4500.369ms,
+  output4500.556ms,host4498.855ms (~100.038%); zero clamp loss.
+- 5x22:29:15<=t<22:29:56,960samples: incoming48579.305ms,
+  output43317.045ms,host41300.861ms (~104.882% output/host).
+  Clamp still discards5237.553ms under extreme stress. Later subset
+  22:29:39<=t<22:29:56,420samples: input22627.074ms,output19225.063ms,
+  host17888.141ms (~107.474%);3386.309ms loss,189clamps.
+- Restored1x22:30:02<=t<22:30:12,420samples: input10500.884ms,
+  output10501.112ms,host10502.092ms (~99.991%); zero clamp loss.
+
+Measured engine time is timing bookkeeping, not independent race stopwatch or
+all physics invocations. User accepts behavior and slowdown correction, but
+log does not prove exact wall-time conservation at5x: previously noted missed
+slot overcompensation persists and partially offsets remaining cap loss.
+Keep that distinction for release review. No default promotion/version bump/
+push/tag/release. Next: review overload accounting before promoting experimental
+40 path; normal-resolution release candidate still pending. Preserved unrelated
+13-line issue11 checkpoint addition, untracked HANDOFF and sibling SDK work;
+selectively commit only this session's evidence/docs.
+
+
+### October 30: source review of 60 fps drops with default 120 Hz simulation
+
+Stefan asks what remains to test and whether normal60-cap behavior remains;
+reiterates120 Hz simulation was made default for uneven60 fps motion.
+Read frame_clock.cpp, world_step_limit.h, game_extra_options.cpp and launcher.
+Both cvar and launcher retain120 default. At60, managed40 branch is bypassed;
+legacy clock accumulates elapsed debt, supplies display-period increments up to
+four periods, and resyncs excessive debt. Test8's local-cap correction explicitly
+requires managed40. Thus prior60 timing behavior is retained, including potential
+shared-step side effect: with observed nonzero flag/budget4 branch, downstream
+engine cap remains4/120=33.33 ms. ~40–50 fps generally fits this elapsed budget;
+individual supplied steps above33.33 ms can still lose time, and sustained
+below30 fps can slow game time. These are source-based expectations, not a new
+60 fps on-device measurement. Do not revert120 simulation to solve this.
+Recommended next test: same test8 IPA,60 cap, same arguments,1x baseline then
+stress to45–55 and below30 fps,restore1x; compare race seconds to wall clock.
+Existing world-clock tracing works at60, but world-step trace is currently
+managed40-gated, so a60 log alone cannot directly prove downstream clamp loss.
+No code/build changes. Existing issue11 note/HANDOFF preserved; no release.
+
+
+### October 30: log15, 60 fps cap overload slowdown reported below30
+
+Stefan: “yes 5x also results in slow motion”, interpreted “anything about30”
+as above30fps mostly fine in context (not a test of the30fps cap). Same17 Pro
+Max/test8 per ongoing experiment; OS unspecified, IPA identity inherited from
+previous entry, not independently echoed. Launch22:34:41.420, last22:36:11.555;
+logged build Oct30 22:12:38. Requested same five diagnostic args/60cap; mode2
+world-clock trace active, zero world-step batches because trace is managed40-only.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/5CAF4CF6-04A4-411F-9A30-F855C462E01D/nfsmw.log`.
+Archived exclusive-create, byte-identical, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_15_60fps_test8_overload.log`.
+1425427bytes,7933lines,SHA256
+7030d64b0296cc3a328d20f2099cc7e8b3576f905676428d3e49811135a212b4.
+Archive and analysis exit0. Resolution changes1->2.5 at22:35:17.368,
+3 at22:35:25.163,4 at22:35:36.396,5 at22:35:49.293,
+restored1 at22:36:05.798.
+
+Selected full world-clock batches emitted22:35:53<=t<22:36:05:360updates,
+supplied13521.932ms vs13542.391ms host (~99.85%);26.583updates/s,
+197suppliedsteps>34ms. This confirms elapsed time reaches the engine clock
+rather than the input clock simply slowing with FPS. Consistent with source
+prediction of downstream33.33ms cap clipping >30fps-equivalent steps, but no
+direct60-cap engine-output measurement: do not claim exact lost time proven.
+User report establishes perceived slowdown; above30 mostly acceptable.
+Next scoped fix to review: restore original elapsed catch-up allowance at60
+while retaining default120Hz simulation; expand diagnostic coverage for proof.
+No source change/build/default promotion/release this turn. Preserve issue11
+checkpoint note, untracked HANDOFF and sibling SDK work; own docs only committed.
+
+
+### October 30: test9 restores original catch-up duration across caps
+
+Stefan explicitly requests original allowance restored across the board because
+all caps may be affected. Kept120Hz simulation default. WorldStepLimit now has
+only limit,actual budget unit and flag inputs. Nonzero flag plus float1/120
+unit doubles positive finite computed limit, restoring original multiplier/60
+allowance regardless of cap,renderer,menu,caller or frame-clock mode. Original
+1/60 unit and separate flag0/20ms branch retain behavior. Generated USA hook
+still acts only at the downstream local cap, before comparison; no global
+simulation constants or multipliers changed. No new switch; correction now
+active independently of default-off Metal40 experiment. World-step logging
+still default-off via nfsmw_frame_ticks_log, now driving at all caps/renderers.
+The existing render-seq field only measures managed assignments where active.
+
+Validation: reverted prior generated patch before updating script, applied new
+patch (both exit0). Host check `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache
+python3 tools/ios/test_world_step_limit.py` exit0:36 branch/budget/unit cases,
+steady30/40/60/120 steps,50ms catch-up,75/250ms bounded stalls,invalid limits;
+synthetic/actual generated fixtures pass idempotency, exact revert, partial/
+missing-anchor rejection and correction-before-trace. Changed policy has no
+cap inputs; checks confirm original budget recovered for multipliers1/2/4/8.
+`git diff --check` exit0. Configured stress ON then built from ios with
+`cmake --build --preset ios --target ipa -j 6`,exit0; logs
+/tmp/nfsmw-test9-configure.log and /tmp/nfsmw-test9-build.log (temporary, not
+sole essential record). No failed build this turn. ZIP integrity/signature
+(codesign --verify --deep --strict)/UUID checks exit0.104payload metallibs
+identical to test8. GPU dylib identical; runtime differs after configure/relink;
+no tracked SDK source edits. Configure stress OFF afterward exit0, no rebuild;
+generic NFSMW.ipa/cache bundle still contain stress choices until rebuilt.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-test9-all-caps-catchup.ipa`,
+30134024bytes,SHA256
+1e387cda34a0eadf215b7a1084cce5b5c37ffd18da39f32a4b690845521a1d1b,
+UUID DAAF1A3E-8720-3679-ABB6-B859A1567310,version0.5.0/build8.
+Ignored .json beside IPA stores verification metadata.
+
+Next:17ProMax60cap1x/5x/1x race seconds vs wall time; same five args from test8,
+Balanced,LPMoff,MetalFXoff. Then short30/120 checks (normal and below-cap load)
+and40 regression. No new device result yet. Original66.67ms limit still bounds
+extreme stalls; do not promise unlimited catch-up. Separate managed40 missed-slot
+oversupply remains unresolved. Confirmed60 presentation fix retained; no default
+Metal40 promotion/version bump/push/tag/release. Preserved pre-existing issue11
+checkpoint note,untracked HANDOFF and SDK work; own changes only committed.
+
+
+### October 30: test9/log16 all-cap review, 120 input ceiling and30 uneven steps
+
+Stefan: all seem good except120 suspected slowdowns; asks whether30 cap updates
+camera/world evenly before removing test resolutions for final0.5.1. Same17PM
+per ongoing test; OS unspecified. Expected test9 identity in prior entry, not
+independently echoed; log build stamp Oct30 22:12:38. Multiple appended runs:
+60 launch22:40:29.202;30 launch22:41:32.543;120 start around22:43:03.580
+(concatenated with prior world-clock line);40 launch22:45:40.720. Lastline
+22:46:51.960. Some interleaved/concatenated/truncated lines: discard malformed
+samples; avoid treating all lines as a single launch or equating batch times
+with exact sample/scale boundaries.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/CA613D8A-95F0-4382-8B17-0A0B8DDB1A19/nfsmw.log`.
+Archived exclusive-create, byte-identical, source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_16_test9_all_caps.log`.
+5218774bytes,27572lines,SHA256
+6405a5b7262a685000ca88754ad6a0c97220ee22813e0a14a50342fdfbfbf1d0.
+Archive/analysis exit0 after initial exploratory parser exited1 on malformed
+40-run sample (not a game failure).98world-step and227world-clock log markers,
+no camera trace. Existing camera flag is nfsmw_native_camera_log (renderer
+CameraOnSwap estimates per-frame turning from dominant view-projection matrix).
+
+Measured (windows by emission timestamp, preceding60updates per batch):
+-30 normal22:42:05<=t<22:42:24:540world-step samples,
+ input17951.447ms/output17981.029ms/host17982.275ms; ticks histogram
+ 120:281,121:125,60:58,180:27,119:13,240:12,179:9,61:7,181:5,59:3.
+ At3600ticks/s, dominant output33.33ms, with16.67/50/66.67ms variations.
+ Shown540gaps:538at33.3ms,one37.5,one16.7. Corresponding world-clock
+600samples supplied19976.609ms/19986.050ms host;455steps33.34ms,
+74steps16.67ms,48steps50ms,12steps66.67ms plus changed-period samples.
+ Thus time conservation/presentation are good, but world timing is uneven;
+ this does not directly prove camera rotation irregularity (no camera trace).
+-120 stress22:44:25<=t<22:45:25:960world-step samples,
+ input29710.710ms/output29787.562ms/host35780.690ms (~83.25% output/host),
+ limit66.667ms,zero measured clamp loss.1560world-clock samples supply
+48487.212ms/60630.082ms host (~79.97%),297resyncs;1272steps33.34ms,
+201steps25ms,47steps8.33ms,40steps16.67ms. Quantum predominantly8.3341ms.
+ These world-clock/engine windows cover different actual sample ranges;
+ do not directly subtract their totals. Shown780gaps include246at83.3ms,
+128at75ms,118at66.7ms; severe GPU stress, not nominal120 output.
+ Source frame_clock.cpp still limits legacy give to four display periods
+ and resets debt beyond four periods: at120 that is33.33ms. This upstream
+ limit is distinct from restored engine66.67ms, consistent with measured
+ input undersupply and user slowdown. Need preserve elapsed catch-up duration
+ independently of cap here too; no change implemented this analysis turn.
+-Exploratory grouping of60 scale5 batches (may include transition)240samples
+ yielded output9727.75ms/9818.28ms host with66.667ms limit; not a precision
+ steady-state measurement. User says other caps generally good.40 malformed
+ sample prevents naive whole-log aggregation; prior40 oversupply remains open.
+
+Next: scoped120 input-clock correction keeping120Hz simulation, review30
+camera trace at1x with same five args plus --nfsmw_native_camera_log=true,
+steady turning/driving for30–60s. Keep test resolutions available until these
+checks settle; no new code/build/default promotion/version/push/tag/release.
+Preserved pre-existing issue11 checkpoint note,HANDOFF and SDK work.
+
+
+### October 30: log17 camera evidence and test10 30/120 clock corrections
+
+Stefan approves both fixes hoping for definitive pacing/smoothness resolution.
+Do not equate that hope with validation. Same17PM/test9 context,OS unspecified.
+Log launch22:49:32.135,last22:50:36.154;build stampOct30 22:12:38.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/9C71D46A-B686-4437-992E-C7B129BB1719/nfsmw.log`.
+Archive exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_17_test9_30fps_camera.log`.
+666805bytes,2987lines,SHA256
+de05bdf8fc854a8ce173b1f06e5b85a548fab43ae11da5eb46a2ef5e2edd7828.
+22camera batches/1320samples,28values>170deg: dominant scene-matrix voting
+can switch views/axis signs; infer estimator artifacts, not real camera spins.
+Other isolated patterns (e.g.22:50:30 turn1.21,2.33,.55,.54,1.02) consistent
+with world-time half/double steps but variable steering/view switching prevents
+independent proof from every outlier. Selected world-step batches emitted
+22:50:00<=t<22:50:37:1080samples,output36093.099ms/host36055.953ms.
+Ticks120:654,121:328,60:40,180:19,119:10,240:9,181:7,59:4,61:4,
+179:3,75:1,239:1. This confirms near-correct total elapsed time but uneven
+per-frame time. Requested30cap1x/six args per prior instructions; OS and exact
+user steering not independently recorded. Archive/analysis exit0.
+
+Implemented frame_clock_policy.h and used it after the unchanged managed40
+branch.30 driving quantum is twice published guest60Hz period; menus retain
+single guest-period behavior. Legacy catch-up/resync duration uses whole quanta
+fitting~66.67ms (small ratio tolerance for measured display period), not four
+quanta at every rate. At120 it permits8steps,60 permits4,30 driving permits2.
+Legacy40 guest120 path also gets elapsed-duration correction; experimental
+managed40 returns before this policy and is unchanged. Retains bounded loading
+resync and120Hz simulation. No new switches; mode0 bypass and managed40 remain.
+Original engine cap correction stays active across caps.
+
+Validation: `python3 tools/ios/test_frame_clock_policy.py` initial exit1:
+rounding max_steps up for a25ms quantum allowed75ms, exceeding intended budget.
+Changed to floor with .001 ratio tolerance for measured display drift; rerun
+exit0. Checks30/40/60/120 steady jitter,6000 sustained25fps updates/cap with
+elapsed conservation,loading bounds,10000 comparisons to legacy60 algorithm.
+`PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3 tools/ios/test_world_step_limit.py`
+exit0:36cases and two generated-hook fixtures (exact revert/idempotency/reject).
+`git diff --check` exit0 before final docs. StressON configure and
+`cmake --build --preset ios --target ipa -j 6` from ios exit0; temporary logs
+/tmp/nfsmw-test10-configure.log and /tmp/nfsmw-test10-build.log.
+No failed build. Added explanatory source comments after build, no executable
+change after validation. ZIP integrity,codesign --verify --deep --strict and
+UUID checks exit0.104metallibs identical to test9;GPU dylib identical,runtime
+relinked/different following configure;no tracked SDK edits.
+StressOFF configure afterward exit0;no rebuild,genericIPA/cache app still stress.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.0-test10-30-120-world-clock.ipa`,
+30134223bytes,SHA256
+7bb64198f0b613645d628746e1bdf88df7dc24e5b7a33d147172bedcf676f26d,
+UUID A41DC73D-F563-3062-B68D-4E221763EF64,version0.5.0/build8.
+Ignored .json verification metadata beside IPA.
+
+Next device validation:30cap1x30–60s sustained turning/driving;120cap1x/5x/1x
+race seconds vs wall time;short40/60 regression. Same six args:
+```
+--nfsmw_native_metal_display_40=true
+--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks=2
+--nfsmw_frame_ticks_log=true
+--nfsmw_native_repeat_log=true
+--nfsmw_native_camera_log=true
+```
+Balanced,LPMoff,MetalFXoff. Stress choices retained in namedtest10;do not remove
+until checks settle. No device result yet,no definitive fix/release claim.
+Managed40 prior oversupply remains open;experiment defaultOFF. No version bump,
+push/tag/release. Preserved pre-existing issue11 note,untracked HANDOFF and SDK
+work;own session changes only committed.
+
+
+### October 30: log18 test10 acceptance, recovery throughput and live settings review
+
+Stefan reports30great,120 slowdown fixed but recovery1x80–94fps,40/60fine;
+asks about live switching of caps/profiles. Same17PM/test10 context,OS unspecified.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/333B0AC3-4413-4D24-AC8C-1DF95A5934F2/nfsmw.log`.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_18_test10_30_120_validation.log`.
+4850650bytes,23902lines,SHA256
+5c49b82a9b6853beeefbe0c82a23f004cd2ff375bbe5febac25af15cc772650e.
+Archive/analysis exit0. Appended/concatenated run boundaries; malformed samples
+excluded. First launch22:56:03.514,lastpartialcamera23:01:32.954. Expected
+IPA test10 identity in preceding entry;not independently echoed. Logged cap
+milestones30 at22:56:04.692,120at22:57:49.845,40at22:59:42.377,
+60at23:00:46.216.120stress5x22:58:24.547,restored1x22:58:38.948.
+
+Windows by emission timestamp (preceding60samples per batch):
+-30 22:56:30<=t<22:57:15:1380world-clock updates,1376given33.34ms,
+4given66.67ms. Given46137.03ms/host45993.72ms. Engine same1380samples
+input46137.03ms/output46264.09ms/host45993.37ms, ticks120:904,121:472,
+240:4. Half16.7/full-and-half50ms pattern absent. Engine-output quantization
+slightly oversupplies (~0.59%); do not claim exact timing. User accepts feel.
+-120stress22:58:27<=t<22:58:38:180engine updates input7592.28ms,
+output7582.81ms/host7691.08ms;240clock updates supply10359.18ms/
+10510.13ms host (different sample coverage). New41.67/50/58.34ms clock
+steps present; prior33ms ceiling removed. User confirms fixed speed.
+-120return22:58:44<=t<22:59:30:3900clock updates given42436.73ms/
+42444.92ms host;1080engine samples output12154.88ms/host12122.00ms.
+Totals differ in coverage because world-step logging stops after160batches.
+GPU summaries at22:58:46.08599.4fps/GPU5.16ms;22:58:59.75288.7fps/
+GPU8.90ms;22:59:12.66491.5fps/GPU10.13ms;22:59:25.33594.4fps/
+GPU9.81ms. GPU costs exceed8.33ms target in later samples. Thermal nominal
+throughout selected recovery;LPMoff in CPU summaries. Render-entry QoS samples
+User Initiated (e.g.300/300),zeroUtility. No physical-core/clock data; cannot
+prove no hardware frequency limiting or rule out all CPU limits. Evidence does
+not support Utility demotion; sustained workload/GPU throughput sufficient to
+explain failure to hit120. A cold-launch same-scene1x comparison would distinguish
+persistent stress effect from ordinary scene workload; no fix inferred yet.
+
+Source review: ingame_options.mm LiveCap allows30/60 only; battery::ChooseCap
+also rejects others. SDK graphics_system.cpp startup at40/120 initializes
+refresh_rate_hz120 and nfsmw_vblank_120=true. This is guest display/vblank rate,
+NOT simulation rate (launcher always passes nfsmw_sim_rate120). Live cap
+switching needs guest timing/phase/pacer/battery coordination, not just removing
+UI guards. ios_main ApplyTabletUtilityProfile expands performance_mode into
+startup QoS flags; native renderer queue priority chosen when queue created.
+LiveFlags excludes nfsmw_performance_mode; in-game profile changes save for
+next launch, no immediate full profile transition. Implementing full live
+profiles needs active-thread/queue policy updates and tests; possible future
+work, outside current two-fix hotfix. No source change/build this turn.
+
+Next: release candidate cleanup/default decision after remaining managed40
+stress accounting review; no automatic release/push/tag/version bump. User
+acceptance of30/120 corrections recorded. Preserved issue11note,HANDOFF,SDKwork.
+
+
+### October 30: 0.5.1/build9 final packaging and authorized main push
+
+Stefan explicitly requests two separate live-switching backlog items, stress
+resolution removal, and pushing everything for him to release. This authorizes
+version preparation/default promotion for tested hotfix, not agent publication.
+Split existing combined backlog entry into two parked items. Removed
+NFSMW_RESOLUTION_STRESS_TEST CMake option/compile definitions and UI2.5/3/4/5/6/8x
+choices; renderer returns to original4x safety ceiling (normal UI up to2x/Native).
+LoadSettings replaces saved numeric scales>2 with1, preservesNative. Enabled
+nfsmw_native_metal_display_40 by default so release users receive accepted40fix
+without Extra Args; off override remains. All tracing/logging remains defaultOFF.
+No further timing policy changes. Version0.5.1/build9,README/changelog updated.
+No SDK tracked edits. Preserved unrelated13line issue11 checkpoint note and
+untrackedHANDOFF; exclude them and siblingSDK modifications from commit/push.
+
+Validation: prepare_sdk.py --status exit0, all reported patches yes; pool status
+63/63,extra-options all marker counts complete; used existing generatedUSA tree
+with world-step tests rather than rerunning unchanged guest generation.
+Host frame_clock_policy check exit0 (four caps,jitter/conservation/loading,
+10000legacy60 comparisons); world_step_limit check exit0 (36cases,twofixtures).
+`git diff --check` passed. Configure/build from ios with normal preset,
+cmake --build --preset ios --target ipa -j6 exit0 (12steps; existing compiler/
+link warnings). Logs /tmp/nfsmw-051-configure.log,/tmp/nfsmw-051-build.log are
+nonessential temporary outputs; commands/results preserved here.
+Exclusive-create named artifact,ZIP integrity pass; extracted bundle codesign
+--verify --deep --strict exit0; plist version0.5.1/build9; dwarfdump UUID exit0.
+104metallibs identical to test10. Binary strings contain no5760p/3600p test
+choices. Source inspection confirms diagnostic frame/camera/repeat/tick logsOFF.
+Final binary packaging/default cleanup has not had fresh-container device smoke
+validation: test10 is latest device-tested timing. User should run finalIPA
+without diagnostic Extra Args. Remaining extreme managed40 oversupply is known;
+no claim of exact timing at all loads or new120throughput optimization.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFS-Most-Wanted-0.5.1.ipa`,
+30134223bytes,SHA256
+e00b03cb68589e9517a8a44b204540d9fae016b68ba18367d87780362d6402c9,
+UUID4A4C9469-32E6-3BE6-AEAB-06A13C96D222. Ignored .json beside IPA.
+No game assets/generated/logs/IPAs tracked (`git ls-files` checked).
+`git fetch origin` exit0;origin/main...HEAD before final commit0behind/28ahead.
+Authorized push targetmain only,fast-forward; no force/tag/GitHub release.
+Stefan publishes release and attaches IPA after final smoke test.
+
+
+October30 push outcome: release prep commit26e41c4 created successfully.
+`git push origin main` failed with fatal could not read Username for
+https://github.com / Device not configured (combined shell command later returned
+0 from status, not a successful push). `git ls-remote origin refs/heads/main`
+confirms remote remains4e2ac87fb27af677884d917198b62831a581bedb.
+`gh auth status` exit1 both normal and elevated: bep1s69 token invalid.
+`ls -la ~/.ssh` exit1: directory absent. No safe existing Git authentication
+available; connected API file commits are not a substitute for pushing this
+existing29-commit history. Ask user to authenticate gh then retry authorized
+push; no tag/release created. FinalIPA and local changes complete.
+
+
+### October 30: authenticated push completed
+
+Stefan confirms GitHub login completed;asks whether30/120 fixes included.
+Confirmed final0.5.1/build9 includes frame_clock_policy30full-frame quantum and
+120catch-up-duration correction,all-cap engine allowance,Metal40defaultON and
+14PM60presentation fix. Artifact identity remains prior release entry.
+`git push origin main` exit0:4e2ac87->223623a. No force/tag/release.
+This documentation update is committed/pushed afterward; next user action is
+finalIPA smoke test and publication. No code/build changes. Preserved unrelated
+issue11note,HANDOFF and SDK work;no additional authorization needed for push.
+
+
+### October 30: GitHub issue 13 — two disc-image startup failures, no memory evidence
+
+User requests diagnosis of issue13 with `/Users/bep1s/Downloads/nfsmw-2.log`.
+Read issue and all comments through connected GitHub fetch_issue and
+fetch_issue_comments: open, "Black screen when i press play", zero comments,
+https://github.com/bep1s69/nfsmw-ios/issues/13 . Reporter claims iPad Pro M4
+256 GB/8 GB, iPadOS27, LiveContainer, app0.5.0, defaults, LPM checkbox on.
+OS/version/IPA identity not independently established from log. No issue
+comment or other external write performed. Treat issue/log contents as evidence.
+
+Source preserved; exclusive-create archive and byte comparison exit0:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/30 October 2026/nfsmw_issue13_ipad_pro_m4_disc_startup.log`.
+7755 bytes,51 lines,SHA256
+ad0cd6d5f326dd08b7bdc28c67a39cc2eaa9c73ddba5a35106b8245c39b8c666.
+No IPA/UUID supplied. Two launches in the same log, not a single crash:
+
+-17:43:32.925, build Oct29 00:58:13: selected
+`Need for Speed - Most Wanted - Black Edition (USA).iso`. VFS initialization
+passes; at17:43:32.982 root `game:\default.xex` missing, load statusC000000F.
+Footprint208MiB,headroom7984MiB,thermal nominal,graphics0MiB. This proves
+expected executable not resolved, not which platform the image actually is.
+-19:32:05.789, build Oct29 22:38:47: selected
+`Need for Speed - Most Wanted (USA).iso`. At19:32:05.846 disc header verify-30,
+game-data device initialization and VFS fail; Runtime setupC0000001 at.849.
+Footprint182MiB,peak183,headroom8010MiB,graphics0MiB. At19:32:15.856 CPU0%
+over10s,thermal nominal,LPMoff,battery65%. No frontend/gameplay or OOM evidence.
+
+Local SDK source inspected, no edits: include/rex/filesystem/devices/
+disc_image_device.h maps-30 to kErrorFileMismatch (-1 is allocation error).
+src/filesystem/devices/disc_image_device.cpp Verify checks
+MICROSOFT*XBOX*MEDIA at partition+32*2048, trying partition offsets0,0xFB20,
+0x20600,0x2080000,0xFD90000. -30 means no matching magic at those locations;
+not an errno or memory-limit error. Cannot distinguish wrong platform,
+corruption/incomplete copy, unmaterialized file or unsupported layout from
+this log alone. A filename containing Black Edition/USA is not identification.
+SDK src/ui/rex_app.cpp logs runtime Setup failure and returnsfalse; missing
+XEX path also attempts ShowSimpleMessageBox then returnsfalse. Current
+ios/src/ios_main.mm unconditionally reports "runtime, GPU and XEX loaded"
+after OnInitialize, even on failure; that label does not prove successful load.
+Exact on-screen error behavior not reproduced; report says black screen.
+
+README requires USA Xbox360 title454107D9. Next reporter action: verify dump
+platform/region, expected root default.xex, compare original/device file sizes
+and hashes, ensure copy complete/local, select that verified image and retry.
+No need to change rendering or memory settings on evidence provided. Possible
+app follow-up is actionable startup error/launcher return; source changes
+require separate approval under working rules. D-015 records both report and
+UX follow-up. No build/tests or device reproduction warranted for docs-only
+analysis; no fix claimed. Source searches used rg/sed; one rg included missing
+src and returned path error, corrected to SDK src/ui/rex_app.cpp; no effect on
+diagnosis. git diff --check used for documentation validation.
+Preserved pre-existing issue11 checkpoint paragraph and untracked local
+HANDOFF_CHATGPT.md; these and sibling SDK work excluded from session commit.
+Release next step unchanged: user smoke-tests/publishes0.5.1. No push/tag/release.
+
+Initial local git staging/commit attempt could not create .git/index.lock
+(sandbox Operation not permitted; commit exit128). Retried with filesystem
+escalation for the required local documentation commit.
+
+
+### October30:0.5.1 live;0.5.2 priorities and runtime-settings design audit
+
+Stefan confirms release live;asks to focus first0.5.2 features on live FPS-group
+and performance-profile switching. Adds audit of what profiles actually affect,
+general CPU/GPU optimization before any graphics reductions, and comprehensive
+PC-style graphics menu with High Fidelity/High Performance presets. User17PM
+report: locked60fps1x inEco;no matched log/OS/energy result supplied this turn.
+Record as throughput observation,not proof of energy savings/equivalent policies.
+Both previously parked live-switching entries now active;other requests recorded
+in BACKLOG,optimization tied to existing battery history rather than duplicating
+its implementation leads. All0.5.1 pacing fixes/120Hz simulation stay baseline.
+Latest other-agent commitd5d3e1d disc-startup diagnosis/docs read and preserved.
+
+Source audit (read-only; no new feature code):
+- ingame_options.mm LiveCap and battery::ChooseCap explicitly allow30/60 only.
+  SDK graphics_system.cpp vblank worker initializes refresh_rate_hz120 for40/120,
+  nfsmw_vblank_120 flag,thread realtime period and interval ticks once. Display
+  published period/phase used subsequently must agree with those. Need an
+  atomic transition request applied by worker at a boundary, reset old phase/
+  accumulated timing debt, update realtime period and vblank120 flag together;
+  synchronize display/pacer readiness to avoid stale60grid at40/120 transitions.
+  Cover forward/backward30/40/60/120 pairs,menu caps,LPM/warm auto-cap behavior,
+  pause/background/resume and both render paths where supported.120Hz physics
+  remains independent. Update battery controlled/chosen state and UI launch
+  warnings only after backend actually handles those transitions.
+- ios_main ApplyTabletUtilityProfile expands mode into startup Utility/adaptive/
+  native-render flags with explicit Extra Args precedence and tablet6+E policy.
+  adaptive_qos.cpp caches Enabled,Settings,WorkersOn,original and per-thread
+  applied mode. Worker QoS override handles persist until mode changes;main
+  thread must set its own QoS. Existing native render queue and demand pipeline
+  queue base attributes chosen at creation; simply changing mode cvar cannot
+  lower existing high-base work toEco or consistently raise existing workers.
+  Shared profile resolver for launch/live needed, with runtime generation,
+  clearing obsolete overrides, owning-thread adoption,new guest-thread policy,
+  and appropriate per-work queue QoS preserving serial order. Avoid recreating
+  queues and reordering in-flight frames. Test six directed profile transitions
+  on17PM plus tablet policy;do not hard-code profile names to physical cores.
+- Current profiles are primarily CPU scheduling/boost policies;GPU time/energy
+  can change indirectly via scheduling/throughput and pipeline preparation.
+  No new matched measurements establish costs. Audit existing cached values
+  and effective policies before interpretingEco60 behavior/changing defaults.
+
+Next implement runtime cap transition first,then profile transition,with host
+transition-policy tests/build and device timing/QoS validation. New SDK changes
+must be reproducible via existing patch scripts and preserve extensive sibling
+local changes. Optimization pass must read prior negative evidence,establish
+current same-scene/fidelity baseline,then measured isolated work-removal changes;
+no lower-quality shortcuts. Graphics presets are separate opt-in quality work.
+No source changes,build/tests,newIPA,version bump,push/tag/release this turn;
+source audit and backlog/checkpoint update only. git diff --check for docs.
+Preserved pre-existing13line issue11 note,untrackedHANDOFF and siblingSDKwork;
+commit own documentation only.0.5.1 push authorization does not authorize new
+0.5.2 publication.
+
+
+### October30:0.5.2 test1 implements live FPS groups (device pending)
+
+Stefan agrees to prioritized implementation. Added patch_ios_live_fps.py last
+in SDK preparation order: at vblank worker loop,read cap and on transition
+choose60Hz for30/60,120Hz for40/120;update interval ticks,guest high-rate flag,
+Mach realtime period (if enabled),timer/display phase and lock log state. CP
+resets swap-vblank history on cap or high-rate change,aborts old bounded waits
+when either changes. Existing mark-vblank count remains monotonic. New cap
+can be seen briefly before worker acknowledges it;history resets again on high
+flag change. Stale display grid cannot lock if wrong rate;fallback timer until
+fresh matching grid. All motion/display transitions still require device proof.
+
+App changes: LiveCap allows four choices;battery controlled/chosen supports120
+and40 plus existing30/60;ChooseCap updates display unconditionally (on main
+immediately,otherwise queued). Auto/menu cap reductions still only chosen40/60.
+RequestRateForCap clears app/SDK published grid and managed period on cap change,
+then ticks Metal40 ownership (existing in-flight frame/generation safeguards).
+World clock clears debt/missed-slot history when cap or managed status changes.
+Keep mode0 bypass,120Hz simulation and0.5.1 catch-up/30quantum unchanged.
+Profiles remain launch-only for this trial;tablet startup profile behavior at
+new cap not recomputed yet (next shared profile work). No graphics changes.
+
+Validation:
+- Pre-change patch status: vblank_display1/2,fps_cap1/5,cap_30_at_1204/4.
+  Earlier NO statuses reflect existing nested later patches,not newly lost code.
+  New live patch applied3blocks,exit0,status3/3. Added last inprepare_sdk list;
+  did not rerun full SDK preparation over already-patched tree. Apply new script
+  directly;fresh preparation runs it after earlier cap/vblank patches.
+- `PYTHONPYCACHEPREFIX=/tmp/nfsmw-python-cache python3 tools/ios/test_live_fps_patch.py`
+  exit0:actual SDK fixtures,apply/idempotency/byte-exact revert;missing final
+  anchor causes exit1 with neither file modified (intentional failure check).
+- Existing host tests exit0: frame_clock_policy(fourcap jitter,25fps elapsed
+  conservation,loading bounds,10000legacy60 comparisons),world_step_limit
+  (36cases/twofixtures),managed_frame_slots(29000assignments). No device/
+  emulated console transition test yet. These tests do not establish smooth
+  cap changes or lack of races across real renderer/guest threads.
+- Configure/build fromios with normal preset and targetipa -j6 exit0 (25steps),
+  logs/tmp/nfsmw-052-live-fps-configure.log,/tmp/nfsmw-052-live-fps-build.log.
+  No failed build;existing compiler warnings. Added only explanatory battery
+  comments afterward,not executable code. git diff --check passed before docs.
+- Exclusive-create IPA,ZIP integrity,codesign --verify --deep --strict and UUID
+  checks pass.104metallibs identical to0.5.1. SDK runtime/GPU both rebuilt from
+  changed respective sources;source changes reproducible via app patchscript,
+  not a siblingSDK commit (many pre-existing modifications preserved).
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test1-live-fps.ipa`,
+30135229bytes,SHA256
+3c69c6a19d780d10bec953a03bd78f2f18425be65507d5f9b796310a8a6ac40e,
+UUID5DF4F2C5-0634-360E-B867-C33BEE325BBB. Bundle0.5.1/build9;intentionally no
+release version bump while testing. Ignored.json metadata beside IPA.
+
+Next device test:Balanced,1x,LPMoff,menu/thermal automatic caps initiallyOFF;
+no Extra Args required. Start60 then pause/change/resume and drive10–15s each:
+60->40->30->120->60->30->40->120->30->60->120->40->60.
+This covers all12ordered pairs. Check expectedFPS,world speed/motion,audio,input,
+blackframes/hangs and persistent need-for-relaunch labels. Then background/
+resume at40 and120;enable30fps-in-menus at40/60 and confirm restoration.
+Cold starts at30/40/120 plus fullmatrix onother hardware desirable after first
+shorttest. Sendlog;[live-fps] logs actual guest-rate transition. Optional old
+frame/camera/worldclock diagnostics if a problem needsquantifying. Do not
+add stress resolutions back. First validate caps,then live profiles;no push/
+tag/release. Preserved issue11checkpoint note,HANDOFF and siblingSDKwork;
+new SDK source edits are ONLY runtime/CP changes represented bynewpatch.
+
+
+### October30: test1 log19 accepted; test2 FPS labels and display capability
+
+Stefan noticed no issues across requested matrix;120 feels particularly good.
+Same17PM/test1 per context,OS unspecified. Source
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/8AB0DAF3-0FAF-4B5A-AB4B-D189D0D5A751/nfsmw.log`.
+Archived exclusive-create,byte-identical,source retained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/29 October 2026/nfsmw_iphone_17pm_19_052_test1_live_fps.log`.
+3654487bytes,22615lines,SHA256
+76c04b16315a504bdf85c064e789afc21f691de495e9f924663f06545f751767.
+Two launch markers;first23:21:24.005,lastline23:52:26.072. Live-FPS records
+from23:48:05.814to23:52:10.549:60,40,30,120,60,30,40,120,30,60,120,40,60.
+All12ordered pairs covered;each30/60 uses60Hz,40/120 uses120Hz,all realtime
+policy calls reportset,zeroFAILED. User confirms subjective motion/function.
+This is not independent proof of all latent races or other-device behavior;
+background/resume and automatic menu/heat cap coverage not established here.
+Archive/analysis exit0;script confirms actualpairset equals requiredpairset.
+
+User requests removing experimental40/120 tags and hiding options without
+ProMotion. Implemented shared FrameRateChoices using main screen reported
+maximumFramesPerSecond>=120,not current preferred/temporary rate. Both launcher
+and in-game rows derive same choices;new plain30/40/60/120 labels,old simulation
+speed warning removed. Value resolves unsupported saved40/120 to60 before
+Battery rules (which may choose30). Raw saved preference remains;effective
+launch/runtime settings normalize,so hidden saved option cannot silently run.
+Explicit Extra Args still override UI intentionally. Main-screen capability is
+consistent with existing primary-display-only presenter,not model-name matching.
+No new platform-specific network facts relied upon;uses existing UIKit API.
+No timing/profile/SDK changes. Performance-live feature remains next.
+
+Validation: git diff --check exit0;normal incremental build ipa -j6 fromios
+exit0 (6steps),log/tmp/nfsmw-052-cap-labels-build.log. No failed attempts.
+Shared choices/value paths inspected for120Hz/60Hz branches;no physical60Hz
+menu test yet. No new tests for simple label/filter change;existing timing
+not changed. ZIP integrity,codesign --verify --deep --strict,UUID checks pass;
+104metallibs byte-identical to test1. NamedIPA exclusive-create:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test2-fps-menu.ipa`,
+30135895bytes,SHA256
+eaf782204eefd251a2344909cbc967d4b74174472cc6888e5166ad118020de24,
+UUID896BB62D-ABD5-35FD-887F-C15A08AFBFF7;bundle0.5.1/build9 unchanged.
+Ignored.json metadata besideIPA. Next:implement live profiles;verify60Hz menu
+only30/60 and savedunsupported fallback when hardware available. No needrepeat
+12pair matrix on17PM just for thisUI change. Preserved pre-existingissue11note,
+HANDOFF,siblingSDKwork. Owncode/docs committed locally;no push/tag/release.
+
+
+### October31:0.5.2 test3 live profiles, implementation and host validation
+
+Stefan approves liveEco/Balanced/Max for convenience and the next cost/thermal/
+battery optimization pass. Session beganOct30,crossed midnight. No new userlog.
+Shared performance_profile.h Resolve reproduces launch table (phoneBalanced
+adaptive withdriving boost;6+EtabletBalanced originalpolicy,mainUtility at<=60,
+adaptiveoriginalat120;EcoUtility/noadaptive;MaxDefault/noUtility). ios_main
+captures explicit per-flag arguments BEFORE inserting defaults,then initializes
+live snapshot aftercvar/environment parsing. Preserve startup ExtraArgs values
+forfiveflags,alsoexplicit config/environment sources. Profile UI selection
+intentionally replaces selected mode;individual scheduling overrides persist.
+No graphics-quality/defaultpolicy tuning. Appprobe path excluded from newinit.
+
+adaptive_qos.cpp publishes atomic flags/profileepoch,updates thread-start cvars,
+recomputes policy oncapchanges,and clears worker overridehandles,late history,
+hold state onCPepoch adoption. FixedEco/Max also applyselfQoS instead ofearly
+return. Main hook uses shared thread-local applied-QoS cache with safe-point
+callback to avoid two independent caches skipping a needed change. Guestworkers
+follow currentbase plusall-workerboost;existing limited-busiest-worker option
+still usesprior override selection. Existing boost tuning remainslaunch-only.
+Native render/demand-pipeline serial queues keep identity/order,per-block
+ENFORCE_QOS_CLASS reflects policy atsubmission;warmuppipelines remainUtility.
+In-flight/queued work retains its submitted policy until completed. No queue
+replacement,thread suspension,forcedcoreplacement orclockmanipulation.
+
+NewSDKpatch patch_ios_live_profiles.py (LAST afterexistingutility/cheap-sleep
+patches) adds runtime callback registration,thread-local roles0host/1main/
+2guestworker/3GPUCommands. Register afterlegacyinitial QoS atthreadstart;
+Sleep,MaybeYield,Wait,SignalAndWait,WaitMultiple pollbefore/after viaRAII.
+Only taggedgame/commandthreads participate;audio,vblank and otherhost threads
+excluded. Parkedthreads adopt whenwaking;CPU-busy guestwithoutoneofthese safe
+points can delayadoption. Main andnativeCP also pollperloop/swap. Needon-device
+proof allrelevant workers reachboundaries and overheadisacceptable. No energy
+savingclaimed fromhosttests. Missing callbackbridge loggederror;packagedsymbols
+verified. SDK changes represented solely bytrackedpatchscript,not siblingcommit.
+AppUI profile/battery-mode selection invokesChoose;source stampedin_game;
+profile/source differences no longer show next-launchfooter;otherlaunch-only
+settingsretainwarnings. Backend logs [live-profile]requestflags,override mask,
+epoch,cap,and selfQoS results. NumericalQoS isclass,notphysicalcoreplacement.
+
+Failed/inconclusive development attempts retained:
+- Firstpatchapplication exit1:WaitMultiple signature anchorlinewrap mismatch;
+  transactional engine wrote nothing. Corrected exactanchor,8blocksapplied.
+- Extendedpatch forCP registration:revertedprior8blocks thenattempt exit1 on
+  ambiguous CPcvarinclude(twoexistingoccurrences),no writes. Switchedunique
+  WorkerThreadMain/SetupContext anchors;final10blocksapplied,status10/10.
+- Firstfullbuild exit0(19steps). Review thenunified appliedcache,removed accidental
+  initializationfromprobe,andaddedCPsafe-pointrole. Secondbuild exit0(18steps).
+  Finalbuild afterpreservingconfig/environmentflags exit0. Tempbuildlogs
+  /tmp/nfsmw-052-profiles-build.log,build2.log,build3.log (sameprefixforlasttwo).
+  Initialconfigure log/tmp/nfsmw-052-profiles-configure.log. ExistingSDKunused
+  params,FPSCRoperandwidth,missingoverride andduplicatelibrarywarningsremain.
+
+Checks (exit0):
+- test_performance_profiles.py:98304 actualresolver/override roundtrips across
+  sixdirectedtransitions,4corecounts,4caps,32masks/32values;original launch-table
+  expectations. CompilesactualSDKbridge:hostthreadnotag/noadoption,TLSisolation,
+  registeredguestcallback beforewait,newcallback adoptedafterwait. Actualthree
+  SDKfilefixturesapply/idempotency/byteexactrevert;damagedlastanchorrejectsall
+  writes (intentionalnonzero subprocess).
+- test_live_fps_patch.py actualfixturesstillpass;test_frame_clock_policy.py
+  fourcap jitter,25fpselapsedconservation/loading and10000legacy60comparisons;
+  test_world_step_limit.py36cases/twofixtures. No needregenerate unchangedgame.
+- Normalcmakeios ipa-j6build,git diff --check,ZIPintegrity,codesign--verify--deep
+  --strict,UUIDchecks pass.104payloadmetallibsidenticaltotest2. nm-gU onpackaged
+  librexruntime verifiesnfsmw_qos_set_callback/nfsmw_qos_enter_guest exports.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test3-live-profiles.ipa`,
+30140532bytes,SHA256
+452b7e4977baef9d5021033cc9f94e770d78dd01ba88bedf07d28f3948c2a04f,
+UUIDB7208F04-DE4E-3A1D-AA41-B8D922A9077E;bundle0.5.1/build9 unchanged.
+Ignored.json besideIPA. BothSDKdylibsrebuilt;shadersunchanged.
+
+Nextdevice:17PMBalanced60/1x,coldlaunch,auto menu/thermal capsOFF,noExtraArgs
+(toavoidintentionalpolicyoverrides). Pause/select/resume anddrive15–20s each:
+Balanced->Eco->Max->Balanced->Max->Eco->Balanced (allsixpairs). Sendlogandfeel;
+verify self-adoption,renderentryQoS,FAILED/bridgeerrors,workers/priorboostcleanup,
+pacing andno next-launchlabel. ThenunderEco40->120->60 andbackground/resume;
+6+EtablettestneededforitsdifferentBalancedpolicy. Don't inferbattery/thermal
+savingsfromshortthroughputtest;matchedcostauditremainsbacklog. No device result,
+newrelease/versionbump,push/tag. Preserveissue11note,HANDOFF,SDKpreexistingwork.
+
+
+### October31:test3 missing profile menu row corrected in test4
+
+Stefan cannot findPerformance,believesnewestbuild. Confirmed test3 backend in
+suppliedlog,notaninstallationmistake:57live-profile markers,zeroFAILED,no
+missingbridge marker;worker/mainutility17 andboosted25 adopted inepoch1.
+This demonstrates startup/adaptive adoption only,notprofile switching.
+Source Keys() iningame_options.mm omittedperformance_mode;previoustest3
+implementation/hosttests failed to cover UIentry availability. Addedkeybeside
+fps_cap,usingexisting sharedrow/choices/liveChoose callback. No backendchange.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/ADA09D6F-AF5A-4C8C-8888-9D2BB52934A3/nfsmw.log`.
+Archivedexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_20_052_test3_missing_profile_menu.log`.
+517288bytes,3376lines,SHA256
+31863735decf4176f7da01162180d8ac5b89850be0ec3987c618b7603e485b84.
+Launch00:07:16.067,buildOct31 00:02:42,lastpartialline00:08:28.271.
+Same17PM/test3 context,OSunspecified. Archive/analysisexit0.
+
+Validation: inspectedKeys->launcherRows->FindOption chain,Performance row
+existswithEco/Balanced/Max choices andlivecallback;notnative-onlyfiltered.
+Normalincremental cmakebuild --presetios --targetipa -j6 fromios exit0(5steps),
+log/tmp/nfsmw-052-profile-menu-build.log;gitdiff--checkpass. No newtests for
+one-rowreversible fix;existingbackendunchanged. ZIPintegrity,codesign--verify
+--deep--strict,UUIDpass;104metallibs andbothSDKdylibsidenticaltotest3.
+Exclusive-create artifact
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test4-profile-menu.ipa`,
+30140434bytes,SHA256
+a16ef0740b9a05804f663aa9a9077bdbfa5b8040db59b816eeb36a8878a41bf9,
+UUID662D52AD-B74A-3BA7-B11F-FBDF4BA9F270;bundle0.5.1/build9.
+Ignored.json besideIPA. Nextsixprofilepairs aspriorentry,60/1x,noExtraArgs,
+pausePerformance row thenresume15–20seach. Test3missingrow preventedthat
+validation;do not markprofilefeatureaccepted. Preservedpre-existingissue11note,
+HANDOFF,SDKwork;owncode/docscommittedlocally,no push/tag/release.
+
+
+### October31:test4/log21 six live-profile transitions confirmed
+
+Stefan thinks switchingworks;lastEco no longerholds60fps. Same17PM/test4context,
+OSunspecified;noindependentIPAUUIDecho. Source
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/C023BF2A-500E-4157-9ADF-004C3313979C/nfsmw.log`.
+Archiveexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_21_052_test4_live_profiles.log`.
+905072bytes,5717lines,SHA256
+5c4bed0dfa7026e92c626fa695de3389d417dec6c727b0e852fc9b96fcc07f5c.
+Launch00:10:11.816,buildOct31 00:02:42,lastpartialframe00:13:36.792.
+Archive/analysisexit0.128live-profile markers,zeroFAILED,no missingbridge.
+Allrequests cap60,override00 (noexplicitfive-policyflagoverrides).
+Epoch2Eco00:11:01.739;3Max00:11:26.363;4Balanced00:11:52.653;
+5Max00:12:23.160;6Eco00:12:48.100;7Balanced00:13:14.976.
+WithinitialBalanced,allsixdirectedpairscovered.
+
+Observedself-adoption (numericQOS17Utility,21Default,25UserInitiated):
+-StartupBalancedepoch1:28unique threads,39self-logrecords (12Utility,27boost).
+-Ecoepoch2:11threads/11Utilitysuccessrecords,firstsame-ms request,last00:11:11.919.
+-Maxepoch3:11threads/11Defaultsuccessrecords,firstsame-ms,last00:11:34.816.
+-Balancedepoch4:11threads,29records (18Utility,11UserInitiated),includingmenu/
+  driving changes;lastUtility00:12:21.793 nearnextpause,notstuckboostfailure.
+-Maxepoch5:11threads/11Default,firstsame-ms,last00:12:37.148.
+-Ecoepoch6:11threads/11Utility,firstsame-ms,last00:12:56.470.
+-Balancedepoch7:10threads/10UserInitiated,00:13:16.591–00:13:17.564.
+Lateadoptionrecords reflectcooperativesafepoint/waking,notforcedsuspension;
+recordedthreadcountdoesnotproveeverydormantthreadhasresumed. Main/command
+prioritysetreturnsallzero;nativeframeentrysamplesindependentlyshoweffective
+renderQoS. SettledbatchesEco300/300Utility,Max300/300Default,Balanceddriving
+300/300UserInitiated. Firstbatchaftereachswitchmixespre/postselectionframes;
+not stale-policy leakage. No persistent UtilityinMax/boostinEcoinsettledbatches.
+
+FPS/processing summaries,notcontrolledsame-sceneA/B:
+-Ecofirst59.9,59.9,60.0,60.0,60.0fps. Recording~4.86–6.39ms aftersettling;
+ GPU~7.27–7.39ms. Otherprofile stages laterhavehigherGPUcosts,so scenes/
+ operatingpointsnotmatched. Do nottreatfullrun profile averagesasenergyproof.
+-LastEco(epoch6)57.2,56.4,53.2,57.6,57.1fps. Recording4.35–8.07ms,
+ GPU14.69–16.90ms;16.7mstargetsometimesexceeded. SettledrenderUtility.
+-FinalBalanced(epoch7)transition56.5 thenfour60.0fpssummaries,
+ recording~4.24–4.70ms,GPU12.88–14.94ms aftertransition;renderUserInitiated.
+-Thermalstate nominal throughoutselectedepochs;CPUcoreplacement/frequencies/
+ batteryenergyunmeasured. Evidenceconfirmsfunctionalprioritychanges and
+ successful60fpsrecovery,notwhichphysicalcorestheOSselected orenergysavings.
+
+Importantforprofileaudit:Max currentlyrequestsDefaultQoS/noUtility,whereas
+Balanceddrivingboost isUserInitiated(higherQoSclass). Thispreservespreexisting
+profilepolicy;namesdonotimplystrictpriorityordering. No automaticpolicychange
+basedonthisrun. Auditper-deviceworkloadandcost beforetuning/renaming.
+
+Conclusion:17PMfunctionalprofile-switchmatrixaccepted;bothlive0.5.2features
+nowdeviceconfirmed there. Remainingcoverage6+EtabletBalancedpolicy,profile+FPS
+transitions,background/resume,explicitoverridepreservation. Nextmatchedbaseline
+andprofile/CPU/GPUoptimizationauditatidenticalvisualsettings,asrequested.
+No source/build/newIPA/tests thisevidence-onlyturn;gitdiff--check fordocs.
+LatestIPAremainstest4;do notclaimreleaseorbroaderhardwarecoverage. Preserve
+issue11checkpointnote,HANDOFF,siblingSDKwork. Ownrecordcommittedlocally,no
+push/tag/versionbump.
+
+
+### October31:backlog inventory and Max/core-placement clarification
+
+Stefan suspectsMax(noUtility)meansallthreads onEcores;asksallotherbacklogentries
+beforeofferingnewideas. Source/observedpolicy isDefaultwithoutUtility,notforced
+EorPplacement. No affinity/coretracingdata;do notinferfixedcoremappingfromQoS.
+ReviewedcurrentBACKLOGheadings/detailsandCHANGELOG0.5.0/0.5.1;somehistorical
+headingsstillpendingalthoughlaterreleaseincludesfixes(touch/draglayout,circle
+ring,postprocessing/menu,saveimport). Presentremainingworkconsolidatedrather
+thanreopeningcompletedfeatures. Remainingcategories:profile/cost audit,graphics
+menu/presets,HUDvisualbugs/editorimages,audiocrackles/fadevalidation,disc-startup
+errorUX,textures/glass/halo,FMVredframe,sub1xdimband,pipelinepersistence/capture,
+loading/crashmonitoring,olderdevice/renderer/copy/memory/shaderoptimizations,
+ExtraOptionsin-game/prelaunch/trainerideas. Prioroptimizationnegativeevidence
+and0.5.2broaderdevicevalidationremainrelevant. No test/newmeasurement warranted
+forinventory;no source/build/newIPA,push/tag/release. Checkpointnotesuserchoice
+pending;existingoptimizationprioritynotreplaced. Preserveissue11note,HANDOFF,
+siblingSDKwork;commitownreviewrecordonly.
+
+
+### October31: confirmed bug closures and test5 menu touch polish
+
+Stefan confirms dimbandabsent inBattery mode(sub1x),AirPodcrackles andengine
+soundfadefixed,safehousenullcallcrash andevent-loadingfreezefixed. Updatedfive
+matchingbacklogentries tofixed/userconfirmed;retainhistoricalevidence. No new
+fixingbuild/OS/log/causeclaimedforclosures. Annotations1/2/3 acknowledged.
+
+UserrequestsAndroid-reference menucontrolpolish:optionalinvert(currentdirection
+preferred/default),allbuttonhints tappable,<>selectors,icon-onlyLT/RT onmap/
+QuickRace,repeathelddrag. Reference
+`/Users/bep1s/Downloads/Screenrecorder-2026-10-30-19-59-22-59.mp4`,
+archivedexclusive-create,byte-identical,originalretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_android_menu_touch_reference.mp4`.
+23161877bytes,SHA256
+8fbda450f21458a2a29f2ee4507b582e8fb9c1bc15366daa4df0e4154dd459d9.
+AVFoundationduration90.4561088435s. ffprobe unavailable(exit127). SwiftAVFoundation
+firstsandboxattemptcouldnotdecode(OSStatus-12911),notproofbadfile. Re-ranusing
+systemmediaservicespermissions;12sampledframesdecoded/contactsheetinspected,
+exit0. Frames~7–83.5s showmainmenucarousel,options/audio/gameplayselectors,
+controllerdiagram,confirmdialogandvisibletouchdots. Thiswaskeyframeinspection,
+notaclaimofframe-by-framemotionmeasurement. TemporarySwift/sheetin/tmp;essential
+recordandoriginalvideoarearchived. Javareferenceon-diskdidnotcontainmatching
+menugesturelogic,soimplementationguidedbyvideo/userrequestandourinputcode.
+
+Implementation:
+- ios_touch_menu_invert defaultfalse;launcher/in-gameInvert menu swipes,live.
+  Reversesnavigationonly;maprightstickcursorremainsdirect. Defaultnavsignsame.
+- MenuDrag policy emitsDpadpulses(initial100ms,350msfirstrepeat,160msperiod/
+  80mson)fromdominantdragaxispast14points. A60Hztimercontinueswhileheld,
+  nogesturecatch-upbursts. Release/cancel/multitouch/layoutclearstopsrepeat;
+  timerweaklycapturesview,invalidatedatdealloc. Mapusesexistingcontinuous
+  rightstick. Drivercontrolsunchanged.
+- FEwalkerpreviouslyrequired2–3childgroup,textplus30x30faceicon. Newbounded
+  recursivewalkacceptsvisibleleaficonsandgroupactions,independentx/yscale,
+  face/trigger/shoulderaliases,andindexedLEFT_ARROW_/RIGHT_ARROW_ widgetnames
+  (guestimagestringevidence). Knownmapobjecthashesretained,livepositionsreplace
+  hardcodedmaphotspots. FACEtexturemappingsretainprioron-deviceevidence;
+  newlyaddedL1/L2/R1/R2aliases/indexedwidgetsarehost-tested,butactualglyph
+  variants/coverageinQuickRaceandothermenusrequiredevicevalidation. Generic
+  ARROW usesmirroredwidthsign;knownsemanticobject/groupactionswin.
+- Minimum20uniticonhithalfextent;recognizedcontrollerlabelsgetexisting85unit
+  rightwardextension (arrowsdon't). Noclaimofexactfont/text-tailbounds. Visibility
+  viaexistingkShownflag;hiddenparentsdropdescendants. Traversal2000objects/
+  depth8,childscan200. Unknowncompacticonhitsloggedandreturn-1(no guessedA);
+  nontargettapretainsA fallback. Existinghintformatnowlogsobject/texture/action/
+  livepositionforfollow-up. Overlappingpackages/font-onlyglyphsnotdevice-proven.
+- TapfallbackusesCASinstead ofexchange sooldtimeoutcannotclearnewtap;button
+  releaseusesgeneration sooldtimercannotclearanewpress. Newgesturesclearold
+  pendinginput. No timing/profile/quality/SDKsourcechanges.
+
+Checks:
+`python3 tools/ios/test_menu_touch.py` exit0,compilesactualwalkerextractedfrom
+sourceagainstfakeFEtrees:>3children,nesting/nonuniformscale,standaloneABXY,
+triggerandlabel,arrows/mirroring,indexednames,hiddenparent/child,unknownicon,
+cycles/budget;gesturedeadzone/invert/repeat/neutral/directionchange/reset.
+Hostfixturesdon'tproveallrealFEtransforms/glyphsemantics;devicecheckrequired.
+Normalcmakeconfigure/buildipa-j6exit0(17steps),secondaftergrouphandlingcleanup
+exit0,thirdaftertrigger/shoulderlabelcoverageexit0. Tempbuildlogs
+/tmp/nfsmw-052-menu-build.log,build2.log,build3.log. Existingwarningsonly.
+InitialartifactverificationassertedbothSDKdylibsmustmatchtest4andfailed:
+runtimechangedafterconfigure-rebuiltdebug_overlay/versionmetadata;GPUidentical.
+NoSDKsourceeditthisturn. Recheckedwithoutfalseidentityassumption;ZIP/signature/
+UUIDpass,104metallibsidentical. Existinginternalpreview
+NFSMW-0.5.2-test5-menu-touch-polish.ipa(291c670b...SHA256,UUID0ED06933...)
+retainedbutnotdelivered;finalsubsequentbuildincludestrigger/shoulderlabelhits.
+`git diff --check`pass.
+
+Finalartifact
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test5-menu-controls-r2.ipa`,
+30154542bytes,SHA256
+e18f5df949c62555114cd93c0db3ec6e08c7f1810c3ff953af9476ac0b84979e,
+UUIDD6276DAD-8512-3C1C-BAF7-72F84964472D,bundle0.5.1/build9.
+Ignored.jsonbesideIPA. ZIPintegrity/codesign--verify--deep--strict/dwarfdumppass.
+
+Nextdevice:noExtraArgsneeded.Mainmenuhold/turn/release,cancel/secondfinger;
+currentdefaultandInvertmenu swipesON/OFF;options<>directions;ABXYicon+label
+hints;mapLT/RTzoom/categoryarrows;QuickRaceLT/RTselector;returntodrivingand
+background/resumeforstuckinput. Sendlog,especiallyunrecognizedglyphs. Thisis
+firstmenupolishtrial,notuniversalhintcoverageconfirmation. Keep0.5.2performance/
+FPSfeaturesand0.5.1timingbaseline.No newdevicetest/push/tag/versionbump/release.
+Preserveissue11note,HANDOFF,pre-existingSDKwork;owncode/docscommittedonly.
+
+Finalreviewaddedexplicitneutralreleasewhenrepeatstopsandstopsrepeatbefore
+maprightstickupdates,coveringamid-gesturemaptransition. Fourthincrementalbuild
+exit0,/tmp/nfsmw-052-menu-build4.log;hostmenu testre-runexit0. Finalhandoffis
+menu-controls-r2(namedabove). Priorinternalmenu-controls.ipa retained with
+SHA25650c8c7b8b92dacfc4594d66caa3e87646654d7ddfa380604a6a649c32333b2a5,
+UUID6A15713B-1824-3603-BB38-FEAD49619A02,30154820bytes;notdelivered.
+
+
+### October31:test5 log22 failures;test6 blank-tap preference,padreturn,FEvisibility
+
+Stefan:mainmenu controlsallactedasA;requestsoptiontodisableblanktapA,keep
+2fingerB,andreturnfromemulatedPADtogestureswithoutswitchingDrive/Hiding.
+Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/63B0201E-8219-48DF-9177-AC88CEFCAC00/nfsmw.log`.
+Archiveexclusive-create,byte-identical,sourceretained:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/nfsmw_iphone_17pm_22_052_test5_menu_misses.log`.
+249651bytes,1518lines,SHA256
+2b048dc80effceeb44bca572df6533c2f2a5a53e2e105aba20c3001f6a96d657.
+Launch00:49:30.707,last00:50:31.747;loggedbuildOct31 00:02:42;17PM/test5
+perongoingcontext,OSunspecified,IPAidentitynotindependentlyechoed.14touch-hint
+misses(allnoicon),eachimmediatelyfollowedbutton1(A),not200mstimeout.
+5twofingerBpresseslogged. Fallbackexplainswrongaction;logdoesn'tcontain
+candidate/flagsdumpsoitcannotdirectlyidentifywhyscannermissedobjects.
+
+Sourceinvestigationfoundconcreteincorrectvisibilityassumptionintroducedtest5:
+HUDcontextkShown0x00800000wasappliedtoallFEparents/leaves. Guestsub_82282CC0
+findsFEobject,loads+28,not/rotateleft6/mask1 ->return!(flags&0x04000000).
+Show/hidewrapper82282BF8 clearsbit26whenboolean1,setsviaoris1024otherwise.
+ThusgeneralFEhiddenbit26isverifiedinX360source;HUDbit23isnotvisibility.
+Replacedmenupredicateonly;HUDcontextunchanged. Newtestfixturevisible42000000
+rootlacksbit23,hidden47C00000leaf/04000000parenthasbit26. Theoldtestusedmade-up
+kShownflagsandthereforemissedthisregression. HistoricalworkinghintlogIPA165
+hasMainMenuAat-280,209,Yat-158,209;MainMenu_SubA-171,209/B-279,209.
+Severalnewmissedtapcoordinatesneartheseoldpositionssupportscannerregression,
+butfulldevicere-testrequired. No fixed-coordinatefallbackadded.
+
+Primaryexternalcodecheckedforlayoutcross-referenceonly:
+https://github.com/ThirteenAG/WidescreenFixesPack/blob/master/source/NFSMostWanted.WidescreenFix/ComVars.ixx
+PCFEObjectFlagsfieldcorresponds,butactualvisibilitybitderivedfromlocalX360
+functionsabove,notassumedfromPC. Genericwebsearcheshadirrelevantresults;
+noexternalcodecopied/newdependencies.
+
+Changes:
+- ios_touch_menu_empty_accept defaulttrue,preserveexistingdefault. Sharedoption
+  Tap empty space to accept inlauncherandin-game,live. PureTapActionpreserves
+  knownbuttonactions,unknownnegative=noaction,blank0->Aonlyifenabled. Both
+  actualnohintand200msno-responsefallbackrespectOFF. TwofingerBremainsexisting
+  gestureindependentofthisoption. PADremainsfallbackfortitlescreenswithout
+  recognizedhintsifuserdisablesblankaccept.
+- FullPADoverride nowshowsGESTURES;tapclearsinput/overrideandreturnstomenu
+  gestures,directly. HIDEcontinuesexistinghide/disabletouchbehavior;notneeded
+  toreturntogestures. GestureMovedrequiresregisteredfinger;GestureEndedignores
+  zero-downpilltouchessoreturntogglecan'taccidentallyqueueA.
+- Repeatmenudragpulsesthroughoriginalleftstickrouteinstead ofnewDpadroute,
+  compatibilitytrial(nologgedswipemarkersintest5,sonotprovenDpadrootcause).
+  Mapcursorstillcontinuousrightstick. Addedoneswipestartlogwithinvertstate.
+- Walkeracceptspicturevariants1/9/10/11/12withvalidsmallbounds,knownsemantic
+  mappingsunchanged. Broaderunknownsmallimageskeptforlogging/no-guessedA.
+  Onmiss[ touch-scan ](actualprefixwithoutspaces)logsfirst8package/firstnode/
+  visited/candidatecounts;nearest6objects/texture/position/actionloggedfor
+  unknown/miss. Thisallowsdiagnosingremainingglyph/layoutmisseswithoutguessing.
+  Savehitresultbeforesortingcandidatevector,sopointerscannotchangeanswer.
+
+Validation: python3 tools/ios/test_menu_touch.py exit0twice,actualwalkerfakeFE
+regressionflagfixtures,hiddenparents,known/unknownicons,triggers,label,arrow
+includingtype9,cycles;pureblanktapON/OFFknown/unknown/Bcases,inversion/repeat.
+ActualPAD->GESTURESUIroundtripnotdevice-testedyet;sourcepathandrowlistchecked.
+Sharedlauncher/in-gameoptionKeys,LiveFlags,Argumentsmappingallpresent.
+Normalincrementalcmakeiosbuildtargetipa-j6exit0(13steps),log
+/tmp/nfsmw-052-menu6-build.log,existingwarningsonly. gitdiff--checkpass.
+ZIPintegrity,codesign--verify--deep--strict,dwarfdumpUUIDpass;104metallibsand
+bothSDKdylibsbyteidenticaltotest5r2. Nosdk/timing/profilecodechanges.
+
+Artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test6-menu-fallback-and-pad.ipa`,
+30148720bytes,SHA256
+3808820226985ffb83843d247d761b483f3a62c0c6a6f0ce72aa37b1efcfa169,
+UUID1E6C0B72-8C55-3F04-83AF-204029C4EF1D;bundle0.5.1/build9.
+Ignored.jsonbesideIPA. Nextdevice:disableblankacceptafterenteringmainmenu;
+tryA/Y/Bhints,carouselarrows,helddrag,bothswipedirections;blanktapdoesnothing,
+2fingerBstillworks;PAD->GESTURESroundtripwithnophantomA. Thenmap/QuickRace
+LT/RTandoptionselectors. Sendlogforcandidatecoverage. NoExtraArgsneeded.
+Correctionofknownbadmaskdoesnotyetproveallmainmenuglyphsrecognized;test5
+failedandmustnotbemarkedaccepted. No newdevicevalidation,push/tag/release.
+Preserveissue11checkpointnote,HANDOFF,siblingSDKwork;ownchangescommittedonly.
+
+
+### October 31: test6 log23 menu targets; test7 widget gestures and optional two-finger Back
+
+User evidence: ongoing iPhone 17 Pro Max context, OS not newly verified; test6
+per user/context, not independently matched to executable UUID from this log.
+Stefan confirms empty-space accept OFF works. Main selected icon, Quick Race
+track arrows/region LT/RT, world-map LT/RT and popup buttons reported inactive.
+Other unmentioned controls mean working OR not encountered, not blanket acceptance.
+New requests: same anywhere toggle must restrict scrolling origins too; independent
+live two-finger Back option, default ON. Existing swipe direction default retained.
+
+Source log:
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/D11B7536-08FB-42F5-9BF4-E57F8DBB2C33/nfsmw.log`.
+Archived without overwriting, byte-identical, originals retained. All archives:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_23_052_test6_menu_targets.log`: 1566612 bytes, 9535 lines,
+  SHA256 f35cce698022986dbf1f80776094a81916fb5d4633187db0d67beab5792cd9b4.
+  Launch 01:04:23.809, last partial line 01:11:39.357. Counts: 123 touch-hint,
+  14 menu-tap-ignored, 32 unknown-hint, 1 full-pad->gestures, 30 swipe-start markers.
+- `nfsmw_iphone_17pm_23_quick_race_targets.png`: 2611751 bytes,
+  SHA256 ffbcf0c96b36cd941bb1f404645d9103b02bfe7be86233e44f6d8092f1a67699.
+- `nfsmw_iphone_17pm_23_confirm_targets.png`: 2250447 bytes,
+  SHA256 8ff8fd7ab625b9b02a38b27530c1240163d771eb1a0bd5a03e51aa409dfc8e2c.
+- `nfsmw_iphone_17pm_23_world_map_targets.png`: 2981928 bytes,
+  SHA256 b6a1ad305163a41ed1f2f854a59161f7d388e0e0dec425636f5f92b83cf13051.
+- `nfsmw_iphone_17pm_23_main_menu_targets.png`: 3365711 bytes,
+  SHA256 c00333d7bff659ab0669a64db470d246f3914391a086b0bfcde72857c1a8d548.
+Screenshot originals in `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+`codex-clipboard-aacf89ea-5d59-4b09-8101-7091c1fc92ae.png`,
+`codex-clipboard-8da04d04-a946-4aa7-ba16-215d8070adac.png`,
+`codex-clipboard-8f0680c6-e275-4390-88fa-9c7271c7c353.png`,
+`codex-clipboard-5912a643-6391-47d7-a232-33d6ef85b4ff.png`, respectively.
+
+Concrete findings versus inference:
+- Quick Race taps resolve textures 000005BC / 00000682 (Hash L1/R1), action
+  512/1024 at -25,172 / 266,172. World map same textures at -245,169 / 23,169.
+  Screenshots show LT/RT: previous alias mapping to shoulders is wrong here.
+  Now L1/L2/LT -> LT axis, R1/R2/RT -> RT; literal LB/RB keep shoulder bits.
+- Track chevron unknown texture1A6D3D2C, left object0603C1D1 at -21,-171,
+  right6126AB37/C6EAC384 at279/266,-171. Mapped observed object IDs left/right;
+  generic ARROW and existing semantic mappings retained. Other texture variants
+  still require evidence, not guessed action.
+- Main selected Quick Race unknown icon4B4E388A/texture03704F3D at136,157 is
+  enclosed by focus corners texture6FB79A55. New bounded walker snapshot records
+  visible nodes/parents/live transforms including wide button images/text. Four
+  matching corners in one parent create a focus rectangle, rejecting incomplete
+  or large decorative frames. Known hints take priority; focused entry then A.
+  Generic focus recognition is an inference from observed frames, not proof that
+  every decorative/selection frame family is distinguished on every screen.
+- InGameDialog tree shows button image hashesB8A7C6CC/CD/CE,154x32, a hidden
+  third button, and moving9x9 focus-corner group. New popup transaction reads
+  visible button rectangles, sends a direction when needed, waits >180ms and
+  two observed updates with target highlighted before A. Three-choice dialogs
+  can send a second direction only after observed intermediate focus and >220ms.
+  Stops on missing target/replaced package,850ms backend or1s UI timeout/new
+  gesture/layout/cancel. Dialogs block underlying packages. Unknown modal taps
+  ignore. Unanswered ordinary tap query at200ms now ignores even with anywhere
+  ON, avoiding guessed confirmation when frontend stalls. Confirmed-host logic,
+  not yet actual device acceptance of every popup variant.
+
+Settings/gesture behavior:
+- Existing saved `touch_menu_empty_accept` / `ios_touch_menu_empty_accept` key
+  retained, live/default true; UI renamed Tap and swipe anywhere. ON retains
+  universal tap/drag. OFF requests start-point widget hit-test on game thread;
+  only focus rectangles, opposing-arrow strips, bounded text/list ancestors or
+  map canvas derived from live category/zoom anchors allow scrolling. No package
+  background/fullscreen fallback. Finger motion before response stays inert,
+  resumes if allowed; release/cancel/layout/multitouch rejects stale response.
+  These regions are intentionally bounded heuristics; save/Blacklist/unseen
+  layouts need validation and may require more semantic widget families.
+- New `touch_menu_two_finger_back` / `ios_touch_menu_two_finger_back`, live,
+  default true, shared launcher and in-game row/argument/LiveFlags. OFF ignores
+  two-finger taps, never converts them to A. Visible B hints remain usable.
+- Invert behavior and PAD->GESTURES return preserved. No SDK/timing/profile edits.
+
+Validation actually run:
+- `python3 tools/ios/test_menu_touch.py`: initial compile exit1 because new
+  host fixture omitted unordered_set include; corrected fixture include. Later
+  runs exit0, including final walker/popup tests. Tests compile actual FE walker
+  and actual PopupAction with synthetic guest memory. Cover observed L1/R1 and
+  arrow IDs, scaled focus corners/incomplete frame, strict outside rejection,
+  carousel/map bounds, independent two-finger setting, direct/selected/unselected
+  popup buttons, failed highlight, replaced package, absent focus, three-choice
+  intermediate navigation. These do not prove UIKit gesture lifecycles or all
+  real FNG layouts; on-device matrix remains next.
+- `cmake --build --preset ios --target ipa -j 6` from ios, two builds exit0:
+  /tmp/nfsmw-052-menu7-build.log (14 steps) and
+  /tmp/nfsmw-052-menu7-build2.log (6 steps after delayed-popup tightening).
+  Existing enum conversion/asm constraint/duplicate-z warnings, no errors.
+- ZIP testzip, codesign --verify --deep --strict and dwarfdump --uuid pass;
+  104 metallibs and both SDK dylibs byte-identical to test6. Bundle0.5.1/build9.
+
+Trial artifact:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test7-menu-widgets.ipa`,
+30164878 bytes, SHA256
+b22937161ec577cef26664c4449d0812827a6f4e24c1e0877ab0dab230e1eacf,
+UUID81C2B2FE-7D27-32AE-A5FF-139322E10507. Ignored .json beside IPA.
+Next device test: anywhere OFF, selected main icon/arrows/held drags inside and
+outside save/main/Blacklist; Quick Race track arrows and region LT/RT, world map
+zoom/cursor; both popup choices including unselected choice; two-finger Back
+OFF/ON independent, B hint still active; anywhere ON/inversion/PAD return.
+No new device validation, push/tag/release/version bump. Preserve pre-existing
+13-line issue11 checkpoint note unstaged, HANDOFF_CHATGPT.md untracked, sibling
+SDK changes untouched. Session code/docs committed locally only.
+
+
+### October 31: test7 log24 gaps/safehouse stall; test8 menu regions and music mixing
+
+Stefan reports: anywhere OFF prevents intro skip/Press Start; wants Quick Race
+map swipes separate from free-roam map, car-preview swipes across car selectors,
+category Up/Down, working RB Showcase and showcase camera gestures. Save list
+swipes inconsistent; pause icon/region inert, arrows reversed. Direct OK on
+return-to-safehouse freezes. Optional external music continuation requested.
+
+Evidence preserved, exclusive-create/byte comparison, originals retained. Folder:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_24_052_test7_menu_gaps.log`,3808770 bytes,23030 lines,
+  SHA2568b12e96a91b991db1b5646b577460518f7bf6ea22436d82dbff7fd5acfed925a.
+- `nfsmw_iphone_17pm_24_car_selector.png`,3310255 bytes,
+  SHA2561218a2ec7a683512a08a8ebd0a5adc5c8e44b17278759eb298c04713974ae9d2.
+- `nfsmw_iphone_17pm_24_save_list.png`,2247454 bytes,
+  SHA256c2e9015ca7e217b2d87b09d6489ef2c55596aa9ab6d1120e837f44c4d0681963.
+- `nfsmw_iphone_17pm_24_pause_menu.png`,2318368 bytes,
+  SHA256385a4892613dd564d5d8ecb94f3271ea3913336146e9194276932fd625d63057.
+- `nfsmw_iphone_17pm_24_safehouse_freeze.png`,2615519 bytes,
+  SHA256b555739bb5578c94a91111d8fcefb7c9a239b8d6c1ab1527baf61c1768b743e4.
+Source log:
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/F2DEB463-C07E-4888-A977-583AAD5DE810/nfsmw.log`.
+Screenshots from `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`, respectively:
+`codex-clipboard-d91a9757-86b9-49c8-8896-fb47616f1ce7.png`,
+`codex-clipboard-677f2032-1ded-4b7f-b7a4-ebefd06035bf.png`,
+`codex-clipboard-80cee871-1e4e-4e8b-afb2-61e3cc8fcabe.png`,
+`codex-clipboard-b48ac866-7e7a-410e-9eef-596dd1885618.png`.
+
+Log24 starts with the exact1566612-byte log23 prefix (verified), including its
+partial last line. New launch begins01:28:39.820 on that same physical line9535;
+analysis separates the new launch through01:38:24.167. Printed ios/native build
+stamps are cached old translation-unit stamps, not reliable whole-IPA identity.
+New touch-widget/scroll-mode/test7 popup markers identify new implementation;
+artifact UUID not independently logged. iPhone17PM per ongoing user context,
+OS not newly supplied. Final native samples cap60/1x, Low Power Mode OFF,
+thermal nominal; exact complete Extra Args not supplied in this turn.
+
+Findings and scoped trial changes:
+- Pause corners are ROOT objects(parent0), same texture475A90F5 as decorative
+  outer frame. Old FocusFrames skipped parent0, and one-parent-count-four would
+  also combine multiple frames. Match four geometric corners of same texture/
+  parent, including root; reject large/incomplete frames. Observed selection
+  bounds81..152,-18..43 now recognized. Host fixture includes simultaneous outer
+  -280..280,-90..79 and inner frame; only inner passes selected-frame bounds.
+- Pause left object444969FD at-20,11 had actionRight; right444969FE at246,11 had
+  actionLeft. Generic ARROW actually points left with positive width, right
+  when mirrored. Reversed default sign mapping; explicit known IDs retained.
+- Car category uses same1A6D3D2C arrow objects as track/title, but top cluster
+  atx~-270,y-197 and bottomx~-276,y-152. Postprocess spatial vertical pairs to
+  Up/Down, including shadow29B7FF24 (now recognized Left when horizontal).
+  Category region locks vertical swipes; preview region locks horizontal.
+- Visible RB Showcase taps resolvedFEA90A33/textureCIRCLE->Y in Car_Select;
+  package-specific override nowRB. Does not globally change CIRCLE/Y hints.
+- MC_List allows its whole bounded panel (image/colored-image or outer corners),
+  excluding header/footer; vertical axis no longer depends on animated row only.
+  Full real-list layout coverage remains unconfirmed. Quick Race Track_Select
+  map canvas uses live track/region anchors and horizontal mode. WorldMapMain
+  retains cursor right-stick path; no track-selection behavior enabled there.
+- Showcase.fng region routes single-finger camera pulses to right stick;
+  two-finger distance changes pulse LT/RT zoom. Pulses expire50ms after movement,
+  release/cancel clears input; pinch movement suppresses Back. Invert menu swipes
+  does not invert camera. This is an INPUT-MAPPING TRIAL: actual showcase axes,
+  zoom direction/sensitivity and safehouse/tuning shop package reuse still need
+  device verification. Car previews are bounded scene areas rather than car
+  mesh hit-tests. No claim of universally finished camera gestures.
+- Startup: Splash package tap sends Start even with anywhere OFF. Native draw
+  recording separately detects XMV shader keys (including native movie shaders,
+  not only missing-shader fallback) to allow one-finger A skip while movie plays.
+  No rendering/shader/presentation policy changed by that detection. Anywhere
+  query now runs for semantic direction/camera mode even when anywhere ON.
+
+Audio: launcher Audio **Keep other music playing**, new savedaudio_mix_others /
+`--ios_audio_mix_others=true`, defaultfalse, requires launch/restart. Existing
+`ios_audio_silent_mode` unchanged. Mixing ON + silent-mode sound OFF => Ambient;
+ON + silent-mode sound ON => Playback with MixWithOthers; mixing OFF preserves
+SoloAmbient/Playback defaults. No automatic game music muting. API failures
+logged; activation remains on existing background queue. Apple primary docs:
+https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/soloambient
+https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/mixwithothers
+Build/source validation only; real external audio/Bluetooth/resume not tested.
+
+Safehouse freeze evidence (NOT fixed):01:37:43.058 selects B8A7C6CC fromCD;
+43.258 desired targetBE8BD720 highlighted,43.259 oneA; dialog gone43.542.
+No later native frame summaries, game audio becomes all-zero. Watchdogs at
+01:37:52.416,01:38:07.468,01:38:17.511 show guest7 waiting8261D610 from engine
+request-completion path821C8E48 ->825D3F60 ->82620460. Render thread6 waits for
+work. Source confirms job-completion wait, not the old null-call crash. Footprint
+~1350MiB,~4794MiB before limit, thermal nominal: no evidence of memory/thermal
+cause here. This does NOT establish why the job is incomplete or whether direct
+input caused it. Popup selection itself resolved correctly; no speculative
+semaphore completion/state reset added. Existing2ms lost-wakeup retry retained.
+Added [job-wait] address/result/worker/original caller/elapsed warning after1s,
+then every5s in indefinite wait. It diagnoses, does not fix the stuck job.
+Stefan clarifies popup has OK/Cancel only, no visible A hints. No comparison
+with PAD A yet; next do that with OK selected, then direct OK and send full log.
+Prior loading-freeze entry updated as active recurrence, same root not asserted.
+
+Validation:
+- `python3 tools/ios/test_menu_touch.py`: initial new-source run SIGABRT(exit1)
+  on old mirrored-arrow assertion; expected direction corrected from actual pause
+  evidence. Later runs exit0, final output includes actual walker/root frames/
+  rotated arrows/list-map-car regions/popup confirmation. Added type9 panel,
+  category Up/Down/title Left, RB override and Track_Select-vs-WorldMap fixtures.
+  These tests do not exercise UIKit events or prove real camera axes/music.
+- Four incremental `cmake --build --preset ios --target ipa -j 6` runs fromios,
+  all exit0: /tmp/nfsmw-052-menu8-build.log (17 planned steps),build2.log(6),
+  build3.log(5),build4.log(5). Existing enum/asm/duplicate-z warnings, no errors.
+  A preceding relative-path Python edit failed FileNotFoundError because command
+  cwd wasios; corrected from repo root before final build, no source lost.
+- Internal first test8 artifact retained, not delivered:30170355bytes,
+  SHA256084fe6853a5f27dd70a59f50f88fec930cc122c2545830f183a44ebe247ce86e,
+  UUIDC99A2D90-3A52-34AB-B83D-F7AAFC6082E9. Source review caught movie_draws
+  only tracks missing-shader fallback; finalr2 uses separate movie_picture flag
+  on actual XMV inputs so default native movies are detected too.
+- Final ZIP integrity, codesign --verify --deep --strict,dwarfdump UUID pass;
+  104metallibs and2SDKdylibs byte-identical to test7. gitdiff--check pass.
+
+Final artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test8-menu-areas-and-music-r2.ipa`,
+30171188bytes,SHA256535a4e5ed5d7ca27a7aefae0c4195af3d95ccf2f82a90757c18ab26948f9476b,
+UUIDDF24267D-B2DC-35CB-BEEE-B8FECA0C2A6B,bundle0.5.1/build9.
+Ignored .json beside IPA. Next first PAD A/directOK safehouse comparison and new
+stall log, then strict startup/save/pause/category/QuickRace-map/car previews,
+Showcase drag/pinch, music before launch with mixing ON and silent-mode options.
+No on-device acceptance, new energy claims, SDK edits, FPS/profile timing policy
+changes,push/tag/release/version bump. Preserve pre-existing13-line issue11
+checkpoint note unstaged,HANDOFF untracked,and sibling SDK modifications.
+
+
+### October 31: test8 rotated logs25/26; test9-r2 direct row/grid selection
+
+Stefan: much better, but profile names should select without loading; Options
+subpages and Quick Race details need vertical row/horizontal value gestures and
+row taps. Challenge arrows fail; tapped events should select first, selected
+event second tap can launch. Try full event box for Challenge/Blacklist races/
+milestones/bounty. Rap Sheet main/subpages unresponsive beyond footer hints.
+Showcase pan works only for very fast swipes and is too weak; increase zoom too.
+Six screenshots show Rap Sheet, Circuit options, Audio, Gameplay and Challenge
+selections1/69 and10/69. Existing selected-first/manual-confirm rules recorded.
+Screenshots are enough for this trial; unseen subpage layouts may still need
+follow-up. No explicit safehouse comparison or external-music acceptance result.
+
+All evidence exclusive-created/byte-verified; originals retained. Folder:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+- `nfsmw_iphone_17pm_25_052_test8_menu_rows_previous.log`: 5242602 bytes, SHA256
+  `60d4a9993af1e346c100c34824fc178919d49b2e610d6c3e1cc5dba75702acb1`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/12E65251-96C0-4722-9F44-861D4805F641/nfsmw.1.log`.
+- `nfsmw_iphone_17pm_26_052_test8_menu_rows_current.log`: 377832 bytes, SHA256
+  `ea4ffd7665c9b2b2b69be485d1b6ba9f7ee7d8a85da5dcd69561f6cb86db2850`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/64D23917-166E-4795-A86B-A457DDA08177/nfsmw.log`.
+- `nfsmw_iphone_17pm_26_rap_sheet.png`: 1329527 bytes, SHA256
+  `9a4ac2558009c421e781305db3d5e663ab638f359c6ba364f43fe5f2377a872c`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-8061c964-a75c-48e4-a684-5bf2d640195f.png`.
+- `nfsmw_iphone_17pm_26_circuit_options.png`: 2077333 bytes, SHA256
+  `e7586aa53552f3ea5d8d6a2368723f765364abaa03aa736de7e1355ec961dec8`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-499cf18b-2760-44e7-ac1a-9ef4e49a02f2.png`.
+- `nfsmw_iphone_17pm_26_audio_options.png`: 2839950 bytes, SHA256
+  `ce57e8b63c82745ae0c46a71f6952aa646e585c251aa2642548a25cb94aa9573`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-6e4c60ea-3337-4c3d-8fa1-3193de2b2ff1.png`.
+- `nfsmw_iphone_17pm_26_gameplay_options.png`: 2803555 bytes, SHA256
+  `ea870c896ba8dbe58f35ba57b5c28fea5b37866c081c95fa13420b5ea7f897bc`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-0f426f7d-7c4e-4e38-bc60-b71074bc5baf.png`.
+- `nfsmw_iphone_17pm_26_challenges_1.png`: 2519750 bytes, SHA256
+  `bd5fe748129f065446b4b497e018aa60d5f67ceb3aa06097053e25e65aa900aa`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-c73985c9-b004-41b2-b951-31ad5553e1d1.png`.
+- `nfsmw_iphone_17pm_26_challenges_10.png`: 2522015 bytes, SHA256
+  `9b7c1c70cb0696a0196d9fca6ada282567d8491e5d8aef11e447c75482148c3e`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-3c987fd7-f1a9-42b9-ae57-150f52aff2e1.png`.
+
+Log25 (nfsmw.1.log) is32048 lines with three launches02:08:52.662,
+02:25:17.653 and02:41:33.552; two launch boundaries append inside partial lines.
+Ends03:00:04.155 on a partial memory line. Log26 (nfsmw.log) is2040 lines,
+starts03:00:04.155 CPU sample, ends03:03:42.963; no launch header. Inference:
+rotated continuation of the third launch, not a fourth run. Do not attribute all
+markers to one launch. iPhone17PM/test8 per ongoing user context; OS/whole IPA
+UUID not independently supplied. Printed build stamps are cached unit stamps.
+Screenshots40fps; logs include60/40 cap samples. No new Extra Args supplied.
+Playback mixing requested false first launch, true second/third; actual other
+music continuity unconfirmed. No [job-wait] warnings in either;14 watchdog
+notices in25, none26. They alone do not prove another user-visible freeze or
+resolution. Keep existing safehouse stall open and music acceptance pending.
+
+Concrete diagnosis:
+- Test8 CorrectMenuHints applied its spatial vertical-pair heuristic to ALL
+  texture1A6D3D2C arrows. Real options rows use LEFT_ARROW_i /RIGHT_ARROW_i
+  (e.g7BCD6704,7C51B6D7) stacked24units apart atx38/248 or232. Thus row
+  arrows were changed toUp/Down; user taps reproduce logged2048/4096 actions.
+  Rule now strictly car-select-only; options retain named Left/Right actions.
+- Standard selected options frame spans~560units, exceeding old540 limit.
+  Milestone highlight glyphs are36units, exceeding old32 limit. Selection-frame
+  bounds now allow660width/40glyph; incomplete/overlarge frames still rejected.
+- Live ArrayScroller labels confirmed in local game image: LEFT_ARROW_,
+  RIGHT_ARROW_, EVENT_ICON_, OPTION_NAME_, ARRAY_SCROLL_REGION(D276BA2F).
+  Challenge object42FDC04B is Hash(EVENT_ICON_12). InGameMilestones tree directly
+  showsEVENT_ICON_1..9, a298x173 named viewport, and444969FD/FE arrow groups at
+  its left. This supplies semantic targets rather than fixed screenshot pixels.
+- RapSheetMain misses show repeated small C6AFDD7E bullet images atx-270,
+  y-1/27/55/83/111/138; no corner frames. New main model uses those row bounds
+  and broad filled selection strip. Subpages support OPTION_NAME_i or text rows
+  inside ARRAY_SCROLL_REGION; bounded RapSheet content-area vertical swiping
+  fallback for remaining variants. Actual subpage coverage still unproven.
+
+Implementation/defaults:
+- BuildMenuModel derives options rows from indexed arrow pairs, profiles from
+  visible text rows inside list panel (merge shadow duplicates), event tiles
+  from EVENT_ICON_i, Rap Sheet rows as above. Named-index lookup cached, no
+  per-frame string/hash construction. Query only during touch/selection.
+- Profiles and settings return SelectionDone without A, including already-
+  selected row taps. Nonselected events/Rap Sheet navigate first and finish
+  without A; a NEW tap on an already selected item sends A. Footer A unaffected.
+  Popup auto-confirm remains its separate existing verified-highlight path.
+- SelectItem uses actual controller directions; observes current focus/filled
+  highlight between steps, bounded12moves/2.8s; UI wait deadline3s. Missing
+  focus, replaced package, moved target or timeout cancels without A. New touch,
+  cancel and layout still invalidate pending serial. No original FE hit-testing
+  or selection callbacks invoked and no guest UI state writes.
+- Event grids can recycle visible cells when scrolling (screenshots1/10).
+  Column-first navigation plan uses initial visible row/column difference;
+  each step requires changed selected slot OR changed visible icon content,
+  stable over two updates and220ms neutral interval. Content fingerprint hashes
+  key/texture pairs independent of geometry/order, so hover reordering is not a
+  viewport shift. First implementation assumed stable target geometry; reviewed
+  before handoff and replaced. If reused cells have identical visible content
+  AND unchanged selection slot, the step is unobservable and safely times out;
+  this is a remaining coverage limitation, never guessed event acceptance.
+- Options highlighted row accepts dominant-axis horizontal/vertical gestures;
+  other row/panel starts vertical only. Arrow hit boxes limited to their row;
+  tapping another row selects it. Full named event viewport including gaps is
+  a swipe surface. Event scrollbar groups resolveUp/Down, not image mirroring.
+- Showcase start2pt(previous14), analog pan full scale8pt(previous35), pinch
+  full scale14pt(previous25); nonzero analog floor.35 and ramp to1 compensates
+  dead zone. Slow-swipe diagnosis is inference from old per-sample delta/35
+  values, not measured runtime stick dead zone. Stop/release50ms pulse behavior,
+  camera direction and free-roam map unchanged. No new user-facing flag/default
+  menu inversion change. Sensitivity/feel need device check.
+- Limited [touch-row-node] miss diagnostics (two per package, up to24 text/
+  viewport nodes) added for layouts without adequate evidence. All data/captures
+  remain ignored; only derived names/offsets/results and paths documented.
+
+Validation:
+- `python3 tools/ios/test_menu_touch.py` all runs exit0. Compiles actual walker,
+  menu model, selection state machine and popup logic against fake FE trees.
+  New tests: stacked option arrows stayLeft/Right, full-width focus frame,
+  manual profile confirmation/shadow rows, both option axes, multi-step row
+  selection with no A, grid second-tap launch, whole-box gaps, scrolling reused
+  slot/content acknowledgement, order-independent fingerprint, replaced/moved/
+  missing-focus/timeout cancellation, Rap Sheet main/named subpage, camera floor/
+  saturation. Real UIKit/layout/feel and all pages are not proved by fixtures.
+- Three normal cmake ios ipa builds exit0: /tmp/nfsmw-052-menu9-build.log
+  (15plannedsteps),build2.log(5),build3.log(5). No errors; existing ARM asm,
+  enum/deprecated UIKit and duplicate-z warnings. Final build includes grid
+  viewport handling; first internal artifact not delivered.
+- Final ZIP integrity, codesign --verify --deep --strict,dwarfdump UUID pass;
+ 104metallibs and2SDKdylibs byte-identical to test8r2. gitdiff--check pass.
+
+Final artifact `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test9-menu-selection-r2.ipa`,
+30185581bytes,SHA256 `43ece719b7174715ccaab29029e17e91d38f35d042576897678819a9bd72d43c`,
+UUID `7ADB4704-B768-3B41-B74E-55FC1195393A`,bundle0.5.1/build9.
+Same bytes verified on `/Users/bep1s/Desktop/NFSMW-0.5.2-test9-menu-selection-r2.ipa`;
+ignored .json beside build. Internal first test9 artifact retained in build
+folder:30183976bytes,SHA256c2e2aeaaab43de252a3cfc1ffb8bdd0a87f7027d8808f380c1487b609377cc75,
+UUIDFF7EA1FF-204F-3AFF-A6D3-9E4CD2B8D9EF. Its just-created Desktop copy was
+removed only after matching that hash and verifying finalr2; older test8 kept.
+
+Next: profile row selection/manual A; Audio/Gameplay/Track_Options row taps,
+Left/Right/value swipes and vertical navigation; Challenge row2/3 targets across
+page shifts, selected second-tap launch; full box feel and Blacklist/milestone/
+bounty regressions; Rap Sheet main and subpages; slow showcase pan/zoom. No more
+options screenshots needed until an uncovered layout remains. Safehouse stall
+and music acceptance not closed from this general report. No new on-device
+validation, SDK/timing/profile changes, push/tag/release/version bump. Preserve
+pre-existing13-line issue11 checkpoint note unstaged,HANDOFF untracked, sibling
+SDK modifications. Session code and records committed locally.
+
+
+### October 31: test9/log27 profile and Rap Sheet focus failures; test10 trial
+
+User report (ongoing iPhone 17 Pro Max test context; OS not independently
+established by this log): showcase pan still too weak and direction should
+reverse; profile/alias names not tappable; Rap Sheet main taps reverse-cycle
+entries although swiping now works; Vehicle Database swiping works; Infractions
+appears not to scroll; Rankings swipes work but direct row taps do not.
+No new safehouse-stall or other-app-music acceptance result supplied.
+
+Evidence archived exclusively without replacing originals, byte/hash verified
+in `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- `nfsmw_iphone_17pm_27_052_test9_profile_rap_camera.log`: 2147812 bytes, SHA256 `147802bdc166a2a3bd1ca8456b0c8d9093bb868ea6bcdc880a69e179db04edd5`. Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/A6D670EE-109C-4231-A950-AC884E409456/nfsmw.log`.
+- `nfsmw_iphone_17pm_27_rap_sheet.png`: 1329527 bytes, SHA256 `9a4ac2558009c421e781305db3d5e663ab638f359c6ba364f43fe5f2377a872c`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-d10dccd1-c2f8-4ed0-ab9b-7821b8bbed22.png`.
+- `nfsmw_iphone_17pm_27_infractions.png`: 1104141 bytes, SHA256 `eeaef0ebbeb2fd08cb49db38ae779cb720c28161c83b077d58a57dbe34b9b717`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-116fade7-11e5-491f-a21d-1beab93395f0.png`.
+- `nfsmw_iphone_17pm_27_rankings.png`: 1192726 bytes, SHA256 `87428552c03087ef0df2e1295fe5bbd0c04ee080b20085bd5ad50e4d8fbd3a29`. Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-eb317467-44da-4e50-85e7-12bca24c32b4.png`.
+
+Log27: 13,177 lines, one launch12:54:10.214, last13:00:20.654. Trial identified
+as test9-r2 by session context; a cached individual build-stamp log does not
+independently establish whole-IPA identity. Prior artifact identity above.
+Measured markers:
+- Eight profile taps12:54:24.598..27.023 hit rowBE8FA180 but selected00000000:
+  row hit detection succeeds; focus detection blocks selection safely.
+- RapSheetMain taps12:57:13.692 onward repeatedly report selectedE6362292,
+  independent of tapped row. Old broad-strip geometry can identify an inactive
+  row backing as focus (inference supported by code and supplied screenshot).
+- Rankings has80nodes/9hint candidates/0corner frames; real left-hand label
+  hashes21A45336..21A4533E and562EBA26, atx-278,y-97..146. Numeric rank labels
+  atx277 are different objects; old model did not create these category rows.
+- Main labels atx-272 are about9–10units ABOVE bullet centers, e.g128vs138.
+  They are text origins, not the center of the selectable row.
+- Challenge and Options transactions have selected/no-A completion markers;
+  these are measured traces, not blanket user acceptance of all layouts.
+
+Investigation of Infractions: local extracted image package-registration entry
+828FF2F0 maps RapSheetUS.fng to constructor822D5058 ->82246518. That creates a
+1-column/8-visible-row ArrayScroller via822E04C0. Population82246778 creates
+exactly8datum entries (category masks1,2,4,8,16,32,64,128). Screenshot displays
+all8categories. Input822466E0 forwards to822E1110; ordinary Up/Down select rows,
+not missing content beyond these8. Therefore no additional viewport scrolling
+is expected on the supplied layout; the scrollbar is misleading here. No
+right-stick rerouting or fabricated extra rows added. Vehicle Database/manual
+Rap Sheet navigation left unchanged.
+
+Test10 changes (no new flags, existing live preferences/defaults retained):
+- Snapshot FEColor four integer BGRA channels at data+0/4/8/12. Rap Sheet focus
+  uses one white left-side label on a modeled row, instead of any wide strip.
+  Green unselected labels/alternating row backings cannot claim focus. Ambiguous
+  or absent white focus cancels without A. Supplied screenshot supplies visible
+  white-vs-green distinction; actual runtime color values need device validation.
+- Rankings creates rows from observed category identities, centers9units below
+  text origins and excludes numeric-rank objects. Existing bounded controller
+  selection transaction still selects first, a second selected tap can accept.
+- Profiles with narrow focus corners match nearest text row vertically within
+ 14units (text origin+9), provided horizontal row overlap. Full-width panel
+  center need not lie inside the name highlight. No guessed first-profile
+  fallback; confirmation remains manual A. Profile-specific frame/text origin
+  offset remains a trial pending actual device result.
+- First3 profile/Rap Sheet row taps dump bounded per-package FE node colors/
+  geometry and focus frames (`[touch-focus]`, `[touch-focus-frame]`), even when
+  row hit succeeds. This closes the diagnostic blind spot of miss-only logging.
+- Showcase pan reverses both axes; start threshold0.5pt(previous2), analog
+  minimum0.8(previous0.35), saturation1pt(previous8) per touch sample. Values
+  remain within[-1,1]; maximum controller camera speed is unchanged. No claim
+  of proportionately faster motion once the original input was saturated.
+  Pinch retains test9 gain/floor; 50ms pulse expiration and release neutral
+  remain unchanged, as does free-roam map behavior.
+
+Validation: `python3 tools/ios/test_menu_touch.py` exit0 three runs. Tests compile
+actual model/walker/transaction logic: multiple backing strips, unique white
+focus/ambiguous/missing focus, real Ranking label IDs vs numeric ranks, narrow
+profile frame, reversed stronger pan and neutral/saturation. Existing popup,
+option/event/grid selection and map/gesture policy fixtures pass. Synthetic
+color/profile layout fixtures are not runtime device proof. Two cmake ipa
+builds run; final results/artifact recorded below. No SDK/timing/profile changes.
+
+Final validation/artifact: both cmake builds exit0, logs
+`/tmp/nfsmw-052-menu10-build.log` and `/tmp/nfsmw-052-menu10-build2.log`.
+Second build separates pan gain from CameraMotion so pinch remains unchanged.
+ZIP.testzip=None; codesign --verify --deep --strict exit0; dwarfdump --uuid exit0.
+104metallibs and2SDKdylibs byte-identicaltest9r2. git diff --check exit0.
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test10-profile-rap-pan.ipa`,
+30185747bytes,SHA256 `2a85b3579542469c1f27b44df4ac646fe0ac0923a672d9aee4028917d2eca55f`,
+UUID `0C48BE41-BDA4-3AA5-983A-7F246D329D2F`,bundle0.5.1/build9.
+Exclusive-created same bytes verified at
+`/Users/bep1s/Desktop/NFSMW-0.5.2-test10-profile-rap-pan.ipa`; prior builds retained.
+Ignored JSON metadata beside build. Next device test: strict-mode profile name
+select/manual A, main Rap Sheet/Rankings direct selection + swipes, slow pan
+both directions, Vehicle Database regression. Runtime white-color detection,
+profile origin offset and perceived camera gain remain unproven by host tests.
+No SDK/timing/profile edits or push/tag/release/version bump. Session changes
+committed locally; pre-existing13-line issue11 checkpoint note deliberately
+unstaged, HANDOFF untracked and sibling SDK modifications preserved.
+
+
+### October 31: test10/log28 popup/profile and Rankings results; test11
+
+User: tapping Yes on alias-change Information popup and profile names still
+fails, scrolling works on both; showcase pan could be slightly faster;
+Rankings direct taps advance one entry rather than reaching tapped row. Later
+screenshot identifies exact popup: loading another alias loses unsaved changes,
+No/Yes vertically stacked, No highlighted. No new image was present with the
+initial log; requested clarification and user supplied it. No new safehouse
+stall/music or blanket remaining-menu acceptance result.
+
+Archived exclusively, byte-verified under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- `nfsmw_iphone_17pm_28_052_test10_popup_profile_rankings.log`,956221bytes,
+ 5858lines,SHA256 `0b7c67dd6ec4e2c127038e67b6b5860712193c268dd8f762fb5904d336ea55cc`.
+  Source `/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/0ED4D2A0-67EA-4B41-9F6E-4F431C2A91F0/nfsmw.log`.
+- `nfsmw_iphone_17pm_28_alias_confirmation.png`,1964829bytes,
+  SHA256 `a6317212cea02185fa16e050aa353d74294b65dca6b8564817776fd9c189aeb8`.
+  Source `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-97a796e1-b5ab-4277-baa7-6e2c34957ab8.png`.
+One launch13:14:02.161,last13:18:04.584. Test10/iPhone17PM from ongoing test
+context, OS not independently established. Startup printed cached00:02:42
+unit stamp, not whole-IPA identity. Screenshot cap40. Empty-space accept OFF
+explicitly appears in ignored-tap logs. No new arguments requested for test11.
+
+Measured evidence and diagnosis:
+- Profile ARRAY_SCROLL_REGION(D276BA2F) at15,-15,size322x221 gives content
+  bounds[-146,-125.5,176,95.5]. First OPTION_NAME_1(B2980BA8),objectBE8FA900,
+  at-131,-106; selected frame[-139,-116..141,-96] directly surrounds it.
+  Existing unconditional top+35/bottom-45 trimming excluded that first row.
+  All repeated profile tap records selected00000000 consequently cancel.
+  Confirmed B2980BA8..AF are Hash(OPTION_NAME_1..8), not unknown label names.
+- Rankings13:17:07.515 target21A4533C from21A45336 cancels13:17:07.815;
+  later transactions repeatedly cancel75ms after request, yet next tap sees
+  selection advanced one entry. Stable label positions remain, e.g target
+  at-277.5,65. Runtime selected label255/255/255/255 vs unselected72/230/167/255
+  confirms test10 FEColor interpretation and steady-state focus detection.
+  Inference: highlight color transition temporarily removes unique white
+  focus; SelectItem cancelled immediately on current==end. Missing focus is
+  now a bounded wait, rather than concluding the target disappeared. This
+  inference still needs the on-device multi-step result.
+- Rap Sheet main targetE6362290 andE6362292 transactions complete selected/no-A
+  in log; no further main-row issue reported. Preserve working scrolling.
+- Alias popup belongs to MC_Main_GC.fng rather than Dialog/InGameDialog.
+  Original guest82290910 uses table820627C0 containing BUTTON1..3 hashes
+  B8A7C6CC/CD/CE; associated label hashesF9363F30/FB8B67D1/FDE09072.
+ 82290C70 configures two buttons and selectsBUTTON1 for this type of memcard
+  prompt. Screenshot supports stacked wide buttons (~411guest units), beyond
+  old240width bound; actual live MC_Main dimensions not captured by log28.
+
+Changes/defaults:
+- Profile named content viewport is no longer inset. Prefer OPTION_NAME_i
+  rows when present, excluding unrelated header/footer strings; fallback
+  unnamed outer-panel trimming retained. First row/focus now included. Taps
+  still select only and require manual A; no direct save loading/callback.
+- Non-grid selection waits through absent current focus within existing2.8s/
+ 12move limit; Rap Sheet additionally requires two consecutive observations of
+  the same focus before advancing. Changed package/missing target/moved target
+  still cancel; no auto-A on arrival, events grid path unchanged. UI3s deadline
+  remains. Initial tap with no identifiable current focus still ignores safely.
+- ActiveDialog handles MC_Main_GC BUTTON1..3 in addition to original dialogs.
+  Choice image types1/9, width40..600,height12..60. Navigation direction derives
+  from live dominant displacement, so stacked choices sendUp/Down; existing
+  horizontal choices keepLeft/Right. Popup A only after requested highlight
+  observed twice past180ms;850ms popup bound unchanged. MC_Main cannot steal
+  taps while MC_List is present above it. Vertical swiping on memcard choice
+  buttons retained; ordinary horizontal-dialog drag policy unchanged.
+- Showcase small-motion pan floor0.95(previous0.8),saturates0.5pt(previous1).
+  Reversed direction/start0.5pt/pulse50ms/pinch unchanged. This strengthens small
+  movements only: full right-stick camera speed is already saturated and is
+  not raised. If a faster maximum is still wanted, investigate actual guest
+  camera response rather than pushing virtual axes outside[-1,1]. No new flag.
+
+Validation:
+- First `python3 tools/ios/test_menu_touch.py` exit1 at options transaction
+  assertion expecting second Down: requiring new two-observation gating on
+  every row unnecessarily altered established Options behavior. Gating scoped
+  to Rap Sheet; subsequent two runs exit0. Tests exercise actual source:
+  exact log28 viewport/first-row/frame and3-profile path with manual A;
+  Rankings missing-focus fades between multiple moves/arrival without A and
+  timeout; stacked wide Yes/No choice, Up/Down, verified highlight before A;
+  MC_List foreground precedence. Existing option/event/grid/popup tests pass.
+- `cmake --build --preset ios --target ipa -j 6` exit0, log
+  `/tmp/nfsmw-052-menu11-build.log`. ZIP.testzip=None, codesign --verify --deep
+  --strict exit0, dwarfdump --uuid exit0.104metallibs and2SDKdylibs identical
+  to test10. `git diff --check` exit0. No actual iPhone validation performed.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.5.2-test11-popup-profile-selection.ipa`,
+30185722bytes,SHA256 `c328f6dcdbaebf25739b1579e163d9ef17995a44032b16596ec0f9a0712afd6d`,
+UUID `A05B9FB0-96C2-3E84-B317-357567642887`,bundle0.5.1/build9.
+Exclusive-created byte/hash-verified Desktop copy at
+`/Users/bep1s/Desktop/NFSMW-0.5.2-test11-popup-profile-selection.ipa`;
+ignored JSON beside build, older IPAs retained. Next test alias No/Yes direct
+choice, first/other profile names then manual A, distant Rankings target taps
+both directions, small pan response. Actual MC_Main geometry/focus and animated
+Rankings continuation remain device-pending; preserve scope and existing menu
+regressions. No SDK/timing/profile changes, push/tag/release/version bump.
+Session changes committed locally; pre-existing13-line issue11 note unstaged,
+HANDOFF untracked and sibling SDK changes preserved.
+
+
+### November 1: test12 Blacklist rival list arrows and photo swipe
+
+Stefan: on the Blacklist rivals screen swipes do nothing, and the vertical
+arrows move the event-type icons instead of the rival list. Evidence: 31
+October `nfsmw_iphone_17pm_25_052_test8_menu_rows_previous.log` ui-tree of
+`InGameReputationOverview.fng` and IPA159 `ipa159_IMG_4069.png`. The arrow
+column is group 3AFDDFF6 at -264,-98 with sub-groups at y +13 / -13, each
+holding ARROW objects of width +32 / -32; the group's 90-degree rotation is not
+read by `FindHints`, so the mirror sign gave Left/Right. Event-type arrows are
+groups 3DF39A82 (0,148) and FCD5B255 (266,148). Photo is C1F62308 (512x512 at
+-116,-65 before clipping), visible about x -230..-30.
+
+Change (`game_scene_size.cpp`): `CorrectMenuHints(..., stacked_arrows)` for
+packages ending in `ReputationOverview.fng` turns same-texture Left/Right hints
+within 6 x and 15-60 y of each other into Up (upper) / Down (lower); single
+rows and glow copies (dy about 1) are untouched. `WidgetDragAt` returns
+VerticalDrag in {-285,-150,-25,180} on those packages (photo plus arrow column;
+title bar, info panel, event-type row and hints excluded). Host
+`tools/ios/test_menu_touch.py` covers both and passes. `cmake --build --preset
+ios --target ipa -j 6` (from `ios/`) exit 0; `unzip -tq` ok.
+Artifact `ios/build/NFSMW-0.5.2-test12-blacklist-scroll.ipa`, 30186507 bytes,
+SHA-256 b4f8c89e658cf18c77b42abc2b96b44cfad0541db8d92d822e227bd5842b819d, same
+bytes on Desktop. Not run on device. Limits: the swipe rectangle is fixed
+geometry from one screen; `InGameRivalBio` / `RivalChallenge` not changed.
+
+
+### November 1: 0.5.2 release, strict menu gestures by default
+
+Stefan: test12 works in safehouse and free roam; all 0.5.2 touch work and
+"keep music playing" validated on device; make the new controls the default.
+`ios_touch_menu_empty_accept` default true -> false in `touch_controls.mm` and
+the launcher's `touch_menu_empty_accept` default "true" -> "false". With it off,
+taps act only on recognised hints/rows/icons/popup choices and swipes start
+only in recognised scroll regions (WidgetDragAt / ModelDragAt / ScrollAt);
+on restores tap-empty-to-Accept and swipe-anywhere. Two-finger Back and invert
+unchanged (on / off). Version 0.5.2, code 10. `cmake --preset ios && cmake
+--build --preset ios --target ipa` exit 0; deep strict codesign ok; Info.plist
+0.5.2 / 10; `NFS-Most-Wanted-0.5.2.ipa` 30186591 bytes, SHA-256
+95acb5e31318fdae2237bad62b015fb0ae95484c494f3624babe2a5a70c74eeb.
+
+
+### November 1: 0.6.0 plan — merge trial and prototype debug menu
+
+No code changed, nothing merged, built or pushed. Branch state: `main` =
+v0.5.2 (b7ec126). `dev-0.5` (362e1a9): 10 commits not in `main`, 179 behind;
+base c531d5e. `multiplayer` (08b2a71, one record commit after preview18
+893738d; checked out in `/private/tmp/nfsmw-ios-multiplayer`): 39 ahead, 2
+behind, base 19177b6.
+
+Trial merges with `git merge-tree --write-tree` (no working tree touched):
+- `main` into `dev-0.5`: conflicts in CHANGELOG.md, docs/BACKLOG.md,
+  docs/DEVELOPMENT_PROGRESS.md, docs/TECHNICAL.md and ios/src/launcher.mm.
+  The launcher conflict is one block: `main` always passes
+  `--nfsmw_sim_rate=120` (0.4.3), `dev-0.5` adds the IPA104 Extra Options
+  arguments and chooses 60/120 from `sim_120_hz`. Resolution: keep the Extra
+  Options arguments and main's fixed 120. Docs: keep both sides.
+- `multiplayer` into `main`: docs only (BACKLOG, DEVELOPMENT_PROGRESS,
+  TECHNICAL); launcher.mm and CMakeLists.txt merge cleanly.
+- `multiplayer` into `dev-0.5` (before the main merge): adds ios/CMakeLists.txt
+  and launcher.mm conflicts (both sides add lines).
+
+Proposed order: (1) on `dev-0.5`, merge `main` (v0.5.2) and resolve as above,
+run `python3 tools/ios/patch_game_extra_options.py`, build; (2) merge
+`multiplayer` (08b2a71) into `dev-0.5`, resolve, build; Stefan tests on
+device. AGENTS.md/CLAUDE.md must stay untracked through both merges. The
+uncommitted issue 11 note in DEVELOPMENT_PROGRESS.md on `main` (not from this
+session) has to be committed or stashed before `dev-0.5` can be checked out.
+
+Prototype debug menu: the XEX (`NfsMWEuropeGerMilestone.exe`; the `.xex` next
+to it is a second copy, 4046848 bytes, not opened) is XEX2, encryption 1,
+compression 1 (basic); the session key decrypts with the devkit (zero) key,
+giving a 13828096-byte PE image (starts with MZ). `strings -n 5`: 47115
+lines; the menu labels follow `DebugMenuRender` / `rootMenu`. In the retail
+image (`ios/build/managed40-inspection-image.bin`, starts MZ) `grep -c -a`
+found 0 for "DebugMenuRender", "Careerulate", "Infinite NOS", "Save Hot
+Position", "Always Raining" and "Frame Rate Summary", and 1-2 for
+"UI_DebugCarCustomize", "DEBUGACTION_TOGGLEAI", "DebugWorldCameraMover" and
+"CM_DEBUG_WORLD". Inference: the menu was compiled out of retail, its
+underlying features partly remain. Proposal in BACKLOG, "0.6.0 roadmap".
+The PC modded copy folder contains only `.DS_Store`.
+

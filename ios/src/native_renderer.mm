@@ -70,7 +70,10 @@
 #include <rex/system/xmemory.h>
 
 #include "battery.h"
+#include "performance_profile.h"
 #include "native_renderer.h"
+#include "touch_controls.h"
+#include "metal_display_pacer.h"
 #include "memory_report.h"
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
@@ -98,6 +101,14 @@ extern std::atomic<void (*)()> rex_native_swap_hook;
 // address, query end, count out) -> handled.
 extern std::atomic<bool (*)(uint32_t, bool, uint64_t*)> rex_native_occlusion_hook;
 
+// Oct 28 diagnostic (D-005): a screen recording showed every other picture
+// repeated in ~1 s stretches while 60 new frames a second were swapped and
+// shown on time. Each frame copies a strip of the displayed picture and
+// compares it with the previous frame's; each repeat is logged with where
+// the picture came from.
+REXCVAR_DECLARE(std::string, nfsmw_performance_mode);  // adaptive_qos.cpp
+REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_log, false, "GPU",
+                    "Native renderer: log frames whose displayed picture repeats the previous one's");
 REXCVAR_DEFINE_BOOL(nfsmw_native_vfetch_cache, false, "GPU",
                     "Native renderer: cache vertex fetch layouts by the full runtime shader hash");
 REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
@@ -195,8 +206,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_metal_hud, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_bc_gpu_decode, true, "GPU",
                     "Native renderer: on GPUs without BC (DXT) formats, expand them on the GPU (off: on the CPU)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time, true, "GPU",
-                    "Native renderer: below the display rate, keep each frame on screen at least one cap interval "
-                    "(frame pacing at the 30/40/60 caps)");
+                    "Native renderer: scheduled presentation at 30 fps; 60 also requires "
+                    "nfsmw_native_present_at_time_60 (40 always presents when ready)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_present_at_time_60, false, "GPU",
+                    "Experiment: scheduled presentation at 60 fps (can cause 60/40 cycling; "
+                    "also requires nfsmw_native_present_at_time)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_pace, true, "GPU",
                     "Native renderer: the game waits for it rather than frames being dropped");
 // The draws from the emulated command processor (its own thread) instead of
@@ -404,7 +418,8 @@ float NativeResolutionScale() {
   if (read_at.load(std::memory_order_acquire) != generation) {
     const std::string setting = REXCVAR_GET(nfsmw_native_resolution_scale);
     native.store(setting == "native", std::memory_order_relaxed);
-    fixed.store(std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, 4.0f), std::memory_order_relaxed);
+    constexpr float maximum_scale = 4.0f;
+    fixed.store(std::clamp(float(std::strtod(setting.c_str(), nullptr)), 0.5f, maximum_scale), std::memory_order_relaxed);
     read_at.store(generation, std::memory_order_release);
   }
   const float s = native_screen_scale.load();
@@ -429,6 +444,10 @@ uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msa
 }
 
 extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y, nfsmw_mirror_shift_y;  // game_scene_size.cpp
+
+namespace nfsmw::adaptive_qos {
+void OnRendered(double ms);  // adaptive_qos.cpp: a frame encoded over the cap's budget
+}
 
 namespace {
 
@@ -1165,6 +1184,7 @@ struct Frame {
   std::vector<std::shared_ptr<const Texture>> textures;
   std::unordered_map<FetchKey, int, FetchKeyHash> texture_index;
   uint32_t skipped_inline = 0, skipped_shader = 0, skipped_other = 0;
+  bool movie_picture = false; // includes native movie shaders as well as fallback
   uint32_t movie_draws = 0;  // the video player's picture (no library for its shaders)
   uint32_t from_arguments = 0;  // DrawVertices rebuilt from their arguments
   std::set<uint32_t> unsupported_formats;
@@ -1215,6 +1235,18 @@ uint64_t frame_counter = 0;
 
 // Timing, logged every 300 native frames.
 std::atomic<uint64_t> record_ns{0}, render_us{0}, presented{0};
+std::atomic<double> recent_gpu_seconds{0};
+// Frame trace (Oct 28 diagnostic, 40 fps pacing): per frame, when the game's
+// swap reached the renderer (0), when the frame was handed to Metal (1), when
+// the GPU finished it (2) and when it was shown (3), in CACurrentMediaTime
+// seconds. Each 60 shown frames: the gaps between consecutive frames at each
+// stage, to see where the 16.7 / 25 / 33 ms cycle at the 40 cap starts.
+struct FrameTrace {
+  std::mutex m;
+  std::map<uint32_t, std::array<double, 5>> times;  // 4: the paced target
+};
+FrameTrace frame_trace;
+void TraceFrame(uint32_t number, int stage, double t);  // average GPU time per frame (paced presentation)
 // For the hitch log (the renderer's queue only): this frame's texture uploads.
 uint32_t frame_uploads = 0, frame_new_buffers = 0;
 uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
@@ -2431,6 +2463,7 @@ const CachedFetchLayout* FetchLayoutFor(const NfsmwNativeDraw& in, const std::ve
 }
 
 void Record(Frame& frame, const NfsmwNativeDraw& in) {
+  if (in.vs_key==0xacc15ef6157ec934ull || in.ps_key==0x2d2462de73d283deull) frame.movie_picture=true;
   const uint32_t* regs = in.regs;
   // Inline draws (DRAW_INDX_2: D3D's draws from user memory, e.g. the bloom
   // chain): their vertices are in the ring, behind a vertex fetch constant
@@ -3327,9 +3360,8 @@ class PipelineCache {
     const PipelineKey k = key;  // a copy: a block captures a reference as a reference
     static dispatch_queue_t warm_queue = dispatch_queue_create(
         "nfsmw.pipelines.warm", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
-    static dispatch_queue_t demand_queue = dispatch_queue_create(
-        "nfsmw.pipelines", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0));
-    dispatch_async(warm ? warm_queue : demand_queue, ^{
+    static dispatch_queue_t demand_queue = dispatch_queue_create("nfsmw.pipelines", DISPATCH_QUEUE_SERIAL);
+    dispatch_block_t compile = ^{
       NSError* error = nil;
       id<MTLRenderPipelineState> pso = nil;
       @try {
@@ -3339,7 +3371,10 @@ class PipelineCache {
       }
       std::lock_guard<std::mutex> lock(mutex_);
       done_.push_back({k, pso, warm, error ? error.localizedDescription.UTF8String : "exception"});
-    });
+    };
+    if (warm) dispatch_async(warm_queue, compile);
+    else dispatch_async(demand_queue, dispatch_block_create_with_qos_class(
+        DISPATCH_BLOCK_ENFORCE_QOS_CLASS, qos_class_t(nfsmw::performance::PipelineQos()), 0, compile));
   }
 
   void Finish(const PipelineKey& k, id<MTLRenderPipelineState> pso, bool warm, const char* error) {
@@ -4156,6 +4191,48 @@ int fps_overlay_w = 0, fps_overlay_h = 0;
 float fps_overlay_rect[4] = {};
 bool fps_overlay_changed = false;
 std::atomic<int> shown_drawable_width{0};
+// The touch controls' picture (nfsmw_native_set_touch_overlay): one texture,
+// updated where it changed (a knob moving redraws a small rectangle).
+std::mutex touch_overlay_mutex;
+std::vector<uint8_t> touch_overlay_pixels;
+int touch_overlay_w = 0, touch_overlay_h = 0;
+int touch_overlay_dirty[4] = {0, 0, 0, 0};  // x0, y0, x1, y1
+bool touch_overlay_changed = false;
+// The touch overlay: the texture as it is (premultiplied), blended over the
+// picture.
+id<MTLRenderPipelineState> OverlayPipeline(id<MTLDevice> device) {
+  static id<MTLRenderPipelineState> pso;
+  if (pso) {
+    return pso;
+  }
+  NSString* source = @"#include <metal_stdlib>\n"
+                      "using namespace metal;\n"
+                      "struct V { float4 p [[position]]; float2 uv; };\n"
+                      "vertex V vs(uint id [[vertex_id]]) {\n"
+                      "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                      "  V v; v.p = float4(uv * 2.0 - 1.0, 0.0, 1.0); v.uv = float2(uv.x, 1.0 - uv.y); return v; }\n"
+                      "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]]) {\n"
+                      "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+                      "  return t.sample(s, in.uv); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  if (!library) {
+    REXLOG_WARN("[native] touch overlay shader: {}", error.localizedDescription.UTF8String);
+    return nil;
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+  desc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+  desc.colorAttachments[0].blendingEnabled = YES;
+  desc.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
+  desc.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+  desc.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+  desc.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+  pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+  if (!pso) REXLOG_WARN("[native] touch overlay pipeline: {}", error.localizedDescription.UTF8String);
+  return pso;
+}
 id<MTLRenderPipelineState> PresentPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -4294,8 +4371,7 @@ size_t ConsolidateCubeTargets(std::vector<CubeTarget>& targets) {
 }
 
 bool NativeRenderUtility() {
-  static const bool enabled = REXCVAR_GET(nfsmw_native_render_utility);
-  return enabled;
+  return rex::cvar::Query<bool>("nfsmw_native_render_utility");
 }
 
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
@@ -4326,6 +4402,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                 std::chrono::steady_clock::now() - t0).count());
     }
   } render_timer{render_start};
+  nfsmw::metal_pacer::Frame display_frame(present ? present_layer : nil);
   gpu_pool.Reclaim(number);
   // This frame's pooled buffers and textures: retired when it ends.
   struct FrameResources {
@@ -4344,7 +4421,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
   frame_new_buffers = 0;
   frame_upload_bytes = 0;
   frame_upload_us = 0;
-  double drawable_wait_ms = 0;
+  double drawable_wait_ms = display_frame.wait_ms;
   @autoreleasepool {
     id<MTLDevice> device = store.device;
     static id<MTLCommandQueue> queue = [device newCommandQueue];
@@ -5110,6 +5187,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     }
     id<MTLTexture> final_texture = nil;
     CGRect final_rect = CGRectZero;
+    uint32_t final_dest = 0;      // the displayed resolve's guest address
+    uint32_t final_index = 0;     // and which resolve of the frame it was
+    uint32_t color_resolves = 0;
     int32_t final_guest_width = 0, final_guest_height = 0;  // the displayed resolve's size in guest pixels
     std::vector<std::string> diagnostics;
     if (dump) {  // textures read with an exp_adjust (values * 2^n)
@@ -5567,6 +5647,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         [resolved_textures addObject:dest];
         if (!ev.depth) {  // the frame's last colour resolve: what is displayed
+          final_dest = ev.dest_base;
+          final_index = resolves_done;
+          ++color_resolves;
           final_texture = dest;
           final_rect = CGRectMake(x0, y0, w, h);
           final_guest_width = std::max(ev.x1 - ev.x0, 0);
@@ -5925,6 +6008,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               rp.depthAttachment.loadAction == MTLLoadActionClear ? "clear" : "load", rp.depthAttachment.clearDepth));
         }
         enc = [cb renderCommandEncoderWithDescriptor:rp];
+        // A new encoder starts with no state. Its address does not say so:
+        // iOS 26 gives each new encoder the old one's address, the caches
+        // kept the old state and the pass drew without a pipeline (D-011).
+        state.enc = nil;
+        bias_encoder = nil;
+        visibility_encoder = nil;
         clip_mode_encoder = nil;  // a new encoder starts clipping
         clip_mode_clamp = false;
         // Everything the argument heaps point to, resident for this pass: one
@@ -6584,9 +6673,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLRenderPipelineState> present_pso = present ? PresentPipeline(device) : nil;
     if (present && layer && final_texture && present_pso) {
       const auto drawable_start = std::chrono::steady_clock::now();
-      id<CAMetalDrawable> drawable = [layer nextDrawable];
-      drawable_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drawable_start).count();
-      if (drawable) {
+      id<CAMetalDrawable> drawable = display_frame.managed ? display_frame.drawable : [layer nextDrawable];
+      drawable_wait_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drawable_start).count();
+      if (drawable && display_frame.Current()) {
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         rp.colorAttachments[0].texture = drawable.texture;
         rp.colorAttachments[0].loadAction = MTLLoadActionClear;
@@ -6844,6 +6933,65 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
+        // Repeated pictures (nfsmw_native_repeat_log): a strip across the
+        // middle of the displayed picture, compared when the GPU is done.
+        if (REXCVAR_GET(nfsmw_native_repeat_log) && final_texture && !dump) {
+          NSUInteger bpp = 0;
+          switch (final_texture.pixelFormat) {
+            case MTLPixelFormatBGRA8Unorm: case MTLPixelFormatRGBA8Unorm: case MTLPixelFormatBGRA8Unorm_sRGB:
+            case MTLPixelFormatRGBA8Unorm_sRGB: case MTLPixelFormatRGB10A2Unorm: case MTLPixelFormatBGR10A2Unorm:
+            case MTLPixelFormatRG11B10Float: case MTLPixelFormatRGB9E5Float:
+              bpp = 4;
+              break;
+            case MTLPixelFormatRGBA16Float: case MTLPixelFormatRGBA16Unorm:
+              bpp = 8;
+              break;
+            default:
+              break;
+          }
+          const NSUInteger sx = NSUInteger(final_rect.origin.x), sw_px = std::min<NSUInteger>(NSUInteger(final_rect.size.width), 1024);
+          const NSUInteger sy = NSUInteger(final_rect.origin.y + final_rect.size.height * 0.5);
+          if (bpp && sw_px > 0 && final_texture.storageMode != MTLStorageModeMemoryless &&
+              sy + 2 <= final_texture.height && sx + sw_px <= final_texture.width) {
+            id<MTLBuffer> strip = [device newBufferWithLength:sw_px * bpp * 2 options:MTLResourceStorageModeShared];
+            id<MTLBlitCommandEncoder> sb = [cb blitCommandEncoder];
+            [sb copyFromTexture:final_texture sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(sx, sy, 0)
+                     sourceSize:MTLSizeMake(sw_px, 2, 1) toBuffer:strip destinationOffset:0
+                destinationBytesPerRow:sw_px * bpp destinationBytesPerImage:sw_px * bpp * 2];
+            [sb endEncoding];
+            const uint32_t r_dest = final_dest, r_index = final_index, r_colors = color_resolves,
+                           r_kept = kept_used, r_drawn = drawn, r_draws = uint32_t(frame->draws.size()),
+                           r_number = number;
+            const NSUInteger r_w = NSUInteger(final_texture.width), r_h = NSUInteger(final_texture.height);
+            [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
+              static std::mutex m;
+              static std::vector<uint8_t> previous;
+              static uint32_t previous_dest = 0, frames = 0, repeats = 0;
+              static int lines = 200;
+              std::lock_guard<std::mutex> lock(m);
+              const auto* bytes = static_cast<const uint8_t*>(strip.contents);
+              const bool same = previous.size() == strip.length && std::memcmp(previous.data(), bytes, strip.length) == 0;
+              // Gameplay only: menus and pause screens repeat by design.
+              if (same && r_draws > 300) {
+                ++repeats;
+                if (lines-- > 0) {
+                  REXLOG_INFO("[native] repeat: frame {} shows the same picture as the one before: resolve {} of "
+                              "the frame (colour {} of {}) to {:08X}{} ({}x{}), {} of {} draws, {} resolves from "
+                              "earlier frames",
+                              r_number, r_index, r_colors, r_colors, r_dest,
+                              r_dest == previous_dest ? ", the same address as before" : ", another address",
+                              r_w, r_h, r_drawn, r_draws, r_kept);
+                }
+              }
+              if (++frames >= 300) {
+                REXLOG_INFO("[native] repeat: {} of the last 300 pictures repeated the one before", repeats);
+                frames = repeats = 0;
+              }
+              previous.assign(bytes, bytes + strip.length);
+              previous_dest = r_dest;
+            }];
+          }
+        }
         if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
           profile_pass(rp, "present: main display");
         id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
@@ -6864,6 +7012,55 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
         [e setFragmentTexture:shown_texture atIndex:0];
         [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        // The touch controls, over the whole drawable (the window's size).
+        {
+          static id<MTLTexture> touch;
+          {
+            std::lock_guard<std::mutex> lock(touch_overlay_mutex);
+            if (touch_overlay_changed) {
+              touch_overlay_changed = false;
+              if (touch_overlay_pixels.empty()) {
+                touch = nil;
+              } else {
+                if (!touch || touch.width != NSUInteger(touch_overlay_w) ||
+                    touch.height != NSUInteger(touch_overlay_h)) {
+                  MTLTextureDescriptor* td =
+                      [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                         width:NSUInteger(touch_overlay_w)
+                                                                        height:NSUInteger(touch_overlay_h)
+                                                                     mipmapped:NO];
+                  td.usage = MTLTextureUsageShaderRead;
+                  td.storageMode = MTLStorageModeShared;
+                  touch = [device newTextureWithDescriptor:td];
+                  touch_overlay_dirty[0] = touch_overlay_dirty[1] = 0;
+                  touch_overlay_dirty[2] = touch_overlay_w;
+                  touch_overlay_dirty[3] = touch_overlay_h;
+                }
+                const int* d = touch_overlay_dirty;
+                if (touch && d[2] > d[0] && d[3] > d[1]) {
+                  // Written while an earlier frame may still read it: at
+                  // worst a knob half-moved for one frame.
+                  [touch replaceRegion:MTLRegionMake2D(NSUInteger(d[0]), NSUInteger(d[1]), NSUInteger(d[2] - d[0]),
+                                                       NSUInteger(d[3] - d[1]))
+                           mipmapLevel:0
+                             withBytes:touch_overlay_pixels.data() + (size_t(d[1]) * size_t(touch_overlay_w) + size_t(d[0])) * 4
+                           bytesPerRow:NSUInteger(touch_overlay_w) * 4];
+                }
+                touch_overlay_dirty[0] = touch_overlay_dirty[1] = touch_overlay_dirty[2] = touch_overlay_dirty[3] = 0;
+              }
+            }
+          }
+          if (touch) {
+            if (id<MTLRenderPipelineState> overlay_pso = OverlayPipeline(device)) {
+              [e setViewport:(MTLViewport){0, 0, double(dw), double(dh), 0.0, 1.0}];
+              [e setScissorRect:(MTLScissorRect){0, 0, NSUInteger(dw), NSUInteger(dh)}];
+              [e setRenderPipelineState:overlay_pso];
+              [e setFragmentTexture:touch atIndex:0];
+              [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+              [e setRenderPipelineState:present_pso];
+            }
+          }
+        }
         // The FPS counter, over the picture, in its own small viewport.
         shown_drawable_width.store(int(drawable.texture.width), std::memory_order_relaxed);
         {
@@ -6957,12 +7154,42 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const double interval = cap > 0 ? 1.0 / double(cap) : 0.0;
         const double display_hz = double(UIScreen.mainScreen.maximumFramesPerSecond);
         static std::atomic<double> shown_at{0};  // the last frame really shown (presentedTime)
-        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && interval > 0 && shown_at.load() > 0 &&
-                           double(cap) < display_hz - 1.0;
+        // Watchdog (as SpeedBreaker v0.1.4's presenter.cpp,
+        // github.com/SpeedBreakerProject/speedbreaker, GPL-3.0): if the screen
+        // does not honour the target times (paced frames shown well before
+        // their time, or never shown), pacing is off for the session.
+        static std::atomic<bool> pacing_broken{false};
+        // Not at the 40 cap (0.4.2): there iOS showed two frames in three a
+        // refresh after the time asked, whatever the time (frame traces
+        // IPA127-131: shown 33 / 25 / 17 ms apart in turn); shown when ready,
+        // the frames (finished every 25 +- 2 ms) came out an even 25 ms apart
+        // with a few 29 / 21 pairs (Oct 28, log nfsmw_ipa131_no_present_at_time).
+        // D-014: scheduled presentation caused 60/~40 cycling on iPhone 14
+        // Pro Max, including Max QoS. Present when ready at 60 by default;
+        // retain the tested 30 path and an explicit 60 opt-in for diagnosis.
+        const bool schedule_cap = cap == 30 || (cap == 60 && REXCVAR_GET(nfsmw_native_present_at_time_60));
+        const bool paced = REXCVAR_GET(nfsmw_native_present_at_time) && !pacing_broken.load() && interval > 0 &&
+                           shown_at.load() > 0 && double(cap) < display_hz - 1.0 && schedule_cap;
+        __block double frame_target = 0;  // set below when legacy pacing is used
+        const double system_target = display_frame.managed ? display_frame.presentation_time : 0;
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
+          if (system_target > 0) nfsmw::metal_pacer::Presented(system_target, shown.presentedTime);
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
           const double at = shown.presentedTime;
+          if (frame_target > 0) {
+            static std::atomic<uint32_t> paced_count{0}, bad{0};
+            if (at <= 0 || at < frame_target - 0.004) ++bad;
+            if (++paced_count % 300 == 0) {
+              const uint32_t n = bad.exchange(0);
+              if (n > 60 && !pacing_broken.exchange(true)) {
+                REXLOG_WARN("[native] pacing off for this session: {} of 300 paced frames shown early "
+                            "or never",
+                            n);
+              }
+            }
+          }
+          TraceFrame(number, 3, at);
           if (at <= 0) return;  // dropped, not shown
           const double before = last_shown.exchange(at);
           shown_at = at;
@@ -7009,20 +7236,46 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           }
         }];
         static double last_target = 0;
-        if (paced) {
-          // The first refresh of the grid from now on, and never the same
-          // refresh as the frame before (which may not be shown yet).
+        TraceFrame(number, 1, CACurrentMediaTime());
+        if (display_frame.managed) {
+          // CAMetalDisplayLink forbids atTime/afterMinimumDuration (assert).
+          // The plain command-buffer convenience method calls drawable.present
+          // only after Metal schedules this buffer, preserving GPU dependencies.
+          // The display link owns timing; its estimate is diagnostic only.
+          if (display_frame.Current()) {
+            TraceFrame(number, 4, system_target);
+            [cb presentDrawable:drawable];
+            const double deadline = display_frame.present_deadline;
+            [cb addScheduledHandler:^(id<MTLCommandBuffer>) {
+              nfsmw::metal_pacer::Scheduled(deadline);
+            }];
+            ++presented;
+          }
+        } else if (paced) {
+          // A fixed grid (0.4.2): each frame takes the first slot after the
+          // previous frame's that it can make, i.e. at least its GPU time
+          // (recent average) plus 4 ms from now. The grid used to restart from
+          // the last frame actually shown, and frames finishing around that
+          // time were shown 16.7 / 25 / 33 ms apart at the 40 cap (Oct 28 logs:
+          // ~200 of 300 off the grid); a frame that cannot make its slot now
+          // shifts the grid by whole slots and keeps it.
           const double now = CACurrentMediaTime(), base = shown_at.load();
-          double target = base + std::ceil((now - base) / interval) * interval;
-          if (last_target + interval > target && last_target + interval < now + 2.0 * interval) {
+          const double ready = now + recent_gpu_seconds.load(std::memory_order_relaxed) + 0.004;
+          double target;
+          if (last_target > 0 && last_target > now - 4.0 * interval && last_target < now + 4.0 * interval) {
             target = last_target + interval;
+            while (target < ready) target += interval;
+          } else {
+            target = base + std::ceil((ready - base) / interval) * interval;  // (re)start from the screen
           }
           last_target = target;
+          TraceFrame(number, 4, target);
+          frame_target = target - 0.002;
           [cb presentDrawable:drawable atTime:target - 0.002];
         } else {
           [cb presentDrawable:drawable];
         }
-        ++presented;
+        if (!display_frame.managed) ++presented;
       }
     }
     // Without PNGs nothing waits for the GPU: the next frame is encoded while
@@ -7038,6 +7291,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const size_t drawn_count = drawn;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
         (void)in_use;
+        TraceFrame(number, 2, done.GPUEndTime);
         if (done.error) {
           REXLOG_WARN("[native] GPU error: {}", done.error.localizedDescription.UTF8String);
         } else {
@@ -7064,6 +7318,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
           if (gpu_ms > 45.0) ++gpu_slow_frames;
+          {  // the recent GPU time, for the paced frames' slots
+            const double was = recent_gpu_seconds.load(std::memory_order_relaxed);
+            const double now_s = std::min(gpu_ms, 50.0) / 1000.0;
+            recent_gpu_seconds.store(was > 0 ? was + (now_s - was) * 0.1 : now_s, std::memory_order_relaxed);
+          }
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
             REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms on the GPU ({} draws, {} texture uploads, "
@@ -7154,6 +7413,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     capture.Finish();
     {
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
+      if (!dump) ::nfsmw::adaptive_qos::OnRendered(ms - drawable_wait_ms);
       if (!dump && ms > 30.0 && hitch_lines_left.fetch_sub(1) > 0) {
         REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms to encode: {} texture uploads ({} KiB, {:.1f} ms), "
                     "waiting for a drawable {:.1f} ms",
@@ -7665,6 +7925,8 @@ void EnsurePresentLayer() {
     }
     [view setNeedsLayout];
     [view layoutIfNeeded];
+    // Establish acquisition ownership before the render queue can see it.
+    nfsmw::metal_pacer::Attach(layer);
     present_layer = layer;
     present_view = view;
     WatchExternalScreens(device);
@@ -7836,6 +8098,130 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_frame_timing_log, false, "GPU",
                     "Native renderer: log swap-period spread and repeated pictures every 300 frames");
 uint64_t content_sum = 0;  // repeated pictures (IPA92), see NativeDraw
 uint32_t content_draws = 0;
+
+// Camera motion (Oct 28 diagnostic, D-005): every frame new and on time, yet
+// the motion feels uneven, also at 30 fps and only in parts of a donut. The
+// frame's most common c0-c3 among its draws is taken as the camera's
+// view-projection (static world draws share it); its "w" row (or column) is
+// the camera's forward axis. Per frame: the angle it turned. Every 60 frames
+// of 3D scene: the mean, the spread, frames off their neighbours by over 25%,
+// and the 60 values. Cvar nfsmw_native_camera_log.
+REXCVAR_DEFINE_BOOL(nfsmw_native_frame_trace, false, "GPU",
+                    "Native renderer: log each frame's swap, hand-over, GPU end and shown times (diagnostic)");
+void TraceFrame(uint32_t number, int stage, double t) {
+  if (!REXCVAR_GET(nfsmw_native_frame_trace)) return;
+  std::lock_guard<std::mutex> lock(frame_trace.m);
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[frame-trace] on: per-frame swap / hand-over / GPU end / shown times");
+  }
+  auto& times = frame_trace.times;
+  times[number][size_t(stage)] = t;
+  if (stage != 3) return;
+  // Shown (or dropped, t <= 0): complete. Every 60 complete frames, the gaps.
+  static std::vector<std::array<double, 5>> done;
+  done.push_back(times[number]);
+  times.erase(times.begin(), times.upper_bound(number));
+  if (done.size() < 61) return;
+  static int lines = 800;  // retain later heavy-load stages of diagnostic runs
+  if (lines > 0) {
+    static const char* names[4] = {"swap", "handed", "gpu end", "shown"};
+    for (int k = 0; k < 4; ++k) {
+      std::string text;
+      for (size_t i = 1; i < done.size(); ++i) {
+        const double a = done[i - 1][size_t(k)], b = done[i][size_t(k)];
+        text += a > 0 && b > 0 ? fmt::format(" {:.1f}", (b - a) * 1000.0) : std::string(" -");
+      }
+      REXLOG_INFO("[frame-trace] {} gaps (ms):{}", names[k], text);
+      --lines;
+    }
+    std::string latency;
+    for (size_t i = 1; i < done.size(); ++i) {
+      const auto& f = done[i];
+      latency += f[0] > 0 && f[3] > 0 ? fmt::format(" {:.1f}/{:.1f}/{:.1f}", (f[1] - f[0]) * 1000.0,
+                                                    (f[2] - f[1]) * 1000.0, (f[3] - f[2]) * 1000.0)
+                                      : std::string(" -");
+    }
+    REXLOG_INFO("[frame-trace] per frame swap->handed / ->gpu end / ->shown (ms):{}", latency);
+    std::string vs_target;
+    for (size_t i = 1; i < done.size(); ++i) {
+      const auto& f = done[i];
+      vs_target += f[4] > 0 && f[3] > 0 ? fmt::format(" {:+.1f}/{:.1f}", (f[3] - f[4]) * 1000.0,
+                                                      (f[4] - f[1]) * 1000.0)
+                                        : std::string(" -");
+    }
+    REXLOG_INFO("[frame-trace] per frame shown minus target / target minus handed (ms):{}", vs_target);
+    --lines;
+  }
+  done.erase(done.begin(), done.end() - 1);
+}
+REXCVAR_DEFINE_BOOL(nfsmw_native_camera_log, false, "GPU",
+                    "Native renderer: log how much the game's camera turns each frame (diagnostic)");
+struct CameraVote {
+  uint32_t count = 0;
+  float m[16] = {};
+};
+std::unordered_map<uint64_t, CameraVote> camera_votes;
+uint32_t camera_draws = 0;
+void CameraOnSwap() {
+  static bool have = false, use_row = true;
+  static float prev[3] = {};
+  static std::vector<float> turns;
+  static int lines = 600;
+  const uint32_t draws = camera_draws;
+  camera_draws = 0;
+  if (camera_votes.empty() || draws < 300) {
+    camera_votes.clear();
+    have = false;
+    turns.clear();
+    return;
+  }
+  const CameraVote* best = nullptr;
+  for (const auto& [k, v] : camera_votes) {
+    if (!best || v.count > best->count) best = &v;
+  }
+  const float* m = best->m;
+  // The forward axis: row 3 (c3.xyz) or column 3 (c0.w, c1.w, c2.w); the one
+  // of length ~1 (a rotation's row) when only one is.
+  float row[3] = {m[12], m[13], m[14]}, col[3] = {m[3], m[7], m[11]};
+  auto len = [](const float* v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); };
+  const float lr = len(row), lc = len(col);
+  const bool row_ok = lr > 0.8f && lr < 1.2f, col_ok = lc > 0.8f && lc < 1.2f;
+  if (row_ok != col_ok) use_row = row_ok;
+  float f[3];
+  const float* src = use_row ? row : col;
+  const float l = use_row ? lr : lc;
+  camera_votes.clear();
+  if (!(l > 1e-6f)) return;
+  for (int i = 0; i < 3; ++i) f[i] = src[i] / l;
+  if (have) {
+    const float dot = std::clamp(f[0] * prev[0] + f[1] * prev[1] + f[2] * prev[2], -1.0f, 1.0f);
+    turns.push_back(std::acos(dot) * 57.29578f);
+  }
+  std::copy(f, f + 3, prev);
+  have = true;
+  if (turns.size() < 60) return;
+  double sum = 0, sq = 0;
+  for (float t : turns) sum += t, sq += double(t) * t;
+  const double mean = sum / turns.size(), sd = std::sqrt(std::max(0.0, sq / turns.size() - mean * mean));
+  int off = 0;
+  std::string values;
+  for (size_t i = 0; i < turns.size(); ++i) {
+    if (i > 0 && i + 1 < turns.size()) {
+      const double around = (turns[i - 1] + turns[i + 1]) * 0.5;
+      if (around > 0.05 && std::fabs(turns[i] - around) > 0.25 * around) ++off;
+    }
+    values += fmt::format(" {:.2f}", turns[i]);
+  }
+  if (mean > 0.05 && lines-- > 0) {
+    REXLOG_INFO("[camera] 60 frames: turn {:.2f} deg/frame, spread {:.0f}%, {} off their neighbours by over 25% "
+                "({} axis, {} draws) |{}",
+                mean, mean > 0 ? 100.0 * sd / mean : 0.0, off, use_row ? "row" : "column", draws,
+                values);
+  }
+  turns.clear();
+}
 bool NativeSwap() {
   // Resolves the renderer wrote back to guest memory: its copies stay valid.
   {
@@ -7856,6 +8242,7 @@ bool NativeSwap() {
   const auto swap_start = std::chrono::steady_clock::now();
   const double swap_interval_ms = std::chrono::duration<double, std::milli>(swap_start - last_swap).count();
   ::nfsmw::adaptive_qos::OnSwap(swap_interval_ms);
+  if (REXCVAR_GET(nfsmw_native_camera_log)) CameraOnSwap();
   if (REXCVAR_GET(nfsmw_native_frame_timing_log)) {
     static uint64_t previous_sum = 0;
     static uint32_t frames = 0, repeats = 0, runs = 0, longest = 0, run = 0;
@@ -7939,6 +8326,7 @@ bool NativeSwap() {
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);
+    nfsmw::touch::SetMoviePlaying(frame->movie_picture);
     previous_motion_constants.swap(frame->motion_constants);
     frame->motion_constants.clear();
     if (frame->movie_draws) {
@@ -7956,28 +8344,16 @@ bool NativeSwap() {
     } else {
       ++in_flight;
       const uint32_t number = ++dump_number;
+      TraceFrame(number, 0, CACurrentMediaTime());
       const bool dump = recording_dumps;
-      static dispatch_queue_t queue = [] {
-        const bool utility = NativeRenderUtility();
-        // An explicit queue QoS takes precedence over the normal submitting
-        // thread's inherited QoS for dispatch_async. Keep the legacy attributes
-        // exactly when the experiment is off; no thread priorities are changed.
-        dispatch_queue_attr_t attributes = utility
-            ? dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0)
-            : DISPATCH_QUEUE_SERIAL;
-        dispatch_queue_t created = dispatch_queue_create("nfsmw.native", attributes);
-        REXLOG_INFO("[native] render queue: {} QoS; serial frame ordering unchanged (restart to change)",
-                    utility ? "utility" : "legacy unspecified");
-        return created;
-      }();
+      static dispatch_queue_t queue = dispatch_queue_create("nfsmw.native", DISPATCH_QUEUE_SERIAL);
       __block Frame* raw = frame.release();
       dispatch_block_t render = ^{
         RenderFrame(std::unique_ptr<Frame>(raw), number, present, dump);
       };
-      // Adaptive QoS boosted: above the queue's Utility for this frame.
-      if (const qos_class_t boost = ::nfsmw::adaptive_qos::WorkersRaised(); boost != QOS_CLASS_UNSPECIFIED) {
-        render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, boost, 0, render);
-      }
+      // Apply the current policy per block, without replacing/reordering the queue.
+      render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS,
+          qos_class_t(nfsmw::performance::RenderQos()), 0, render);
       dispatch_async(queue, render);
     }
   }
@@ -8051,6 +8427,13 @@ void NativeDraw(const NfsmwNativeDraw* draw) {
     for (uint32_t i = 0; i < 64; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
     content_sum += h;
     ++content_draws;
+  }
+  if (REXCVAR_GET(nfsmw_native_camera_log)) {
+    uint64_t h = 1469598103934665603ull;
+    for (uint32_t i = 0; i < 16; ++i) h = (h ^ draw->regs[kAluBase + i]) * 1099511628211ull;
+    CameraVote& v = camera_votes[h];
+    if (v.count++ == 0) std::memcpy(v.m, draw->regs + kAluBase, sizeof(v.m));
+    ++camera_draws;
   }
   // Timed: one draw in eight (counted eight times). Reading the clock five
   // times for every draw cost ~1 ms per frame on its own.
@@ -8164,6 +8547,35 @@ extern "C" void nfsmw_native_set_fps_overlay(const uint8_t* bgra, int w, int h, 
     fps_overlay_pixels.clear();
   }
   fps_overlay_changed = true;
+}
+
+extern "C" void nfsmw_native_set_touch_overlay(const uint8_t* bgra, int w, int h, int x, int y, int dw, int dh) {
+  std::lock_guard<std::mutex> lock(touch_overlay_mutex);
+  touch_overlay_changed = true;
+  if (!bgra || w <= 0 || h <= 0) {
+    touch_overlay_pixels.clear();
+    touch_overlay_w = touch_overlay_h = 0;
+    return;
+  }
+  if (w != touch_overlay_w || h != touch_overlay_h) {
+    touch_overlay_pixels.assign(size_t(w) * size_t(h) * 4, 0);
+    touch_overlay_w = w;
+    touch_overlay_h = h;
+    x = 0, y = 0, dw = w, dh = h;
+  }
+  const int x0 = std::clamp(x, 0, w), y0 = std::clamp(y, 0, h);
+  const int x1 = std::clamp(x + dw, 0, w), y1 = std::clamp(y + dh, 0, h);
+  if (x1 <= x0 || y1 <= y0) return;
+  for (int row = y0; row < y1; ++row) {
+    const size_t at = (size_t(row) * size_t(w) + size_t(x0)) * 4;
+    std::memcpy(touch_overlay_pixels.data() + at, bgra + at, size_t(x1 - x0) * 4);
+  }
+  int* d = touch_overlay_dirty;
+  if (d[2] <= d[0] || d[3] <= d[1]) {
+    d[0] = x0, d[1] = y0, d[2] = x1, d[3] = y1;
+  } else {
+    d[0] = std::min(d[0], x0), d[1] = std::min(d[1], y0), d[2] = std::max(d[2], x1), d[3] = std::max(d[3], y1);
+  }
 }
 
 extern "C" int nfsmw_native_drawable_width() {

@@ -1,8 +1,9 @@
 // NFSMW Recompiled - frame rate and resolution by the game's state and the
 // phone's heat (iOS)
 //
-// The two caps are at the chosen 60 fps cap only (40 and 120 change the
-// console's screen refresh, which is not switched while playing):
+// The two caps are at the chosen 40 and 60 fps caps (0.4.2: 40 too; its 30
+// counts 4 of the 120 Hz guest vblanks, patch_ios_cap_30_at_120.py; 120 is
+// left alone):
 //   - 30 fps while Low Power Mode is on or the phone is warm (thermal state
 //     fair or above), 60 again once it is off and the phone is cool
 //     (nominal): cvar nfsmw_battery_auto_cap;
@@ -35,10 +36,10 @@
 #include "memory_report.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_battery_auto_cap, false, "Battery",
-                    "At the 60 fps cap: 30 while Low Power Mode is on or the phone is warm (thermal state "
-                    "fair or above), 60 again once it is off and cool");
+                    "At the 40 and 60 fps caps: 30 while Low Power Mode is on or the phone is warm "
+                    "(thermal state fair or above), back once it is off and cool");
 REXCVAR_DEFINE_BOOL(nfsmw_menu_cap, false, "Battery",
-                    "At the 60 fps cap: 30 in menus and pause screens, 60 while driving");
+                    "At the 40 and 60 fps caps: 30 in menus and pause screens, back while driving");
 REXCVAR_DEFINE_BOOL(nfsmw_heat_scale, false, "Battery",
                     "Native renderer: 0.75x render resolution while the phone is hot (thermal state serious), "
                     "the chosen one again once it is back to fair");
@@ -55,8 +56,8 @@ std::atomic<int> in_menu{-1};
 std::atomic<float> heat_scale{0.0f};
 
 std::mutex cap_mutex;
-bool controlled = false;  // the launcher's cap is 30 or 60 (40 and 120 are left alone)
-int chosen = 60;          // the cap chosen (launcher, in-game menu): 30 or 60
+bool controlled = false;  // supported caps 30/40/60/120; auto reductions only at 40/60
+int chosen = 60;          // chosen cap (launcher or in-game): 30/40/60/120
 bool warm = false;        // Low Power Mode, or thermal state fair and above (with the way back at nominal)
 bool menu = false;
 int cap = 60;
@@ -66,17 +67,17 @@ void UpdateCap(const char* why) {
   if (!controlled) return;
   const bool auto_cap = REXCVAR_GET(nfsmw_battery_auto_cap) && warm;
   const bool menu_cap = REXCVAR_GET(nfsmw_menu_cap) && menu;
-  const int want = chosen == 60 && (auto_cap || menu_cap) ? 30 : chosen;
+  const int want = (chosen == 60 || chosen == 40) && (auto_cap || menu_cap) ? 30 : chosen;
   if (want == cap) return;
   cap = want;
   rex::cvar::SetFlagByName("ios_fps_cap", std::to_string(cap));
   REXLOG_INFO("[battery] cap {} fps: {}", cap, why);
-  if (nfsmw::display::MatchesCap()) {
-    const int now = cap;
-    dispatch_async(dispatch_get_main_queue(), ^{
-      nfsmw::display::RequestRateForCap(now);
-    });
-  }
+  const int now = cap;
+  // All live cap changes update the display, including the 40 fps owner.
+  if (NSThread.isMainThread) nfsmw::display::RequestRateForCap(now);
+  else dispatch_async(dispatch_get_main_queue(), ^{
+    nfsmw::display::RequestRateForCap(now);
+  });
 }
 
 }  // namespace
@@ -91,7 +92,7 @@ void SetInMenu(bool now) {
 
 void ChooseCap(int fps) {
   std::lock_guard<std::mutex> lock(cap_mutex);
-  if (!controlled || (fps != 30 && fps != 60)) return;
+  if (!controlled || (fps != 30 && fps != 40 && fps != 60 && fps != 120)) return;
   chosen = fps;
   UpdateCap("chosen in the options");
 }
@@ -111,12 +112,14 @@ void Start() {
   {
     std::lock_guard<std::mutex> lock(cap_mutex);
     const std::string launched = rex::cvar::GetFlagByName("ios_fps_cap");
-    controlled = launched == "60" || launched == "30";
-    chosen = cap = launched == "30" ? 30 : 60;
+    // All supported caps can be changed live. The SDK worker follows group
+    // transitions; menu/thermal reductions retain their existing 40/60 scope.
+    controlled = launched == "60" || launched == "30" || launched == "40" || launched == "120";
+    chosen = cap = launched == "30" ? 30 : launched == "40" ? 40 : launched == "120" ? 120 : 60;
   }
   REXLOG_INFO("[battery] 30 fps when warm {}, 30 fps in menus {}, 0.75x when hot {}{}",
               auto_cap ? "on" : "off", REXCVAR_GET(nfsmw_menu_cap) ? "on" : "off", hot_scale ? "on" : "off",
-              controlled ? "" : " (the caps only at the 60 fps cap)");
+              controlled ? "" : " (the caps only at the 40 and 60 fps caps)");
   // Always watching, as the in-game options can turn either on; each is
   // read every 2 s.
   std::thread([] {

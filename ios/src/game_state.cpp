@@ -41,10 +41,15 @@
 #include <rex/logging.h>
 
 #include "battery.h"
+#include "touch_controls.h"
 
 extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284D70(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
+
+namespace nfsmw::adaptive_qos {
+void SetDriving(bool on);  // adaptive_qos.cpp
+}
 
 namespace {
 
@@ -65,6 +70,11 @@ const char* const kMenuPackages[] = {
     "GameWon.fng",             "WorldMapMain.fng",           "EngageEventDialog.fng",
     "ControllerUnplugged.fng", "Loading.fng",                "WS_Loading.fng",
     "SixDaysLater.fng",
+    // The SMS screens (IPA159, Stefan: the DRIVE controls stayed over them).
+    "SMS_Message.fng",         "SMS_MailBoxes.fng",          "SMS_Mailboxes.fng",
+    // The race's end photo with Continue / Race Stats / Restart (D-013, Stefan:
+    // the DRIVE controls stayed over it). Last: other menus are found first.
+    "InGamePhotoMaster.fng",
 };
 constexpr int kMenuCount = int(sizeof(kMenuPackages) / sizeof(kMenuPackages[0]));
 
@@ -137,8 +147,13 @@ int PushedPackage(PPCContext& ctx, uint8_t* base, const char* const* packages, i
 
 }  // namespace
 
-extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package);     // game_scene_size.cpp
-extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_fade(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_backdrop(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
+extern "C" void nfsmw_hud_fit_overlay(uint8_t* base, uint32_t package, bool driving);  // game_scene_size.cpp
+extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // game_scene_size.cpp
+extern "C" void nfsmw_hud_full_size(bool on);
+extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y, int serial);
+extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y);
 
 namespace {
 bool fade_up = false;
@@ -151,20 +166,79 @@ extern "C" REX_FUNC(sub_823B4158) {
   const uint32_t state = REX_LOAD_U32(kGameFlowState);
   const int menu = state == kRacing ? PushedPackage(ctx, base, kMenuPackages, kMenuCount) : -1;
   const int fade = state == kRacing && menu < 0 ? PushedPackage(ctx, base, kFadePackages, kFadeCount) : -1;
-  if (state == kRacing && menu < 0) {
-    // Every fade up, its black screen drawn full size whatever the HUD's size
-    // (IPA82: the first one only, FadeScreen.fng, which stays pushed).
+  // Every fade up drawn at full size and the screen's width whatever the
+  // HUD's size and the title-safe area (IPA82: the first fade only,
+  // FadeScreen.fng, which stays pushed; IPA144: every state, under menus
+  // too).
+  {
     bool any = false;
     for (int i = 0; i < kFadeCount; ++i) {
       if (PushedPackage(ctx, base, &kFadePackages[i], 1) >= 0) {
-        nfsmw_hud_fit_fade(base, FindPackage(ctx, base, kFadePackages[i]));
+        nfsmw_hud_fit_fade(base, FindPackage(ctx, base, kFadePackages[i]), state == kRacing && menu < 0);
         any = true;
       }
     }
-    if (!any) nfsmw_hud_fit_fade(base, 0);
-    // The song's name, kept at the HUD's safe zone.
-    static const char* const kTrax[] = {"EA_Trax.fng"};
-    if (PushedPackage(ctx, base, kTrax, 1) >= 0) nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, kTrax[0]));
+    if (!any) nfsmw_hud_fit_fade(base, 0, false);
+    // The post-race picture and the pause menu's backdrop (IPA146).
+    static const char* const kBackdrop[] = {"InGameBackground.fng"};
+    if (PushedPackage(ctx, base, kBackdrop, 1) >= 0) {
+      nfsmw_hud_fit_backdrop(base, FindPackage(ctx, base, kBackdrop[0]), state == kRacing && menu < 0);
+    }
+  }
+  if (state == kRacing) {
+    // The song's name and the autosave icon (IPA139), kept at the HUD's
+    // safe zone; under menus too (IPA146).
+    static const char* const kOverlays[] = {"EA_Trax.fng", "Autosave_Overlay.fng"};
+    for (const char* overlay : kOverlays) {
+      if (PushedPackage(ctx, base, &overlay, 1) >= 0) {
+        nfsmw_hud_fit_overlay(base, FindPackage(ctx, base, overlay), menu < 0);
+      }
+    }
+  }
+  // The TV-style overlays of a bust and of a race's end (IPA139), drawn at
+  // full size while they are up.
+  {
+    static const char* const kFullSize[] = {"BUSTED_OVERLAY.fng", "InGamePhotoMaster.fng"};
+    // The photo is a menu itself now (D-013): still drawn full size when it
+    // is the only one up.
+    const bool photo_only = menu == kMenuCount - 1;
+    nfsmw_hud_full_size(state == kRacing && (menu < 0 || photo_only) && PushedPackage(ctx, base, kFullSize, 2) >= 0);
+  }
+  // A tap in a menu: the button hint under it, if any.
+  {
+    int serial;
+    float x, y;
+    if (nfsmw::touch::TakeMenuScroll(serial,x,y)) {
+      const uint32_t feng=REX_LOAD_U32(kFeng);
+      nfsmw::touch::MenuScrollResult(serial,nfsmw_menu_scroll_at(base,feng?REX_LOAD_U32(feng):0,x,y));
+    }
+    if (nfsmw::touch::TakeMenuTap(serial, x, y)) {
+      const uint32_t feng = REX_LOAD_U32(kFeng);
+      nfsmw::touch::MenuTapResult(serial, nfsmw_menu_hint_at(base, feng ? REX_LOAD_U32(feng) : 0, x, y, serial));
+    }
+  }
+  // The world map: swipes move its cursor (the right stick).
+  {
+    static const char* const kShowcase[] = {"Showcase.fng"};
+    nfsmw::touch::SetShowcaseUp(PushedPackage(ctx,base,kShowcase,1)>=0);
+    static const char* const kMap[] = {"WorldMapMain.fng"};
+    nfsmw::touch::SetMapUp(state == kRacing && PushedPackage(ctx, base, kMap, 1) >= 0);
+  }
+  // A drag race's HUD: the touch controls' DRAG layout.
+  {
+    static const char* const kDrag[] = {"HUD_Drag.fng"};
+    const bool drag = state == kRacing && PushedPackage(ctx, base, kDrag, 1) >= 0;
+    static bool was = false;
+    if (drag != was) {
+      was = drag;
+      REXLOG_INFO("[game] drag race HUD {}", drag ? "up" : "gone");
+    }
+    nfsmw::touch::SetDragRace(drag);
+  }
+  // Every screen up in the world logged, with its pieces (D-006).
+  if (state == kRacing) {
+    const uint32_t feng = REX_LOAD_U32(kFeng);
+    nfsmw_ui_log(base, feng ? REX_LOAD_U32(feng) : 0);
   }
   // Under a menu the fades are not asked about: kept as they were.
   if ((menu < 0 || state != kRacing) && (fade >= 0) != fade_up) {
@@ -192,4 +266,5 @@ extern "C" REX_FUNC(sub_823B4158) {
   last_state = state;
   last_menu = menu;
   nfsmw::battery::SetInMenu(!driving);
+  nfsmw::adaptive_qos::SetDriving(driving);
 }

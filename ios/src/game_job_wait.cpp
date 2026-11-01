@@ -31,6 +31,8 @@
 // the caller is left to the original.
 
 #include <cstdint>
+#include <chrono>
+#include <rex/logging.h>
 
 #include "nfsmw_pch.h"
 
@@ -61,7 +63,17 @@ extern "C" REX_FUNC(sub_8261D610) {
   REX_STORE_U32(frame, caller_sp);
   ctx.r1.u32 = frame;
   const uint32_t lock = worker + 156, done = worker + 200;
+  const uint32_t wait_caller=uint32_t(ctx.lr);
+  const auto began=std::chrono::steady_clock::now();
+  auto next_report=began+std::chrono::seconds(1);
   while (REX_LOAD_U32(job + 4) == 0) {
+    const auto now=std::chrono::steady_clock::now();
+    if (now>=next_report) {
+      REXLOG_WARN("[job-wait] job {:08X} result {} worker {:08X} caller {:08X}: waiting {} ms; retrying without forcing completion",
+          job,REX_LOAD_U32(job+4),worker,wait_caller,
+          std::chrono::duration_cast<std::chrono::milliseconds>(now-began).count());
+      next_report=now+std::chrono::seconds(5);
+    }
     ctx.r3.u64 = lock;
     ctx.r4.u64 = kLockTimeout;
     ctx.lr = 0x8261D674;
