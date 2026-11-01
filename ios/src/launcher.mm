@@ -8,8 +8,6 @@
 //   - The native engine's options (render resolution, fps limit, shadows,
 //     reflections, filters, AAudio): that engine is not part of the iOS port.
 //   - App language: the iOS app is English only.
-//   - The gamertag: with a custom one the game asked to sign in to Xbox Live,
-//     and saying yes froze it. The SDK's default profile stays.
 //   - Tilt steering and the touch layout editor: tilt only acts while driving,
 //     and only the native engine can tell when that is (on Android's Xenos
 //     engine it never turns on); both come later.
@@ -33,6 +31,11 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "multiplayer/lan_session.h"
+#include "multiplayer/lan_setup.h"
+#include "multiplayer/servidor_ea.h"
+#include "multiplayer/pc_gateway.h"
+#include "multiplayer/red_lan.h"
 #include "hud_editor.h"
 #include "touch_controls.h"
 #include "save_manager.h"
@@ -286,6 +289,11 @@ const std::vector<Section>& Sections() {
             @"Your careers with their progress; backups, restore, export and import; and a copy "
             @"in an iCloud Drive folder, kept in sync between your devices.",
             @""},
+       }, kTabGame},
+      {@"Multiplayer", @"Play on the same Wi-Fi with another iPhone, iPad or Android device.",
+       {
+           {@"multiplayer_setup", Type::kLink, @"Host or join a game",
+            @"Find nearby hosts, check your connection and launch multiplayer.", @""},
        }, kTabGame},
       {@"Career", @"Features of the PC mod Extra Options (nfsmods.xyz/mod/43), ported to the Xbox 360 "
        @"game.",
@@ -818,6 +826,7 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   // The render resolution's default: 1x (the Xbox 360's 720p) with either
   // renderer: on a phone screen it is hard to tell from 1.5x, at about half
   // the GPU work.
+  if ([key isEqualToString:@"lan_mode"]) return @"off";
   const Option* o = FindOption(key);
   return o ? o->default_value : @"";
 }
@@ -976,6 +985,24 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--clear_memory_page_state=" + b(On(s, @"pages")));
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
+  NSString* lanMode = Value(s, @"lan_mode");
+  const bool lan = [lanMode isEqualToString:@"auto"] || [lanMode isEqualToString:@"join"] ||
+                   [lanMode isEqualToString:@"host"] || [lanMode isEqualToString:@"host_pc"];
+  a.push_back(std::string("--red_lan=") + b(lan));
+  a.push_back(std::string("--red_live=") + b(lan));
+  a.push_back(std::string("--grant_user_privileges=") + b(lan));
+  if (lan) {
+    NSString* endpoint = s[@"lan_resolved_ip"] ?: @"";
+    // Automatic LAN and PC hosts go through the in-app relay on 127.0.0.1.
+    const bool pc = ([s[@"lan_pc"] isEqualToString:@"true"] && [lanMode isEqualToString:@"join"]) ||
+                    [lanMode isEqualToString:@"auto"];
+    a.push_back("--red_dns=" + (pc ? std::string("127.0.0.1") : std::string(endpoint.UTF8String)));
+    const std::string own = std::string((s[@"lan_own_ip"] ?: @"").UTF8String);
+    if (!own.empty()) a.push_back("--red_ip=" + own);
+    NSString* name = Value(s, @"lan_gamertag");
+    if (name.length && GamertagValid(name)) a.push_back("--user_gamertag=" + std::string(name.UTF8String));
+    a.push_back("--red_registro=true");
+  }
   a.push_back("--ios_audio_mix_others=" + b(On(s, @"audio_mix_others")));
   a.push_back("--ios_audio_silent_mode=" + b(On(s, @"audio_silent_mode")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
@@ -1523,6 +1550,16 @@ NSString* AchievementSummary(const Achievements& a) {
 }
 
 - (void)play {
+  // The ordinary Play button always starts single-player. Multiplayer is an
+  // explicit action in its own screen, not a sticky mode from a previous run.
+  [self set:@"lan_mode" to:@"off"];
+  nfsmw::servidor::Parar();
+  nfsmw::pc::Stop();
+  [self launchSelectedGame];
+}
+
+- (void)launchSelectedGame {
+
   [self.view endEditing:YES];
   for (const fs::path& p : _isos) {
     if ([_isoName isEqualToString:[NSString stringWithUTF8String:p.filename().c_str()]]) {
@@ -1735,7 +1772,8 @@ NSString* AchievementSummary(const Achievements& a) {
       const bool args = [key isEqualToString:@"extra_args"];
       UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, args ? 230 : 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
-      field.placeholder = args ? @"--option=value" : @"User";
+      const bool address = [key isEqualToString:@"lan_server"];
+      field.placeholder = args ? @"--option=value" : address ? @"192.168.1.10" : @"User";
       field.font = args ? [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular] : field.font;
       field.smartDashesType = UITextSmartDashesTypeNo;
       field.text = value;
@@ -1747,7 +1785,7 @@ NSString* AchievementSummary(const Achievements& a) {
       field.delegate = self;
       [field addAction:[UIAction actionWithHandler:^(UIAction*) {
                // Saved as typed, but a gamertag only while it is valid for Xbox 360.
-               const bool valid = args || GamertagValid(field.text);
+               const bool valid = args || address || GamertagValid(field.text);
                field.textColor = valid ? UIColor.labelColor : UIColor.systemRedColor;
                if (valid) {
                  [self set:key to:field.text];
@@ -1781,6 +1819,19 @@ NSString* AchievementSummary(const Achievements& a) {
   }
   if (ip.section >= fixed) {
     const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+    if (o.type == Type::kLink && [o.key isEqualToString:@"multiplayer_setup"]) {
+      if (!_isoName) {
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Choose a game first"
+            message:@"Add your USA game ISO and select it before opening multiplayer."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+      }
+      [self.navigationController pushViewController:nfsmw::lan::MakeSetup(_docs, _settings,
+          [self] { [self launchSelectedGame]; }) animated:YES];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"saves"]) {
       [self.navigationController pushViewController:nfsmw::saves::MakeSaveManager(_docs) animated:YES];
       return;

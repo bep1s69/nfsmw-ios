@@ -2,6 +2,113 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Show later joiners on the PC.** A phone host now refreshes the PC's room
+  player count when someone joins or leaves, so the PC lists everyone. Needs
+  device testing (preview18).
+
+- **Play on LAN with one option.** “Play on this Wi-Fi” replaces Host, Join and
+  Host for PCs. Signing in to Xbox Live in the game joins a nearby phone or PC
+  lobby, or hosts one if there is none. Join by address remains as a fallback.
+
+- **Mix PCs and phones in one room.** A phone-hosted lobby now accepts iPhones,
+  Android phones and up to three original PC games at once. Every iPhone in the
+  room translates race data for each PC separately. Android and PC players
+  cannot race together. Needs device testing (preview17).
+
+- **Refresh the host's player count.** Keep the LAN room's displayed count in
+  sync with its parsed member list before refreshing the frontend. The iOS
+  host now shows the PC guest's name, confirmed on device in preview16.
+
+- **Race against a PC guest.** Preview15 now reaches gameplay with iOS hosting
+  and the original PC game joining, without extra PC software. Both hosting
+  directions have worked on device. Phone-hosted finishes and rematches still
+  need testing; missing guest names on the phone remain open.
+
+- **Test the first PC guest handshake.** Read the mobile host's listener ID
+  before matching the first PC request, targeting a room join that receives
+  requests but never replies. Reverse racing still needs device testing.
+
+- **Retry PC discovery when broadcast fails.** Experimental PC hosting now also
+  sends lobby announcements directly to nearby LAN devices. Targets the logged
+  iOS broadcast failure; discovery on a real PC still needs testing.
+- **Validate PC-hosted races and rematches.** A long session survived an idle
+  period, completed on PC, returned both devices to the room and started another
+  race successfully in preview13.
+
+- **Test hosting for PCs.** Add a separate experimental two-player hosting
+  option that advertises a native PC LAN lobby and adapts PC guest connections
+  inside the app. No extra PC script or modification. Reverse-direction play
+  still needs device testing. Builds on victorgbd's directly reused Android
+  server and C++ adaptation, credited below.
+
+- **Play against a PC LAN host.** First on-device iOS/PC gameplay test succeeded
+  with native PC discovery and no PC helper script. Both cars loaded and the
+  session ran until the player quit. Full race results and rematches remain
+  to be tested before release.
+
+- **Translate PC car setup records.** Correct the car ID and numeric customization
+  fields exchanged with PC, targeting the remote-car creation failure during
+  race loading. Uses the existing PC save-conversion field map credited to
+  sprintstate and dbalatoni13. PC race completion still needs device testing.
+
+- **Record PC race-loading failures.** Add bounded factory and packet diagnostics
+  after PC/iOS connections reached race loading and crashed. This diagnostic
+  build preserves game behavior and does not yet fix the race-loading crash.
+
+- **Match the PC listener’s connection ID.** Translate handshake identifiers
+  between iOS and the selected PC host. The header-only test still timed out;
+  the identifier adaptation needs device confirmation.
+
+- **Test PC race packet headers.** Adapt the two transport-header fields for
+  the selected PC host. iOS now exchanges race packets with PC, but the peer
+  handshake still times out; this experiment needs device confirmation.
+
+- **Prepare PC peers for the connection test.** Translate PC LAN addresses and
+  provide the local Xbox session record required after joining a PC room.
+  PC rooms and live car/track updates now work on device; racing is unverified.
+
+- **Show PC rooms in the multiplayer test.** Adapt the observed PC room build
+  tag for the iOS room browser. Login and directory discovery now work on device;
+  joining and racing with PC still need testing. No PC helper script required.
+
+- **Test joining PC LAN hosts directly.** Finds the original PC game's LAN
+  directory without a PC helper script. Handles the different persona field
+  and unavailable Xbox history query inside iOS. PC room joining and racing
+  still need device testing; PC mode uses empty local LAN history.
+
+- **Choose the address for the joined network.** Joining uses the local address
+  selected by the route to the host, including when Wi-Fi and hotspot coexist.
+
+- **Use the hotspot address while hosting.** Prefer the active Personal Hotspot
+  interface when Wi-Fi is also connected, so hotspot guests receive the host's
+  address on their network. Android device retest pending.
+
+- **Fix a crash when another player connects.** Keep a copy of the game's
+  temporary receive-buffer descriptors until the packet arrives. The hotspot
+  test reached both devices before exposing this memory overwrite. The fix
+  passes regression checks and a two-device iPhone/iPad hotspot race test.
+
+- **Find hosts when UDP discovery fails.** iOS now explicitly binds its
+  discovery socket and falls back to the existing EA TCP directory protocol.
+  Android and Python hosts need no changes. Discovery diagnostics go to boot.txt.
+  Two-player iPhone/iPad racing confirmed over Personal Hotspot and Wi-Fi.
+
+- **Clearer multiplayer setup.** A dedicated Host/Join screen finds nearby
+  hosts, shows which lobby you are connected to, chooses a player name and
+  explains who creates the race. Joining this device's own address is blocked.
+  Ordinary Play always starts single-player. Uses victorgbd's existing LAN
+  discovery and lobby protocol; device testing of this flow is pending.
+
+- **LAN multiplayer preview.** Adds hosting and joining for iPhone/iPad play and
+  Android compatibility testing. Based directly on [victorgbd's Android LAN
+  implementation](https://github.com/victorgbd/NFSMW-Recompiled-Mobile) and
+  [nfsmw-server-lan](https://github.com/victorgbd/nfsmw-server-lan). The networking
+  code and C++ lobby adaptation are copied/adapted from that work; credit for
+  the original implementation and adaptation belongs to victorgbd. This port
+  adds Darwin integration, the USA hook and its launcher controls. Device
+  cross-play testing is pending.
+
+
 - **More Extra Options** (Extras tab): Speedbreaker refill time, refill
   speed and weight; the speeds for Speeding, Excessive Speeding and Reckless
   Driving; impound strikes of a new car and the most a car can reach; and a

@@ -74,6 +74,16 @@ file(READ "${NFSMW_SDK}/include/rex/platform.h" _platform_h)
 if(NOT _platform_h MATCHES "REX_PLATFORM_IOS")
     message(FATAL_ERROR "The SDK lacks the iOS patches. Run: python3 tools/ios/prepare_sdk.py")
 endif()
+# Multiplayer stays isolated from the controls SDK/build. Fail before compiling
+# if the selected SDK is shared, unpatched, or has diverged from the LAN patch.
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "NFSMW_SDK=${NFSMW_SDK}"
+            python3 "${NFSMW_REPO}/tools/ios/patch_ios_multiplayer.py" --status
+    RESULT_VARIABLE _lan_status
+    OUTPUT_VARIABLE _lan_patch OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT _lan_status EQUAL 0 OR NOT _lan_patch STREQUAL "[multiplayer] applied")
+    message(FATAL_ERROR "Multiplayer needs its isolated, patched SDK. See docs/DEVELOPMENT_PROGRESS.md.")
+endif()
 file(STRINGS "${_mvk_marker}" _mvk_rel LIMIT_COUNT 1)
 set(NFSMW_MOLTENVK_FW "${NFSMW_SDK}/.nfsmw-ios/MoltenVK/${_mvk_rel}/ios-arm64/MoltenVK.framework")
 if(NOT EXISTS "${NFSMW_MOLTENVK_FW}/MoltenVK")
@@ -158,6 +168,11 @@ add_executable(nfsmw MACOSX_BUNDLE
     src/save_manager.mm
     src/save_import.cpp
     src/save_convert.cpp
+    src/multiplayer/red_lan.cpp
+    src/multiplayer/servidor_ea.cpp
+    src/multiplayer/pc_gateway.cpp
+    src/multiplayer/lan_session.cpp
+    src/multiplayer/lan_setup.mm
     src/boot_trace.cpp
     src/probe.cpp
     src/probe_apple.mm
@@ -170,7 +185,8 @@ set_target_properties(nfsmw PROPERTIES
     # bundle. For the app's own executable, in a normal launch, they match.
     INSTALL_RPATH "@loader_path/Frameworks")
 target_compile_options(nfsmw PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
-target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include")
+target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include"
+    "${NFSMW_SDK}/thirdparty/inja/third_party/include")
 target_link_libraries(nfsmw PRIVATE rex::runtime nfsmw_headers
     "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework MetalFX" "-framework QuartzCore" "-framework CoreImage"
     "-framework UniformTypeIdentifiers" z)
@@ -266,7 +282,7 @@ if(NFSMW_WITH_GAME)
             message(FATAL_ERROR "NFSMW: the generated code lacks the record pool edits "
                 "(${_pool}). Run: python3 tools/ios/patch_game_pool.py")
         endif()
-        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp)
+        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp src/multiplayer/game_lan.cpp src/multiplayer/game_lan_roster.cpp src/multiplayer/game_pc_udp.cpp src/multiplayer/game_pc_race.cpp src/multiplayer/game_pc_car.cpp)
         message(STATUS "NFSMW: ${_pool}")
         # Extra Options features (src/game_extra_options.cpp), with their edits
         # to the generated code (tools/ios/patch_game_extra_options.py).

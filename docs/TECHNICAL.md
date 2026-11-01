@@ -12055,6 +12055,166 @@ changes,push/tag/release/version bump. Preserve pre-existing13-line issue11
 checkpoint note unstaged,HANDOFF untracked,and sibling SDK modifications.
 
 
+### October 31, 2026: Android LAN and original PC cross-play feasibility (research only)
+
+Authorization: Stefan requests investigation now, implementation only after his
+explicit go-ahead because controls are still being polished. Multiplayer stays on
+separate branch until ready/tested. Created local `codex/multiplayer` from
+main `62c0dc7` in `/private/tmp/nfsmw-ios-multiplayer`. No source/SDK/build/settings
+changes, binaries launched, sockets/server started, device tests, pushes or releases.
+Existing main controls changes/HANDOFF and modified sibling Android/SDK preserved;
+full filenames and next action in this branch's checkpoint. Main remains on main.
+Temporary worktrees/snapshots are convenience copies: durable references below
+are pinned upstream commits and this committed record.
+
+Sources actually inspected:
+- Local sibling NFSMW-Recompiled-Mobile HEAD `b61e4bf` (README says multiplayer
+  not working; diary wrongly proposes System Link). Do not use that as current
+  Android multiplayer evidence. Remote upstream was verified through web search
+  and fresh shallow clone, without updating the sibling reference.
+- https://github.com/victorgbd/NFSMW-Recompiled-Mobile/tree/d534be88edf5bcd362445c84e5b79c61e29571e7
+  snapshot `/private/tmp/nfsmw-multiplayer-upstream`. Read current README/release
+  notes, docs/diario/red-y-privilegios.md, tools/red/README.md;
+  nativo/sdk/src/kernel/xam/{xam_net.cpp,xam_user.cpp,apps/xlivebase_app.cpp,
+  apps/xgi_app.cpp}, nativo/sdk/src/system/xsocket.cpp;
+  nativo/app/src/nfsmw_red_sonda.cpp; Android MotorNativo/hosting references;
+  ios/motor/{red_lan.h,red_lan.cpp,servidor_ea.cpp,lanzador.mm,segundo_plano.mm},
+  ios/README.md and USA address table.
+- https://github.com/victorgbd/nfsmw-server-lan/tree/821b9b54cf1ded01ffe2e3fd05c38b7c4c906da6
+  snapshot `/private/tmp/nfsmw-server-lan-research`; README and ea_server.py.
+- Apple local-network privacy:
+  https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy
+  and broadcast/multicast entitlement:
+  https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.networking.multicast
+
+Observed upstream method and evidence limits:
+1. Xbox 360 Most Wanted has no System Link per upstream's actual menu/log
+   investigation. It revives the Xbox Live menu using a local replacement for
+   EA's 2005 DirtySock/Aries services. Earlier diary sections remain historical
+   and contradict the newer correction near its top. XSessionSearch broadcast
+   emulation alone is the wrong starting point for this game.
+2. Server directory TCP30960 -> lobby TCP10901; lobby messages use a12-byte
+   header (4-byte command,4-byte subcode, big-endian total length), newline
+   key=value body terminated by NUL, product nfs-xbox-2006. Login/auth/persona,
+   room create/search/join, member lists (+usm), game records, start/results and
+   heartbeat (~png every20s) are implemented. Correct user-set membership and
+   per-peer addresses/XUIDs matter; generic success stubs cannot replace them.
+3. Actual race is DirtySock ConnApi/CommUDP between phones on UDP3658; server
+   doesn't relay/translate racing data. README lists UDP6000 for voice; voice
+   operation was not independently verified here. Upstream diary reports a full
+   circuit, both result submissions and host-role switch on October16 between
+   RedMagic SM8750 and Galaxy A22; release0.5.0 names Snapdragon8Elite/A22 and
+   PAL Spain. These are upstream reports, not new tests on Stefan's port.
+4. Android can host the same lobby using ServidorEa.java in a foreground service;
+   Python ea_server.py on a PC is equivalent. A PC hosting this service is NOT
+   evidence the original Windows game can join. Launcher discovery UDP10902
+   sends NFSMW_DISCOVER and receives NFSMW_SERVER/NAME/PLAYERS. TCP10902 checks
+   GAMERTAG with FREE/IN_USE and reserves names. Host advertises its LAN IP,
+   not127.0.0.1. Distinct gamertags and per-device runtime XUIDs avoid collisions.
+5. Selecting server enables grant_user_privileges,red_lan,red_live,red_dns;
+   red_registro is diagnostic. red_live reports signed-in state2; red_lan exposes
+   actual LAN IP/link status; red_dns redirects game DNS/EA service lookup to
+   replacement host. XOnlineGetServiceInfo(0x45410004) must return that endpoint.
+6. Missing XNet keys/connect/QoS/session information are supplied in the LAN
+   context. Socket fixes include nonblocking FIONBIO, host-option translation,
+   errno->WSA errors, select nfds, byte order, getsockname/getpeername/getsockopt,
+   overlapped receiving/completion and events. In particular WSAWaitForMultipleEvents
+   must invert WinSock wait_all into kernel wait type, convert milliseconds to
+   negative relative100ns units, and return actual event index/timeout. Original
+   behavior can receive the first peer packet and then stop.
+7. Essential behavioral hook is in misleadingly named nfsmw_red_sonda.cpp:
+   PAL sub_82829AD0 bypasses DirtySock's catch-all xmap for non127 peer addresses,
+   while retaining loopback->EA service mapping. Without it UDP intended for a
+   friend goes to the lobby host instead. Other hooks in that file are diagnostic.
+   Our port is USA: no match for82829AD0/82819F48 in upstream USA TSV during this
+   inspection. This does not prove equivalents absent; map by game code/call
+   semantics before use. Do not transplant hard-coded PAL addresses blindly.
+
+Integration assessment (inferences/planned work, NOT implemented):
+- Android/iOS compatibility is plausible because both execute the same360 engine
+  and could use unchanged lobby/CommUDP protocols. Preserve Android wire format
+  and join its existing host first. Edition/version/content compatibility is an
+  open test gate: upstream evidence is PAL Spain, our target USA. A successful
+  lobby does not prove race loading, car/track IDs or simulation agreement.
+- Our SDK currently returns loopback XNADDR, link down, conversion errors and
+  placeholder strings, plus mostly no-op XGI sessions. grant_user_privileges
+  already exists defaultfalse. Relevant local files mirror upstream integration
+  points, but are part of extensively patched SDK. Port scoped changes as
+  reproducible tools/ios preparation patches on isolated SDK source/build paths;
+  avoid applying a broad upstream SDK replacement to shared active controls work.
+- Darwin requires careful sockaddr layout/length and socket-option translation.
+  Upstream generic POSIX socket code uses MSG_NOSIGNAL; adapt/verify Apple
+  SO_NOSIGPIPE and cancellation/socket lifetime behavior rather than assuming
+  Android code compiles/behaves identically. Reuse existing SDK object ownership.
+- Our Info.plist.in lacks NSLocalNetworkUsageDescription; custom broadcast
+  discovery needs entitlement/access handling. App entitlements do not control
+  LiveContainer's process: verify its permission and signed host entitlements on
+  actual devices. First milestone manual server IP + unicast avoids depending on
+  discovery. Add clear network error state and disabled-by-default LAN mode.
+- Upstream already has a C++ iOS lobby and synthetic protocol-comparison tests.
+  Its iOS README explicitly says launcher/LAN hosting features untested on an
+  iPhone, despite broad README claims. Useful reference, not proof for our Metal
+  port. Its background server uses looping silent audio; no approval to import
+  that audio/lifecycle behavior into this port. Prefer foreground hosting first
+  and test background/disconnect/rejoin deliberately later.
+
+Original PC files: static examination only, never executed or modified.
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files/speed.exe`,
+6029312bytes, SHA25680774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c.
+Python PE/header inspection: machine0x14c (x86), optional magic0x10b (PE32),
+5sections; no VS_FIXEDFILEINFO signature found, so exact patch/build version
+not established. Relevant ASCII strings with file offsets (not virtual addresses):
+- 0x49ae38 UI_PC_LAN_ServerSelect.fng;0x49f054 UI_PC_LAN.fng;
+  0x49e4e0 MainLAN;0x49f1a4 LANServerSelect: explicit PC-native LAN frontend.
+- 0x4b66fc NetworkLobbyPort;0x4b6720 NetworkLobbyIP;
+  0x4b6d48 original source path online/LobbyCore.cpp.
+- 0x49e258 DIRTYADDR;0x4b6fec USERSET0;0x4b7124 PLATPARAMS;
+  0x4b7130 SESS;0x4c6d5c MADDR%d: shared EA lobby vocabulary.
+- 0x4f42c8 *pcnfs06.ea.com;0x505dc4 NFS-2006;WS2_32.dll and WSARecv/WSARecvFrom
+  imports. Exact product negotiation and native LAN protocol not recovered here.
+
+PC conclusion: shared lobby concepts give a reason to investigate, not a proven
+cross-play path. Native PC LAN discovery/lobby may differ from360 online flow;
+start by capturing PC<->PC LAN create/join/start traffic, separately compare PC
+online Aries flow if accessible. Then compare transport handshake, packet types,
+reliability/framing, field byte order (x86 vs PPC), IDs and race state encoding
+against Android<->Android. Determine whether (a) direct wire compatibility,
+(b) lobby/discovery adapter only, or (c) ongoing race-payload translator / PC-side
+mod is required. No evidence yet rules any of these in/out. Lobby server cannot
+fix race payload mismatches because races bypass it. Do not promise unmodified
+PC LAN interoperability or estimate this as a simple server-IP setting.
+
+Proposed execution after explicit approval:
+1. Freeze source/edition/build identities; map USA hook; isolated SDK/network
+   opt-in, correct host socket/event tests, logged connection stages. No controls,
+   renderer, timing-policy or audio changes bundled with networking.
+2. Manual join of unmodified upstream Python or Android host: EA connection,
+   unique identity, create/find/join and both players visible. Establish whether
+   USA/PAL mixes; use a matched edition baseline if needed.
+3. Full iOS<->Android race in BOTH host roles, multiple tracks/cars, results,
+   return to lobby, host switching, leave/rejoin/disconnect and FPS-cap combinations.
+   Compare race time/state; do not change simulation speculatively.
+4. Optional iOS foreground server + discovery, byte-for-byte protocol parity;
+   iOS<->iOS, hotspot/router isolation, permission denial, lifecycle handling.
+5. Separate PC feasibility gate using packet evidence above; only then choose
+   direct compatibility or a bridge/mod. Keep it independent of Android support.
+6. Repeat current single-player/control regressions, with LAN off and on, before
+   considering any merge/release. Keep multiplayer branch isolated throughout.
+
+Commands/results and negative attempts: git status/log(-15), rg/source reads,
+Python regex/PE/hash inspection completed; shallow upstream clones exit0 at
+hashes above after network escalation. Initial worktree creation exit255 due
+sandbox .git ref write restriction; same requested operation escalated succeeded.
+Initial clone default sandbox exit128 (DNS); escalated clone succeeded. One
+PC regex script exit1 (unescaped +usm); corrected script completed. Several rg
+probes exit2 for guessed paths absent in these layouts, corrected to actual
+nativo/sdk and ios/motor sources; no files modified. First very large combined
+checkpoint/backlog read was output-truncated; checkpoint/latest evidence/feature
+sections were then read selectively. No build/test suite run because this is
+research-only; source inspection cannot establish device connectivity, PC wire
+compatibility, latency, stability or edition interoperability. Next action is
+Stefan's explicit approval to start; controls testing continues on main.
+
 ### October 31: test8 rotated logs25/26; test9-r2 direct row/grid selection
 
 Stefan: much better, but profile names should select without loading; Options
@@ -12467,3 +12627,2572 @@ Position", "Always Raining" and "Frame Rate Summary", and 1-2 for
 underlying features partly remain. Proposal in BACKLOG, "0.6.0 roadmap".
 The PC modded copy folder contains only `.DS_Store`.
 
+### October 31: multiplayer implementation approved; isolated test11-based LAN preview
+
+Stefan approved implementation now, explicitly includes iOS↔iOS as assumed
+scope and iOS↔Android; original Windows PC investigation waits until mobile
+LAN works. He requests proper credit for Android compatibility AND adaptation,
+calling out direct copy/paste. He requested the branch name simply multiplayer.
+Renamed local codex/multiplayer -> multiplayer, no remote branch created/pushed.
+Merged latest main/test11 `19177b6` into research branch in `f848ce3`; resolved
+three append-only documentation conflicts by retaining both histories. Main
+unchanged, still on main. Main's preserved unstaged13-line issue11 checkpoint
+note and untracked HANDOFF remain excluded. Previous control source changes
+were already committed by the controls session; source comparisons of
+`game_scene_size.cpp`, `menu_touch_policy.h`, `touch_controls.mm` and
+`test_menu_touch.py` are byte-identical main versus multiplayer after merge.
+
+Isolation: independent SDK source/dependencies snapshot via rsync excludes
+.git/out/.nfsmw-android at `/private/tmp/nfsmw-multiplayer-sdk`; private generated
+code copy in multiplayer worktree, build `/private/tmp/nfsmw-multiplayer-build`.
+Main SDK/build caches are never patched/reconfigured. Source is reproducible
+using new create_multiplayer_sdk.py and explicit NFSMW_SDK patch script;
+full commands and settings in DEVELOPMENT_PROGRESS (not another status file).
+Untracked game code stays ignored. Existing shaders are read-only shared assets.
+
+Implementation and provenance:
+- Direct import of victorgbd's `ios/motor/{red_lan.cpp,red_lan.h,servidor_ea.cpp,
+  servidor_ea.h}` at d534be88edf5bcd362445c84e5b79c61e29571e7 into
+  ios/src/multiplayer, retaining original comments plus explicit attribution.
+  This C++ server is itself victorgbd's adaptation of his Android/EA server;
+  credit is not limited to the idea. Branch-only CHANGELOG says copied/adapted,
+  links both original projects and attributes original and adaptation to him.
+- tools/ios/patches/multiplayer_sdk.patch ports network changes from the same
+  upstream nativo/sdk: xam_net, xsocket, xam_user, xgi_app, xlivebase_app,
+  xam_misc plus the socket header. Original BSD SDK headers kept; runtime/cvars and protocol stay
+  compatible with upstream. The patch preserves this port's sign-in diagnostic
+  and achievement code. Patch script supports check/revert/idempotency, rejects
+  canonical shared SDK, explicit destination required; last in prepare_sdk list.
+- Darwin changes: native sockaddr_in construction for bind/connect/sendto,
+  accepted family conversion, SO_NOSIGPIPE instead of MSG_NOSIGNAL, idempotent
+  Close (do not close recycled fd on destruction), and local-IP route detection
+  uses selected server instead of public DNS. New XNet LAN operations fail when
+  LAN is off. Unknown XLIVEBASE messages are NOT globally accepted: only
+  observed0x5000D game-start is acknowledged in LAN mode. Runtime XUID derives
+  from LAN IP as upstream; stored profile/content/save XUID unchanged.
+- Essential game hook USA828298E0 (PAL82829AD0) in game_lan.cpp. Initially
+  identified via neighboring mapped functions' -0x1f0 displacement, then actual
+  generated function reviewed: reads r4 address bytes4..7, walks {address,mask,
+  replacement}12-byte table, copies16-byte socket address to r3 and writes the
+  replacement IP. Called from two socket paths (generated .52/.84). This
+  substantiates function identity; not merely an assumed constant shift.
+  With red_lan and non127 address, returns original pointer directly; loopback
+  retains original service mapping. Non-LAN mode calls original import.
+- Launcher Game section: LAN mode Off(default)/Join/Host, server address and
+  gamertag. Preflight on background queue resolves endpoint, starts foreground
+  host if selected, checks gamertag/unreachable server; failure returns error
+  before game launch. Host shows real LAN address, never127.0.0.1. Unique names
+  required. Uses upstream flags; preview network logging on. Other Extra Args
+  override as usual. NSLocalNetworkUsageDescription added. No broadcast
+  discovery UI, multicast entitlement, silent background audio, rendering,
+  timing or control-input changes. Foreground host answers upstream discovery
+  queries but outgoing discovery not required for manual join. Existing server
+  stats/history at data/lan_server; save manager only scans16hex XUID folders,
+  so this folder cannot be mistaken for a career.
+
+Host validation actually observed:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: first sandbox run
+  exit1 because local bind30960 got Operation not permitted, not protocol error
+  (/private/tmp/nfsmw-multiplayer-host-tests1.log). Escalated run exit0 in
+  host-tests2.log, repeated after sixth SDK file added exit0 in host-tests3.log.
+  Actual C++ host compiled with clang++ C++23;25two-player protocol stages match
+  unchanged Python821b9b54cf1ded01ffe2e3fd05c38b7c4c906da6 after normalizing
+  startup-dependent fields only. Directory/login/persona/room creation/browse/
+  subscription/join/game-start(+ses)/leave/delete and TCP gamertag/UDP discovery
+  covered. Synthetic loopback clients use distinct names/MADDR, same source IP;
+  no claim of physical device identity/IP, actual race payload or Wi-Fi tested.
+  SDK patch apply/idempotency/status/revert and rejection without partial write
+  tested against copies of current controls SDK input; shared input untouched.
+- `python3 tools/ios/test_multiplayer_transport.py --sdk ...`: initial fixture
+  compile exit1 missing countof helper, corrected fixture, then escalated run
+  exit0 (/private/tmp/nfsmw-multiplayer-transport2.log). Compiles actual SDK
+  XSocket header/body and endian structures, only object ownership stubbed.
+  Real Darwin loopback UDP roundtrip/source port+IP, TCP connect/bind/accepted
+  address, SO_NOSIGPIPE and repeated close preserving a recycled fd pass.
+  Actual extracted WSAWaitForMultipleEvents passes wait-any vs wait-all,
+  relative100ns timeout, infinite/zero timeout, event index and invalid count.
+  Actual USA hook passes LAN-off original call, LAN peer bypass and loopback
+  original call. These do not test detached overlapped worker teardown against
+  a running game or its actual buffers.
+- `python3 tools/ios/test_menu_touch.py` exit0,
+  /private/tmp/nfsmw-multiplayer-menu-tests.log; full existing FE row/grid,
+  popup, option/camera/Rap Sheet regression fixture passes. UIKit/device
+  validation remains the controls checkpoint's matrix; no acceptance inferred.
+
+Build evidence/negative attempts:
+- Initial isolated CMake configure exit1 because source snapshot excluded .git
+  submodule markers. Snapshot helper now validates submodule source directories
+  instead; second configure exit0 (15.9s), configure2.log. No dependencies fetched
+  or upstream/shared SDK reset.
+- First full ipa build runtime link failed on duplicate XNetLogonGetMachineID/
+  XNetLogonGetTitleID because upstream moved these exports from misc to net.
+  Added the two matching upstream stub removals to same patch (sixth file).
+  Separate runtime target build exit0, runtime2.log. Full build's running generated
+  registry compilation allowed to finish; its later result recorded below.
+- Build/test log paths above are /private/tmp/nfsmw-multiplayer-*. They are local
+  disposable logs, not the only record; essential command/outcome facts are here.
+  No physical devices/OS/Extra Args applied yet. No energy/performance/cross-play
+  or release-readiness claim. Continue with IPA verification then device gate.
+
+
+Follow-up during preview build: Stefan confirms friend will use victorgbd's
+**USA** Android build; iOS↔iOS testing will use Stefan's own devices. This gives
+matched-USA first cross-play coverage; mixed PAL/USA remains unclaimed. CMake
+now rejects unpatched/shared SDK at configure time, before compiling. Additional
+socket adaptation: native descriptor invalidation uses atomic exchange; a pending
+receive retains its original object_ref so handle/object address recycling cannot
+impersonate the old socket. Cached local IP made atomic. Repeat real transport
+checks exit0 (transport3.log). These reduce lifetime races but do not establish
+real-game overlapped cancellation/teardown correctness; that stays in device gate.
+Host system for all host checks: macOS27.2 build26B123, AppleClang21/iPhoneOS27.2
+for iOS build. No phone OS version newly supplied.
+
+
+Final preview1 build and packaging:
+- Full build1 exit1 after762/908 printed steps (duplicate exports described
+  above; registry completed in about9minutes at highCPU). Runtime target fix
+  exit0. Build2 exit1: atomic descriptor participated in C++ ADL and selected
+  std::bind from the runtime PCH instead of POSIX bind. Qualified ::bind with
+  explicit descriptor load. Host fixture now includes <functional> as the real
+  PCH does; transport4.log exit0. Not a game/network/device failure.
+- Build3 `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6`
+  exit0,144planned steps. Final build4 same command exit0,3planned steps,
+  packaging/signing only (final source already compiled by build3). Existing
+  enum/fpcr/deprecation/duplicate-library warnings and actool simulator-service
+  warnings; no final compile/link/signature error. iPhoneOS27.2 target18.
+- Final patch apply/status/revert/idempotency/atomic rejection and unchanged
+  Python lobby comparison repeated successfully in host-tests4.log (exit0).
+  Final transport4.log and menu-tests.log exit0. Source patch now includes
+  seven SDK files (six CPP plus socket header); CMake patch-status check passes.
+- ZIP.testzip=None; codesign --verify --deep --strict exit0;
+  dwarfdump --uuid exit0.104metallibs byte-identical to test11 reference IPA.
+  Both SDKdylibs differ fromtest11 after independent full source rebuild;
+  runtime intentionally changed, GPU implementation not edited. Do not imply
+  byte-identical GPU/library build or controlled CPU-only binary A/B.
+
+Delivered local trial artifact (unique name, no previous file replaced):
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview1-test11.ipa`,
+30377384bytes,SHA256 `36afd106ecac81e371969c8da74f9fb4deba23d7dbdc80d0b91806792ab3bdb7`,
+UUID `FA4C17B7-4509-3EFA-ADA8-74CB2EAD5E0A`,bundle0.5.1/build9.
+Original same-byte copy and ignored JSON manifest in multiplayer worktree's
+`ios/build/`; app in `/private/tmp/nfsmw-multiplayer-build/NFSMW.app`.
+Runtime dylib SHA256be9100458ded7ee3a42401801c1e575400604beb99178a590b6a603dd7c4ff56;
+GPU dylib SHA2566eec215dbade88715907e762e61b7d38e78e3a6f77bc04b5da73ee8842089652.
+Neither binaries, SDK snapshot, logs nor game/generated data are staged.
+
+Next first device matrix: two Stefan iOS devices, distinct tags, sameLAN,
+foreground Host/Join manualIP, Xbox Live→Quick Match create/find/join; actual
+player list, full race/finish/results/return, both host roles. Send both logs
+(deviceOS/settings/Extra Args/artifact identity). Then matchedUSA victorgbd
+Android both host roles and iOS peer combinations. Test leave/rejoin/host loss,
+permission denial, background/resume behavior and LAN-off save/control/race
+regression. Shared lobby/transport fixtures do NOT prove original game racing,
+proper peer identity on physical networks, real cancellation, latency or session
+stability. PC cross-play remains deferred; no device result or release claimed.
+
+Main final read-only check: branchmain at19177b6; status still only preserved
+`docs/DEVELOPMENT_PROGRESS.md` modification and untrackedHANDOFF. No network code
+or changelog entered main; preview IPA is ignored. Local multiplayer commit only;
+no push/tag/merge/release. Snapshot and build commands remain in checkpoint.
+
+
+### October 31: preview1 both hosting attempts; preview2 native Host/Join flow
+
+User reports inability to play with either device hosting and says setup is
+extremely clunky/unintuitive. Investigation/fix stays on multiplayer4ddc814;
+main remains19177b6. Read checkpoint/backlog/latest evidence and git log15/status.
+Main preserves only issue11 checkpoint modification and untrackedHANDOFF; all
+multiplayer source is in separate worktree/SDK/build. No push/merge/release.
+
+Evidence archived exclusive-create and byte/hash-verified; originals retained.
+Folder `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+All six sources under
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard/items/`;
+source directory UUID + original filename below identifies each exact full path.
+
+| Archived filename | Source directory UUID / original name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview1_ip150_game.log | AE0830E4-9704-41EA-8E77-06B125D4D0B2/nfsmw.log | 950654 | 19363353b4b5b6eaaa344d38d3a4530106f374d6f6eb11bea52622c1a0984188 |
+| nfsmw_lan_preview1_ip150_server.log | CC1DEAAF-13FA-495E-9CDA-C148FC39F847/servidor_lan.log | 9021 | eef53eb5c05d3937feb1e2db41bc7820864ff6eda06aafdd968837b828a0102e |
+| nfsmw_lan_preview1_ip150_boot.txt | F935730C-9BD6-4C71-8510-1B00C496590B/boot.txt | 1454714 | 133b7c8ee1ad8ca68ceb5804751abdba2a69f7084ab425cc97435473d3c701c0 |
+| nfsmw_lan_preview1_ip205_boot.txt | 6DE64913-BEB2-46C1-A5A2-EA462331D523/boot.txt | 104092 | 711c9d426474ff88c2107a556b0f0fef839cec80f6b95eca8fb8f7fde1d39aa6 |
+| nfsmw_lan_preview1_ip205_game.log | CA161E06-CC08-4E03-B0A8-454452D38143/nfsmw.log | 4726547 | c8f6384e7e96580849bb2812550129423aeac52cc431238b83055601c5887e6a |
+| nfsmw_lan_preview1_ip205_server.log | E3D8081F-19C4-48A6-8DEF-1503DF0E98C5/servidor_lan.log | 30127 | 479f9383e6130352e54c792c0f252db31370f501ca1ac02300a2f6618c16ab82 |
+
+Pairing by same launch timestamps/IP/settings, not attachment order. Hardware/OS
+not newly supplied;150 likely tablet and205 phone from memory/core figures and
+ongoing user context, but exact device/OS unconfirmed. User was testing delivered
+preview1; boot13:50:31 stamp is consistent; runtime UUID not independently logged.
+Game log150 has old October30 semaphore history; boot150 startsOctober7.
+Game205 includes older13:14controls test and13:53/17:03/17:05 runs. Do not count
+old error prefixes against current multiplayer. Earlier205server13:52 launch
+was at192.168.101.106; current17:00 runs at192.168.1.205. No SSID/netmask supplied.
+
+Measured current flow:
+- Device205 starts17:03:40; game17:03:50 with red_lan/red_live true,
+  red_dns=red_ip=192.168.1.205, own distinct gamertag, red_registro true and
+  log_levelinfo. Its server starts17:03:48.630; own directory/lobby connections
+  at17:04:13.575/.594; creates room17:04:26.414/game26.445. Restart17:05:02;
+  game17:05:35, same ownserver args; own connections17:05:57.011/.042;
+  rooms17:06:06 and17:06:54, still COUNT1. Last boot17:07:53.346 only shows
+  launcher; no later Play/settings/game startup in this file.
+- Device150 game17:07:47.858 with red_dns=red_ip=192.168.1.150,
+  red_lan/red_live true, distinct gamertag, red_registrotrue/log_levelinfo.
+  Its server starts17:07:42.181, own gamertag check42.182, own directory/lobby
+  at17:08:19.785/.805. usea23.320/28.934 then creates room35.390/game35.420.
+- Entire supplied150 server:1gamertag check,2TCP client connections, all from
+  .150. Entire205 server:3checks/6TCP connections across recorded launches,
+  all from its then-current ownIP. Both files contain ZERO ujoi/gjoi/gsta and
+  ZERO COUNT2. No successful shared lobby, joining or race-start evidenced.
+  Each game effectively used a separate local lobby. This does NOT establish
+  that the user never tried Join: preview1 preflight ran before game logging and
+  did not trace its failure. Last205boot may represent an unfinished attempt;
+  exact cause cannot be recovered. No basis yet to diagnose Wi-Fi isolation,
+  permission denial, socket/peer transport failure or actual race compatibility.
+- Session/MADDR/PLATPARAMS look garbled in UTF8 viewers but both raw server
+  files have ZERO literal UTF8 replacement sequences(EFBFBD). Server treats
+  fields as bytes. Added an all128high-byte Binary7 roundtrip test below;
+  no wire-encoding change justified by appearance of the log text.
+
+Preview2 implementation:
+- New lan_setup.mm/h: dedicated Game→Host or join a game screen. Auto distinct
+  iPhone/iPad + IP-suffix name when no valid saved tag; field editable. Host
+  starts lobby while launcher remains open, displays name/IP and clear state.
+  Join stops ownhost then calls upstream BuscarServidores, lists remote name/IP/
+  in-game player count, manual-address fallback, explicit Connect success/error.
+  Own addresses omitted by upstream search; Prepare rejects manual ownprimaryIP.
+- Explicit Launch game only after successful preparation; visible navigation
+  button plus table action. Revalidates name/host at launch; writes lan_mode
+  immediately before launch. Main Play always clears mode tooff and starts
+  single-player. Saved prior Host choice no longer silently affects normalPlay.
+- Separate in-game instructions perrole: Host creates one race via Xbox Live→
+  Quick Match→Create Game; Join finds/joins that race and must not create a
+  second one. Starting native lobby alone does not create the original game
+  room. No speculative automatic game-menu actions or FE/control edits.
+- Setup network operations on one serialqueue, main-thread generation checks
+  reject stale completions; Back invalidates/stops host and ignores outstanding
+  scan/preflight callbacks. Name changes invalidate readiness; name disabled
+  while connecting. Host health/IP checked every1s while setup open. Timer stops
+  on launch/back. No background audio workaround or entitlement change.
+- Discovery protocol unchanged(victorgbd):NFSMW_DISCOVER→NFSMW_SERVER/NAME/PLAYERS,
+  UDP10902; socket now nonblocking so a stalled ARP/send cannot block sender
+  threads past scan deadline. Upstream broadcast+unicast fallback /24..30; own
+  addresses filtered, manual IP remains for blocked broadcasts/other networks.
+  Restricted multicast entitlement is not assumed available in LiveContainer.
+- Foreground Host/Join switching can close listeners on upstream500ms polls;
+  Prepare now retries Arrancar at100ms intervals up to8attempts and clears any
+  transient bind error after success. No SDK net/identity/race payload changes.
+  Setup role/endpoint/search count/ready/failure now logged as [lan-setup] in
+  boot.txt to distinguish routing/configuration from in-game protocol failures.
+  Original networking and C++ adaptation credits retained; new changelog entry
+  scopes setup improvements to branchpreview/device-validation pending.
+
+Validation actually run:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research` exit0,
+  /private/tmp/nfsmw-multiplayer-preview2-host.log.25two-player stages still match
+  unchangedPython821b9b54; now MADDR/SESS/PLATPARAMS include all bytes80..FF.
+  SESS normalization restricted to random directory response only (previous
+  fixture masked everySESS); gjoi explicitly verifies both addresses/session/
+  platform data byte-for-byte. Confirms lobby byte preservation, not race data.
+  Also patch apply/revert/idempotency/atomic rejection pass; UDP discovery
+  response tested, actual outgoing scan/UI across devices not tested here.
+- `python3 tools/ios/test_lan_setup.py` exit0; compiles actual Prepare against
+  deterministic server/network stubs: invalid mode/partialIP, ownIP rejection
+  before contacting server, hostname→remoteIP, name conflict/unreachable error,
+  transient listener retries clearing olderror, stop on failure/off. This is
+  preflight logic coverage, not UIKit/cancellation/Wi-Fi proof.
+- `python3 tools/ios/test_menu_touch.py` exit0,
+  /private/tmp/nfsmw-multiplayer-preview2-menu.log. Existing menu fixtures pass;
+  no inference of new multiplayer screen interaction coverage on devices.
+- Two isolated `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa
+  -j6` exit0:preview2-build1.log(14planned steps),build2.log(6planned steps).
+  Existing UIKit/deprecation/duplicate-lz/actool simulator-service warnings;
+  no source compile/link error. No shared SDK/build used or reconfigured.
+- Initial artifact verification assertion expected bothSDKdylibs identical and
+  failed after unique copies created. Investigation: CMake reconfigured SDK
+  version to0.10.0-dev.g4ddc814 timestamp20261031_1715, rebuildingdebug_overlay.
+  Runtime file-backed Mach-O sections compare equal EXCEPT10bytes in __cstring;
+  UUID/signature differ. GPU dylib and104metallibs byte-identicalpreview1.
+  No source/network-code change inferred from runtime's new filehash.
+  Corrected expectations:ZIP.testzip=None;codesign --verify --deep --strict exit0;
+  dwarfdump exit0; shadercount104; samebytecopy verified. No previousIPA replaced.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview2-guided-setup.ipa`,
+30378275bytes,SHA256 `2dae71db4824e5cacdd799c16cf5d00e343cf233080e2a0ec43bed087c34186f`,
+UUID `792F461C-B08F-3AB5-A784-F89CFC9321E4`,bundle0.5.1/build9.
+Same artifact and ignoredJSON in multiplayerworktreeios/build. No new device
+run performed; actual discovery/permission UI/cancellation across transitions,
+sharedroom/peer/race/results stability still require device test. Next oneHost,
+otherJoinselectsamehost/confirmremoteIP, Launchboth, originalgamehostcreaterace/
+guestjoin, send bothboot/game/server logs if blocked. Keep foreground; iOS first,
+AndroidUSA later; PC held. Main retains existing issue11 note/HANDOFF only;
+no source/SDK controls changes, push/merge/tag/release. Commit locally onmultiplayer.
+
+
+### October 31: preview2 followed Host/Join; UDP discovery replies not surfaced; preview3
+
+User says he followed the instructions and still could not play; screenshot
+shows Game Room with one host player and Waiting for minimum number of players.
+This supersedes any inference that the new attempt repeated the first setup
+mistake. New boot logs contain preview2 [lan-setup] markers despite cached13:50:31
+translation-unit stamp; no independent runtimeIPAUUID supplied.
+
+Preserved originals, exclusive-created byte/hash-verified copies under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+Sources again under shared-pasteboard/items base in preceding entry:
+
+| Archived filename | Source UUID/name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview2_join_boot.txt | 09F44540-8238-471E-B2CF-586FB55FD304/boot.txt | 1535 | 667845f04fbab615f5c356216a9971026d8bf753a84ea67b1480f7cb2cea6bba |
+| nfsmw_lan_preview2_host_boot.txt | 55ED7847-F652-4B13-BEB8-275F648591DF/boot.txt | 8050 | 3e595d3bbddba3696fd26f9014f9e1e4b9266b2276939fd2a3b9de75f51adde3 |
+| nfsmw_lan_preview2_host_game.log | 83A6266B-4B55-4F5A-9C80-5B899B0BE1B5/nfsmw.log | 566553 | 81ff0ad952a1baefe7e76390aa1ccb786f35a0e6c39951a1979779f5544939b1 |
+| nfsmw_lan_preview2_host_server.log | EDD2ACCC-8F7A-46F2-A0A3-820F89A65942/servidor_lan.log | 9317 | 62c368c9baa4eb7e66b32fff4f63e46c3badd504f5e8e3ce0f06024d379a8717 |
+| nfsmw_lan_preview2_host_waiting_room.png | /var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-dd600fbc-d4d5-42ab-abc9-647272210db5.png | 3132122 | 3521a96a9256ce287150a7a80ba9d8a0ebdc084a7883a5748d423336d1bf37c3 |
+
+Measured: host205starts17:46:41.881, Hostready17:46:52.151, Launch17:47:14.398,
+red_dns=red_ip=192.168.1.205 andgame17:47:14.427. LocalhostEAconnections
+17:47:41.933/41.964, roomcreated17:47:51.947, COUNT1. Host server specifically
+logs discovery queries from192.168.1.150 and successful sendto replies at
+17:47:55.260,17:48:15.230,17:48:30.382,17:48:40.622. Its implementation only
+logs answered after sendto succeeds. This does not establish remote delivery.
+Joinboot is21lines starting17:47:00.863, eight searches at03.518,20.260,54.818,
+57.575,17:48:14.851,30.293,39.844,42.953; eachreturns0hosts about1.5slater.
+One manualJoin17:48:28.644 usedEMPTYendpoint and was rejected beforecontact.
+No guest game launches or remotegamertagcheck, ujoi/gjoi/gsta observed.
+Cross-device clock alignment not independently measured; repeated hostname/IP
+logs identify the peer, not a claimed packet-latency measurement. Screenshot
+matches hostroom/oneplayer; exactdevices/OS still not newly supplied.
+
+Conclusion: discovery fails to surface the responding host, before shared
+lobby/peer gameplay. User followed the Host/Join flow. Lower-level cause of
+missing/filtered/rejected UDP data remains unproved becausepreview2onlylogged
+finalresultcount. Do not label this a game-race transport failure, an incorrect
+user procedure, or a confirmed Apple-entitlement bug. Hostquery/reply evidence
+rules out assuming the host was never running or no request reached it.
+
+Apple primary references consulted (browsed):
+https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy
+https://developer.apple.com/documentation/technotes/tn3151-choosing-the-right-networking-api
+They distinguish local-network permission from the restricted multicast/
+broadcast entitlement. TCP/unicast still require local-network access; changing
+transport does not bypass permissions. Existing live UDP transmission does NOT
+prove all receive traffic permitted. No new entitlement or permissions reset
+performed. Manual targetIP remains a separate unicast reachability check.
+
+Preview3 implementation within existing imported red_lan.cpp/h and setupscreen:
+- Explicitly bind IPv4 UDPsocket toANY:0 before any sends; Apple uses unicast
+  targets only on thissocket, avoiding reliance on privileged broadcast. Retain
+  unchanged NFSMW_DISCOVER wire format/parser and existingserverUDP10902.
+- If no UDP hostsaccepted, query existing Aries TCPdirectory30960 with framed
+  @dir/PROD=nfs-xbox-2006. Validate command/subcodes/12..4096totalframelength,
+  fragmentedread/write handling, ADDRIPv4 andPORT10901 before listingprobeIP.
+  No authentication, gamertagreservation, hostpatch or newserverprotocol.
+  Compatible with existing Android/Python directory, not proof of live Android
+  cross-play. Directory doesn't provide displayname/playercount; UIshowsgeneric
+  LANhost + IP rather than inventing a name or negative player count.
+- Nonblocking eventloop:32concurrent sockets,350msperprobe,4sTCPbudget;
+  SO_NOSIGPIPE onDarwin, close all pending descriptors, deduplicate and remove
+  ALL owninterfaceaddresses. Nearbyaddresses ordered first, wraparound. Broader
+  LANnets limited to own/24 rather than unbounded scanning; manual IP for peers
+  outside that /24. No outbound internet/broad network scan required.
+- Optional tracecallback from discovery into boot.txt logs ownIPs/targetcount,
+  UDPdatagrams/rejectedcount/lastrecverror, TCPattempts/connections/verifiedIPs/
+  lastsocketerror. Lets next test distinguish receive/filter/parse fromTCPfailure.
+  No guest network/race code, SDKsource, controls, timing orgraphics changes.
+
+Validation observed:
+- `python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research` exit0,
+  /private/tmp/nfsmw-multiplayer-preview3-host.log. Existing25stage/binarysession/
+  SDKpatchchecks pass. NEWfixture compiles actual discovery implementation,
+  substitutes interfaceinventory with own127.0.0.2/remote127.0.0.1 and suppresses
+  all UDPoutgoingtargets. Actualfallback finds each unchangedC++/Pythondirectory
+  (oneattempt,oneconnection,onehost), removes duplicate/ownIPcandidates. Separate
+  responder fragments header/body acrosswrites: accepted. Wrongcommand/oversize
+  frame rejected. Eachscan boundedunder6s. This tests fallback despiteUDPblackhole,
+  not the actualdevices' UDPpolicy/discoveryUI. No game-room/race proof.
+- Two isolatedipa builds exit0: /private/tmp/nfsmw-multiplayer-preview3-build1.log
+  (initialcompile/configure) andbuild2.log(5plannedstepsfinaldedupfilter). Existing
+  actoolSimulatorService/deprecation/duplicate-lz warnings, no finalsource/link
+  error. Sourcepatchstatuses pass atconfigure. No otherSDK/controlbuildtouched.
+- ZIP.testzip=None, codesign --verify --deep --strict exit0,dwarfdump exit0;
+ 104metallibs andbothSDKdylibs byte-identicalpreview2. Uniqueartifactcopied and
+  byte-verified into main's ignoredios/build, no earlierpreviewreplaced.
+
+Final `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview3-tcp-discovery.ipa`,
+30393662bytes,SHA256 `d9264dd84701cd01483e9a5a1d1f47b5ee0b654e79d3797117115e7f71bce043`,
+UUID `F5EC48E6-6A61-37F9-89DC-1D402CC03C18`,bundle0.5.1/build9.
+Matchingartifact/ignoredJSONinmultiplayerworktreeios/build. Next FIRST verify
+Joinlists/selectshost andreadyremoteIP onactualdevices. Ifnohost, sendjoinboot
+withnewUDP/TCPdiagnostics plushostserverlog; manual CURRENTdisplayedhostIP is
+separatecheck(205inthisrun). Onlyafterdiscovery/connect works, launchboth and
+hostcreates/guestjoinssamegame-room/fullrace. No physicalpreview3test yet,
+no sharedroom/raceacceptance or AndroidUSA/PCpromotion. Main19177b6/source,
+sharedSDK/controlbuild and preservedissue11note/HANDOFF untouched; localcommit
+only onmultiplayer, no push/merge/tag/release.
+
+
+### October31: preview3 still fails; independent reachability controls; hotspot comparison pending
+
+Latestuser: iPhonehosting, iPadcannotdiscovereitherwhenhostisinQuickMatchor
+waitsinnativeprelaunchmenu. SameWi-Fiallowsdevices tocommunicate perStefan;
+LocalNetworkaccess is enabled for the app host on BOTH devices (explicitreply).
+Preserve those facts; no settings changed or repeat permission prompt demanded.
+Hypothesis from Stefan that server dies with launcher: code keeps global server/
+threads afterwindow closes, and suppliedserver logs show successfulgame login/
+roomcreation afterlaunch. Thus notsupported; freshprelaunchtestalsofails.
+
+Fournewfiles archived exclusive-create/byte/hashcheck, originalsretained. Folder
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+Shared-pasteboard/items sourcebase as earlierentries; UUID/name below:
+
+| Archived filename | Source UUID/name | Bytes | SHA256 |
+|---|---|---:|---|
+| nfsmw_lan_preview3_host_boot.txt | 086C25CB-30AD-4C3E-81EC-6AEEBCC07467/boot.txt | 8495 | 5b839eb80a04e989d8536afead6cf27d9a6c3f6df5579ec3cbb52c2413296557 |
+| nfsmw_lan_preview3_host_game.log | 8D597F67-D610-48FD-807F-EDD2054C621C/nfsmw.log | 224510 | 5a8349b523c4ed987b4159433bc352683135641dced45a16472e3f8f79ea1fcb |
+| nfsmw_lan_preview3_host_server.log | 04F3B543-FE3A-4615-843D-555CE04CFCC7/servidor_lan.log | 8850 | 4ee957917a04792c8d1a4e25af6aecc91f6673409a0f8124740695fb31efb101 |
+| nfsmw_lan_preview3_join_boot.txt | 5E4229A0-E288-4F4A-90ED-1E836FEEB25B/boot.txt | 2263 | 40df2632d4d77a827b558b9ea9300c9ef0faf42d76256fabf6c3c79d1880a2fd |
+
+Measured: phone205Hostready18:02:24.380, Launch29.130, red_dns=red_ip205,
+server starts24.364 then directory49.360/lobby49.380 withownclient; user/auth/
+room03:03.890, COUNT1. Server aftergame stillalive, no remoteconnection/UDPquery
+inthisfile. RestartHostonly18:03:27.636/server27.618; iPadscans18:03:08.478,
+30.519,40.978,44.319. EachUDP received0/rejected0/error0; own150/253targets.
+TCPfirsttwoabout2.96s,lasttwoabout0.39s; all253attempts/0connections/hosts0,
+last_errno61. That is LAST aggregate socketerror, not205-specificdiagnosis.
+No successfulremoteGAMERTAG/directory/gamejoin/peerracing in suppliedfiles.
+Phone/iPad identified byuser; OS not supplied. Preview3diagnosticmarkerspresent;
+cachedtranslation-unit13:50:31stampdoesnot independentlyprovewholeIPAUUID.
+
+Live control checks (all scoped to these local addresses/ports, no settings changed):
+- Macipconfig firstsandbox queryfailed machport; escalatedsuccess en0IP
+ 192.168.1.207. Initial .205/.150 ports30960/10901/10902 attempts timeout~0.6s;
+  initialphoneforegroundstateuncertain, not decisive. User then confirmed Host
+  andsaid restarted/wasinQuickMatch. Scoped .205ports30960/10901/10902 timeout
+  at3.006/3.002/3.002s; UDP10902NFSMW_DISCOVER replytimeout2s. iPad10902wasalso
+  probed butnoHostlistenerexpectedinJoinmode: do NOT countaspeerfailureproof.
+- `arp -n` resolved bothdeviceaddresses; `route -n get192.168.1.205` reports
+  directen0scopedlinkroute. DeviceARPresolvedaddressesdistinct; no recordedmatch
+  torouteraddress (routerARPentrymaynotexist). ARP doesnotproveTCPdelivery.
+- `xcrun devicectl list devices` exit1:CoreDeviceServiceinitializationtimedout;
+  no devicecontrol/install performed. `tcpdump -i en0 -nn -s96 -c6` scopedto
+ 205/TCP10902 exit1:cannotopen/dev/bpf0 Permissiondenied. This was OS capture
+  privilegefailure, not auto-reviewrejection. No privilegedcaptureorpcapmade.
+- Macnativefirewallread-only socketfilterfw reportsState0(disabled),blockallOFF,
+  Python.appincomingpermitted. systemextensionsctl list:0extensions;
+  scutil --nc list:noVPNserviceslisted. No firewall/VPN/privacyresetperformed.
+- StartedUNCHANGEDPython821b9b54 ea_server.py at18:11:40.148, --ip192.168.1.207
+  --name'Mac LAN diagnostic' --log/private/tmp/nfsmw-lan-mac-diagnostic.log.
+  LocalLANaddress @dircontrolreturnsvalidEAframe. Onlylocal207connectionsinlog,
+  no150/205discovery/TCPrecordsobserved. Userinitialanswer"Macappearsorconnects"
+  wasthenclarified: iPadbrieflylistedMacasconnected,butlatercouldnotfindit;
+  no correspondingremoteserverrecordindependentlyverifiedthatpositive. iPhone
+  cannotconnecttoMac peruser. Treat intermittentreportasuncertain,notverified
+  successfulLANsession. Neverusedserverforrace/auth/statsmutation.
+- Started stdlibHTTPserver --bind192.168.1.207:8080, serving ONLY temporary
+  `/private/tmp/nfsmw-lan-http-check/index.html` (LANcheckOK diagnosticpage).
+  User reports Safari onBOTHdevicescannotopen http://192.168.1.207:8080.
+  MacselfcheckreturnsHTTP/1.0 200OK, confirminglistenerstillalive. Serveronly
+  observedlocal207request. ItsBrokenPipe stacktrace was caused by OUR short
+  selfprobe reading40bytes thenclosing, not a remoteconnection/gamefailure.
+- Addedread-only `tools/ios/lan_path_probe.mm`, compiled:
+  clang++ -std=c++23 -fobjc-arc ... -frameworkFoundation -frameworkNetwork
+  -o/private/tmp/nfsmw-lan-path (exit0). AppleSDKheaderdocuments
+  nw_path_unsatisfied_reason_local_network_denied(3). No privateAPI used.
+  Target205:10902:preparing,state2,path_status1(satisfied),Wi-Fi1,reason0;
+ 5stimeout,connected0,local_network_denied0,exit1. Target150:10902same(no
+  listenerexpectedthere). PositiveMacself207:30960 producesstate3ready,
+  exit0/connected1. Closedlocal207:30961 yieldsstate1waiting,error_domain1/
+  errno61,reason0,5stimeout exit1; transcriptat
+  /private/tmp/nfsmw-lan-path-closed-port.log. Fixeddiagnostic-only readyflag
+  toremaintrueonceobserveddespitecancel, andpreservenonzero reason. Shared
+  state/callbackremoved/drainedbeforeexit, bounded5s. ThisisMacpathstate, NOT
+  proof ofiOSpermissionstate orallpolicyfilters beingabsent.
+- TemporaryPythonEA andHTTPprocesses stopped withSIGTERM via exactargv/logpath
+  match (onlyourtemporaryservers). No backgrounddiagnosticserviceleft. User's
+  phonehostnotstopped. No newIPA/buildofgame orSDK/controlsourcechange.
+
+Interpretation/next: normalLANreachabilityalsofailsinSafariagainstindependent
+server, so anotherdiscovery-onlyrewriteisnotjustified. Exactfilter/drop/location
+unresolved: couldbefurtherdevice/networkpolicyorlistenerexposure; do NOTclaim
+confirmedrouterisolation, userprocedureerror, Applepermissiondenial, orprove
+ourgamecodebugabsent. Bothloggedphonehostingmodesfail. Needcontrolledalternate
+path. Stefananswered"I'lltrythehotspot": iPadconnecttophonePersonalHotspot,
+restartHost/noteCURRENTaddress,often172.20.10.1, testJoinbeforelaunch. That
+answeriswillingness, NOT a result. Awaitactualoutcome/newendpoint/logs; keep
+priornegativeevidence. IfhostaddressremainsoldWi-Fi, inspectinterfacechoice;
+ifhotspotconnects, compareoriginalnetworkpathbeforemoretransportchanges.
+Sharedroom/race/iOS↔AndroidUSAstillunvalidated; PCheld.
+
+Allworkrecordedonmultiplayer174dc93baseline. Main19177b6stillonlypreserved
+issue11checkpointnoteanduntrackedHANDOFF; sources/SDK/controlbuilduntouched.
+New diagnostictoolandthisrecordcommittedlocally; no push/tag/merge/release.
+
+## October 31, 2026 — hotspot connects; preview3 async descriptor corruption, preview4 fix
+
+Stefan reports host172.20.10.1 on iPhone Personal Hotspot, iPad in-game Join,
+then BOTH devices closed with no crash report in Settings. Device models/OS
+not newly established; app running through LiveContainer, Local Network access
+already confirmed on both. Preview3 test controls retained, no new Extra Args
+reported. Do not interpret missing OS report as absence of a guest crash.
+
+Original inputs (shared-pasteboard/items under
+`/Users/bep1s/Library/Group Containers/group.com.apple.coreservices.useractivityd/`):
+1FE51C71-BA78-44DA-9731-990167DE7A5F/boot.txt,
+A82156F8-33D8-4FC3-8EA9-477D15DE8FA2/nfsmw.log,
+767A8924-0023-4ADA-A41E-7A9CA8F70ED2/servidor_lan.log,
+BC32A090-3780-4651-83EA-8666A38A3C7C/nfsmw.log,
+C46BD2C9-2CC4-4A54-98FD-0B959C7FADB8/boot.txt.
+Archived with copy2, preserving originals/no overwrite, under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+
+| Archived file | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| nfsmw_lan_preview3_hotspot_host_boot.txt | 17999 / 281 | 1708835cdb41768e4983f8b05ae62fb1dd11f84a30c18e7e2ccda72570d43ab7 |
+| nfsmw_lan_preview3_hotspot_host_game.log | 2375706 / 14081 | c1fb693cbe560ffa0d2407677c0bf2657f4a6c8c3eede82df375465ebe92de71 |
+| nfsmw_lan_preview3_hotspot_host_server.log | 33075 / 243 | 5862d2afbdce682f33b1752d0ef89fef19b850f999cdb6b34b7956f74726be7b |
+| nfsmw_lan_preview3_hotspot_join_game.log | 220813 / 1328 | 19ee649b0feaf97fc1922f04a0f604d2c5269ef4cfaadcceb87b993223456f18 |
+| nfsmw_lan_preview3_hotspot_join_boot.txt | 14844 / 212 | d392ab1739ada294ca6e677455c2786b39ff01557965d6bb3dc639201bf6e6a8 |
+
+Observed sequence:
+- Phone Host ready18:24:11.441 IP172.20.10.1; launch18:24:32.957.
+  iPadIP172.20.10.5 scan18:24:25.363 UDP1host, Joinready18:24:30.065;
+  another scan18:25:07.298 UDP1, launch18:25:11.439 with remote red_dns.1,
+  local red_ip.5. Launcher listener survives launch and serves remote game.
+- Server18:25:38.569 gjoi/COUNT=2, names bep1s/zestygooner, peer addresses
+ 172.20.10.1/.5. This is real shared lobby, not just launcher preflight.
+- iPad sends21bytes UDP3658 at18:25:38.785, async receives21 at38.786;
+  phone sends21 at38.792, async receives21 at38.798. Prefix00000100 in both.
+- iPad immediately faults38.786/.787; phone38.801. Both read guest0x160,
+  LR82829FE4, r11=0x100, receiver entry82829E88, r1=705DFCE0. Thread handles
+  respectivelyF80000E0/F80000E4; guestIDs1E/22. Server .5 disconnect38.799.
+  These are matching software failures after successful bidirectional P2P.
+- Follow-up phoneHost18:26:24 and padscan18:26:32 UDP1/Joinready36.120 do not
+  establish another race. No completed race or driving was logged/claimed.
+- Correction to previous control interpretation: join boot18:12:03.956 TCP
+  verifies192.168.1.205, ready18:12:10/18/19 endpoint205. The brief listing
+  attributed by user to Mac actually reached PHONE, not207. Thus original
+  Wi-Fi is intermittently reachable at least for directory/preflight; failed
+  probes/Safari remain facts, but blanket router isolation is not established.
+
+Source proof (USA generated code, ignored local proprietary output):
+- `ios/generated/default/nfsmw_recomp.5.cpp:sub_82829DB0`: frame144bytes,
+  WSABUF array at frame+96/+100 => caller receiverSP-48/-44; len576 and pointer
+  socket+173. Actual game receive storage stays on heap, descriptor is transient.
+- `sub_82810DC8` passes proper fromlen8th/overlapped9th arguments to import;
+  no argument-count fix needed here. Existing signature is correct.
+- Old SDK receive captures guest descriptor ADDRESS and detached worker
+  re-reads it only at arrival (`RedRepartir`); API must instead capture VALUES.
+- Receiver `sub_82829E88` waits events, then calls NetCritEnter8282B2F8 at
+  LR82829FE4. That callee saves r27 at receiverSP-48 (same descriptor slot).
+  r27 is global socket-list address0x829118D0 (sign-extended64bits). Old worker
+  can therefore read lenFFFFFFFF, destination829118D0, and overwrite21bytes
+  of global network state. Packet prefix00000100 becomes listhead0x100;
+  receiver loads listnode+96 => read0x160, exactly both logged faults.
+  Scheduling of overwrite was not captured directly, but alias, packet bytes,
+  resulting pointer/fault, and deterministic regression corroborate this cause.
+- Thread getter8262EA20 reads PCR+100 then thread+14C; not the0x160 access.
+  Existing stack-top256-byte pad is unrelated and unchanged. No AV swallowing,
+  null-list workaround, game logic bypass or changed synchronization.
+
+Fix in isolated SDK `src/kernel/xam/xam_net.cpp`, reproducible tracked
+`tools/ios/patches/multiplayer_sdk.patch`: copy vector<XWSABUF> at receive entry,
+use that snapshot for both synchronous scatter and worker completion; lambda
+owns snapshot by value. Guest actual buffers/OVERLAPPED/from outputs retain
+normal lifetime requirements. Default uses fix on multiplayer; no new switch.
+Preserve victorgbd original implementation/adaptation credit; this correction
+is downstream work, not a reason to remove credit.
+Microsoft provider contract supports descriptor capture before returning:
+https://learn.microsoft.com/en-us/previous-versions/windows/embedded/ms911770(v=msdn.10)
+and https://learn.microsoft.com/en-gb/windows/win32/api/winsock2/nf-winsock2-wsarecv .
+
+Checks:
+- Added `python3 tools/ios/test_multiplayer_receive.py --sdk <sdk>` compiles
+  ACTUAL SDK receive/scatter/address/overlapped code with actual endian/pointer
+  types, ASan+UBSan, deterministic gated socket and kernel/event doubles.
+  Pending receive returns997; caller reuses array as unrelated saved data;
+  completion must preserve unrelated canary, fill original8+13-byte buffers,
+  report21bytes and signal event. Also checks immediate completion.
+  First fixture compile failed (variable `memory` collided with namespace),
+  corrected to guest_memory; no application-source consequence.
+  Fixed implementation exit0, no sanitizer findings. Negative control uses
+  old HEAD patch applied to copied baseline in
+  `/private/tmp/nfsmw-preview3-receive-control`; exit1/SIGABRT at canary
+  `guest[i]==0`, demonstrating actual unrelated memory overwrite. Transcript
+  `/private/tmp/nfsmw-preview3-receive-control.log`. This is not a whole-game test.
+- `test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: exit0,
+ 25-stage C++/Python parity, binary7 preservation, TCP fallback and patch
+  apply/idempotency/status/revert/atomic rejection pass. Log
+  `/private/tmp/nfsmw-preview4-protocol-tests.log`.
+- `test_multiplayer_transport.py --sdk ...`: actual Darwin TCP/UDP, close
+  ownership, wait-any/all/index, USA routing hook pass. `test_lan_setup.py`
+  and `test_menu_touch.py` also pass (combined command exit0).
+- Build `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6`
+  produced new signed IPA; log `/private/tmp/nfsmw-multiplayer-preview4-build.log`.
+  Final build command also exit0, transcript
+  `/private/tmp/nfsmw-multiplayer-preview4-final-build.log`; diff --check exit0,
+  SDK patch --status applied/exit0. Unique delivered artifact remains the
+  first verified preview4 copy and its recorded SHA above/below.
+  actool reports unavailable CoreSimulatorService, but packaged IPA and signature
+  verification succeeded; no simulator/device launch performed from Mac.
+
+Artifact copied under unique name to worktree ios/build and main checkout's
+ignored ios/build for user access (no controls artifact overwritten):
+`NFSMW-multiplayer-preview4-receive-fix.ipa`,30393878bytes,
+SHA256 e2b352835356a97c8accf3a55db9236c2d4e2f2d29eea552084a25a021fd2390.
+Bundle0.5.1/build9. Main executableUUID F5EC48E6-6A61-37F9-89DC-1D402CC03C18
+UNCHANGED frompreview3 because only runtime library changed. New runtimeUUID
+6FEF5993-683D-3AD0-BF01-0B465BFF3EA0. ZIP test passes; codesign --verify --deep
+--strict exit0;104metallibs andGPUdylib byte-identicalpreview3, runtime differs.
+Companion JSON records identity. Device acceptance pending: install on BOTH,
+repeat hotspot phoneHost/padJoin, shared room then start/drive race; capture
+both game logs/server/boot if it fails. AndroidUSA follows; PC held. Original
+Wi-Fi reachability remains a separate open issue. No push/merge/release.
+Main19177b6 pre-existing modified checkpoint and untracked HANDOFF preserved;
+shared SDK untouched. All session source/docs committed on local multiplayer.
+
+## October 31, 2026 — preview4 iPhone/iPad hotspot race gameplay confirmed
+
+Stefan: "OH MY GOD IT ACTUALLY WORKED OVER HOTSPOT". Supplied five logs and
+screenshots of both race views. Test follows preview4 delivery; expected IPA
+NFSMW-multiplayer-preview4-receive-fix.ipa,30393878bytes,
+SHA256 e2b352835356a97c8accf3a55db9236c2d4e2f2d29eea552084a25a021fd2390,
+main UUID F5EC48E6-6A61-37F9-89DC-1D402CC03C18, runtime UUID
+6FEF5993-683D-3AD0-BF01-0B465BFF3EA0. These identify delivered artifact; logs
+alone do not independently hash installed runtime. Device models/OS not newly
+confirmed. Phone Host172.20.10.1, iPad Join172.20.10.5 over Personal Hotspot;
+boot red_dns .1 on both, red_ip respective device. No new Extra Args reported.
+Screenshots show40fps on BMW view and60fps on Fiat view; graphical settings
+not independently enumerated. No new code, flags, build or synthetic tests.
+
+Evidence copied preserving originals/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`.
+All archived filenames have prefix `nfsmw_lan_preview4_hotspot_success_`:
+
+| Suffix | Bytes / lines if text | SHA256 |
+| --- | --- | --- |
+| host_boot.txt | 8038 / 129 | 37b2cdfbc67f4d6071af36e409e8fd22675f0c5cdb5b60745aa5b691dc4700e7 |
+| host_game.log | 1012171 / 6008 | a6f05082728debb5d0185e7dd97711ee46370ee48240eb89f26c116af592edb5 |
+| host_server.log | 27038 / 189 | d7c95884f1ae3fcd1882f396d551a5a367007e7feeef951be1084a86146e7fc9 |
+| join_boot.txt | 8322 / 132 | 32b745a5a44d823fadc6ef2915532e62a3bbd4dc232810c70294d3fbd75a9354 |
+| join_game.log | 1058844 / 6197 | acd7916557c4e91a7d2c72244301567dc812ad2df817e3aab7f5a2c807f4dc55 |
+| race_bmw.png | 3868498 | 9ff9c4edeae6b0386207d8577c4a7956b4fc6f1551a987a953651ee3469d6f16 |
+| race_fiat.png | 6360845 | 35468e8fcb6f4dadd1542334eff59da346b0b386d28b5e23ff2b61c8fe2abde1 |
+
+Original shared-pasteboard/items directories (same root as previous entry),
+in table order: BAE885A1-99D7-4398-A39A-B3983782EA4A/boot.txt;
+3C0F6FFA-292C-4293-87C9-822C4AF46B85/nfsmw.log;
+E54C015A-2B39-454B-847D-094AB44BC967/servidor_lan.log;
+A48411DA-A61A-4D1D-9EB5-00F1AC2297EB/boot.txt;
+0F226268-C813-4863-9136-D0ED6D5C3285/nfsmw.log. Screenshot originals in
+`/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+codex-clipboard-7bb349ac-4d1d-437e-9b44-94e4975a25cf.png (BMW),
+codex-clipboard-43412c32-90be-439a-bf86-174ce366100f.png (Fiat).
+
+Observed:
+- Phone Hostpreflight18:36:40.766, launch18:36:52.187. iPad Joinready
+ 18:36:50.577, launch18:37:22.285.
+- Shared gameCOUNT=2 at18:37:54.932; gsta18:38:10.807, +ses to bep1s and
+  zestygooner18:38:10.808. Actual server host remains active through game.
+- Host log:784 sendto UDP3658 lines (18:37:55.055–18:39:04.101),764
+  WSARecvFrom UDP3658 lines (18:37:55.053–18:39:01.609).
+  Join:758 sends (18:37:55.038–18:39:01.129),757 receives
+  (18:37:55.048–18:39:01.146). Counts are matching logged lines, not a claim of
+  loss-free network delivery. Both include async receives and gameplay payloads.
+- Zero `Unhandled guest access violation` lines in either game log; no repeat
+  of0x160 crash. There ARE existing error-level semaphore diagnostic dumps
+  around18:38:04–06, so do not describe logs as having zero errors. Gameplay
+  continues after those diagnostics. Last game-log lines partially truncated.
+- Screenshots show BMW and Fiat in reciprocal views: positions2/2 and1/2,
+  lap1/3, elapsed26.70/23.92 (screenshots not simultaneous), reciprocal18m
+  separation. Along with user confirmation, this establishes race startup and
+  actual two-device gameplay on hotspot, beyond shared-lobby/handshake only.
+- Server logs iPad connection close18:39:01.665. Cause not established; do not
+  label crash, intentional exit, or completed race. No finish/results/rematch
+  evidence, and short successful test does not establish prolonged stability.
+
+Conclusion: preview4 receive fix validated through racing on tested iOS hotspot
+path. Mobile multiplayer remains active: next finish/results/rematch, test
+victorgbd Android USA and original Wi-Fi path, improve setup usability as
+needed. PC stays deferred; no push/merge/release. Records/changelog updated and
+committed locally on multiplayer; main sources/controls/shared SDK untouched,
+main's pre-existing checkpoint edit and untracked HANDOFF preserved.
+
+
+### October 31 — user clarifies successful test termination and Wi-Fi status
+
+Stefan confirms "i quit the game" and regular Wi-Fi still fails. This resolves
+previous entry's uncertain final disconnect as user-initiated, not evidence
+of another crash. No new files, device settings, build or tests supplied.
+Hotspot race-start/gameplay success stands; finish/results/rematch unproved.
+AndroidUSA protocol/peer support is implemented, not yet device validated;
+first cross-play test should use known-working hotspot path to separate
+interoperability from unresolved Wi-Fi reachability. PC remains deferred.
+Checkpoint/backlog updated; documentation-only commit on local multiplayer,
+no main/shared SDK/build changes, push/merge/release. Pre-existing main
+checkpoint modification and HANDOFF remain preserved.
+
+## October 31 — Android lobby success, mixed-interface peer failure; preview5
+
+First Android device test: user reports Android connected in prelaunch, sees
+both players in-game then cannot connect to other player; iOS never shows
+Android peer. Screenshots agree (TKMachine/bep1s vs bep1s alone). User confirms
+Android on iPhone Personal Hotspot, while iPhone Wi-Fi also enabled. He offered
+another preview4 test with Wi-Fi disabled; advised restartHost/check172.20.10.1
+then Android reconnect. This is a pending control, no outcome supplied yet.
+
+Five originals archived preserving source/no overwrite under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview4_android_mixed_interface_`:
+
+| Suffix | Bytes | SHA256 |
+| --- | --- | --- |
+| host_boot.txt | 16533 | 87eb02b9fc1c5682c840cb210c380f1317b77ebaaff073d0d5c7fe0e5ad3cde8 |
+| host_game.log | 1561861 | 9b31b6f551c88df7ed5eb04f3965a8fe5c45aa6171a48b7bc09194d99f185005 |
+| host_server.log | 63590 | 5bb5bdc7b43340e13d4183fecc7ec296ec797505a064c55799d92a75c05a83d1 |
+| android_lobby.jpg | 187543 | 14580c12c3097f9180894a3892fb1b721cca0ccec1fe6f74d9a8303ccb664992 |
+| ios_lobby.png | 3150576 | 516ac3b97644ac41aa254e672fb35884c68328de6758ec7e631c99aa40f8ff1d |
+
+Originals from shared-pasteboard/items root from prior entries:
+29DFC6F4-2ADE-4518-B77D-08DFE61DD412/boot.txt,
+64C42074-91E6-4C16-9A5E-011EE61423AA/nfsmw.log,
+C9EAFABB-8447-4B90-9190-FF1B500FCAE9/servidor_lan.log.
+Images in `/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/`:
+codex-clipboard-2d79c54d-8340-43a7-b990-d10fb4741a2d.jpg,
+codex-clipboard-27379375-af7f-439a-8217-9404c93b4225.png.
+
+Logs append older successful hotspot run; relevant NEW launch18:45:12.933
+Host192.168.1.151, red_ip/red_dns151. Server18:45:06.957 discovery responds to
+172.20.10.6; gamertag TKMachine passes. Android directory18:46:02.926 returns
+172.20.10.1 based on accepted socket's local endpoint, whereas phone's own
+login/peer MADDR/SESS contains192.168.1.151. Two gjoi attempts18:46:09 and
+18:46:26 produceCOUNT=2 then leave18:46:19.236/18:46:36.127. Both peers use
+CLST192641/VERSxbox1.2-Nov2-2005, but SLUS21351(iOS) vs21267(Android).
+USA edition previously user supplied; exact installed Android release and
+SLUS significance not established, do not infer causal region incompatibility.
+No Android game log supplied. Phone log has zero guest AVs. New-run UDP3658
+sends:22x8bytes,10x21,8x35,22x49,104x63; UDP6000 four10byte pings. Repeated
+8byte connect requests arrive from172.20.10.6, phone replies and attempts
+handshake/data, but mobile gameplay not established. This demonstrates some
+UDP connectivity; do not claim all UDP blocked or complete working handshake.
+
+Concrete local defect: red_lan.cpp PuntosInterfaz ranks en0Wi-Fi3 > bridge2.
+Launcher passes selected address as fixed red_ip; game identity/session embeds
+Wi-Fi address even though guest needs hotspot. Preview5 ranks bridge4 > en0 3,
+only when UP/nonloopback/privateIPv4 per existing filter. Wi-Fi remains fallback;
+VPN/cellular excluded. Applies existing IpLocal consistently to setup/advertised
+host and runtime args; no lobby wire-format/USA hook/SDK change, no new toggle.
+If both networks intentional, hotspot takes precedence by default; explicit
+network selection can be future setup work. Fix addresses confirmed bad metadata,
+not yet proof it resolves all Android incompatibilities. Credit retained.
+
+Checks:
+- New `python3 tools/ios/test_lan_interface.py`: exit0; actual selection functions
+  compiled with ASan/UBSan, synthetic list tests simultaneousWi-Fi/hotspot in both
+  enumeration orders, bridge-down fallback and VPN/cellular exclusions. Helper
+  address formatting/private classification are test doubles; inventory only,
+  not an actual iOS networking test.
+- `test_lan_setup.py` and `test_multiplayer_receive.py --sdk
+  /private/tmp/nfsmw-multiplayer-sdk` exit0; original async lifetime fix retained.
+- `test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research`: exit0;25-stage
+  C++/Python parity, binary7 preservation, patch lifecycle/atomic rejection and
+  UDP-blackhole TCP fallback/invalid framing checks pass;
+  transcript `/private/tmp/nfsmw-preview5-protocol-tests.log`.
+- `cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j 6` exit0,
+  transcript `/private/tmp/nfsmw-preview5-build.log`. codesign --verify --deep
+  --strict exit0; ZIP CRC pass,104metallibs andbothSDKdylibs identicalpreview4.
+
+Unique artifact copied to worktree ignored ios/build and main ignored ios/build
+(user access only; no controls output overwritten):
+`NFSMW-multiplayer-preview5-hotspot-address.ipa`,30393361bytes,
+SHA256490f9fe9990e4a05f72ba5980152fd20cb4cc583ca4dbc7bfca06392e45f2260,
+UUIDB55A1AC5-73EE-38CA-A588-28BDD0E2E5EF, version0.5.1/build9.
+Companion JSON records identities. No preview5 device acceptance yet. Next:
+await Wi-Fi-disabled preview4 control; preview5 both-interface hotspot test,
+then Android game logs/release identification if correctly advertised address
+still fails. Regular Wi-Fi remains separate, PC deferred. All changes local
+multiplayer; main/sharedSDK untouched, pre-existing main checkpoint modification
+and HANDOFF preserved. No push/merge/release.
+
+## October 31 — Android gameplay confirmed; Wi-Fi iOS race completed; Android-only roster defect
+
+User supplied Android-test boot/game/server logs at pasteboard/items:
+9B1A49B9-F7EC-4CAE-97B5-A61C0215945E/boot.txt,
+BB7A8B31-B762-412F-AA38-26933314F121/nfsmw.log,
+9A66AB06-E6F2-4AAE-9525-B2E274E3237C/servidor_lan.log.
+Read successfully first, respectively392/19054/770lines. Subsequent archive
+attempt failed FileNotFoundError (exit1): pasteboard directories no longer
+existed, confirmed ls exit1. No archive/hashes were captured; do NOT claim
+these three originals preserved. Earlier Android failure logs ARE archived.
+Need these re-exported if needed for raw follow-up. Retain parsed facts:
+- NewHost18:51:31.751, launch18:51:46.907, red_ip/red_dns172.20.10.1.
+- Auth bep1s .1 at18:52:03.171, TKMachine .6 at18:52:42.313; gjoi/COUNT=2
+ 18:52:46.956. gsta/+ses both18:53:02.820. UDP3658 continues both directions
+  through18:55:10.833. Zero guestAV in supplied phone log. Append-only records
+  include earlier sessions; build stamp Oct31 13:50:31 does not distinguish
+  preview4/5 (link-only changes). Expected preview4 Wi-Fi-disabled control
+  from preceding discussion, actual installed artifact hash not supplied.
+- User confirms they could play, he intentionally closed; iOS still did not
+  display Android name/connected row. Android reported occasional remote-car
+  flicker and stutter near iOS car. Do not label disconnect a crash.
+- User explicitly confirms iOS↔iOS names display correctly. This narrows
+  remaining roster symptom to Android interoperability on tested pairing,
+  not every host roster. Lobby server sends TKMachine/OPPO1/COUNT=2 to host,
+  phone recv log contains name; payload absence not established cause.
+- Older failure data SLUS differs iOS21351 vsAndroid21267, same CLST/VERS;
+  not proof of cause. Asked exact Android build/release and whether Android
+  keeps iOS name visible, answer pending. No game hook/SDK behavior changed.
+
+Wi-Fi control then user: host192.168.1.205, searching worked, race started and
+"played through it", opponent motion much smoother/no flickering observed.
+New logs identify guest192.168.1.200/zestygooner, both are iOS launchers. Thus
+Wi-Fi race acceptance is iOS↔iOS; Android-over-Wi-Fi not established. No reason
+to keep classifying all Wi-Fi discovery/racing as broken or claim a specific
+router/policy cause was fixed. No explicit network-settings diff supplied
+beyond advised PersonalHotspotOFF/sameWi-Fi. Device models/OS not newly given.
+
+Five new originals copied immediately with copy2/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_wifi_race_completed_`:
+
+| Suffix (role) | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| device_a_game.log (join) | 1347490 / 7620 | b6e75a311f04ccfe029104c4aff88584a23a85f8d181b8da796b1ca1f9dff5a2 |
+| device_a_boot.txt (join) | 8337 / 132 | f3a4c29fdd4b7ded4fdb1b83ff5acc0066f9cea49c2468d3cf0184fd41cbdf48 |
+| device_b_boot.txt (host) | 8050 / 129 | db0583c65660d2c27386579bcb94748b7c9f9bff0f0ec4ded3963f41c43f9c3d |
+| device_b_game.log (host) | 1269600 / 7248 | 708e838e32d7304fe85859bad85d91cc4ac4c0c36ddf06dc14e472dbfdb44152 |
+| server.log | 30403 / 208 | de8e40ad804e552a654a6eafccddf15238f6a17368c28845af66192d7d89127c |
+
+Original shared-pasteboard/items directories in table order:
+60E477EB-80B8-4AA8-A0FD-F28F1BDBFD0F/nfsmw.log,
+98C30B08-330C-4855-8294-26FB9E535768/boot.txt,
+B9FBFDDE-BC2F-4606-A5F5-F55FE3E0F018/boot.txt,
+029BA1BE-5A61-4040-8544-0F9B74EC824A/nfsmw.log,
+426A3BC0-19DE-4D89-A6D4-F2E0627141E0/servidor_lan.log.
+Hostready18:59:01.212, launch18:59:56.230. Joinsearch18:59:40.190 returns1
+remotehost18:59:41.694; ready18:59:43.615, launch18:59:57.948. Both use
+red_dns192.168.1.205, local red_ip205/200 respectively. Auth host19:00:12.457,
+guest19:00:26.426; gjoiCOUNT=2 at19:00:29.793, gsta19:00:45.244. Guest log
+ends19:02:12.937, server closesguest19:02:13.121, host log ends19:02:27.905.
+Both game logs zero guestAV, last lines truncated. Race completion is user's
+report; logs support session/race startup/traffic but no finish-specific packet
+was independently identified. Build stamp still13:50:31, no installed SHA;
+preview5 delivered but install not explicitly confirmed. No new flags supplied.
+
+Investigation only, no speculative roster patch/build. Inspected SDK user/session
+stubs, existing +mgm/OPPO serialization, game dispatch. Extracted local sibling
+XEX via existing tools/ediciones/imagen.py into ignored/private
+`/private/tmp/nfsmw-multiplayer-image-cache/*.img`,13434880bytes. Private game
+image not committed. +mgm table at828F2230 points8282E2E8, dispatches game event4
+through8281F3A0 to registered callbacks (32slots atobject+6312). This alone
+identifies no roster bug. Unsupported XLIVEBASE5000D/50079 observed but no proof
+related to missing Android name; preserve current scoped behavior. Broad web
+search for message constant returned unrelated results, used no claims from it.
+Need Android actual build/logs and roster handling comparison before changing
+working iOS behavior. Wi-Fi Android pairing/reliability/rematch also untested.
+Stefan prioritizes Wi-Fi and correct remote names; flicker/stutter lower priority.
+Records/changelog updated locally on multiplayer; main pre-existing checkpoint
+edit/HANDOFF preserved, sharedSDK/controlbuild untouched. No push/merge/release.
+
+
+### October 31 — Android Wi-Fi manual-current-address failure confirmed
+
+Friend reports "latest" victorgbd build (exact release not supplied), sees iOS
+host's name in game room (hotspot previously worked). User reports Android
+cannot find host in prelaunch and hangs connecting to EA; asked network and
+manual address, response explicitly "Wi-Fi; current address entered manually"
+for192.168.1.205. Do not attribute to stale172.20.10.1/search-only. No logs from
+THIS failed Android Wi-Fi attempt supplied yet; latest paired logs are iOS
+success. Need Android nfsmw.log and same-attempt host boot/server to distinguish
+connection/directory redirect/auth failure, and Android identity details for
+one-way roster display. No source fix/root-cause claim/new IPA or tests.
+Updated checkpoint/backlog locally on multiplayer, main/sharedSDK untouched;
+no push/merge/release. Pre-existing main checkpoint edit/HANDOFF preserved.
+
+
+### October31 — new iPhone Wi-Fi failure logs; Android log location verified
+
+Archived immediately/no overwrite under Debug/Most Wanted (2005) Debug/
+31 October2026, prefix nfsmw_lan_android_wifi_manual_failure_:
+- host_boot.txt:16100bytes/258lines,
+  SHA256086b812779ed309df74c77f337df861d550208b799b459842a588426bf990f3b;
+  source pasteboard/items/270B321D-2C38-4586-B80B-B9B9FBF4B701/boot.txt.
+- host_game.log:952793bytes/5775lines,
+  SHA2569b0b416288a4b984bf46cd56743bc5254a51a8dae9cc2a1ded3e49055a429896;
+  source1F81EFDB-F7AD-4323-8ABA-809C86162CFA/nfsmw.log.
+- host_server.log:11888bytes/85lines,
+  SHA2569fb0bc162f6076049938419f1e0089fe76996398b65a5babfd1f493edf164f6b;
+  sourceDE0BCE21-1C5A-42C5-A1BB-5AEE9394593C/servidor_lan.log.
+Same original pasteboard root as previous entries. Host192.168.1.205 logs
+UDP10902 searches from192.168.1.133 at19:05:07.944/18.696/32.828, replies
+sent. No remote TCP directory30960/lobby10901/gamertag10902 entries; ONLY self205
+connections19:05:18.969/18.999 and19:06:27.610/27.640, selfauth succeeds,
+selfroomCOUNT1. Indicates remote directory connection not observed on host;
+not proof of network filter, wrong user input, stopped host or cause.
+
+User asks where Android logs are. Verified pinned upstream Java and current
+main via raw GitHub (browser blob fetch failed cache miss, raw succeeded).
+Ajustes.carpetaLogs uses getExternalFilesDir(null)/logs; applicationId
+io.github.nfsmwrecomp => internal shared storage Android/data/
+io.github.nfsmwrecomp/files/logs/nfsmw.log when enabled. MotorNativo.argumentos
+chooses /dev/null/log_leveloff for !DEBUG&&!REGISTRO; DEBUG/REGISTRO writes
+that log, red_registro only enabled with REGISTRO in pinned snapshot. Ordinary
+release may have no file; Xenos also disables release logging. No verified UI
+export-logs button; don't confuse saved-games export with logs. Android/data
+file-manager restrictions may require PC/ADB; no invasive workaround needed.
+Sources: github.com/victorgbd/NFSMW-Recompiled-Mobile main android/app/src/main/
+java/io/github/nfsmwrecomp/{Ajustes,MotorNativo}.java and build.gradle.kts.
+No Android debug APK built/installed; ask for available file only, not invent
+release logging switch. Exact friend's build remains unknown beyond "latest".
+Documentation only; no new tests/build/code or claimed fix, local multiplayer,
+main controls/sharedSDK untouched, pre-existing main checkpoint/HANDOFF preserved.
+
+## October31 — original-PC LAN feasibility authorized; real DLL directory/login tested
+
+Stefan asks PC cross-play work now using remaining usage; supersedes earlier
+PC hold, not a push/merge/release approval. Android follow-up deferred to his
+old GalaxyS21+ later. Friend MotorolaEdge30Fusion/Android14 per recollection,
+Android/data access denied. Official Android Storage Access Framework docs
+exclude Android/data from ordinary file selection since Android11; no bypass
+or guessed root procedure attempted. Ordinary victorgbd release may not emit
+logs anyway (previous entry). Android roster/Wi-Fi bugs remain open.
+
+PC originals at `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/PC Game Files`:
+speed.exe6029312bytes, SHA25680774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c,
+x86PE32, exactpatchversion still not independently established. Initially
+server.dll/server.cfg absent; user pasted them into same folder, read-only now:
+server.dll380928bytes SHA256c4fdd0e9e779be7f4be7728b03339eda4fd27248ceb9d2c640403b8fc90587ff;
+server.cfg1462bytes SHA256b91b1c448d189db45437a165dc41a1511057a0525b8ad31780b9c5ff75b44a7c.
+Audit script observes both now present. DLL exports IsServerRunning RVA10B0,
+StartServer15B0, StopServer1000. cfg LAN_THROTTLE30/PINGTIME20/PINGWAIT30,
+ADDR uses original %%bind expression. No edits to originals.
+
+Primary reverse-engineering sources cloned read-only snapshots into /private/tmp:
+- OhhhThatVarun/nfsmw-lan-protocol dd2eb3329566f3b0c1e11e3e07a0a26b14da0487,
+  MIT, Discovery.md/Authentication.md/EaEncode.go. Describes384byte gEA announcement
+  UDP9999, PC server TCP9900, normal12byte EA frames, PC identity NETV20/
+  CLST194010/productnfs-pc-2006 vs mobileNETV0/CLST192641/nfs-xbox-2006. Text's
+  variable-length-prefix explanation is imprecise: actual frame has32bit BE
+  total length atoffset8, as both our actualDLL test and existing mobile prove.
+  Declaration difference alone does NOT prove race incompatibility.
+- codepdbh/nfsmwpc-recompiled 12bdadd5d6b0fe133e9fa494bc749402246249df;
+  source describes originalserver.dll needed for host, has Win32 socket shims.
+  No code imported from this implementation. Secondary project memory notes
+  s-b-repo network subsystem used as leads only, not assumed correct. Actual
+  suppliedexe disassembly confirms host/client global9B416C and network setup
+ 7A15D0. Game741E20 loads server, resolves3exports; calls StartServer with
+  four cdecl arguments, second boolean from649F00, last2null. DLL last2 are
+  optionalcallback/context (conditionalindirectcalls observed). Not evidence of
+  complete PC/mobile race serialization equivalence.
+
+Runtime isolation and negative result:
+- CrossOver installed, only existing bottleBeamNG left untouched. Created
+  /private/tmp/nfsmw-pc-crossplay-bottle using cxbottle --create --template
+  win10_64 (exit0). APFS `cp -cR` original2.8G folder to
+  /private/tmp/nfsmw-pc-crossplay-game exit0; test writes only copy/bottle.
+- Ran copied speed.exe via CrossOver wine --bottle temp --no-gui --workdir
+  copy --debugmsg+winsock. Wine logs display-mode change errors(-2), no usable
+  gameUI reached; process eventually exit5. A scoped WINEPREFIX wineserver-k
+  attempt exit1, so do not claim it was independently verified as stop reason.
+  CUA getState/getApp(CrossOver) exposed existing BeamNG/home only, no PC game
+  controls used. CrossOver app was opened; no existingbottle/settings modified.
+- Built own minimal2560byte PE32 harness (no proprietarybinary embedded),
+  loads copied server.dll, calls StartServer('PCprobe',0,0,0), sleeps30s,
+  calls StopServer, exits. Reproducible tracked pc_lan_server_harness.py.
+  Actual DLL started, loadedcfg and bound192.168.1.152:9900, wrote its normal
+  server logs. This is Mac's observed CURRENTbindIP; don't reuse old207.
+  Initial loopback127.0.0.1 probe refused because serverboundLANonly, not
+  proof DLL failed. Reprobe152 succeeds. Eachharness bounded30s/normalshutdown.
+
+Actual originalDLL protocol results:
+1. PC-style @tic/@dir accepted: ADDR192.168.1.152 PORT9900 plusSESS/MASK.
+2. Xbox-style @dir also accepted (NETV0/CLST192641/productnfs-xbox-2006).
+3. Main-session opening addr/skey/news returns~png, skey and newsbadc.
+4. First synthetic authmiss, then persmaut: probes omittedVERS, and server
+   explicitly logs `auth missing VERS`. Retain as negative fixture failure,
+   NOT a real mobile incompatibility. Later full captured-style mobile fields
+   includeVERS/SLUS/SKU/SDKVERS/BUILDDATE/GTAG/XUID/PUID/MAC and emptyPASS.
+5. Complete mobile auth ACCEPTED, no NAMEalias required: responseNAME=IOSProbe,
+   GTAG/PERSONAS=IOSProbe, XUID=$00090000c0a80198, TOS1 SHARE1 ADDR152. Another
+   test with extraPCNAME/REGKEY also succeeds; personaPERSIOSProbe succeeds with
+   NAME/PERS/LOCenUS/MA/A/LA. No password bypass patched; original LANserver
+   behavior in isolated disposable session. No gameplayer/race was impersonated
+   to another person's running server. No PC room/search/race validated yet.
+
+Added independent experimental tools (multiplayer only, no newIPA/SDK changes):
+- pc_lan_probe.py --audit PE/hash/hostfiles, --listen1..60 parses passive native
+  PC announcements, --directory IPv4 [--profilepc|xbox] validates actual frame.
+- pc_lan_server_harness.py builds bounded1..60s own PE, imports onlyKernel32
+  LoadLibraryA/GetProcAddress/Sleep/ExitProcess; objdump verifies PE/imports.
+- pc_lan_bridge.py explicit --bind/--pc-host/--seconds1..3600. Relays ONLY EA
+  initialdirectory from mobileTCP30960 to nativePC9900 unchanged. Native response
+  sends realgame's lobby DIRECTLYtoPC9900. LauncherUDPdiscovery/TCPgamertag10902
+  use victorgbd protocol; health-check originalPCdirectory before preflight.
+  Name reservations coverbridgeclients only, unknownPCplayers require distinct
+  names. PLAYERScount-1 explicitlyunknown. Does not relay/translate race, roster,
+  versions, sessions, encryption or content. READY/preflight is not cross-play.
+  Startupchecksbackend beforeopeninglisteners; all shutdown whenboundedtestends.
+
+Verification:
+- `PYTHONPYCACHEPREFIX=/private/tmp/nfsmw-pc-python-cache python3
+  tools/ios/test_pc_lan_probe.py`:5tests exit0 in0.006s. Announcementvalidation,
+  rejectedwronggame/size, fragmented12byteframing, invalidlengths, byte-exact
+  PC/Xbox directory relay, rejectauthinrelay. Synthetic peers do not testgame.
+- Initial plain py_compile failed permission to defaultApplePythoncache outside
+  writable roots; use explicittmpPYCACHEPREFIX (tests subsequently import/run).
+- ActualDLL final30s run plus15sbridge192.168.1.152:30960: Xboxdirectory request
+  returns unchanged originalADDR152/PORT9900/SESS1793467864/MASK. Gamertag
+  preflight returnsFREE afterbackendprobe; UDP returnsNFSMW_SERVER, NAMEPC LAN
+  experimental, PLAYERS-1. Bridge transcript exit0 and originalDLLtest exit0;
+  no remote phone or Windows racer joined. This validates control-path tooling,
+  not PC/mobile room or racing. Boundedserver/bridge processes ended; no service
+  installed. Temporarybottle/gamecopy retained intentionally for reproduction.
+
+Evidence copied preservingfiles under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`:
+- nfsmw-pc-launch.log289bytes SHA25623bc0e4a3f54244ba8ed537d9c6a6d5fe4273e27bec236d1ebdc0cad50df9b68;
+  nfsmw-pc-crossover.log2057951bytes SHA256b9d6fc2a61e191186f4fa0415241eca146ab38beb27603722d6977e5fb3e314c.
+- nfsmw-pc-bottle-create.log empty/exit0; nfsmw-pc-server-harness.log1983bytes
+  SHA256de436e112f7fa22ae7265420b5ee60b049ee55b08f1f68f7f664e7b301bcd88c.
+- nfsmw-pc-server-harness2.log1987bytes SHA256f2ca1de988f942f033b4be05ba6956749dc267b64a1e0c36a2340f7572ea5477.
+- nfsmw-pc-server-harness3.log2124bytes SHA256faa91c7dc51f048820cef0a30132a89277c07bc6ca3dfe88c8730fac6fdd49d0.
+- nfsmw-pc-server-harness4.log2806bytes SHA256c3130ad2e1d90d047192d704b7f795ed8c997add92e1aa99d1a68d7abf37f323
+  includes actualacceptedauth/persona.
+- nfsmw-pc-server-harness5.log1987bytes SHA256147217e595cd76a45a6254fc7c16501178db43cb18286bfeee32855551282fe7;
+  nfsmw-pc-bridge-live-test.log523bytes SHA256e4f74e2f5d571e12ae0323c8bf2c65bdc4f2174ed97abb64b07982fda034a209.
+- nfsmw-pc-server-calls.txt12304bytes SHA256fe75b99523f49acd0e72ab78f5cb20afc6872d0c4ae4342c62f8088e7ad734bb
+  proprietary disassembly keptlocal/ignored, not tracked. Originalwineharness
+  lowleveltrace files1..5 remain/private/tmp; essentials abovearchived.
+
+Next: native Windows PCgame hostsrealLANroom +bridge, mobileJoin, compare
+actualroom/searchclusters/versions and thenCommUDPpacket/racepayload semantics.
+Ifroommissing, inspect searchfilters first; ifracefails inspecthandshake/content
+IDs/serialization. No forcedversionpatch, fakepeer or speculativegamebypass.
+Publicsource supportsinvestigation but no guarantee of directPCcrossplay.
+Rules/checkpoint/backlog advanced; main19177b6pre-existingmodifiedcheckpoint/
+HANDOFF preserved, mobileworkingcode/sharedSDK/controlartifacts untouched.
+No push/merge/release. Standaloneexperimentzip identity recorded below.
+
+Standalone handoff `ios/build/NFSMW-PC-LAN-experiment.zip` (worktree and main
+ignored build folder),5348bytes SHA2562818da4dd3ee4742eac3c6906afe019379704540fbaf8d41dafa8e066c6b6fe5.
+Contains onlytwo Python scripts and explicitlyexperimental instructions, no
+proprietary files. ZIPCRC passes. Existing mobileIPA artifacts not overwritten.
+
+
+### October31 — user PC probe succeeds in Shared-NAT Parallels, phone cannot reach
+
+User pasted firstWindowsPython3.13 attempt PC192.168.1.142:9900 WinError10061,
+probeexitfailure/bridgeunhandledtraceback beforelistening. No proof game9900
+listener was active/correctinterface there. Turninterrupted afterread-only
+status/scriptinspection; no partialsourceedit or process started in that turn.
+
+Latestuser: ParallelsWindows11, folderC:\Mac\Home\Desktop\NFSMW-PC-LAN-experiment;
+firstpython aliasmissing, laterPythonworking. @dir Xboxprofile10.211.55.3
+returnsADDRsame/PORT9900/SESS1793469773; bridgeinitialdirectorySESS1793469774,
+READY. iPhoneJoin thatIPv4saysLANserverdidnotrespond. This provesPCdirectory
+andbridge start insideVM, NOT phone-to-VMreachability or lobby/race.
+Read-only Macprlctl listinitialsandboxfailedconnectservice; escalatedread
+succeedsWindows11running, list-i filterreports`net0 (+) type=shared`.
+No configmutation/noVMrestart performed. OfficialParallels networkmodesKB4948
+andv20NetworkPreferences docs: Shared createsvirtualrouter/privateVMsubnet,
+VMnormallynotdirectlyreachablefromexternalphysicalLAN; Bridged joinsphysical
+networkwithownaddress. This is a verified obstacle, not proof it is the only
+remainingfailure. Do not suggest usingMacIPwhileleavingdirectoryADDRprivate:
+bridge preservesoriginalADDR; phone lobby/race wouldstilltargetprivateVM.
+Next: user selectsBridged onactivephysicalWi-Fi, notesnewWindowsIPv4sameLANas
+phone, restartsPCgameLANhost andbridgewithnewIP, retriesphoneJoin. Preserve
+workingmobilebehavior; no firewalldisabling or speculativegamepatch. No new
+scripts/build/IPA or tests; documentation-onlylocalmultiplayercommit.
+User's requested finalUX: nativeportfind/joinoriginalPCserverwithnoPCsidehelper;
+experimentalPythonbridge isnotacceptanceofhelperrequirement. No push/release;
+mainpre-existingcheckpoint/HANDOFF preserved, sharedSDK/sourceuntouched.
+
+## October 31 — laptop PC login failure, completed three-player race, native PC preview6
+
+Stefan supplied boot, rotated/current game logs, mobile server log and Windows
+PowerShell transcript. All five copied immediately with copy2/no overwrite to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_pc_laptop_and_three_player_`:
+
+| Suffix | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 40516 / 609 | d91c11213cd2857049b3a84e8d5beb2291ae13d90cded51d6097b8b485f43482 |
+| game_previous.log | 5242710 / 29260 | 33d910c7f348e2e0fd522277cd4514ca549eba4f57419ebc2213df298fe6df36 |
+| game.log | 2804812 / 15769 | 44cb6ac428ec945d67049db413af5f187f1ebe5095ae3437e93b9e2e4927e5a7 |
+| server.log | 227932 / 1443 | 8e0af1e2aebd1af02768976a909d2547f4dd0b6dc050c052f4f45ec4d45c75e5 |
+| windows_powershell.txt | 3816 / 55 | 2866c78fe9ba578f751eb4a80e6f5bd5c239ff5bf51c2d87a5450b6d1c2a4d77 |
+
+Original pasteboard/items directories in table order:
+D638FDBE-1361-450B-BBCF-CAE040319503/boot.txt;
+0FAF099A-2B1A-470C-B2A3-45DD0A79E185/nfsmw.1.log;
+25221FF1-12C5-48F3-8992-CFF8504AFDED/nfsmw.log;
+BA668504-58CF-4D1B-8D41-C9EDDD7D2E92/servidor_lan.log;
+3D379620-AF78-432F-B42A-04EC97D49AFB/Windows PowerShell.txt.
+Device/OS/build not newly established beyond previous test artifacts; append-only
+build stamp remains Oct31 13:50:31, so exact installed preview4/5 hash not proven.
+No new Extra Args reported beyond logged LAN settings.
+
+PC observations, separate from the mobile host session:
+- User switched to a real Windows laptop after VM difficulties. PC directory
+  and Python bridge respond locally on Wi-Fi192.168.1.202, then hotspot172.20.10.8.
+  First hotspot probe refused before restart; later original directory replies
+  correctly with9900, bridgeREADY and phone .1 directory-relayed messages.
+- Phone discovery finds1host20:55:57.917; joins .8, launches20:56:05.196.
+  Red_dns .8, red_ip .1. Another successful preflight/launch20:58:11.655.
+- Both game attempts reach originalPC9900 and auth succeeds. Xbox persona
+  request includes GTAG/XUID/PUID/MID/MADDR but no PERS. PC replies `PERS=`;
+  subsequent +who has emptyN and P8. This differs from our mobile server's
+  implicit GTAG-to-persona fallback.
+- Phone then requests `user PERS=bep1s`; original PC replies `userbadc` repeatedly
+  (20:56:37/49/59 and20:58:37). User reports could not determine disconnect
+  percentage. These are concrete persona/history protocol differences after
+  working discovery/login; not a remaining launcher permission failure.
+- No PC room join or mixed PC/mobile racing is evidenced. Different PC/Xbox
+  CLST/NETV/content/session formats remain later gates; do not force them equal
+  or claim the percentage error is now device-confirmed fixed.
+
+Mobile session: phone host192.168.1.205 authenticates21:19:29.427; TKMachine
+(Android .133)21:19:48.145; iPhone149 (.149)21:19:54.202. COUNT3 notification
+sent to host21:19:59.434; gsta/+ses to all21:20:15.067. Server records results
+21:35:25.349 bep1s1st,21:35:25.354 TKMachine2nd,21:35:27.167 iPhone1493rd.
+User says smooth/enjoyable. Both supplied game logs contain zero guest AVs.
+Thus mixed iOS/Android Wi-Fi race completion for3players is now evidenced;
+previous Wi-Fi failures remain historical/intermittent, not universal blockers.
+Host still cannot see either guest name; guests see host. This supersedes the
+previous Android-only narrowing. Server contains both names/roster fields;
+exact frontend/cache/connection-state cause not established. No speculative
+roster, synchronization or renderer patch made. Keep this defect open.
+
+Prior VM session accounting/correction (unfinished when usage review failed):
+- Read-only prlctl confirmed bridgedWi-Fi, local listeners .154:30960/10902
+  (PythonPID11028) and9900(gamePID9984), network categoryPublic. Mac probes to
+  all3TCP ports andUDP10902 timed out despite listeners.
+- I incorrectly called numeric firewall Action2 "Block". It means ALLOW;
+  Block is4, verified against Microsoft MSFT_NetFirewallRule documentation and
+  our later explicit -ActionAllow output. Existing Python rules were allow,
+  so they did not prove a blocking cause. Corrected user-facing commentary.
+  https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/wfascimprov/msft-netfirewallrule
+- User explicitly approved scoped VM security changes. Network2/Ethernet changed
+  Public→Private. First prlctl command lost quoted display-name boundaries;
+ 4rule calls failed positional-parameter errors, although profile change worked.
+  Corrected via standard PowerShell EncodedCommand (UTF16LE) transport: four
+  NFSMW-PC-Experiment-{Bridge-TCP,Bridge-UDP,Game-TCP,Game-UDP} rules created,
+  Enabled/Inbound/Allow/Private, local192.168.1.154, remoteLocalSubnet. Programs:
+  Python C:\Users\bep1s\AppData\Local\Python\pythoncore-3.15-arm64\python.exe,
+  game C:\Mac\Home\Desktop\PC Game Files\speed.exe. TCP30960/10902 forPython,
+  UDP10902 forPython, TCP9900 andUDP3658 forgame. Firewall never disabled;
+  original public rules unchanged. Changes remain in old VM, no laptop changes.
+- Follow-up Mac retest was NOT executed: automatic approval review failed due
+  usage limit, explicitly not an unsafe-action finding. No claim of fixed VM
+  reachability. No bypass attempted. Latest task uses laptop; no further VM
+  setting changes. To revert ONLY our changes if user requests: remove those
+  four exact rule names and set Ethernet profile backPublic. No unsolicited
+  revert performed, since authorization/preferences persist.
+
+Preview6 implementation (local multiplayer only):
+- pc_gateway.cpp/h: bounded PC9900 directory probe, loopback-only control
+  adapter at127.0.0.1:30960, max8clients, owned/joined threads,2sI/O deadlines,
+  serialized Start/Stop, shutdown wakes clients, accepted/native fds owned until
+  worker closes. No detached worker/FD recycling hazard. Backend is original
+  PC9900; no PC program/helper/script/modified game required.
+- Rewrite successful directory ADDR/PORT to local adapter so subsequent EA
+  control traffic passes through. Pass other frames/subcodes and binary7 data
+  byte-for-byte. Incoming Xbox pers lackingPERS gets GTAG alias, preserving
+  provided PERS. Outgoing addr uses physical backend socket source, not the
+  guest's loopback source. Race sockets remain direct through existing USAhook.
+- Xbox-only user history query handled locally with mobile server's44-value
+  STAT/LWSTAT/LMSTAT empty-history schema, LGAME0/LAST/EXPR. PC LAN has no Xbox
+  history endpoint; these are fresh local LAN defaults, NOT imported PC/official
+  statistics. No remote-account stat claim/upload; no race/leaderboard/content
+  translation, no swallowed errors for other commands. New PCroom search and
+  returned room metadata/subcode diagnostics in boot.txt, no password logging.
+- Launcher probes native PC9900 first on Join; uses adapter when validated,
+  instead of requiring custom10902gamertag service. lan_pc saved only for that
+  preparedJoin; red_dns loopback internally, displayed host remains actualPCIP.
+  lan_own_ip follows OS UDP route to realhost (connect/getsockname, sends no
+  datagram) so simultaneous hotspot/Wi-Fi doesn't advertise wrong peeraddress.
+  Host uses chosenhostaddress. OrdinaryPlay/Back/newHost/Join stop adapter.
+- Discovery scans originalPC9900 and existingmobile30960 directories (64total
+  concurrent,350ms/probe,4sTCPdeadline, nearby/24), parsesPCtab/newline fields,
+  deduplicates, scans even if a mobileUDP host also replied. NativePC result
+  labelledPC LAN host. Still uses unicast probes, no restricted multicast
+  entitlement. Existing mobile hosting/protocol untouched. No new SDK patch.
+  No PC race compatibility guarantee from preflight success.
+
+Checks and actual results:
+- test_pc_gateway.py compiles actual C++ withASan/UBSan: fragmented header/body,
+  directory routing, persona alias, preserve binary7 highbytes, actual source
+  address replacing guest127.9.9.9,44entry local history, unknown newsbadc12byte
+  pass-through, no forwardedunsupporteduser, shutdown/idempotentStop: exit0.
+- test_lan_setup.py adds PC detection/preflight bypassing10902, preserves route
+  selectedownIP; existingselfjoin, malformedIP, cancel, duplicate/unreachable,
+  retiringlistener retry checks pass/exit0. test_lan_interface.py, actual SDK
+  async receive regressionASan/UBSan and test_menu_touch.py all pass/exit0.
+- test_multiplayer.py unchangedmobile25stage C++/Python/binary7/session parity,
+  patch lifecycle and UDPblackholefallback pass; new fragmented nativePC9900
+  tab-separated @dir fixture passes. Final command exit0, transcript below.
+- Compiled actual gateway CLI in/private/tmp and ran against USER'S ORIGINAL
+  server.dll in existingdisposableCrossOver bottle for30s. Directory returns
+  adapterloopback as intended; complete mobileauth accepts; GTAG-onlypers now
+  returns PERS=NativePhone and +who N=NativePhone; A/LA=192.168.1.152 instead of
+  loopback. Local user query returns zero-status validSTAT schema, no userbadc.
+  This reproduces/fixes the captured CONTROL protocol defects in host tests;
+  no real mobilegame/PCgame mixedroom or race tested. Boundedgateway25s and
+  originalDLL30s both exit/normalshutdown. No long-lived service installed.
+- CMake builds (initial, route/address correction, formattedfinal) all exit0,
+  unchangedisolatedbuildcommand. Final codesign --verify --deep --strict exit0,
+  ZIPCRC valid,104metallibs andGPUdylib byte-identicalpreview5. Initial packaging
+  assertion that BOTH SDKdylibs wouldmatch failed; inspection shows only
+  debug_overlay.cpp rebuilt afterCMake regeneratedSDKversion.h (fc81453/time
+ 2259). Sourceoverlay hashes matchsharedSDK exactly; networkingpatch --status
+  applied andall7canonical sharedsources stillmatchsavedbaseline. No networking
+  object rebuilt. RuntimeUUID changed forSDKbuildstamp, not a sourceSDKchange.
+
+New unique artifact, copied from worktree into main's ignored ios/build only:
+`NFSMW-multiplayer-preview6-native-pc-lan.ipa`,30408180bytes,
+SHA256bbdf36fc64c194bdeffd6ffafbd43c122e76303ff8a810932d478ab009f99079,
+appUUIDF5F24A7A-FB0F-3B4D-BCE3-33E6DF8B6A13,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2,0.5.1/build9.
+CompanionJSON records identity; no earlier artifact overwritten.
+
+Build/test logs archived alongside inputs in Debug/31 October2026:
+- nfsmw-preview6-build.log14220bytes SHA2565385243f27ac013f99d3f93b779a2fb75c381093f10beafc94f3b67df536fc33;
+  nfsmw-preview6-final-build.log3564bytes SHA256617f0f5f02137ef908aa50a57e5a316d01b4a536f22402be8a38b7ea50d1729d;
+  nfsmw-preview6-package-build.log3397bytes SHA25636cddecd73badd2323d16eb21c5f8a35853a3820be6a7bf9aa142902001dcd83.
+- nfsmw-preview6-protocol-final.log2178bytes SHA2565c3cd830e2ade01b6522b3062cf5f0fd6fc92e4fffafeae82f75ed0cbdcd765b.
+- nfsmw-preview6-gateway-live.log250bytes SHA256aefafd85ffa04d2043940f8fa329f6ab5c41e09a982b86feae8a722b89c05d99;
+  nfsmw-preview6-original-server.log2575bytes SHA256bcd2e19cdc00b4e8b9929d4c4d4bd6ac191083487a933731bd700fdc776ec4d5.
+
+Next device test: stop oldPythonbridge, originalPCgame createsLANroom, iOS
+preview6Join/search or manualCURRENTPCIPv4; launchXboxLive/QuickMatch. Check
+login, actualroomvisibility/join, thenrace. CapturePCroom state andboot/game
+logs ifnextgatefails (possiblefilters/session/serialization differences). No
+forcedversion bypass or PC-side mod. Hostmissingnames remains separate/open,
+includingiOSguests now; preserve actualthreeplayer race success. Credits to
+victorgbd original networking/C++adaptation remain; PCgatewaydownstreamwork
+andlocalstats schema based on that protocol. PCdocs research credit retained.
+All source/evidence records locallycommitted onmultiplayer; mainpre-existing
+checkpointedit/HANDOFF preserved, sharedSDK/controlsreleaseunchanged. No push,
+merge, tag orrelease; device PCacceptance pending.
+
+## October 31 — preview6 receives PC room but Xbox rejects its build tag; preview7
+
+Stefan reports native PC discovery/login got further, but the actual PC room
+was absent. Asks how hard reverse PC discovery of mobile hosting would be;
+explicit priority is PC hosting playable first. No reverse hosting code added.
+All source work stays local on multiplayer; no push/merge/release. Main's
+pre-existing docs/DEVELOPMENT_PROGRESS.md edit and untracked HANDOFF_CHATGPT.md
+remain preserved, as do shared SDK/controls source and prior IPAs.
+
+Three supplied logs archived with copy2/no overwrite in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview6_pc_room_missing_`:
+
+| Suffix | Bytes / lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 27701 / 428 | 48dc9ee1773959aa898d7152cbee089199d0abc18d59072e55c22438b4b037fa |
+| game.log | 1326044 / 8078 | 09f55802cfd0f2273d8fdbb537da096f79c317b8c50f618c559446802e7d4bc6 |
+| server.log | 8498 / 53 | 4a9ad50c3920f45d000eb43721441b9d9dfcc5e4d77dacb739f070ee717698c1 |
+
+Original pasteboard/items sources in table order:
+2D4BCDBD-B89A-4A16-861E-106EE397AE21/boot.txt;
+D93AC8FB-4BE4-49D3-ABE3-4AB073FEB520/nfsmw.log;
+4E75D630-E914-41F0-B7EB-C5EBCCA968CC/servidor_lan.log.
+Exact installed hash not present in logs, but native adapter behavior consistent
+with preview6. Boot still reports old append-only build stamp13:50:31; do not
+use it to identify the executable. Device/OS not newly established. USA ISO,
+red_dns127.0.0.1, red_ip192.168.1.205, gamertagbep1s, 40fps, Balanced,
+1560x720, sim_rate120, native_at_timefalse extra arg logged.
+
+Observed PC-host sequence (separate later iPhone-host control session):
+- 23:14:34.914 direct TCP scan verifiesPC192.168.1.202; setup/launch ready.
+- 23:15:09 directory/persona pass via local adapter;23:15:20.819 local LAN
+  history supplied. No previous disconnect-percentage gate reported now.
+- 23:15:20.839 Xbox usea flags-2147474432/mask-2147457535. PC returns COUNT1
+  at20.890 and +uss at20.900, body114bytes: room005.TKM, ownerTKM, SF=KV,
+  CF=JKM-, S=4, D=$ca01a8c0, P=V%3d192359%0aP%3d1%0aE%3d534735613%0aL%3d3%0aM%3d2%0a.
+  Thus PC directory/login AND room enumeration work, despite absent game UI.
+- Later search23:15:40 flags-2147473920 returns no room; second launch23:17
+  likewise COUNT0 for those flags. This is a different requested filter; do
+  not claim every search returned the room, or that its filter is fixed.
+- Later iOS-host control logs advertise V192641. Game also creates rooms on
+  the PC service in the later run; that does not prove a PC racer joins them.
+  No captured PC/mobile peer or completed mixed PC/mobile race evidence.
+
+Source finding: ignored generated USA sub_82546178 (nfsmw_recomp.119.cpp)
+parses room parameter V through828157A0/82815DD0, compares with192641 at
+825461B4–C8, marks mismatch, returns0 at82546254→8254622C BEFORE calling
+825462D8/82824C58 peer QoS. Room discovery isn't the remaining network
+problem in the COUNT1 attempt; build mismatch is an established rejection.
+Other possible PC session/race differences remain untested. No assumption
+that PC build192359 and Xbox192641 have identical race serialization.
+
+Preview7 change, confined to PC gateway:
+- AdaptRoom aliases ONLY observed percent-encoded P/V192359 to192641 at a
+  complete parameter boundary. Handles upper/lower escape hex and preserves
+  other P values/unknown builds. Applies to received +uss/+ust and room
+  ujoi/ucre/uadm responses. Preserves EA subcode and all other fields including
+  PC little-endian-IP descriptionD, flags, capacities and Binary7. No race,
+  platform-session, player-address, SDK, renderer or mobile-host changes.
+- Adds boot trace for outgoing room/game joins and incoming session metadata
+  field lengths/count/host; nonzero EA response subcodes retained/logged.
+  No credentials/session keys dumped into boot. Existing game logging remains.
+- This is an experimental metadata alias to reach the next protocol boundary,
+  NOT a proof that the server/racers are cross-compatible. User's requested
+  direct PC-host workflow still uses unmodified PC with no helper script.
+
+Checks:
+- test_pc_gateway.py enhanced with captured PC room, fragmented +uss, byte
+  preservation of D/other fields, exact tag boundaries, case variants and
+  unchanged unknown versions. First sandbox run aborts on bind (no listener
+  permission), exit1; rerun with approved local-listener access passes exit0
+  under ASan/UBSan. Final rerun after diagnostics also exit0. Existing persona,
+  history, physical address, Binary7, badc12byte and shutdown checks pass.
+- New test_pc_room_filter.py extracts actual ignored generated sub_82546178
+  into temporary compilation, bounded fake memory/dependency stubs. Tests
+  captured192359 rejects BEFORE QoS,192641 accepts/reachesQoS, adapter's
+  transformed captured P passes, unknown194010 still rejects. ASan/UBSan exit0.
+  First harness incorrectly asserted that an existing-map-entry helper would
+  never be called; failed exit1. Corrected stub simulates the existing entry
+  and insertion-success flag; actual guest code left unchanged. Final exit0.
+  It isolates actual version control flow, does not emulate real peers/racing.
+  Generated/proprietary source never added to tracked test files.
+- Existing test_lan_setup.py passes exit0, confirms PC/mobile preflight paths.
+- Both isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa
+  -j6 runs exit0. Initial command sequence continued to build after failed
+  harness; corrected validator then passed before final build. Final build
+  has normal actool/CoreSimulatorService unavailable diagnostic, exits0.
+- ZIP CRC valid; codesign --verify --deep --strict exit0; all104metallibs and
+  GPUdylib byte-identicalpreview6. RuntimeUUID unchanged (no SDK rebuild).
+  git diff --check exit0. No broader mobile/network code changes this turn.
+
+Unique artifact copied to main ignored ios/build, no old artifact replaced:
+`NFSMW-multiplayer-preview7-pc-room-discovery.ipa`,30424196bytes,
+SHA2564709104bbeae6e14ecd6844283916ea148eb1255c25e39f8ab417642f0ec2dd3,
+appUUIDF2E7FC8A-971D-3F10-BEA2-25A5E56AE2C5,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2, companionJSON.
+Build logs archived in same Debug directory:
+nfsmw-preview7-build.log3326bytes SHA2569b246b6a3b2232ac6368732ed8e85d5cbde9e29caa6e2c832ad9217350d37255;
+nfsmw-preview7-final-build.log2929bytes SHA256b736149c728c411581eafd7299b97f0af98a780de84b1e12918f62ef23542b3d.
+
+Next device test: PC original LANroom open, phonepreview7 Join/search/current
+PCIP, launchXboxLive→QuickMatch. Verify room display, then join and race.
+Capture boot/game if next stage fails; room/session/address formats may need
+further work. Hostmissingguestnames remains OPEN. Reverse PC discovery of
+mobile host remains deferred: initial discovery responder is bounded work
+(original384byte gEA UDP9999 and PC-facing TCP9900), but reverse session/race
+compatibility cannot be estimated until PC-host path tested. Do not add only
+advertising and call it cross-play. No PC/helper installation required by goal.
+
+## October 31 — preview7 enters PC room; preview8 PC peer/session envelopes
+
+Stefan's new device test reaches the original PC room. Host TKM's selected
+Mazda RX-8/BMW M3GTR and track changes appear live, but iOS remains Waiting
+for players to connect with a striped connection indicator by localbep1s.
+Three supplied screenshots show that state. No actual race reported.
+Priority remains PC hosting playable; reverse PC discovery still deferred.
+
+Inputs copied with copy2/no overwrite into
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`, prefix
+`nfsmw_lan_preview7_pc_room_waiting_`:
+
+| Suffix | Bytes | SHA256 |
+| --- | --- | --- |
+| boot.txt | 11996 | 6b3a7dab13ee9270e4a57ad1c35382720332a4afa665ea73dc97aa6c960a3e2f |
+| game.log | 411477 | 702956c85c71579629ef47b7233652585627bb0821332787d597a58e3a6629c5 |
+| screen1.png | 2303094 | 50988d9c2932eae18682785fb533f19040ee8e65e4686407fc1f39d59fcf95ec |
+| screen2.png | 3122310 | d81c0eacb1f7b3beada2f0b165fe13e1b9cf791dd0576a22094588051c38a7fb |
+| screen3.png | 2305926 | 99655503205387b93e7d93bc864408e5568931b25cb59533d05e6037fce5604b |
+
+Original pasteboard/items source directories:
+DB185E49-AE24-4F86-95D7-8440E97169C6/boot.txt;
+F9C453B6-0160-4948-B482-31A96CC3143F/nfsmw.log.
+Original screenshot names in table order under
+/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/:
+codex-clipboard-089ad2e5-c772-4ae9-ae68-d0dcd8c82222.png;
+codex-clipboard-6148c1d3-edc2-4ff1-b4dc-443da95dcb75.png;
+codex-clipboard-cb2db094-61fe-49c9-8f2e-4e84175ab5e7.png.
+Boot174lines, game2515lines. Exact installed executable hash/OS not newly
+established; observed room alias/native gateway consistent with preview7.
+
+Observed:
+- iOS .205 connects original PC .202; directory/persona/history pass.
+-23:30:05.257 room073.TKM version alias occurs; ujoi at05.268 succeeds05.385.
+- gjoi NAME=TKM at05.390 returns05.482, COUNT2, HOSTTKM. +mgm confirms05.653.
+  Both gjoi and later +mgm have SESS_bytes0 and PLATPARAMS_bytes0.
+- Live auxi/+usm traffic conveys car/performance changes; room +ust updates
+  E from534735613 to1635833520 at23:30:54.346. Multiple +mgm stillCOUNT2.
+- No UDP socket initialization, XNetXnAddrToInAddr or peer-specific XNetQosLookup
+  logged; QoS calls are service-only (cxna0/cina1), not proof of peer contact.
+  iOS toggles own SCF auxi0/1 while polling onln TKM. Log ends with lobby
+  updates, no crash/connected race evidence. Do not classify this as directory
+  failure, or blame PC firewall without actual attempted UDP packet evidence.
+
+Source investigation:
+- Existing mobile server gjoi/gset comments and behavior require the host's
+  Xbox SESS beginning'$' before the joining game connects. Original PC doesn't
+  implement Xbox Live session metadata. Missing SESS is a concrete control
+  difference; its being the only remaining obstacle is NOT established.
+- Traced actual ignored USA session decoder sub_82826978 in recomp.6.cpp:
+  it decodes three INDEPENDENT Binary7 blocks after'$': XNADDR36→info+8,
+  XNKEY16→info+44, XNKID8→info+0. They reset the bit accumulator at each
+  boundary. It is NOT a single continuous60byte Binary7 block. Expected
+  encoded length1+42+19+10=72bytes. Wrapper828278F0 tailcalls the decoder.
+- Actual generic address decoder sub_82826890 in recomp.130.cpp decodes a
+  bounded Binary7 block. Existing SDK LAN path puts the physical LANIPv4 in
+  XNADDR.ina and a per-IP MAC, maps XnAddr directly to that IPv4, and supplies
+  local XSession IDs/keys without Xbox service encryption. SDK source unchanged.
+- PC room's D=$ca01a8c0 corresponds to .202 as little-endianIPv4; mobile machine
+  address is $00090000c0a801cd^Binary7(XNADDR36). These are different peer
+  address encodings. Full later PC user MA not captured by96byte game logger;
+  don't claim all original peer MADDR field contents were observed.
+- Web search for Binary7 source yielded no useful result. Implementation was
+  independently derived from the locally available actual decoder, not from
+  the unrelated EA base64-like helper in protocol research. The latter is not
+  used. Credit for the original Android networking/adapted SDK remains intact.
+
+Preview8 PC-only implementation in pc_gateway.cpp/h:
+- AdaptGame: for received gjoi/gget/gset/gcre/+mgm/+ses, convert empty or known
+  PC '$'+8hex MADDRi to Xbox XUID^Binary7(XNADDR), using physical ADDRi.
+  Leaves existing Xbox blobs and unknown formats unchanged. No address
+  inference from loopback/current server endpoint; matches HOST to OPPOi.
+- If SESS empty, matching host has valid non-loopback unicastIPv4 and gameIDENT
+  nonempty, supply local Xbox session envelope. Uses actual decoder's three
+  blocks, stable deterministicID from hostXNADDR+IDENT, LAN-style key and
+  nonce. Supplies PLATPARAMS only if empty. Existing SESS never overwritten.
+  Missing/invalid host does not manufacture a session. These local records
+  are not real PC/Xbox Live credentials or a claim of authenticated encryption.
+- AdaptUser: for onln/+who/+usr, map empty/PC8hex MA into Xbox machine address
+  from A. Preserve unknown or already-Xbox MA. AdaptLogin sends physical source
+  IPv4 as PC8hex MADDR for auth/pers only when original has Xbox16hex^ form;
+  prior persona PERS alias retained. Allows original PC to receive a PC-style
+  peer address, then maps returned PC records back locally for Xbox game.
+- No fake readiness/SCF or COUNT forcing, no CommUDP/game packet translation,
+  no SDK modifications, no mobile-host changes, no PC helper/script/mod.
+  Underlying PC/Xbox race serialization/handshake may still differ. Session
+  envelope correctness is a necessary local step, not a successful PC race.
+
+Verification/results:
+- New tools/ios/test_pc_session.py compiles actual ignored guest session and
+  address decoders against bounded memory with ASan/UBSan. Verifies PC .202
+  decodes to bytesC0A801CA at info+8, LAN MAC, sessionID highbit, key layout,
+  stable lobby updates, distinct game IDs, existing session preservation,
+  invalid host rejection, both address directions and unknown formats retained.
+  Exit0, rerun after formatting exit0. No generated/proprietary source tracked.
+- Enhanced test_pc_gateway.py sends fragmented PC +mgm/onln through actual
+  C++ gateway, verifies COUNT/address retained,72byte SESS and Xbox machine
+  envelope returned; existing persona/history/Binary7/directory/shutdown pass,
+  ASan/UBSan exit0 with temporary local-listener access.
+- Actual generated room-filter regression and preflight test both pass exit0.
+  No shared/isolated SDK networking source touched. Compiled existing local
+  gateway CLI against latest source exit0; no new originalDLL live run this
+  turn, and no real PC racer test from Mac. Do not claim otherwise.
+- Isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6
+  exits0. ZIPCRC valid, codesign --verify --deep --strict exits0. Both runtime
+  andGPUdylibs and104metallibs BYTEIDENTICALpreview7. git diff --check exit0.
+  Private build log archived nfsmw-preview8-build.log,3287bytes,
+  SHA25610aac143322804b93d2dedc5fd63808abc6f5301968158ea00ce69d950e63526.
+
+Ready unique artifact copied to main ignored ios/build, prior IPAs preserved:
+NFSMW-multiplayer-preview8-pc-peer-session.ipa,30431007bytes,
+SHA2569b9dae9fd489b9c4ac6be58d4085863918f17da1a3a33ab0056b5aa073cdb959,
+appUUID35B56DBC-36E4-3E52-8EAF-D949C3091669,
+runtimeUUIDFBF94504-0804-3C58-9C40-E28D663FE4C2, companionJSON.
+
+Next: installpreview8, original PC LANroom stays open, phone Join→launch→
+XboxLive→QuickMatch. Check connection stripe clears, PC can start race, and
+both actually load/play. If not, collect boot/game/PC peer evidence to locate
+next handshake/packet boundary; do not just force greenready. Current tests
+prove local decoder compatibility only. Hostmissingguestnames and reverse
+PC discovery remain open/deferred. Work committed locally onmultiplayer;
+main's pre-existing checkpoint edit/HANDOFF, controls and sharedSDK preserved.
+No push, merge or release. No Windows network/security changes this turn.
+
+Final preview8 review tightened outgoing login recognition to16hex digits
+before'^'; unknown same-length formats preserved. Added regression, actual
+session decoder/gateway tests rerun exit0. Final rebuild exit0, repeated ZIP/
+signature/SDKdylib/shader verification passes. Final identity above replaces
+an internal pre-delivery package; no previously delivered preview overwritten.
+Additional archived nfsmw-preview8-final-build.log3057bytes,
+SHA2565f0037622df55e55bd536c8b08132fa21e94f48ff29468ad13c5afada0d516df.
+
+## October 31 — preview8 exchanges PC UDP, times out; preview9 header-order experiment
+
+Stefan reports the PC room now raises a connection error after about10seconds
+instead of waiting forever. Supplied boot/game copied with copy2/no overwrite
+into `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/31 October 2026/`,
+prefix `nfsmw_lan_preview8_pc_peer_timeout_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 17125 / 231 | 8597a66f92de21177e773ea99ccb92699d20e4c0ee29c10fb98ef66417c050f8 |
+| game.log | 400257 / 2363 | 103422096adfe2290d997f38e71f2193b06bc9dddc066ac4e34f6e8cb6ea9f51 |
+
+Original pasteboard/items sources:
+3EBAA6BD-A57C-4A1A-AE74-79C0D29CCD2E/boot.txt;
+10FF2595-8882-4C74-AE6D-C530F47D5BAD/nfsmw.log.
+Decoded text splitlines initially counted233boot lines due to non-text ping
+subcode bytes; raw-byte archive counts231. Installed exact hash/OS not newly
+established; adapter behavior matchespreview8. No screenshot/exact error text
+supplied this turn. Do not invent the popup wording.
+
+Observed timeline and packet evidence:
+- Native PC192.168.1.202 service remains reachable; phone192.168.1.205.
+  Login/persona/room113.TKM pass. Preview8 outgoing MADDR adaptation logged.
+-23:42:38.918 gjoiCOUNT2 now contains local72byte SESS/10bytePLATPARAMS.
+  XNetXnAddrToInAddr maps correctly to192.168.1.202 at38.947; actual UDP3658
+  and voice6000 sockets open/bind. First3658send38.984. This is DEVICE proof
+  preview8 got beyond the missing-session/no-socket state.
+- First attempt closes race socket48.952 and sends glea FORCE1 at49.174;
+  second joins57.520/maps57.548, closes23:43:07.555. Approx10s timeouts.
+  The lobby/control adapter is still alive; +mgm dropsCOUNT2→1 on leaving.
+- Across both attempts exact race8byte counters:20 TX0000000100000000 and
+ 20 RX05000000C5B964C6 from PC .202:3658. PC replies repeatedly to each
+  attempt, establishing bidirectional race-port reachability. Do not blame
+  an unreachable server or generic3658 firewall block from these logs.
+- Voice6000 connect attempts repeat; no voice reply established. Later iOS
+  creates its own room on PC service, not evidence of reversePCdiscovery or
+  an actual PC/mobile race. No new Windows/firewall modifications performed.
+
+Source/interpretation:
+- Actual USA CommUDP sub_8289C448 calls DirtySock SocketRecvfrom8282A5A0 at
+  LR8289C4D8, then reads its two32bit header fields as big-endian guest words.
+  Captured PC bytes therefore become0x05000000/0xC5B964C6 to Xbox; interpreting
+  PC words little-endian yields5/0xC664B9C5. Xbox TX1 is written big-endian.
+  Opposite header byte order is a concrete wire difference and a testable
+  hypothesis, not proof that swapping it completes the handshake. Connection
+  identifiers/opcodes and NFS application packets may differ too.
+- DirtySock SocketSendto8282A4F0 is synchronous: original path maps destination
+  then calls82810E58/native sendto and returns. Captured LR8289C7B4 is CommUDP.
+  SocketRecvfrom8282A5A0 dequeues completed data before returning; transforming
+  at that boundary avoids changing the working asynchronous kernel receiver.
+- Primary local generated code and captured traffic used. Internet searches
+  for CommUDP protocol source yielded no useful primary result; no external
+  CommUDP source or unsupported opcode semantics imported/claimed.
+
+Preview9 implementation:
+- New USA game_pc_udp.cpp hooks original DirtySock send/receive, retaining
+  always-original __imp__ entries. Only when red_lan AND native PC adapter's
+  atomic selected IPv4 matches port3658 AND caller LR lies8289B000–8289D200.
+  Bound packets8–2048bytes. Send copies whole packet into private aligned
+  guest-stack allocation with128byte ABI home space; swaps first two32bit
+  words there, calls original, restores guest stack and retains original return.
+  Original send buffer never modified, including failed sends/retries.
+- Receive captures destination/capacity/from pointer before original may
+  clobber volatile registers, transforms only successful>=8byte completed
+  datagrams from selected endpoint within capacity. Payload after byte8 stays
+  byte-for-byte. LANoff/ordinarymobile/nonselectedIP/voice/otherport/non-CommUDP/
+  short/error paths call originals with no conversion. No readiness bypass.
+- pc_gateway Start sets eligible PC IPv4 after listener succeeds; Stop/newStart
+  clears atomically. Current scope selected PC directory/host only, not all
+  other racers using that directory. IsRacePeer regression covers set/clear.
+- Boot [pc-udp] traces first2translated sends/receives. Raw kernel game log will
+  show actual wire bytes; receive conversion occurs after that kernel logging.
+- CMake adds hook only in existing USA multiplayer game sources. No generated
+  source edits or additional codegen step. No shared/isolated SDK source edit,
+  no network/socket receiver patch change; existing Android adaptation credits
+  retained. PC remains unmodified/no helper; original game payload translation
+  and reverse discovery remain unimplemented.
+
+Checks actually run:
+- New test_pc_udp.py compiles actual game_pc_udp.cpp with bounded guest memory
+  and original-function capture stubs, ASan/UBSan. Tests captured header RX
+ 05000000C5B964C6→00000005C664B9C5, TX0000000100000000→0100000000000000;
+  arbitrary4byte payload unchanged, source sendbuffer unchanged, stack and
+  original return preserved after send/error. Bypasses LANoff, adapteroff,
+  mobileIP, otherport, non-CommUDP caller, short receive/send, negative receive.
+  First harness compile failed because unqualified boolpc resolved to namespace
+  nfsmw::pc in the stub; fixed to ::pc. Final exit0. No production fix needed.
+- Actual C++ gateway test with temporary listeners passes exit0; asserts selected
+  PC target active only between Start/Stop. Prior actual generated session/
+  address-decoder, room-filter and preflight regressions all pass exit0.
+- Isolated build command unchanged, cmake --build ... --target ipa -j6 exit0.
+  Initial command sequence continued after harness compile failure; corrected
+  hook regression passed afterward. Build had no source/compile/link failure.
+  nm -m executable confirms strong _sub_8282A4F0/_sub_8282A5A0 and separate
+  original ___imp__sub entries. No actual PC racer/handshake test run on Mac.
+- ZIPCRC valid, codesign --verify --deep --strict exit0. GPUdylib/104metallibs
+  byte-identicalpreview8. Runtime differs: CMake regenerated SDK buildstamp
+  and rebuilt ONLY debug_overlay.cpp object before runtime relink (logged
+  [1/15]); no networking object/source rebuilt. Existing SDK multiplayer patch
+  --status applied. Do not call runtime byte-identical; UUID changed below.
+- git diff --check exit0. Main's pre-existing docs/DEVELOPMENT_PROGRESS.md edit
+  and untracked HANDOFF preserved; no controls or canonical SDK edits.
+
+Unique ready artifact copied into main ignored ios/build, old IPAs retained:
+NFSMW-multiplayer-preview9-pc-udp-header.ipa,30432156bytes,
+SHA2568ab434c333c7fb46b26387c1f3d9dc90855f9b9a8e8ddd856a5560d10f9fdca6,
+appUUID3763C3DA-7834-3C34-ACA2-4040E98DDD51,
+runtimeUUID325ECA6F-B026-3D4A-A158-0618E2381E30, companionJSON.
+Archived buildlog nfsmw-preview9-build.log15584bytes,
+SHA25613b896f1b527f67221bf57406276824f5ad6ce8d70afcb72c8e1a5cbf6d34bfd.
+
+Next: same original PC room, phonepreview9 Join→launch→QuickMatch, observe
+whether peer connection succeeds, then whether host can start/load/play race.
+If still fails, collect boot/game for actual converted packet/opcode/identifier
+behavior. No forced connected flag. Device acceptance of header experiment
+pending; no claim of full PC gameplay. Hostguestnames stillopen, reversePC
+hosting deferred; all session source/evidence committed locally onmultiplayer.
+No push, merge, tag orrelease authorized/performed.
+
+## November 1 — header-only test fails on device; PC listener-ID translation preview10
+
+Stefan supplied another game log while preview9 was being handed off, reports
+same error. Initially I assumed preview9 hadn't been installed because no
+final download link was sent yet; corrected immediately after reading actual
+wire bytes. Log has translated TX0100000000000000, so the new header hook
+(or equivalent build) DID run. Exact installed hash not in log. Do not ask
+Stefan to rerun preview9 as if it had not been tried.
+
+Archived without overwrite in same Debug/31October test folder under historical
+name `nfsmw_lan_preview8_pc_peer_timeout_followup_game.log`:312267bytes/1918lines,
+SHA256a5740a8f3d492101d97eb2236d928a1ff44a20196306512a2a43d2186abcba94.
+Name assigned before inspection and kept for evidence continuity; it actually
+shows preview9-style header transformation. Original pasteboard/items source
+C54559F3-77AE-4051-9D4A-DE1CA4189050/nfsmw.log. No matching new boot supplied.
+First analysis snippet had unmatched parenthesis/SyntaxError, no data parsed;
+corrected snippet produced counts below, exit0. Archive had already succeeded.
+
+Observed23:54:10.360 mapsPC192.168.1.202, opens3658/6000;10raceTX packets
+0100000000000000,10PC replies05000000C5B964C6; socketcloses20.368 (~10s),
+voice20.833. Bidirectional race-port access remains confirmed. Header swap
+alone FAILED on device. Existing PC lobby join still works; no race.
+
+Original PC binary investigation, read-only user-owned speed.exe (same hash
+80774c2e5d619b4f120b48d4462896fd504c263399d203a238769cffde1d253c):
+- Python parsed PE sections to map file offsets/VA, no proprietary content
+  copied into tracked files. No capstone installed; used Xcode llvm-objdump
+  --disassemble --start-address=0x840000 --stop-address=0x859000 speed.exe,
+  output private nfsmw-pc-commudp-disassembly.txt2102307bytes,
+  SHA256be694ebe3737d6dc4bb89ef6405ac7abcde1bc09b58e119a73996fea41de8cf3.
+  Archived alongside input logs, never staged. Early candidates at84Dxxx
+  were modem transport, not proof about CommUDP; traced UDP constructor
+ 8517A9/string8C7064 and callbacks back to850xxx instead.
+- PC CommUDP main receive/control around8505E0–850CBD uses native little-endian
+  header words, same state/connectionID offsets0x94/0x98 as Xbox148/152.
+-850A13–850A3F reads listener connectionID atstate+0x98, sends opcode5 with it
+  while state3/listening. Therefore captured5 is listener advertisement,
+  NOT established NAK/auth rejection. Prior commentary's interpretation was
+  explicitly uncertain; don't label it NAK in future diagnostics.
+-850710–850725 checks incoming opcode1 then matches ACK/ID with listener's
+  state+0x98 before selecting the listener.850C4F–850C57 repeats the ID match
+  before accepting/opening it. Xbox8289CB3C–CBBC matches receivedopcode5
+  against its own connecting ID at+152; it doesn't adopt an arbitraryremoteID.
+  Local packets requestID0; PCadvertisesnativeC664B9C5. Byte order translation
+  fixes representation but cannot reconcile two different logical IDs.
+
+Preview10 source change (same selected endpoint/PC-only hooks):
+- After normalizing received header, recognize opcode5 with nonzero PC ID
+  from selectedPC3658/CommUDP caller; cache that advertisedID, log learned.
+- Capture native localID from outgoing handshake opcodes1–3; substitute PCID
+  in that private outgoing buffer only once learned. For incoming handshake
+  opcodes1–5 whose ID matches learnedPCID, translate back to native localID.
+  Both engines still run original handshake/listener matching; no fake green,
+  no drop/error swallowing, no opcode substitution or forcedconnected state.
+- Data acknowledgements/sequence numbers are NOT connectionIDs and never get
+  this ID substitution; existing header byte-order normalization still applies.
+  All payload bytes preserved. Port6000/voice, otherpeers/mobile paths unchanged.
+- Added atomic local/PC ID state to gateway, scoped to selectedPCtarget and
+  cleared on Start/Stop; observations from otherIPs ignored. Current scope one
+  selectedPC endpoint, not multi-PC host discovery or general peer mesh.
+- This explains an additional concrete mismatch; whether connection succeeds
+  after mapping remains DEVICEPENDING. Actual race serialization still unknown.
+
+Checks:
+- Actualhook ASan/UBSan test extended: capturedopcode5 learnsC664B9C5, delivers
+  opcode5/localID0 internally, nextINIT wirebecomes01000000C5B964C6 while
+  original caller buffer retains0000000100000000. DATA ACK equal to that
+  numeric token is not substituted; payload unchanged. Existing endpoint,
+  LANoff/mobile/voice/non-CommUDP/short/error/stack bypass checks pass/exit0.
+- Actualgateway test adds foreignIPignored, remote/localIDstore andStopclears;
+  existing fragmented control/persona/session checks pass/exit0 with temporary
+  listener access. Actualguest session/address decoder and room filter pass0.
+- Isolated cmake --build ... --target ipa -j6 exit0. ZIPCRC/signature verification
+  exit0; bothSDKdylibs and104shaderlibs BYTEIDENTICALpreview9. No SDK/generation/
+  renderer/control source edits. git diff --check exit0.
+
+Ready unique artifact (main ignored ios/build, previousIPAs preserved):
+NFSMW-multiplayer-preview10-pc-connection-id.ipa,30421055bytes,
+SHA256697c3d9c5d14a85b8d1974a0d5da928823ec9afc568c5747ee6938e97643b75c,
+appUUID9BCA14F6-5127-3567-995B-9E912E79F7E1,
+runtimeUUID325ECA6F-B026-3D4A-A158-0618E2381E30, companionJSON.
+Archived nfsmw-preview10-build.log4380bytes,
+SHA2566c9cf64b8d15ee6b852678094e62e0e5ac3b19629595b739452df37fdb0ee282.
+
+Next: preview10, same PC LANroom, Join/launchXboxLive/QuickMatch; verify
+actual handshake thenrace. New boot/game evidence will show whether ID-mapped
+INIT gets accepted; further game/voice packet differences may remain. No PC
+mod/helper requirement. Hostguestnames stillopen, reversePCdiscoverydeferred.
+All changes/evidence committed localmultiplayer, mainpre-existingcheckpoint/
+HANDOFF/sharedSDK/controls preserved. No push/merge/release/security changes.
+
+## November 1 — preview10 connects and loads race, null factory result; preview11 diagnostics
+
+Stefan reports connection succeeded, then BOTH games crashed a few seconds into
+race loading. Supplied iOS game log copied immediately with copy2/no overwrite
+to `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`:
+`nfsmw_lan_preview10_pc_race_load_crash_game.log`,286105bytes/1707lines,
+SHA256cf78a624b6bc7ee2b6c9fbc8811050379f195bd360a7f8f73953719eeac74159.
+Original pasteboard/items source:
+8E05F619-6FF7-492E-B5AC-51D62F3F3AF2/nfsmw.log. No new boot or PC crash
+report supplied. Installed hash/OS not newly proven; traffic consistent with
+preview10. Both-game crash is user report; only iOS has a located exception.
+
+Observed:
+- Bidirectional CommUDP DATA/ACK traffic continues after peer handshake. Car/
+  setup messages252/204bytes exceed existing96byte kernel dump cap.
+- +ses received00:02:03.734, transitions to loadingregion03.899 and loadingtrack
+ 05.431. This establishes device success of PC peer connection/race-start
+  control, NOT successful race simulation or full packet compatibility.
+-00:02:06.504 unhandled guest read0 on game-created threadF800002C/entry82850668,
+  contextLR82474944, r3=0/r4=0/r5=0/r6=DE/r7=0, r30=BFA7CD08/r31=3F0888CD,
+  stack701EF5E0. No claim these register values are corrupt pointers/floats:
+  caller uses car record keys/other values in registers too.
+- Original USA sub_824743C0 calls8212BFB8 at82474940, then immediately reads
+ 0(r3) at82474944 withoutnullcheck. Actual8212BFB8 searches a registered
+  factory list by key, returns0 if unmatched, otherwise invokes callback and
+  returns callback result. Thus this log cannot distinguish missing factory
+  registration from matching constructor returningnull. No speculative null
+  bypass/fabricated object is a justified crash fix.
+- Caller builds parameters from participant/car record and spawn/config data.
+  Key argument comes from fixed ROM descriptor through820E1E38, not proven
+  directly received packet ID. Full setup data/constructor match needed before
+  diagnosing cross-platform serialization/content differences. PC crash not
+  symbolicated; could share/differ in cause.
+- GAMEPLAY.BIN failed-file warning also appears once in EACH previously working
+  mixed three-player game/current+rotated logs (both0guestAV). New log has one
+  such warning and1AV. Warnings alone don't establish missing game installation;
+  no reimport/change game assets recommended.
+
+Preview11 diagnostic-only changes:
+- New USA game_pc_race.cpp hooks8212BFB8 ONLY while native PCadapter active and
+  callerLR82474944. Up to8calls per launch. Logs requested factorykey, matching
+  registryentry/callback, scan count,3constructor arguments, participant,
+  localflag/carrecordkey BEFORE original and result AFTER original. Registry
+  scan cap256 entries; absent match at cap is inconclusive, not proof missing.
+  Registry address derived from actual original lis-32058/addi-7100 and checked
+  by static_assert(82C5E444). Initial source drafting mistyped82C6E444; corrected
+  to calculated constant before compilation/device artifact, no bad build sent.
+- Originalfactory/callback/result alwaysretained; diagnostic adds no ready,
+  allocation, content, packet endian/layout or physics/renderer change. No null
+  guard that would hide this failure or skip required race objects.
+- game_pc_udp.cpp adds bounded full packet traces toboot.txt at already-scoped
+  PC boundary: up to32RX/32TX packets33–2048bytes, entire normalized guest
+  header/payloadhex (existing kernelwirelog truncates96). Ignores routine small
+  timing/control packets to preserve capture budget for car/setup. Max128KiB
+  raw/256KiB hex across directions, plus prefixes. Logging honorsboot toggle.
+  No payload modifications beyond existing preview10 header/ID conversion.
+- pc::Active getter, CMake USA source addition. No generated source edits, SDK
+  source changes, mobile/Android host behavior changes. Credits preserved.
+  A diagnostic build may still crash; no prevention/fix claimed.
+
+Checks actually performed:
+- New test_pc_race.py compiles actual factorydiagnostic hook with bounded fake
+  registry/guest memory andASan/UBSan: registered callback returningnull versus
+  no registration distinguished, successful result preserved, non-PC/callsite
+  bypass and8call cap pass exit0. No implementation-mirroring dummy fix.
+- Extended actual UDP hook test verifies full trace includes byte40 (beyond
+  short prefix),32record cap and payload preservation; all prior handshake ID,
+  endian, endpoint/off/mobile/voice/error/stack checks pass exit0/ASan/UBSan.
+- Existing actual gateway test passes exit0; actual generated session/address
+  decoder and room-filter regressions pass exit0. No real PC/mobile race test
+  run by agent this turn; supplied device log is the crash evidence.
+- Isolated cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6
+  exit0. nm confirms strong_sub_8212BFB8 plus original___imp__sub_8212BFB8.
+  ZIPCRC and codesign --verify --deep --strict pass0.104metallibs/GPUdylib
+  byte-identicalpreview10. Runtime differs only afterCMake regeneratedSDKstamp
+  and rebuiltdebug_overlay.cpp ([1/16]); no networking object/source rebuilt.
+  No shared SDK edit. git diff --check exit0.
+
+Unique ready diagnostic artifact copied to main ignored ios/build, no old
+preview replaced:NFSMW-multiplayer-preview11-pc-race-diagnostics.ipa,
+30431786bytes,SHA2566e72154e1fdf1c3796f8245d3a2265d52d8f153f9a472ecb328cfb4cff3f0832,
+appUUID89CE2C4E-5A6C-3705-A7FD-0B1D5964012F,
+runtimeUUID4D5257DA-DD90-352A-9B20-DE0228BD98FC, companionJSON.
+Archived buildlog inDebug/1November:nfsmw-preview11-build.log16919bytes,
+SHA256042ab6d7ab74329c3ba58a3efc2fc9fc548a466695a504a539922c433aac5e2d.
+
+Next: preview11 diagnostic, same original PC room and race, Loggingenabled;
+obtain BOTHboot.txt ([pc-race]/[pc-packet]) andnfsmw.log after failure, plus PC
+crashreport/details ifavailable. Use requestedkey/matchingcallback/result and
+completecar/setup PDUs to choose targetedtranslation/content fix. Avoid blind
+whole-payload word swapping, arbitrary factory fallback, or repeating wrong
+handshake fixes. Hostnames stillopen/reversePCdiscoverydeferred. All session
+source/evidence locallycommitted onmultiplayer, mainpre-existingdocsedit/
+HANDOFF/sharedSDK/controls preserved, no push/merge/release.
+
+## November 1 — preview11 identifies byte-reversed remote car key; preview12 field conversion
+
+Stefan uploaded two boot/game pairs with no additional text. All four archived
+with copy2/no overwrite inDebug/1November2026, prefix
+`nfsmw_lan_preview11_pc_car_factory_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| a_boot.txt | 16141 / 200 | 5483b5302635c7037558170db2fab1036160ad4b42a156ba78bdba42d28ba7a5 |
+| a_nfsmw.log | 344004 / 2056 | ce4b0f7946a15589a1e0fa7172a5792fd75cc4ff37ad657b0596e70242cae0f3 |
+| b_boot.txt | 16141 / 200 | 5483b5302635c7037558170db2fab1036160ad4b42a156ba78bdba42d28ba7a5 |
+| b_nfsmw.log | 344004 / 2056 | ce4b0f7946a15589a1e0fa7172a5792fd75cc4ff37ad657b0596e70242cae0f3 |
+
+Original pasteboard/items directories in table order:
+548E5372-58E3-4C50-A9CA-CAF9BE0BA5DA/boot.txt;
+1B1DB0FB-3916-47DA-9A70-DEFFFCD801A8/nfsmw.log;
+76A512C0-F365-457E-BE3B-E1008F0D8B54/boot.txt;
+244CD642-01F7-4612-82C0-FF04CE657C8E/nfsmw.log.
+Hashes establish duplicates of ONEattempt, not repeated independent confirmation.
+Exact installed hash/OS not in logs; diagnostic behavior consistentpreview11.
+
+Definitive new diagnostic evidence00:10:46:
+- Factory key1396EBE1 matchedregistry82A3E350/callback823D3F98, walked2, for
+  BOTH local and remote participants. Missing classregistration is ruledout.
+- Local participantACBECD10/local1/car_recordCD88083F succeeds resultBFADE00C
+  at46.702. RemoteAD418CD0/local0/car_record3F0888CD returns0 at46.703.
+  Same3constructor arguments9FB193F0,A6B47FAC,701EF6E0. Failing callback, not
+  missingfactory; localpositivecontrol and byte-reversed remote key established.
+- Game immediately has same nullread/LR82474944,1AV. PCcrash no fresh report
+  or dump; previous both-game crash remains user evidence only.
+- Full received setup packet252bytes contains raw3F0888CD atbyte24; local TX
+ 264bytes containsCD88083F atbyte26. Variable TKM/bep1s name lengths account
+  for different positions. Do NOT patch absolute UDP packet offsets or assume
+  all packet words have the same encoding. Dumps show existing header/ID
+  transport worked; source game/car data remains native-endian raw memory.
+
+Source tracing and relevant existing work:
+- Actual USA player-profile serializer at824D56D8 stores4byte car record key in
+  participant+4432, emits length4/16bits, then emits each native byte through
+ 825380E8 atLR824D5704 (sourcebase r30/indexr31). Decoder calls82538320 at
+ 824D54B4 with destinationparticipant+4432 and expected4bytes. This generic
+  reader writes raw8bit bytes and returns wire-declared length.
+- Serializer also emits flag and raw408byte participant+4440 customization,
+  byte loopLR824D574C; decoder rawreadLR824D54FC. Genericbitstream scalar/
+  compression layer is separate. This is an actual native-memory boundary,
+  not a reason to swap arbitrary compressed game PDUs.
+- Existing ios/src/save_convert.cpp already maps FECustomizationRecord0x198
+  between PC/Xbox: int16 part indices[0,0x116), padding116/117, u32 physics/
+  tunings/active/preset[0x118,0x194), bytehandle194 andpadding195–197.
+  Original converter credits sprintstate/nfs-mw-save-editor GPL3 and
+  dbalatoni13/nfsmw field layout. Reuse that established map; retain credits
+  innewheader/CHANGELOG. Network conversion does NOT reuse save-specific
+  fillerCD→AA normalization or change profile/save formats.
+- An exploratory strict UTF8 read of boot failed on rawping subcode byteD7;
+  used errors=replace for text, kept original bytes/hash. No input lost.
+
+Preview12 implementation (USA/nativePCmode only):
+- New game_pc_car.cpp strong hooks for825380E8 and82538320 retain originals.
+  Read side: after original returns complete expected4/408bytes from EXACT
+  profile callsites, convert typednumeric field bytes in destination; preserve
+  original result. Unexpected length logs and gets no conversion. Existing
+  reader ignores capacity BEFORE returning; this change is not a malformed-
+  length safety fix and must not be represented as preventing buffer overflow.
+- Write side: only8bit emits from exact4/408byte profile loops select the
+  opposite-endian sourcefield byte through r4; original emits8bits, saved car
+  source memory never modified. Part indices swap2, numeric physics/tunings/
+  preset swap4, handle/bytes/padding stay. Map is involutive/bothdirections.
+- pc_car_layout.h holds tiny purefield-byte mapping derived fromexisting
+  saveconverter. No guessed fixedoffsetpacket parser, globalraw-memory swap,
+  dummyfactoryobject, nullskip or readiness forcing. Other raw fields and
+  numeric bitstream writes unchanged. Non-PC Activefalse path calls originals.
+- CMake adds new USAhook source; no codegen/SDK/sharedSDK/controlsource edits.
+  Existing boot/factory/packetdiagnostics retained for nextgate. Actual physical
+  race/vehicle-state PDUs are not newly translated; further differences may
+  remain after this specific car setup mismatch.
+
+Checks:
+- New test_pc_car.py compiles actualhook withASan/UBSan and original bitstream
+  reader/writer capture stubs. Capturedremote3F0888CD→CD88083F, reverseoutput
+ 3F0888CD; expectedu16part, float1.0, preset11223344 fields; bytehandle/padding
+  preserved; 408byte involution, bothways roundtrip, sourcecarbuffer untouched.
+  Non-PC/othercallsites/otherbitwidths/shortunexpectedrawread untouched. Exit0.
+  Does not execute wholegame/customization constructor or entirecompression.
+- Existing actual UDPheader/ID/fulltrace and factory diagnostic tests pass0;
+  actualgateway/control/handshake lifecycle tests pass0 with temporarylisteners.
+- Isolated cmake --build ... --target ipa -j6 exit0. nm confirms strong
+ 825380E8/82538320 and separateoriginal__imp__ entries. git diff --check0.
+- ZIPCRC/signature --verify --deep --strict pass0;104metallibs/GPUdylib
+  BYTEIDENTICALpreview11. Runtime different onlySDKversionstamp regeneration/
+  debug_overlay.cpp rebuild ([1/11]); noSDKsource/networkobject edits.
+
+Unique ready artifact copied into main ignored ios/build, prior IPAs preserved:
+NFSMW-multiplayer-preview12-pc-car-records.ipa,30431970bytes,
+SHA2569e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d,
+appUUIDAC77427C-C73A-31CF-A1F2-CBD93A4DE9F6,
+runtimeUUIDDE9DB5F9-8E8C-3A59-A412-0BD728F3161C, companionJSON.
+ArchivedDebug/1November:nfsmw-preview12-build.log15157bytes,
+SHA256a285a01098a162d28c0cfda832c1dbc7e974bec15cc560a0fd9c6db1261128e3.
+
+Next: preview12samePCroom/race, Loggingon. Verify both factorycreations return
+validobjects and track loads, thenactualdriving. Ifnextfailure, BOTHboot/game
+logs; do not call wholePCracecompatible fromcar setupcorrectness alone.
+Remote-car failure targeted, deviceacceptancepending. Hostguestnamesopen,
+reversePCdiscoverydeferred. Allsessioncode/evidencecommittedlocalmultiplayer;
+mainpre-existingcheckpointedit/HANDOFF/sharedSDK/controls preserved. No push,
+merge, release, Windows/firewall/gameasset/save mutations.
+
+## November 1 — preview12 first confirmed PC-hosted iOS gameplay, intentional quit
+
+Stefan says "holy moly it actually worked", supplies boot/game. Later explicitly
+clarifies logs ended because he quit the game, it did NOT crash. Treat this as
+successful user gameplay followed by intentional exit; do not infer a new
+failure or timeout from the final truncated log line. No new code/build/IPA.
+
+Both files immediately archived with copy2/no overwrite under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`, prefix
+`nfsmw_lan_preview12_pc_gameplay_success_`:
+
+| Suffix | Bytes / raw lines | SHA256 |
+| --- | --- | --- |
+| boot.txt | 25279 / 279 | 886a8632a59cfc8942fa6cd696f8ce25179b3e0914d8bebdde35ed5ed4709491 |
+| game.log | 1619263 / 9096 | 5c78fae5dad840af40b6de0998b2c423a7ce7eaeda58696d7325a755026dc541 |
+
+Original pasteboard/items sources:
+20D3A0AA-F753-4F4B-BB14-ED5F43DFA6F4/boot.txt;
+4638FB9D-F0AC-4910-AFBF-F4AEE698D03F/nfsmw.log.
+Exact installed executable hash/OS not embedded in logs; behavior and supplied
+preview12 trial identify it as the currentcar-conversion test. Known delivered
+artifact remainsNFSMW-multiplayer-preview12-pc-car-records.ipa30431970bytes,
+SHA2569e174345bfaf9357c3aabcab12f6745cc453182ec8597a11af8dd9bd7f31286d,
+appUUIDAC77427C-C73A-31CF-A1F2-CBD93A4DE9F6,
+runtimeUUIDDE9DB5F9-8E8C-3A59-A412-0BD728F3161C; source4ae8893.
+Do not rebuild/replace this knownworkingbaseline merely to update documentation.
+
+Observed sequence:
+- Native PCservice NOW192.168.1.133:9900, not prior202. Launcher PCadapter
+  ready00:20:06.449/08.624; phone red_ip192.168.1.205, red_dnsloopback,
+  red_lan/live/registroenabled. Endpoint133 previously belonged to Android in
+  older sessions; current native9900adapter/PCroom proves endpointcontext has
+  changed, don't reuse old platform inference by IP alone.
+- PCroom012.NAME/hostNAME, COUNT2, +ses00:20:48.421. Conversion logs4/408bytes
+ 48.511. No Python/helper needed in this nativePCpath; no PCmod introduced.
+- Factory00:20:51.259–266 same registered1396EBE1/callback823D3F98: local
+  carCD88083F createsBFAD520C; remotecarA800B5BB createsBFAD9AEC. RemoteID
+  differs fromlocal; it wasn't just copying the localcar/forcing an object.
+  This device-confirms the targeted car setup fix got past the priornullresult.
+- Game state4region48.674, state5track50.184, state6inworld55.212. Race UDP
+  send/receive remains active through00:22:49, game log ends00:22:50.295.
+  ~115seconds afterinworld. Counted1705RX/1668TX3658data lines,0Unhandled
+  guestAV,0rank sends. No results/finish/rematch established by these logs.
+- Stefan's explicit intentional quit explains sessionend; no recorded or
+  userreported crash in this successful test. Do not keep race-loadcrash as
+  unresolved for this scenario; mark fixedpreview12 while retaining evidence.
+
+Scope/next step:
+First PC-hosted iOS gameplay is CONFIRMED. The method keeps originalPCgame
+unchanged, nativeiOSdirectory/controladapter and game-side transport/car
+field conversion. Existing mobilecredits retained, nativePC/carfieldmap
+credits already in source/changelog. No blanket claim of allvehicles/tracks,
+physics edgecases, finish/results/rematch or manyplayer interoperability.
+Next meaningful validation is fullrace/results/rematch, then widercars/tracks
+and mobile regression before diagnosticcleanup/release. ReversePCdiscovery/
+iOShost remains deferred while PChost path validated/polished; hostmissing
+mobileguestnames stillopen. No unsolicitedfeatureimplementation thisturn.
+
+Documentation-only localmultiplayer checkpoint/changelog/backlog update;
+gitstatus initiallyclean in isolatedworktree. Mainpre-existing checkpoint
+edit/untrackedHANDOFF preserved, sharedSDK/controls untouched, no testsrerun
+for docs-only change. No newIPA, push, merge, tag orrelease.
+
+
+November1 session close: Stefan explicitly defers further testing to the next
+session because he is leaving his friend's house and conserving usage. Verified
+multiplayer worktree clean at e87d10f before this handoff-only update; shared
+Git worktree list confirms main19177b6 and isolated localmultiplayer. Added
+explicit Claude entrypoint/path, preservepreview12 and nextvalidation checklist
+to checkpoint. No source/build/test/IPA changes. No push/merge/release. Main's
+pre-existing checkpoint edit and untrackedHANDOFF remain outside this commit.
+
+
+## November 1, 2026 — preview13 separate native PC hosting experiment
+
+Authorization: Stefan explicitly says work can start now, initially separate PC
+hosting, and will test BOTH directions once ready. This supersedes the previous
+session stop/reverse-host deferral. All source in isolated multiplayer worktree;
+no main/control source or shared SDK change. Main pre-existing modified checkpoint
+and untracked HANDOFF preserved. No push/merge/tag/release.
+
+Implementation:
+- Launcher adds opt-in Host for PCs (Experimental), mode host_pc. Original Host
+  remains iOS/Android; Join retains existing native PC gateway. Backend optionally
+  listens on TCP9900 in addition to the host game's mobile control ports. PC
+  sockets retain actual source IP; no loopback relay masquerading as the PC.
+- Source-bound UDP announcement every3s to255.255.255.255:9999, stable ephemeral
+  source/session identity for server lifetime,384-byte gEA3/5 /NFSMWNA packet,
+  first11 name characters (conservative receiver bound),9900|players and native
+  capabilities. Format independently implemented from existing local protocol
+  research OhhhThatVarun/nfsmw-lan-protocol dd2eb3329566f3b0c1e11e3e07a0a26b14da0487,
+  Discovery.md; no imported research implementation. No PC helper required.
+- Per-PC socket output converts known room V192641→192359, host D XboxXUID→PC
+  little-endian IPv4 machine address, user MA and game MADDRi; strips Xbox SESS/
+  PLATPARAMS only from PC recipient's valid game record. Internal canonical
+  records/mobile recipient keep actual Xbox session and identities. Empty/error
+  game replies preserve their body/subtype. PC input auth/pers MADDR normalized
+  into existing synthetic Xbox XUID/XNADDR envelope from real TCP source.
+- PC mode tracks one selected PC address (first auth/pers), rejects a different
+  peer until Host restarted. PC is a guest (ucre/gcre denied). Remote mobile
+  control clients rejected in this mode; custom mobile UDP discovery suppressed.
+  Normal mobile host still never opens9900 or advertises native PC broadcasts.
+  Revivir remembers PC listener/source mode. Existing server-owned detached
+  threads retain object until polling/wake shutdown; announcer wakes on stop.
+- CommUDP mapping now supports reverse role: learn incoming PC INIT1 ID, capture
+  outgoing Xbox host control ID (including opcode5), map only control1–5 between
+  the two identities. Explicit known flags distinguish valid0 ID from unknown.
+  Join path still learns PC listener5, maps outbound1–3; DATA ACK/payload unchanged.
+  Existing exact car serializer conversion and factory diagnostics apply to the
+  selected PC peer after auth; no SDK or generic bitstream changes.
+- Preserve upstream victorgbd original Android and direct C++ adaptation credits
+  and existing car field-map credits; changelog explicitly acknowledges reuse.
+
+Observed verification (all commands from /private/tmp/nfsmw-ios-multiplayer):
+- python3 tools/ios/test_lan_setup.py: exit0, including separate host_pc preflight.
+- python3 tools/ios/test_pc_udp.py: exit0, ASan/UBSan; original join and reverse
+  INIT0/listener-ID mapping, source-buffer/stack/payload/skip paths pass.
+- python3 tools/ios/test_pc_session.py; test_pc_room_filter.py; test_pc_car.py;
+  test_pc_race.py: each exit0, actual generated decoder/validator or actual hook
+  fixtures with ASan/UBSan. No new real game inference from these host tests.
+- python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research: exit0. Original
+  Python/C++ parity25 stages, Binary7/session/start/leave, SDK transactional
+  patch checks and UDP-blackhole TCP fallback all pass. Backend test now links
+  pc_gateway.cpp because optional PC output uses its pure protocol helpers.
+- New python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --ip 192.168.101.118: first run
+  exit1 at forbidden-gcre empty-body assertion. HostReply was adding empty Xbox
+  session fields to error frames. Fixed by requiring IDENT before adapting game
+  records; rerun same command exit0. Earlier announcement/directory/room/game/
+  start assertions already passed; final run confirms them all. ASan/UBSan real
+  C++ backend and synthetic Python clients; receives384-byte broadcast from this
+  Mac's actual LAN IP, validates per-recipient address/version/session changes.
+  No proprietary PC game client is in this test. No claim iOS broadcasts or the
+  original PC browser work on device yet.
+- python3 tools/ios/test_pc_gateway.py: exit0, actual original join adapter with
+  fragmented socket frames, identity cache, physical addresses and shutdown.
+- cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6: exit0,
+  final rebuild after error-frame fix exit0. Release/arm64/iphoneos, isolated SDK,
+  CMake home isolatedworktree/ios. actool emits local CoreSimulator connection
+  warnings but completes assets/package; no build failure. No extra device install.
+- unzip -t IPA: exit0/no errors. codesign --verify --deep --strict built app:
+  exit0. git diff --check clean. Host tests requiring listeners ran with local
+  network permission; no firewall changes or VM actions in this session.
+
+Artifact: /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview13-pc-host.ipa,30435895bytes,
+SHA256 96b90c94d0d805f7ab885540549dab4a16dad405d18c71682188f2c9d1abe224.
+App UUIDF7721225-6BE0-38F9-A7BA-CE4E73C57729;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged.
+Preview12 known-good IPA preserved byte-for-byte; no new reverse device result.
+Build/test logs archived in /Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/
+1 November 2026/nfsmw-preview13-{build,host-tests,mobile-tests,gateway-tests}.log.
+Host-test archive is the successful final run; first failed assertion/exit1 and
+its correction are preserved in the evidence above. Local outputs have same names.
+
+Next: Stefan tests PC-host→mobile-join regression and mobile-host→PC-join via
+native PC LAN browser on same Wi-Fi/hotspot off, distinct names, Logging on.
+For reverse: launch host_pc then XboxLive/QuickMatch/CreateGame; PC select native
+advertised phone name, log in/join room. Check discovery→room→peerready→race,
+then finish/results/rematch. Need both boot/game logs + server log on failure.
+Device validation of broadcast permission/routing, PC client login/QoS/room and
+reverse race readiness remains pending. Mixed/multiple-PC hosting unsupported;
+restart Host before another PC IP. Mobile missing guest names still open.
+
+Final review follow-up, same preview13: preflight is invoked again on Launch.
+Unconditionally stopping the PC adapter there would erase a PC peer that had
+already logged in while the host remained in the launcher. Keep live host_pc
+state when pc::Hosting() and servidor::EnMarcha() are true; other modes/failed
+servers still reset. test_lan_setup.py now asserts launch re-preflight does not
+start/reset the hosting adapter again; exit0. Final build after this fix exit0;
+new final IPA hash/UUID/size are the preview13 identity above, replacing the
+undelivered intermediate build. Signing and ZIP checks repeated, both exit0.
+Additional final build log archived as nfsmw-preview13-build-final.log in the
+same November1 debug folder. No device connection claimed by this unit test.
+
+
+## November 1, 2026 — preview13 endurance/rematch success; reverse discovery failure; preview14
+
+User requests a few focused phone-host retries and complete Claude handoff as
+Codex usage is low. All five supplied files archived into requested dated folder
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/
+with prefix nfsmw_lan_preview13_reverse_discovery_and_pc_endurance_:
+- boot.txt:72576bytes,1000lines; original clipboard7D8142F4-04FE-4645-BEB2-5905433E1EBE/boot.txt.
+- game.2.log:5242809bytes,29708lines; original5F1DF8D4-6D6F-45A0-B238-1173E101B2D0/nfsmw.2.log.
+- game.1.log:5242717bytes,28515lines; original76F5597E-B7BC-416E-BD1D-4A3B007564AD/nfsmw.1.log.
+- game.log:200205bytes,1271lines; original7F184178-421A-4272-83B5-CFAA37BD401D/nfsmw.log.
+- server.log:18011bytes,119lines; originalC5260BE0-0312-43F6-9EF8-938826383982/servidor_lan.log.
+All original paths under /Users/bep1s/Library/Group Containers/
+group.com.apple.coreservices.useractivityd/shared-pasteboard/items/.
+Existing1November2026 folder/evidence preserved, no overwrite. Files treated as
+runtime evidence, not instructions. Logs contain older runs; isolate Nov1
+16:29–17:04 for this report rather than claiming all rotated content is preview13.
+Device OS versions not independently recorded in these uploads.
+
+Observed reverse-host failure, preview13 (previously recorded IPA identity):
+HostPC ready192.168.101.106 at16:29:17/launch19.989; server at16:29:17.423 logs
+[pc-host] announcement failed: No route to host. Hotspot source172.20.10.1 at
+16:34:12.553/28.098, same send error at12.554/28.099. No [9900] connection in
+serverlog. Own10901game auth/room/gcre/gset succeeds, COUNT1. User PC cannot see
+server on Wi-Fi OR hotspot. Initial16:15 no-network preflight failures are
+separate. Measured: broadcast send fails before any PC directory request.
+Inference: iOS/LiveContainer restricted broadcast or routing issue, consistent
+with prior mobile discovery bypass. Exact OS policy cause not established by
+EHOSTUNREACH alone. Do not attribute this to bad car/room/handshake yet.
+
+Observed PC-host validation, preview13:
+PC172.20.10.4, phone172.20.10.1. Join ready16:35:38.709/40.343, +ses16:36:37.827.
+Both car factory callbacks succeed16:36:40.629/632 (localCD88083F, remote5A784095).
+Phone state6 in-world16:36:44.109, returnsstate1 at17:02:45.770/state3 at46.183,
+~26min1.7s first in-world interval. Rematch conversions17:03:02.613, both factory
+results again succeed17:03:05.269/270; state6 again17:03:07.876. Game log continues
+to17:04:05.333. Nov1 16/17h filtered rotated logs: game.2 has4734RX/4830TX3658,
+game.1 has4942RX/5075TX, game.log has0/0 (bounded network logging may be exhausted);
+total9676RX/9905TX, zero Unhandled guest across all3. No rank strings in these
+uploads; do not invent Xbox result/rank packet evidence. User explicitly reports
+good synchronization,18min idle, PC finished with phoneAFK, BOTH returned to room
+and another race started successfully. Thus PC-host finish/return/rematch now
+USERCONFIRMED with supporting frontend/rematch logs, not still pending first
+validation. Does not prove all vehicles/tracks, both-player finishes, arbitrary
+networks or reverse-host gameplay. No crash reported in this test.
+
+Preview14 focused implementation:
+- red::Vecinos(selectedIPv4) enumerates only exact matching UP local interface,
+  rejects VPN/cellular/loopback, invalid/noncontiguous masks and /31–32; respects
+  smaller subnets including172.20.10.0/28, caps broad masks at local/24. Excludes
+  own/network/broadcast addresses, max253targets. No guessed /24 hotspot sweep.
+- Optional PC announcer sends same384-byte native packet/UDP9999 to these peers
+  after broadcast, socket remains bound to chosen hostIPv4, nonblocking,2ms paced
+  per destination with stop-aware waits;3s between rounds. First3rounds and every
+ 20th log target/success/failure/last_errno. Original broadcast error retained.
+  No new private entitlement, PC helper/mod/firewall change, UI setting or SDK
+  change. Existing host_pc flag remains opt-in; mobile hosting and PC joining/
+  serializer/transport code unchanged. UDP send success proves only local
+  enqueue, not PC receipt or browser acceptance.
+- test_lan_interface.py extended for exact selected network, /28 bounds13peers,
+  /16 capped to253peers, own exclusion, inactive and VPN/public exclusions.
+- test_pc_host.py --simulate-broadcast-failure injects EHOSTUNREACH only for
+  broadcast; redirects actual unicast destinations to the Mac receiver so fault
+  test sends no announcements to unrelated neighbors. Actual backend creates
+  packets/sends fallback; asserts blocked broadcast AND direct packets observed,
+  then usual native directory/room/per-recipient game/start assertions. This
+  tests the failure path without claiming a native PC client participated.
+
+Validation:
+python3 tools/ios/test_lan_interface.py exit0 ASan/UBSan.
+python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+--ip 192.168.101.118 --simulate-broadcast-failure exit0 ASan/UBSan. cmake --build /private/tmp/nfsmw-multiplayer-build
+--target ipa -j6 exit0; codesign --verify --deep --strict app exit0;
+unzip -t IPA exit0/no errors.
+python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+--reference-server /private/tmp/nfsmw-server-lan-research exit0:25-stage C++ vs
+Python lobby parity, Binary7/session preservation, SDK transactional checks,
+mobile/PC TCP fallback with fragmented frames and UDP blackhole all pass.
+Build, host-fault and mobile-test logs archived in the same1November2026folder
+as nfsmw-preview14-{build,host-fault-tests,mobile-tests}.log.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview14-pc-direct-discovery.ipa,30438233bytes;
+SHA25654d7b2b6e4a7c55e5c6f73f7bd958fb875669d429767392f0e7ec7e55502dd6d,
+appUUID C1080D85-E1FB-3DD9-981B-CAE6B3D44160;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preview13/12 preserved.
+No new device validation of preview14. Next native PC LAN discovery test; if
+unicast queued but PC invisible inspect PC UDP9999 traffic/filter/receiver before
+protocol changes. After discovery test TCP9900→login→room→peerready→race. Handoff
+updated for Claude, localmultiplayer only; main pre-existing checkpoint edit and
+untrackedHANDOFF preserved, sharedSDK untouched. No push/merge/release.
+
+
+## November1 preview14 DEVICE discovery success, reverse INIT stall; preview15
+
+New supplied paths under /Users/bep1s/Library/Group Containers/
+group.com.apple.coreservices.useractivityd/shared-pasteboard/items/:
+66235DDC-F288-4630-93D9-5D556380C66A/boot.txt (8844bytes,141lines),
+77967B7D-E17B-4BAD-BB68-5B9EE8ED9A76/nfsmw.log (639296bytes,3853lines),
+0BFF9BEB-5A15-435B-8BA7-59205020B2CD/servidor_lan.log (20199bytes,140lines).
+All3read on initial analysis call. Later exactpath reads/copy failed ENOENT:
+archive attempt to requestedDebug/1November2026/nfsmw_lan_preview14_reverse_handshake_*
+exit1 FileNotFoundError before first file copied; later non-escalated attempt to
+save to/private/tmp alsoexit1 sameerror. Do NOT claim rawfiles archived. Fullraw
+preservation PENDING reattach; only observed facts captured in tool result and
+this record survive. Not an approval rejection. Earlier preview13 archives
+remain intact. Do not reconstruct originals from excerpts or invent provenance.
+
+Measured/user evidence:
+- User PC now finds/joins room, then waits indefinitely; phone doesn't show PC
+  name, consistent with separate pre-existing host roster bug. No race started.
+- Phone host_pc192.168.101.106 ready17:15:20.909/22.158. PC192.168.101.163
+  connects9900 at17:16:06.914, authenticates/personaamogus06.987/07.001,
+  usea COUNT1 at09.980, ujoi room036.bep1s COUNT2 at10.001; G1002/playerpresence
+  updates continue20.114. Server output log is canonical pre-recipient PC
+  conversion (PORT10901/XboxMADDR/P192641 in log), NOT proof wrong wireformat.
+- Phone bind3658 at17:16:10.036.10incoming8-byte datagrams10.081–19.710:
+  nativePC INIT1 with little-endian ID4749E364 (wire0100000064E34947).
+  No sendto3658 in supplied game log; boot confirms header conversion and
+  repeated “PC connection ID learned” but no TX. Thus discovery/login/room
+  SUCCESS, handshake blocked before outboundreply; no carrecords/race evidence.
+  User hypothesizes same crossplay issues reversed. Existing header and car
+  hooks already activate for both roles; avoid double conversion.
+
+Cause/inference and code:
+USA generated CommUDP receive at8289C4D8 has r31 current reference, +128socket,
++148state, +152connectionID. Listener state3 selection at8289C590 compares
+receivedINIT1 ID with native listener ID; acceptance repeats matching later.
+Previously reverse hook learned PCID from incoming1, but localID only on an
+outgoingcontrol. A rejected firstINIT generates no reply, so localID never
+becomes known: circular bootstrap. Inference strongly supported by0TX;
+actual native listenerID was not logged, so do not claim measured value0.
+Preview15 exactcaller8289C4D8/Hosting/selectedPC3658/INIT1 scope additionally
+checks nonzeroalignedreference, its socket matches originalreceive socket and
+state3. Captures its actualID (including0), then maps receivedPCID tolocalID
+before returning to original selection. Originalstate/readiness untouched;
+no forcedgreen, fakecar or synthetic successfulconnection. Existing outgoing
+control inverse mapping uses actualPCID. Joinmode path unchanged, DATA ACKs
+untouched, car field-map unchanged. ID-learn trace now emits only on change
+rather than every repeatedINIT; new hostcapturetrace makes device test clear.
+
+Verification:
+python3 tools/ios/test_pc_udp.py exit0 ASan/UBSan: capturedINIT4749E364 arrives
+BEFOREanyTX, exact listenerrefsocket/state sampled, localID0 mapped immediately,
+reply5 inverse mapping; wrongsocket/state/callsite skip sampling; original join,
+zero-ID reverse, DATApayload/ACK, stack/callerbuffer/off/mobile/voice/short/error
+paths remainpassing. This compiles actualhook with boundedguest-memory stubs;
+not a real native handshake or execution of full generated listener loop.
+cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6 exit0;
+codesign --verify --deep --strict builtapp exit0. git diff --check clean.
+Buildlog nfsmw-preview15-build.log archived inDebug/1November2026 (own build log,
+not missing input logs). No sharedSDK/main/controlchanges. No fullsuite rerun
+because only scopedUDP hook changed and its full regression passed.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview15-pc-host-listener.ipa,30438761bytes,
+SHA256c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1,
+appUUID FEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preserve13/14.
+Next samephonehostPCguest, Loggingon: hostlistenerIDcapture, firstTX5/replies,
+ready/room thenrace. If still0TX investigate actualreference state/socket and
+originallistener acceptance; ifreadythenloadfails inspect carfactory/recordlogs
+before moreconversion changes. Mainpre-existing checkpoint edit/HANDOFF remain
+preserved, worktree initiallyclean0bdb70a. Alllocalmultiplayer, nopush/release.
+Claudehandoff currentcheckpoint updated; request newcopies of missing3logs for
+required originalarchive rather than silentlydropping that unfinishedwork.
+
+
+## November1 preview15 reverse gameplay CONFIRMED; preview14 archive recovered
+
+Stefan reports nativePC connected, sees phonehost, race started/everythingwell;
+phone stilldoesnotseePCguestname (existing intermittent hostroster issue).
+Files with “2” are explicitly preview14 priorrun; files without “2” are current
+preview15. Preserve this association, not filesystem order or filenameguess.
+All6read immediately into private tempcopies, then archivedbyte-for-byte to
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/.
+Archive filenames (same prefix nfsmw_lan_):
+- preview14_reverse_handshake_game.log,639296bytes, SHA256f2d1c4cc07fda7a10549151281af64338f5c8162beec387992ca9479ca23e9fc.
+- preview14_reverse_handshake_server.log,20199bytes, SHA25678674258a9cdded22a38a479e638c1fd14a62386e64344ddb85dde4a07cad0cb.
+- preview14_reverse_handshake_boot.txt,8844bytes, SHA256aec05b54cba825010f33d85c7553737a8594523e4aaec4fdbb4c016e4df45540.
+- preview15_reverse_gameplay_success_boot.txt,19120bytes/205lines, SHA25619beb15049106b024dbe3d9d10babecebd8e25f47e4e4ad5d8d96d024d20abca.
+- preview15_reverse_gameplay_success_game.log,1012890bytes/6041lines, SHA2564afb651862f94d6409c8eea6eda360554e8485107c749b3226f010b55fb5551a.
+- preview15_reverse_gameplay_success_server.log,27208bytes/187lines, SHA256c0f4cda9b157719deec68e4d53043b477172f87fc0b663470f13f3ddfe90fb26.
+Original clipboard itemIDs respectively32A11D44-E481-4723-B4EC-8363F1BDAE98,
+268C2DE8-4070-4ECB-9942-FC622ADD9BC4,8E11BD77-9837-4D77-A20C-298C22F1A523,
+994E1311-0DBB-4CD3-8AB2-3B27DD1D7EC1,7B935B4C-8A8C-42A5-ACB9-96707FC3FE4B,
+42B891E4-AD96-4E6C-B61F-685E4992EFBA under same shared-pasteboard/items root.
+Recovered14 files match prior observed sizes; fullrawfiles now preserved, prior
+archiveexception resolved. Copy exit0, bytecomparison verifiedall6, no overwrite.
+
+Preview15 exact measured sequence (iPhonehost192.168.101.106, PC192.168.101.163):
+- host_pc ready17:22:19.199/launch20.133. Directdiscovery253targets/sent253/0failed
+  at19.852,23.432,27.016. NativePC9900 connections17:22:56.309/.348.
+- gjoi17:22:59.155 COUNT2, HOSTbep1s/SELFamog. HostlistenerID captured before
+  INITmatch17:22:59.210, first8byteRXandTXsameinstant.21byteTX59.343/RX59.349.
+  Thisdeviceconfirms the formerlycircular bootstrap progressed intoDATA; no
+  additional byte-order patch needed. Header mapping already activebothroles.
+- Phonegsta17:23:15.248, existingreceived4/408carfield conversion15.390.
+  Factory17:23:18.173 remoterecord5A784095→BFAD4CCC, sameinstant localrecord
+  CD88083F→BFAD9BCC at18.174. Bothcallbacks succeed, differentcarIDs. Existing
+  common serializer conversion works in reverse too for these testedcars.
+- Gameflow4region15.483,5track17.019,6inworld22.204. Bidirectional3658through
+ 17:23:57.663 (~35.46s afterinworld),569RX/582TX in suppliedgamelog,0Unhandled
+  guest. No finish/results/rematch shown. User saysraceplayedwell, no crash
+  reported; logendaloneprovesneithercrashnorintentionalquit. DeviceOS notnewly
+  established. Preview15 identity unchanged:30438761byteIPA, SHA256
+ c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1,
+ appUUIDFEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58, source280a07f.
+- Laterannouncer17:23:28.197 directsent9/failed244/last_errno64; gameplayUDP
+  continues. Thisdoesnotinvalidate successfuldiscovery or implyracefailure.
+  NeighborARP/routing/send errors neednotbeeliminatedoncepeerconnected;
+  futurepolishmayreduceannouncements duringrace. No speculativefix now.
+
+Outcome: iOS-host/nativePC-guest handshake and gameplay FIXED/CONFIRMEDpreview15
+for thisrun, complementingpreview13PC-hostfinish/return/rematch validation.
+Phonegame-roommissingguestname remainsOPEN (PCseeshost); do notdeclare UI bug
+fixedbyhandshake. Nextreversefinish/results/return/rematch/endurance, widercars/
+tracks/mobileregressions, thenmixedhostingintegrationonlyafterseparatedpaths.
+Claudehandoff currentcheckpoint updated, missingarchiveworkresolved. Initially
+cleanworktree280a07f; thisturn docs/changelog only, no code/newIPA/tests needed.
+Mainpre-existingcheckpointedit/untrackedHANDOFF/sharedSDK/controls preserved;
+alllocalmultiplayer, nopush/merge/tag/releaseauthorized.
+
+
+## November1 preview16 host roster count synchronization candidate
+
+Stefan explicitly requests fixing iOS host not seeing connected player rows.
+Initially clean99564f5 multiplayerworktree. Currentdevice evidence from archived
+nfsmw_lan_preview15_reverse_gameplay_success_game.log: phone TCP10901 receives
++usm S0/I4/Namog/G1002 repeatedly; this is NOT dropped servernames. Existing
+server ucre supplies ownrecord.C1, auto-subscribeshost0 and emits+usm, later
+ujoi/auxi sends guest+usr/+usm but doesn't refreshhostroommetadata.C. Server log
+has allnames; gameplay works. No new user inputs/archives this turn.
+
+Private original image used to resolve +usm8282E988 / +ust8282EE08 dispatch,
+from existing /private/tmp/nfsmw-multiplayer-image-cache/aebdf3c14d1e4e4ed2c130d94bc1a0e97bd6d5bf39bdfdef33c3909c9cc4ba4c.img.
+No proprietary code/image copied into trackedfiles. Generated USA parser confirms
+slot0list24: member changes update real list then callback82545A88; callback's
+r5 roommodel+360 holds native list, ListCount8281BB60 reads list+24. Room record
+atmodel+372, S/capacity+32 (model404), C/count+36 (model408), O/name+16(model388).
+Original callback forwards &record to frontend without syncing C to memberlist.
+Code-supported inference: stalehost.C1 cankeep frontend showing onlyhost despite
+validguestmembership; this has not yet been confirmed by runtime model trace.
+Earlier commentary called the native lookup a first-opponent search: corrected
+by executing original82544A78. It selects host when index0 and guest by index1;
+direct indexed guest lookup succeeds even withC1. Do not record false proof
+that original guest name lookup itself rejectsGuest. Need actualfrontend
+acceptance todeclare symptomfixed.
+
+Implementation new ios/src/multiplayer/game_lan_roster.cpp (USA target only):
+- red_lan guard; original82545A88 before-forward and82544A78 before-lookup sync
+  model.C from actual native memberlist count. Require model/list/nonzeroRoomID,
+  capacity1–4,actual<=capacity; unchangedcount/offline/invalid skip. Bounded12
+  [lan-roster] previous→actual traces. No invented players, stringreplacement,
+  readiness/connectionflags, race/header/car/SDK/backendprotocol modifications.
+- Callback refresh uses same actual memberlist (including real leave counts),
+  then calls original implementation with originalargs. Lookup also covers
+  subsequently stale room replies, runs under existing caller's roster lock
+  when called via825449F0. Hostandguest LAN uses samehook; alreadycorrectcounts
+  unchanged. No independent UI overlay or new setting.
+
+Verification/negative evidence:
+New tools/ios/test_lan_roster.py extracts original generated82544A78 and82545A88
+into private temporary fixture (proprietaryimplementation nevertracked).
+First fixture exit1/SIGABRT at expectednull assertion: wrongassumption about
+index0 selectingopponent, NOT an ASan finding. Actualfunctionreturnedhost;
+corrected testmodels this behavior and tests actualcallback.Cforwarding.
+Final python3 tools/ios/test_lan_roster.py exit0 ASan/UBSan: nativecallbackpasses
+C1withtwo parsedmembers; hook makesactualcallbackpassC2; originalindexedlookup
+returns realGuest; leave2→1, offline, invalidroom/capacity-inconsistentcounts
+unchanged. Stub frontend observes recordC, not full actual UIrendering. This
+proves propagation/guard behavior, not that all screen filters arefixed.
+cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6 exit0 twice
+(initialbuild and finalcomment/testcorrection build); CMake regenerated for
+newUSA source. codesign --verify --deep --strict exit0, unzip -t exit0/noerrors,
+git diff --check clean. No unrelated tests repeated: unchangednetwork/PC/car
+paths retain previous validation. No device test or release claim.
+Buildlogs archived Debug/1November2026/nfsmw-preview16-build.log and
+nfsmw-preview16-build-final.log; test failure retained in this evidence.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview16-host-roster.ipa,30439031bytes,
+SHA256f15c4ae4dcb8a6da1b70accac921677d14f08fe0aa6eed03a73df2d0d99c18b4,
+appUUID90D3671A-2F4C-34FB-A002-3997B0ED8EB4;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preservepreview15confirmed
+bothhostingdirections; no changes to transport or gateway. Next host iOS with
+PC ormobileguest, check row/name/connection/carupdates/leave-rejoin/short race.
+If stillhidden need actualfrontendrowfilter and count traces beforebroaderpatch.
+SharedClaudehandoff current; mainpre-existingcheckpointedit/untrackedHANDOFF,
+sharedSDK andcontrolbuildpreserved. Alllocalmultiplayer, nopush/merge/release.
+
+
+Preview16 same-session acceptance update: while documentation/commit was being
+completed, Stefan tested the readyIPA and reports “it works now i can see the
+pc's player name”. Thus PC guest-name visibility on iOS host DEVICECONFIRMED/
+FIXEDinpreview16 for thispairing; not merely a candidate anymore. No new runtime
+logs, deviceOS, leave/rejoin or iOS/Android roster result supplied. Record this
+as user's visual confirmation, not independently measured modelmemory. This
+supports stale room.C synchronization as effective fix for tested symptom;
+doesn't prove every UI/state edgecase. Preserve16artifact/no extra code/build;
+next iOS/Androidguest andleave/rejoin/shortgamechecks. Currentcheckpoint/backlog/
+changelog updated to supersede candidate/pending language in investigationlog.
+
+
+November1 finalhandoffaudit (Stefan stopswork toconserveusage): worktreeclean
+at0b6ef8e; worktreelistmain19177b6/multiplayer0b6ef8e. Recomputedpreview16SHA256
+matchesf15c4ae4dcb8a6da1b70accac921677d14f08fe0aa6eed03a73df2d0d99c18b4.
+Reviewedcheckpoint/backlog/latesttechnical/CLAUDEentrypoint, removed ambiguous
+current OPEN wording for PC guestnames (preview15historical; preview16fixed).
+Ensured localignored AGENTS.md/CLAUDE.md in isolatedmultiplayercheckout bycopying
+canonicalmain instructions only ifabsent. These localinstructions intentionally
+remain untracked per Stefan's rule, not sessioncode leftuncommitted. Claude
+mustopen/private/tmp/nfsmw-ios-multiplayer (or inspectmultiplayerref frommain),
+readAGENTS thenDEVELOPMENT_PROGRESS/BACKLOG/latestTECHNICAL. Mainpre-existing
+modifiedcheckpoint/untrackedHANDOFF preserved. Nocode/build/test changes;
+stopnow pending user's nextsession. Allsessiontrackedchanges locallycommitted,
+no push/merge/release. Nexttests andlimits remain atcurrentcheckpoint.
+
+
+## November 1 — preview17: automatic LAN and mixed PC/mobile rooms (Claude)
+
+Stefan asked for a simpler flow: the lobby should start automatically when the
+game wants to host and join automatically otherwise, PC compatibility should not
+need a separate option, and PCs should be able to play with iOS/Android players.
+He approved (A) automatic hosting/joining, (B1) PCs and phones in one hosted
+room and (B2) per-peer PC race translation on iOS. He cut (B3) relaying
+PC↔Android race traffic, because the Android build cannot be changed here.
+
+Design and why:
+- The game's lobby address is a launch-time flag (`--red_dns`), so in the new
+  `auto` mode it is always 127.0.0.1 and an in-app relay listens on
+  127.0.0.1:30960 (`pc::StartAuto`). The host-or-join choice is made when the
+  game first connects there, i.e. at in-game Xbox Live sign-in, which comes
+  before Create Game / Quick Match. That is the earliest point the game says it
+  wants multiplayer; it cannot be deferred to Create Game.
+- Decision (`lan_session.cpp`, `Auto::Decide`): UDP discovery, then the TCP
+  directory sweep only if UDP found nothing (`BuscarServidores(..., true)`).
+  A mobile lobby wins over a PC host; ties go to the lowest address. Mobile
+  lobby: the relay pipes the directory bytes unchanged and the game reaches the
+  host's lobby port directly, exactly as with the old Join. PC host: the
+  existing adapted gateway path runs for this connection. Nothing found: start
+  the lobby with PC support on the LAN address, wait 0.3–1 s, look again, and
+  if a lower address is now hosting with nobody in this lobby, stop and join
+  it. Follow-up connections within 20 s reuse the decision (a PC host's lobby
+  reconnects through the relay). A host with players keeps hosting on re-sign-in.
+- Discovery marks a host as a PC only if it answers TCP9900 but not the mobile
+  directory, because iOS hosts now also answer 9900. Manual Join by address
+  checks the mobile directory before the PC probe for the same reason.
+- Unified lobby (B1): `ArrancarPC` no longer rejects mobile guests, answers the
+  mobile UDP search, and accepts up to three PC guests (`SetHostingPeer`). The
+  directory port binds to the LAN address so 127.0.0.1:30960 stays free for the
+  relay. Per-recipient translation (`HostReply`) was already per session.
+- iOS guests learn which room members are PCs with a new `PCPEERS` question on
+  the existing gamertag port 10902, polled once a second while joined.
+  Android and older hosts answer ERROR, which means no PCs.
+- Per-peer race state (B2): `pc_gateway.cpp` keeps up to three PC peers, each
+  with its own remote/local CommUDP IDs and role. A hosted PC guest is a
+  listener peer (unchanged), a manually joined PC host is a connector peer
+  (unchanged), and peers from `PCPEERS` learn the role from the first INIT
+  (received ⇒ listener, sent ⇒ connector), since between two guests either side
+  may connect first. `game_pc_udp.cpp` uses `Hosting(ip)`/`NoteInit` instead of
+  the global hosting flag.
+- Known limits: car setup fields switch to PC byte order on every iOS device
+  that knows about a PC (`pc::Active()`), so all iOS devices in that room agree.
+  Android cannot, so Android and PC players cannot race in the same room (the
+  launcher says so). Up to ~8 s of discovery happens while the game waits for
+  its directory reply; the game's timeout for that is not measured. Two devices
+  signing in in the same second rely on the UDP re-check; if UDP replies are
+  blocked on that network both may end up hosting (sign out and in again).
+- UI: Multiplayer now offers “Play on this Wi-Fi” (automatic) and “Join by
+  address”. Host, Join search and Host for PCs are no longer shown; their code
+  paths (`host`, `host_pc`, `join`) remain for manual join and older settings.
+
+Verification (all from /private/tmp/nfsmw-ios-multiplayer):
+- `python3 tools/ios/test_lan_setup.py`: existing preflight plus automatic
+  decisions (mobile preferred over PC, reuse within one sign-in, PC join, host
+  when alone, higher address yields to a simultaneous lower host).
+- `python3 tools/ios/test_pc_udp.py` (ASan/UBSan): existing captures plus role
+  learned from first received/sent INIT.
+- `python3 tools/ios/test_pc_gateway.py` (ASan/UBSan): three hosted PCs with
+  separate IDs and cap, guest list keeps surviving IDs, first INIT fixes role.
+- `python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --ip 192.168.101.118` with and without `--simulate-broadcast-failure`: pass,
+  now with the three-PC cap and the PCPEERS answer.
+- `test_multiplayer.py` (reference server parity, TCP discovery),
+  `test_multiplayer_receive.py`, `test_multiplayer_transport.py`: pass.
+- Not tested: any real device, relay timing against the game's directory
+  timeout, mixed PC+iOS race, two PCs in one room.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview17-auto-lan.ipa`,
+30445025 bytes, SHA256
+`2f3f106b2d78a020ba064fdadd77b491918e4efa80bf122b4ce35073064a58a5`, app UUID
+9AFDA099-5E6E-329B-B516-4ADFAC0A3CC2, 104 metallibs. Preview16 and earlier
+IPAs preserved. Local commit only; no push/merge/release.
+
+Preview17 device test 1 (Stefan, November 1): iPad 192.168.101.112 hosted and
+iPhone 192.168.101.106 joined, both via “Play on this Wi-Fi”; Stefan reports it
+“worked flawlessly” (race completed). iPad sign-in 18:53:07.389: UDP 0 hosts,
+TCP sweep 506 attempts/0 hosts, hosting at 18:53:11.822 (4.4 s, game waited
+fine). iPhone sign-in 18:53:34.713: UDP found the iPad at 18:53:36.216, joined
+18:53:36.320, `PC peers in host room: 0`. Server shows the iPhone's directory
+relayed, lobby on 10901 direct, ujoi/gjoi COUNT=2, gsta at 18:53:57.858. iPad
+UDP broadcast announcement still fails with EHOSTUNREACH (expected; direct
+announcements succeed). Logs: `Debug/1 November 2026/nfsmw_lan_preview17_auto_test1_*`
+(iPhone server and rotated game log also contain older sessions).
+
+Preview17 device test 1b, simultaneous sign-in (Stefan: pass, “doesn't matter
+in practice which hosts”): iPhone .106 signed in at 18:59:25.375, iPad .112 at
+18:59:26.180. Both UDP scans saw nothing. The iPhone's TCP sweep found nothing
+and it hosted at 18:59:29.790. The iPad's sweep was still running, reached the
+new iPhone lobby on both 30960 and 9900 at 18:59:30.256, classified it as mobile
+(not PC) and joined at 18:59:30.688; one lobby, COUNT=2, gsta 18:59:49.822.
+The overlapping TCP sweep resolved this case before the post-host re-check was
+needed. Logs: `nfsmw_lan_preview17_auto_test1b_simultaneous_*`.
+
+Preview17 device test 2, iPhone .106 + original PC 1.3 .163 (“amog”), both via
+the automatic option; Stefan: “both worked”.
+- PC hosts: iPhone sign-in 20:25:20.040, UDP none, TCP sweep verified the PC
+  directory (9900 only, so classified PC) at 20:25:21.999, joined PC lobby at
+  20:25:24.536; existing adapted gateway path through the relay (directory
+  routed, persona/history/room alias, gjoi COUNT=2). Role learned as connector:
+  INIT sent first, then “PC connection ID learned”. Car fields converted, both
+  car factories succeed 20:25:51.404/.406, race traffic until ~20:26:04.
+- iPhone hosts: next sign-in 20:26:31.749 found nothing and hosted at
+  20:26:36.258 (unified lobby). PC connected on 9900 at 20:26:57, ujoi/gjoi
+  COUNT=2, listener ID captured before INIT, car fields converted, factories
+  succeed 20:27:18.210/.211, gsta 20:27:15.306. Race finished: `rank` at
+  20:28:05.413 (bep1s 2nd of 2), room returned (C=2) before the host left.
+  This also covers the previously untested phone-host→PC finish/results path.
+- Cosmetic, not fixed (Stefan: note only): with the PC as guest the PC's
+  pre-race countdown shows 7200 s instead of 60. The host's EGT `mesg`
+  carries TIME as an absolute value (e.g. TIME=1793564879); the PC likely
+  interprets this field differently. No functional impact observed.
+Logs: `nfsmw_lan_preview17_auto_test2_pc_both_directions_*` (iPhone only; no
+PC-side logs).
+
+Preview17 device test 3, mixed room: iPhone .106 hosted (20:30:20.337), PC
+.163 “amog” joined on 9900 (ujoi 20:30:59.523), iPad .112 joined through the
+relay (ujoi 20:31:09.119, C=3, gjoi COUNT=3, +mgm to both guests). Stefan: the
+three-player race started, displayed and worked normally — first mixed
+PC + two iOS race. Host log: three car factories succeed 20:31:27.307–.310,
+car fields converted for the PC, race datagrams both ways with the PC.
+Open (cosmetic): the PC's room screen did not list the iPad. The server did
+send the PC (subscribed with USERSET0=047.bep1s) the iPad's +usr and +usm and
+the +mgm game update. What the PC never receives after its own join is an
+updated room record: C stays 2 from its ujoi/+ust. On iOS the same stale count
+is repaired client-side (`[lan-roster] 2 -> 3`); the unmodified PC cannot be.
+Inference, unproven: the PC's room list uses that record's C. Proposed (not
+implemented, awaiting Stefan): after ujoi/leave, push the updated room record
+(+ust) to the room's subscribers. Test 4 (Android regression) not run: no
+Android device at hand. Logs: `nfsmw_lan_preview17_auto_test3_two_ios_plus_pc_*`
+(iPhone host only).
+iPad guest side of test 3 (logs `..._ipad_guest_*`): sign-in 20:31:02.903, UDP
+found the iPhone, joined 20:31:04.454, `PC peers in host room: 1` (PCPEERS
+works on device), converted two received car-field sets, three car factories
+succeeded 20:31:26.413–.419, peers back to 0 at 20:32:50 after the room ended.
+The iPad game log has NO `[pc-udp]`/`[pc-packet]` lines: the iPad never
+exchanged CommUDP with the PC directly, so race traffic evidently goes through
+the host (star), not peer to peer between guests. Per-peer translation on
+guests was therefore not exercised; the guest's car-field byte order agreement
+(pc::Active from PCPEERS) is what mattered and worked.
+
+## November 1 — preview18: refresh the PC's room count (Claude)
+
+Stefan approved the proposed fix for the PC room list missing later joiners.
+`servidor_ea.cpp` `avisarSalaPC`: after `ujoi` and `ulea`, the host resends the
+room record (`+ust`, translated by `HostReply` like every PC reply) to PC
+sessions subscribed to that room, so their player count C follows joins and
+leaves. Sent only to PCs: phones already repair the count client-side and
+Android/iOS receive exactly what they did before. Disconnects without `ulea`
+still don't decrement C (pre-existing behavior, unchanged). Answer to Stefan's
+question: guests racing only through the host is expected game behavior.
+
+Verification: `test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip
+192.168.101.118` passes with a late phone join (PC gets +ust C=3 with the PC
+room build) and leave (C=2), and the phone gets no extra +ust;
+`test_multiplayer.py` reference-server parity passes. Device test pending.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview18-pc-room-count.ipa`,
+30445723 bytes, SHA256
+`74852ad6a236faa0fd6610a32048df92b7a973f0f3c899ce35383af219f2fcd3`, app UUID
+3A245814-130A-3D50-8485-8EB9819ABCE3, 104 metallibs. Preview17 preserved.
+
+Preview18 device test (Stefan: “worked”): iPhone .106 hosted (20:41:02.953),
+PC joined (20:41:30), iPad joined (iOS roster 2 -> 3 at 20:41:42.817); host
+sent `+ust C=3 -> amog` at 20:41:42.810 and the PC's room list showed all
+three players. PC room-list gap FIXED on device. Logs:
+`nfsmw_lan_preview18_test3_room_count_*` (iPhone host).
