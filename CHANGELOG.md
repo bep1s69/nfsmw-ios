@@ -122,6 +122,11 @@
   buttons that lower or raise the pursuit's heat by one level (beyond an
   event's own limit only with Heat level override on). The heat override's lowest and
   highest heat now offer every level from 1 to 10.
+- **In-game menu with tabs.** Extras, Graphics, Controls and Actions, each
+  grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
+  Change heat and Auto drive.
+- **More Extra Options:** unlock everything, skip the career intro, world
+  animation speed and nitrous trail length.
 - **Extra Options in the in-game menu.** Every Extra Option except the Old
   Bridge road can be changed while playing (gear or L3+R3) and applies at
   once; race limits and traffic show from the next race.

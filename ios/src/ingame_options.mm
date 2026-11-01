@@ -52,11 +52,15 @@
 extern "C" void NativeSettingsChanged();  // native_renderer.mm
 extern "C" void nfsmw_extra_options_tunables() __attribute__((weak));  // game_extra_options.cpp (USA)
 extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
+extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));               // same
 
 namespace {
 
 std::atomic<bool> sheet_open{false};
 NSString* const kHeatStep = @"heat_step";  // the Change heat row (not a setting)
+NSString* const kAutoDrive = @"auto_drive";  // the Auto drive row (not a setting)
+// Rows of the Actions tab: buttons (title, value) instead of a setting.
+bool ActionRow(NSString* key) { return [key isEqualToString:kHeatStep] || [key isEqualToString:kAutoDrive]; }
 NSString* const kActionsTab = @"Actions";   // rows that do something now
 NSInteger last_tab = 0;                     // the sheet's tab last time, while the game runs
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
@@ -69,7 +73,8 @@ NSArray<NSString*>* Keys() {
             @"infinite_nos", @"infinite_speedbreaker", @"sb_recharge_time", @"sb_recharge_speed", @"sb_mass",
             @"no_cops", @"show_non_pursuit_cops", @"heat_override", @"heat_min", @"heat_max", @"speeding_limit",
             @"excessive_speeding_limit", @"reckless_driving_limit", @"marker_count", @"car_limit",
-            @"impound_strikes", @"impound_strikes_max", @"skip_movies", @"game_speed", @"laps_min", @"laps_max",
+            @"impound_strikes", @"impound_strikes_max", @"skip_movies", @"game_speed", @"unlock_all_things",
+            @"skip_career_intro", @"world_animation_speed", @"nos_trail_repeat", @"laps_min", @"laps_max",
             @"opponents_min", @"opponents_max", @"random_laps_max", @"random_opponents_max", @"traffic_low",
             @"traffic_medium", @"traffic_high", @"always_rain", @"rain_amount", @"rain_intensity", @"rain_drop_size",
             @"rain_crossing", @"rain_fall_speed", @"rain_gravity", @"road_reflection" ];
@@ -100,7 +105,8 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_sb_mass", "nfsmw_no_cops", "nfsmw_show_non_pursuit_cops", "nfsmw_heat_override", "nfsmw_heat_min",
       "nfsmw_heat_max", "nfsmw_speeding_limit", "nfsmw_excessive_speeding_limit", "nfsmw_reckless_driving_limit",
       "nfsmw_marker_count", "nfsmw_purchased_car_limit", "nfsmw_impound_strikes", "nfsmw_impound_strikes_max",
-      "nfsmw_skip_movies", "nfsmw_game_speed", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
+      "nfsmw_skip_movies", "nfsmw_game_speed", "nfsmw_unlock_all_things", "nfsmw_skip_career_intro",
+      "nfsmw_world_animation_speed", "nfsmw_nos_trail_repeat", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
       "nfsmw_opponents_max", "nfsmw_random_laps_max", "nfsmw_random_opponents_max", "nfsmw_traffic_low",
       "nfsmw_traffic_medium", "nfsmw_traffic_high", "nfsmw_always_rain", "nfsmw_rain_amount",
       "nfsmw_rain_intensity", "nfsmw_rain_drop_size", "nfsmw_rain_crossing", "nfsmw_rain_fall_speed",
@@ -182,7 +188,15 @@ UIWindow* GameWindow() {
                            @"One heat level down (−) or up (+) in the pursuit you are in. The event's own "
                            @"limits still apply unless Heat level override is on.",
                            false,
-                           {}}}});
+                           {{@"−", @"-1"}, {@"+", @"1"}}}}});
+    }
+    if (nfsmw_toggle_auto_drive) {
+      _groups.push_back({kActionsTab, @"Driving",
+                         {{kAutoDrive, @"Auto drive",
+                           @"The AI drives your car until you press it again, as Extra Options' AutoDrive "
+                           @"hotkey (the prototype's Toggle AI Control).",
+                           false,
+                           {{@"Toggle", @"1"}}}}});
     }
     NSMutableArray<NSString*>* tabs = [NSMutableArray array];
     for (const auto& g : _groups) {
@@ -358,6 +372,10 @@ UIWindow* GameWindow() {
     if (value.intValue != 0) nfsmw_heat_step_request(value.intValue);
     return;
   }
+  if ([key isEqualToString:kAutoDrive]) {
+    nfsmw_toggle_auto_drive();
+    return;
+  }
   _settings[key] = value;
   if ([key isEqualToString:@"performance_mode"] || [key isEqualToString:@"battery_mode"]) {
     nfsmw::performance::Choose(std::string(nfsmw::launcher::SettingValue(_settings, @"performance_mode").UTF8String));
@@ -414,13 +432,14 @@ UIWindow* GameWindow() {
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;
-  if ([key isEqualToString:kHeatStep]) {
-    // Two buttons, not a list: each press is one level.
+  if (ActionRow(key)) {
+    // Buttons, not a list: each press does it once.
     UIStackView* buttons = [[UIStackView alloc] init];
     buttons.spacing = 8;
-    for (NSString* step in @[ @"-1", @"1" ]) {
+    for (const auto& [title, v] : r.choices) {
+      NSString* step = v;
       UIButtonConfiguration* bc = UIButtonConfiguration.tintedButtonConfiguration;
-      bc.title = [step isEqualToString:@"1"] ? @"+" : @"−";
+      bc.title = title;
       bc.contentInsets = NSDirectionalEdgeInsetsMake(6, 18, 6, 18);
       UIButton* b = [UIButton buttonWithConfiguration:bc
                                         primaryAction:[UIAction actionWithHandler:^(UIAction*) {
@@ -428,9 +447,8 @@ UIWindow* GameWindow() {
                                         }]];
       [buttons addArrangedSubview:b];
     }
-    [buttons layoutIfNeeded];
-    buttons.frame = CGRectMake(0, 0, [buttons systemLayoutSizeFittingSize:UILayoutFittingCompressedSize].width,
-                               [buttons systemLayoutSizeFittingSize:UILayoutFittingCompressedSize].height);
+    const CGSize size = [buttons systemLayoutSizeFittingSize:UILayoutFittingCompressedSize];
+    buttons.frame = CGRectMake(0, 0, size.width, size.height);
     cell.accessoryView = buttons;
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
@@ -497,6 +515,10 @@ UIWindow* GameWindow() {
     if ([self locked:r]) return;
     if ([r.key isEqualToString:kHeatStep]) {
       if (left || right) [self set:r.key to:left ? @"-1" : @"1"];
+      return;
+    }
+    if (ActionRow(r.key)) {
+      if (a) [self set:r.key to:r.choices.front().second];
       return;
     }
     NSString* value = nfsmw::launcher::SettingValue(_settings, r.key);

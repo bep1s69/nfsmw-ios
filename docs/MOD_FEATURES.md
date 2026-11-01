@@ -41,6 +41,9 @@ TECHNICAL.
 | Random race laps/opponents (dev2, untested) | ExOpts LapControllers/OpponentControllers RandomRace | `nfsmw_random_*_max` (wraps sub_822C4E68) |
 | Show non-pursuit cops on the minimap (dev3, untested) | ExOpts ShowNonPursuitCops | `nfsmw_show_non_pursuit_cops` (prototype flag, USA 0x82A2C5FA) |
 | Infinite NOS, infinite Speedbreaker, No Cops (dev3, untested) | none (Xbox 360 prototype debug menu) | `nfsmw_infinite_nos`, `nfsmw_infinite_speedbreaker`, `nfsmw_no_cops` |
+| Unlock all things, skip career intro (dev7, untested) | ExOpts UnlockAllThings, SkipCareerIntro | USA debug bytes 0x82A2CE00-02 (via the prototype's menu) |
+| World animation speed, NOS trail length (dev7, untested) | ExOpts WorldAnimationSpeed, NosTrailRepeatCount | 0x828F9DF8, 0x828F89AC |
+| Auto drive (dev7, untested; Actions tab) | ExOpts AutoDrive hotkey | toggle byte 0x82A2BD93 (prototype Toggle AI Control) |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |

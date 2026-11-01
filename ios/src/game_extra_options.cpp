@@ -189,6 +189,24 @@
 // written by the game (race start, messages). Each reader is wrapped below
 // and sets its variable first while the setting is on.
 //
+// GAME DEBUG FLAGS (Extra Options: UnlockAllThings, SkipCareerIntro)
+//
+// PC 0x926124 (UnlockAllThings), 0x926125 (SkipDDayRaces) and 0x926126
+// (SkipCareerIntro) are, by the prototype's debug menu ("Unlock All Things"
+// 0x82A81D46, "Skip dday races" 0x82A81DB4, "Skip bin 15 intro" 0x82A81D47,
+// each matched through its readers: 18, 6 and 3 USA readers agree), the USA
+// bytes 0x82A2CE00, 0x82A2CE02 and 0x82A2CE01. The game writes them too
+// (sub_823C4B88 when a career starts, sub_82237900 and sub_823CE498), so
+// they are written while the setting is on: at boot, after each in-game
+// change and after sub_823C4B88; cleared once when it is turned off.
+//
+// WORLD ANIMATION SPEED and NOS TRAIL (Extra Options: Gameplay >
+// WorldAnimationSpeed, NosTrailRepeatCount)
+//
+// PC 0x904AEC (45.0) is in the rain table, the same offset from its start:
+// 0x828F9DF8 here. PC 0x903694 (int 8) matched by its neighbours (2, 0xFFF,
+// 8, 1; one place): 0x828F89AC. Written as the other data values.
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -271,6 +289,14 @@ REXCVAR_DEFINE_BOOL(nfsmw_no_cops, false, "Game", "No police anywhere (prototype
 REXCVAR_DEFINE_BOOL(nfsmw_show_non_pursuit_cops, false, "Game",
                     "Show cops that are not chasing you on the minimap, as Extra Options' "
                     "ShowNonPursuitCops");
+REXCVAR_DEFINE_BOOL(nfsmw_unlock_all_things, false, "Game",
+                    "Everything unlocked (cars, parts, events), as Extra Options' UnlockAllThings");
+REXCVAR_DEFINE_BOOL(nfsmw_skip_career_intro, false, "Game",
+                    "A new career skips the intro races, as Extra Options' SkipCareerIntro");
+REXCVAR_DEFINE_DOUBLE(nfsmw_world_animation_speed, 45.0, "Game",
+                      "Speed of the world's animations, as Extra Options' WorldAnimationSpeed (the game's is 45)");
+REXCVAR_DEFINE_INT32(nfsmw_nos_trail_repeat, 8, "Game",
+                     "Length of the nitrous trail, as Extra Options' NosTrailRepeatCount (the game's is 8)");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -378,6 +404,41 @@ extern "C" int32_t nfsmw_shadow_map_size() {
   return Setting(REXCVAR_GET(nfsmw_shadow_map_size), 512, 1600, "shadow map size", logged) & ~7;
 }
 
+// GAME DEBUG FLAGS above.
+extern "C" void nfsmw_debug_flags() {
+  struct Flag {
+    uint32_t address;
+    bool on;
+    const char* name;
+  };
+  const Flag flags[] = {
+      {0x82A2CE00, REXCVAR_GET(nfsmw_unlock_all_things), "unlock all things"},
+      {0x82A2CE01, REXCVAR_GET(nfsmw_skip_career_intro), "skip career intro"},
+      {0x82A2CE02, REXCVAR_GET(nfsmw_skip_career_intro), "skip d-day races"},
+  };
+  static bool forced[std::size(flags)] = {};
+  auto* memory = rex::system::kernel_state()->memory();
+  for (size_t i = 0; i < std::size(flags); ++i) {
+    auto* byte = memory->TranslateVirtual<uint8_t*>(flags[i].address);
+    if (flags[i].on) {
+      if (*byte != 1 || !forced[i]) REXLOG_INFO("[extra-options] {}: on", flags[i].name);
+      *byte = 1;
+      forced[i] = true;
+    } else if (forced[i]) {
+      *byte = 0;
+      forced[i] = false;
+      REXLOG_INFO("[extra-options] {}: off", flags[i].name);
+    }
+  }
+}
+
+// After the game sets the flags itself (a career starting).
+extern "C" void __imp__sub_823C4B88(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_823C4B88) {
+  __imp__sub_823C4B88(ctx, base);
+  nfsmw_debug_flags();
+}
+
 // The values in the game's data (rain, Speedbreaker, infraction speeds, most
 // impound strikes): at boot and again from the in-game options
 // (ingame_options.mm), which set the cvars first. Main thread; the game reads
@@ -398,6 +459,10 @@ extern "C" void nfsmw_extra_options_tunables() {
   if (REXCVAR_GET(nfsmw_always_rain)) {
     REXLOG_INFO("[extra-options] always rain: on");
   }
+  static int world_state = 0;
+  PatchFloats("world", world_state, {
+      {0x828F9DF8, 45.0f, REXCVAR_GET(nfsmw_world_animation_speed), "animation speed"},
+  });
   // SPEEDBREAKER and INFRACTION SPEEDS above.
   PatchFloats("speedbreaker", sb_state, {
       {0x828FB8D4, 25.0f, REXCVAR_GET(nfsmw_sb_recharge_time), "recharge time"},
@@ -409,6 +474,21 @@ extern "C" void nfsmw_extra_options_tunables() {
       {0x82061CC8, 67.0f, REXCVAR_GET(nfsmw_speeding_limit), "speeding"},
       {0x82061CCC, 89.4f, REXCVAR_GET(nfsmw_reckless_driving_limit), "reckless driving"},
   });
+  // NOS TRAIL above: an int, checked against its neighbours the first time.
+  {
+    static int trail_state = 0;
+    constexpr uint32_t kTrail = 0x828F89AC;
+    const int32_t n = std::clamp(REXCVAR_GET(nfsmw_nos_trail_repeat), 1, 64);
+    if (trail_state == 0) {
+      trail_state = GuestWord(kTrail - 4) == 0xFFF && GuestWord(kTrail) == 8 && GuestWord(kTrail + 4) == 1 ? 1 : -1;
+      if (trail_state < 0) REXLOG_WARN("[extra-options] nos trail: not where expected; not touched");
+    }
+    if (trail_state > 0 && GuestWord(kTrail) != uint32_t(n)) {
+      const bool ok = PatchGuestWord(kTrail, uint32_t(n));
+      REXLOG_INFO("[extra-options] nos trail: {}{}", n, ok ? "" : " (COULD NOT PATCH)");
+    }
+  }
+  nfsmw_debug_flags();
   // IMPOUND STRIKES above: the maximum, after the float 0.25.
   {
     constexpr uint32_t kQuarter = 0x828FF1F8, kMaxStrikes = 0x828FF1FC;
@@ -499,6 +579,17 @@ extern "C" double nfsmw_heat_step(double heat) {
   if (steps == 0) return heat;
   REXLOG_INFO("[extra-options] heat {:.2f} {:+d} (then the event's limits)", heat, steps);
   return heat + steps;
+}
+
+// AUTO DRIVE (Extra Options' AutoDrive hotkey; the prototype's "Toggle AI
+// Control", which flips the byte 0x82A80C4B). USA 0x82A2BD93 (the debug
+// config's AICONTROL, matched through its reader): sub_820FFCC8, the player's
+// car update, sees it set, switches the car between you and the AI and clears
+// it. So setting it is a one-shot toggle. Main thread; the game clears it.
+extern "C" void nfsmw_toggle_auto_drive() {
+  auto* byte = rex::system::kernel_state()->memory()->TranslateVirtual<uint8_t*>(0x82A2BD93);
+  *byte = 1;
+  REXLOG_INFO("[extra-options] auto drive: toggle asked for");
 }
 
 // A new car's record (see IMPOUND STRIKES above). A leaf: r3 is still the

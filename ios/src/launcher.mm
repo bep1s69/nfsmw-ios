@@ -309,6 +309,13 @@ const std::vector<Section>& Sections() {
             @"10",
             {{@"10", @"10"}, {@"12", @"12"}, {@"15", @"15"}, {@"18", @"18"}, {@"20", @"20"},
              {@"25", @"25"}}},
+           {@"unlock_all_things", Type::kSwitch, @"Unlock everything",
+            @"All cars, parts and events unlocked, as Extra Options' UnlockAllThings. Your "
+            @"career's progress is not changed; turning it off locks them again.",
+            @"false"},
+           {@"skip_career_intro", Type::kSwitch, @"Skip the career intro",
+            @"A new career starts without the intro races, as Extra Options' SkipCareerIntro.",
+            @"false"},
            {@"skip_movies", Type::kSwitch, @"Skip movies",
             @"Skips the game's movies, as Extra Options' SkipMovies: the EA logo and intro go "
             @"straight to \"press start\". The story movies of the career are skipped too.",
@@ -421,6 +428,14 @@ const std::vector<Section>& Sections() {
             @"The most opponents a random race can get. The game's is 3; more as in Most opponents.",
             @"3",
             {{@"3 (game)", @"3"}, {@"4", @"4"}, {@"5", @"5"}, {@"6", @"6"}}},
+           {@"world_animation_speed", Type::kChoice, @"World animation speed",
+            @"How fast the world's animations run, as Extra Options' WorldAnimationSpeed. The game's is 45.",
+            @"45",
+            {{@"Slow (20)", @"20"}, {@"45 (game)", @"45"}, {@"Fast (90)", @"90"}}},
+           {@"nos_trail_repeat", Type::kChoice, @"Nitrous trail length",
+            @"How long the nitrous flame trail is, as Extra Options' NosTrailRepeatCount. The game's is 8.",
+            @"8",
+            {{@"4", @"4"}, {@"8 (game)", @"8"}, {@"16", @"16"}, {@"32", @"32"}}},
            {@"game_speed", Type::kChoice, @"Game speed (experimental)",
             @"Makes the whole game run slower or faster, as Extra Options' GameSpeed. The game's is 1x.",
             @"1",
@@ -907,6 +922,10 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_random_laps_max=" + str(@"random_laps_max"));
   a.push_back("--nfsmw_random_opponents_max=" + str(@"random_opponents_max"));
   a.push_back("--nfsmw_game_speed=" + str(@"game_speed"));
+  a.push_back("--nfsmw_world_animation_speed=" + str(@"world_animation_speed"));
+  a.push_back("--nfsmw_nos_trail_repeat=" + str(@"nos_trail_repeat"));
+  a.push_back("--nfsmw_unlock_all_things=" + b(On(s, @"unlock_all_things")));
+  a.push_back("--nfsmw_skip_career_intro=" + b(On(s, @"skip_career_intro")));
   a.push_back("--nfsmw_traffic_low=" + str(@"traffic_low"));
   a.push_back("--nfsmw_traffic_medium=" + str(@"traffic_medium"));
   a.push_back("--nfsmw_traffic_high=" + str(@"traffic_high"));

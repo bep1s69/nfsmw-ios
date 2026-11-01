@@ -15441,3 +15441,43 @@ do something now (Change heat, under Pursuit). Controller: L1/R1 change tabs
 remembered while the game runs. Built (`-j 12`, exit 0); not run on a
 device; no IPA delivered for this step.
 
+
+### November 1: Extra Options batch 3 (dev7): debug flags, data values, auto drive
+
+All prototype debug menu widgets were listed from its builder (0x822A4800-
+0x822AE200; widget +0x14 label, +0x20 callback, +0x24 bool/int variable,
++0x30 int/float variable; capstone with skipdata) and their variables mapped
+through prototype readers to USA functions (difflib, as before; script
+mapall.py in the session scratchpad, not kept). Results used:
+
+| Item | Prototype | USA | Evidence |
+|---|---|---|---|
+| Unlock All Things | 0x82A81D46 | 0x82A2CE00 | 18 readers agree; = PC 0x926124 (_UnlockAllThings) |
+| Skip bin 15 intro | 0x82A81D47 | 0x82A2CE01 | 3 agree; PC SkipCareerIntro 0x926126 |
+| Skip dday races | 0x82A81DB4 | 0x82A2CE02 | 6 agree; PC 0x926125 |
+| Toggle AI Control | toggles 0x82A80C4B | 0x82A2BD93 | 3 agree; = debug config AICONTROL |
+| Save/Jump Hot Position | words 0x82A82530/34 | 0x82A2D568/6C | 4 and 3 agree |
+| Pause World | 0x82970003 | 0x82A2C659 | 1 reader (0.87) |
+
+USA writers of the CE00-02 bytes: sub_823C4B88 (career start), sub_82237900,
+sub_823CE498; so `nfsmw_debug_flags()` writes them at boot, after in-game
+changes and after sub_823C4B88 (wrapped), and clears once when switched off.
+AI control: sub_820FFCC8 reads the byte, toggles the player car between
+human and AI, clears it, so Auto drive (Actions) sets it once. Data by PC
+neighbours: WorldAnimationSpeed PC 0x904AEC = 0x828F9DF8 (rain table offset,
+45.0 both); NosTrailRepeatCount PC 0x903694 = 0x828F89AC (2, 0xFFF, 8, 1
+unique). Not used: hot positions save to `TRACKS\HotPosition%s.HOT` in the
+game folder (sub_824D8A58/87B0), read-only on iOS, so not added; Show
+Pursuit Cops, Max Cop Cars, Hide GPS arrow and No Car vs Car Collision are
+compiled out of the USA functions (constant branches) or have no prototype
+reader; they would need new code. CarSelectTireSteerAngle (PC 0x905E20) had
+no matching neighbours. Debug camera turbo PC 0x8EDEA4 = 0x8290433C (read by
+sub_82175510), for when the debug camera is done.
+
+In-game Actions rows are now generic button rows (Change heat − / +, Auto
+drive Toggle); controller A presses a one-button row. Build `-j 12` exit 0,
+`unzip -tq` ok, symbols present; `ios/build/NFSMW-0.6.0-dev7-extras-menu.ipa`
+(Desktop; dev6 to Trash), 30495218 bytes, SHA-256
+1c34772dd0652efbd390f93fea59b6a6051c99b03fe7adcd40ccb042f5d5ce91. Not run on a
+device.
+
