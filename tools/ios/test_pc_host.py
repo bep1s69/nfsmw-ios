@@ -8,9 +8,40 @@ import socket, struct, subprocess, tempfile, time
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--sdk',type=Path,required=True)
 p.add_argument('--ip',required=True)
+p.add_argument('--simulate-broadcast-failure',action='store_true')
 a=p.parse_args()
 root=Path(__file__).resolve().parents[2]
+interceptor=r'''
+#pragma once
+#include <sys/socket.h>
+ssize_t TestSendTo(int,const void*,size_t,int,const sockaddr*,socklen_t);
+#define sendto TestSendTo
+'''
 code=r'''
+#undef sendto
+#include <arpa/inet.h>
+#include <atomic>
+#include <cerrno>
+std::atomic<unsigned> directPackets{0},blockedBroadcasts{0};
+bool simulateBroadcastFailure=false;
+in_addr testAddress{};
+ssize_t TestSendTo(int fd,const void*data,size_t size,int flags,const sockaddr*to,socklen_t length) {
+ if (simulateBroadcastFailure && to && to->sa_family==AF_INET && length==sizeof(sockaddr_in)) {
+  auto address=*reinterpret_cast<const sockaddr_in*>(to);
+  if (ntohs(address.sin_port)==9999) {
+   if (address.sin_addr.s_addr==htonl(INADDR_BROADCAST)) {
+    ++blockedBroadcasts;errno=EHOSTUNREACH;return -1;
+   }
+   ++directPackets;
+   // Capture actual unicast fallback packets locally without announcing to
+   // unrelated LAN peers during this synthetic fault test.
+   address.sin_addr=testAddress;
+   return sendto(fd,data,size,flags,reinterpret_cast<sockaddr*>(&address),sizeof(address));
+  }
+ }
+ return sendto(fd,data,size,flags,to,length);
+}
+
 #include "servidor_ea.h"
 #include "pc_gateway.h"
 #include <cassert>
@@ -18,6 +49,8 @@ code=r'''
 #include <thread>
 using namespace nfsmw::pc;
 int main(int argc,char**argv) {
+ simulateBroadcastFailure=argc>3;
+ inet_pton(AF_INET,argv[2],&testAddress);
  auto room="D=$00090000c0a801cd\nP=V%3d192641%0aM%3d2%0a";
  auto reply=HostReply("+uss",room,"192.168.1.205");
  assert(Field(reply,"D")=="$cd01a8c0" && Field(reply,"P")=="V%3d192359%0aM%3d2%0a");
@@ -38,6 +71,7 @@ int main(int argc,char**argv) {
  }
  std::cout<<"ready"<<std::endl;
  std::string line;std::getline(std::cin,line);
+ if(simulateBroadcastFailure) assert(blockedBroadcasts>0 && directPackets>0);
  nfsmw::servidor::Parar();Stop();
  // Existing server listener threads retire at their next500ms poll.
  std::this_thread::sleep_for(std::chrono::milliseconds(600));
@@ -67,12 +101,12 @@ class Client:
  def close(self):self.s.close()
 def field(records,cmd):return next(f for c,f in records if c==cmd)
 with tempfile.TemporaryDirectory(prefix='nfsmw-pc-host-') as d:
- t=Path(d);(t/'test.cpp').write_text(code)
+ t=Path(d);(t/'test.cpp').write_text(code);(t/'interceptor.h').write_text(interceptor)
  subprocess.run(['clang++','-std=c++23','-O1','-pthread','-fsanitize=address,undefined',
-  '-I'+str(root/'ios/src/multiplayer'),'-I'+str(a.sdk/'thirdparty/inja/third_party/include'),
+  '-include',str(t/'interceptor.h'),'-I'+str(root/'ios/src/multiplayer'),'-I'+str(a.sdk/'thirdparty/inja/third_party/include'),
   str(t/'test.cpp'),*[str(root/'ios/src/multiplayer'/f) for f in ['servidor_ea.cpp','red_lan.cpp','pc_gateway.cpp']],'-o',str(t/'test')],check=True)
  udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);udp.bind(('',9999));udp.settimeout(5)
- proc=subprocess.Popen([str(t/'test'),d,a.ip],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+ proc=subprocess.Popen([str(t/'test'),d,a.ip]+(['fault'] if a.simulate_broadcast_failure else []),stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
  clients=[]
  try:
   assert proc.stdout.readline().strip()=='ready'
@@ -102,7 +136,7 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-pc-host-') as d:
   assert update['MADDR1'].startswith('$00090000') and '^' in update['MADDR1']
   phone.ask('gsta');assert field(pc.read(),'+ses')['SESS']==''
   assert any(c=='gcre' and f=={} for c,f in pc.ask('gcre',NAME='Forbidden'))
-  print('PASS: actual PC-host server, source-bound native384-byte broadcast, dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start; no real PC game tested.')
+  print('PASS: actual PC-host server, source-bound native384-byte discovery (including injected broadcast failure when selected), dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start; no real PC game tested.')
  finally:
   for client in clients:client.close()
   udp.close()

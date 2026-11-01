@@ -2,6 +2,13 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Retry PC discovery when broadcast fails.** Experimental PC hosting now also
+  sends lobby announcements directly to nearby LAN devices. Targets the logged
+  iOS broadcast failure; discovery on a real PC still needs testing.
+- **Validate PC-hosted races and rematches.** A long session survived an idle
+  period, completed on PC, returned both devices to the room and started another
+  race successfully in preview13.
+
 - **Test hosting for PCs.** Add a separate experimental two-player hosting
   option that advertises a native PC LAN lobby and adapts PC guest connections
   inside the app. No extra PC script or modification. Reverse-direction play

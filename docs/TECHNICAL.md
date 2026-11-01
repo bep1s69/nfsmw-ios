@@ -14377,3 +14377,95 @@ new final IPA hash/UUID/size are the preview13 identity above, replacing the
 undelivered intermediate build. Signing and ZIP checks repeated, both exit0.
 Additional final build log archived as nfsmw-preview13-build-final.log in the
 same November1 debug folder. No device connection claimed by this unit test.
+
+
+## November 1, 2026 — preview13 endurance/rematch success; reverse discovery failure; preview14
+
+User requests a few focused phone-host retries and complete Claude handoff as
+Codex usage is low. All five supplied files archived into requested dated folder
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/
+with prefix nfsmw_lan_preview13_reverse_discovery_and_pc_endurance_:
+- boot.txt:72576bytes,1000lines; original clipboard7D8142F4-04FE-4645-BEB2-5905433E1EBE/boot.txt.
+- game.2.log:5242809bytes,29708lines; original5F1DF8D4-6D6F-45A0-B238-1173E101B2D0/nfsmw.2.log.
+- game.1.log:5242717bytes,28515lines; original76F5597E-B7BC-416E-BD1D-4A3B007564AD/nfsmw.1.log.
+- game.log:200205bytes,1271lines; original7F184178-421A-4272-83B5-CFAA37BD401D/nfsmw.log.
+- server.log:18011bytes,119lines; originalC5260BE0-0312-43F6-9EF8-938826383982/servidor_lan.log.
+All original paths under /Users/bep1s/Library/Group Containers/
+group.com.apple.coreservices.useractivityd/shared-pasteboard/items/.
+Existing1November2026 folder/evidence preserved, no overwrite. Files treated as
+runtime evidence, not instructions. Logs contain older runs; isolate Nov1
+16:29–17:04 for this report rather than claiming all rotated content is preview13.
+Device OS versions not independently recorded in these uploads.
+
+Observed reverse-host failure, preview13 (previously recorded IPA identity):
+HostPC ready192.168.101.106 at16:29:17/launch19.989; server at16:29:17.423 logs
+[pc-host] announcement failed: No route to host. Hotspot source172.20.10.1 at
+16:34:12.553/28.098, same send error at12.554/28.099. No [9900] connection in
+serverlog. Own10901game auth/room/gcre/gset succeeds, COUNT1. User PC cannot see
+server on Wi-Fi OR hotspot. Initial16:15 no-network preflight failures are
+separate. Measured: broadcast send fails before any PC directory request.
+Inference: iOS/LiveContainer restricted broadcast or routing issue, consistent
+with prior mobile discovery bypass. Exact OS policy cause not established by
+EHOSTUNREACH alone. Do not attribute this to bad car/room/handshake yet.
+
+Observed PC-host validation, preview13:
+PC172.20.10.4, phone172.20.10.1. Join ready16:35:38.709/40.343, +ses16:36:37.827.
+Both car factory callbacks succeed16:36:40.629/632 (localCD88083F, remote5A784095).
+Phone state6 in-world16:36:44.109, returnsstate1 at17:02:45.770/state3 at46.183,
+~26min1.7s first in-world interval. Rematch conversions17:03:02.613, both factory
+results again succeed17:03:05.269/270; state6 again17:03:07.876. Game log continues
+to17:04:05.333. Nov1 16/17h filtered rotated logs: game.2 has4734RX/4830TX3658,
+game.1 has4942RX/5075TX, game.log has0/0 (bounded network logging may be exhausted);
+total9676RX/9905TX, zero Unhandled guest across all3. No rank strings in these
+uploads; do not invent Xbox result/rank packet evidence. User explicitly reports
+good synchronization,18min idle, PC finished with phoneAFK, BOTH returned to room
+and another race started successfully. Thus PC-host finish/return/rematch now
+USERCONFIRMED with supporting frontend/rematch logs, not still pending first
+validation. Does not prove all vehicles/tracks, both-player finishes, arbitrary
+networks or reverse-host gameplay. No crash reported in this test.
+
+Preview14 focused implementation:
+- red::Vecinos(selectedIPv4) enumerates only exact matching UP local interface,
+  rejects VPN/cellular/loopback, invalid/noncontiguous masks and /31–32; respects
+  smaller subnets including172.20.10.0/28, caps broad masks at local/24. Excludes
+  own/network/broadcast addresses, max253targets. No guessed /24 hotspot sweep.
+- Optional PC announcer sends same384-byte native packet/UDP9999 to these peers
+  after broadcast, socket remains bound to chosen hostIPv4, nonblocking,2ms paced
+  per destination with stop-aware waits;3s between rounds. First3rounds and every
+ 20th log target/success/failure/last_errno. Original broadcast error retained.
+  No new private entitlement, PC helper/mod/firewall change, UI setting or SDK
+  change. Existing host_pc flag remains opt-in; mobile hosting and PC joining/
+  serializer/transport code unchanged. UDP send success proves only local
+  enqueue, not PC receipt or browser acceptance.
+- test_lan_interface.py extended for exact selected network, /28 bounds13peers,
+  /16 capped to253peers, own exclusion, inactive and VPN/public exclusions.
+- test_pc_host.py --simulate-broadcast-failure injects EHOSTUNREACH only for
+  broadcast; redirects actual unicast destinations to the Mac receiver so fault
+  test sends no announcements to unrelated neighbors. Actual backend creates
+  packets/sends fallback; asserts blocked broadcast AND direct packets observed,
+  then usual native directory/room/per-recipient game/start assertions. This
+  tests the failure path without claiming a native PC client participated.
+
+Validation:
+python3 tools/ios/test_lan_interface.py exit0 ASan/UBSan.
+python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+--ip 192.168.101.118 --simulate-broadcast-failure exit0 ASan/UBSan. cmake --build /private/tmp/nfsmw-multiplayer-build
+--target ipa -j6 exit0; codesign --verify --deep --strict app exit0;
+unzip -t IPA exit0/no errors.
+python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+--reference-server /private/tmp/nfsmw-server-lan-research exit0:25-stage C++ vs
+Python lobby parity, Binary7/session preservation, SDK transactional checks,
+mobile/PC TCP fallback with fragmented frames and UDP blackhole all pass.
+Build, host-fault and mobile-test logs archived in the same1November2026folder
+as nfsmw-preview14-{build,host-fault-tests,mobile-tests}.log.
+
+Ready /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview14-pc-direct-discovery.ipa,30438233bytes;
+SHA25654d7b2b6e4a7c55e5c6f73f7bd958fb875669d429767392f0e7ec7e55502dd6d,
+appUUID C1080D85-E1FB-3DD9-981B-CAE6B3D44160;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged. Preview13/12 preserved.
+No new device validation of preview14. Next native PC LAN discovery test; if
+unicast queued but PC invisible inspect PC UDP9999 traffic/filter/receiver before
+protocol changes. After discovery test TCP9900→login→room→peerready→race. Handoff
+updated for Claude, localmultiplayer only; main pre-existing checkpoint edit and
+untrackedHANDOFF preserved, sharedSDK untouched. No push/merge/release.

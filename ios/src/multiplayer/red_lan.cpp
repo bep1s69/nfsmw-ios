@@ -498,4 +498,29 @@ std::string IpLocal() {
   return mejor;
 }
 
+std::vector<uint32_t> Vecinos(const std::string& address) {
+  in_addr selected{};
+  if (inet_pton(AF_INET, address.c_str(), &selected) != 1) return {};
+  const uint32_t ip = ntohl(selected.s_addr);
+  if (!EsLocal(ip)) return {};
+  ifaddrs* list = nullptr;
+  if (getifaddrs(&list) != 0) return {};
+  std::vector<uint32_t> peers;
+  for (auto* i = list; i; i = i->ifa_next) {
+    if (!i->ifa_addr || !i->ifa_netmask || i->ifa_addr->sa_family != AF_INET ||
+        i->ifa_netmask->sa_family != AF_INET || !(i->ifa_flags & IFF_UP) ||
+        (i->ifa_flags & IFF_LOOPBACK) || PuntosInterfaz(i->ifa_name) < 0) continue;
+    if (reinterpret_cast<sockaddr_in*>(i->ifa_addr)->sin_addr.s_addr != selected.s_addr) continue;
+    uint32_t mask = ntohl(reinterpret_cast<sockaddr_in*>(i->ifa_netmask)->sin_addr.s_addr);
+    const uint32_t inverse = ~mask;
+    if ((inverse & (inverse + 1)) != 0 || __builtin_popcount(mask) > 30) break;
+    if (__builtin_popcount(mask) < 24) mask = 0xffffff00u;
+    for (uint32_t host = (ip & mask) + 1; host < (ip | ~mask); ++host)
+      if (host != ip) peers.push_back(host);
+    break;
+  }
+  freeifaddrs(list);
+  return peers;
+}
+
 }  // namespace nfsmw::red

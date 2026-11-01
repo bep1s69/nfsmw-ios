@@ -58,6 +58,9 @@ int PuntosInterfaz(const std::string& nombre);
 // La IP de este telefono en la red local, la que tienen que poner los demas: la de la Wi-Fi o la del
 // punto de acceso. "" si no hay ninguna.
 std::string IpLocal();
+// Unicast announcement targets on this exact active LAN interface. Respect
+// smaller subnets (including hotspot /28); cap broad LANs at the local /24.
+std::vector<uint32_t> Vecinos(const std::string& ip);
 // Local address selected by the OS route to this host (no datagram sent).
 std::string IpHacia(const std::string& ip);
 

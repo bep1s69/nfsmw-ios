@@ -21,6 +21,7 @@
 #include "pc_gateway.h"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
@@ -794,6 +795,13 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     log("[pc-host] native discovery UDP9999; directory/lobby TCP9900; source " + pcIp_);
     std::mutex mutex;
     std::unique_lock<std::mutex> wait(mutex);
+    // LiveContainer can reject broadcast with EHOSTUNREACH. Native PC discovery
+    // has no destination address in its packet, so also send the same announcement
+    // directly to bounded nearby peers on the selected interface.
+    const auto neighbors = red::Vecinos(pcIp_);
+    const int flags = fcntl(anuncio_, F_GETFL, 0);
+    if (flags >= 0) fcntl(anuncio_, F_SETFL, flags | O_NONBLOCK);
+    unsigned round = 0;
     bool reported = false;
     while (!parado_) {
       const auto packet = nfsmw::pc::Advertisement(nombre_(), unsigned(jugadores()), identity);
@@ -802,6 +810,22 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
         log("[pc-host] announcement failed: " + std::string(strerror(errno)));
         reported = true;
       }
+      unsigned sent = 0, failed = 0;
+      int lastError = 0;
+      for (uint32_t neighbor : neighbors) {
+        if (parado_) break;
+        target.sin_addr.s_addr = htonl(neighbor);
+        if (sendto(anuncio_, packet.data(), packet.size(), 0,
+            reinterpret_cast<sockaddr*>(&target), sizeof(target)) == ssize_t(packet.size())) ++sent;
+        else { ++failed; lastError = errno; }
+        // Pace ARP/UDP work and allow stop to interrupt a broad /24 round.
+        anuncioWake_.wait_for(wait, std::chrono::milliseconds(2), [this] { return parado_.load(); });
+      }
+      target.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+      if (++round <= 3 || round % 20 == 0)
+        log("[pc-host] direct discovery targets=" + std::to_string(neighbors.size()) +
+            " sent=" + std::to_string(sent) + " failed=" + std::to_string(failed) +
+            " last_errno=" + std::to_string(lastError));
       anuncioWake_.wait_for(wait, std::chrono::seconds(3), [this] { return parado_.load(); });
     }
     close(anuncio_);

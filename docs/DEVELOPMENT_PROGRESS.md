@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1 (Stefan, preview13 follow-up): try a few focused reverse-host
+  discovery builds, prepare shared handoff for Claude because usage is low.
+  Archive all five new logs in `1 November 2026`. PC-host endurance/finish/
+  return-to-room/rematch success is confirmed by user; do not treat that path
+  as still awaiting its first completed race. Phone hosting discovery fails.
+
 - November 1 (Stefan): start reverse PC hosting now, initially as a separate
   **Host for PCs (Experimental)** option; integrate mixed hosting only after the
   separate directions work. This supersedes the previous session's testing hold
@@ -242,6 +248,8 @@ python3 tools/ios/test_multiplayer_transport.py --sdk /private/tmp/nfsmw-multipl
 python3 tools/ios/test_menu_touch.py
 python3 tools/ios/test_lan_setup.py
 python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4>
+python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4> --simulate-broadcast-failure
+python3 tools/ios/test_lan_interface.py
 python3 tools/ios/test_pc_gateway.py
 python3 tools/ios/test_pc_udp.py
 ```
@@ -325,38 +333,67 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-**November 1 current handoff — preview13 ready for BOTH directions:** Stefan
-explicitly resumed work and approved a separate PC hosting option. Worktree
-`/private/tmp/nfsmw-ios-multiplayer`, branch `multiplayer`. New **Host for PCs
-(Experimental)** / `lan_mode=host_pc` is opt-in, initially one iOS host + one PC
-guest. Existing Host remains mobile-only; Join still detects native PC hosts.
-No PC script/mod needed. New reverse hosting is **DEVICE UNVALIDATED**; local
-protocol/broadcast/serializer tests and IPA build pass. Stefan will test both
-PC-host/mobile-join (regression) and mobile-host/PC-join next. Keep Logging on;
-collect boot.txt, nfsmw.log and servidor_lan.log if a stage fails. Missing guest
-names on the mobile host remains OPEN; no fix claimed here.
+**November 1 current handoff — preview14 reverse discovery retry, Claude next:**
+Stefan is low on Codex usage and requests the shared record be ready for Claude.
+Continue in `/private/tmp/nfsmw-ios-multiplayer`, local branch `multiplayer`.
+Canonical main checkout remains controls-only with its pre-existing modified
+checkpoint and untracked HANDOFF preserved. No push/merge/release authorized.
+If starting from main, `git worktree list` locates this checkout, or read
+`git show multiplayer:docs/DEVELOPMENT_PROGRESS.md` before changing anything.
+All source/history is locally committed; do not rely on chat or temporary logs.
+Isolated SDK/build recreation commands are above; no shared SDK changes.
 
-Ready artifact (main checkout's ignored build folder only):
-`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview13-pc-host.ipa`
-30435895 bytes; SHA256
+**PC hosts: validated on preview13.** Stefan reports good synchronization,
+~18min AFK, then PC completed the race while phone stayed AFK; BOTH returned to
+room and a second race started without issues. Logs show first in-world
+16:36:44.109 → frontend17:02:45.770 (~26min), rematch in-world17:03:07.876;
+9676RX/9905TX3658 datagrams across supplied rotated logs, zero guestAV. PC
+172.20.10.4 / phone172.20.10.1. Retain preview13 as completed-race/rematch baseline,
+preview12 as first gameplay baseline. Broader vehicle/track/mobile coverage and
+both-player finish edge cases remain beyond this test; no blanket release claim.
+
+**Phone hosts: preview13 discovery FAILED on Wi-Fi AND hotspot.** Server logs
+show announcement sendto returning EHOSTUNREACH / “No route to host” on
+192.168.101.106 and172.20.10.1, with NO TCP9900 PC connection. Phone backend and
+own room work; do not debug race handshake until discovery/TCP is reached.
+Inference: failed iOS/LiveContainer broadcast path, consistent with earlier
+mobile discovery history; exact entitlement vs routing cause not proven.
+
+**Preview14 ready:** adds identical PC UDP9999 announcements sent directly to
+nearby hosts on the exact selected interface, in addition to broadcast. Respects
+hotspot /28, caps broad LANs at local /24, excludes own/network/broadcast/VPN/
+cellular, paces sends and logs direct target/success/error counts. No PC helper,
+new entitlement or firewall changes. Host for PCs remains opt-in host_pc with
+one PC guest; mobile Host and PC Join/race code unchanged. Local injected
+EHOSTUNREACH test passes; actual PC acceptance of unicast is DEVICE UNVALIDATED.
+
+Ready IPA:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview14-pc-direct-discovery.ipa`
+30438233bytes; SHA256
+`54d7b2b6e4a7c55e5c6f73f7bd958fb875669d429767392f0e7ec7e55502dd6d`.
+App UUID `C1080D85-E1FB-3DD9-981B-CAE6B3D44160`, runtime unchanged
+`DE9DB5F9-8E8C-3A59-A412-0BD728F3161C`. Previous preview13 IPA preserved:
+`ios/build/NFSMW-multiplayer-preview13-pc-host.ipa`,30435895bytes, SHA256
 `96b90c94d0d805f7ab885540549dab4a16dad405d18c71682188f2c9d1abe224`.
-App UUID `F7721225-6BE0-38F9-A7BA-CE4E73C57729`; runtime unchanged
-`DE9DB5F9-8E8C-3A59-A412-0BD728F3161C`. Preserve preview12's confirmed native
-PC-hosted gameplay baseline and its IPA. No release, push or merge authorized.
-Main's pre-existing checkpoint edit/untracked HANDOFF and shared SDK untouched.
-See newest TECHNICAL entry for implementation, limitations and verification.
-Older deferred/pending paragraphs below are historical.
 
-**Device test flow:** same Wi-Fi, Personal Hotspot off, distinct player names.
-- PC hosts: create a native PC LAN room, mobile launcher **Join a game**, select
-  PC (or enter its current LAN IPv4), launch → Xbox Live → Quick Match → join.
-- Mobile hosts: launcher **Host for PCs (Experimental)** → Launch multiplayer →
-  Xbox Live → Quick Match → Create Game. PC opens **LAN**, selects the advertised
-  phone name (first 11 characters), logs in and joins the created room. No Python
-  process or bridge. Start race, finish/results/rematch if possible.
-- Restart hosting before testing another PC/IP; this first reverse experiment
-  pins one PC address for the hosting session. Mobile guests use ordinary Host;
-  mixed hosting and multiple PC guests are not supported in this option yet.
+**Next device action:** preview14, same Wi-Fi first; distinct names, Logging on,
+phone launcher Host for PCs → Launch → Xbox Live → Quick Match → Create Game;
+PC LAN browser select advertised phone name (first11characters), then join.
+No scripts. If still invisible, obtain server.log + boot/game logs and current
+PC/phone IPs. Inspect [pc-host] direct counts first. If sends succeed but PC
+still sees nothing, next investigate native PC UDP9999 receive/firewall/capture
+and unicast acceptance; do not blindly edit room/race serializers. Once PC
+connects TCP9900, diagnose auth→room→peerready→race in order. Restart Host before
+another PC IP (first peer pinned). Mixed/multiple-PC hosting still unsupported.
+Host missing guest names remains OPEN, unrelated to this discovery change.
+
+All five new supplied logs archived under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`
+with prefix `nfsmw_lan_preview13_reverse_discovery_and_pc_endurance_`, suffixes
+`boot.txt`, `game.2.log`, `game.1.log`, `game.log`, `server.log`. This is the
+user-requested dated folder; pre-existing evidence there was preserved.
+See newest TECHNICAL entry for exact commands/results and failure evidence.
+Older deferred/pending paragraphs below are historical.
 
 - **November1 preview12: first PC-hosted iOS gameplay CONFIRMED; intentional quit.**
   Stefan reports itworked, thenclarifieslogsendedbecausehequit, NOcrash.
