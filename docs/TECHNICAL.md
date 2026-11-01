@@ -15382,3 +15382,33 @@ Trash), 30487578 bytes, SHA-256
 f6573f716b2c0508004d71f225860119e8ca0033196eae5c2c59f4edacba7996. Not run on
 a device.
 
+
+### November 1: dev5 Change heat confirmed on device; heat mods inspected
+
+Stefan (iPhone, dev5, quick chase test): raising the heat step by step during
+a pursuit "worked as expected". Log archived as `~/Developer/Debug/Most
+Wanted (2005) Debug/1 November 2026/nfsmw_iphone_0.6.0_dev5_heat_step.log`.
+In it: +3 asked at 1.00 gave 3 (event limit; "heat 1.00 +3"); two +2 at 3.00
+stayed at 3 until the heat override was switched on in the sheet (max 10
+logged 22:45:13); then +1 each at 5.07, 6.14, 7.22, 8.31, 9.36 (game's own
+heat rising between). Observations, not regressions: a `[vigilante]` 5 s
+all-threads stall at 22:43:11 during startup (seen in October 31 logs too);
+each in-game change re-logs every double cvar (`[options] nfsmw_game_speed =
+1` ...), because apply() compares the cvar's string form with the setting's
+text (1 vs 1.000000), so it sets them again; harmless (tunables only write
+what differs), noisy.
+
+Heat mods (Stefan approved downloading): archives in `~/Developer/Debug/Most
+Wanted (2005) Debug/Heat mods/` (2802 `6b093b-MW_HEAT.zip` 1385221 bytes;
+5068 `59f7bd-Heat Level Rework.7z` 1696 bytes; extracted under `x/`). Both
+are VltEd modscripts (`.nfsms`, text: update_field / add_field /
+resize_field / add_node / delete_node on VLT classes). 5068: 140 lines,
+pursuitlevels heat_01..heat_10 only (cop types/counts/chances, backup,
+roadblock and helicopter chances; adds fields and resizes cop arrays). 2802:
+563 lines, pursuitlevels heat_08..heat_14 and new nodes (heat_12_threat,
+threat_15_XE), pursuitescalation, pursuitsupport (support11); its README
+needs Extra Options' HeatLevelOverride with MaximumHeatLevel 15. Inference:
+both need a VLT editor applied to the game's database (attributes/gameplay),
+not code; 2802 also needs heat above 10 (our override stops at 10, and the
+game's heat clamps/menus, not ported).
+
