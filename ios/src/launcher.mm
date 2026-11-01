@@ -359,8 +359,10 @@ const std::vector<Section>& Sections() {
             @"Also shows cops that are not chasing you, as Extra Options' ShowNonPursuitCops.",
             @"false"},
            {@"heat_override", Type::kSwitch, @"Heat level override",
-            @"Keeps the pursuit heat between the two levels below in every event, as Extra "
-            @"Options' HeatLevelOverride.",
+            @"Every event normally limits how high (and how low) the heat can go, often well "
+            @"below 5. On: Lowest heat and Highest heat below replace those limits everywhere, "
+            @"as Extra Options' HeatLevelOverride. Needed to raise the heat above an event's own "
+            @"limit, also with Change heat in the in-game menu.",
             @"false"},
            {@"heat_min", Type::kChoice, @"Lowest heat", @"With the override on: the heat never drops "
             @"below this. Above 5 is experimental.",

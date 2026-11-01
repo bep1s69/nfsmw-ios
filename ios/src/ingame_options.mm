@@ -171,11 +171,10 @@ UIWindow* GameWindow() {
     // are in, one level up or down.
     if (nfsmw_heat_step_request) {
       _rows.push_back({kHeatStep, @"Change heat",
-                       @"One heat level up or down in the pursuit you are in (as the prototype's debug "
-                       @"menu). The event's highest and lowest heat still apply: widen them with the "
-                       @"heat level override.",
+                       @"One heat level down (−) or up (+) in the pursuit you are in. The event's own "
+                       @"limits still apply unless Heat level override is on.",
                        false,
-                       {{@"Choose", @"0"}, {@"Heat +1", @"1"}, {@"Heat -1", @"-1"}}});
+                       {}});
     }
     _focus = -1;
     self.title = @"Options";
@@ -290,8 +289,6 @@ UIWindow* GameWindow() {
 - (void)set:(NSString*)key to:(NSString*)value {
   if ([key isEqualToString:kHeatStep]) {
     if (value.intValue != 0) nfsmw_heat_step_request(value.intValue);
-    [self.tableView reloadData];
-    [self showFocus];
     return;
   }
   _settings[key] = value;
@@ -340,6 +337,27 @@ UIWindow* GameWindow() {
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;
+  if ([key isEqualToString:kHeatStep]) {
+    // Two buttons, not a list: each press is one level.
+    UIStackView* buttons = [[UIStackView alloc] init];
+    buttons.spacing = 8;
+    for (NSString* step in @[ @"-1", @"1" ]) {
+      UIButtonConfiguration* bc = UIButtonConfiguration.tintedButtonConfiguration;
+      bc.title = [step isEqualToString:@"1"] ? @"+" : @"−";
+      bc.contentInsets = NSDirectionalEdgeInsetsMake(6, 18, 6, 18);
+      UIButton* b = [UIButton buttonWithConfiguration:bc
+                                        primaryAction:[UIAction actionWithHandler:^(UIAction*) {
+                                          [self set:key to:step];
+                                        }]];
+      [buttons addArrangedSubview:b];
+    }
+    [buttons layoutIfNeeded];
+    buttons.frame = CGRectMake(0, 0, [buttons systemLayoutSizeFittingSize:UILayoutFittingCompressedSize].width,
+                               [buttons systemLayoutSizeFittingSize:UILayoutFittingCompressedSize].height);
+    cell.accessoryView = buttons;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    return cell;
+  }
   if (r.is_switch) {
     UISwitch* sw = [[UISwitch alloc] init];
     sw.on = [value isEqualToString:@"true"];

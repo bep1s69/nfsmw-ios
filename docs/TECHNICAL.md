@@ -15412,3 +15412,18 @@ both need a VLT editor applied to the game's database (attributes/gameplay),
 not code; 2802 also needs heat above 10 (our override stops at 10, and the
 game's heat clamps/menus, not ported).
 
+
+### November 1: Change heat buttons, clearer override text (dev6)
+
+Stefan: the override's description was unclear (he found he needed it on to
+raise the heat with Change heat) and asked for plus/minus buttons instead of
+a list. Launcher text of `heat_override` now says events limit the heat and
+the override replaces those limits, needed above an event's limit, also for
+Change heat. The in-game row is two buttons (− / +, a UIStackView accessory;
+each press one `nfsmw_heat_step_request`); controller left/right unchanged.
+Heat mods stay ideas, not 0.6.0 work (Stefan). Build `-j 12` exit 0 (7 s,
+incremental), `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev6-heat-buttons.ipa`
+(Desktop; dev5 to Trash), 30487857 bytes, SHA-256
+e9bc2beb0c5a4340f4f2f63976348e22b1d3d64292f1f252274a258fd76ef52d. Not run on
+a device.
+

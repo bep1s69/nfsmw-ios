@@ -118,8 +118,9 @@
   fall speed and gravity.
 - **Cheats from the Xbox 360 prototype's debug menu:** infinite nitrous,
   infinite Speedbreaker and no cops, plus all cops shown on the minimap.
-- **Change heat while playing.** The in-game menu's Change heat raises or
-  lowers the pursuit's heat by one level. The heat override's lowest and
+- **Change heat while playing.** The in-game menu's Change heat has − and +
+  buttons that lower or raise the pursuit's heat by one level (beyond an
+  event's own limit only with Heat level override on). The heat override's lowest and
   highest heat now offer every level from 1 to 10.
 - **Extra Options in the in-game menu.** Every Extra Option except the Old
   Bridge road can be changed while playing (gear or L3+R3) and applies at
