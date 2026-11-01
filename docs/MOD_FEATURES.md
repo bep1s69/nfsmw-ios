@@ -45,6 +45,7 @@ TECHNICAL.
 | World animation speed, NOS trail length (dev7, untested) | ExOpts WorldAnimationSpeed, NosTrailRepeatCount | 0x828F9DF8, 0x828F89AC |
 | Auto drive (dev7, untested; Actions tab) | ExOpts AutoDrive hotkey | toggle byte 0x82A2BD93 (prototype Toggle AI Control) |
 | Teleport to 69 places, reset car (dev8, untested; Actions tab) | ExOpts EnableSaveLoadHotPos hotkeys; prototype Teleport by Landmark, Flip Car | the USA hot-position jump's calls (sub_824D8C90), from sub_820FFCC8 |
+| No rev limiter (dev9, untested) | ExOpts NoRevLimiter | EngineRacer/EngineDragster vtable slot 13: sub_824227D0, sub_82425BD0 |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |
@@ -70,9 +71,7 @@ TECHNICAL.
 - Fixes (first check the bug exists on the Xbox 360): HelicopterBountyFix,
   ZeroBountyFix (heat 10 and above; matters only with the heat override
   above 5), DDayFix, BustedNISFix.
-- World: CarScale, WorldAnimationSpeed, NosTrailRepeatCount, NoRevLimiter
-  (PC vtable slots 0x8AB78C/0x8AC034, functions returning 1; 360 vtables not
-  found yet).
+- World: CarScale (code immediates in PC 0x737870.., not mapped).
 - HUD/misc: ShowHUDOnLookBack, ShowPercentOn1LapRaces,
   UnlockBurgerKingChallenge, SkipMovies, SkipCareerIntro, ReplayBlacklistRaces.
 - WSF: FOVFactor, GRAPHICS.RainDropletsScale, CAMERA.ReturnDelay/ReturnSpeed,

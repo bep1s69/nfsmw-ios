@@ -309,6 +309,10 @@ const std::vector<Section>& Sections() {
             @"10",
             {{@"10", @"10"}, {@"12", @"12"}, {@"15", @"15"}, {@"18", @"18"}, {@"20", @"20"},
              {@"25", @"25"}}},
+           {@"no_rev_limiter", Type::kSwitch, @"No rev limiter",
+            @"The engine revs past the red line instead of bouncing off it, as Extra Options' "
+            @"NoRevLimiter.",
+            @"false"},
            {@"unlock_all_things", Type::kSwitch, @"Unlock everything",
             @"All cars, parts and events unlocked, as Extra Options' UnlockAllThings. Your "
             @"career's progress is not changed; turning it off locks them again.",
@@ -925,6 +929,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_world_animation_speed=" + str(@"world_animation_speed"));
   a.push_back("--nfsmw_nos_trail_repeat=" + str(@"nos_trail_repeat"));
   a.push_back("--nfsmw_unlock_all_things=" + b(On(s, @"unlock_all_things")));
+  a.push_back("--nfsmw_no_rev_limiter=" + b(On(s, @"no_rev_limiter")));
   a.push_back("--nfsmw_skip_career_intro=" + b(On(s, @"skip_career_intro")));
   a.push_back("--nfsmw_traffic_low=" + str(@"traffic_low"));
   a.push_back("--nfsmw_traffic_medium=" + str(@"traffic_medium"));

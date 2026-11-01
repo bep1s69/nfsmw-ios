@@ -298,6 +298,8 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_world_animation_speed, 45.0, "Game",
                       "Speed of the world's animations, as Extra Options' WorldAnimationSpeed (the game's is 45)");
 REXCVAR_DEFINE_INT32(nfsmw_nos_trail_repeat, 8, "Game",
                      "Length of the nitrous trail, as Extra Options' NosTrailRepeatCount (the game's is 8)");
+REXCVAR_DEFINE_BOOL(nfsmw_no_rev_limiter, false, "Game",
+                    "No rev limiter (the engine revs past the red line), as Extra Options' NoRevLimiter");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -591,6 +593,33 @@ extern "C" void nfsmw_toggle_auto_drive() {
   auto* byte = rex::system::kernel_state()->memory()->TranslateVirtual<uint8_t*>(0x82A2BD93);
   *byte = 1;
   REXLOG_INFO("[extra-options] auto drive: toggle asked for");
+}
+
+// NO REV LIMITER (Extra Options: Gameplay > NoRevLimiter)
+//
+// The mod points the vtable entries EngineRacer::UseRevLimiter (PC 0x8AB78C,
+// a "return true") and EngineDragster::UseRevLimiter (0x8AC034) at a "return
+// 0". The USA vtables (found from the class factories: the "EngineRacer" and
+// "EngineDragster" names, sub_828A39D0/sub_828A3A28, their create functions
+// and constructors sub_82422A30/sub_82425C60) are 0x8208DE80 and 0x8208DF90;
+// slot 13 is the same in both builds: sub_824227D0 ("li r3,1"; only that
+// vtable uses it) and sub_82425BD0 (the PC's 0x6B3D20, same code). Both
+// return 0 while the setting is on.
+extern "C" void __imp__sub_824227D0(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_824227D0) {
+  if (REXCVAR_GET(nfsmw_no_rev_limiter)) {
+    ctx.r3.u64 = 0;
+    return;
+  }
+  __imp__sub_824227D0(ctx, base);
+}
+extern "C" void __imp__sub_82425BD0(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_82425BD0) {
+  if (REXCVAR_GET(nfsmw_no_rev_limiter)) {
+    ctx.r3.u64 = 0;
+    return;
+  }
+  __imp__sub_82425BD0(ctx, base);
 }
 
 // TELEPORT AND RESET CAR (Extra Options' EnableSaveLoadHotPos hotkeys; the

@@ -15508,3 +15508,30 @@ ok; `ios/build/NFSMW-0.6.0-dev8-teleport.ipa` (Desktop; dev7 to Trash),
 a device: guest calls from the host wrapper are new here; a crash or a car
 under the road are the risks to look for.
 
+
+### November 1: No rev limiter (dev9); what the rest needs
+
+EngineRacer/EngineDragster vtables from the class factories: the names'
+only references are registration functions sub_828A39D0/sub_828A3A28 (name
+hash, create function 0x82422998/0x82425E68), whose constructors
+sub_82422A30/sub_82425C60 store the primary vtables 0x8208DE80 and
+0x8208DF90. The PC vtables (0x8AB758, 0x8AC000) line up slot for slot with
+them (same trivial getters at the same indices); slot 13 is UseRevLimiter:
+PC 0x6A05E0 "return 1" = sub_824227D0 "li r3,1" (referenced only by that
+vtable, 0x8208DEB4), PC 0x6B3D20 = sub_82425BD0 (same code). Both wrapped to
+return 0 while `nfsmw_no_rev_limiter` is on (launcher Career section and the
+in-game sheet). Build exit 0, both T in the object, `unzip -tq` ok;
+`ios/build/NFSMW-0.6.0-dev9-rev-limiter.ipa` (Desktop; dev8 to Trash),
+30496851 bytes, SHA-256
+830e0f91ea2dfcca9d59c44176e4e6fa16ead6f4e2cd6d26b87acdb3c9e7eeec. Not run on
+a device.
+
+Looked at and not done: freeze camera (PC `_Camera_StopUpdating` 0x911020 is
+read as a word in ~57 places across the camera code, not a simple flag to
+map); cop lights/headlights (PC calls PVehicle::GlareOn/IsGlareOn, USA
+functions not identified); the front-end patches (debug car customize,
+Max Performance in the shop, event IDs, world map anywhere, Blacklist count,
+replay Blacklist races, Challenge Series bin, hidden tracks, more car
+categories) each rewrite specific PC menu code, so each needs its menu
+function found on the 360 first (by package names / hashes they use).
+

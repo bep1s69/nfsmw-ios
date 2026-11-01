@@ -126,7 +126,7 @@
   grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
   Change heat, Auto drive, Reset car (back on its wheels) and Teleport to
   69 places in the city.
-- **More Extra Options:** unlock everything, skip the career intro, world
+- **More Extra Options:** no rev limiter, unlock everything, skip the career intro, world
   animation speed and nitrous trail length.
 - **Extra Options in the in-game menu.** Every Extra Option except the Old
   Bridge road can be changed while playing (gear or L3+R3) and applies at
