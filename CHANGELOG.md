@@ -132,6 +132,8 @@
   free in menus); it swings back behind the car when you stop. Speed and
   invert (on by default) in the Keyboard settings. On touch, swipe on the
   screen where there is no control.
+- **Showcase by touch.** Drag to turn the car as far as your finger moves,
+  pinch to zoom. New Extra Option: Unlimited showcase camera.
 - **Keys for the Actions.** While driving, 1 resets the car, 2 toggles auto
   drive, 3 and 4 lower and raise the heat; change them under Keyboard
   controls > Actions.

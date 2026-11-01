@@ -113,3 +113,47 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   }
   __imp__sub_8243CBF0(ctx, base);
 }
+
+// SHOWCASE CAMERA: direct touch control (drag turns, pinch zooms).
+//
+// PC: Extra Options' GarageRotate / GarageZoom patch 0x476AC3 / 0x476B04, in
+// ShowcaseCameraMover::Update (0x4769E0, vtable entry 0x894E98): in its user
+// mode (+0x80 == 1) it adds rate x dt x 60 to the yaw (+0x94), the elevation
+// (+0x90, kept to 94.5..110) and the distance (+0x98, kept to 4.65..6.65),
+// the limits skipped when the debug byte 0x926134 is set (what the mod's
+// "mov al, 1" does). USA: sub_82175EF8, the only function loading those five
+// constants (110, 94.5, 6.65, 4.65, 0.125); mode +144, elevation +160, yaw
+// +164, distance +168, the debug byte 0x82A2CE07 (the prototype's "Car Guys
+// Camera"). The touch drags and pinches are added to those fields before
+// the update runs, which then keeps them in range; "Unlimited showcase
+// camera" sets the debug byte for this call only.
+REXCVAR_DEFINE_BOOL(nfsmw_showcase_unlimited, false, "Game",
+                    "Showcase: turn all the way round and zoom without limits (Extra Options' GarageRotate/Zoom)");
+
+namespace {
+std::atomic<float> showcase_yaw{0}, showcase_elevation{0}, showcase_zoom{1};
+}  // namespace
+
+extern "C" void nfsmw_showcase_turn(float yaw_degrees, float elevation_degrees) {
+  showcase_yaw.store(showcase_yaw.load() + yaw_degrees);
+  showcase_elevation.store(showcase_elevation.load() + elevation_degrees);
+}
+
+extern "C" void nfsmw_showcase_zoom(float factor) { showcase_zoom.store(showcase_zoom.load() * factor); }
+
+extern "C" void __imp__sub_82175EF8(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_82175EF8) {
+  const uint32_t mover = ctx.r3.u32;
+  const float yaw = showcase_yaw.exchange(0), elevation = showcase_elevation.exchange(0);
+  const float zoom = showcase_zoom.exchange(1);
+  if (REX_LOAD_U32(mover + 144) == 1) {
+    if (yaw != 0) StoreF(base, mover + 164, LoadF(base, mover + 164) + yaw);
+    if (elevation != 0) StoreF(base, mover + 160, LoadF(base, mover + 160) + elevation);
+    if (zoom != 1) StoreF(base, mover + 168, LoadF(base, mover + 168) * zoom);
+  }
+  const bool unlimited = REXCVAR_GET(nfsmw_showcase_unlimited);
+  const uint8_t flag = REX_LOAD_U8(0x82A2CE07);
+  if (unlimited) REX_STORE_U8(0x82A2CE07, 1);
+  __imp__sub_82175EF8(ctx, base);
+  if (unlimited) REX_STORE_U8(0x82A2CE07, flag);
+}

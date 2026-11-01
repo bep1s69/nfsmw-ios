@@ -143,6 +143,9 @@ std::atomic<int> g_drive_context{0};
 
 // Swipe look: the camera hook's input (camera_look.cpp, USA builds only).
 extern "C" void nfsmw_look_mouse(float dx, float dy) __attribute__((weak));
+// Showcase: drag and pinch straight into its camera (camera_look.cpp).
+extern "C" void nfsmw_showcase_turn(float yaw_degrees, float elevation_degrees) __attribute__((weak));
+extern "C" void nfsmw_showcase_zoom(float factor) __attribute__((weak));
 
 // Touches so far (nfsmw::touch::TouchesSoFar).
 std::atomic<int> g_touches_so_far{0};
@@ -1106,6 +1109,15 @@ static CGFloat TouchOpacity() {
   _gSwiping = YES;
   if (!_gScrollAllowed) return;
   const float k = float(std::clamp((d - 8) / 32, 0.0, 1.0));
+  if (_gDragMode==nfsmw::menu_touch::CameraDrag && nfsmw_showcase_turn) {
+    // Direct: the car turns as far as the finger moves (half a turn across
+    // the screen), up/down tilts the camera (Stefan, November 2).
+    [self stopMenuRepeat];
+    const CGFloat w=std::max<CGFloat>(self.bounds.size.width,1);
+    nfsmw_showcase_turn(float((p.x-_gCameraLast.x)/w*180.0),float((p.y-_gCameraLast.y)/w*60.0));
+    _gCameraLast=p;
+    return;
+  }
   if (_gDragMode==nfsmw::menu_touch::CameraDrag) {
     [self stopMenuRepeat];
     const float x=nfsmw::menu_touch::ShowcasePan(float(p.x-_gCameraLast.x));
@@ -1208,7 +1220,12 @@ static CGFloat TouchOpacity() {
         CGPoint a=[fingers[0] locationInView:self],b=[fingers[1] locationInView:self];
         const CGFloat distance=std::hypot(a.x-b.x,a.y-b.y);
         const CGFloat delta=distance-_gPinchStart;
-        if (std::abs(delta)>2) {
+        if (nfsmw_showcase_zoom && distance>1 && _gPinchStart>1) {
+          // Direct: the camera's distance follows the fingers' spread.
+          _gSwiping=YES;
+          nfsmw_showcase_zoom(float(_gPinchStart/distance));
+          _gPinchStart=distance;
+        } else if (std::abs(delta)>2) {
           _gSwiping=YES;
           _gPinchStart=distance;
           PulseCameraInput(0,0,nfsmw::menu_touch::CameraMotion(float(delta),14.f));

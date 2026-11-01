@@ -15958,3 +15958,27 @@ area is the touch view's too (except where another view over the game, the
 options gear, takes the touch). Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev27-swipe-look.ipa`
 (Desktop; dev26 to Trash), 30525335 bytes, SHA-256 f2647024e05f317963615e496d6d0982e55f31b421f2a1d526228031df6107f9. Not run on a device.
 
+
+### November 2: Showcase camera under direct touch control (dev28)
+
+PC: Extra Options' GarageRotate/GarageZoom patch 0x476AC3/0x476B04 inside
+ShowcaseCameraMover::Update 0x4769E0 (vtable entry 0x894E98): mode +0x80
+(2 = early out; 1 = the user branch) integrates rate x dt x 60 into yaw
++0x94, elevation +0x90 (94.5..110) and distance +0x98 (4.65..6.65), the
+limits skipped while byte 0x926134 is set. USA: sub_82175EF8 is the only
+function loading 110, 94.5, 6.65, 4.65 and 0.125 (consts.py); mode +144,
+elevation +160 (r29), yaw +164, distance +168, the limit byte read as
+`lbz -12793` = 0x82A2CE07 (the prototype's "Car Guys Camera", mapped
+earlier). camera_look.cpp wraps it: pending touch deltas are added to those
+fields before the update (which keeps them in range), and "Unlimited
+showcase camera" (new Extra Option, launcher Career section and in-game)
+sets the byte for that call only, restoring it after (it has other
+readers). touch_controls.mm: in Showcase (CameraDrag) a one-finger drag
+turns the car directly (180 degrees per screen width; vertical 60 degrees
+per width to the elevation) instead of right-stick pulses, and a two-finger
+pinch sets the distance by the fingers' spread ratio instead of LT/RT
+pulses. Units are inferred (degrees, metres) from the limits. Build exit 0,
+wrapper T in camera_look.cpp.o, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev28-showcase.ipa` (Desktop; dev27 to
+Trash), 30527994 bytes, SHA-256 768c2b36f2781e1bd523d4d68ee50fc5fe193a7a324c8ac130b14f0673909ba5. Not run on a device; directions may need
+flipping.
+

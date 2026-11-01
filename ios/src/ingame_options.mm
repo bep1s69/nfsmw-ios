@@ -87,7 +87,7 @@ NSArray<NSString*>* Keys() {
             @"no_cops", @"show_non_pursuit_cops", @"heat_override", @"heat_min", @"heat_max", @"speeding_limit",
             @"excessive_speeding_limit", @"reckless_driving_limit", @"marker_count", @"car_limit",
             @"impound_strikes", @"impound_strikes_max", @"skip_movies", @"game_speed", @"unlock_all_things",
-            @"skip_career_intro", @"world_animation_speed", @"nos_trail_repeat", @"no_rev_limiter", @"laps_min", @"laps_max",
+            @"skip_career_intro", @"world_animation_speed", @"nos_trail_repeat", @"no_rev_limiter", @"showcase_unlimited", @"laps_min", @"laps_max",
             @"opponents_min", @"opponents_max", @"random_laps_max", @"random_opponents_max", @"traffic_low",
             @"traffic_medium", @"traffic_high", @"always_rain", @"rain_amount", @"rain_intensity", @"rain_drop_size",
             @"rain_crossing", @"rain_fall_speed", @"rain_gravity", @"road_reflection" ];
@@ -119,7 +119,7 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_heat_max", "nfsmw_speeding_limit", "nfsmw_excessive_speeding_limit", "nfsmw_reckless_driving_limit",
       "nfsmw_marker_count", "nfsmw_purchased_car_limit", "nfsmw_impound_strikes", "nfsmw_impound_strikes_max",
       "nfsmw_skip_movies", "nfsmw_game_speed", "nfsmw_unlock_all_things", "nfsmw_skip_career_intro",
-      "nfsmw_world_animation_speed", "nfsmw_nos_trail_repeat", "nfsmw_no_rev_limiter", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
+      "nfsmw_world_animation_speed", "nfsmw_nos_trail_repeat", "nfsmw_no_rev_limiter", "nfsmw_showcase_unlimited", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
       "nfsmw_opponents_max", "nfsmw_random_laps_max", "nfsmw_random_opponents_max", "nfsmw_traffic_low",
       "nfsmw_traffic_medium", "nfsmw_traffic_high", "nfsmw_always_rain", "nfsmw_rain_amount",
       "nfsmw_rain_intensity", "nfsmw_rain_drop_size", "nfsmw_rain_crossing", "nfsmw_rain_fall_speed",
