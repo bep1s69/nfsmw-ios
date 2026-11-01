@@ -41,6 +41,8 @@ void MenuTapResult(int serial, int button);
 bool TakeMenuScroll(int& serial, float& x, float& y);
 void MenuScrollResult(int serial, int mode);
 void SetMoviePlaying(bool on);
+// Touches on the game's screen so far (the keyboard prompts hide on a touch).
+int TouchesSoFar();
 void SetShowcaseUp(bool on);
 
 #ifdef __OBJC__

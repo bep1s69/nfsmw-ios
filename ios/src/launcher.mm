@@ -139,44 +139,54 @@ struct KeyBind {
   NSString* setting;  // the SDK's cvar
   NSString* action;   // what it does in NFSMW
   NSString* pad;      // the controller input it presses
-  NSString* standard;
+  NSString* standard;       // the key(s) while driving
+  NSString* menu_standard;  // the key(s) in menus and pause screens (0.6)
 };
 
+// Two sets (0.6, Stefan: context-aware keys): the game switches between them
+// when a menu comes up or goes (keyboard_context.cpp). Driving follows the
+// PC's keys; in menus Return accepts and Escape goes back, as on PC.
 const std::vector<KeyBind>& KeyBinds() {
   static const std::vector<KeyBind> binds = {
-      {@"keybind_right_trigger", @"Accelerate", @"RT", @"Up,W"},
-      {@"keybind_left_trigger", @"Brake / reverse", @"LT", @"Down,S"},
-      {@"keybind_lstick_left", @"Steer left", @"left stick", @"Left,A"},
-      {@"keybind_lstick_right", @"Steer right", @"left stick", @"Right,D"},
-      {@"keybind_lstick_up", @"Menu up", @"left stick", @"Up,W"},
-      {@"keybind_lstick_down", @"Menu down", @"left stick", @"Down,S"},
-      {@"keybind_a", @"Accept / handbrake", @"A", @"Return,Space"},
-      {@"keybind_b", @"Back / nitrous", @"B", @"Backspace,Alt"},
-      {@"keybind_x", @"Speedbreaker", @"X", @"X"},
-      {@"keybind_y", @"Y (map, details)", @"Y", @"Tab"},
-      {@"keybind_rstick_up", @"Shift up", @"right stick", @"Shift"},
-      {@"keybind_rstick_down", @"Shift down", @"right stick", @"Control"},
-      {@"keybind_left_shoulder", @"Look back", @"LB", @"C"},
-      {@"keybind_right_shoulder", @"Change camera", @"RB", @"V"},
-      {@"keybind_back", @"Reset car", @"Back", @"R"},
-      {@"keybind_start", @"Pause / start", @"Start", @"Escape,P"},
-      {@"keybind_dpad_up", @"D-pad up", @"D-pad", @"I"},
-      {@"keybind_dpad_down", @"D-pad down", @"D-pad", @"K"},
-      {@"keybind_dpad_left", @"D-pad left", @"D-pad", @"J"},
-      {@"keybind_dpad_right", @"D-pad right", @"D-pad", @"L"},
-      {@"keybind_rstick_left", @"Right stick left", @"right stick", @""},
-      {@"keybind_rstick_right", @"Right stick right", @"right stick", @""},
-      {@"keybind_lstick_press", @"Left stick click", @"L3", @""},
-      {@"keybind_rstick_press", @"Right stick click", @"R3", @""},
-      {@"keybind_guide", @"Guide", @"Guide", @""},
+      {@"keybind_right_trigger", @"Accelerate", @"RT", @"Up,W", @"RBracket"},
+      {@"keybind_left_trigger", @"Brake / reverse", @"LT", @"Down,S", @"LBracket"},
+      {@"keybind_lstick_left", @"Steer left / menu left", @"left stick", @"Left,A", @"Left,A"},
+      {@"keybind_lstick_right", @"Steer right / menu right", @"left stick", @"Right,D", @"Right,D"},
+      {@"keybind_lstick_up", @"Menu up", @"left stick", @"", @"Up,W"},
+      {@"keybind_lstick_down", @"Menu down", @"left stick", @"", @"Down,S"},
+      {@"keybind_a", @"Handbrake / accept", @"A", @"Space", @"Return,Space,NumpadEnter"},
+      {@"keybind_b", @"Nitrous / back", @"B", @"Alt", @"Escape,Backspace"},
+      {@"keybind_x", @"Speedbreaker", @"X", @"X", @"X"},
+      {@"keybind_y", @"Y (map, details)", @"Y", @"Tab", @"Tab"},
+      {@"keybind_rstick_up", @"Shift up", @"right stick", @"Shift", @"Shift"},
+      {@"keybind_rstick_down", @"Shift down", @"right stick", @"Control", @"Control"},
+      {@"keybind_left_shoulder", @"Look back / previous tab", @"LB", @"C", @"Q,PageUp"},
+      {@"keybind_right_shoulder", @"Change camera / next tab", @"RB", @"V", @"E,PageDown"},
+      {@"keybind_back", @"Reset car", @"Back", @"R", @"R"},
+      {@"keybind_start", @"Pause / start", @"Start", @"Escape,P", @"P"},
+      {@"keybind_dpad_up", @"D-pad up", @"D-pad", @"I", @"I"},
+      {@"keybind_dpad_down", @"D-pad down", @"D-pad", @"K", @"K"},
+      {@"keybind_dpad_left", @"D-pad left", @"D-pad", @"J", @"J"},
+      {@"keybind_dpad_right", @"D-pad right", @"D-pad", @"L", @"L"},
+      {@"keybind_rstick_left", @"Right stick left", @"right stick", @"", @""},
+      {@"keybind_rstick_right", @"Right stick right", @"right stick", @"", @""},
+      {@"keybind_lstick_press", @"Left stick click", @"L3", @"", @""},
+      {@"keybind_rstick_press", @"Right stick click", @"R3", @"", @""},
+      {@"keybind_guide", @"Guide", @"Guide", @"", @""},
   };
   return binds;
 }
 
-NSString* KeyBindValue(NSDictionary<NSString*, NSString*>* s, const KeyBind& b) {
-  NSString* v = s[[@"kb_" stringByAppendingString:b.setting]];
-  return v ?: b.standard;
+// "kb_<setting>" (driving) or "kbm_<setting>" (menus) in settings.json.
+NSString* KeyBindKey(const KeyBind& b, bool menu) {
+  return [(menu ? @"kbm_" : @"kb_") stringByAppendingString:b.setting];
 }
+
+NSString* KeyBindValue(NSDictionary<NSString*, NSString*>* s, const KeyBind& b, bool menu = false) {
+  NSString* v = s[KeyBindKey(b, menu)];
+  return v ?: (menu ? b.menu_standard : b.standard);
+}
+
 
 // A key, as the SDK names it, from a hardware keyboard press (UIKey).
 NSString* KeyName(UIKeyboardHIDUsage usage) {
@@ -1010,9 +1020,13 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
+  std::string menu_binds;  // "keybind_a=Return,Space;keybind_b=..." (keyboard_context.cpp)
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
+    menu_binds += std::string(menu_binds.empty() ? "" : ";") + kb.setting.UTF8String + "=" +
+                  KeyBindValue(s, kb, true).UTF8String;
   }
+  a.push_back("--nfsmw_menu_keybinds=" + menu_binds);
   NSString* aa = Value(s, @"antialiasing");
   const bool msaa = Msaa(s);
   a.push_back("--gpu_sin_msaa=" + b(!msaa));
@@ -1398,9 +1412,9 @@ NSString* AchievementSummary(const Achievements& a) {
                                       action:@selector(confirmDefaults)];
 }
 
-- (void)setValue:(NSString*)value forBind:(const KeyBind&)b {
-  NSString* key = [@"kb_" stringByAppendingString:b.setting];
-  if ([value isEqualToString:b.standard]) {
+- (void)setValue:(NSString*)value forBind:(const KeyBind&)b menu:(bool)menu {
+  NSString* key = KeyBindKey(b, menu);
+  if ([value isEqualToString:menu ? b.menu_standard : b.standard]) {
     [_settings removeObjectForKey:key];
   } else {
     _settings[key] = value;
@@ -1419,7 +1433,8 @@ NSString* AchievementSummary(const Achievements& a) {
                                             style:UIAlertActionStyleDestructive
                                           handler:^(UIAlertAction*) {
                                             for (const KeyBind& b : KeyBinds()) {
-                                              [self->_settings removeObjectForKey:[@"kb_" stringByAppendingString:b.setting]];
+                                              [self->_settings removeObjectForKey:KeyBindKey(b, false)];
+                                              [self->_settings removeObjectForKey:KeyBindKey(b, true)];
                                             }
                                             self->_save();
                                             [self.tableView reloadData];
@@ -1427,23 +1442,33 @@ NSString* AchievementSummary(const Achievements& a) {
   [self presentViewController:alert animated:YES completion:nil];
 }
 
+- (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
+  return 2;
+}
+
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
   return NSInteger(KeyBinds().size());
 }
 
+- (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
+  return section == 0 ? @"Driving" : @"Menus and pause screens";
+}
+
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
-  return @"Each action presses a controller input (shown in grey), so the game behaves as with a "
-         @"gamepad. One key can do several things (Up accelerates in a race and moves up in the "
-         @"menus). Shift, Ctrl and Alt work on their own.";
+  if (section == 0) return @"Used while you drive (free roam and races).";
+  return @"Used whenever a menu is up: the game switches between the two sets by itself. Each action "
+         @"presses a controller input (shown in grey), so the game behaves as with a gamepad. Shift, "
+         @"Ctrl and Alt work on their own.";
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
   const KeyBind& b = KeyBinds()[size_t(ip.row)];
+  const bool menu = ip.section == 1;
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1
                                                  reuseIdentifier:nil];
   UIListContentConfiguration* c = UIListContentConfiguration.valueCellConfiguration;
   c.text = b.action;
-  c.secondaryText = KeysForDisplay(KeyBindValue(_settings, b));
+  c.secondaryText = KeysForDisplay(KeyBindValue(_settings, b, menu));
   cell.contentConfiguration = c;
   UILabel* pad = [[UILabel alloc] init];
   pad.text = b.pad;
@@ -1457,12 +1482,14 @@ NSString* AchievementSummary(const Achievements& a) {
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)ip {
   [tableView deselectRowAtIndexPath:ip animated:YES];
   const KeyBind b = KeyBinds()[size_t(ip.row)];
-  NSString* current = KeyBindValue(_settings, b);
+  const bool menu = ip.section == 1;
+  NSString* current = KeyBindValue(_settings, b, menu);
+  NSString* standard = menu ? b.menu_standard : b.standard;
   UIAlertController* sheet =
       [UIAlertController alertControllerWithTitle:b.action
                                           message:[NSString stringWithFormat:@"Now: %@", KeysForDisplay(current)]
                                    preferredStyle:UIAlertControllerStyleActionSheet];
-  auto capture = [self, b](bool add, NSString* current) {
+  auto capture = [self, b, menu](bool add, NSString* current) {
     NFSKeyCaptureController* cap = [[NFSKeyCaptureController alloc]
         initWithPrompt:b.action
                   done:^(NSString* key) {
@@ -1471,7 +1498,7 @@ NSString* AchievementSummary(const Achievements& a) {
                       NSArray* parts = [current componentsSeparatedByString:@","];
                       value = [parts containsObject:key] ? current : [current stringByAppendingFormat:@",%@", key];
                     }
-                    [self setValue:value forBind:b];
+                    [self setValue:value forBind:b menu:menu];
                   }];
     [self presentViewController:cap animated:YES completion:nil];
   };
@@ -1483,11 +1510,11 @@ NSString* AchievementSummary(const Achievements& a) {
                                           handler:^(UIAlertAction*) { capture(true, current); }]];
   [sheet addAction:[UIAlertAction actionWithTitle:@"No key"
                                             style:UIAlertActionStyleDestructive
-                                          handler:^(UIAlertAction*) { [self setValue:@"" forBind:b]; }]];
+                                          handler:^(UIAlertAction*) { [self setValue:@"" forBind:b menu:menu]; }]];
   [sheet addAction:[UIAlertAction
-                       actionWithTitle:[NSString stringWithFormat:@"Default (%@)", KeysForDisplay(b.standard)]
+                       actionWithTitle:[NSString stringWithFormat:@"Default (%@)", KeysForDisplay(standard)]
                                  style:UIAlertActionStyleDefault
-                               handler:^(UIAlertAction*) { [self setValue:b.standard forBind:b]; }]];
+                               handler:^(UIAlertAction*) { [self setValue:standard forBind:b menu:menu]; }]];
   [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
   // On iPad an action sheet needs an anchor: the row.
   sheet.popoverPresentationController.sourceView = [tableView cellForRowAtIndexPath:ip];

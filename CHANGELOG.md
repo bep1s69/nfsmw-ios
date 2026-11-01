@@ -122,6 +122,11 @@
   buttons that lower or raise the pursuit's heat by one level (beyond an
   event's own limit only with Heat level override on). The heat override's lowest and
   highest heat now offer every level from 1 to 10.
+- **Keyboard keys that know where you are.** Menus and driving have their
+  own keys (Settings > Keyboard controls shows both lists): Enter accepts
+  and Esc goes back in menus, Space is the handbrake and Esc pauses while
+  driving. Menu hints show the key to press while you use the keyboard; a
+  controller button or a touch brings the usual icons back.
 - **In-game menu with tabs.** Extras, Graphics, Controls and Actions, each
   grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
   Change heat, Auto drive, Reset car (back on its wheels) and Teleport to

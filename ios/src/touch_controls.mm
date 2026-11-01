@@ -138,6 +138,9 @@ std::atomic<bool> g_drag{false};
 // nfsmw::touch::SetDriveContext, from the game's thread.
 std::atomic<int> g_drive_context{0};
 
+// Touches so far (nfsmw::touch::TouchesSoFar).
+std::atomic<int> g_touches_so_far{0};
+
 // Keyboard controls (the SDK's mnk_mode, set by the launcher).
 bool KeyboardControlsOn() { return rex::cvar::Query<bool>("mnk_mode"); }
 
@@ -915,6 +918,7 @@ static CGFloat TouchOpacity() {
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+  g_touches_so_far.fetch_add(1, std::memory_order_relaxed);
   if (_editing) {
     const CGPoint p = [touches.anyObject locationInView:self];
     _selected = [self controlAt:p];
@@ -2038,6 +2042,8 @@ void SetDragRace(bool on) { g_drag.store(on); }
 void SetMapUp(bool up) { g_map_up.store(up); }
 void SetMoviePlaying(bool on) { g_movie_playing.store(on); }
 void SetShowcaseUp(bool on) { g_showcase_up.store(on); }
+
+int TouchesSoFar() { return g_touches_so_far.load(std::memory_order_relaxed); }
 
 bool TakeMenuTap(int& serial, float& x, float& y) {
   serial = g_tap_pending.load();

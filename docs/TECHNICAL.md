@@ -15593,3 +15593,40 @@ dev11: it opens only while one of CustomizeMain/Customize/CustomizeCategory
 810fc439262ef36b119074e06da86fb59a54d49dac873aa0e295081eca115c4a. Not run on
 a device.
 
+
+### November 2: context-aware keyboard keys and key prompts (dev12)
+
+1. Two bind sets. launcher.mm KeyBind gains `menu_standard`; settings keep
+   `kb_<cvar>` (driving) and new `kbm_<cvar>` (menus); the keyboard screen has
+   Driving and Menus sections. Driving defaults change: A (handbrake) Space
+   only (was Return,Space), B Alt (was Backspace,Alt), Start Escape,P, menu
+   up/down unbound while driving. Menu defaults: arrows/WASD move, Return/
+   Space/NumpadEnter = A, Escape/Backspace = B, Q/PgUp and E/PgDn = LB/RB, [ ]
+   = LT/RT, Tab = Y, P = Start. The menu set goes to the game as
+   `--nfsmw_menu_keybinds=keybind_a=...;...`. `keyboard_context.cpp` keeps both
+   and assigns the SDK's `keybind_*` strings (REXCVAR_DECLARE'd storage) on
+   each menu/driving change from game_state.cpp (same change as
+   battery::SetInMenu). The SDK driver reads those strings on its input
+   thread: each gets 256 bytes reserved and values are cut to 255, so an
+   assignment never reallocates (a poll can see a torn list, not freed
+   memory; inference from libc++ assign semantics, not tested under load). A
+   switch waits until no key is down (polled on the main thread, 20 Hz), with
+   all binds empty meanwhile, so a held Escape cannot open and close the pause
+   menu. No SDK change.
+2. Key prompts. `nfsmw_menu_hints_list()` (game_scene_size.cpp) exports the
+   touch scan's hint icons with a known button; game_state.cpp fills them
+   every 6th frame while prompts are wanted (in a menu, keyboard used last).
+   `keyboard_prompts.mm`: a non-interactive UIView over the game window draws a
+   key cap (first key of the menu bind for that button, e.g. Enter, Esc, ⌫,
+   PgUp) over each icon, positioned with the menu-tap mapping (480 / 0.92
+   tall from the screen centre). Last device wins: GCKeyboard anyKeyPressed
+   shows them; a GCController button/stick or a touch (new
+   nfsmw::touch::TouchesSoFar counter) hides them. Logged as
+   `[keyboard] prompts on/off` and `[keyboard] menu/driving keys`.
+
+Build `-j 12` exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev12-keyboard.ipa`
+(Desktop; dev11 to Trash), 30520463 bytes, SHA-256
+f7c8296dffb605fa9997a84579d4dda03ce138c3ff488bbeb5db8222534e5e71. Not run on a
+device. Unknowns: cap placement on screens with a scaled HUD, hints the scan
+does not find (no cap), the scan's cost every 6th frame in menus.
+

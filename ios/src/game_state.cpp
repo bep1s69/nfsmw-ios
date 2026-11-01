@@ -41,6 +41,7 @@
 #include <rex/logging.h>
 
 #include "battery.h"
+#include "keyboard_context.h"
 #include "touch_controls.h"
 
 extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
@@ -156,6 +157,7 @@ extern "C" void nfsmw_ui_log(uint8_t* base, uint32_t engine);              // ga
 extern "C" void nfsmw_hud_full_size(bool on);
 extern "C" int nfsmw_menu_hint_at(uint8_t* base, uint32_t engine, float x, float y, int serial);
 extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float y);
+extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,int max);
 
 namespace {
 bool fade_up = false;
@@ -220,6 +222,18 @@ extern "C" REX_FUNC(sub_823B4158) {
       nfsmw::touch::MenuTapResult(serial, nfsmw_menu_hint_at(base, feng ? REX_LOAD_U32(feng) : 0, x, y, serial));
     }
   }
+  nfsmw::keyboard::Service();
+  // The keyboard prompts (keyboard_prompts.mm): the hints, a few times a
+  // second while they are wanted.
+  if (nfsmw::keyboard::PromptsWanted()) {
+    static int frame = 0;
+    if (frame++ % 6 == 0) {
+      const uint32_t feng = REX_LOAD_U32(kFeng);
+      float hints[5 * 32];
+      const int n = !(state == kRacing && menu < 0) && feng ? nfsmw_menu_hints_list(base, REX_LOAD_U32(feng), hints, 32) : 0;
+      nfsmw::keyboard::SetHints(hints, n);
+    }
+  }
   // The world map: swipes move its cursor (the right stick).
   {
     static const char* const kShowcase[] = {"Showcase.fng"};
@@ -270,4 +284,5 @@ extern "C" REX_FUNC(sub_823B4158) {
   last_menu = menu;
   nfsmw::battery::SetInMenu(!driving);
   nfsmw::adaptive_qos::SetDriving(driving);
+  nfsmw::keyboard::SetMenu(!driving);
 }

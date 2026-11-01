@@ -39,6 +39,8 @@
 extern "C" void nfsmw_ios_suspend_paints(bool suspend);
 #include "touch_controls.h"
 
+extern "C" void nfsmw_keyboard_install_prompts() __attribute__((weak));
+
 #include <rex/cvar.h>
 
 #include <mach-o/dyld.h>
@@ -137,6 +139,8 @@ class IosNfsmwApp : public NfsmwApp {
       input->SetActiveCallback([] { return !nfsmw::options::BlocksGameInput(); });
     }
     nfsmw::options::Install();
+    // Keyboard key prompts over the menu hints (keyboard_prompts.mm; USA).
+    if (nfsmw_keyboard_install_prompts) nfsmw_keyboard_install_prompts();
     // Last, so it is on top of the touch controls.
     if (REXCVAR_GET(ios_gpu_capture)) {
       nfsmw::gpu_capture::InstallButton();
