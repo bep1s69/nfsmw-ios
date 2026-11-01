@@ -43,40 +43,44 @@ namespace {
 std::atomic<bool> wanted{false};
 
 // ACTION KEYS (launcher ActionBinds: 1 reset car, 2 auto drive, 3/4 heat
-// -1/+1 by default). GameController's key handler (the game's own keys come
-// through SDL, which this does not touch), only while driving.
-NSDictionary<NSString*, NSString*>* action_keys;  // key name -> action
+// -1/+1 by default), only while driving. Polled with the prompts' timer:
+// GameController's keyChangedHandler is SDL's (SDL_uikitevents.m), and
+// replacing it took every key away from the game (dev21, Stefan).
+std::vector<std::pair<GCKeyCode, std::string>> action_codes;  // key -> action
+std::vector<bool> action_down;
 
 void LoadActionKeys() {
-  NSMutableDictionary* map = [NSMutableDictionary dictionary];
+  NSMutableDictionary<NSString*, NSString*>* map = [NSMutableDictionary dictionary];
   const std::string list = nfsmw::launcher::ActionKeyBinds();
   for (NSString* item in [[NSString stringWithUTF8String:list.c_str()] componentsSeparatedByString:@";"]) {
-    NSArray* kv = [item componentsSeparatedByString:@"="];
+    NSArray<NSString*>* kv = [item componentsSeparatedByString:@"="];
     if (kv.count != 2) continue;
     for (NSString* key in [kv[1] componentsSeparatedByString:@","]) {
       if (key.length) map[key] = kv[0];
     }
   }
-  action_keys = map;
+  action_codes.clear();
+  for (long code = 4; code <= 231; ++code) {  // the HID keyboard page
+    NSString* action = map[nfsmw::launcher::KeyNameForHID(code)];
+    if (action) action_codes.emplace_back(GCKeyCode(code), action.UTF8String);
+  }
+  action_down.assign(action_codes.size(), false);
 }
 
-void RunAction(NSString* action) {
-  if (nfsmw::battery::InMenu() != 0) return;
-  REXLOG_INFO("[keyboard] action key: {}", action.UTF8String);
-  if ([action isEqualToString:@"action_reset_car"] && nfsmw_reset_car_request) nfsmw_reset_car_request();
-  if ([action isEqualToString:@"action_auto_drive"] && nfsmw_toggle_auto_drive) nfsmw_toggle_auto_drive();
-  if ([action isEqualToString:@"action_heat_down"] && nfsmw_heat_step_request) nfsmw_heat_step_request(-1);
-  if ([action isEqualToString:@"action_heat_up"] && nfsmw_heat_step_request) nfsmw_heat_step_request(1);
+void RunAction(const std::string& action) {
+  REXLOG_INFO("[keyboard] action key: {}", action);
+  if (action == "action_reset_car" && nfsmw_reset_car_request) nfsmw_reset_car_request();
+  if (action == "action_auto_drive" && nfsmw_toggle_auto_drive) nfsmw_toggle_auto_drive();
+  if (action == "action_heat_down" && nfsmw_heat_step_request) nfsmw_heat_step_request(-1);
+  if (action == "action_heat_up" && nfsmw_heat_step_request) nfsmw_heat_step_request(1);
 }
 
-void WatchKeyboard() {
-  GCKeyboardInput* input = GCKeyboard.coalescedKeyboard.keyboardInput;
-  if (!input) return;
-  input.keyChangedHandler = ^(GCKeyboardInput*, GCControllerButtonInput*, GCKeyCode code, BOOL pressed) {
-    if (!pressed || !REXCVAR_GET(mnk_mode)) return;
-    NSString* action = action_keys[nfsmw::launcher::KeyNameForHID(long(code))];
-    if (action) RunAction(action);
-  };
+void PollActionKeys(GCKeyboardInput* input) {
+  for (size_t i = 0; i < action_codes.size(); ++i) {
+    const bool down = input && [input buttonForKeyCode:action_codes[i].first].pressed;
+    if (down && !action_down[i] && nfsmw::battery::InMenu() == 0) RunAction(action_codes[i].second);
+    action_down[i] = down;
+  }
 }
 std::mutex hints_mutex;
 std::vector<float> hints;  // 5 floats each
@@ -153,6 +157,7 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
   if (!REXCVAR_GET(mnk_mode)) return;
   const BOOL key = GCKeyboard.coalescedKeyboard.keyboardInput.anyKeyPressed;
   nfsmw::keyboard::SetAnyKeyDown(key);
+  PollActionKeys(GCKeyboard.coalescedKeyboard.keyboardInput);
   // Diagnostics (dev14): the first key presses as GameController sees them.
   static int key_lines = 40;
   if (key && !_keyWasDown && key_lines > 0) {
@@ -257,11 +262,6 @@ extern "C" void nfsmw_keyboard_install_prompts() {
   if (!window) return;
   nfsmw::keyboard::SetMenuList(nfsmw::launcher::MenuKeyBinds());
   LoadActionKeys();
-  WatchKeyboard();
-  [NSNotificationCenter.defaultCenter addObserverForName:GCKeyboardDidConnectNotification
-                                                  object:nil
-                                                   queue:NSOperationQueue.mainQueue
-                                              usingBlock:^(NSNotification*) { WatchKeyboard(); }];
   prompts = [[NFSKeyPrompts alloc] initWithFrame:window.bounds];
   [window addSubview:prompts];
   REXLOG_INFO("[keyboard] key prompts installed");

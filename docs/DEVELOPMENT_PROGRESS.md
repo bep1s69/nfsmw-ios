@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2: never set GCKeyboard's `keyChangedHandler` in app code: SDL's
+  iOS backend owns it (SDL_uikitevents.m) and replacing it removes all
+  keyboard input from the game (dev21). Poll key state instead.
+
 - November 1 (Stefan): builds use `-j 12` (M2 Pro, 12 cores; `-j 6` was
   for the old Mac). Time the next full build and record it in TECHNICAL.
   Version 0.6.0 (code 11) from dev5 on.

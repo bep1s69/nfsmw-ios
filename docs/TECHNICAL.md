@@ -15830,3 +15830,18 @@ saves; re-attached when a keyboard connects. Teleport has no key (it needs a
 place). Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev21-action-keys.ipa` (Desktop; dev20 to Trash), 30524495
 bytes, SHA-256 4e8d5c656444e83676af22dc1cbdb30b218dfa3bf711f5462261b7946284d606. Not run on a device.
 
+
+### November 2: dev21 broke every key; action keys polled instead (dev22)
+
+Stefan (dev21): no keyboard control worked. Log:
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev21_action_keys_no_keyboard.log`
+(menu/driving lists loaded normally). Cause: SDL's iOS backend gets the
+keyboard from GameController's `keyChangedHandler`
+(thirdparty/sdl3/src/video/uikit/SDL_uikitevents.m:193); dev21 set its own
+handler and replaced SDL's, so the game got no keys. dev22 never touches the
+handler: the action keys are polled with the prompts' 20 Hz timer
+(`buttonForKeyCode:` for the HID codes whose names are action keys; a press
+counted on its rising edge, while driving). Rule recorded: do not set
+GCKeyboard's keyChangedHandler. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev22-action-keys.ipa`
+(Desktop; dev21 to Trash), 30524751 bytes, SHA-256 6d28f8878efac980d28c73d5e9f11ff22fdc1f925905bd725bacca1ed632350b. Not run on a device.
+
