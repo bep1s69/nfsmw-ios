@@ -357,8 +357,8 @@ LATEST IPA:
 9AFDA099-5E6E-329B-B516-4ADFAC0A3CC2. Preview16 stays the fallback.
 
 Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
-1. Two iPhones: first to sign in hosts, second joins; race. Then sign both in
-   at the same moment and check they end up in one lobby.
+1. PASSED on device: iPad hosted, iPhone joined automatically, race flawless
+   (host decision 4.4 s, guest 1.6 s). Still open: simultaneous sign-in.
 2. iPhone + PC 1.3: PC hosts (iPhone joins it automatically), then PC closes
    its room and the iPhone hosts (PC joins from its LAN list); race both ways.
 3. Two iPhones + PC with an iPhone hosting: all three in one room and race.

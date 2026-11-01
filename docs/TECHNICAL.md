@@ -14772,3 +14772,14 @@ Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-p
 `2f3f106b2d78a020ba064fdadd77b491918e4efa80bf122b4ce35073064a58a5`, app UUID
 9AFDA099-5E6E-329B-B516-4ADFAC0A3CC2, 104 metallibs. Preview16 and earlier
 IPAs preserved. Local commit only; no push/merge/release.
+
+Preview17 device test 1 (Stefan, November 1): iPad 192.168.101.112 hosted and
+iPhone 192.168.101.106 joined, both via “Play on this Wi-Fi”; Stefan reports it
+“worked flawlessly” (race completed). iPad sign-in 18:53:07.389: UDP 0 hosts,
+TCP sweep 506 attempts/0 hosts, hosting at 18:53:11.822 (4.4 s, game waited
+fine). iPhone sign-in 18:53:34.713: UDP found the iPad at 18:53:36.216, joined
+18:53:36.320, `PC peers in host room: 0`. Server shows the iPhone's directory
+relayed, lobby on 10901 direct, ujoi/gjoi COUNT=2, gsta at 18:53:57.858. iPad
+UDP broadcast announcement still fails with EHOSTUNREACH (expected; direct
+announcements succeed). Logs: `Debug/1 November 2026/nfsmw_lan_preview17_auto_test1_*`
+(iPhone server and rotated game log also contain older sessions).
