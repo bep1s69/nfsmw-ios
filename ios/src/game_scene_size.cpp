@@ -1569,7 +1569,11 @@ void CorrectMenuHints(std::vector<Hint>& hints,bool car_select,bool stacked_arro
     for (size_t i=0;i<hints.size();++i) if (fixed[i]) hints[i].button=fixed[i];
   }
   for (auto& h:hints) {
-    if (car_select && h.group==0xFEA90A33) h.button=1<<10; // visible RB Showcase, not Y
+    // Car_Select's Showcase icon (group FEA90A33, texture 79AD657F, no text
+    // label found) is RB. The same group also holds Sell Car (texture
+    // 54A68051, CIRCLE = Y), which this rule made RB too until dev20: Sell
+    // Car's tap and key cap pressed Showcase (Stefan, dev18/19 hint dump).
+    if (car_select && h.group==0xFEA90A33 && h.texture==0x79AD657F) h.button=1<<10;
     if (!car_select || h.texture!=0x1A6D3D2C) continue;
     const Hint* opposite=nullptr;
     for (const auto& other:hints) if (other.texture==h.texture && std::abs(other.x-h.x)<24 &&
@@ -2117,7 +2121,16 @@ extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,in
     // Only icons with a text label next to them (A Accept, Y Game Stats):
     // the hint bar's. Bare icons elsewhere got caps where the game shows no
     // hint (dev15, Stefan).
-    if (n>=max || !h.button || !h.label || !h.shown || (h.button & (Left|Right|Up|Down))) continue;
+    // Shoulder and trigger icons stand alone (Car_Select's RB Showcase has no
+    // text the scan sees): those are kept without a label.
+    const bool shoulder=(h.button & ((1<<9)|(1<<10)|LT|RT))!=0;
+    if (n>=max || !h.button || (!h.label && !shoulder) || !h.shown || (h.button & (Left|Right|Up|Down))) continue;
+    // An A icon under another button's icon at the same place (Car_Select's
+    // impound marker: X over A, both "shown") is not the one on screen.
+    bool covered=false;
+    if (h.button==1) for (const auto& o:pkg.hints) if (&o!=&h && o.shown && o.button && o.button!=1 &&
+        std::abs(o.x-h.x)<6 && std::abs(o.y-h.y)<6) covered=true;
+    if (covered) continue;
     out[5*n]=h.x;out[5*n+1]=h.y;out[5*n+2]=h.icon_w/2;out[5*n+3]=h.icon_h/2;out[5*n+4]=float(h.button);++n;
   }
   return n;

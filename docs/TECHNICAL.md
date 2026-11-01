@@ -15789,3 +15789,26 @@ Free camera as on PC (Extra Options' debug world camera) noted for later.
 Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev19-keyboard.ipa` (Desktop; dev18 to Trash), 30511644 bytes,
 SHA-256 892dd7519d749202ff8e244e117d4470d10eaf9f9fb2b97d6558955c4a5c03fd. Not run on a device.
 
+
+### November 2: hint dumps; Car_Select Sell Car / Showcase fixed (dev20)
+
+Two dev19 logs: 22 screens (`nfsmw_iphone_0.6.0_dev19_hint_dump.log`) and
+the multiplayer menus plus Car_Select (`nfsmw_iphone_0.6.0_dev19_multiplayer_menus.log`),
+both in `~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/`.
+Stefan: touch worked on the multiplayer menus (OL_MAIN: A, B, RT hint and
+Left/Right arrows recognised). Car_Select's hints: Back (B, -278,208),
+Accept (A, -167,207), Sell Car (group FEA90A33, texture 54A68051 = CIRCLE =
+Y, -29,208, labelled), Showcase (group FEA90A33, texture 79AD657F, -280,115,
+no label found), impound marker X (texture 7A8B6BD0, -19,158) over an A
+(-20,159), both "shown". The October 31 touch rule made every FEA90A33 hint
+RB, so Sell Car (cap E, tap) pressed RB = Showcase; its host test had the
+Sell Car hint as "the visible RB Showcase". Now only texture 79AD657F is RB;
+the host test is corrected (Sell Car stays Y, Showcase RB) and passes
+(`python3 tools/ios/test_menu_touch.py`: PASS). Caps: shoulder/trigger icons
+(LB/RB/LT/RT) may have no label (Showcase); an A icon with another button's
+icon at the same place is skipped (the marker shows X). The "shown false" in
+the dumps are first sightings during fades (logged once per package).
+Remaining touch evidence in the second log: My Cars tile taps "no icon" /
+"unknown icon" (D-016), unchanged. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev20-keyboard.ipa`
+(Desktop; dev19 to Trash), 30511597 bytes, SHA-256 18705faef7619b4b1511ee912caf41c3b8d1b95f47fdaa76f9e2a28e30398fa4. Not run on a device.
+

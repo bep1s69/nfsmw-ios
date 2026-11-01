@@ -134,12 +134,15 @@ int main() {
    pause.push_back({uint32_t(pause.size()+1),0,0,0x475A90F5,1,cx,cy,32,32});
  auto pf=FocusFrames(pause);assert(pf.size()==1 && pf[0].rect.Contains(116,12));
  // Rotated car-category arrows must send Up/Down, title arrows remain Left/Right.
+ // Car_Select group FEA90A33: Sell Car (CIRCLE = Y, bottom bar) stays Y; the
+ // Showcase icon (texture 79AD657F) is RB (dev19 hint dump, November 2).
  std::vector<Hint> car={{0x0603C1D1,0x1A6D3D2C,-270,-197,20,20,Left,false},
                        {0xC6EAC384,0x1A6D3D2C,-276,-152,20,20,Right,false},
                        {0x0603C1D1,0x1A6D3D2C,-83,-174,20,20,Left,false},
-                       {0xFEA90A33,Hash("CIRCLE"),-29,208,20,20,8,true}};
+                       {0xFEA90A33,0x54A68051,-29,208,20,20,8,true},
+                       {0xFEA90A33,0x79AD657F,-280,115,20,20,1<<10,false}};
  CorrectMenuHints(car,true);
- assert(car[0].button==Up && car[1].button==Down && car[2].button==Left && car[3].button==(1<<10));
+ assert(car[0].button==Up && car[1].button==Down && car[2].button==Left && car[3].button==8 && car[4].button==(1<<10));
  assert(WidgetDragAt("Car_Select.fng",{},car,-193,-170)==VerticalDrag);
  assert(WidgetDragAt("Car_Select.fng",{},car,0,70)==HorizontalDrag);
  assert(WidgetDragAt("Showcase.fng",{},car,0,70)==CameraDrag);
