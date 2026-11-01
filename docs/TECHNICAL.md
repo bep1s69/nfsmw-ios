@@ -14839,3 +14839,24 @@ exchanged CommUDP with the PC directly, so race traffic evidently goes through
 the host (star), not peer to peer between guests. Per-peer translation on
 guests was therefore not exercised; the guest's car-field byte order agreement
 (pc::Active from PCPEERS) is what mattered and worked.
+
+## November 1 — preview18: refresh the PC's room count (Claude)
+
+Stefan approved the proposed fix for the PC room list missing later joiners.
+`servidor_ea.cpp` `avisarSalaPC`: after `ujoi` and `ulea`, the host resends the
+room record (`+ust`, translated by `HostReply` like every PC reply) to PC
+sessions subscribed to that room, so their player count C follows joins and
+leaves. Sent only to PCs: phones already repair the count client-side and
+Android/iOS receive exactly what they did before. Disconnects without `ulea`
+still don't decrement C (pre-existing behavior, unchanged). Answer to Stefan's
+question: guests racing only through the host is expected game behavior.
+
+Verification: `test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip
+192.168.101.118` passes with a late phone join (PC gets +ust C=3 with the PC
+room build) and leave (C=2), and the phone gets no extra +ust;
+`test_multiplayer.py` reference-server parity passes. Device test pending.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview18-pc-room-count.ipa`,
+30445723 bytes, SHA256
+`74852ad6a236faa0fd6610a32048df92b7a973f0f3c899ce35383af219f2fcd3`, app UUID
+3A245814-130A-3D50-8485-8EB9819ABCE3, 104 metallibs. Preview17 preserved.

@@ -137,10 +137,18 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-pc-host-') as d:
   assert update['MADDR1'].startswith('$00090000') and '^' in update['MADDR1']
   phone.ask('gsta');assert field(pc.read(),'+ses')['SESS']==''
   assert any(c=='gcre' and f=={} for c,f in pc.ask('gcre',NAME='Forbidden'))
+  # A later phone joining/leaving refreshes the PC's room record (count C).
+  pc.ask('sele',USERSET0='Room')
+  late=Client(10901);clients.append(late)
+  late.ask('auth',NAME='Late',MADDR='$00090000c0a801ce^binary');late.ask('pers',PERS='Late')
+  late.ask('ujoi',NAME='Room')
+  room=field(pc.read(),'+ust');assert room['C']=='3' and room['P']=='V%3d192359%0aM%3d2%0a'
+  late.ask('ulea');assert field(pc.read(),'+ust')['C']=='2'
+  assert not any(c=='+ust' for c,_ in phone.read())
   # iOS guests of this lobby ask which members are native PCs.
   q=socket.create_connection((a.ip,10902),timeout=5);q.sendall(b'PCPEERS\n')
   assert q.recv(256)==f'PCPEERS {a.ip}\n'.encode();q.close()
-  print('PASS: actual PC-host server, source-bound native384-byte discovery (including injected broadcast failure when selected), dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start, PC member list for iOS guests; no real PC game tested.')
+  print('PASS: actual PC-host server, source-bound native384-byte discovery (including injected broadcast failure when selected), dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start, PC member list for iOS guests, PC room count refresh on later join/leave; no real PC game tested.')
  finally:
   for client in clients:client.close()
   udp.close()

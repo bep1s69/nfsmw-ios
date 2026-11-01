@@ -2,6 +2,10 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Show later joiners on the PC.** A phone host now refreshes the PC's room
+  player count when someone joins or leaves, so the PC lists everyone. Needs
+  device testing (preview18).
+
 - **Play on LAN with one option.** “Play on this Wi-Fi” replaces Host, Join and
   Host for PCs. Signing in to Xbox Live in the game joins a nearby phone or PC
   lobby, or hosts one if there is none. Join by address remains as a fallback.

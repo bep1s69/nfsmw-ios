@@ -364,8 +364,11 @@ Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
    hosted, PC joined, race finished with results). Cosmetic: PC guest countdown
    shows 7200 s instead of 60; noted, not worth fixing now (Stefan).
 3. PASSED for racing: iPhone host + PC + iPad raced normally. Cosmetic: the
-   PC's room list did not show the iPad (stale room count on the PC; proposed
-   server-side +ust refresh awaiting approval, see TECHNICAL).
+   PC's room list did not show the iPad (stale room count on the PC). Fix
+   approved and built as preview18
+   (`ios/build/NFSMW-multiplayer-preview18-pc-room-count.ipa`, SHA256
+   74852ad6a236faa0fd6610a32048df92b7a973f0f3c899ce35383af219f2fcd3): host
+   resends the room record to PCs on join/leave. Retest test 3 on device.
 4. NOT RUN: no Android device available; Stefan expects no Android regression.
 Collect boot/game/server logs; look for `[lan-auto]` decisions, `PC peers in
 host room` on guests and `[pc-udp]` role/ID lines.

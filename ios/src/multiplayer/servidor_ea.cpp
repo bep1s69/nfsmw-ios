@@ -1066,6 +1066,18 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     }
   }
 
+  // The unmodified PC keeps the room's player count (C) from its own join and
+  // lists members by it; phones repair that count themselves (game_lan_roster).
+  // Resend the room record to subscribed PCs whenever the count changes.
+  void avisarSalaPC(const Sala& sala, const Sesion* excepto) {
+    const std::string nombre = Valor(sala.f, "N", "");
+    for (const auto& o : sesiones_) {
+      if (o.get() == excepto || !o->pc || !o->conjunto(nombre)) continue;
+      log("   +ust C=" + Valor(sala.f, "C", "") + " -> " + o->nombre());
+      o->escribir(Crear("+ust", registroSala(sala)));
+    }
+  }
+
   void olvidar(const SesionP& ses) {
     dejarPartida(ses);
     // Su nombre le sigue apartado un rato, para que nadie lo coja nada mas salir de Xbox Live.
@@ -1401,6 +1413,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     }
     r.push_back(registroUsuario(*ses, "+usr"));
     avisarConjunto(*sala, *ses, ses.get(), false, &r);
+    avisarSalaPC(*sala, ses.get());
   }
 
   void udel(const SesionP& ses, const Campos& f, std::vector<Mensaje>& r) {
@@ -1421,7 +1434,10 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     if (sala && Entero(Buscar(sala->f, "C"), 0) > 1) Poner(sala->f, "C", std::to_string(Entero(Buscar(sala->f, "C"), 0) - 1));
     ses->sala.reset();
     r.push_back(Crear("ulea", {}));
-    if (sala) avisarConjunto(*sala, *ses, ses.get(), true, &r);
+    if (sala) {
+      avisarConjunto(*sala, *ses, ses.get(), true, &r);
+      avisarSalaPC(*sala, ses.get());
+    }
   }
 
   void mesg(const SesionP& ses, const Campos& f, std::vector<Mensaje>& r) {
