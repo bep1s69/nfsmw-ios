@@ -2,49 +2,66 @@
 
 ## Unreleased
 
-- **Scroll the Blacklist with touch.** Swiping on the selected rival's photo
-  and tapping the up/down arrows now move through the rival list instead of
-  the event types. Device validation pending.
+## 0.5.2
 
-- **Improve popup and list taps.** Added stacked alias-confirmation choices,
-  corrected profile-row detection, and kept Rankings selection moving through
-  highlight animations. Slightly increased slow showcase pan response.
-  Device validation pending.
+> **Please read this before playing.** This update changes how you play
+> **again**: menus now react to what you actually touch. Tap the button,
+> row, arrow or icon you want, and swipe on the list or picker you want to
+> move through. Tapping empty space no longer presses Accept, and swiping on
+> empty space no longer moves the selection. You can bring back the 0.5.1
+> behaviour, or mix the two, with the switches listed under "Your options"
+> below.
 
-- **Refine profile and Rap Sheet touch selection.** Improved selection detection
-  and Rankings row targets; reversed showcase panning and strengthened slow
-  drags. Device validation pending.
+### Menus: touch what you want
 
-- **Tap to select menu rows and events.** Profiles keep a separate confirmation;
-  events can be launched with a second tap. Corrected options arrows, separated
-  row/value swipes, expanded event-box and Rap Sheet navigation, and increased
-  showcase camera responsiveness. Device validation pending.
+- **Tap buttons and hints.** The on-screen button hints (Accept, Back, the
+  LT/RT and LB/RB hints, the left/right and up/down arrows) are now buttons:
+  tap one to press it.
+- **Tap rows and events.** Tapping a menu row, option or event selects it.
+  Tap a selected event again to start it. Profiles are only selected by a
+  tap; confirm with Accept so you cannot load the wrong one by accident.
+- **Tap popup choices.** Yes/No and other popup choices, including the alias
+  confirmation, can be tapped directly.
+- **Swipe where it scrolls.** Swipe up or down on a list to move through it,
+  and left or right on a selector or carousel. This covers the main lists,
+  options, the save and profile lists, the Rap Sheet and its Rankings, the
+  car category and car pickers, the track picker, the world map and the
+  Blacklist (swipe on the rival's photo, or tap its up/down arrows).
+  Keep your finger down to keep moving through entries.
+- **Look around cars.** Drag in the car showcase to turn the camera.
+- **Startup.** Tap to skip the startup movies and to get past Press Start.
+- **Two fingers to go back.** A short two-finger tap presses Back, as before.
+- **Full gamepad.** The PAD button still brings the complete on-screen
+  gamepad back for a menu; a button on it returns to gestures.
 
-- **Keep your music playing.** An optional Audio setting lets other apps' music
-  continue alongside the game when launching it.
-- **More menu gesture coverage.** Strict touch navigation now includes startup
-  movie skipping, Press Start, wider save-list gestures, corrected pause and
-  car-category arrows, track-map and car-preview swipes, and a showcase camera
-  gesture trial. Device validation is pending; the safehouse stall is unresolved.
+### Your options
 
-- **More control over menu gestures.** Choose whether taps and swipes work
-  anywhere or only on menu controls, with a separate two-finger Back switch.
-  Added selected-icon and popup-choice tapping, corrected track arrows and
-  LT/RT hints, and added a direct return from the full gamepad to gestures.
-  Device validation of the new targets is pending.
+All of these are in the launcher's Settings; the first three are also in
+the in-game settings and take effect right away:
 
-- **More complete touch navigation in menus.** Held drags repeat through
-  entries, swipe direction can be reversed, and button/arrow hit detection
-  covers more layouts and standalone icons. Device validation pending.
+- **Tap and swipe anywhere** (off by default): on, a tap on empty space
+  presses Accept and a swipe anywhere moves the selection, like 0.5.1. The
+  new taps on buttons, rows and popup choices keep working.
+- **Two-finger tap to go back** (on by default): turn off if you trigger
+  Back by accident. Independent of the switch above.
+- **Invert menu swipes** (off by default): reverses the swipe direction in
+  menus. World-map dragging is not affected.
+- **Swipe and tap in menus** (on by default): off shows the full gamepad in
+  menus instead of gestures, as before 0.5.0.
+
+### Performance and frame rate, live
 
 - **Switch performance profiles while playing.** Eco, Balanced and Max now
-  update game-thread and rendering priorities without relaunching. Explicit
-  scheduling overrides are preserved. Confirmed on iPhone 17 Pro Max.
+  apply immediately from the in-game settings, without relaunching. Any
+  explicit scheduling overrides you set are kept.
+- **Change the frame-rate cap while playing.** Switch between 30, 40, 60 and
+  120 fps in the in-game settings without relaunching. 40 and 120 appear
+  only on 120 Hz displays and are no longer labelled experimental.
 
-- **Change frame-rate caps while playing.** Switch between 30, 40, 60 and
-  120 fps in the in-game settings without relaunching. Confirmed on iPhone
-  17 Pro Max. The 40/120 choices appear only on 120 Hz displays, with the
-  experimental labels removed.
+### Audio
+
+- **Keep your music playing.** A new Audio setting lets music from other
+  apps keep playing alongside the game.
 
 ## 0.5.1
 

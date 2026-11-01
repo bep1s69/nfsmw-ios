@@ -515,7 +515,7 @@ const std::vector<Section>& Sections() {
             @"true"},
            {@"touch_menu_empty_accept", Type::kSwitch, @"Tap and swipe anywhere",
             @"Tap empty space to accept (A) and swipe anywhere to navigate. Turn off to tap "
-            @"visible controls and start swipes only inside recognised scrollable areas.", @"true"},
+            @"visible controls and start swipes only inside recognised scrollable areas.", @"false"},
            {@"touch_menu_two_finger_back", Type::kSwitch, @"Two-finger tap to go back",
             @"Tap with two fingers in menus to press Back (B). Independent of tap and swipe anywhere.", @"true"},
            {@"touch_menu_invert", Type::kSwitch, @"Invert menu swipes",

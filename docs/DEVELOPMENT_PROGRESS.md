@@ -193,6 +193,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November 1: 0.5.2 (build 10) released (Stefan's go).** Stefan validated
+  test12 Blacklist scrolling in safehouse and free roam, and declares the whole
+  0.5.2 menu touch matrix and "keep music playing" device-validated; future
+  issues will be noted separately. New default: `ios_touch_menu_empty_accept`
+  false (strict, widget-targeted gestures); launcher default matches. The
+  setting did not exist in 0.5.1, so every user gets the new default.
+  CHANGELOG 0.5.2 explains the changed way of playing and the switches that
+  restore 0.5.1 behaviour. Release checks: SDK 31/31 project patches (same
+  ios_timing 11/15 diagnostic state as 0.5.1), pool 63/63, extra options all
+  applied, host menu tests pass, `codesign --verify --deep --strict` ok,
+  Info.plist com.bep1s.nfsmwios 0.5.2 (10). `NFS-Most-Wanted-0.5.2.ipa`,
+  30186591 bytes, SHA-256
+  `95acb5e31318fdae2237bad62b015fb0ae95484c494f3624babe2a5a70c74eeb`, also on
+  Desktop. Multiplayer stays out of releases until Stefan says otherwise.
+
 - **November 1: test12 Blacklist rival scrolling ready (Stefan's report).**
   On `InGameReputationOverview` / `SafeHouseReputationOverview` the rival
   up/down arrows are the side ARROW texture rotated 90 degrees; the hint walker

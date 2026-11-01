@@ -12161,3 +12161,18 @@ Artifact `ios/build/NFSMW-0.5.2-test12-blacklist-scroll.ipa`, 30186507 bytes,
 SHA-256 b4f8c89e658cf18c77b42abc2b96b44cfad0541db8d92d822e227bd5842b819d, same
 bytes on Desktop. Not run on device. Limits: the swipe rectangle is fixed
 geometry from one screen; `InGameRivalBio` / `RivalChallenge` not changed.
+
+
+### November 1: 0.5.2 release, strict menu gestures by default
+
+Stefan: test12 works in safehouse and free roam; all 0.5.2 touch work and
+"keep music playing" validated on device; make the new controls the default.
+`ios_touch_menu_empty_accept` default true -> false in `touch_controls.mm` and
+the launcher's `touch_menu_empty_accept` default "true" -> "false". With it off,
+taps act only on recognised hints/rows/icons/popup choices and swipes start
+only in recognised scroll regions (WidgetDragAt / ModelDragAt / ScrollAt);
+on restores tap-empty-to-Accept and swipe-anywhere. Two-finger Back and invert
+unchanged (on / off). Version 0.5.2, code 10. `cmake --preset ios && cmake
+--build --preset ios --target ipa` exit 0; deep strict codesign ok; Info.plist
+0.5.2 / 10; `NFS-Most-Wanted-0.5.2.ipa` 30186591 bytes, SHA-256
+95acb5e31318fdae2237bad62b015fb0ae95484c494f3624babe2a5a70c74eeb.

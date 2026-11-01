@@ -74,7 +74,7 @@ REXCVAR_DEFINE_BOOL(ios_touch_menu_gestures, true, "Input",
                     "Touch controls in menus and pause screens (with ios_touch_auto_layout): no "
                     "overlay; a swipe pushes the left stick that way, a tap presses A, a two-finger "
                     "tap B. The PAD pill brings the full gamepad back until the next layout change");
-REXCVAR_DEFINE_BOOL(ios_touch_menu_empty_accept, true, "Input",
+REXCVAR_DEFINE_BOOL(ios_touch_menu_empty_accept, false, "Input",
                     "Tap empty space to accept and swipe anywhere; off restricts both to recognised menu widgets");
 REXCVAR_DEFINE_BOOL(ios_touch_menu_two_finger_back, true, "Input",
                     "A short two-finger tap in menus presses Back (B), independently of empty-space gestures");
