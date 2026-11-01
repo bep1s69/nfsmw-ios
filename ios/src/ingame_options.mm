@@ -230,8 +230,8 @@ UIWindow* GameWindow() {
       _groups.push_back({kActionsTab, @"Garage",
                          {{kDebugCustomize, @"Debug car customize",
                            @"Opens the developers' car customize screen (every part, paint and vinyl), as "
-                           @"Extra Options' ShowDebugCarCustomize. Use it from the car customize screen "
-                           @"(safehouse or car lot), as the prototype's debug menu says.",
+                           @"Extra Options' ShowDebugCarCustomize. Only from the Customize screen of a "
+                           @"car (safehouse or car lot): anywhere else nothing happens.",
                            false,
                            {{@"Open", @"1"}}}}});
     }

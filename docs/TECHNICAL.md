@@ -15574,3 +15574,22 @@ ends it; jne NOPed), 0x52F202 (a "defeated" byte set from the current bin at
 bin variable). Each is inside PC front-end/career code with no
 cross-platform constant found yet to locate it on the 360; not started.
 
+
+### November 2: dev10 debug car customize crash; guard (dev11)
+
+Stefan (iPhone, dev10): opening Debug car customize crashed the game. Log
+(two sessions: 23:45 dev9 test, then 23:59): `~/Developer/Debug/Most Wanted
+(2005) Debug/1 November 2026/nfsmw_iphone_0.6.0_dev10_debug_customize_crash.log`.
+He was in My Cars (`[touch-scan] MyCarsManager.fng`, GarageMain.fng); at
+23:59:40.834 "debug car customize opened", then at once
+`NtCreateFile FAILED: path='D:\CARS\\TEXTURES.BIN'` (and VINYLS.BIN): an
+empty car name, so the screen had no car; the log ends there. Inference: the
+screen needs the car a Customize screen has loaded (the prototype's note).
+dev11: it opens only while one of CustomizeMain/Customize/CustomizeCategory
+(+_BACKROOM)/CustomizeGenericTop(+_BACKROOM).fng is pushed
+(IsPackagePushed, sub_82284D70); otherwise a warning and nothing. Build exit
+0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev11-customize-guard.ipa`
+(Desktop; dev10 to Trash), 30497806 bytes, SHA-256
+810fc439262ef36b119074e06da86fb59a54d49dac873aa0e295081eca115c4a. Not run on
+a device.
+

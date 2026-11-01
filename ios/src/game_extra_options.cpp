@@ -638,6 +638,35 @@ std::atomic<bool> open_debug_customize{false};
 
 extern "C" REX_FUNC(sub_82284800);
 extern "C" REX_FUNC(sub_82284910);
+extern "C" REX_FUNC(sub_82284D70);  // IsPackagePushed(cFEng, name) (game_state.cpp)
+
+namespace {
+// One of the customize screens is up: the debug screen takes its car from
+// there. Opened from My Cars it loaded "CARS\\TEXTURES.BIN" (no car) and the
+// game crashed (dev10, Stefan, November 1).
+bool InCustomize(PPCContext& ctx, uint8_t* base, uint32_t feng) {
+  static const char* const kScreens[] = {"CustomizeMain.fng", "Customize.fng", "CustomizeCategory.fng",
+                                         "CustomizeCategory_BACKROOM.fng", "CustomizeGenericTop.fng",
+                                         "CustomizeGenericTop_BACKROOM.fng"};
+  const PPCContext saved = ctx;
+  const uint32_t name_at = (saved.r1.u32 - 0x400) & ~15u;
+  bool found = false;
+  for (const char* screen : kScreens) {
+    for (size_t i = 0; i <= std::strlen(screen); ++i) REX_STORE_U8(name_at + uint32_t(i), uint8_t(screen[i]));
+    ctx = saved;
+    ctx.r1.u32 = name_at - 0x200;
+    ctx.r3.u32 = feng;
+    ctx.r4.u32 = name_at;
+    sub_82284D70(ctx, base);
+    if (ctx.r3.u8) {
+      found = true;
+      break;
+    }
+  }
+  ctx = saved;
+  return found;
+}
+}  // namespace
 
 extern "C" void nfsmw_open_debug_car_customize() {
   open_debug_customize.store(true);
@@ -648,6 +677,10 @@ extern "C" void nfsmw_frontend_actions(PPCContext& ctx, uint8_t* base) {
   if (!open_debug_customize.exchange(false)) return;
   const uint32_t feng = REX_LOAD_U32(0x82A2C5C4);
   if (!feng) return;
+  if (!InCustomize(ctx, base, feng)) {
+    REXLOG_WARN("[extra-options] debug car customize: not in a customize screen; not opened");
+    return;
+  }
   const PPCContext saved = ctx;
   ctx.r1.u32 = ((saved.r1.u32 - 0x400) & ~15u) - 0x200;
   ctx.r3.u32 = feng;
