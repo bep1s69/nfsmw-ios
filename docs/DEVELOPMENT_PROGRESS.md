@@ -368,7 +368,8 @@ Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
    approved and built as preview18
    (`ios/build/NFSMW-multiplayer-preview18-pc-room-count.ipa`, SHA256
    74852ad6a236faa0fd6610a32048df92b7a973f0f3c899ce35383af219f2fcd3): host
-   resends the room record to PCs on join/leave. Retest test 3 on device.
+   resends the room record to PCs on join/leave. DEVICE-CONFIRMED: the PC
+   lists all three players. Preview18 is the latest validated IPA.
 4. NOT RUN: no Android device available; Stefan expects no Android regression.
 Collect boot/game/server logs; look for `[lan-auto]` decisions, `PC peers in
 host room` on guests and `[pc-udp]` role/ID lines.

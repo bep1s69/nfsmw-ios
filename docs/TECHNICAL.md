@@ -14860,3 +14860,9 @@ Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-p
 30445723 bytes, SHA256
 `74852ad6a236faa0fd6610a32048df92b7a973f0f3c899ce35383af219f2fcd3`, app UUID
 3A245814-130A-3D50-8485-8EB9819ABCE3, 104 metallibs. Preview17 preserved.
+
+Preview18 device test (Stefan: “worked”): iPhone .106 hosted (20:41:02.953),
+PC joined (20:41:30), iPad joined (iOS roster 2 -> 3 at 20:41:42.817); host
+sent `+ust C=3 -> amog` at 20:41:42.810 and the PC's room list showed all
+three players. PC room-list gap FIXED on device. Logs:
+`nfsmw_lan_preview18_test3_room_count_*` (iPhone host).
