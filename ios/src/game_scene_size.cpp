@@ -1547,8 +1547,20 @@ std::vector<FocusFrame> FocusFrames(const std::vector<MenuNode>& nodes,float max
   }
   return frames;
 }
-void CorrectMenuHints(std::vector<Hint>& hints,bool car_select) {
+void CorrectMenuHints(std::vector<Hint>& hints,bool car_select,bool stacked_arrows=false) {
   using namespace nfsmw::menu_touch;
+  if (stacked_arrows) {
+    // Blacklist rival arrows are rotated side arrows, one above the other.
+    std::vector<int> fixed(hints.size(),0);
+    for (size_t i=0;i<hints.size();++i) for (const auto& other:hints) {
+      const auto& h=hints[i];
+      if ((h.button!=Left && h.button!=Right) || (other.button!=Left && other.button!=Right) ||
+          other.texture!=h.texture || std::abs(other.x-h.x)>=6) continue;
+      const float dy=std::abs(other.y-h.y);
+      if (dy>=15 && dy<=60) fixed[i]=h.y<other.y?Up:Down;
+    }
+    for (size_t i=0;i<hints.size();++i) if (fixed[i]) hints[i].button=fixed[i];
+  }
   for (auto& h:hints) {
     if (car_select && h.group==0xFEA90A33) h.button=1<<10; // visible RB Showcase, not Y
     if (!car_select || h.texture!=0x1A6D3D2C) continue;
@@ -1563,6 +1575,8 @@ void CorrectMenuHints(std::vector<Hint>& hints,bool car_select) {
 int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,float x,float y) {
   using namespace nfsmw::menu_touch;
   if (name.starts_with("RapSheet")) return MenuRect{-280,-155,280,175}.Contains(x,y)?VerticalDrag:NoDrag;
+  // Blacklist: the selected rival's photo and its arrow column scroll rivals.
+  if (name.ends_with("ReputationOverview.fng")) return MenuRect{-285,-150,-25,180}.Contains(x,y)?VerticalDrag:NoDrag;
   if (name=="Showcase.fng") return MenuRect{-280,-170,280,180}.Contains(x,y)?CameraDrag:NoDrag;
   if (name=="Car_Select.fng" || name=="MyCarsManager.fng") {
     for (const auto& up:hints) for (const auto& down:hints) if (up.button==Up && down.button==Down &&
@@ -1992,7 +2006,7 @@ std::vector<MenuPackage> MenuPackages(uint8_t* base,uint32_t engine) {
     MenuPackage pkg{p,GuestName(base,REX_LOAD_U32(p+12)),{},{},{}};
     int budget=2000;
     if (first) FindHints(base,first,0,0,1,1,0,false,0,pkg.hints,budget,&pkg.nodes);
-    CorrectMenuHints(pkg.hints,pkg.name=="Car_Select.fng");
+    CorrectMenuHints(pkg.hints,pkg.name=="Car_Select.fng",pkg.name.ends_with("ReputationOverview.fng"));
     pkg.frames=FocusFrames(pkg.nodes);
     EventArrowHints(pkg.hints,pkg.nodes,BuildMenuModel(pkg.name,pkg.nodes,pkg.hints,pkg.frames));
     packages.push_back(std::move(pkg));

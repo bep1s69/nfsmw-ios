@@ -193,6 +193,21 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
+- **November 1: test12 Blacklist rival scrolling ready (Stefan's report).**
+  On `InGameReputationOverview` / `SafeHouseReputationOverview` the rival
+  up/down arrows are the side ARROW texture rotated 90 degrees; the hint walker
+  reads only the mirror sign, so they sent Left/Right and moved the event-type
+  icons (Race/Milestones/Bounty). Now two same-texture side arrows stacked
+  15-60 apart in one column on these screens become Up (top) / Down (bottom);
+  row arrows and glow copies unchanged. Swipes had no region: the photo and
+  arrow column (-285,-150 to -25,180) is now a VerticalDrag. Geometry from the
+  31 October test8 ui-tree and IPA159 IMG_4069; host test pass. Artifact
+  `ios/build/NFSMW-0.5.2-test12-blacklist-scroll.ipa`, 30186507 bytes, SHA-256
+  `b4f8c89e658cf18c77b42abc2b96b44cfad0541db8d92d822e227bd5842b819d`, copied to
+  Desktop. **Next:** device check of arrows/photo swipe in free roam and
+  safehouse; then the multiplayer-screen touch pass (Stefan: 0.5.2 is all of
+  `main`, incl. live performance profiles and FPS caps). No push.
+
 - **October 31: test11 alias popup/profile/Rankings selection trial ready.**
   Test10/log28 and alias confirmation screenshot archived (TECHNICAL exact
   paths/hashes). Log identifies profile first-row exclusion: content viewport

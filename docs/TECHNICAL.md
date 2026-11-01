@@ -12135,3 +12135,29 @@ Rankings continuation remain device-pending; preserve scope and existing menu
 regressions. No SDK/timing/profile changes, push/tag/release/version bump.
 Session changes committed locally; pre-existing13-line issue11 note unstaged,
 HANDOFF untracked and sibling SDK changes preserved.
+
+
+### November 1: test12 Blacklist rival list arrows and photo swipe
+
+Stefan: on the Blacklist rivals screen swipes do nothing, and the vertical
+arrows move the event-type icons instead of the rival list. Evidence: 31
+October `nfsmw_iphone_17pm_25_052_test8_menu_rows_previous.log` ui-tree of
+`InGameReputationOverview.fng` and IPA159 `ipa159_IMG_4069.png`. The arrow
+column is group 3AFDDFF6 at -264,-98 with sub-groups at y +13 / -13, each
+holding ARROW objects of width +32 / -32; the group's 90-degree rotation is not
+read by `FindHints`, so the mirror sign gave Left/Right. Event-type arrows are
+groups 3DF39A82 (0,148) and FCD5B255 (266,148). Photo is C1F62308 (512x512 at
+-116,-65 before clipping), visible about x -230..-30.
+
+Change (`game_scene_size.cpp`): `CorrectMenuHints(..., stacked_arrows)` for
+packages ending in `ReputationOverview.fng` turns same-texture Left/Right hints
+within 6 x and 15-60 y of each other into Up (upper) / Down (lower); single
+rows and glow copies (dy about 1) are untouched. `WidgetDragAt` returns
+VerticalDrag in {-285,-150,-25,180} on those packages (photo plus arrow column;
+title bar, info panel, event-type row and hints excluded). Host
+`tools/ios/test_menu_touch.py` covers both and passes. `cmake --build --preset
+ios --target ipa -j 6` (from `ios/`) exit 0; `unzip -tq` ok.
+Artifact `ios/build/NFSMW-0.5.2-test12-blacklist-scroll.ipa`, 30186507 bytes,
+SHA-256 b4f8c89e658cf18c77b42abc2b96b44cfad0541db8d92d822e227bd5842b819d, same
+bytes on Desktop. Not run on device. Limits: the swipe rectangle is fixed
+geometry from one screen; `InGameRivalBio` / `RivalChallenge` not changed.

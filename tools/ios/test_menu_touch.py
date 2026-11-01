@@ -152,6 +152,21 @@ int main() {
                            {3,0,-21,-171,20,20,Left,false}};
  assert(WidgetDragAt("Track_Select.fng",{},tracks,100,0)==HorizontalDrag);
  assert(WidgetDragAt("WorldMapMain.fng",{},tracks,100,0)==NoDrag); // distinct map behavior
+ // Blacklist (IPA159 IMG_4069): stacked rotated rival arrows send Up/Down; the
+ // event-type arrows on one row and the glow copy of each arrow stay as they are.
+ std::vector<Hint> rivals={{1,Hash("ARROW"),-264,-111,20,20,Right,false},
+                           {2,Hash("ARROW"),-264,-110,20,20,Right,false},
+                           {3,Hash("ARROW"),-264,-85,20,20,Left,false},
+                           {4,Hash("ARROW"),0,148,20,20,Left,false},
+                           {5,Hash("ARROW"),266,148,20,20,Right,false}};
+ auto unchanged=rivals;CorrectMenuHints(unchanged,false);assert(unchanged[0].button==Right);
+ CorrectMenuHints(rivals,false,true);
+ assert(rivals[0].button==Up && rivals[1].button==Up && rivals[2].button==Down &&
+        rivals[3].button==Left && rivals[4].button==Right);
+ assert(WidgetDragAt("InGameReputationOverview.fng",{},{},-150,0)==VerticalDrag);
+ assert(WidgetDragAt("SafeHouseReputationOverview.fng",{},{},-264,-98)==VerticalDrag);
+ assert(WidgetDragAt("InGameReputationOverview.fng",{},{},130,148)==NoDrag); // event types
+ assert(WidgetDragAt("InGameReputationOverview.fng",{},{},-150,-188)==NoDrag); // title bar
 
  // Options contain repeated Left/Right columns, not rotated category arrows.
  std::vector<Hint> options;

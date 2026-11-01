@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Scroll the Blacklist with touch.** Swiping on the selected rival's photo
+  and tapping the up/down arrows now move through the rival list instead of
+  the event types. Device validation pending.
+
 - **Improve popup and list taps.** Added stacked alias-confirmation choices,
   corrected profile-row detection, and kept Rankings selection moving through
   highlight animations. Slightly increased slow showcase pan response.
