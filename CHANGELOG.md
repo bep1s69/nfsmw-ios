@@ -127,6 +127,9 @@
   and Esc goes back in menus, Space is the handbrake and Esc pauses while
   driving. Menu hints show the key to press while you use the keyboard; a
   controller button or a touch brings the usual icons back.
+- **Keys for the Actions.** While driving, 1 resets the car, 2 toggles auto
+  drive, 3 and 4 lower and raise the heat; change them under Keyboard
+  controls > Actions.
 - **In-game menu with tabs.** Extras, Graphics, Controls and Actions, each
   grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
   Change heat, Auto drive, Reset car (back on its wheels) and Teleport to

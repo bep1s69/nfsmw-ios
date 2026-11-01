@@ -19,6 +19,7 @@ std::filesystem::path Documents();
 // The keyboard's menu key set from settings.json (keyboard_context.cpp).
 std::string MenuKeyBinds();
 std::string DrivingKeyBinds();
+std::string ActionKeyBinds();
 
 // The ISOs in Documents/, alphabetically.
 std::vector<std::filesystem::path> FindIsos(const std::filesystem::path& documents);
@@ -55,6 +56,8 @@ struct MenuGroup {
 };
 std::vector<MenuGroup> Groups(NSArray<NSString*>* keys);
 // The launcher's Keyboard controls list (both sets), for the in-game options.
+// A hardware key's name as the key lists write it ("1", "Return"...).
+NSString* KeyNameForHID(long usage);
 UIViewController* MakeKeyBindsEditor(NSMutableDictionary<NSString*, NSString*>* settings, void (^save)(void));
 NSMutableDictionary<NSString*, NSString*>* ReadSettings(const std::filesystem::path& documents);
 void WriteSettings(const std::filesystem::path& documents, NSDictionary<NSString*, NSString*>* settings);

@@ -15815,3 +15815,18 @@ Remaining touch evidence in the second log: My Cars tile taps "no icon" /
 Stefan (November 2, dev20 on device): the Car_Select caps and keys "work now"
 (Sell Car, Showcase, marker). No log sent with it.
 
+
+### November 2: action keys (dev21)
+
+Stefan: number keys for the Actions, configurable in the launcher and the
+in-game options. launcher.mm `ActionBinds()` (stored as `kb_action_*`):
+Reset car 1, Auto drive 2, Heat -1 3, Heat +1 4; a third "Actions" section in
+the key editor (same editor in both places). `ActionKeyBinds()` gives them to
+keyboard_prompts.mm, which sets GameController's keyChangedHandler (the
+game's keys come through SDL, untouched) and, while driving
+(battery::InMenu() == 0), calls the same requests as the Actions rows
+(`[keyboard] action key: ...` logged). Reloaded when the in-game editor
+saves; re-attached when a keyboard connects. Teleport has no key (it needs a
+place). Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev21-action-keys.ipa` (Desktop; dev20 to Trash), 30524495
+bytes, SHA-256 4e8d5c656444e83676af22dc1cbdb30b218dfa3bf711f5462261b7946284d606. Not run on a device.
+

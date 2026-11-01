@@ -34,9 +34,50 @@
 
 REXCVAR_DECLARE(bool, mnk_mode);
 
+extern "C" void nfsmw_reset_car_request() __attribute__((weak));        // game_extra_options.cpp
+extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));        // same
+extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
+
 namespace {
 
 std::atomic<bool> wanted{false};
+
+// ACTION KEYS (launcher ActionBinds: 1 reset car, 2 auto drive, 3/4 heat
+// -1/+1 by default). GameController's key handler (the game's own keys come
+// through SDL, which this does not touch), only while driving.
+NSDictionary<NSString*, NSString*>* action_keys;  // key name -> action
+
+void LoadActionKeys() {
+  NSMutableDictionary* map = [NSMutableDictionary dictionary];
+  const std::string list = nfsmw::launcher::ActionKeyBinds();
+  for (NSString* item in [[NSString stringWithUTF8String:list.c_str()] componentsSeparatedByString:@";"]) {
+    NSArray* kv = [item componentsSeparatedByString:@"="];
+    if (kv.count != 2) continue;
+    for (NSString* key in [kv[1] componentsSeparatedByString:@","]) {
+      if (key.length) map[key] = kv[0];
+    }
+  }
+  action_keys = map;
+}
+
+void RunAction(NSString* action) {
+  if (nfsmw::battery::InMenu() != 0) return;
+  REXLOG_INFO("[keyboard] action key: {}", action.UTF8String);
+  if ([action isEqualToString:@"action_reset_car"] && nfsmw_reset_car_request) nfsmw_reset_car_request();
+  if ([action isEqualToString:@"action_auto_drive"] && nfsmw_toggle_auto_drive) nfsmw_toggle_auto_drive();
+  if ([action isEqualToString:@"action_heat_down"] && nfsmw_heat_step_request) nfsmw_heat_step_request(-1);
+  if ([action isEqualToString:@"action_heat_up"] && nfsmw_heat_step_request) nfsmw_heat_step_request(1);
+}
+
+void WatchKeyboard() {
+  GCKeyboardInput* input = GCKeyboard.coalescedKeyboard.keyboardInput;
+  if (!input) return;
+  input.keyChangedHandler = ^(GCKeyboardInput*, GCControllerButtonInput*, GCKeyCode code, BOOL pressed) {
+    if (!pressed || !REXCVAR_GET(mnk_mode)) return;
+    NSString* action = action_keys[nfsmw::launcher::KeyNameForHID(long(code))];
+    if (action) RunAction(action);
+  };
+}
 std::mutex hints_mutex;
 std::vector<float> hints;  // 5 floats each
 int hints_serial = 0;
@@ -215,6 +256,12 @@ extern "C" void nfsmw_keyboard_install_prompts() {
   }
   if (!window) return;
   nfsmw::keyboard::SetMenuList(nfsmw::launcher::MenuKeyBinds());
+  LoadActionKeys();
+  WatchKeyboard();
+  [NSNotificationCenter.defaultCenter addObserverForName:GCKeyboardDidConnectNotification
+                                                  object:nil
+                                                   queue:NSOperationQueue.mainQueue
+                                              usingBlock:^(NSNotification*) { WatchKeyboard(); }];
   prompts = [[NFSKeyPrompts alloc] initWithFrame:window.bounds];
   [window addSubview:prompts];
   REXLOG_INFO("[keyboard] key prompts installed");
@@ -222,5 +269,6 @@ extern "C" void nfsmw_keyboard_install_prompts() {
 
 // The in-game options' keyboard editor saved: both sets again, applied now.
 extern "C" void nfsmw_keyboard_reload() {
+  LoadActionKeys();
   nfsmw::keyboard::Reload(nfsmw::launcher::DrivingKeyBinds(), nfsmw::launcher::MenuKeyBinds());
 }

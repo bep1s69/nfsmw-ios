@@ -181,6 +181,19 @@ const std::vector<KeyBind>& KeyBinds() {
   return binds;
 }
 
+// Actions of the in-game options' Actions tab on keys of their own, while
+// driving (keyboard_prompts.mm; Stefan, November 2: number keys). Same
+// storage as the binds ("kb_<setting>"); `pad` is shown as "action".
+const std::vector<KeyBind>& ActionBinds() {
+  static const std::vector<KeyBind> binds = {
+      {@"action_reset_car", @"Reset car", @"action", @"1", @""},
+      {@"action_auto_drive", @"Auto drive", @"action", @"2", @""},
+      {@"action_heat_down", @"Heat -1", @"action", @"3", @""},
+      {@"action_heat_up", @"Heat +1", @"action", @"4", @""},
+  };
+  return binds;
+}
+
 // "kb_<setting>" (driving) or "kbm_<setting>" (menus) in settings.json.
 NSString* KeyBindKey(const KeyBind& b, bool menu) {
   return [(menu ? @"kbm_" : @"kb_") stringByAppendingString:b.setting];
@@ -1412,6 +1425,11 @@ NSString* AchievementSummary(const Achievements& a) {
                                       action:@selector(confirmDefaults)];
 }
 
+// Sections: 0 driving, 1 menus (KeyBinds), 2 actions (ActionBinds).
+- (const KeyBind&)bindAt:(NSIndexPath*)ip {
+  return ip.section == 2 ? ActionBinds()[size_t(ip.row)] : KeyBinds()[size_t(ip.row)];
+}
+
 - (void)setValue:(NSString*)value forBind:(const KeyBind&)b menu:(bool)menu {
   NSString* key = KeyBindKey(b, menu);
   if ([value isEqualToString:menu ? b.menu_standard : b.standard]) {
@@ -1436,6 +1454,9 @@ NSString* AchievementSummary(const Achievements& a) {
                                               [self->_settings removeObjectForKey:KeyBindKey(b, false)];
                                               [self->_settings removeObjectForKey:KeyBindKey(b, true)];
                                             }
+                                            for (const KeyBind& b : ActionBinds()) {
+                                              [self->_settings removeObjectForKey:KeyBindKey(b, false)];
+                                            }
                                             self->_save();
                                             [self.tableView reloadData];
                                           }]];
@@ -1443,26 +1464,27 @@ NSString* AchievementSummary(const Achievements& a) {
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
-  return 2;
+  return 3;
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
-  return NSInteger(KeyBinds().size());
+  return NSInteger(section == 2 ? ActionBinds().size() : KeyBinds().size());
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
-  return section == 0 ? @"Driving" : @"Menus and pause screens";
+  return section == 0 ? @"Driving" : section == 1 ? @"Menus and pause screens" : @"Actions";
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
   if (section == 0) return @"Used while you drive (free roam and races).";
+  if (section == 2) return @"While driving: the in-game options' Actions on a key each (Heat ±1 in a pursuit).";
   return @"Used whenever a menu is up: the game switches between the two sets by itself. Each action "
          @"presses a controller input (shown in grey), so the game behaves as with a gamepad. Shift, "
          @"Ctrl and Alt work on their own.";
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
-  const KeyBind& b = KeyBinds()[size_t(ip.row)];
+  const KeyBind& b = [self bindAt:ip];
   const bool menu = ip.section == 1;
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1
                                                  reuseIdentifier:nil];
@@ -1481,7 +1503,7 @@ NSString* AchievementSummary(const Achievements& a) {
 
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)ip {
   [tableView deselectRowAtIndexPath:ip animated:YES];
-  const KeyBind b = KeyBinds()[size_t(ip.row)];
+  const KeyBind b = [self bindAt:ip];
   const bool menu = ip.section == 1;
   NSString* current = KeyBindValue(_settings, b, menu);
   NSString* standard = menu ? b.menu_standard : b.standard;
@@ -2080,6 +2102,18 @@ std::string MenuKeyBinds() {
   }
   return list;
 }
+
+// The action keys, "action_reset_car=1;..." (keyboard_prompts.mm).
+std::string ActionKeyBinds() {
+  NSDictionary<NSString*, NSString*>* s = LoadSettings(Documents());
+  std::string list;
+  for (const KeyBind& kb : ActionBinds()) {
+    list += std::string(list.empty() ? "" : ";") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String;
+  }
+  return list;
+}
+
+NSString* KeyNameForHID(long usage) { return KeyName(UIKeyboardHIDUsage(usage)); }
 
 // The driving set, the same way (the in-game keyboard editor applies both).
 std::string DrivingKeyBinds() {
