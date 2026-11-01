@@ -360,8 +360,9 @@ Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
 1. PASSED on device: iPad hosted, iPhone joined automatically, race flawless
    (host decision 4.4 s, guest 1.6 s). Simultaneous sign-in also PASSED: the
    one that started its search first hosted and the other joined it.
-2. iPhone + PC 1.3: PC hosts (iPhone joins it automatically), then PC closes
-   its room and the iPhone hosts (PC joins from its LAN list); race both ways.
+2. PASSED on device both ways (iPhone joined the PC lobby automatically; iPhone
+   hosted, PC joined, race finished with results). Cosmetic: PC guest countdown
+   shows 7200 s instead of 60; noted, not worth fixing now (Stefan).
 3. Two iPhones + PC with an iPhone hosting: all three in one room and race.
 4. iPhone + Android without a PC: short race (regression).
 Collect boot/game/server logs; look for `[lan-auto]` decisions, `PC peers in

@@ -14792,3 +14792,24 @@ new iPhone lobby on both 30960 and 9900 at 18:59:30.256, classified it as mobile
 (not PC) and joined at 18:59:30.688; one lobby, COUNT=2, gsta 18:59:49.822.
 The overlapping TCP sweep resolved this case before the post-host re-check was
 needed. Logs: `nfsmw_lan_preview17_auto_test1b_simultaneous_*`.
+
+Preview17 device test 2, iPhone .106 + original PC 1.3 .163 (“amog”), both via
+the automatic option; Stefan: “both worked”.
+- PC hosts: iPhone sign-in 20:25:20.040, UDP none, TCP sweep verified the PC
+  directory (9900 only, so classified PC) at 20:25:21.999, joined PC lobby at
+  20:25:24.536; existing adapted gateway path through the relay (directory
+  routed, persona/history/room alias, gjoi COUNT=2). Role learned as connector:
+  INIT sent first, then “PC connection ID learned”. Car fields converted, both
+  car factories succeed 20:25:51.404/.406, race traffic until ~20:26:04.
+- iPhone hosts: next sign-in 20:26:31.749 found nothing and hosted at
+  20:26:36.258 (unified lobby). PC connected on 9900 at 20:26:57, ujoi/gjoi
+  COUNT=2, listener ID captured before INIT, car fields converted, factories
+  succeed 20:27:18.210/.211, gsta 20:27:15.306. Race finished: `rank` at
+  20:28:05.413 (bep1s 2nd of 2), room returned (C=2) before the host left.
+  This also covers the previously untested phone-host→PC finish/results path.
+- Cosmetic, not fixed (Stefan: note only): with the PC as guest the PC's
+  pre-race countdown shows 7200 s instead of 60. The host's EGT `mesg`
+  carries TIME as an absolute value (e.g. TIME=1793564879); the PC likely
+  interprets this field differently. No functional impact observed.
+Logs: `nfsmw_lan_preview17_auto_test2_pc_both_directions_*` (iPhone only; no
+PC-side logs).
