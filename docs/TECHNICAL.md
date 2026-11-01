@@ -15812,3 +15812,6 @@ Remaining touch evidence in the second log: My Cars tile taps "no icon" /
 "unknown icon" (D-016), unchanged. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev20-keyboard.ipa`
 (Desktop; dev19 to Trash), 30511597 bytes, SHA-256 18705faef7619b4b1511ee912caf41c3b8d1b95f47fdaa76f9e2a28e30398fa4. Not run on a device.
 
+Stefan (November 2, dev20 on device): the Car_Select caps and keys "work now"
+(Sell Car, Showcase, marker). No log sent with it.
+
