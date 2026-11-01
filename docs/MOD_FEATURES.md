@@ -46,6 +46,7 @@ TECHNICAL.
 | Auto drive (dev7, untested; Actions tab) | ExOpts AutoDrive hotkey | toggle byte 0x82A2BD93 (prototype Toggle AI Control) |
 | Teleport to 69 places, reset car (dev8; iPhone confirmed Nov 1, dev9) | ExOpts EnableSaveLoadHotPos hotkeys; prototype Teleport by Landmark, Flip Car | the USA hot-position jump's calls (sub_824D8C90), from sub_820FFCC8 |
 | No rev limiter (dev9, untested) | ExOpts NoRevLimiter | EngineRacer/EngineDragster vtable slot 13: sub_824227D0, sub_82425BD0 |
+| Debug car customize (dev10, untested; Actions > Garage) | ExOpts ShowDebugCarCustomize | opens UI_DebugCarCustomize.fng with cFEng Pop + SwitchPackage, as the prototype's debug menu |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |

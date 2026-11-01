@@ -15547,3 +15547,30 @@ Fishing Village (23:49:25) and Shops > City Car (23:49:37). Each action ran
 sheet opens only in pause screens). No warnings from these paths. So the
 host-to-guest calls from the sub_820FFCC8 wrapper (PlaceCar) work on device.
 
+
+### November 1: Debug car customize (dev10); replay Blacklist races not done
+
+Prototype "Overlays > Customization > UI_DebugCarCustomize" callback
+(0x822A36F0) = name in r3, then 0x822A34B8: PopPackage(cFEng, 1)
+(0x8229D6E8) and SwitchPackage(cFEng, name, 0, 0, 0) (0x8229D7F8), cFEng from
+0x82A814A8. USA: sub_82284800 (match 1.0), sub_82284910 (0.95; 0.93 for
+sub_82284698, the pop-up push: 55 callers with dialog/keyboard names, while
+sub_82284910's 159 pass screens such as MainMenu.fng), cFEng 0x82A2C5C4 (as
+game_state.cpp), name "UI_DebugCarCustomize.fng" at 0x8207B09C. Run on the
+game thread from `nfsmw_frontend_actions()`, now called after
+GameFlowManager::Service in game_state.cpp's wrapper; asked for from Actions >
+Garage (the sheet closes so the screen is not under it). Build exit 0,
+`unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev10-debug-customize.ipa` (Desktop;
+dev9 to Trash), 30497510 bytes, SHA-256
+110a5c398bbf0d40ac78579c0f5963498a4333b60a57993d1eb4e2565b3588ee. Not run on
+a device; the screen may need the customize screen's car context (the
+prototype's note), so opening it elsewhere may show nothing or crash.
+
+Replay Blacklist races (ExOpts ReplayBlacklistRaces) needs five PC patch sites
+mapped: 0x5FD1B9 (rival-available test: a second database query, "beaten",
+ends it; jne NOPed), 0x52F202 (a "defeated" byte set from the current bin at
+0x91CA3C vs the career's bin), 0x603269 (boss race stats loop), 0x6243C8/EF
+(current bin written for the Blacklist screen), 0x60075C (a pointer to the
+bin variable). Each is inside PC front-end/career code with no
+cross-platform constant found yet to locate it on the 360; not started.
+

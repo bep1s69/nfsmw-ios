@@ -622,6 +622,48 @@ extern "C" REX_FUNC(sub_82425BD0) {
   __imp__sub_82425BD0(ctx, base);
 }
 
+// DEBUG CAR CUSTOMIZE (Extra Options: Menu > ShowDebugCarCustomize)
+//
+// The retail game still has the screen "UI_DebugCarCustomize.fng" (string
+// 0x8207B09C). The prototype's debug menu opens screens with
+// cFEng::PopPackage(cFEng, 1) then cFEng::SwitchPackage(cFEng, name, 0, 0, 0)
+// (0x8229D6E8, 0x8229D7F8 there; USA sub_82284800 (same code) and
+// sub_82284910 (0.95; its 159 callers pass names like "MainMenu.fng"), the
+// cFEng pointer at 0x82A2C5C4). The prototype's own note for it: "MUST be in
+// Customized Car Screen". Done on the game thread after GameFlowManager::
+// Service (game_state.cpp), asked for from the in-game Actions.
+namespace {
+std::atomic<bool> open_debug_customize{false};
+}  // namespace
+
+extern "C" REX_FUNC(sub_82284800);
+extern "C" REX_FUNC(sub_82284910);
+
+extern "C" void nfsmw_open_debug_car_customize() {
+  open_debug_customize.store(true);
+  REXLOG_INFO("[extra-options] debug car customize asked for");
+}
+
+extern "C" void nfsmw_frontend_actions(PPCContext& ctx, uint8_t* base) {
+  if (!open_debug_customize.exchange(false)) return;
+  const uint32_t feng = REX_LOAD_U32(0x82A2C5C4);
+  if (!feng) return;
+  const PPCContext saved = ctx;
+  ctx.r1.u32 = ((saved.r1.u32 - 0x400) & ~15u) - 0x200;
+  ctx.r3.u32 = feng;
+  ctx.r4.u32 = 1;
+  sub_82284800(ctx, base);
+  ctx.r1.u32 = ((saved.r1.u32 - 0x400) & ~15u) - 0x200;
+  ctx.r3.u32 = feng;
+  ctx.r4.u32 = 0x8207B09C;  // "UI_DebugCarCustomize.fng"
+  ctx.r5.u32 = 0;
+  ctx.r6.u32 = 0;
+  ctx.r7.u32 = 0;
+  sub_82284910(ctx, base);
+  ctx = saved;
+  REXLOG_INFO("[extra-options] debug car customize opened");
+}
+
 // TELEPORT AND RESET CAR (Extra Options' EnableSaveLoadHotPos hotkeys; the
 // prototype's Teleport > by Landmark list and Flip Car)
 //

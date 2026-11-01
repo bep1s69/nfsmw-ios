@@ -44,6 +44,8 @@
 #include "touch_controls.h"
 
 extern "C" void __imp__sub_823B4158(PPCContext& __restrict ctx, uint8_t* base);
+// Extra Options' front-end actions (game_extra_options.cpp, USA only).
+extern "C" void nfsmw_frontend_actions(PPCContext& ctx, uint8_t* base) __attribute__((weak));
 extern "C" void sub_82284D70(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" void sub_82284CA8(PPCContext& __restrict ctx, uint8_t* base);  // FindPackage(cFEng, name)
 
@@ -161,6 +163,7 @@ bool fade_up = false;
 
 extern "C" REX_FUNC(sub_823B4158) {
   __imp__sub_823B4158(ctx, base);
+  if (nfsmw_frontend_actions) nfsmw_frontend_actions(ctx, base);
   static uint32_t last_state = ~0u;
   static int last_menu = -2;
   const uint32_t state = REX_LOAD_U32(kGameFlowState);

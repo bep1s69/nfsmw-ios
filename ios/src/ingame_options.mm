@@ -54,6 +54,7 @@ extern "C" void nfsmw_extra_options_tunables() __attribute__((weak));  // game_e
 extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
 extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));               // same
 extern "C" void nfsmw_reset_car_request() __attribute__((weak));               // same
+extern "C" void nfsmw_open_debug_car_customize() __attribute__((weak));        // same
 extern "C" void nfsmw_teleport_request(int32_t landmark) __attribute__((weak));  // same
 extern "C" int32_t nfsmw_landmark_count() __attribute__((weak));               // same
 extern "C" const char* nfsmw_landmark(int32_t i, const char** area) __attribute__((weak));
@@ -65,10 +66,12 @@ NSString* const kHeatStep = @"heat_step";  // the Change heat row (not a setting
 NSString* const kAutoDrive = @"auto_drive";  // the Auto drive row (not a setting)
 NSString* const kResetCar = @"reset_car";    // Reset car (not a setting)
 NSString* const kTeleport = @"teleport";     // Teleport, a menu of places (not a setting)
+NSString* const kDebugCustomize = @"debug_customize";  // Debug car customize (not a setting)
 // Rows of the Actions tab: buttons (title, value) instead of a setting.
 bool ActionRow(NSString* key) {
   return [key isEqualToString:kHeatStep] || [key isEqualToString:kAutoDrive] ||
-         [key isEqualToString:kResetCar] || [key isEqualToString:kTeleport];
+         [key isEqualToString:kResetCar] || [key isEqualToString:kTeleport] ||
+         [key isEqualToString:kDebugCustomize];
 }
 NSString* const kActionsTab = @"Actions";   // rows that do something now
 NSInteger last_tab = 0;                     // the sheet's tab last time, while the game runs
@@ -222,6 +225,15 @@ UIWindow* GameWindow() {
                            @"hotkey (the prototype's Toggle AI Control).",
                            false,
                            {{@"Toggle", @"1"}}}}});
+    }
+    if (nfsmw_open_debug_car_customize) {
+      _groups.push_back({kActionsTab, @"Garage",
+                         {{kDebugCustomize, @"Debug car customize",
+                           @"Opens the developers' car customize screen (every part, paint and vinyl), as "
+                           @"Extra Options' ShowDebugCarCustomize. Use it from the car customize screen "
+                           @"(safehouse or car lot), as the prototype's debug menu says.",
+                           false,
+                           {{@"Open", @"1"}}}}});
     }
     NSMutableArray<NSString*>* tabs = [NSMutableArray array];
     for (const auto& g : _groups) {
@@ -403,6 +415,11 @@ UIWindow* GameWindow() {
   }
   if ([key isEqualToString:kResetCar]) {
     nfsmw_reset_car_request();
+    return;
+  }
+  if ([key isEqualToString:kDebugCustomize]) {
+    nfsmw_open_debug_car_customize();
+    [self close];  // the screen opens under the sheet otherwise
     return;
   }
   if ([key isEqualToString:kTeleport]) {
