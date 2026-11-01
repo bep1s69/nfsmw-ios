@@ -57,6 +57,8 @@ namespace {
 
 std::atomic<bool> sheet_open{false};
 NSString* const kHeatStep = @"heat_step";  // the Change heat row (not a setting)
+NSString* const kActionsTab = @"Actions";   // rows that do something now
+NSInteger last_tab = 0;                     // the sheet's tab last time, while the game runs
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
 
 NSArray<NSString*>* Keys() {
@@ -145,6 +147,7 @@ UIWindow* GameWindow() {
 // ---------------------------------------------------------------------------
 @interface NFSInGameOptions : UITableViewController <UIAdaptivePresentationControllerDelegate>
 - (void)controllerUp:(BOOL)up down:(BOOL)down left:(BOOL)left right:(BOOL)right a:(BOOL)a;
+- (void)controllerTab:(NSInteger)step;
 - (void)close;
 @end
 
@@ -152,7 +155,11 @@ UIWindow* GameWindow() {
   std::filesystem::path _docs;
   NSMutableDictionary<NSString*, NSString*>* _settings;
   NSDictionary<NSString*, NSString*>* _launched;  // as the game started
-  std::vector<nfsmw::launcher::MenuRow> _rows;
+  std::vector<nfsmw::launcher::MenuGroup> _groups;  // every tab's
+  NSArray<NSString*>* _tabs;                         // their tab titles, in order
+  NSInteger _tab;                                    // the tab shown
+  std::vector<size_t> _visible;                      // _groups on that tab
+  UISegmentedControl* _tabControl;
   NSInteger _focus;  // the controller's row, -1 until it is used
 }
 
@@ -164,18 +171,26 @@ UIWindow* GameWindow() {
     if (!launched) launched = [_settings copy];  // the first opening: nothing changed yet
     _launched = launched;
     const bool native = [nfsmw::launcher::SettingValue(_settings, @"native_renderer") isEqualToString:@"true"];
-    for (auto& r : nfsmw::launcher::Rows(Keys())) {
-      if (native || !NativeOnlyKey(r.key)) _rows.push_back(r);
+    for (auto& g : nfsmw::launcher::Groups(Keys())) {
+      std::erase_if(g.rows, [&](const auto& r) { return !native && NativeOnlyKey(r.key); });
+      if (!g.rows.empty()) _groups.push_back(std::move(g));
     }
-    // An action, not a setting (nothing saved): the heat of the pursuit you
-    // are in, one level up or down.
+    // Actions: not settings (nothing saved), things done to the game now.
     if (nfsmw_heat_step_request) {
-      _rows.push_back({kHeatStep, @"Change heat",
-                       @"One heat level down (−) or up (+) in the pursuit you are in. The event's own "
-                       @"limits still apply unless Heat level override is on.",
-                       false,
-                       {}});
+      _groups.push_back({kActionsTab, @"Pursuit",
+                         {{kHeatStep, @"Change heat",
+                           @"One heat level down (−) or up (+) in the pursuit you are in. The event's own "
+                           @"limits still apply unless Heat level override is on.",
+                           false,
+                           {}}}});
     }
+    NSMutableArray<NSString*>* tabs = [NSMutableArray array];
+    for (const auto& g : _groups) {
+      if (![tabs containsObject:g.tab]) [tabs addObject:g.tab];
+    }
+    _tabs = tabs;
+    _focus = -1;
+    [self showTab:std::min<NSInteger>(last_tab, NSInteger(_tabs.count) - 1)];
     _focus = -1;
     self.title = @"Options";
   }
@@ -200,7 +215,59 @@ UIWindow* GameWindow() {
                                     target:self
                                     action:@selector(customizeTouch)]
   ];
+  _tabControl = [[UISegmentedControl alloc] initWithItems:_tabs];
+  _tabControl.selectedSegmentIndex = _tab;
+  [_tabControl addAction:[UIAction actionWithHandler:^(UIAction*) {
+                  [self showTab:self->_tabControl.selectedSegmentIndex];
+                }]
+        forControlEvents:UIControlEventValueChanged];
+  UIView* header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, 52)];
+  _tabControl.translatesAutoresizingMaskIntoConstraints = NO;
+  [header addSubview:_tabControl];
+  [NSLayoutConstraint activateConstraints:@[
+    [_tabControl.centerXAnchor constraintEqualToAnchor:header.centerXAnchor],
+    [_tabControl.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+    [_tabControl.leadingAnchor constraintGreaterThanOrEqualToAnchor:header.leadingAnchor constant:16]
+  ]];
+  self.tableView.tableHeaderView = header;
   [self updateHudButton];
+}
+
+// Tabs as the launcher's (Extras, Graphics, Controls) plus Actions; groups
+// as its sections. Controller: L1/R1 change the tab.
+- (void)showTab:(NSInteger)tab {
+  if (_tabs.count == 0) return;
+  _tab = (tab + NSInteger(_tabs.count)) % NSInteger(_tabs.count);
+  last_tab = _tab;
+  _visible.clear();
+  for (size_t i = 0; i < _groups.size(); ++i) {
+    if ([_groups[i].tab isEqualToString:_tabs[size_t(_tab)]]) _visible.push_back(i);
+  }
+  _tabControl.selectedSegmentIndex = _tab;
+  _focus = _focus < 0 ? -1 : 0;
+  [self.tableView reloadData];
+  [self showFocus];
+}
+
+- (const nfsmw::launcher::MenuRow&)rowAt:(NSIndexPath*)ip {
+  return _groups[_visible[size_t(ip.section)]].rows[size_t(ip.row)];
+}
+
+// The controller's row (counted over the tab's groups) as an index path.
+- (NSIndexPath*)focusPath {
+  NSInteger n = _focus;
+  for (size_t s = 0; s < _visible.size(); ++s) {
+    const NSInteger rows = NSInteger(_groups[_visible[s]].rows.size());
+    if (n < rows) return [NSIndexPath indexPathForRow:n inSection:NSInteger(s)];
+    n -= rows;
+  }
+  return nil;
+}
+
+- (NSInteger)rowCount {
+  NSInteger n = 0;
+  for (size_t i : _visible) n += NSInteger(_groups[i].rows.size());
+  return n;
 }
 
 - (void)updateHudButton {
@@ -305,24 +372,34 @@ UIWindow* GameWindow() {
   return nfsmw::launcher::SetByBatteryMode(_settings, r.key) || nfsmw::launcher::HudLocked(_settings, r.key);
 }
 
+- (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
+  return NSInteger(_visible.size());
+}
+
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
-  return NSInteger(_rows.size());
+  return NSInteger(_groups[_visible[size_t(section)]].rows.size());
+}
+
+- (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
+  return _groups[_visible[size_t(section)]].title;
 }
 
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
+  if (section + 1 < NSInteger(_visible.size())) return nil;  // under the last group only
   NSString* text = @"Changes apply at once and are saved for the next launch too.";
   if ([self anythingWaits]) {
     text = [text stringByAppendingString:@" Those marked \"next launch\" (and some that Battery mode sets) "
                                          @"take effect the next time the game starts."];
   }
   if (GCController.current) {
-    text = [text stringByAppendingString:@"\nController: D-pad to choose and change, B or L3+R3 to close."];
+    text = [text stringByAppendingString:@"\nController: D-pad to choose and change, L1/R1 for the tabs, B or "
+                                         @"L3+R3 to close."];
   }
   return text;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
-  const nfsmw::launcher::MenuRow& r = _rows[size_t(ip.row)];
+  const nfsmw::launcher::MenuRow& r = [self rowAt:ip];
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
   UIListContentConfiguration* c = UIListContentConfiguration.subtitleCellConfiguration;
   c.secondaryTextProperties.color = UIColor.secondaryLabelColor;
@@ -397,22 +474,26 @@ UIWindow* GameWindow() {
 }
 
 - (void)showFocus {
-  if (_focus < 0 || _focus >= NSInteger(_rows.size())) return;
-  NSIndexPath* ip = [NSIndexPath indexPathForRow:_focus inSection:0];
+  NSIndexPath* ip = _focus < 0 ? nil : [self focusPath];
+  if (!ip) return;
   [self.tableView selectRowAtIndexPath:ip animated:NO scrollPosition:UITableViewScrollPositionNone];
   [self.tableView scrollToRowAtIndexPath:ip atScrollPosition:UITableViewScrollPositionNone animated:YES];
 }
 
 // One step of the controller (each press once).
+- (void)controllerTab:(NSInteger)step {
+  [self showTab:_tab + step];
+}
+
 - (void)controllerUp:(BOOL)up down:(BOOL)down left:(BOOL)left right:(BOOL)right a:(BOOL)a {
-  const NSInteger n = NSInteger(_rows.size());
+  const NSInteger n = [self rowCount];
   if (n == 0) return;
   if (_focus < 0) {
     _focus = 0;
   } else if (up || down) {
     _focus = (_focus + (down ? 1 : n - 1)) % n;
   } else if (left || right || a) {
-    const nfsmw::launcher::MenuRow& r = _rows[size_t(_focus)];
+    const nfsmw::launcher::MenuRow& r = [self rowAt:[self focusPath]];
     if ([self locked:r]) return;
     if ([r.key isEqualToString:kHeatStep]) {
       if (left || right) [self set:r.key to:left ? @"-1" : @"1"];
@@ -455,7 +536,7 @@ UIWindow* GameWindow() {
   UIButton* _gear;
   __weak NFSInGameOptions* _sheet;
   NSTimer* _timer;
-  BOOL _combo, _up, _down, _left, _right, _a, _b;  // last state, for presses
+  BOOL _combo, _up, _down, _left, _right, _a, _b, _l1, _r1;  // last state, for presses
 }
 
 - (instancetype)initInWindow:(UIWindow*)window {
@@ -524,12 +605,15 @@ UIWindow* GameWindow() {
   const BOOL up = pad.dpad.up.pressed, down = pad.dpad.down.pressed;
   const BOOL left = pad.dpad.left.pressed, right = pad.dpad.right.pressed;
   const BOOL a = pad.buttonA.pressed, b = pad.buttonB.pressed;
+  const BOOL l1 = pad.leftShoulder.pressed, r1 = pad.rightShoulder.pressed;
   if ((b && !_b) || pressed_combo) {
     [sheet close];
+  } else if ((l1 && !_l1) || (r1 && !_r1)) {
+    [sheet controllerTab:l1 && !_l1 ? -1 : 1];
   } else if ((up && !_up) || (down && !_down) || (left && !_left) || (right && !_right) || (a && !_a)) {
     [sheet controllerUp:up && !_up down:down && !_down left:left && !_left right:right && !_right a:a && !_a];
   }
-  _up = up, _down = down, _left = left, _right = right, _a = a, _b = b;
+  _up = up, _down = down, _left = left, _right = right, _a = a, _b = b, _l1 = l1, _r1 = r1;
 }
 
 @end

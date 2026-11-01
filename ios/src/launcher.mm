@@ -2030,6 +2030,22 @@ std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {
   return rows;
 }
 
+std::vector<MenuGroup> Groups(NSArray<NSString*>* keys) {
+  NSSet* wanted = [NSSet setWithArray:keys];
+  std::vector<MenuGroup> groups;
+  for (const Section& section : Sections()) {
+    MenuGroup g{TabTitles()[section.tab], section.title, {}};
+    for (const Option& o : section.options) {
+      if (![wanted containsObject:o.key] || (o.type != Type::kSwitch && o.type != Type::kChoice)) continue;
+      MenuRow r{o.key, o.title, o.summary, o.type == Type::kSwitch, {}};
+      for (const Choice& c : o.choices) r.choices.emplace_back(c.title, c.value);
+      g.rows.push_back(std::move(r));
+    }
+    if (!g.rows.empty()) groups.push_back(std::move(g));
+  }
+  return groups;
+}
+
 NSMutableDictionary<NSString*, NSString*>* ReadSettings(const fs::path& documents) { return LoadSettings(documents); }
 
 void WriteSettings(const fs::path& documents, NSDictionary<NSString*, NSString*>* settings) {

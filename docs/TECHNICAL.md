@@ -15427,3 +15427,17 @@ incremental), `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev6-heat-buttons.ipa`
 e9bc2beb0c5a4340f4f2f63976348e22b1d3d64292f1f252274a258fd76ef52d. Not run on
 a device.
 
+
+### November 1: in-game options redesign: tabs and groups (Stefan)
+
+Stefan: implement every possible Extra Option, PC hotkey ones through the
+in-game menu, which needs tabs and groups; he tests all at once when ready.
+Step 1: `launcher::Groups(keys)` returns the launcher's sections (tab title,
+section title, rows) for the sheet's keys in the launcher's order; the sheet
+shows a segmented control (Extras, Graphics, Controls, Actions) as the table
+header and the groups as table sections; Actions holds sheet-only rows that
+do something now (Change heat, under Pursuit). Controller: L1/R1 change tabs
+(the opener tracks the shoulders), D-pad as before within the tab. The tab is
+remembered while the game runs. Built (`-j 12`, exit 0); not run on a
+device; no IPA delivered for this step.
+

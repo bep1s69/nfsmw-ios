@@ -42,6 +42,14 @@ struct MenuRow {
 };
 // The rows for these keys, in this order (unknown keys left out).
 std::vector<MenuRow> Rows(NSArray<NSString*>* keys);
+// The same rows grouped as the launcher shows them: its tab, its section
+// title, in the launcher's order (keys not in the list left out).
+struct MenuGroup {
+  NSString* tab;
+  NSString* title;
+  std::vector<MenuRow> rows;
+};
+std::vector<MenuGroup> Groups(NSArray<NSString*>* keys);
 NSMutableDictionary<NSString*, NSString*>* ReadSettings(const std::filesystem::path& documents);
 void WriteSettings(const std::filesystem::path& documents, NSDictionary<NSString*, NSString*>* settings);
 // A setting's value as the game gets it (Battery mode's when it sets it).
