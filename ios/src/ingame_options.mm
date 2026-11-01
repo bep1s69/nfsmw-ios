@@ -226,7 +226,9 @@ UIWindow* GameWindow() {
                            false,
                            {{@"Toggle", @"1"}}}}});
     }
-    if (nfsmw_open_debug_car_customize) {
+    // Debug car customize: off (dev11 still crashed from a Customize screen:
+    // the debug screen takes its car from elsewhere; TECHNICAL, November 2).
+    if ((false)) {
       _groups.push_back({kActionsTab, @"Garage",
                          {{kDebugCustomize, @"Debug car customize",
                            @"Opens the developers' car customize screen (every part, paint and vinyl), as "

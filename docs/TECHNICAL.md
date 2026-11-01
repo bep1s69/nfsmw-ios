@@ -15630,3 +15630,21 @@ f7c8296dffb605fa9997a84579d4dda03ce138c3ff488bbeb5db8222534e5e71. Not run on a
 device. Unknowns: cap placement on screens with a scaled HUD, hints the scan
 does not find (no cap), the scan's cost every 6th frame in menus.
 
+
+### November 2: debug car customize still crashes from a Customize screen; row removed
+
+Stefan (iPhone, dev11, from a My Cars car's Customize screen). Log (three
+sessions; the last at 00:11): `~/Developer/Debug/Most Wanted (2005) Debug/2
+November 2026/nfsmw_iphone_0.6.0_dev11_debug_customize_crash2.log`. The guard
+passed (a Customize package was pushed: "opened" at 00:12:02.857), then the
+same `D:\CARS\\TEXTURES.BIN` / VINYLS.BIN opens with an empty car name and
+the log ends. So the debug screen does not take the Customize screen's car.
+Inference: it uses the debug vehicle selection's car (PC
+`DebugVehicleSelection_mThis` 0x9B08F8; the prototype's "DebugCarSelection:
+New Car [%s]"), which nothing sets in the retail flow; ExOpts' version also
+rewires the My Cars menu code (0x544F80..). The in-game row is disabled (the
+code stays) until that is found. dev13 = dev12 (keyboard) with the row off:
+`ios/build/NFSMW-0.6.0-dev13.ipa` (Desktop; dev12 to Trash), 30521074 bytes,
+SHA-256 699cb19eecffb507e3fa56e8616abf87c77796239782b226b07d216a9c5447b5; build
+exit 0, `unzip -tq` ok; not run on a device.
+
