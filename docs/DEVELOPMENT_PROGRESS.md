@@ -342,6 +342,33 @@ CLAUDE.md entrypoints ensured in this worktree, pointing to this record. They
 remain untracked/ignored per project rule; no other session edits left pending.
 Main's pre-existing checkpoint edit/HANDOFF remain deliberately preserved.
 
+**November 1 (Claude) — preview17 automatic LAN, mixed PC/mobile rooms; device test next:**
+Stefan approved: one automatic LAN option (in-game Xbox Live sign-in joins a
+nearby phone/PC lobby or hosts one), PCs and phones in the same hosted room (up
+to three PCs), and per-peer PC race translation on every iOS device. PC↔Android
+race relay was cut (Android port cannot be changed). Details, limits and test
+commands: newest TECHNICAL section “preview17”. All local tests pass; nothing is
+device-tested yet.
+
+LATEST IPA:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview17-auto-lan.ipa`
+30445025 bytes, SHA256
+`2f3f106b2d78a020ba064fdadd77b491918e4efa80bf122b4ce35073064a58a5`, app UUID
+9AFDA099-5E6E-329B-B516-4ADFAC0A3CC2. Preview16 stays the fallback.
+
+Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
+1. Two iPhones: first to sign in hosts, second joins; race. Then sign both in
+   at the same moment and check they end up in one lobby.
+2. iPhone + PC 1.3: PC hosts (iPhone joins it automatically), then PC closes
+   its room and the iPhone hosts (PC joins from its LAN list); race both ways.
+3. Two iPhones + PC with an iPhone hosting: all three in one room and race.
+4. iPhone + Android without a PC: short race (regression).
+Collect boot/game/server logs; look for `[lan-auto]` decisions, `PC peers in
+host room` on guests and `[pc-udp]` role/ID lines.
+
+The original preview16 validation checklist below still applies to Host for PCs
+history but is superseded for new testing by the list above.
+
 **November 1 current handoff — preview16 PC guest name FIXED on device, Claude next:**
 Stefan authorized fixing host missing connected-player rows. Preview16 adds
 LAN-only USA room-count synchronization from the actual native slot0 member

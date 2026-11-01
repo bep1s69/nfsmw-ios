@@ -42,14 +42,21 @@ struct Encontrado {
   std::string ip;
   std::string nombre;
   int jugadores = 0;
+  // Original PC LAN host: answers only the native TCP9900 directory.
+  bool pc = false;
 };
 
 // Los que contestan a "NFSMW_DISCOVER" (UDP), por orden de llegada; nullopt si este telefono no esta
 // en ninguna red local. Bloquea el plazo entero, 1,5 s o algo mas.
 // iOS also probes the standard EA TCP directory when UDP discovery yields none.
 // Bounded to the nearby /24; trace receives diagnostics on this background thread.
+// stopAtUdp: skip the TCP sweep when UDP already found a mobile host.
 std::optional<std::vector<Encontrado>> BuscarServidores(
-    std::function<void(const std::string&)> trace = {});
+    std::function<void(const std::string&)> trace = {}, bool stopAtUdp = false);
+
+// Native PC peers in a mobile host's room ("PCPEERS" on the gamertag port), as
+// IPv4 in host order. Empty for hosts without PCs or without this question.
+std::vector<uint32_t> PcPeers(const std::string& ip);
 
 // Cuanto vale una interfaz como red local, por su nombre: la Wi-Fi 3, el punto de acceso 4, otra de
 // cable 1, otras 0; -1 = no es la LAN (datos moviles, VPN, AirDrop).

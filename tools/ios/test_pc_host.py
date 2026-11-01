@@ -62,7 +62,8 @@ int main(int argc,char**argv) {
  assert(Field(wire,"MADDR0")=="$cd01a8c0" && Field(wire,"SESS").empty());
  assert(Field(game,"SESS")=="$binary");
  StartHosting(); assert(Hosting() && !Active());
- assert(SetHostingPeer(0xc0a801ca) && !SetHostingPeer(0xc0a801cb));
+ // Up to three PC guests share one lobby with phones.
+ assert(SetHostingPeer(0xc0a801ca) && SetHostingPeer(0xc0a801cb) && SetHostingPeer(0xc0a801cc) && !SetHostingPeer(0xc0a801cd));
  ObserveRaceId(0xc0a801ca,0);assert(HasRaceId(0xc0a801ca));
  Stop();assert(!Hosting() && !Active() && !HasRaceId(0xc0a801ca));
  StartHosting();std::string error;
@@ -136,7 +137,10 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-pc-host-') as d:
   assert update['MADDR1'].startswith('$00090000') and '^' in update['MADDR1']
   phone.ask('gsta');assert field(pc.read(),'+ses')['SESS']==''
   assert any(c=='gcre' and f=={} for c,f in pc.ask('gcre',NAME='Forbidden'))
-  print('PASS: actual PC-host server, source-bound native384-byte discovery (including injected broadcast failure when selected), dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start; no real PC game tested.')
+  # iOS guests of this lobby ask which members are native PCs.
+  q=socket.create_connection((a.ip,10902),timeout=5);q.sendall(b'PCPEERS\n')
+  assert q.recv(256)==f'PCPEERS {a.ip}\n'.encode();q.close()
+  print('PASS: actual PC-host server, source-bound native384-byte discovery (including injected broadcast failure when selected), dual directory ports, PC room build/address, guest synthetic Xbox identity, per-recipient game/session updates and start, PC member list for iOS guests; no real PC game tested.')
  finally:
   for client in clients:client.close()
   udp.close()

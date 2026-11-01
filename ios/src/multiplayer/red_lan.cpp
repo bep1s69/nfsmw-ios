@@ -185,13 +185,14 @@ std::string GamertagEfectivo(const std::string& gamertag) {
   return g.empty() ? "User" : g;
 }
 
-Comprobacion ComprobarGamertag(const std::string& ip, const std::string& gamertag) {
+// One line to the app port and its one-line answer; "" if there is none.
+static std::string Preguntar(const std::string& ip, const std::string& linea) {
   sockaddr_in a{};
   a.sin_family = AF_INET;
   a.sin_port = htons(PUERTO_APP);
-  if (inet_pton(AF_INET, ip.c_str(), &a.sin_addr) != 1) return Comprobacion::kSinRespuesta;
+  if (inet_pton(AF_INET, ip.c_str(), &a.sin_addr) != 1) return "";
   const int s = socket(AF_INET, SOCK_STREAM, 0);
-  if (s < 0) return Comprobacion::kSinRespuesta;
+  if (s < 0) return "";
   SinSigpipe(s);
   // Conectar con plazo: sin bloquear, y se espera a que se pueda escribir.
   const int banderas = fcntl(s, F_GETFL, 0);
@@ -204,25 +205,41 @@ Comprobacion ComprobarGamertag(const std::string& ip, const std::string& gamerta
     conectado = poll(&p, 1, PLAZO_GAMERTAG_MS) == 1 && getsockopt(s, SOL_SOCKET, SO_ERROR, &error, &largo) == 0 &&
                 error == 0;
   }
-  Comprobacion r = Comprobacion::kSinRespuesta;
+  std::string respuesta;
   if (conectado) {
     fcntl(s, F_SETFL, banderas);
     timeval plazo{PLAZO_GAMERTAG_MS / 1000, 0};
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &plazo, sizeof(plazo));
     setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &plazo, sizeof(plazo));
-    const std::string linea = "GAMERTAG " + GamertagEfectivo(gamertag) + "\n";
     if (send(s, linea.data(), linea.size(), 0) == ssize_t(linea.size())) {
-      std::string respuesta;
       char c;
-      while (respuesta.size() < 64 && recv(s, &c, 1, 0) == 1 && c != '\n') respuesta += c;
-      respuesta = Recortar(respuesta);
-      // Un servidor sin esta comprobacion (version vieja) cierra o no contesta: no se sabe.
-      if (respuesta == "FREE") r = Comprobacion::kLibre;
-      if (respuesta == "IN_USE") r = Comprobacion::kEnUso;
+      while (respuesta.size() < 256 && recv(s, &c, 1, 0) == 1 && c != '\n') respuesta += c;
     }
   }
   close(s);
-  return r;
+  return Recortar(respuesta);
+}
+
+Comprobacion ComprobarGamertag(const std::string& ip, const std::string& gamertag) {
+  const std::string respuesta = Preguntar(ip, "GAMERTAG " + GamertagEfectivo(gamertag) + "\n");
+  // Un servidor sin esta comprobacion (version vieja) cierra o no contesta: no se sabe.
+  if (respuesta == "FREE") return Comprobacion::kLibre;
+  if (respuesta == "IN_USE") return Comprobacion::kEnUso;
+  return Comprobacion::kSinRespuesta;
+}
+
+std::vector<uint32_t> PcPeers(const std::string& ip) {
+  // Android and older hosts answer ERROR: no PCs to translate for.
+  std::vector<uint32_t> peers;
+  const std::string respuesta = Preguntar(ip, "PCPEERS\n");
+  if (respuesta.rfind("PCPEERS", 0) != 0) return peers;
+  std::istringstream lista(respuesta.substr(7));
+  std::string una;
+  while (lista >> una && peers.size() < 4) {
+    in_addr a{};
+    if (inet_pton(AF_INET, una.c_str(), &a) == 1) peers.push_back(ntohl(a.s_addr));
+  }
+  return peers;
 }
 
 static std::optional<std::vector<Encontrado>> BuscarPorUdp(
@@ -411,9 +428,12 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
         if (line.rfind("PORT=", 0) == 0) port = std::atoi(line.substr(5).c_str());
       }
       if (((p.port == 30960 && port == 10901) || (p.port == 9900 && port == 9900)) && IpValida(address)) {
+        // iOS hosts also answer9900 for PC guests; only a host without the
+        // mobile directory is the original PC game.
+        const bool pc = port == 9900;
         auto existing = std::find_if(hosts.begin(), hosts.end(), [&](const auto& h) { return h.ip == Texto(p.ip); });
-        if (existing == hosts.end()) hosts.push_back({Texto(p.ip), port == 9900 ? "PC LAN host" : "LAN host", -1});
-        else if (port == 9900) existing->nombre = "PC LAN host";
+        if (existing == hosts.end()) hosts.push_back({Texto(p.ip), pc ? "PC LAN host" : "LAN host", -1, pc});
+        else if (!pc) { existing->nombre = "LAN host"; existing->pc = false; }
         if (trace) trace("[lan-discovery] TCP directory verified " + Texto(p.ip));
       }
       closeProbe(p);
@@ -428,9 +448,9 @@ static std::vector<Encontrado> BuscarPorTcp(const std::vector<uint32_t>& targets
 }
 
 std::optional<std::vector<Encontrado>> BuscarServidores(
-    std::function<void(const std::string&)> trace) {
+    std::function<void(const std::string&)> trace, bool stopAtUdp) {
   auto found = BuscarPorUdp(trace);
-  if (!found) return found;
+  if (!found || (stopAtUdp && !found->empty())) return found;
   if (trace) trace("[lan-discovery] checking mobile and PC TCP directories");
   std::vector<uint32_t> own, broadcast, targets;
   Destinos(own, broadcast, targets);

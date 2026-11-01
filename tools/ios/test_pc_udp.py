@@ -33,8 +33,10 @@ test=r'''
 bool red_lan=true,pc=true;
 namespace nfsmw::pc{
 uint32_t remoteId=0,localId=0;
-bool host=false,remoteKnown=false,localKnown=false;
-bool Hosting(){return host;}
+bool host=false,remoteKnown=false,localKnown=false,learnRole=false;
+bool Hosting(uint32_t){return host;}
+// Mirrors pc_gateway: a peer without a fixed role takes it from the first INIT.
+void NoteInit(uint32_t,bool received){if(learnRole){host=received;learnRole=false;}}
 bool HasRaceId(uint32_t){return remoteKnown;}
 bool HasLocalRaceId(uint32_t){return localKnown;}
 bool IsRacePeer(uint32_t ip){return ::pc && ip==0xc0a801ca;}
@@ -126,6 +128,15 @@ int main(){
  assert(sent[0]==5 && sent[4]==0 && sent[5]==0 && sent[6]==0 && sent[7]==0);
  assert(Load32(base,0x2004)==0x12345678 && nfsmw::pc::localId==0x12345678);
  c=context();sub_8282A5A0(c,base);assert(Load32(base,0x2004)==0x12345678);
+ // Guest of a mobile lobby: a PC guest that sends INIT first makes this
+ // device its listener; one that waits for our INIT makes us the connector.
+ nfsmw::pc::host=false;nfsmw::pc::learnRole=true;nfsmw::pc::remoteKnown=false;nfsmw::pc::localKnown=false;
+ packet[0]=1;packet[4]=0x64;packet[5]=0xe3;packet[6]=0x49;packet[7]=0x47;Store32(base,0x3094,3);
+ c=context();c.lr=0x8289c4d8;c.r31.u64=0x3000;c.r3.u64=0xf8000128;result=8;sub_8282A5A0(c,base);
+ assert(nfsmw::pc::host && nfsmw::pc::localKnown && nfsmw::pc::remoteId==0x4749e364);
+ nfsmw::pc::host=true;nfsmw::pc::learnRole=true;nfsmw::pc::remoteKnown=false;
+ memcpy(mem+0x2000,original,12);c=context();result=12;sub_8282A4F0(c,base);
+ assert(!nfsmw::pc::host && sent[0]==1);
  nfsmw::pc::host=false;packet[0]=5;packet[4]=0xc5;packet[5]=0xb9;packet[6]=0x64;packet[7]=0xc6;
  logs.clear();memcpy(mem+0x2000,original,12);mem[0x2027]=0xa5;
  for(int i=0;i<40;++i){c=context();c.r5.u64=40;result=40;sub_8282A4F0(c,base);}
@@ -139,4 +150,4 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-pc-udp-') as d:
  (p/'nfsmw_pch.h').write_text(prefix);(p/'test.cpp').write_text(test)
  subprocess.run(['clang++','-std=c++23','-O1','-fsanitize=address,undefined','-I'+str(p),'-I'+str(root/'ios/src/multiplayer'),str(p/'test.cpp'),str(root/'ios/src/multiplayer/game_pc_udp.cpp'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
- print('PASS: actual UDP hooks translate captured PC header words, preserve payload/caller buffer/return/stack; LAN-off/mobile/voice/other-port/short/error paths unchanged. No real PC handshake/race tested.')
+ print('PASS: actual UDP hooks translate captured PC header words, learn listener/connector role per PC peer from the first INIT, preserve payload/caller buffer/return/stack; LAN-off/mobile/voice/other-port/short/error paths unchanged. No real PC handshake/race tested.')

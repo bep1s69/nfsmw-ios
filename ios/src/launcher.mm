@@ -917,13 +917,16 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
   NSString* lanMode = Value(s, @"lan_mode");
-  const bool lan = [lanMode isEqualToString:@"join"] || [lanMode isEqualToString:@"host"] || [lanMode isEqualToString:@"host_pc"];
+  const bool lan = [lanMode isEqualToString:@"auto"] || [lanMode isEqualToString:@"join"] ||
+                   [lanMode isEqualToString:@"host"] || [lanMode isEqualToString:@"host_pc"];
   a.push_back(std::string("--red_lan=") + b(lan));
   a.push_back(std::string("--red_live=") + b(lan));
   a.push_back(std::string("--grant_user_privileges=") + b(lan));
   if (lan) {
     NSString* endpoint = s[@"lan_resolved_ip"] ?: @"";
-    const bool pc = [s[@"lan_pc"] isEqualToString:@"true"] && [lanMode isEqualToString:@"join"];
+    // Automatic LAN and PC hosts go through the in-app relay on 127.0.0.1.
+    const bool pc = ([s[@"lan_pc"] isEqualToString:@"true"] && [lanMode isEqualToString:@"join"]) ||
+                    [lanMode isEqualToString:@"auto"];
     a.push_back("--red_dns=" + (pc ? std::string("127.0.0.1") : std::string(endpoint.UTF8String)));
     const std::string own = std::string((s[@"lan_own_ip"] ?: @"").UTF8String);
     if (!own.empty()) a.push_back("--red_ip=" + own);

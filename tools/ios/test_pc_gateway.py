@@ -64,6 +64,19 @@ int main(){
  sendall(s,Frame("user","PERS=Guest"));auto stats=receive(s);auto values=Field(stats.substr(12),"STAT");assert(std::count(values.begin(),values.end(),',')==43 && Field(stats.substr(12),"PERS")=="Guest");
  sendall(s,Frame("~png","TIME=1"));auto news=receive(s);assert(news.substr(0,8)=="newsbadc" && news.size()==12);close(s);
  backend.join();Stop();Stop();assert(!IsRacePeer(0x7f000001) && RaceId(0x7f000001)==0 && LocalRaceId(0x7f000001)==0);close(listener);
+ // Several PC peers, each with its own IDs and CommUDP role.
+ assert(!SetHostingPeer(0xc0a80102));StartHosting();
+ for(uint32_t ip:{0xc0a80102u,0xc0a80103u,0xc0a80104u})assert(SetHostingPeer(ip));
+ assert(!SetHostingPeer(0xc0a80105) && SetHostingPeer(0xc0a80103) && Peers().size()==3 && Active());
+ assert(Hosting(0xc0a80102) && Hosting(0xc0a80104));
+ ObserveRaceId(0xc0a80102,11);ObserveRaceId(0xc0a80103,22);SetLocalRaceId(0xc0a80103,33);
+ assert(RaceId(0xc0a80102)==11 && RaceId(0xc0a80103)==22 && LocalRaceId(0xc0a80103)==33 && !HasLocalRaceId(0xc0a80102));
+ SetGuestPeers({0xc0a80103,0xc0a80109});
+ assert(!Hosting() && Peers().size()==2 && RaceId(0xc0a80103)==22 && !IsRacePeer(0xc0a80102));
+ assert(!Hosting(0xc0a80109));NoteInit(0xc0a80109,true);NoteInit(0xc0a80109,false);assert(Hosting(0xc0a80109));
+ NoteInit(0xc0a80103,false);assert(Hosting(0xc0a80103)); // a kept peer keeps its learned role
+ SetGuestPeers({});assert(!Active() && !IsRacePeer(0xc0a80103));
+ std::cout<<"PASS: per-peer PC state: three hosted PCs with separate IDs, cap, guest list keeps surviving IDs, first INIT fixes the role\n";
  std::cout<<"PASS: actual PC gateway directory/persona/physical-source address/44-value local history, Binary7 preservation, fragmented frames, badc pass-through, captured PC room build alias with unchanged peer address, and clean shutdown\n";
 }
 '''

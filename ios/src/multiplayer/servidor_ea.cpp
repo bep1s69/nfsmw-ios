@@ -566,7 +566,10 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     log("============================================================");
     for (int puerto : {PUERTO_DIRECTORIO, PUERTO_SALAS, PUERTO_GAMERTAG, 9900}) {
       if (puerto == 9900 && pcIp_.empty()) continue;
-      const int s = abrir(SOCK_STREAM, puerto, error);
+      // Automatic LAN keeps 127.0.0.1:30960 for this game's relay
+      // (pc_gateway StartAuto), so the directory listens on the LAN address.
+      const int s = abrir(SOCK_STREAM, puerto, error,
+                          puerto == PUERTO_DIRECTORIO ? pcIp_ : std::string());
       if (s < 0) {
         parar();
         return false;
@@ -647,7 +650,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
 
   // En IPv4: con el comodin de IPv6 las IP de los clientes saldrian como ::ffff:a.b.c.d y no casarian
   // con las del juego.
-  int abrir(int tipo, int puerto, std::string* error) {
+  int abrir(int tipo, int puerto, std::string* error, const std::string& ip = {}) {
     const int s = socket(AF_INET, tipo, 0);
     if (s < 0) {
       *error = std::string("socket: ") + std::strerror(errno);
@@ -659,6 +662,11 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     a.sin_family = AF_INET;
     a.sin_port = htons(uint16_t(puerto));
     a.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (!ip.empty() && inet_pton(AF_INET, ip.c_str(), &a.sin_addr) != 1) {
+      *error = std::to_string(puerto) + ": invalid address " + ip;
+      close(s);
+      return -1;
+    }
     if (bind(s, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || (tipo == SOCK_STREAM && listen(s, 16) != 0)) {
       *error = std::to_string(puerto) + ": " + std::strerror(errno);
       close(s);
@@ -720,10 +728,6 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     getsockname(fd, reinterpret_cast<sockaddr*>(&propio), &largo);
     ses->ip = Ip(otro);
     ses->ipLocal = Ip(propio);
-    // PC-only mode exposes mobile control ports only to this phone's game.
-    if (!pcIp_.empty() && !ses->pc && ses->ip != pcIp_ && ses->ip != "127.0.0.1") {
-      log("[pc-host] rejected mobile guest " + ses->ip); close(fd); return;
-    }
     ses->id = ++cuentaSesiones_;
     const std::string p = "[" + std::to_string(puerto) + "]";
     const std::string par = ses->ip + ":" + std::to_string(ntohs(otro.sin_port));
@@ -756,7 +760,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
         if (ses->pc && (orden == "auth" || orden == "pers")) {
           in_addr address{}; inet_pton(AF_INET, ses->ip.c_str(), &address);
           if (!nfsmw::pc::SetHostingPeer(ntohl(address.s_addr))) {
-            log("[pc-host] only one PC peer per experimental hosting session");
+            log("[pc-host] PC guest limit reached; rejected " + ses->ip);
             shutdown(fd, SHUT_RDWR); break;
           }
           const std::string body(buffer.begin()+12, buffer.begin()+std::ptrdiff_t(largoMensaje));
@@ -873,7 +877,16 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
       const std::string orden = espacio == std::string::npos ? linea : linea.substr(0, espacio);
       const std::string gamertag = espacio == std::string::npos ? "" : Recortar(linea.substr(espacio + 1));
       std::string respuesta;
-      if (orden != "GAMERTAG" || gamertag.empty()) {
+      if (orden == "PCPEERS") {
+        // iOS guests translate race datagrams only for these native PCs.
+        respuesta = "PCPEERS";
+        for (uint32_t peer : nfsmw::pc::Peers()) {
+          in_addr a{};
+          a.s_addr = htonl(peer);
+          char text[INET_ADDRSTRLEN];
+          if (inet_ntop(AF_INET, &a, text, sizeof(text))) respuesta += std::string(" ") + text;
+        }
+      } else if (orden != "GAMERTAG" || gamertag.empty()) {
         respuesta = "ERROR";
       } else {
         std::optional<std::string> otroIp;
@@ -910,7 +923,6 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
         break;
       }
       if (size_t(n) < pregunta.size() || std::memcmp(buf, pregunta.data(), pregunta.size()) != 0) continue;
-      if (!pcIp_.empty()) continue; // PC-only hosting is advertised by native UDP9999.
       const std::string nombre = nombre_();
       const int j = jugadores();
       const std::string r = "NFSMW_SERVER\nNAME=" + nombre + "\nPLAYERS=" + std::to_string(j) + "\n";

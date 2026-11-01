@@ -2,6 +2,15 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Play on LAN with one option.** “Play on this Wi-Fi” replaces Host, Join and
+  Host for PCs. Signing in to Xbox Live in the game joins a nearby phone or PC
+  lobby, or hosts one if there is none. Join by address remains as a fallback.
+
+- **Mix PCs and phones in one room.** A phone-hosted lobby now accepts iPhones,
+  Android phones and up to three original PC games at once. Every iPhone in the
+  room translates race data for each PC separately. Android and PC players
+  cannot race together. Needs device testing (preview17).
+
 - **Refresh the host's player count.** Keep the LAN room's displayed count in
   sync with its parsed member list before refreshing the frontend. The iOS
   host now shows the PC guest's name, confirmed on device in preview16.

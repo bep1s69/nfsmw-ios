@@ -65,7 +65,8 @@ extern "C" REX_FUNC(sub_8282A4F0) {
   std::memmove(base + copy, base + source, size);
   const uint32_t ip = REX_LOAD_U32(ctx.r7.u32 + 4);
   const uint32_t command = REX_LOAD_U32(copy);
-  if (command >= 1 && command <= (nfsmw::pc::Hosting() ? 5u : 3u)) {
+  if (command == 1) nfsmw::pc::NoteInit(ip, false);
+  if (command >= 1 && command <= (nfsmw::pc::Hosting(ip) ? 5u : 3u)) {
     const uint32_t localId = REX_LOAD_U32(copy + 4);
     nfsmw::pc::SetLocalRaceId(ip, localId);
     if (nfsmw::pc::HasRaceId(ip))
@@ -91,9 +92,13 @@ extern "C" REX_FUNC(sub_8282A5A0) {
     const uint32_t ip = REX_LOAD_U32(peer + 4);
     const uint32_t command = REX_LOAD_U32(buffer);
     const uint32_t id = REX_LOAD_U32(buffer + 4);
+    // A PC that sends INIT first makes this device its listener, whether this
+    // device hosts the lobby or is another guest in it.
+    if (command == 1) nfsmw::pc::NoteInit(ip, true);
+    const bool listener = nfsmw::pc::Hosting(ip);
     // Original PC850A13–3F emits opcode5 with its listener's connection ID.
     // Xbox's connecting CommUDP uses its own ID to match replies at8289CB3C.
-    if (command == (nfsmw::pc::Hosting() ? 1u : 5u)) {
+    if (command == (listener ? 1u : 5u)) {
       const bool changed = !nfsmw::pc::HasRaceId(ip) || nfsmw::pc::RaceId(ip) != id;
       nfsmw::pc::ObserveRaceId(ip, id);
       if (changed) nfsmw::boot::Trace("[pc-udp] PC connection ID learned");
@@ -102,7 +107,7 @@ extern "C" REX_FUNC(sub_8282A5A0) {
     // is the current reference: +128 socket, +148 state3/listening, +152 ID.
     // The first INIT must already carry that ID to pass8289C590/C61C. Waiting
     // for an outgoing reply to learn it is circular: rejected INITs get none.
-    if (nfsmw::pc::Hosting() && command == 1 && caller == 0x8289C4D8 &&
+    if (listener && command == 1 && caller == 0x8289C4D8 &&
         reference && !(reference & 3) && REX_LOAD_U32(reference + 128) == socket &&
         REX_LOAD_U32(reference + 148) == 3) {
       const uint32_t localId = REX_LOAD_U32(reference + 152);

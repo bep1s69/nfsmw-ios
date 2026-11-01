@@ -14695,3 +14695,80 @@ readAGENTS thenDEVELOPMENT_PROGRESS/BACKLOG/latestTECHNICAL. Mainpre-existing
 modifiedcheckpoint/untrackedHANDOFF preserved. Nocode/build/test changes;
 stopnow pending user's nextsession. Allsessiontrackedchanges locallycommitted,
 no push/merge/release. Nexttests andlimits remain atcurrentcheckpoint.
+
+
+## November 1 — preview17: automatic LAN and mixed PC/mobile rooms (Claude)
+
+Stefan asked for a simpler flow: the lobby should start automatically when the
+game wants to host and join automatically otherwise, PC compatibility should not
+need a separate option, and PCs should be able to play with iOS/Android players.
+He approved (A) automatic hosting/joining, (B1) PCs and phones in one hosted
+room and (B2) per-peer PC race translation on iOS. He cut (B3) relaying
+PC↔Android race traffic, because the Android build cannot be changed here.
+
+Design and why:
+- The game's lobby address is a launch-time flag (`--red_dns`), so in the new
+  `auto` mode it is always 127.0.0.1 and an in-app relay listens on
+  127.0.0.1:30960 (`pc::StartAuto`). The host-or-join choice is made when the
+  game first connects there, i.e. at in-game Xbox Live sign-in, which comes
+  before Create Game / Quick Match. That is the earliest point the game says it
+  wants multiplayer; it cannot be deferred to Create Game.
+- Decision (`lan_session.cpp`, `Auto::Decide`): UDP discovery, then the TCP
+  directory sweep only if UDP found nothing (`BuscarServidores(..., true)`).
+  A mobile lobby wins over a PC host; ties go to the lowest address. Mobile
+  lobby: the relay pipes the directory bytes unchanged and the game reaches the
+  host's lobby port directly, exactly as with the old Join. PC host: the
+  existing adapted gateway path runs for this connection. Nothing found: start
+  the lobby with PC support on the LAN address, wait 0.3–1 s, look again, and
+  if a lower address is now hosting with nobody in this lobby, stop and join
+  it. Follow-up connections within 20 s reuse the decision (a PC host's lobby
+  reconnects through the relay). A host with players keeps hosting on re-sign-in.
+- Discovery marks a host as a PC only if it answers TCP9900 but not the mobile
+  directory, because iOS hosts now also answer 9900. Manual Join by address
+  checks the mobile directory before the PC probe for the same reason.
+- Unified lobby (B1): `ArrancarPC` no longer rejects mobile guests, answers the
+  mobile UDP search, and accepts up to three PC guests (`SetHostingPeer`). The
+  directory port binds to the LAN address so 127.0.0.1:30960 stays free for the
+  relay. Per-recipient translation (`HostReply`) was already per session.
+- iOS guests learn which room members are PCs with a new `PCPEERS` question on
+  the existing gamertag port 10902, polled once a second while joined.
+  Android and older hosts answer ERROR, which means no PCs.
+- Per-peer race state (B2): `pc_gateway.cpp` keeps up to three PC peers, each
+  with its own remote/local CommUDP IDs and role. A hosted PC guest is a
+  listener peer (unchanged), a manually joined PC host is a connector peer
+  (unchanged), and peers from `PCPEERS` learn the role from the first INIT
+  (received ⇒ listener, sent ⇒ connector), since between two guests either side
+  may connect first. `game_pc_udp.cpp` uses `Hosting(ip)`/`NoteInit` instead of
+  the global hosting flag.
+- Known limits: car setup fields switch to PC byte order on every iOS device
+  that knows about a PC (`pc::Active()`), so all iOS devices in that room agree.
+  Android cannot, so Android and PC players cannot race in the same room (the
+  launcher says so). Up to ~8 s of discovery happens while the game waits for
+  its directory reply; the game's timeout for that is not measured. Two devices
+  signing in in the same second rely on the UDP re-check; if UDP replies are
+  blocked on that network both may end up hosting (sign out and in again).
+- UI: Multiplayer now offers “Play on this Wi-Fi” (automatic) and “Join by
+  address”. Host, Join search and Host for PCs are no longer shown; their code
+  paths (`host`, `host_pc`, `join`) remain for manual join and older settings.
+
+Verification (all from /private/tmp/nfsmw-ios-multiplayer):
+- `python3 tools/ios/test_lan_setup.py`: existing preflight plus automatic
+  decisions (mobile preferred over PC, reuse within one sign-in, PC join, host
+  when alone, higher address yields to a simultaneous lower host).
+- `python3 tools/ios/test_pc_udp.py` (ASan/UBSan): existing captures plus role
+  learned from first received/sent INIT.
+- `python3 tools/ios/test_pc_gateway.py` (ASan/UBSan): three hosted PCs with
+  separate IDs and cap, guest list keeps surviving IDs, first INIT fixes role.
+- `python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --ip 192.168.101.118` with and without `--simulate-broadcast-failure`: pass,
+  now with the three-PC cap and the PCPEERS answer.
+- `test_multiplayer.py` (reference server parity, TCP discovery),
+  `test_multiplayer_receive.py`, `test_multiplayer_transport.py`: pass.
+- Not tested: any real device, relay timing against the game's directory
+  timeout, mixed PC+iOS race, two PCs in one room.
+
+Artifact: `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview17-auto-lan.ipa`,
+30445025 bytes, SHA256
+`2f3f106b2d78a020ba064fdadd77b491918e4efa80bf122b4ce35073064a58a5`, app UUID
+9AFDA099-5E6E-329B-B516-4ADFAC0A3CC2, 104 metallibs. Preview16 and earlier
+IPAs preserved. Local commit only; no push/merge/release.

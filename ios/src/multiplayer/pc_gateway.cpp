@@ -18,29 +18,104 @@
 #include <vector>
 namespace nfsmw::pc {
 namespace {
-std::atomic<uint32_t> racePeer{0}, raceId{0}, localRaceId{0};
-std::atomic<bool> hosting{false}, remoteKnown{false}, localKnown{false};
+enum Role { kUnknown, kListener, kConnector };
+struct Peer {
+  uint32_t ip = 0, remote = 0, local = 0;
+  bool remoteKnown = false, localKnown = false;
+  Role role = kUnknown;
+};
+constexpr size_t kMaxPeers = 3;
+std::mutex peersMutex;
+std::vector<Peer> peers;
+// Lock-free fast path for every non-PC datagram.
+std::atomic<size_t> peerCount{0};
+std::atomic<bool> hosting{false};
+Peer *Find(uint32_t ipv4) {
+  for (auto &p : peers)
+    if (ipv4 && p.ip == ipv4)
+      return &p;
+  return nullptr;
 }
-bool IsRacePeer(uint32_t ipv4) { return ipv4 && racePeer.load() == ipv4; }
-bool Active() { return racePeer.load() != 0; }
+void ResetPeers() {
+  std::lock_guard<std::mutex> l(peersMutex);
+  peers.clear();
+  peerCount = 0;
+}
+template <class F> auto WithPeer(uint32_t ipv4, F f) {
+  std::lock_guard<std::mutex> l(peersMutex);
+  return f(Find(ipv4));
+}
+} // namespace
+bool IsRacePeer(uint32_t ipv4) {
+  return peerCount.load() && WithPeer(ipv4, [](Peer *p) { return p != nullptr; });
+}
+bool Active() { return peerCount.load() != 0; }
 bool Hosting() { return hosting.load(); }
-void StartHosting() { Stop(); hosting = true; }
+bool Hosting(uint32_t ipv4) {
+  return WithPeer(ipv4, [](Peer *p) { return p && p->role == kListener; });
+}
+void NoteInit(uint32_t ipv4, bool received) {
+  WithPeer(ipv4, [received](Peer *p) {
+    if (p && p->role == kUnknown)
+      p->role = received ? kListener : kConnector;
+    return 0;
+  });
+}
+void StartHosting() {
+  ResetPeers();
+  hosting = true;
+}
 bool SetHostingPeer(uint32_t ipv4) {
   if (!Hosting() || !ipv4) return false;
-  uint32_t expected = 0;
-  return racePeer.compare_exchange_strong(expected, ipv4) || expected == ipv4;
+  std::lock_guard<std::mutex> l(peersMutex);
+  if (Find(ipv4)) return true;
+  if (peers.size() >= kMaxPeers) return false;
+  // PC guests of this host always open CommUDP towards it.
+  peers.push_back({ipv4, 0, 0, false, false, kListener});
+  peerCount = peers.size();
+  return true;
 }
-bool HasRaceId(uint32_t ipv4) { return IsRacePeer(ipv4) && remoteKnown; }
-bool HasLocalRaceId(uint32_t ipv4) { return IsRacePeer(ipv4) && localKnown; }
+void SetGuestPeers(const std::vector<uint32_t> &list) {
+  hosting = false;
+  std::lock_guard<std::mutex> l(peersMutex);
+  std::vector<Peer> next;
+  for (uint32_t ip : list) {
+    if (!ip || next.size() >= kMaxPeers) continue;
+    if (auto *p = Find(ip)) next.push_back(*p);
+    else next.push_back({ip});
+  }
+  peers = std::move(next);
+  peerCount = peers.size();
+}
+std::vector<uint32_t> Peers() {
+  std::lock_guard<std::mutex> l(peersMutex);
+  std::vector<uint32_t> out;
+  for (auto &p : peers) out.push_back(p.ip);
+  return out;
+}
+bool HasRaceId(uint32_t ipv4) {
+  return WithPeer(ipv4, [](Peer *p) { return p && p->remoteKnown; });
+}
+bool HasLocalRaceId(uint32_t ipv4) {
+  return WithPeer(ipv4, [](Peer *p) { return p && p->localKnown; });
+}
 void ObserveRaceId(uint32_t ipv4, uint32_t id) {
-  if (IsRacePeer(ipv4)) { raceId = id; remoteKnown = true; }
+  WithPeer(ipv4, [id](Peer *p) {
+    if (p) { p->remote = id; p->remoteKnown = true; }
+    return 0;
+  });
 }
-uint32_t RaceId(uint32_t ipv4) { return IsRacePeer(ipv4) ? raceId.load() : 0; }
+uint32_t RaceId(uint32_t ipv4) {
+  return WithPeer(ipv4, [](Peer *p) { return p ? p->remote : 0u; });
+}
 void SetLocalRaceId(uint32_t ipv4, uint32_t id) {
-  if (IsRacePeer(ipv4)) { localRaceId = id; localKnown = true; }
+  WithPeer(ipv4, [id](Peer *p) {
+    if (p) { p->local = id; p->localKnown = true; }
+    return 0;
+  });
 }
 uint32_t LocalRaceId(uint32_t ipv4) {
-  return IsRacePeer(ipv4) ? localRaceId.load() : 0;
+  return WithPeer(ipv4, [](Peer *p) { return p ? p->local : 0u; });
 }
 
 std::string Field(const std::string &body, const std::string &key) {
@@ -321,14 +396,14 @@ void Options(int fd) {
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 }
-int Connect(const std::string &ip) {
+int Connect(const std::string &ip, int port = 9900) {
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0)
     return -1;
   Options(fd);
   sockaddr_in a{};
   a.sin_family = AF_INET;
-  a.sin_port = htons(9900);
+  a.sin_port = htons(uint16_t(port));
   if (inet_pton(AF_INET, ip.c_str(), &a.sin_addr) != 1) {
     close(fd);
     return -1;
@@ -390,6 +465,7 @@ public:
   int listener = -1;
   std::thread acceptor;
   std::string ip;
+  std::function<Route()> decide;
   std::function<void(const std::string &)> trace;
   std::vector<std::shared_ptr<Client>> clients;
   void Log(const std::string &s) {
@@ -415,8 +491,60 @@ public:
       if (c->thread.joinable())
         c->thread.join();
   }
+  void Finish(const std::shared_ptr<Client> &c) {
+    {
+      std::lock_guard<std::mutex> l(c->mutex);
+      if (c->remote >= 0)
+        close(c->remote);
+      close(c->local);
+      c->remote = c->local = -1;
+    }
+    c->done = true;
+  }
+  // Mobile lobby: its @dir reply already names the host's LAN lobby port,
+  // which the game then reaches directly. Relay the bytes unchanged.
+  void Pipe(const std::shared_ptr<Client> &c, const std::string &target) {
+    int remote = Connect(target, 30960), local = c->local;
+    {
+      std::lock_guard<std::mutex> l(c->mutex);
+      c->remote = remote;
+    }
+    if (remote < 0)
+      Log("cannot reach lobby directory " + target + ":30960");
+    char b[16384];
+    while (remote >= 0 && !quit) {
+      pollfd f[2] = {{local, POLLIN, 0}, {remote, POLLIN, 0}};
+      int ready = poll(f, 2, 100);
+      if (ready < 0)
+        break;
+      if (!ready)
+        continue;
+      bool ok = true;
+      for (int side = 0; side < 2 && ok; ++side) {
+        if (!f[side].revents)
+          continue;
+        ssize_t n = recv(f[side].fd, b, sizeof(b), 0);
+        ok = n > 0 && Send(side ? local : remote, std::string(b, size_t(n)));
+      }
+      if (!ok)
+        break;
+    }
+    Finish(c);
+  }
   void Run(const std::shared_ptr<Client> &c) {
-    int remote = Connect(ip), local = c->local;
+    Route route{ip, true};
+    if (decide)
+      route = decide();
+    if (route.ip.empty()) {
+      Log("no lobby available for this sign-in");
+      Finish(c);
+      return;
+    }
+    if (!route.pc) {
+      Pipe(c, route.ip);
+      return;
+    }
+    int remote = Connect(route.ip), local = c->local;
     {
       std::lock_guard<std::mutex> l(c->mutex);
       c->remote = remote;
@@ -549,14 +677,7 @@ public:
       if (!ok)
         break;
     }
-    {
-      std::lock_guard<std::mutex> l(c->mutex);
-      if (c->remote >= 0)
-        close(c->remote);
-      close(c->local);
-      c->remote = c->local = -1;
-    }
-    c->done = true;
+    Finish(c);
   }
   bool Begin() {
     listener = socket(AF_INET, SOCK_STREAM, 0);
@@ -600,15 +721,17 @@ public:
         c->thread = std::thread([this, c] { Run(c); });
       }
     });
-    Log("ready: loopback adapter -> " + ip + ":9900");
+    Log(decide ? "ready: automatic lobby relay on 127.0.0.1:30960"
+               : "ready: loopback adapter -> " + ip + ":9900");
     return true;
   }
 };
 std::mutex gatewayMutex;
 std::unique_ptr<Gateway> gateway;
 } // namespace
-bool Probe(const std::string &ip) {
-  int fd = Connect(ip);
+namespace {
+bool ProbeDirectory(const std::string &ip, int port) {
+  int fd = Connect(ip, port);
   if (fd < 0)
     return false;
   bool sent =
@@ -622,39 +745,71 @@ bool Probe(const std::string &ip) {
     return false;
   in_addr address{};
   auto body = wire.substr(12);
-  return Field(body, "PORT") == "9900" &&
+  return Field(body, "PORT") == (port == 9900 ? "9900" : "10901") &&
          inet_pton(AF_INET, Field(body, "ADDR").c_str(), &address) == 1;
 }
+bool Launch(std::unique_ptr<Gateway> g) {
+  for (int i = 0; i < 8; ++i) {
+    if (g->Begin()) {
+      gateway = std::move(g);
+      return true;
+    }
+    auto next = std::make_unique<Gateway>();
+    next->ip = g->ip;
+    next->decide = g->decide;
+    next->trace = g->trace;
+    g = std::move(next);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  return false;
+}
+} // namespace
+bool Probe(const std::string &ip) { return ProbeDirectory(ip, 9900); }
+bool ProbeMobile(const std::string &ip) { return ProbeDirectory(ip, 30960); }
 void Stop() {
   std::lock_guard<std::mutex> lock(gatewayMutex);
-  racePeer = 0;
-  raceId = localRaceId = 0;
-  remoteKnown = localKnown = hosting = false;
+  ResetPeers();
+  hosting = false;
   gateway.reset();
 }
 bool Start(const std::string &ip,
            std::function<void(const std::string &)> trace, std::string *error) {
   std::lock_guard<std::mutex> lock(gatewayMutex);
-  racePeer = 0;
-  raceId = localRaceId = 0;
-  remoteKnown = localKnown = hosting = false;
+  ResetPeers();
+  hosting = false;
   gateway.reset();
-  for (int i = 0; i < 8; ++i) {
-    auto g = std::make_unique<Gateway>();
-    g->ip = ip;
-    g->trace = trace;
-    if (g->Begin()) {
-      gateway = std::move(g);
-      in_addr a{};
-      if (inet_pton(AF_INET, ip.c_str(), &a) == 1)
-        racePeer = ntohl(a.s_addr);
-      return true;
+  auto g = std::make_unique<Gateway>();
+  g->ip = ip;
+  g->trace = trace;
+  if (Launch(std::move(g))) {
+    in_addr a{};
+    if (inet_pton(AF_INET, ip.c_str(), &a) == 1) {
+      std::lock_guard<std::mutex> l(peersMutex);
+      // This device opens CommUDP towards the PC host's listener.
+      peers = {{ntohl(a.s_addr), 0, 0, false, false, kConnector}};
+      peerCount = 1;
     }
-    g.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    return true;
   }
   if (error)
     *error = "Cannot start the PC LAN adapter on this device. Return to the "
+             "launcher and retry.";
+  return false;
+}
+bool StartAuto(std::function<Route()> decide,
+               std::function<void(const std::string &)> trace,
+               std::string *error) {
+  std::lock_guard<std::mutex> lock(gatewayMutex);
+  ResetPeers();
+  hosting = false;
+  gateway.reset();
+  auto g = std::make_unique<Gateway>();
+  g->decide = std::move(decide);
+  g->trace = trace;
+  if (Launch(std::move(g)))
+    return true;
+  if (error)
+    *error = "Cannot start the LAN relay on this device. Return to the "
              "launcher and retry.";
   return false;
 }
