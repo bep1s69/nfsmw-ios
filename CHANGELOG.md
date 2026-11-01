@@ -2,6 +2,11 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Race against a PC guest.** Preview15 now reaches gameplay with iOS hosting
+  and the original PC game joining, without extra PC software. Both hosting
+  directions have worked on device. Phone-hosted finishes and rematches still
+  need testing; missing guest names on the phone remain open.
+
 - **Test the first PC guest handshake.** Read the mobile host's listener ID
   before matching the first PC request, targeting a room join that receives
   requests but never replies. Reverse racing still needs device testing.

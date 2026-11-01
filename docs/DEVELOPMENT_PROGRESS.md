@@ -333,33 +333,47 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-**November 1 current handoff — preview15 listener-ID handshake retry, Claude next:**
-Preview14 DEVICE confirms reverse discovery + PC login/room join now work.
-Phone192.168.101.106, PC192.168.101.163/useramogus; receives10 INIT1 packets
-17:16:10–19 (wire0100000064E34947, peerID4749E364), ZERO outbound3658 packets.
-Existing receive header conversion executes; no race/car records reached.
-Preview15 captures host ID from actual listening CommUDP reference before
-first INIT comparison (exact USA receive caller8289C4D8, r31+128socket match,
-+148state3, +152ID). This avoids waiting for a reply that cannot be sent until
-INIT is accepted. Mode/peer/port/callsite scoped; original listener still decides
-readiness. PC-join mapping and shared car serializer remain unchanged. Actual
-hook ASan/UBSan regression tests and build/signing pass; device result pending.
+**November 1 current handoff — preview15 reverse gameplay CONFIRMED, Claude next:**
+Both native PC-host→iOS-join AND iOS-host→native-PC-join now have device-confirmed
+racing, without a PC helper/script/mod. Reverse PC hosting is still a separate
+opt-in **Host for PCs (Experimental)** / host_pc mode, one phone + one PC.
+Continue on local `multiplayer` in `/private/tmp/nfsmw-ios-multiplayer`; no
+push/merge/release authorized. Controls/main and shared SDK remain separate.
 
-LATEST IPA:
+Preview15 result: phone192.168.101.106, PC192.168.101.163/useramog. Listener ID
+captured17:22:59.210, first RX/TX8bytes sameinstant,21byte exchange59.343/.349.
+Both car factories succeed17:23:18.173/.174 (remote5A784095/localCD88083F).
+State6 in-world17:23:22.204, race traffic until17:23:57.663,569RX/582TX3658,
+zero guestAV. Stefan reports race started and everything went well. Missing PC
+name on phone game-room list remains OPEN, same pre-existing host roster bug;
+PC sees host. Do not reopen fixed discovery/handshake/car loading without
+regression evidence. Do not infer crash or intentional quit merely from log end.
+
+Validation limits/next work for Claude:
+1. Phone-host→PC-join: finish/results/return-to-room/rematch/endurance still
+   UNTESTED. PC-host path already passed long session/finish/return/rematch in
+   preview13; preserve that baseline instead of repeating first validation.
+2. Diagnose host missing guest names (iOS/Android/PC guests); server has names,
+   gameplay connects, so distinguish roster UI/identity lookup from network.
+3. Mixed hosting/multiple-PC integration remains deferred, separate PC mode
+   retained. Broader vehicles/tracks/mobile regressions before any release.
+
+LATEST IPA (unchanged, no new source/build this evidence-only turn):
 `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview15-pc-host-listener.ipa`
 30438761bytes, SHA256
 `c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1`,
-appUUID FEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58; runtime unchanged.
-Next: same phone-host PC-join test with Logging on. Need first TX reply, native
-peer acceptance, then race loading. Car conversions already both directions;
-change further fields only if evidence after handshake requires it. Missing
-mobile-host guest names remains separate/open. Previous builds preserved.
+appUUID FEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58; runtime unchanged
+DE9DB5F9-8E8C-3A59-A412-0BD728F3161C. Source280a07f. Preserve13/14 too.
 
-**Input archive exception:** the3new clipboard logs were read successfully once,
-then their exact source paths disappeared before archive copy (FileNotFoundError
-both ordinary read and escalated copy). Original raw archive is PENDING reattach,
-not falsely claimed complete. Names/paths/observed findings in newest TECHNICAL.
-Do not confuse earlier archived preview13 logs with these preview14 inputs.
+**Archive exception RESOLVED:** Stefan reattached earlier3logs with “2” names
+and supplied current3logs without “2”. All6 copied/verified in requested
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/`:
+`nfsmw_lan_preview14_reverse_handshake_{boot.txt,game.log,server.log}` and
+`nfsmw_lan_preview15_reverse_gameplay_success_{boot.txt,game.log,server.log}`.
+Old lost clipboard paths remain historical only; no files pending reattachment.
+Exact provenance/sizes/evidence in newest TECHNICAL. Main pre-existing modified
+checkpoint/untracked HANDOFF preserved. All session work is documentation-only
+on local multiplayer; no new IPA, source change, tests, push or release.
 
 **Previous preview14 checkpoint context (superseded where noted above):**
 Stefan is low on Codex usage and requests the shared record be ready for Claude.

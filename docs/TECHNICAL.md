@@ -14544,3 +14544,59 @@ before moreconversion changes. Mainpre-existing checkpoint edit/HANDOFF remain
 preserved, worktree initiallyclean0bdb70a. Alllocalmultiplayer, nopush/release.
 Claudehandoff currentcheckpoint updated; request newcopies of missing3logs for
 required originalarchive rather than silentlydropping that unfinishedwork.
+
+
+## November1 preview15 reverse gameplay CONFIRMED; preview14 archive recovered
+
+Stefan reports nativePC connected, sees phonehost, race started/everythingwell;
+phone stilldoesnotseePCguestname (existing intermittent hostroster issue).
+Files with “2” are explicitly preview14 priorrun; files without “2” are current
+preview15. Preserve this association, not filesystem order or filenameguess.
+All6read immediately into private tempcopies, then archivedbyte-for-byte to
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/.
+Archive filenames (same prefix nfsmw_lan_):
+- preview14_reverse_handshake_game.log,639296bytes, SHA256f2d1c4cc07fda7a10549151281af64338f5c8162beec387992ca9479ca23e9fc.
+- preview14_reverse_handshake_server.log,20199bytes, SHA25678674258a9cdded22a38a479e638c1fd14a62386e64344ddb85dde4a07cad0cb.
+- preview14_reverse_handshake_boot.txt,8844bytes, SHA256aec05b54cba825010f33d85c7553737a8594523e4aaec4fdbb4c016e4df45540.
+- preview15_reverse_gameplay_success_boot.txt,19120bytes/205lines, SHA25619beb15049106b024dbe3d9d10babecebd8e25f47e4e4ad5d8d96d024d20abca.
+- preview15_reverse_gameplay_success_game.log,1012890bytes/6041lines, SHA2564afb651862f94d6409c8eea6eda360554e8485107c749b3226f010b55fb5551a.
+- preview15_reverse_gameplay_success_server.log,27208bytes/187lines, SHA256c0f4cda9b157719deec68e4d53043b477172f87fc0b663470f13f3ddfe90fb26.
+Original clipboard itemIDs respectively32A11D44-E481-4723-B4EC-8363F1BDAE98,
+268C2DE8-4070-4ECB-9942-FC622ADD9BC4,8E11BD77-9837-4D77-A20C-298C22F1A523,
+994E1311-0DBB-4CD3-8AB2-3B27DD1D7EC1,7B935B4C-8A8C-42A5-ACB9-96707FC3FE4B,
+42B891E4-AD96-4E6C-B61F-685E4992EFBA under same shared-pasteboard/items root.
+Recovered14 files match prior observed sizes; fullrawfiles now preserved, prior
+archiveexception resolved. Copy exit0, bytecomparison verifiedall6, no overwrite.
+
+Preview15 exact measured sequence (iPhonehost192.168.101.106, PC192.168.101.163):
+- host_pc ready17:22:19.199/launch20.133. Directdiscovery253targets/sent253/0failed
+  at19.852,23.432,27.016. NativePC9900 connections17:22:56.309/.348.
+- gjoi17:22:59.155 COUNT2, HOSTbep1s/SELFamog. HostlistenerID captured before
+  INITmatch17:22:59.210, first8byteRXandTXsameinstant.21byteTX59.343/RX59.349.
+  Thisdeviceconfirms the formerlycircular bootstrap progressed intoDATA; no
+  additional byte-order patch needed. Header mapping already activebothroles.
+- Phonegsta17:23:15.248, existingreceived4/408carfield conversion15.390.
+  Factory17:23:18.173 remoterecord5A784095→BFAD4CCC, sameinstant localrecord
+  CD88083F→BFAD9BCC at18.174. Bothcallbacks succeed, differentcarIDs. Existing
+  common serializer conversion works in reverse too for these testedcars.
+- Gameflow4region15.483,5track17.019,6inworld22.204. Bidirectional3658through
+ 17:23:57.663 (~35.46s afterinworld),569RX/582TX in suppliedgamelog,0Unhandled
+  guest. No finish/results/rematch shown. User saysraceplayedwell, no crash
+  reported; logendaloneprovesneithercrashnorintentionalquit. DeviceOS notnewly
+  established. Preview15 identity unchanged:30438761byteIPA, SHA256
+ c48e3ca707d23da431ec3ba620d438f9da3eb734e29d39fb0393eed8f047c5a1,
+ appUUIDFEF119BC-0E2C-3C03-AEA3-18DEB9E8CB58, source280a07f.
+- Laterannouncer17:23:28.197 directsent9/failed244/last_errno64; gameplayUDP
+  continues. Thisdoesnotinvalidate successfuldiscovery or implyracefailure.
+  NeighborARP/routing/send errors neednotbeeliminatedoncepeerconnected;
+  futurepolishmayreduceannouncements duringrace. No speculativefix now.
+
+Outcome: iOS-host/nativePC-guest handshake and gameplay FIXED/CONFIRMEDpreview15
+for thisrun, complementingpreview13PC-hostfinish/return/rematch validation.
+Phonegame-roommissingguestname remainsOPEN (PCseeshost); do notdeclare UI bug
+fixedbyhandshake. Nextreversefinish/results/return/rematch/endurance, widercars/
+tracks/mobileregressions, thenmixedhostingintegrationonlyafterseparatedpaths.
+Claudehandoff currentcheckpoint updated, missingarchiveworkresolved. Initially
+cleanworktree280a07f; thisturn docs/changelog only, no code/newIPA/tests needed.
+Mainpre-existingcheckpointedit/untrackedHANDOFF/sharedSDK/controls preserved;
+alllocalmultiplayer, nopush/merge/tag/releaseauthorized.
