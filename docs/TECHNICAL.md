@@ -14830,3 +14830,12 @@ implemented, awaiting Stefan): after ujoi/leave, push the updated room record
 (+ust) to the room's subscribers. Test 4 (Android regression) not run: no
 Android device at hand. Logs: `nfsmw_lan_preview17_auto_test3_two_ios_plus_pc_*`
 (iPhone host only).
+iPad guest side of test 3 (logs `..._ipad_guest_*`): sign-in 20:31:02.903, UDP
+found the iPhone, joined 20:31:04.454, `PC peers in host room: 1` (PCPEERS
+works on device), converted two received car-field sets, three car factories
+succeeded 20:31:26.413–.419, peers back to 0 at 20:32:50 after the room ended.
+The iPad game log has NO `[pc-udp]`/`[pc-packet]` lines: the iPad never
+exchanged CommUDP with the PC directly, so race traffic evidently goes through
+the host (star), not peer to peer between guests. Per-peer translation on
+guests was therefore not exercised; the guest's car-field byte order agreement
+(pc::Active from PCPEERS) is what mattered and worked.
