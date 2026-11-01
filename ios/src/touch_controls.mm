@@ -872,6 +872,17 @@ static CGFloat TouchOpacity() {
       return self;
     }
   }
+  // Swipe look: the free part of the screen is ours too while driving
+  // (dev26 let those touches go to the game's view, so swipes did nothing).
+  if (_driving && REXCVAR_GET(ios_touch_look) && nfsmw_look_mouse) {
+    for (UIView* v in self.superview.subviews) {  // the options gear keeps its touches
+      if (v == self || v.hidden || v.alpha < 0.01 || !v.userInteractionEnabled ||
+          CGRectEqualToRect(v.frame, self.superview.bounds))
+        continue;
+      if ([v hitTest:[self convertPoint:p toView:v] withEvent:event]) return nil;
+    }
+    return self;
+  }
   return nil;
 }
 

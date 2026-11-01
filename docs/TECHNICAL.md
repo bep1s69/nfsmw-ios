@@ -15946,3 +15946,15 @@ a time; launcher Touch controls "Swipe to look around" (on) and speed, also
 in the in-game options. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev26-swipe-look.ipa` (Desktop; dev25
 to Trash), 30523272 bytes, SHA-256 6af5d06d82328e36aa71bfa937b37edebff1b95613d81ef421d7128ad97c4606. Not run on a device.
 
+
+### November 2: swipe look did nothing; hit test (dev27)
+
+Stefan (iPhone, 956 x 440 points, dev26): swipe look did not work. Log:
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev26_swipe_look.log`
+(DRIVE layout from 01:43:39). Cause: the touch view's hitTest returns nil
+where there is no control, so those touches go to the game's own view and
+never reach touchesBegan. dev27: while driving with swipe look on, the free
+area is the touch view's too (except where another view over the game, the
+options gear, takes the touch). Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev27-swipe-look.ipa`
+(Desktop; dev26 to Trash), 30525335 bytes, SHA-256 f2647024e05f317963615e496d6d0982e55f31b421f2a1d526228031df6107f9. Not run on a device.
+
