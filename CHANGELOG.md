@@ -124,7 +124,8 @@
   highest heat now offer every level from 1 to 10.
 - **In-game menu with tabs.** Extras, Graphics, Controls and Actions, each
   grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
-  Change heat and Auto drive.
+  Change heat, Auto drive, Reset car (back on its wheels) and Teleport to
+  69 places in the city.
 - **More Extra Options:** unlock everything, skip the career intro, world
   animation speed and nitrous trail length.
 - **Extra Options in the in-game menu.** Every Extra Option except the Old

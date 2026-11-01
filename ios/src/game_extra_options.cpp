@@ -209,6 +209,7 @@
 //
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstring>
 #include <cstdint>
 #include <string_view>
@@ -590,6 +591,219 @@ extern "C" void nfsmw_toggle_auto_drive() {
   auto* byte = rex::system::kernel_state()->memory()->TranslateVirtual<uint8_t*>(0x82A2BD93);
   *byte = 1;
   REXLOG_INFO("[extra-options] auto drive: toggle asked for");
+}
+
+// TELEPORT AND RESET CAR (Extra Options' EnableSaveLoadHotPos hotkeys; the
+// prototype's Teleport > by Landmark list and Flip Car)
+//
+// The USA game still has the debug Jump to Hot Position (sub_824D8C90, run
+// when the word 0x82A2D56C is set): the first vehicle of the list at
+// 0x82C6F188 (count +108, array +100) gets its virtual +104 with a position
+// and a flat forward vector (it puts the car on the ground there),
+// sub_82469920(position, 1) for the world around it, and its virtual +148
+// with a speed. Its positions come from a file in the game folder, read-only
+// here, so the same three calls are made directly, on the game thread, from
+// the player car's update (sub_820FFCC8, AICONTROL above).
+//
+// The 69 landmarks are the prototype's teleport list (callbacks
+// 0x822A2A78.. pass a vector from 0x829591C0..; x, y, height in the debug
+// menu's axes, which the prototype turns into the game's as (-y, height, x),
+// the same conversion the hot-position file uses). Reset car puts the car
+// back on its wheels where it is, facing the way it faced (forward from the
+// interface 0x820E44D8's virtual +152, as the hot-position save reads it).
+extern "C" REX_FUNC(sub_82469920);
+extern "C" REX_FUNC(sub_8231AF60);
+
+namespace {
+
+struct Landmark {
+  const char* area;
+  const char* name;
+  float x, y, height;
+};
+const Landmark kLandmarks[] = {
+    {"City", "East Park", 2085.0f, 141.0f, 98.0f},
+    {"City", "West Park", 709.0f, 155.0f, 115.0f},
+    {"City", "Stadium", 934.0f, -649.0f, 116.0f},
+    {"City", "Time Square", 1452.0f, 360.0f, 101.0f},
+    {"City", "Little Italy", 2113.0f, 322.0f, 100.0f},
+    {"City", "Subway Entrance 1", 2147.0f, 40.0f, 94.0f},
+    {"City", "Subway Entrance 2", 926.0f, -556.0f, 115.0f},
+    {"City", "Subway Entrance 3", 1819.0f, 512.0f, 94.0f},
+    {"City", "Highway North", 1819.0f, 916.0f, 124.0f},
+    {"City", "Highway South", 1972.0f, -581.0f, 105.0f},
+    {"City", "Highway East", 2515.0f, 291.0f, 93.0f},
+    {"City", "Highway West", 499.0f, 176.0f, 108.0f},
+    {"City", "Safehouse", 2313.0f, -70.0f, 94.0f},
+    {"City", "Museum", 885.0f, 455.0f, 113.0f},
+    {"City", "Amphitheatre", 850.0f, 246.0f, 114.0f},
+    {"Coastal", "Coastal Safe House", 4254.0f, 75.0f, 11.0f},
+    {"Coastal", "Fish Market", 4629.0f, 149.0f, 7.0f},
+    {"Coastal", "Oil Refinery", 3993.0f, 2100.0f, 28.0f},
+    {"Coastal", "Fishing Village", 3693.0f, 3516.0f, 26.0f},
+    {"Coastal", "Shipyard", 3107.0f, 490.0f, 18.0f},
+    {"Coastal", "Trainyard", 2920.0f, 175.0f, 28.0f},
+    {"Coastal", "Lighthouse", 4092.0f, -173.0f, 17.0f},
+    {"Coastal", "Drive-in Theatre", 3144.0f, 1661.0f, 110.0f},
+    {"Coastal", "Gas Station 1", 3713.0f, 3490.0f, 27.0f},
+    {"Coastal", "Gas Station 2", 2749.0f, 2159.0f, 108.0f},
+    {"Coastal", "Gas Station 3", 3071.0f, 1030.0f, 67.0f},
+    {"Coastal", "Gas Station 4", 3836.0f, 605.0f, 25.0f},
+    {"Coastal", "Trailer Park", 2871.0f, 3004.0f, 74.0f},
+    {"Coastal", "Fire Hall", 3878.0f, 459.0f, 23.0f},
+    {"Coastal", "Amusement Park", 3944.0f, 273.0f, 17.0f},
+    {"Coastal", "Boardwalk", 4542.0f, 118.0f, 6.0f},
+    {"Coastal", "Prison", 4093.0f, 1302.0f, 45.0f},
+    {"Rosewood", "College Safe House", 1773.0f, 2499.0f, 150.0f},
+    {"Rosewood", "Rosewood Park", 663.0f, 4084.0f, 210.0f},
+    {"Rosewood", "Golf Course", 2180.0f, 3591.0f, 165.0f},
+    {"Rosewood", "Campus", 1087.0f, 3187.0f, 202.0f},
+    {"Rosewood", "Main Street", 1606.0f, 2210.0f, 145.0f},
+    {"Rosewood", "Baseball Stadium", 24.0f, 3239.0f, 195.0f},
+    {"Rosewood", "Highway North", 1830.0f, 4288.0f, 233.0f},
+    {"Rosewood", "Highway South", 1798.0f, 2003.0f, 152.0f},
+    {"Rosewood", "Highway East", 2259.0f, 2616.0f, 141.0f},
+    {"Rosewood", "Highway West", -293.0f, 3633.0f, 207.0f},
+    {"Rosewood", "Club House", 2168.0f, 3566.0f, 162.0f},
+    {"Rosewood", "Toll Booth 1", 378.0f, 4502.0f, 236.0f},
+    {"Rosewood", "Toll Booth 2", 1580.0f, 1800.0f, 168.0f},
+    {"Rosewood", "Gas Station 1", 822.0f, 4500.0f, 205.0f},
+    {"Rosewood", "Gas Station 2", 1216.0f, 3667.0f, 201.0f},
+    {"Rosewood", "Gas Station 3", 549.0f, 2622.0f, 167.0f},
+    {"Rosewood", "Gas Station 4", 1641.0f, 2486.0f, 152.0f},
+    {"Rosewood", "Gas Station 5", 1990.0f, 1640.0f, 152.0f},
+    {"Rosewood", "Small Parking Lot", 1057.0f, 3826.0f, 201.0f},
+    {"Rosewood", "Large Parking Lot", 1227.0f, 3259.0f, 204.0f},
+    {"Rosewood", "Cemetary", 846.0f, 2439.0f, 151.0f},
+    {"Rosewood", "Hospital", 1419.0f, 2613.0f, 164.0f},
+    {"Rosewood", "Fire Hall", 1510.0f, 2144.0f, 146.0f},
+    {"Rosewood", "Donut Shop", 1825.0f, 1860.0f, 151.0f},
+    {"Rosewood", "Clock Tower", 1683.0f, 2114.0f, 146.0f},
+    {"Rosewood", "Strip Mall", 2633.0f, 2199.0f, 108.0f},
+    {"Rosewood", "Overpass", 2155.0f, 2642.0f, 148.0f},
+    {"Rosewood", "Bus Station", 2094.0f, 1427.0f, 152.0f},
+    {"Shops", "North College Chop", 713.0f, 4507.0f, 214.0f},
+    {"Shops", "College Chop", 1513.0f, 2550.0f, 158.0f},
+    {"Shops", "College Car", 990.0f, 2164.0f, 154.0f},
+    {"Shops", "North City Chop", 1863.0f, 1193.0f, 146.0f},
+    {"Shops", "City Chop", 1086.0f, 54.0f, 101.0f},
+    {"Shops", "City Car", 1762.0f, 529.0f, 93.0f},
+    {"Shops", "South City Chop", 3410.0f, -203.0f, 14.0f},
+    {"Shops", "North Coastal Chop", 3611.0f, 3636.0f, 31.0f},
+    {"Shops", "Refinery Coastal Chop", 3467.0f, 2019.0f, 67.0f},
+};
+
+std::atomic<int32_t> teleport_to{-1};
+std::atomic<bool> reset_car{false};
+
+float LoadFloat(uint8_t* base, uint32_t address) {
+  const uint32_t bits = REX_LOAD_U32(address);
+  float f;
+  std::memcpy(&f, &bits, 4);
+  return f;
+}
+
+// The player's vehicle (the hot-position code's), 0 when there is none.
+uint32_t PlayerVehicle(uint8_t* base) {
+  constexpr uint32_t kList = 0x82C6F188;
+  if (REX_LOAD_U32(kList + 108) == 0) return 0;
+  const uint32_t array = REX_LOAD_U32(kList + 100);
+  return array ? REX_LOAD_U32(array) : 0;
+}
+
+// The calls of sub_824D8C90 (see above), with buffers and a frame below the
+// caller's stack; the registers are put back afterwards.
+void PlaceCar(PPCContext& ctx, uint8_t* base, uint32_t vehicle, const float pos[3], const float dir[3]) {
+  const PPCContext saved = ctx;
+  const uint32_t buffers = (ctx.r1.u32 - 0x400) & ~15u;
+  for (int i = 0; i < 3; ++i) {
+    REX_STORE_U32(buffers + 4 * i, FloatBits(pos[i]));
+    REX_STORE_U32(buffers + 16 + 4 * i, FloatBits(dir[i]));
+  }
+  const uint32_t vtable = REX_LOAD_U32(vehicle);
+  ctx.r1.u32 = buffers - 0x200;
+  ctx.r3.u32 = vehicle;
+  ctx.r4.u32 = buffers;
+  ctx.r5.u32 = buffers + 16;
+  REX_CALL_INDIRECT_FUNC(REX_LOAD_U32(vtable + 104));
+  ctx.r1.u32 = buffers - 0x200;
+  ctx.r3.u32 = buffers;
+  ctx.r4.u32 = 1;
+  sub_82469920(ctx, base);
+  ctx.r1.u32 = buffers - 0x200;
+  ctx.r3.u32 = vehicle;
+  ctx.f1.f64 = 0.0;
+  REX_CALL_INDIRECT_FUNC(REX_LOAD_U32(vtable + 148));
+  ctx = saved;
+}
+
+void RunCarActions(PPCContext& ctx, uint8_t* base) {
+  const int32_t to = teleport_to.exchange(-1);
+  const bool reset = reset_car.exchange(false);
+  if (to < 0 && !reset) return;
+  const uint32_t vehicle = PlayerVehicle(base);
+  if (!vehicle) {
+    REXLOG_WARN("[extra-options] teleport/reset: no player vehicle");
+    return;
+  }
+  if (to >= 0 && to < int32_t(std::size(kLandmarks))) {
+    const Landmark& l = kLandmarks[to];
+    const float pos[3] = {-l.y, l.height + 2.0f, l.x};
+    const float dir[3] = {0.0f, 0.0f, 1.0f};
+    PlaceCar(ctx, base, vehicle, pos, dir);
+    REXLOG_INFO("[extra-options] teleport: {} > {}", l.area, l.name);
+    return;
+  }
+  // Reset: where it is, a little higher, facing as before (flat).
+  const PPCContext saved = ctx;
+  ctx.r1.u32 = ((ctx.r1.u32 - 0x400) & ~15u) - 0x200;
+  ctx.r3.u32 = vehicle;
+  REX_CALL_INDIRECT_FUNC(REX_LOAD_U32(REX_LOAD_U32(vehicle) + 12));
+  const uint32_t at = ctx.r3.u32;
+  float pos[3] = {LoadFloat(base, at), LoadFloat(base, at + 4) + 1.5f, LoadFloat(base, at + 8)};
+  float dir[3] = {0.0f, 0.0f, 1.0f};
+  ctx.r3.u32 = REX_LOAD_U32(vehicle + 4);
+  ctx.r4.u32 = 0x820E44D8;
+  sub_8231AF60(ctx, base);
+  if (const uint32_t body = ctx.r3.u32) {
+    ctx.r3.u32 = body;
+    REX_CALL_INDIRECT_FUNC(REX_LOAD_U32(REX_LOAD_U32(body) + 152));
+    const float fx = LoadFloat(base, ctx.r3.u32), fz = LoadFloat(base, ctx.r3.u32 + 8);
+    if (const float len = std::sqrt(fx * fx + fz * fz); len > 0.01f) {
+      dir[0] = fx / len;
+      dir[2] = fz / len;
+    }
+  }
+  ctx = saved;
+  PlaceCar(ctx, base, vehicle, pos, dir);
+  REXLOG_INFO("[extra-options] reset car at {:.0f} {:.0f} {:.0f}", pos[0], pos[1], pos[2]);
+}
+
+}  // namespace
+
+extern "C" int32_t nfsmw_landmark_count() { return int32_t(std::size(kLandmarks)); }
+
+extern "C" const char* nfsmw_landmark(int32_t i, const char** area) {
+  if (i < 0 || i >= int32_t(std::size(kLandmarks))) return nullptr;
+  *area = kLandmarks[i].area;
+  return kLandmarks[i].name;
+}
+
+extern "C" void nfsmw_teleport_request(int32_t landmark) {
+  teleport_to.store(landmark);
+  REXLOG_INFO("[extra-options] teleport asked for: {}", landmark);
+}
+
+extern "C" void nfsmw_reset_car_request() {
+  reset_car.store(true);
+  REXLOG_INFO("[extra-options] reset car asked for");
+}
+
+// The player car's update (AUTO DRIVE above): the pending car actions first.
+extern "C" void __imp__sub_820FFCC8(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_820FFCC8) {
+  RunCarActions(ctx, base);
+  __imp__sub_820FFCC8(ctx, base);
 }
 
 // A new car's record (see IMPOUND STRIKES above). A leaf: r3 is still the

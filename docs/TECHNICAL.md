@@ -15481,3 +15481,30 @@ drive Toggle); controller A presses a one-button row. Build `-j 12` exit 0,
 1c34772dd0652efbd390f93fea59b6a6051c99b03fe7adcd40ccb042f5d5ce91. Not run on a
 device.
 
+
+### November 1: Teleport and Reset car (dev8)
+
+The USA build keeps the debug Jump to Hot Position (sub_824D8C90, run from
+sub_824D8760 when the word 0x82A2D56C is set; Save is sub_824D8B30 for
+0x82A2D568). Its slots come from `TRACKS\HotPosition%s.HOT` (string
+0x82099994) in the game folder, read-only here, so its three calls are made
+directly: vehicle = first of the list 0x82C6F188 (+108 count, +100 array);
+vehicle virtual +104(position, flat forward) puts the car on the ground there;
+sub_82469920(position, 1) for the world around it; virtual +148(speed 0).
+They run on the game thread from a wrapper of sub_820FFCC8 (the player car's
+update, AICONTROL above), with buffers and a callee frame 0x400/0x600 below
+the caller's r1 and the registers restored after (`PlaceCar`). Landmarks: the
+prototype's 75 teleport callbacks (0x822A2A78 + 0x10 steps) pass vectors at
+0x829591C0..; 69 have labels in the builder (area by position in the list:
+City, Coastal, Rosewood, Shops); game position = (-y, height + 2, x), the
+conversion the prototype and the hot-position file both use. Reset car: the
+current position (vehicle virtual +12) 1.5 higher, forward from the
+interface 0x820E44D8 (sub_8231AF60, QueryInterface) virtual +152, as the hot
+position save reads it. In-game Actions > Driving: Reset car, Teleport (menu
+by area; touch only, no controller), Auto drive. Build exit 0, `unzip -tq`
+ok; `ios/build/NFSMW-0.6.0-dev8-teleport.ipa` (Desktop; dev7 to Trash),
+30495938 bytes, SHA-256
+10c8faca2f113cd9496afaab75f5d14f23619a1ae436b4ea56ce1ba1ce00063b. Not run on
+a device: guest calls from the host wrapper are new here; a crash or a car
+under the road are the risks to look for.
+

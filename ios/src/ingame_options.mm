@@ -53,14 +53,23 @@ extern "C" void NativeSettingsChanged();  // native_renderer.mm
 extern "C" void nfsmw_extra_options_tunables() __attribute__((weak));  // game_extra_options.cpp (USA)
 extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
 extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));               // same
+extern "C" void nfsmw_reset_car_request() __attribute__((weak));               // same
+extern "C" void nfsmw_teleport_request(int32_t landmark) __attribute__((weak));  // same
+extern "C" int32_t nfsmw_landmark_count() __attribute__((weak));               // same
+extern "C" const char* nfsmw_landmark(int32_t i, const char** area) __attribute__((weak));
 
 namespace {
 
 std::atomic<bool> sheet_open{false};
 NSString* const kHeatStep = @"heat_step";  // the Change heat row (not a setting)
 NSString* const kAutoDrive = @"auto_drive";  // the Auto drive row (not a setting)
+NSString* const kResetCar = @"reset_car";    // Reset car (not a setting)
+NSString* const kTeleport = @"teleport";     // Teleport, a menu of places (not a setting)
 // Rows of the Actions tab: buttons (title, value) instead of a setting.
-bool ActionRow(NSString* key) { return [key isEqualToString:kHeatStep] || [key isEqualToString:kAutoDrive]; }
+bool ActionRow(NSString* key) {
+  return [key isEqualToString:kHeatStep] || [key isEqualToString:kAutoDrive] ||
+         [key isEqualToString:kResetCar] || [key isEqualToString:kTeleport];
+}
 NSString* const kActionsTab = @"Actions";   // rows that do something now
 NSInteger last_tab = 0;                     // the sheet's tab last time, while the game runs
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
@@ -190,9 +199,25 @@ UIWindow* GameWindow() {
                            false,
                            {{@"−", @"-1"}, {@"+", @"1"}}}}});
     }
-    if (nfsmw_toggle_auto_drive) {
+    if (nfsmw_toggle_auto_drive && nfsmw_reset_car_request && nfsmw_teleport_request) {
+      std::vector<std::pair<NSString*, NSString*>> places;  // "Area/Name", index
+      for (int32_t i = 0; i < nfsmw_landmark_count(); ++i) {
+        const char* area = "";
+        const char* name = nfsmw_landmark(i, &area);
+        places.emplace_back([NSString stringWithFormat:@"%s/%s", area, name], [NSString stringWithFormat:@"%d", i]);
+      }
       _groups.push_back({kActionsTab, @"Driving",
-                         {{kAutoDrive, @"Auto drive",
+                         {{kResetCar, @"Reset car",
+                           @"Puts your car back on its wheels where it is (stuck or upside down), as the "
+                           @"prototype's Flip Car.",
+                           false,
+                           {{@"Reset", @"1"}}},
+                          {kTeleport, @"Teleport",
+                           @"Moves your car to a place in the city, from the prototype's debug menu "
+                           @"(Extra Options' hot positions do the same on PC). Free roam only.",
+                           false,
+                           places},
+                          {kAutoDrive, @"Auto drive",
                            @"The AI drives your car until you press it again, as Extra Options' AutoDrive "
                            @"hotkey (the prototype's Toggle AI Control).",
                            false,
@@ -376,6 +401,14 @@ UIWindow* GameWindow() {
     nfsmw_toggle_auto_drive();
     return;
   }
+  if ([key isEqualToString:kResetCar]) {
+    nfsmw_reset_car_request();
+    return;
+  }
+  if ([key isEqualToString:kTeleport]) {
+    nfsmw_teleport_request(value.intValue);
+    return;
+  }
   _settings[key] = value;
   if ([key isEqualToString:@"performance_mode"] || [key isEqualToString:@"battery_mode"]) {
     nfsmw::performance::Choose(std::string(nfsmw::launcher::SettingValue(_settings, @"performance_mode").UTF8String));
@@ -432,6 +465,33 @@ UIWindow* GameWindow() {
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;
+  if ([key isEqualToString:kTeleport]) {
+    // A menu of places, by area.
+    NSMutableDictionary<NSString*, NSMutableArray<UIMenuElement*>*>* areas = [NSMutableDictionary dictionary];
+    NSMutableArray<NSString*>* order = [NSMutableArray array];
+    for (const auto& [title, v] : r.choices) {
+      NSArray<NSString*>* parts = [title componentsSeparatedByString:@"/"];
+      NSString* place = v;
+      if (!areas[parts[0]]) {
+        areas[parts[0]] = [NSMutableArray array];
+        [order addObject:parts[0]];
+      }
+      [areas[parts[0]] addObject:[UIAction actionWithTitle:parts.lastObject
+                                                     image:nil
+                                                identifier:nil
+                                                   handler:^(UIAction*) { [self set:key to:place]; }]];
+    }
+    NSMutableArray<UIMenuElement*>* menus = [NSMutableArray array];
+    for (NSString* area in order) [menus addObject:[UIMenu menuWithTitle:area children:areas[area]]];
+    UIButtonConfiguration* bc = UIButtonConfiguration.tintedButtonConfiguration;
+    bc.title = @"Choose";
+    UIButton* button = [UIButton buttonWithConfiguration:bc primaryAction:nil];
+    button.menu = [UIMenu menuWithChildren:menus];
+    button.showsMenuAsPrimaryAction = YES;
+    [button sizeToFit];
+    cell.accessoryView = button;
+    return cell;
+  }
   if (ActionRow(key)) {
     // Buttons, not a list: each press does it once.
     UIStackView* buttons = [[UIStackView alloc] init];
@@ -518,7 +578,7 @@ UIWindow* GameWindow() {
       return;
     }
     if (ActionRow(r.key)) {
-      if (a) [self set:r.key to:r.choices.front().second];
+      if (a && ![r.key isEqualToString:kTeleport]) [self set:r.key to:r.choices.front().second];
       return;
     }
     NSString* value = nfsmw::launcher::SettingValue(_settings, r.key);
