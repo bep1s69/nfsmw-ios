@@ -39,6 +39,8 @@ TECHNICAL.
 | Game speed (dev2, untested) | ExOpts GameSpeed | `nfsmw_game_speed` (wraps sub_82472F38) |
 | Quick Race minimum laps/opponents (dev2, untested) | ExOpts LapControllers/OpponentControllers Minimum | `nfsmw_laps_min`, `nfsmw_opponents_min` (1 and up; the PC's 0 opponents not allowed) |
 | Random race laps/opponents (dev2, untested) | ExOpts LapControllers/OpponentControllers RandomRace | `nfsmw_random_*_max` (wraps sub_822C4E68) |
+| Show non-pursuit cops on the minimap (dev3, untested) | ExOpts ShowNonPursuitCops | `nfsmw_show_non_pursuit_cops` (prototype flag, USA 0x82A2C5FA) |
+| Infinite NOS, infinite Speedbreaker, No Cops (dev3, untested) | none (Xbox 360 prototype debug menu) | `nfsmw_infinite_nos`, `nfsmw_infinite_speedbreaker`, `nfsmw_no_cops` |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |
@@ -57,7 +59,10 @@ TECHNICAL.
   10000 to the career's cash, +12) exists on the 360 (sub_822C26E0) but
   nothing calls it; the career default (sub_822C17F8, cash 0) has no direct
   caller either (inlined). A new-career hook is still to be found.
-- Pursuit: ShowPursuitCops, ShowNonPursuitCops (minimap).
+- Pursuit: ShowPursuitCops (on by default in the game; the prototype's
+  flag, 0x82945216, has no reader found at that address yet). Hide GPS arrow
+  (prototype 0x82A80C8E, same) and Max Cop Cars (prototype 0x82A80C7C, read
+  in 0x82129980 = USA sub_82118F80, the read itself not aligned yet).
 - Fixes (first check the bug exists on the Xbox 360): HelicopterBountyFix,
   ZeroBountyFix (heat 10 and above; matters only with the heat override
   above 5), DDayFix, BustedNISFix.

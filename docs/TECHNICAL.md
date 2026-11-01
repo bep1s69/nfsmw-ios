@@ -15285,3 +15285,36 @@ weak generated ones; `unzip -tq` ok. `ios/build/NFSMW-0.6.0-dev2-extra-options.i
 d794881e1c38c30357f45b98659e391aea548cf2ccfcb261bd5616280bebc288. Not run on a
 device.
 
+
+### November 1: prototype debug flags matched to the USA build (dev3)
+
+Stefan suggested using the PAL prototype to find USA addresses. Method
+(scripts in the session scratchpad, not kept): the decrypted prototype image
+is the loaded layout at 0x82000000 (.text from 0x820F0000, .pdata at file
+0xB9600, 23405 functions). Menu labels' lis/addi references lead to the widget
+setup (widget +0x14 name, +0x20 callback, +0x24 variable); variable
+references give the prototype readers; each reader's function (from .pdata)
+was matched to a USA generated function by mnemonic sequence (difflib on
+capstone vs. generated-comment mnemonics, length within 0.7-1.4x), and the
+instruction aligned by matching blocks gives the USA variable:
+
+| Flag | Prototype var / reader | USA var / reader (ratio) |
+|---|---|---|
+| Infinite NOS | 0x82A81DFF / 0x82459C98 | 0x82A2CE71 / sub_82424988 (1.0) |
+| Infinite RaceBreaker | 0x82A82238 / 0x824A15F0 | 0x82A2D1C6 / sub_8246C188 (1.0) |
+| Show Non-Pursuit Cops | 0x82A8153A / 0x822C2E90 | 0x82A2C5FA / sub_8229B840 (0.98) |
+| No Cops (callback 0x822A43E0 toggles word 0x82A80C4C) | readers 0x820FB6C0, 0x824D9198, 0x824D9CC0 | 0x82A2BD94 / sub_820EB6A8, sub_824A22B0 (0.97), sub_824A2DD8 (1.0) |
+
+USA writers (xref over generated code): none for the three bytes (image value
+0); the cops word is written by sub_8232E1F8 (= 0), sub_820EC5B0 (= !msg
+byte), sub_82330238, sub_820EA958; sub_8249D808 returns word == 0. Each
+reader is wrapped (`game_extra_options.cpp`) and stores the flag first while
+its setting is on. Not found: Hide GPS arrow (0x82A80C8E) and Show Pursuit
+Cops (0x82945216) have no direct reader in the prototype; Max Cop Cars
+reader not aligned. Build: `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6
+--target ipa -j 6` exit 0, all wrappers T in the object, `unzip -tq` ok.
+`ios/build/NFSMW-0.6.0-dev3-extra-options.ipa` (also on Desktop, dev2 to
+Trash), 30486607 bytes, SHA-256
+18fe93c90e6b8ea61ddf2b9295d988be7051a726523be54fe1c2ba6679eb582c. Not run on
+a device. Unknown: whether infinite NOS also applies to opponents.
+

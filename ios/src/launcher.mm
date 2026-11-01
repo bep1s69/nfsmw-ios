@@ -328,6 +328,13 @@ const std::vector<Section>& Sections() {
        }, kTabExtras},
       {@"Speedbreaker", nil,
        {
+           {@"infinite_speedbreaker", Type::kSwitch, @"Infinite Speedbreaker",
+            @"The Speedbreaker never runs out (from the Xbox 360 prototype's debug menu).",
+            @"false"},
+           {@"infinite_nos", Type::kSwitch, @"Infinite nitrous",
+            @"Nitrous never runs out (from the Xbox 360 prototype's debug menu). May apply to "
+            @"opponents too.",
+            @"false"},
            {@"sb_recharge_time", Type::kChoice, @"Refill time",
             @"How long the Speedbreaker takes to fill up again. The game's is 25 seconds.",
             @"25",
@@ -344,6 +351,13 @@ const std::vector<Section>& Sections() {
        }, kTabExtras},
       {@"Police", nil,
        {
+           {@"no_cops", Type::kSwitch, @"No cops",
+            @"No police anywhere (from the Xbox 360 prototype's debug menu). Pursuit events and "
+            @"Blacklist milestones that need cops cannot be finished.",
+            @"false"},
+           {@"show_non_pursuit_cops", Type::kSwitch, @"Show all cops on the minimap",
+            @"Also shows cops that are not chasing you, as Extra Options' ShowNonPursuitCops.",
+            @"false"},
            {@"heat_override", Type::kSwitch, @"Heat level override",
             @"Keeps the pursuit heat between the two levels below in every event, as Extra "
             @"Options' HeatLevelOverride.",
@@ -907,6 +921,10 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_sb_recharge_speed=" + str(@"sb_recharge_speed"));
   a.push_back("--nfsmw_sb_mass=" + str(@"sb_mass"));
   a.push_back("--nfsmw_heat_override=" + b(On(s, @"heat_override")));
+  a.push_back("--nfsmw_no_cops=" + b(On(s, @"no_cops")));
+  a.push_back("--nfsmw_show_non_pursuit_cops=" + b(On(s, @"show_non_pursuit_cops")));
+  a.push_back("--nfsmw_infinite_nos=" + b(On(s, @"infinite_nos")));
+  a.push_back("--nfsmw_infinite_speedbreaker=" + b(On(s, @"infinite_speedbreaker")));
   a.push_back("--nfsmw_heat_min=" + str(@"heat_min"));
   a.push_back("--nfsmw_heat_max=" + str(@"heat_max"));
   a.push_back("--nfsmw_speeding_limit=" + str(@"speeding_limit"));

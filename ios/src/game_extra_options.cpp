@@ -156,6 +156,33 @@
 // wrapped below and +7/+4 drawn again with the settings' ranges when they
 // differ from the game's.
 //
+// DEBUG FLAGS FROM THE XBOX 360 PROTOTYPE (no PC mod setting)
+//
+// The October 2005 PAL milestone build (NfsMWEuropeGerMilestone.exe, debug
+// menu) registers each menu switch with the address of its variable (widget
+// +0x14 name, +0x24 variable). The code that reads those variables was
+// matched to the USA build by instruction sequence (the same compiler; most
+// functions identical) and the variable read at the same instruction there:
+//
+//   Infinite NOS            proto 0x82A81DFF, read in 0x82459C98
+//                           -> USA 0x82A2CE71, read in sub_82424988 (skips
+//                              the NOS use when set)
+//   Infinite RaceBreaker    proto 0x82A82238, 0x824A15F0
+//                           -> USA 0x82A2D1C6, sub_8246C188 (skips the drain)
+//   Show Non-Pursuit Cops   proto 0x82A8153A, 0x822C2E90
+//                           -> USA 0x82A2C5FA, sub_8229B840
+//   No Cops                 proto: a toggle of the word 0x82A80C4C (non-zero
+//                           = no cops)
+//                           -> USA 0x82A2BD94; sub_8249D808 is "cops
+//                              enabled" (word == 0), sub_820EC5B0 sets it from
+//                              a message, readers sub_820EB6A8, sub_824A2DD8,
+//                              sub_824A22B0
+//
+// The retail game still reads all of them; only the menu that set them is
+// gone. The three bytes have no writer in the USA code; the cops word is
+// written by the game (race start, messages). Each reader is wrapped below
+// and sets its variable first while the setting is on.
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -231,6 +258,13 @@ REXCVAR_DEFINE_BOOL(nfsmw_heat_override, false, "Game",
 REXCVAR_DEFINE_INT32(nfsmw_heat_min, 1, "Game", "Lowest heat level with the override (1-10)");
 REXCVAR_DEFINE_INT32(nfsmw_heat_max, 5, "Game",
                      "Highest heat level with the override (1-10; above 5 is experimental)");
+REXCVAR_DEFINE_BOOL(nfsmw_infinite_nos, false, "Game", "Nitrous never runs out (prototype debug menu)");
+REXCVAR_DEFINE_BOOL(nfsmw_infinite_speedbreaker, false, "Game",
+                    "Speedbreaker never runs out (prototype debug menu)");
+REXCVAR_DEFINE_BOOL(nfsmw_no_cops, false, "Game", "No police anywhere (prototype debug menu)");
+REXCVAR_DEFINE_BOOL(nfsmw_show_non_pursuit_cops, false, "Game",
+                    "Show cops that are not chasing you on the minimap, as Extra Options' "
+                    "ShowNonPursuitCops");
 REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
                      "Width and height of the car shadow map (512-1600; the Xbox 360's is 1600, "
                      "the most that fits in its 10 MB EDRAM)");
@@ -535,3 +569,22 @@ extern "C" REX_FUNC(sub_822C4E68) {
     REX_STORE_U8(options + 4, uint8_t(draw(laps)));
   }
 }
+
+// DEBUG FLAGS FROM THE XBOX 360 PROTOTYPE above: each reader sets its flag
+// first while the setting is on.
+#define NFSMW_FLAG_READER(func, cvar, store)                                 \
+  extern "C" void __imp__##func(PPCContext& __restrict ctx, uint8_t* base); \
+  extern "C" REX_FUNC(func) {                                                \
+    if (REXCVAR_GET(cvar)) {                                                 \
+      store;                                                                 \
+    }                                                                        \
+    __imp__##func(ctx, base);                                                \
+  }
+NFSMW_FLAG_READER(sub_82424988, nfsmw_infinite_nos, REX_STORE_U8(0x82A2CE71, 1))
+NFSMW_FLAG_READER(sub_8246C188, nfsmw_infinite_speedbreaker, REX_STORE_U8(0x82A2D1C6, 1))
+NFSMW_FLAG_READER(sub_8229B840, nfsmw_show_non_pursuit_cops, REX_STORE_U8(0x82A2C5FA, 1))
+NFSMW_FLAG_READER(sub_8249D808, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
+NFSMW_FLAG_READER(sub_820EB6A8, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
+NFSMW_FLAG_READER(sub_824A2DD8, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
+NFSMW_FLAG_READER(sub_824A22B0, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
+#undef NFSMW_FLAG_READER

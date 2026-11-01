@@ -116,6 +116,8 @@
 - **Even more Extra Options:** game speed, the fewest laps and opponents for
   a Quick Race, the most laps and opponents of a random race, and rain drift,
   fall speed and gravity.
+- **Cheats from the Xbox 360 prototype's debug menu:** infinite nitrous,
+  infinite Speedbreaker and no cops, plus all cops shown on the minimap.
 
 ## 0.5.2
 
