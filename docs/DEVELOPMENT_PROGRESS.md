@@ -980,6 +980,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
   session's commit), untracked `HANDOFF_CHATGPT.md`, and all sibling SDK
   modifications/submodule state. No build, push, tag or release performed.
 
+- **October 29: issue 11 (iPhone 11 / A13, iOS 26.6, LiveContainer, 0.4.2,
+  native renderer) analyzed, no code change.** Logs in Debug/29 October 2026
+  (`*_issue11_iphone11_ios26.6_native_frontend_kill.*`). The app's limit is
+  only 2098 MiB (LiveContainer's signing, no increased-memory-limit; Stefan's
+  phone: 6144). Both runs die 2-4 s into "loading the frontend" (~630 MiB);
+  nfsmw.log ends mid-line (2 s buffer), boot.txt has no fatal-signal line, so
+  a SIGKILL (jetsam or watchdog), not a crash we catch. Run 2 already had 186
+  MiB compressed at 626 MiB (system short of memory). Frontend alone (~1 GB
+  on Stefan's phone) should fit; a race (1.6-2.2 GB) cannot, which matches
+  issue 10 (iPhone 11, crash at race start). Proof needed: the user's
+  JetsamEvent .ips. Proposed (awaiting Stefan): memory-pressure line in
+  boot.txt + log flush, and a low-memory profile when the limit is < ~3 GB.
+
 - **October 29: 0.5.0 (build 8) released: `main` pushed, tag v0.5.0,
   GitHub release with `NFS-Most-Wanted-0.5.0.ipa` (Stefan's go).** Earlier: Today's 0.4.3 work released as 0.5.0 (Stefan); `dev-0.5` work
   is now 0.6.0. `ios/build/NFS-Most-Wanted-0.5.0.ipa` (SHA-256 1f2bae93...),
