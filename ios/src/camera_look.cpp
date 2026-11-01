@@ -130,16 +130,30 @@ extern "C" REX_FUNC(sub_8243CBF0) {
 REXCVAR_DEFINE_BOOL(nfsmw_showcase_unlimited, false, "Game",
                     "Showcase: turn all the way round and zoom without limits (Extra Options' GarageRotate/Zoom)");
 
+//
+// The update turns the camera by itself when it sees no stick (its rates
+// at +312 yaw and +308 elevation), and our drags are not stick input, so it
+// kept spinning clockwise under the finger (dev28, Stefan). For 6 s after a
+// drag, pinch or wheel notch, those two rates are held at 0.
 namespace {
 std::atomic<float> showcase_yaw{0}, showcase_elevation{0}, showcase_zoom{1};
+std::atomic<int64_t> showcase_touched_ms{0};
+int64_t SteadyMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
 }  // namespace
 
 extern "C" void nfsmw_showcase_turn(float yaw_degrees, float elevation_degrees) {
   showcase_yaw.store(showcase_yaw.load() + yaw_degrees);
   showcase_elevation.store(showcase_elevation.load() + elevation_degrees);
+  showcase_touched_ms.store(SteadyMs());
 }
 
-extern "C" void nfsmw_showcase_zoom(float factor) { showcase_zoom.store(showcase_zoom.load() * factor); }
+extern "C" void nfsmw_showcase_zoom(float factor) {
+  showcase_zoom.store(showcase_zoom.load() * factor);
+  showcase_touched_ms.store(SteadyMs());
+}
 
 extern "C" void __imp__sub_82175EF8(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" REX_FUNC(sub_82175EF8) {
@@ -147,6 +161,10 @@ extern "C" REX_FUNC(sub_82175EF8) {
   const float yaw = showcase_yaw.exchange(0), elevation = showcase_elevation.exchange(0);
   const float zoom = showcase_zoom.exchange(1);
   if (REX_LOAD_U32(mover + 144) == 1) {
+    if (SteadyMs() - showcase_touched_ms.load() < 6000) {
+      StoreF(base, mover + 312, 0.0f);  // no turning by itself under the finger
+      StoreF(base, mover + 308, 0.0f);
+    }
     if (yaw != 0) StoreF(base, mover + 164, LoadF(base, mover + 164) + yaw);
     if (elevation != 0) StoreF(base, mover + 160, LoadF(base, mover + 160) + elevation);
     if (zoom != 1) StoreF(base, mover + 168, LoadF(base, mover + 168) * zoom);

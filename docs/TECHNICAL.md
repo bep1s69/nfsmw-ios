@@ -15996,3 +15996,15 @@ first click only shows them). Added: the scroll wheel zooms in Showcase
 `nfsmw::touch::ShowcaseUp()`. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev29-showcase-mouse.ipa` (Desktop;
 dev28 to Trash), 30539627 bytes, SHA-256 a8f8282a960472b136823908990c38328b7204f2c01c547ecf54cb47193bf545. Not run on a device.
 
+
+### November 2: Showcase touch works; the idle spin fought it (dev30)
+
+Stefan (iPhone, dev28/29): direct Showcase touch "works surprisingly well",
+but the game, seeing no stick input, kept turning the camera clockwise by
+itself. sub_82175EF8 integrates rates at +312 (yaw: `lfs f3,312(r31)` into
++164) and +308 (elevation, into +160); with no stick they hold the idle
+orbit. camera_look.cpp now writes 0 to both before the update for 6 s
+after any touch drag, pinch or wheel notch. Build exit 0, `unzip -tq` ok;
+`ios/build/NFSMW-0.6.0-dev30-showcase.ipa` (Desktop; dev29 to Trash), 30540688 bytes, SHA-256 012aa4ff243cebdc50c661051e8c8017696f666b5db5756a348fb1569d1ce3cc. Not run on a
+device.
+
