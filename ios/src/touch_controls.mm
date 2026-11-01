@@ -67,6 +67,9 @@ REXCVAR_DEFINE_STRING(ios_touch_steering, "dynamic", "Input",
                       "Touch controls, DRIVE layout: how to steer. dynamic: a joystick wherever the "
                       "thumb lands in the bottom-left quarter, fading out when it lifts; fixed: the "
                       "steering circle in its place; buttons: two buttons, left and right");
+REXCVAR_DEFINE_BOOL(ios_touch_look, true, "Input",
+                    "Drive layout: a swipe on the screen's free part turns the chase camera (free look)");
+REXCVAR_DEFINE_DOUBLE(ios_touch_look_speed, 1.0, "Input", "Swipe look speed (1 = half a turn across the screen)");
 REXCVAR_DEFINE_DOUBLE(ios_touch_idle_opacity, 0.35, "Input",
                       "Touch controls, DRIVE layout: their opacity after 3 s without a touch, as a "
                       "share of the chosen opacity (1 = no dimming)");
@@ -137,6 +140,9 @@ std::atomic<bool> g_drag{false};
 
 // nfsmw::touch::SetDriveContext, from the game's thread.
 std::atomic<int> g_drive_context{0};
+
+// Swipe look: the camera hook's input (camera_look.cpp, USA builds only).
+extern "C" void nfsmw_look_mouse(float dx, float dy) __attribute__((weak));
 
 // Touches so far (nfsmw::touch::TouchesSoFar).
 std::atomic<int> g_touches_so_far{0};
@@ -288,6 +294,10 @@ struct Control {
   std::vector<uint64_t> _drawnLook;  // each control's look when last drawn
   std::vector<CGRect> _drawnBounds;  // and where it was (the dynamic joystick moves)
   NSMapTable<UITouch*, NSNumber*>* _owners;  // touch -> control index
+  // Swipe look (camera_look.cpp): a touch on no control while driving, and
+  // where it was last.
+  UITouch* _lookTouch;
+  CGPoint _lookLast;
   CGRect _toggle;
   CGRect _modeToggle;  // DRIVE/PAD
   CGRect _snap;        // SNAP (nfsmw_native_dump_manual): a renderer snapshot; empty when off
@@ -985,6 +995,11 @@ static CGFloat TouchOpacity() {
     }
     const int i = [self controlAt:p];
     if (i < 0) {
+      // Swipe look: the screen's free part while driving (camera_look.cpp).
+      if (_driving && !_lookTouch && REXCVAR_GET(ios_touch_look) && nfsmw_look_mouse) {
+        _lookTouch = t;
+        _lookLast = p;
+      }
       continue;
     }
     [_owners setObject:@(i) forKey:t];
@@ -1204,6 +1219,15 @@ static CGFloat TouchOpacity() {
     return;
   }
   for (UITouch* t in touches) {
+    if (t == _lookTouch) {
+      // Half a turn across the screen's width at speed 1, in the mouse's
+      // counts (0.15 degrees each), the screen's down as the mouse's.
+      const CGPoint p = [t locationInView:self];
+      const float counts = float(180.0 / 0.15 / self.bounds.size.width * REXCVAR_GET(ios_touch_look_speed));
+      nfsmw_look_mouse(float(p.x - _lookLast.x) * counts, float(_lookLast.y - p.y) * counts);
+      _lookLast = p;
+      continue;
+    }
     NSNumber* owner = [_owners objectForKey:t];
     if (owner) {
       [self updateControl:_controls[owner.unsignedIntegerValue] at:[t locationInView:self]];
@@ -1219,6 +1243,7 @@ static CGFloat TouchOpacity() {
     return;
   }
   for (UITouch* t in touches) {
+    if (t == _lookTouch) _lookTouch = nil;
     NSNumber* owner = [_owners objectForKey:t];
     if (!owner) {
       continue;

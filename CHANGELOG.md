@@ -130,7 +130,8 @@
 - **Mouse look.** With keyboard controls, the mouse or trackpad turns the
   chase camera around the car while driving (pointer locked while driving,
   free in menus); it swings back behind the car when you stop. Speed and
-  invert in the Keyboard settings.
+  invert (on by default) in the Keyboard settings. On touch, swipe on the
+  screen where there is no control.
 - **Keys for the Actions.** While driving, 1 resets the car, 2 toggles auto
   drive, 3 and 4 lower and raise the heat; change them under Keyboard
   controls > Actions.

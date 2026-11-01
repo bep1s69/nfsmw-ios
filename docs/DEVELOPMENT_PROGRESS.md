@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan): free look defaults to inverted vertical (mouse and
+  swipe). He tests in LiveContainer, so Info.plist keys of the IPA (pointer
+  lock's UIApplicationSupportsIndirectInputEvents) do not apply there.
+
 - November 2: never set GCKeyboard's `keyChangedHandler` in app code: SDL's
   iOS backend owns it (SDL_uikitevents.m) and replacing it removes all
   keyboard input from the game (dev21). Poll key state instead.

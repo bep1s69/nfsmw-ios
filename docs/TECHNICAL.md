@@ -15929,3 +15929,20 @@ Touch free look (swipe) is not done yet. Build exit 0, `unzip -tq` ok;
 `ios/build/NFSMW-0.6.0-dev25-pointer-lock.ipa` (Desktop; dev24 to Trash), 30523691 bytes, SHA-256 711ad646328c6b17405f9a08138a56cbfe53ea6889f18c39c4d4d68886850fb6. Not run on a
 device.
 
+
+### November 2: inverted mouse look by default; swipe look (dev26)
+
+Stefan: inverted mouse look feels more natural for free look, make it the
+default (`nfsmw_mouse_look_invert` and the launcher's default now true).
+Pointer capture still fails for him; inference (his): he runs the game in
+LiveContainer, whose own Info.plist is the one iPadOS reads, so dev25's
+UIApplicationSupportsIndirectInputEvents cannot reach it there; nothing to
+do on our side for now. Swipe look: in the Drive layout, a touch that starts
+on no control (`controlAt:` < 0) while driving becomes the look touch;
+its moves feed `nfsmw_look_mouse` (camera_look.cpp) at 180 degrees per
+screen width x `ios_touch_look_speed` in the mouse's counts, screen-down as
+mouse-down (so the invert switch applies the same way). One look finger at
+a time; launcher Touch controls "Swipe to look around" (on) and speed, also
+in the in-game options. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev26-swipe-look.ipa` (Desktop; dev25
+to Trash), 30523272 bytes, SHA-256 6af5d06d82328e36aa71bfa937b37edebff1b95613d81ef421d7128ad97c4606. Not run on a device.
+

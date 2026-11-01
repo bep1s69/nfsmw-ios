@@ -36,7 +36,7 @@
 
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
 REXCVAR_DEFINE_DOUBLE(nfsmw_mouse_look_speed, 1.0, "Input", "Mouse look speed (1 = 0.15 degrees per mouse count)");
-REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, false, "Input", "Mouse look: moving the mouse up looks down");
+REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, true, "Input", "Mouse look: moving the mouse up looks down");
 
 namespace {
 

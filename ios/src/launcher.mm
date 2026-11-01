@@ -677,6 +677,13 @@ const std::vector<Section>& Sections() {
            {@"touch_menu_invert", Type::kSwitch, @"Invert menu swipes",
             @"Reverse the direction used to navigate menus. Off keeps the current direction. "
             @"World-map cursor dragging is unchanged.", @"false"},
+           {@"touch_look", Type::kSwitch, @"Swipe to look around",
+            @"Drive layout: swipe on the screen where there is no control to turn the chase camera "
+            @"around the car (free look). It swings back behind the car when you let go.",
+            @"true"},
+           {@"touch_look_speed", Type::kChoice, @"Swipe look speed", @"How far a swipe turns the camera.",
+            @"1",
+            {{@"Slow", @"0.5"}, {@"Normal", @"1"}, {@"Fast", @"1.5"}, {@"Very fast", @"2.5"}}},
            {@"touch_auto_layout", Type::kSwitch, @"Switch layouts by themselves",
             @"The Drive layout while driving, the Pad layout in menus and pause screens. The "
             @"DRIVE/PAD button still switches by hand.",
@@ -696,8 +703,10 @@ const std::vector<Section>& Sections() {
            {@"mouse_look_speed", Type::kChoice, @"Mouse look speed", @"How far the camera turns per mouse movement.",
             @"1",
             {{@"Slow", @"0.5"}, {@"Normal", @"1"}, {@"Fast", @"1.5"}, {@"Very fast", @"2.5"}}},
-           {@"mouse_look_invert", Type::kSwitch, @"Invert mouse look", @"Moving the mouse up looks down.",
-            @"false"},
+           {@"mouse_look_invert", Type::kSwitch, @"Invert mouse look",
+            @"On (default, Stefan: more natural for free look): moving the mouse up looks down at "
+            @"the car.",
+            @"true"},
            {@"keyboard_bindings", Type::kLink, @"Customize keyboard controls",
             @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
             @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
@@ -1046,6 +1055,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_touch_menu_two_finger_back=" + b(On(s, @"touch_menu_two_finger_back")));
   a.push_back("--ios_touch_menu_invert=" + b(On(s, @"touch_menu_invert")));
   a.push_back("--ios_touch_idle_opacity=" + str(@"touch_idle_opacity"));
+  a.push_back("--ios_touch_look=" + b(On(s, @"touch_look")));
+  a.push_back("--ios_touch_look_speed=" + str(@"touch_look_speed"));
   a.push_back("--mnk_mode=" + b(On(s, @"keyboard")));
   // Mouse look (camera_look.cpp): the SDK's mouse mode only locks the pointer;
   // its right-stick part is off (patch_ios_mouse_axes.py).
