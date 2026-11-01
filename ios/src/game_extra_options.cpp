@@ -209,6 +209,7 @@
 //
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <cstdint>
@@ -568,18 +569,29 @@ extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
 // Heat +1 / -1 from the in-game options (see HEAT LEVEL OVERRIDE above):
 // asked for on the main thread, added once the next time a pursuit's heat
 // is updated.
+// Only during a pursuit (the heat update runs then): steps asked for outside
+// one are dropped after 2 s instead of piling up for the next pursuit (dev22,
+// Stefan pressed 3/4 in free roam).
 namespace {
 std::atomic<int32_t> heat_steps{0};
+std::atomic<int64_t> heat_asked_ms{0};
+int64_t NowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
 }  // namespace
 
 extern "C" void nfsmw_heat_step_request(int32_t steps) {
+  if (NowMs() - heat_asked_ms.load() > 2000) heat_steps.store(0);
   heat_steps.fetch_add(steps);
+  heat_asked_ms.store(NowMs());
   REXLOG_INFO("[extra-options] heat {:+d} asked for", steps);
 }
 
 extern "C" double nfsmw_heat_step(double heat) {
+  if (heat_steps.load(std::memory_order_relaxed) == 0) return heat;
   const int32_t steps = heat_steps.exchange(0);
-  if (steps == 0) return heat;
+  if (steps == 0 || NowMs() - heat_asked_ms.load() > 2000) return heat;
   REXLOG_INFO("[extra-options] heat {:.2f} {:+d} (then the event's limits)", heat, steps);
   return heat + steps;
 }

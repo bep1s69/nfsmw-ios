@@ -15845,3 +15845,15 @@ counted on its rising edge, while driving). Rule recorded: do not set
 GCKeyboard's keyChangedHandler. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev22-action-keys.ipa`
 (Desktop; dev21 to Trash), 30524751 bytes, SHA-256 6d28f8878efac980d28c73d5e9f11ff22fdc1f925905bd725bacca1ed632350b. Not run on a device.
 
+
+### November 2: dev22 action keys work; heat keys outside a pursuit (dev23)
+
+Stefan (dev22): the action keys work, except 3/4. Log:
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev22_action_keys.log`:
+reset car x2 (01:21:55, :58, applied), auto drive x3, heat -1 then +1 x4
+(01:22:12-13) "asked for" with no "heat ... (then the event's limits)":
+no pursuit was running, so the heat update that applies them never ran
+(not the override). They would have stacked up for the next pursuit; dev23
+drops steps older than 2 s. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev23.ipa` (Desktop;
+dev22 to Trash), 30525676 bytes, SHA-256 a3b2eb967cedb528035aa7795dae625918ccf99791facc5f604a4fb65382d200. Not run on a device.
+
