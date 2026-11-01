@@ -3,8 +3,16 @@
 #pragma once
 
 #ifdef __OBJC__
+#import <UIKit/UIKit.h>
 @class NSString;
 @class UIViewController;
+
+// A button over the game that never takes the keyboard's focus: with a
+// hardware keyboard, iPadOS moves focus with the arrow keys and presses the
+// focused button with Return and Space, so the game did not get those keys
+// (dev13, Stefan: Return and the arrows ignored on the load screen, S worked).
+@interface NFSUnfocusableButton : UIButton
+@end
 #endif
 
 namespace nfsmw::touch {

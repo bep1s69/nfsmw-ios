@@ -91,6 +91,7 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
   int _shownSerial;
   int _lastTouches;
   BOOL _keyboardLast;
+  BOOL _keyWasDown;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -109,6 +110,18 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
   if (!REXCVAR_GET(mnk_mode)) return;
   const BOOL key = GCKeyboard.coalescedKeyboard.keyboardInput.anyKeyPressed;
   nfsmw::keyboard::SetAnyKeyDown(key);
+  // Diagnostics (dev14): the first key presses as GameController sees them.
+  static int key_lines = 40;
+  if (key && !_keyWasDown && key_lines > 0) {
+    GCKeyboardInput* input = GCKeyboard.coalescedKeyboard.keyboardInput;
+    NSMutableArray* down = [NSMutableArray array];
+    for (GCControllerButtonInput* b in input.buttons.allValues) {
+      if (b.pressed) [down addObject:b.localizedName ?: @"?"];
+    }
+    --key_lines;
+    REXLOG_INFO("[keyboard] key down: {}", [[down componentsJoinedByString:@", "] UTF8String]);
+  }
+  _keyWasDown = key;
   GCExtendedGamepad* pad = GCController.current.extendedGamepad;
   const int touches = nfsmw::touch::TouchesSoFar();
   const BOOL was = _keyboardLast;

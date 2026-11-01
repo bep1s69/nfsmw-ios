@@ -1912,7 +1912,7 @@ UIView* LiveView();
   c.title = title;
   c.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
   c.contentInsets = NSDirectionalEdgeInsetsMake(6, 12, 6, 12);
-  UIButton* b = [UIButton buttonWithConfiguration:c primaryAction:nil];
+  UIButton* b = [NFSUnfocusableButton buttonWithConfiguration:c primaryAction:nil];
   [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
   return b;
 }
@@ -2139,3 +2139,9 @@ void Install() {
 }
 
 }  // namespace nfsmw::touch
+
+@implementation NFSUnfocusableButton
+- (BOOL)canBecomeFocused {
+  return NO;
+}
+@end

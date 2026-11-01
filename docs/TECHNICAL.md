@@ -15648,3 +15648,36 @@ code stays) until that is found. dev13 = dev12 (keyboard) with the row off:
 SHA-256 699cb19eecffb507e3fa56e8616abf87c77796239782b226b07d216a9c5447b5; build
 exit 0, `unzip -tq` ok; not run on a device.
 
+
+### November 2: dev13 keyboard test; fixes and diagnostics (dev14)
+
+Stefan (iPad, dev13): Return does not skip the intro movies or press Start;
+the load-save screen takes only S (one row down), not the arrows or Return;
+caps were drawn over the main menu's arrows (and a stray right-arrow cap by
+the load box) instead of over A and Y; scrolling worked with arrows and WASD
+on the main menu (he wants arrows only). Screenshots archived:
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/iphone_0.6.0_dev13_keyboard_load_save.png`
+and `..._main_menu.png`. The log he attached was the earlier one again (same
+2104789 bytes as the dev11 crash log, last session 00:11), so nothing of
+this session was logged; archived anyway as
+`nfsmw_iphone_0.6.0_dev13_keyboard.log`.
+
+Inferences and changes (dev14):
+- Caps: `nfsmw_menu_hints_list()` skipped hints with `label` set, which are
+  exactly the labelled icons (A Accept, Y Game Stats), and kept the arrows.
+  Now: any hint with a button except Left/Right/Up/Down. The caps over the
+  arrows sat on the arrows, so the position mapping looks right.
+- Return/arrows ignored while letters worked: inference, the iPadOS
+  keyboard focus system (arrows move focus, Return/Space press the focused
+  control) took them for our UIButtons over the game (gear, TOUCH/PAD/HIDE).
+  Those are now `NFSUnfocusableButton` (canBecomeFocused NO). Not verified.
+- Menu set: arrows only for menu movement (WASD removed from menu defaults).
+- Diagnostics: `[keyboard]` logs the bind lists on the first switches, the
+  menu list's length at start, "switch waits for the keys", and the first 40
+  key presses as GameController sees them (`[keyboard] key down: ...`).
+
+Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev14-keyboard-fix.ipa`
+(Desktop; dev13 to Trash), 30521124 bytes, SHA-256
+c7c37d17e5ae6845ee539af31171ccb3acc126fc032c1f2b04523bfdefbff086. Not run
+on a device.
+

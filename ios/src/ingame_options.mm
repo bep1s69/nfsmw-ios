@@ -645,7 +645,7 @@ UIWindow* GameWindow() {
     UIButtonConfiguration* bc = UIButtonConfiguration.grayButtonConfiguration;
     bc.image = [UIImage systemImageNamed:@"gearshape.fill"];
     bc.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    _gear = [UIButton buttonWithConfiguration:bc
+    _gear = [NFSUnfocusableButton buttonWithConfiguration:bc
                                 primaryAction:[UIAction actionWithHandler:^(UIAction*) { [self open]; }]];
     _gear.translatesAutoresizingMaskIntoConstraints = NO;
     _gear.alpha = 0.8;

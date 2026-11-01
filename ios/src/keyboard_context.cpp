@@ -89,7 +89,8 @@ void Prepare() {
       }
     }
   }
-  REXLOG_INFO("[keyboard] {} keys", have_menu_set ? "menu and driving" : "one set of");
+  REXLOG_INFO("[keyboard] {} keys (menu list {} characters)", have_menu_set ? "menu and driving" : "one set of",
+              REXCVAR_GET(nfsmw_menu_keybinds).size());
 }
 
 }  // namespace
@@ -106,6 +107,7 @@ void Service() {
   if (!ready || !have_menu_set || wanted_context < 0 || context == wanted_context) return;
   if (context >= 0 && any_key_down.load(std::memory_order_relaxed)) {
     if (!blanked) {
+      REXLOG_INFO("[keyboard] switch waits for the keys to be released");
       for (Bind& b : binds) b.storage().clear();
       blanked = true;
     }
@@ -115,6 +117,10 @@ void Service() {
   blanked = false;
   for (Bind& b : binds) b.storage().assign(context ? b.menu : b.driving);
   REXLOG_INFO("[keyboard] {} keys", context ? "menu" : "driving");
+  static int detail = 6;  // the lists themselves, the first few switches
+  if (detail-- > 0) {
+    for (const Bind& b : binds) REXLOG_INFO("[keyboard]   {} = {}", b.name, b.storage());
+  }
 }
 
 void SetAnyKeyDown(bool down) { any_key_down.store(down, std::memory_order_relaxed); }

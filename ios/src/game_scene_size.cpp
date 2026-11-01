@@ -2097,7 +2097,11 @@ extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float 
 extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,int max) {
   int n=0;
   for (const auto& pkg:MenuPackages(base,engine)) for (const auto& h:pkg.hints) {
-    if (!h.button || h.label || n>=max) continue;
+    // Buttons with a key of their own: not the arrows and chevrons, which
+    // the arrow keys already are (Stefan, dev13: caps on the main menu's
+    // arrows and none on A/Y). The labelled icons (A Accept) are the ones.
+    using namespace nfsmw::menu_touch;
+    if (n>=max || !h.button || (h.button & (Left|Right|Up|Down))) continue;
     out[5*n]=h.x;out[5*n+1]=h.y;out[5*n+2]=h.half_w;out[5*n+3]=h.half_h;out[5*n+4]=float(h.button);++n;
   }
   return n;
