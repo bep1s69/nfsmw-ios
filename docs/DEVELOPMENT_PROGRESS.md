@@ -342,6 +342,14 @@ CLAUDE.md entrypoints ensured in this worktree, pointing to this record. They
 remain untracked/ignored per project rule; no other session edits left pending.
 Main's pre-existing checkpoint edit/HANDOFF remain deliberately preserved.
 
+**November 1 (Claude) — MULTIPLAYER PAUSED at validated preview18 (Stefan):**
+Stefan considers multiplayer complete for now and wants to work on other things
+before any release. Do not continue multiplayer work unless he asks. Before a
+release it still needs: a touch-controls pass (bring main's newer, more
+comprehensive menu touch system, built with Codex, into this branch and check the
+multiplayer menus), an Android regression check, and optionally the cosmetic PC
+guest 7200 s countdown. Branch `multiplayer` is local only, nothing pushed.
+
 **November 1 (Claude) — preview17 automatic LAN, mixed PC/mobile rooms; device test next:**
 Stefan approved: one automatic LAN option (in-game Xbox Live sign-in joins a
 nearby phone/PC lobby or hosts one), PCs and phones in the same hosted room (up
