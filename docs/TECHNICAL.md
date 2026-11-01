@@ -15911,3 +15911,21 @@ speed, invert. Build exit 0, wrapper T in camera_look.cpp.o, `unzip -tq` ok;
 device; unknowns: GameController's dy sign (invert switch), whether the
 pointer lock engages, whether views 2/3 are the chase views on the 360.
 
+
+### November 2: mouse look works; pointer lock needs an Info.plist key (dev25)
+
+Stefan (iPad + Magic Keyboard, dev24): mouse look works ("holy crap it
+actually worked"), but the pointer still hit the screen's edge. Log:
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev24_mouse_look.log`:
+"mouse look attached" (01:35:38) and, each time driving began,
+"SDL_SetWindowRelativeMouseMode(true) failed: That operation is not
+supported" / "Pointer lock unavailable, mouse look falls back to recentering
+the cursor". SDL's iOS backend installs its relative mode (GCMouse, pointer
+lock through prefersPointerLocked) only when Info.plist has
+UIApplicationSupportsIndirectInputEvents (SDL_uikitevents.m ~402). Added to
+ios/Info.plist.in (true; in the IPA's Info.plist). Side effect to watch:
+with it, trackpad/mouse clicks reach UIKit as indirect-pointer touches.
+Touch free look (swipe) is not done yet. Build exit 0, `unzip -tq` ok;
+`ios/build/NFSMW-0.6.0-dev25-pointer-lock.ipa` (Desktop; dev24 to Trash), 30523691 bytes, SHA-256 711ad646328c6b17405f9a08138a56cbfe53ea6889f18c39c4d4d68886850fb6. Not run on a
+device.
+

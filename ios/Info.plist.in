@@ -113,6 +113,12 @@
 	     capture button sets MTL_CAPTURE_ENABLED=1 instead (ios_main.mm). -->
 	<key>UIRequiresFullScreen</key>
 	<true/>
+	<!-- Mouse/trackpad as GameController's GCMouse: SDL's iOS backend only offers
+	     relative mode (pointer lock, for mouse look) with this key; without it
+	     "SDL_SetWindowRelativeMouseMode(true) failed" and the pointer stuck at
+	     the screen's edge (dev24, November 2). -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UIStatusBarHidden</key>
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
