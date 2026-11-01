@@ -12176,3 +12176,45 @@ unchanged (on / off). Version 0.5.2, code 10. `cmake --preset ios && cmake
 --build --preset ios --target ipa` exit 0; deep strict codesign ok; Info.plist
 0.5.2 / 10; `NFS-Most-Wanted-0.5.2.ipa` 30186591 bytes, SHA-256
 95acb5e31318fdae2237bad62b015fb0ae95484c494f3624babe2a5a70c74eeb.
+
+
+### November 1: 0.6.0 plan — merge trial and prototype debug menu
+
+No code changed, nothing merged, built or pushed. Branch state: `main` =
+v0.5.2 (b7ec126). `dev-0.5` (362e1a9): 10 commits not in `main`, 179 behind;
+base c531d5e. `multiplayer` (08b2a71, one record commit after preview18
+893738d; checked out in `/private/tmp/nfsmw-ios-multiplayer`): 39 ahead, 2
+behind, base 19177b6.
+
+Trial merges with `git merge-tree --write-tree` (no working tree touched):
+- `main` into `dev-0.5`: conflicts in CHANGELOG.md, docs/BACKLOG.md,
+  docs/DEVELOPMENT_PROGRESS.md, docs/TECHNICAL.md and ios/src/launcher.mm.
+  The launcher conflict is one block: `main` always passes
+  `--nfsmw_sim_rate=120` (0.4.3), `dev-0.5` adds the IPA104 Extra Options
+  arguments and chooses 60/120 from `sim_120_hz`. Resolution: keep the Extra
+  Options arguments and main's fixed 120. Docs: keep both sides.
+- `multiplayer` into `main`: docs only (BACKLOG, DEVELOPMENT_PROGRESS,
+  TECHNICAL); launcher.mm and CMakeLists.txt merge cleanly.
+- `multiplayer` into `dev-0.5` (before the main merge): adds ios/CMakeLists.txt
+  and launcher.mm conflicts (both sides add lines).
+
+Proposed order: (1) on `dev-0.5`, merge `main` (v0.5.2) and resolve as above,
+run `python3 tools/ios/patch_game_extra_options.py`, build; (2) merge
+`multiplayer` (08b2a71) into `dev-0.5`, resolve, build; Stefan tests on
+device. AGENTS.md/CLAUDE.md must stay untracked through both merges. The
+uncommitted issue 11 note in DEVELOPMENT_PROGRESS.md on `main` (not from this
+session) has to be committed or stashed before `dev-0.5` can be checked out.
+
+Prototype debug menu: the XEX (`NfsMWEuropeGerMilestone.exe`; the `.xex` next
+to it is a second copy, 4046848 bytes, not opened) is XEX2, encryption 1,
+compression 1 (basic); the session key decrypts with the devkit (zero) key,
+giving a 13828096-byte PE image (starts with MZ). `strings -n 5`: 47115
+lines; the menu labels follow `DebugMenuRender` / `rootMenu`. In the retail
+image (`ios/build/managed40-inspection-image.bin`, starts MZ) `grep -c -a`
+found 0 for "DebugMenuRender", "Careerulate", "Infinite NOS", "Save Hot
+Position", "Always Raining" and "Frame Rate Summary", and 1-2 for
+"UI_DebugCarCustomize", "DEBUGACTION_TOGGLEAI", "DebugWorldCameraMover" and
+"CM_DEBUG_WORLD". Inference: the menu was compiled out of retail, its
+underlying features partly remain. Proposal in BACKLOG, "0.6.0 roadmap".
+The PC modded copy folder contains only `.DS_Store`.
+

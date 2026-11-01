@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1 (Stefan, 0.6.0 priorities): first all feasible Extra Options
+  (including useful Xbox 360 prototype debug menu items) and performance/
+  battery work; later better keyboard support, a menu redesign, a touch pass
+  for the multiplayer screens, an Android check and dropping the iOS 18
+  "experimental" label. 0.6.0 = `dev-0.5` + 0.5.2 `main` + `multiplayer`;
+  merge only after his OK (plan: TECHNICAL, November 1; roadmap: BACKLOG).
+
 - October 31 (Stefan, test8 results): profile-name taps select only; A remains
   manual. Options/race-details: vertical swipes select rows, horizontal swipes
   on the highlighted row change its value; taps can select another row. Event
