@@ -363,8 +363,10 @@ Next device tests (Stefan): every device taps “Play on this Wi-Fi”.
 2. PASSED on device both ways (iPhone joined the PC lobby automatically; iPhone
    hosted, PC joined, race finished with results). Cosmetic: PC guest countdown
    shows 7200 s instead of 60; noted, not worth fixing now (Stefan).
-3. Two iPhones + PC with an iPhone hosting: all three in one room and race.
-4. iPhone + Android without a PC: short race (regression).
+3. PASSED for racing: iPhone host + PC + iPad raced normally. Cosmetic: the
+   PC's room list did not show the iPad (stale room count on the PC; proposed
+   server-side +ust refresh awaiting approval, see TECHNICAL).
+4. NOT RUN: no Android device available; Stefan expects no Android regression.
 Collect boot/game/server logs; look for `[lan-auto]` decisions, `PC peers in
 host room` on guests and `[pc-udp]` role/ID lines.
 

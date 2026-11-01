@@ -14813,3 +14813,20 @@ the automatic option; Stefan: “both worked”.
   interprets this field differently. No functional impact observed.
 Logs: `nfsmw_lan_preview17_auto_test2_pc_both_directions_*` (iPhone only; no
 PC-side logs).
+
+Preview17 device test 3, mixed room: iPhone .106 hosted (20:30:20.337), PC
+.163 “amog” joined on 9900 (ujoi 20:30:59.523), iPad .112 joined through the
+relay (ujoi 20:31:09.119, C=3, gjoi COUNT=3, +mgm to both guests). Stefan: the
+three-player race started, displayed and worked normally — first mixed
+PC + two iOS race. Host log: three car factories succeed 20:31:27.307–.310,
+car fields converted for the PC, race datagrams both ways with the PC.
+Open (cosmetic): the PC's room screen did not list the iPad. The server did
+send the PC (subscribed with USERSET0=047.bep1s) the iPad's +usr and +usm and
+the +mgm game update. What the PC never receives after its own join is an
+updated room record: C stays 2 from its ujoi/+ust. On iOS the same stale count
+is repaired client-side (`[lan-roster] 2 -> 3`); the unmodified PC cannot be.
+Inference, unproven: the PC's room list uses that record's C. Proposed (not
+implemented, awaiting Stefan): after ujoi/leave, push the updated room record
+(+ust) to the room's subscribers. Test 4 (Android regression) not run: no
+Android device at hand. Logs: `nfsmw_lan_preview17_auto_test3_two_ios_plus_pc_*`
+(iPhone host only).
