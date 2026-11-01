@@ -15318,3 +15318,23 @@ Trash), 30486607 bytes, SHA-256
 18fe93c90e6b8ea61ddf2b9295d988be7051a726523be54fe1c2ba6679eb582c. Not run on
 a device. Unknown: whether infinite NOS also applies to opponents.
 
+
+### November 1: Extra Options in the in-game menu (dev4, Stefan's request)
+
+All Extra Options rows except `old_bridge` (scenery set when the world loads)
+and the 120 Hz simulation (boot patch) were added to the in-game sheet
+(`ingame_options.mm` Keys) and their cvars to LiveFlags. Readers of the
+cvars already read them where the game uses them. Changes for live use in
+`game_extra_options.cpp`: the data values (rain, Speedbreaker, infraction
+speeds, most impound strikes) moved to `nfsmw_extra_options_tunables()`,
+called at boot and after each in-game change (weak, USA only); the first call
+still checks the game's defaults, later calls rewrite whatever differs (so a
+value set back to the game's is written back too). The three prototype bytes
+now follow their setting both ways; the cops word is cleared once when No
+cops is turned off (the game rewrites it at race start and on messages
+anyway). `Setting()` logs on every change instead of once. Build exit 0,
+`unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev4-ingame-extras.ipa` (Desktop; dev3
+to Trash), 30486668 bytes, SHA-256
+9a9a716c93ef8fa3641ee6f57be68cfe3e01dd722352d4c5410185eef76dd641. Not run on
+a device; the sheet's length with ~36 more rows was not looked at.
+

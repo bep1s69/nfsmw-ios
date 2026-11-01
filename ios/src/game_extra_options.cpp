@@ -272,9 +272,9 @@ REXCVAR_DEFINE_INT32(nfsmw_shadow_map_size, 1600, "Game",
 namespace {
 
 int32_t Setting(int32_t value, int32_t lo, int32_t hi, const char* what,
-                std::atomic<bool>& logged) {
+                std::atomic<int32_t>& logged) {
   const int32_t n = std::clamp(value, lo, hi);
-  if (!logged.exchange(true)) {
+  if (logged.exchange(n) != n) {
     REXLOG_INFO("[extra-options] {}: {}", what, n);
   }
   return n;
@@ -328,19 +328,25 @@ struct FloatTunable {
   const char* name;
 };
 
-// Writes a group of floats, only when all of them still hold the game's
-// values (the right place in this build).
+// Writes a group of floats. The first time only when all of them still hold
+// the game's values (the right place in this build); from then on, again
+// whenever the in-game options change them.
 template <size_t N>
-void PatchFloats(const char* group, const FloatTunable (&table)[N]) {
-  for (const FloatTunable& t : table) {
-    if (GuestWord(t.address) != FloatBits(t.game)) {
-      REXLOG_WARN("[extra-options] {}: the values are not where expected; not touched", group);
-      return;
+void PatchFloats(const char* group, int& state, const FloatTunable (&table)[N]) {
+  if (state == 0) {
+    state = 1;
+    for (const FloatTunable& t : table) {
+      if (GuestWord(t.address) != FloatBits(t.game)) {
+        REXLOG_WARN("[extra-options] {}: the values are not where expected; not touched", group);
+        state = -1;
+        break;
+      }
     }
   }
+  if (state < 0) return;
   for (const FloatTunable& t : table) {
     const float v = float(t.value);
-    if (v == t.game) continue;
+    if (GuestWord(t.address) == FloatBits(v)) continue;
     const bool ok = PatchGuestWord(t.address, FloatBits(v));
     REXLOG_INFO("[extra-options] {} {}: {:.3f}{}", group, t.name, v, ok ? "" : " (COULD NOT PATCH)");
   }
@@ -349,12 +355,12 @@ void PatchFloats(const char* group, const FloatTunable (&table)[N]) {
 }  // namespace
 
 extern "C" int32_t nfsmw_markers_to_pick() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_marker_count), 1, 6, "markers to pick after a rival", logged);
 }
 
 extern "C" int32_t nfsmw_purchased_car_limit() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_purchased_car_limit), 1, 25, "cars you can buy", logged);
 }
 
@@ -362,8 +368,54 @@ extern "C" int32_t nfsmw_purchased_car_limit() {
 // tools/ios/patch_game_extra_options.py). Smaller: less drawing, resolving and
 // texture reloading every frame, blurrier shadow edges.
 extern "C" int32_t nfsmw_shadow_map_size() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_shadow_map_size), 512, 1600, "shadow map size", logged) & ~7;
+}
+
+// The values in the game's data (rain, Speedbreaker, infraction speeds, most
+// impound strikes): at boot and again from the in-game options
+// (ingame_options.mm), which set the cvars first. Main thread; the game reads
+// each value where it uses it, so a change shows from then on.
+extern "C" void nfsmw_extra_options_tunables() {
+  // The rain's tunables (see RAIN above): only when they still hold the
+  // game's defaults (the right table in this build).
+  static int rain_state = 0, sb_state = 0, infraction_state = 0, strikes_state = 0;
+  PatchFloats("rain", rain_state, {
+      {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
+      {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
+      {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
+      {0x828F9D30, 0.02f, REXCVAR_GET(nfsmw_rain_crossing), "crossing"},
+      {0x828F9D34, 0.03f, REXCVAR_GET(nfsmw_rain_fall_speed), "fall speed"},
+      {0x828F9D38, 0.35f, REXCVAR_GET(nfsmw_rain_gravity), "gravity"},
+      {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
+  });
+  if (REXCVAR_GET(nfsmw_always_rain)) {
+    REXLOG_INFO("[extra-options] always rain: on");
+  }
+  // SPEEDBREAKER and INFRACTION SPEEDS above.
+  PatchFloats("speedbreaker", sb_state, {
+      {0x828FB8D4, 25.0f, REXCVAR_GET(nfsmw_sb_recharge_time), "recharge time"},
+      {0x828FB8D8, 100.0f, REXCVAR_GET(nfsmw_sb_recharge_speed), "recharge speed"},
+      {0x828FB8DC, 2.0f, REXCVAR_GET(nfsmw_sb_mass), "mass"},
+  });
+  PatchFloats("infraction", infraction_state, {
+      {0x82061CC4, 80.5f, REXCVAR_GET(nfsmw_excessive_speeding_limit), "excessive speeding"},
+      {0x82061CC8, 67.0f, REXCVAR_GET(nfsmw_speeding_limit), "speeding"},
+      {0x82061CCC, 89.4f, REXCVAR_GET(nfsmw_reckless_driving_limit), "reckless driving"},
+  });
+  // IMPOUND STRIKES above: the maximum, after the float 0.25.
+  {
+    constexpr uint32_t kQuarter = 0x828FF1F8, kMaxStrikes = 0x828FF1FC;
+    const int32_t max = std::clamp(REXCVAR_GET(nfsmw_impound_strikes_max), 1, 127);
+    if (strikes_state == 0) {
+      strikes_state = GuestWord(kQuarter) == FloatBits(0.25f) && GuestWord(kMaxStrikes) == 5 ? 1 : -1;
+      if (strikes_state < 0) REXLOG_WARN("[extra-options] most impound strikes: not where expected; not touched");
+    }
+    if (strikes_state > 0 && GuestWord(kMaxStrikes) != uint32_t(max)) {
+      const bool ok = PatchGuestWord(kMaxStrikes, uint32_t(max));
+      REXLOG_INFO("[extra-options] most impound strikes: {}{}", max, ok ? "" : " (COULD NOT PATCH)");
+    }
+  }
 }
 
 // The data patches, once the XEX is loaded and before the game reads them
@@ -409,42 +461,7 @@ extern "C" void nfsmw_extra_options_apply() {
       REXLOG_INFO("[extra-options] old bridge barrier: {}", ok ? "removed" : "COULD NOT PATCH");
     }
   }
-  // The rain's tunables (see RAIN above): only when they still hold the
-  // game's defaults (the right table in this build).
-  PatchFloats("rain", {
-      {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
-      {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
-      {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
-      {0x828F9D30, 0.02f, REXCVAR_GET(nfsmw_rain_crossing), "crossing"},
-      {0x828F9D34, 0.03f, REXCVAR_GET(nfsmw_rain_fall_speed), "fall speed"},
-      {0x828F9D38, 0.35f, REXCVAR_GET(nfsmw_rain_gravity), "gravity"},
-      {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
-  });
-  if (REXCVAR_GET(nfsmw_always_rain)) {
-    REXLOG_INFO("[extra-options] always rain: on");
-  }
-  // SPEEDBREAKER and INFRACTION SPEEDS above.
-  PatchFloats("speedbreaker", {
-      {0x828FB8D4, 25.0f, REXCVAR_GET(nfsmw_sb_recharge_time), "recharge time"},
-      {0x828FB8D8, 100.0f, REXCVAR_GET(nfsmw_sb_recharge_speed), "recharge speed"},
-      {0x828FB8DC, 2.0f, REXCVAR_GET(nfsmw_sb_mass), "mass"},
-  });
-  PatchFloats("infraction", {
-      {0x82061CC4, 80.5f, REXCVAR_GET(nfsmw_excessive_speeding_limit), "excessive speeding"},
-      {0x82061CC8, 67.0f, REXCVAR_GET(nfsmw_speeding_limit), "speeding"},
-      {0x82061CCC, 89.4f, REXCVAR_GET(nfsmw_reckless_driving_limit), "reckless driving"},
-  });
-  // IMPOUND STRIKES above: the maximum, after the float 0.25.
-  {
-    constexpr uint32_t kQuarter = 0x828FF1F8, kMaxStrikes = 0x828FF1FC;
-    const int32_t max = std::clamp(REXCVAR_GET(nfsmw_impound_strikes_max), 1, 127);
-    if (GuestWord(kQuarter) != FloatBits(0.25f) || GuestWord(kMaxStrikes) != 5) {
-      REXLOG_WARN("[extra-options] most impound strikes: not where expected; not touched");
-    } else if (max != 5) {
-      const bool ok = PatchGuestWord(kMaxStrikes, uint32_t(max));
-      REXLOG_INFO("[extra-options] most impound strikes: {}{}", max, ok ? "" : " (COULD NOT PATCH)");
-    }
-  }
+  nfsmw_extra_options_tunables();
 }
 
 // Before the pursuit's heat clamp (see HEAT LEVEL OVERRIDE above).
@@ -452,7 +469,7 @@ extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
   if (!REXCVAR_GET(nfsmw_heat_override)) {
     return;
   }
-  static std::atomic<bool> logged_min{false}, logged_max{false};
+  static std::atomic<int32_t> logged_min{INT32_MIN}, logged_max{INT32_MIN};
   const int32_t lo = Setting(REXCVAR_GET(nfsmw_heat_min), 1, 10, "heat override minimum", logged_min);
   const int32_t hi = std::max(lo, Setting(REXCVAR_GET(nfsmw_heat_max), 1, 10, "heat override maximum", logged_max));
   REX_STORE_U32(object + 220, FloatBits(float(lo)));
@@ -464,7 +481,7 @@ extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
 extern "C" void __imp__sub_822CE7D8(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" REX_FUNC(sub_822CE7D8) {
   __imp__sub_822CE7D8(ctx, base);
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   const int32_t strikes = Setting(REXCVAR_GET(nfsmw_impound_strikes), 1, 127, "impound strikes of a new car", logged);
   if (strikes != 3) {
     REX_STORE_U8(ctx.r3.u32 + 2, uint8_t(strikes));
@@ -475,28 +492,28 @@ extern "C" int32_t nfsmw_laps_max();
 extern "C" int32_t nfsmw_opponents_max();
 
 extern "C" int32_t nfsmw_laps_min() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_laps_min), 1, std::max(1, nfsmw_laps_max()), "fewest Quick Race laps", logged);
 }
 
 extern "C" int32_t nfsmw_laps_max() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_laps_max), 1, 127, "most Quick Race laps", logged);
 }
 
 extern "C" int32_t nfsmw_opponents_min() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_opponents_min), 1, std::max(1, nfsmw_opponents_max()),
                  "fewest Quick Race opponents", logged);
 }
 
 extern "C" int32_t nfsmw_opponents_max() {
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{INT32_MIN};
   return Setting(REXCVAR_GET(nfsmw_opponents_max), 1, 6, "most Quick Race opponents", logged);
 }
 
 extern "C" int32_t nfsmw_traffic_density(int32_t level) {
-  static std::atomic<bool> logged[3];
+  static std::atomic<int32_t> logged[3] = {INT32_MIN, INT32_MIN, INT32_MIN};
   switch (level) {
     case 1: return Setting(REXCVAR_GET(nfsmw_traffic_low), 0, 100, "traffic at Low", logged[0]);
     case 2: return Setting(REXCVAR_GET(nfsmw_traffic_medium), 0, 100, "traffic at Medium", logged[1]);
@@ -526,14 +543,14 @@ extern "C" int32_t nfsmw_skip_movies() {
 extern "C" void __imp__sub_82472F38(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" REX_FUNC(sub_82472F38) {
   constexpr uint32_t kGameSpeed = 0x828FB90C;
-  static std::atomic<bool> logged{false};
+  static std::atomic<int32_t> logged{100};
   const double factor = std::clamp(REXCVAR_GET(nfsmw_game_speed), 0.25, 4.0);
+  if (logged.exchange(int32_t(factor * 100)) != int32_t(factor * 100)) {
+    REXLOG_INFO("[extra-options] game speed: {:.2f}x", factor);
+  }
   if (factor == 1.0) {
     __imp__sub_82472F38(ctx, base);
     return;
-  }
-  if (!logged.exchange(true)) {
-    REXLOG_INFO("[extra-options] game speed: {:.2f}x", factor);
   }
   const uint32_t game = REX_LOAD_U32(kGameSpeed);
   float v;
@@ -550,7 +567,7 @@ extern "C" REX_FUNC(sub_822C4E68) {
   const uint32_t options = ctx.r4.u32;
   const int32_t type = ctx.r5.s32;
   __imp__sub_822C4E68(ctx, base);
-  static std::atomic<bool> logged_o{false}, logged_l{false};
+  static std::atomic<int32_t> logged_o{INT32_MIN}, logged_l{INT32_MIN};
   static std::atomic<uint32_t> seed{0x1D872B41};
   auto draw = [](int32_t n) {
     uint32_t v = seed.load();
@@ -571,20 +588,40 @@ extern "C" REX_FUNC(sub_822C4E68) {
 }
 
 // DEBUG FLAGS FROM THE XBOX 360 PROTOTYPE above: each reader sets its flag
-// first while the setting is on.
-#define NFSMW_FLAG_READER(func, cvar, store)                                 \
+// first. The three bytes have no other writer, so they follow the setting
+// both ways (it can change in the in-game options). The cops word is the
+// game's own: set while the setting is on, cleared once when it is turned off.
+#define NFSMW_BYTE_FLAG_READER(func, cvar, address)                          \
   extern "C" void __imp__##func(PPCContext& __restrict ctx, uint8_t* base); \
   extern "C" REX_FUNC(func) {                                                \
-    if (REXCVAR_GET(cvar)) {                                                 \
-      store;                                                                 \
-    }                                                                        \
+    REX_STORE_U8(address, REXCVAR_GET(cvar) ? 1 : 0);                        \
     __imp__##func(ctx, base);                                                \
   }
-NFSMW_FLAG_READER(sub_82424988, nfsmw_infinite_nos, REX_STORE_U8(0x82A2CE71, 1))
-NFSMW_FLAG_READER(sub_8246C188, nfsmw_infinite_speedbreaker, REX_STORE_U8(0x82A2D1C6, 1))
-NFSMW_FLAG_READER(sub_8229B840, nfsmw_show_non_pursuit_cops, REX_STORE_U8(0x82A2C5FA, 1))
-NFSMW_FLAG_READER(sub_8249D808, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
-NFSMW_FLAG_READER(sub_820EB6A8, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
-NFSMW_FLAG_READER(sub_824A2DD8, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
-NFSMW_FLAG_READER(sub_824A22B0, nfsmw_no_cops, REX_STORE_U32(0x82A2BD94, 1))
+NFSMW_BYTE_FLAG_READER(sub_82424988, nfsmw_infinite_nos, 0x82A2CE71)
+NFSMW_BYTE_FLAG_READER(sub_8246C188, nfsmw_infinite_speedbreaker, 0x82A2D1C6)
+NFSMW_BYTE_FLAG_READER(sub_8229B840, nfsmw_show_non_pursuit_cops, 0x82A2C5FA)
+#undef NFSMW_BYTE_FLAG_READER
+
+namespace {
+std::atomic<bool> cops_forced_off{false};
+void NoCops(uint8_t* base) {
+  if (REXCVAR_GET(nfsmw_no_cops)) {
+    REX_STORE_U32(0x82A2BD94, 1);
+    cops_forced_off.store(true);
+  } else if (cops_forced_off.exchange(false)) {
+    REX_STORE_U32(0x82A2BD94, 0);
+  }
+}
+}  // namespace
+
+#define NFSMW_FLAG_READER(func)                                              \
+  extern "C" void __imp__##func(PPCContext& __restrict ctx, uint8_t* base); \
+  extern "C" REX_FUNC(func) {                                                \
+    NoCops(base);                                                            \
+    __imp__##func(ctx, base);                                                \
+  }
+NFSMW_FLAG_READER(sub_8249D808)
+NFSMW_FLAG_READER(sub_820EB6A8)
+NFSMW_FLAG_READER(sub_824A2DD8)
+NFSMW_FLAG_READER(sub_824A22B0)
 #undef NFSMW_FLAG_READER

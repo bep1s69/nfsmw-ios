@@ -118,6 +118,9 @@
   fall speed and gravity.
 - **Cheats from the Xbox 360 prototype's debug menu:** infinite nitrous,
   infinite Speedbreaker and no cops, plus all cops shown on the minimap.
+- **Extra Options in the in-game menu.** Every Extra Option except the Old
+  Bridge road can be changed while playing (gear or L3+R3) and applies at
+  once; race limits and traffic show from the next race.
 
 ## 0.5.2
 

@@ -15,6 +15,10 @@
 //   - all four fps caps, 30 fps when warm, 30 fps in menus, 0.75x when hot:
 //     battery.mm (ChooseCap, SettingsChanged).
 // Performance profiles also apply live, through performance::Choose.
+// The Extra Options too (all but the Old Bridge barrier): the game reads them
+// where it uses them, and the values in its data are written again
+// (nfsmw_extra_options_tunables). Effects such as traffic or race limits show
+// from the next race.
 // The rest wait for the next launch: MSAA and what Battery mode reads once
 // (anisotropic filtering, shadow quality...). Documents/extra_args.txt is
 // not read here: a setting changed here wins over it until the next launch.
@@ -46,6 +50,7 @@
 #include "touch_controls.h"
 
 extern "C" void NativeSettingsChanged();  // native_renderer.mm
+extern "C" void nfsmw_extra_options_tunables() __attribute__((weak));  // game_extra_options.cpp (USA)
 
 namespace {
 
@@ -55,7 +60,15 @@ std::atomic<bool> wait_release{false};  // closed: until the controller's button
 NSArray<NSString*>* Keys() {
   return @[ @"scale", @"metalfx_mode", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
             @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
-            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back" ];
+            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back",
+            // Extra Options (all live except the Old Bridge barrier, set when the world loads)
+            @"infinite_nos", @"infinite_speedbreaker", @"sb_recharge_time", @"sb_recharge_speed", @"sb_mass",
+            @"no_cops", @"show_non_pursuit_cops", @"heat_override", @"heat_min", @"heat_max", @"speeding_limit",
+            @"excessive_speeding_limit", @"reckless_driving_limit", @"marker_count", @"car_limit",
+            @"impound_strikes", @"impound_strikes_max", @"skip_movies", @"game_speed", @"laps_min", @"laps_max",
+            @"opponents_min", @"opponents_max", @"random_laps_max", @"random_opponents_max", @"traffic_low",
+            @"traffic_medium", @"traffic_high", @"always_rain", @"rain_amount", @"rain_intensity", @"rain_drop_size",
+            @"rain_crossing", @"rain_fall_speed", @"rain_gravity", @"road_reflection" ];
 }
 
 // The settings that only the native renderer has (left out without it).
@@ -75,7 +88,19 @@ const std::set<std::string>& LiveFlags() {
       "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
       "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
       "nfsmw_hud_race_y",              "nfsmw_hud_layout",      "ios_touch_steering",
-      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back"};
+      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back",
+      // Extra Options: read where the game uses them (game_extra_options.cpp);
+      // the values in the game's data are written again by
+      // nfsmw_extra_options_tunables().
+      "nfsmw_infinite_nos", "nfsmw_infinite_speedbreaker", "nfsmw_sb_recharge_time", "nfsmw_sb_recharge_speed",
+      "nfsmw_sb_mass", "nfsmw_no_cops", "nfsmw_show_non_pursuit_cops", "nfsmw_heat_override", "nfsmw_heat_min",
+      "nfsmw_heat_max", "nfsmw_speeding_limit", "nfsmw_excessive_speeding_limit", "nfsmw_reckless_driving_limit",
+      "nfsmw_marker_count", "nfsmw_purchased_car_limit", "nfsmw_impound_strikes", "nfsmw_impound_strikes_max",
+      "nfsmw_skip_movies", "nfsmw_game_speed", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
+      "nfsmw_opponents_max", "nfsmw_random_laps_max", "nfsmw_random_opponents_max", "nfsmw_traffic_low",
+      "nfsmw_traffic_medium", "nfsmw_traffic_high", "nfsmw_always_rain", "nfsmw_rain_amount",
+      "nfsmw_rain_intensity", "nfsmw_rain_drop_size", "nfsmw_rain_crossing", "nfsmw_rain_fall_speed",
+      "nfsmw_rain_gravity", "nfsmw_road_reflection"};
   return flags;
 }
 
@@ -242,6 +267,7 @@ UIWindow* GameWindow() {
     REXLOG_INFO("[options] {} = {}", name, value);
   }
   NativeSettingsChanged();
+  if (nfsmw_extra_options_tunables) nfsmw_extra_options_tunables();
   NSString* fps = nfsmw::launcher::SettingValue(_settings, @"fps_cap");
   if (LiveCap(fps) && LiveCap(nfsmw::launcher::SettingValue(_launched, @"fps_cap"))) {
     nfsmw::battery::ChooseCap(fps.intValue);
