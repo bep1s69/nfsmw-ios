@@ -2103,7 +2103,13 @@ extern "C" int nfsmw_menu_scroll_at(uint8_t* base,uint32_t engine,float x,float 
 // icons with a known button, in the packages' units (as menu taps).
 extern "C" int nfsmw_menu_hints_list(uint8_t* base,uint32_t engine,float* out,int max) {
   int n=0;
-  for (const auto& pkg:MenuPackages(base,engine)) for (const auto& h:pkg.hints) {
+  const auto packages=MenuPackages(base,engine);
+  // Diagnostics (dev19): each package's hints once, for the caps' buttons.
+  static std::unordered_map<std::string,int> logged;
+  for (const auto& pkg:packages) if (logged[pkg.name]++==0) for (const auto& h:pkg.hints) if (h.button)
+    REXLOG_INFO("[keyboard-hint] {} group {:08X} texture {:08X} button {:X} label {} shown {} at {:.0f},{:.0f} size {:.0f}x{:.0f}",
+                pkg.name,h.group,h.texture,h.button,h.label,h.shown,h.x,h.y,h.icon_w,h.icon_h);
+  for (const auto& pkg:packages) for (const auto& h:pkg.hints) {
     // Buttons with a key of their own: not the arrows and chevrons, which
     // the arrow keys already are (Stefan, dev13: caps on the main menu's
     // arrows and none on A/Y). The labelled icons (A Accept) are the ones.

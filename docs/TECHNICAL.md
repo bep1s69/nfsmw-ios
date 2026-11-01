@@ -15768,3 +15768,24 @@ SHA-256 b529b6e221a95edd7fc67717c2d17077e4ef3376f987cd49116debe3a9c351ef. Not ru
 textures drawn in the game's icon style (the PC's 11 key textures cannot be
 shipped).
 
+
+### November 2: dev18 caps accepted; Car_Select hints wrong; showcase camera (dev19)
+
+Stefan (dev18): "much much better, I like this style now". Log and four
+screenshots (load save, main menu, Challenge Series, safehouse Car_Select):
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev18_keyboard.log`,
+`iphone_0.6.0_dev18_keyboard_IMG_0356..0359.png`. Problems, Car_Select:
+a ↵ (A) cap next to the impound-marker slot; the RB Showcase icon has no cap;
+"Sell Car" shows E (the menu RB key) and E opens Showcase. Inference: the
+touch fix for Car_Select (CorrectMenuHints: group FEA90A33, texture CIRCLE,
+forced to RB as "the visible RB Showcase", TECHNICAL October 31) is on the
+Sell Car icon, so the cap and possibly touch taps on Sell Car press RB; the
+real RB icon's texture is not in ButtonOfTexture. Not verified: dev19 logs
+each package's hints once (`[keyboard-hint] package group texture button
+label shown at size`) to settle it. Also: no way to turn the Showcase
+camera from the keyboard: the menu set now has WASD as the right stick
+(camera in Showcase, cursor on the world map; arrows still move in menus).
+Free camera as on PC (Extra Options' debug world camera) noted for later.
+Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev19-keyboard.ipa` (Desktop; dev18 to Trash), 30511644 bytes,
+SHA-256 892dd7519d749202ff8e244e117d4470d10eaf9f9fb2b97d6558955c4a5c03fd. Not run on a device.
+
