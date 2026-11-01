@@ -2,6 +2,12 @@
 
 ## Multiplayer branch preview — separate from the controls release
 
+- **Test hosting for PCs.** Add a separate experimental two-player hosting
+  option that advertises a native PC LAN lobby and adapts PC guest connections
+  inside the app. No extra PC script or modification. Reverse-direction play
+  still needs device testing. Builds on victorgbd's directly reused Android
+  server and C++ adaptation, credited below.
+
 - **Play against a PC LAN host.** First on-device iOS/PC gameplay test succeeded
   with native PC discovery and no PC helper script. Both cars loaded and the
   session ran until the player quit. Full race results and rematches remain

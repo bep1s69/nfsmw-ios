@@ -71,6 +71,7 @@ int main(int argc,char**argv) {
          '-I' + str(ROOT / 'ios/src/multiplayer'),
          '-I' + str(a.sdk / 'thirdparty/inja/third_party/include'),
          str(ROOT / 'ios/src/multiplayer/servidor_ea.cpp'),
+         str(ROOT / 'ios/src/multiplayer/pc_gateway.cpp'),
          str(ROOT / 'ios/src/multiplayer/red_lan.cpp'), str(harness), '-o', str(dest)])
     return dest
 

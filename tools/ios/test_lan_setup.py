@@ -27,10 +27,15 @@ Comprobacion ComprobarGamertag(const std::string&,const std::string&){++checks;r
 namespace nfsmw::boot {void Trace(const std::string&) {}}
 namespace nfsmw::pc {
 bool Probe(const std::string&){return pcHost;}
-void Stop(){}
+bool hosting=false;int hostStarts=0;
+void Stop(){hosting=false;}
+bool Hosting(){return hosting;}
+void StartHosting(){hosting=true;++hostStarts;}
 bool Start(const std::string&, std::function<void(const std::string&)>, std::string*) {++pcStarts;return true;}
 }
 namespace nfsmw::servidor {
+bool ArrancarPC(const std::string&,const std::string&,std::function<void()>,std::function<std::string()>,const std::string&ip,std::string*) {assert(ip=="192.168.1.150");return true;}
+bool EnMarcha(){return true;}
 void Parar(){++stops;}
 bool Arrancar(const std::string&,const std::string&,std::function<void()>,std::function<std::string()>name,std::string*error){
  ++binds;assert(name()=="iPad150");
@@ -57,6 +62,10 @@ int main(int argc,char**argv){
  check=nfsmw::red::Comprobacion::kLibre;failures=2;
  auto hosted=Prepare("host","","iPad150",dir);
  assert(hosted.error.empty() && hosted.hosting && hosted.ip=="192.168.1.150" && binds==3);
+ auto hostedPc=Prepare("host_pc","","iPad150",dir);
+ assert(hostedPc.hosting && !hostedPc.pc && hostedPc.error.empty());
+ int priorStarts=nfsmw::pc::hostStarts;
+ assert(Prepare("host_pc","","iPad150",dir).error.empty() && nfsmw::pc::hostStarts==priorStarts);
  int oldStops=stops;check=nfsmw::red::Comprobacion::kEnUso;
  assert(!Prepare("host","","iPad150",dir).error.empty() && stops==oldStops+1);
  assert(Prepare("off","","",dir).error.empty() && stops==oldStops+2);

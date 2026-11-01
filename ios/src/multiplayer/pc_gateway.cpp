@@ -19,17 +19,25 @@
 namespace nfsmw::pc {
 namespace {
 std::atomic<uint32_t> racePeer{0}, raceId{0}, localRaceId{0};
+std::atomic<bool> hosting{false}, remoteKnown{false}, localKnown{false};
 }
 bool IsRacePeer(uint32_t ipv4) { return ipv4 && racePeer.load() == ipv4; }
 bool Active() { return racePeer.load() != 0; }
+bool Hosting() { return hosting.load(); }
+void StartHosting() { Stop(); hosting = true; }
+bool SetHostingPeer(uint32_t ipv4) {
+  if (!Hosting() || !ipv4) return false;
+  uint32_t expected = 0;
+  return racePeer.compare_exchange_strong(expected, ipv4) || expected == ipv4;
+}
+bool HasRaceId(uint32_t ipv4) { return IsRacePeer(ipv4) && remoteKnown; }
+bool HasLocalRaceId(uint32_t ipv4) { return IsRacePeer(ipv4) && localKnown; }
 void ObserveRaceId(uint32_t ipv4, uint32_t id) {
-  if (IsRacePeer(ipv4) && id)
-    raceId = id;
+  if (IsRacePeer(ipv4)) { raceId = id; remoteKnown = true; }
 }
 uint32_t RaceId(uint32_t ipv4) { return IsRacePeer(ipv4) ? raceId.load() : 0; }
 void SetLocalRaceId(uint32_t ipv4, uint32_t id) {
-  if (IsRacePeer(ipv4))
-    localRaceId = id;
+  if (IsRacePeer(ipv4)) { localRaceId = id; localKnown = true; }
 }
 uint32_t LocalRaceId(uint32_t ipv4) {
   return IsRacePeer(ipv4) ? localRaceId.load() : 0;
@@ -227,6 +235,70 @@ std::string AdaptGame(const std::string &body) {
   if (Field(body, "PLATPARAMS").empty())
     out = Put(out, "PLATPARAMS", Binary7(nonce));
   return out;
+}
+std::string HostLogin(const std::string &body, const std::string &ip) {
+  auto machine = Machine(ip);
+  return machine.empty() ? body : Put(body, "MADDR", machine);
+}
+namespace {
+std::string PcAddress(const std::string &ip) {
+  auto address = Address(ip);
+  if (address.empty()) return {};
+  auto b = reinterpret_cast<const unsigned char *>(address.data());
+  char text[12];
+  snprintf(text, sizeof(text), "$%02x%02x%02x%02x", b[3], b[2], b[1], b[0]);
+  return text;
+}
+
+}
+std::string HostReply(const std::string &command, const std::string &body, const std::string &hostIp) {
+  auto out = body;
+  if (command == "@dir") return Put(out, "PORT", "9900");
+  if (command == "+uss" || command == "+ust" || command == "ujoi" ||
+      command == "ucre" || command == "uadm") {
+    auto params = Field(body, "P");
+    // Reverse only the known Xbox build token, with field boundaries.
+    for (size_t at = 0; (at = params.find("V%3d192641", at)) != std::string::npos; ++at) {
+      const auto end = at + 10;
+      if ((at == 0 || params.substr(at - std::min(at, size_t(3)), 3) == "%0a") &&
+          (end == params.size() || params.substr(end, 3) == "%0a")) {
+        params.replace(at + 4, 6, "192359"); break;
+      }
+    }
+    out = Put(out, "P", params);
+    auto d = Field(body, "D");
+    // Room description is the Xbox host XUID; PC expects an IPv4 machine address.
+    if (d.size() == 17 && d[0] == '$') {
+      auto pc = PcAddress(hostIp);
+      if (!pc.empty()) out = Put(out, "D", pc);
+    }
+  }
+  if (command == "+who" || command == "+usr") {
+    auto ma = PcAddress(Field(body, "A"));
+    if (!ma.empty()) out = Put(out, "MA", ma);
+  }
+  if (!Field(body, "IDENT").empty() && (command == "+gam" || command == "+mgm" || command == "+ses" ||
+      command == "gcre" || command == "gjoi" || command == "gset" || command == "gget")) {
+    for (int i = 0; i < 4; ++i) {
+      auto n = std::to_string(i);
+      auto ma = PcAddress(Field(body, "ADDR" + n));
+      if (!ma.empty()) out = Put(out, "MADDR" + n, ma);
+    }
+    out = Put(Put(out, "SESS", ""), "PLATPARAMS", "");
+  }
+  return out;
+}
+std::string Advertisement(const std::string &name, unsigned players, uint32_t session) {
+  std::string packet(384, '\0');
+  packet.replace(0, 5, "gEA\x03\x05", 5);
+  for (int i = 0; i < 3; ++i) packet[5+i] = char(session >> (i*8));
+  packet.replace(8, 7, "NFSMWNA");
+  packet.replace(40, std::min(name.size(), size_t(11)), name.substr(0, 11));
+  auto count = "9900|" + std::to_string(std::min(players, 4u));
+  packet.replace(72, count.size(), count);
+  const std::string caps = "TCP:~1:1024\tUDP:~1:1024";
+  packet.replace(258, caps.size(), caps);
+  return packet;
 }
 std::string LocalStats(const std::string &name) {
   // Original PC LAN has no Xbox 'user' history endpoint. New local LAN
@@ -557,6 +629,7 @@ void Stop() {
   std::lock_guard<std::mutex> lock(gatewayMutex);
   racePeer = 0;
   raceId = localRaceId = 0;
+  remoteKnown = localKnown = hosting = false;
   gateway.reset();
 }
 bool Start(const std::string &ip,
@@ -564,6 +637,7 @@ bool Start(const std::string &ip,
   std::lock_guard<std::mutex> lock(gatewayMutex);
   racePeer = 0;
   raceId = localRaceId = 0;
+  remoteKnown = localKnown = hosting = false;
   gateway.reset();
   for (int i = 0; i < 8; ++i) {
     auto g = std::make_unique<Gateway>();

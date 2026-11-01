@@ -18,6 +18,7 @@
 
 #include "red_lan.h"
 #include "servidor_ea.h"
+#include "pc_gateway.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -284,6 +285,7 @@ struct Partida;
 struct Sesion {
   int fd = -1;
   int puerto = 0;
+  bool pc = false;
   std::string ip;
   // La IP de este telefono por la que ha llegado (la que se le da en @dir).
   std::string ipLocal;
@@ -306,8 +308,17 @@ struct Sesion {
   std::string nombre() const { return !persona.empty() ? persona : nombreCuenta; }
 
   // Se llama con el candado del servidor. Si el socket ha muerto, su hilo lo cerrara.
-  void escribir(const Mensaje& m) {
+  void escribir(const Mensaje& original) {
     if (roto) return;
+    Mensaje translated;
+    if (pc && original.size() >= 12) {
+      const std::string command(original.begin(), original.begin()+4);
+      const std::string body(original.begin()+12, original.end());
+      const auto frame = nfsmw::pc::Frame(command, nfsmw::pc::HostReply(command, body, ipLocal),
+          std::string(original.begin()+4, original.begin()+8));
+      translated.assign(frame.begin(), frame.end());
+    }
+    const auto& m = pc ? translated : original;
     size_t hecho = 0;
     while (hecho < m.size()) {
       const ssize_t n = send(fd, m.data() + hecho, m.size() - hecho, 0);
@@ -534,8 +545,8 @@ class Estadisticas {
 
 class Servidor : public std::enable_shared_from_this<Servidor> {
  public:
-  Servidor(std::string datos, const std::string& logs, std::function<void()> alCambiar, std::function<std::string()> nombre)
-      : datos_(std::move(datos)), alCambiar_(std::move(alCambiar)), nombre_(std::move(nombre)), estadisticas_(datos_) {
+  Servidor(std::string datos, const std::string& logs, std::function<void()> alCambiar, std::function<std::string()> nombre, std::string pcIp = {})
+      : pcIp_(std::move(pcIp)), datos_(std::move(datos)), alCambiar_(std::move(alCambiar)), nombre_(std::move(nombre)), estadisticas_(datos_) {
     CrearCarpeta(datos_);
     CrearCarpeta(logs);
     const std::string f = logs + "/servidor_lan.log";
@@ -552,7 +563,8 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
   // Abre los cuatro puertos (falla si alguno esta cogido) y empieza a atender.
   bool arrancar(std::string* error) {
     log("============================================================");
-    for (int puerto : {PUERTO_DIRECTORIO, PUERTO_SALAS, PUERTO_GAMERTAG}) {
+    for (int puerto : {PUERTO_DIRECTORIO, PUERTO_SALAS, PUERTO_GAMERTAG, 9900}) {
+      if (puerto == 9900 && pcIp_.empty()) continue;
       const int s = abrir(SOCK_STREAM, puerto, error);
       if (s < 0) {
         parar();
@@ -561,6 +573,20 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
       escuchas_.push_back(s);
       auto yo = shared_from_this();
       std::thread([yo, s, puerto] { yo->aceptar(s, puerto); }).detach();
+    }
+    if (!pcIp_.empty()) {
+      anuncio_ = socket(AF_INET, SOCK_DGRAM, 0);
+      int one = 1;
+      sockaddr_in source{}; source.sin_family = AF_INET;
+      inet_pton(AF_INET, pcIp_.c_str(), &source.sin_addr);
+      if (anuncio_ < 0 || setsockopt(anuncio_, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) != 0 ||
+          bind(anuncio_, reinterpret_cast<sockaddr*>(&source), sizeof(source)) != 0) {
+        *error = "PC LAN announcement: " + std::string(strerror(errno));
+        if (anuncio_ >= 0) close(anuncio_);
+        anuncio_ = -1; parar(); return false;
+      }
+      auto yo = shared_from_this();
+      std::thread([yo] { yo->anunciarPC(); }).detach();
     }
     busqueda_ = abrir(SOCK_DGRAM, PUERTO_GAMERTAG, error);
     if (busqueda_ < 0) {
@@ -582,6 +608,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     {
       std::lock_guard<std::mutex> l(mutexLatido_);
       latido_.notify_all();
+      anuncioWake_.notify_all();
     }
     // Los accept y la busqueda lo ven en su siguiente vuelta y cierran su socket.
     {
@@ -609,7 +636,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     std::lock_guard<std::recursive_mutex> l(candado_);
     int n = 0;
     for (const auto& s : sesiones_) {
-      if (s->puerto == PUERTO_SALAS && s->autenticado) ++n;
+      if ((s->puerto == PUERTO_SALAS || s->pc) && s->autenticado) ++n;
     }
     return n;
   }
@@ -684,6 +711,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     auto ses = std::make_shared<Sesion>();
     ses->fd = fd;
     ses->puerto = puerto;
+    ses->pc = puerto == 9900;
     sockaddr_in otro{}, propio{};
     socklen_t largo = sizeof(otro);
     getpeername(fd, reinterpret_cast<sockaddr*>(&otro), &largo);
@@ -691,6 +719,10 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     getsockname(fd, reinterpret_cast<sockaddr*>(&propio), &largo);
     ses->ip = Ip(otro);
     ses->ipLocal = Ip(propio);
+    // PC-only mode exposes mobile control ports only to this phone's game.
+    if (!pcIp_.empty() && !ses->pc && ses->ip != pcIp_ && ses->ip != "127.0.0.1") {
+      log("[pc-host] rejected mobile guest " + ses->ip); close(fd); return;
+    }
     ses->id = ++cuentaSesiones_;
     const std::string p = "[" + std::to_string(puerto) + "]";
     const std::string par = ses->ip + ":" + std::to_string(ntohs(otro.sin_port));
@@ -719,7 +751,17 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
         if (buffer.size() < largoMensaje) break;
         const std::string orden(buffer.begin(), buffer.begin() + 4);
         const std::string sub = Hex(&buffer[4], 4);
-        const Campos campos = LeerCampos(buffer.data(), 12, size_t(largoMensaje));
+        Campos campos = LeerCampos(buffer.data(), 12, size_t(largoMensaje));
+        if (ses->pc && (orden == "auth" || orden == "pers")) {
+          in_addr address{}; inet_pton(AF_INET, ses->ip.c_str(), &address);
+          if (!nfsmw::pc::SetHostingPeer(ntohl(address.s_addr))) {
+            log("[pc-host] only one PC peer per experimental hosting session");
+            shutdown(fd, SHUT_RDWR); break;
+          }
+          const std::string body(buffer.begin()+12, buffer.begin()+std::ptrdiff_t(largoMensaje));
+          const auto adapted = nfsmw::pc::HostLogin(body, ses->ip);
+          campos = LeerCampos(reinterpret_cast<const uint8_t*>(adapted.data()), 0, adapted.size());
+        }
         buffer.erase(buffer.begin(), buffer.begin() + std::ptrdiff_t(largoMensaje));
         log(p + " <- " + orden + " sub=" + sub + " " + Texto(campos));
         std::lock_guard<std::recursive_mutex> l(candado_);
@@ -734,7 +776,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     bool eraJugador;
     {
       std::lock_guard<std::recursive_mutex> l(candado_);
-      eraJugador = ses->autenticado && puerto == PUERTO_SALAS;
+      eraJugador = ses->autenticado && (puerto == PUERTO_SALAS || ses->pc);
       olvidar(ses);
       sesiones_.erase(std::remove(sesiones_.begin(), sesiones_.end(), ses), sesiones_.end());
       // Nadie mas le escribe: el descriptor se puede cerrar (y reutilizar).
@@ -745,6 +787,26 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     if (eraJugador) alCambiar_();
   }
 
+  void anunciarPC() {
+    const uint32_t identity = arc4random();
+    sockaddr_in target{}; target.sin_family = AF_INET;
+    target.sin_port = htons(9999); target.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+    log("[pc-host] native discovery UDP9999; directory/lobby TCP9900; source " + pcIp_);
+    std::mutex mutex;
+    std::unique_lock<std::mutex> wait(mutex);
+    bool reported = false;
+    while (!parado_) {
+      const auto packet = nfsmw::pc::Advertisement(nombre_(), unsigned(jugadores()), identity);
+      if (sendto(anuncio_, packet.data(), packet.size(), 0,
+          reinterpret_cast<sockaddr*>(&target), sizeof(target)) < 0 && !reported) {
+        log("[pc-host] announcement failed: " + std::string(strerror(errno)));
+        reported = true;
+      }
+      anuncioWake_.wait_for(wait, std::chrono::seconds(3), [this] { return parado_.load(); });
+    }
+    close(anuncio_);
+  }
+
   void latidos() {
     std::unique_lock<std::mutex> espera(mutexLatido_);
     while (!parado_) {
@@ -753,7 +815,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
       const Mensaje m = Crear("~png", {{"REF", Fecha()}, {"TIME", "2"}});
       std::lock_guard<std::recursive_mutex> l(candado_);
       for (const auto& s : sesiones_) {
-        if (s->puerto == PUERTO_SALAS) s->escribir(m);
+        if ((s->puerto == PUERTO_SALAS || s->pc)) s->escribir(m);
       }
     }
   }
@@ -824,6 +886,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
         break;
       }
       if (size_t(n) < pregunta.size() || std::memcmp(buf, pregunta.data(), pregunta.size()) != 0) continue;
+      if (!pcIp_.empty()) continue; // PC-only hosting is advertised by native UDP9999.
       const std::string nombre = nombre_();
       const int j = jugadores();
       const std::string r = "NFSMW_SERVER\nNAME=" + nombre + "\nPLAYERS=" + std::to_string(j) + "\n";
@@ -846,6 +909,9 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     std::string nombre = orden.substr(orden.find_first_not_of("@~") == std::string::npos ? orden.size()
                                                                                          : orden.find_first_not_of("@~"));
     std::replace(nombre.begin(), nombre.end(), ' ', '_');
+    if (ses->pc && (nombre == "gcre" || nombre == "ucre")) {
+      r.push_back(Crear(orden, {}, "perm")); return true;
+    }
     if (nombre == "dir") dir(*ses, r);
     else if (nombre == "tic") {}   // ofrece cifrar; sin respuesta sigue en claro
     else if (nombre == "addr") {}  // el cliente dice su IP y puerto; sin respuesta
@@ -1445,7 +1511,7 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
                                {"TOS", "1"},
                                {"SINCE", "2005.11.15-00:00:00"},
                                {"LAST", "2005.11.15-00:00:00"}}));
-    if (!antes && ses.puerto == PUERTO_SALAS) alCambiar_();
+    if (!antes && (ses.puerto == PUERTO_SALAS || ses.pc)) alCambiar_();
   }
 
   void pers(Sesion& ses, const Campos& f, std::vector<Mensaje>& r) {
@@ -1492,6 +1558,9 @@ class Servidor : public std::enable_shared_from_this<Servidor> {
     std::fflush(registro_);
   }
 
+  std::string pcIp_;
+  int anuncio_ = -1;
+  std::condition_variable anuncioWake_;
   std::string datos_;
   std::function<void()> alCambiar_;
   std::function<std::string()> nombre_;
@@ -1518,17 +1587,17 @@ std::mutex g_mutex;
 std::shared_ptr<Servidor> g_servidor;
 // Lo que se le paso a Arrancar, para Revivir; g_quiere: arrancado y sin Parar() desde entonces.
 bool g_quiere = false;
-std::string g_datos, g_logs;
+std::string g_datos, g_logs, g_pcIp;
 std::function<void()> g_alCambiar;
 std::function<std::string()> g_nombre;
 
 }  // namespace
 
-bool Arrancar(const std::string& datos, const std::string& logs, std::function<void()> alCambiar,
-              std::function<std::string()> nombre, std::string* error) {
+static bool ArrancarModo(const std::string& datos, const std::string& logs, std::function<void()> alCambiar,
+              std::function<std::string()> nombre, const std::string& pcIp, std::string* error) {
   std::lock_guard<std::mutex> l(g_mutex);
   if (g_servidor && !g_servidor->parado()) return true;
-  auto s = std::make_shared<Servidor>(datos, logs, alCambiar, nombre);
+  auto s = std::make_shared<Servidor>(datos, logs, alCambiar, nombre, pcIp);
   std::string motivo;
   if (!s->arrancar(&motivo)) {
     if (error) *error = motivo;
@@ -1536,6 +1605,7 @@ bool Arrancar(const std::string& datos, const std::string& logs, std::function<v
   }
   g_servidor = s;
   g_quiere = true;
+  g_pcIp = pcIp;
   g_datos = datos;
   g_logs = logs;
   g_alCambiar = std::move(alCambiar);
@@ -1543,6 +1613,14 @@ bool Arrancar(const std::string& datos, const std::string& logs, std::function<v
   return true;
 }
 
+bool Arrancar(const std::string& datos, const std::string& logs, std::function<void()> changed,
+              std::function<std::string()> name, std::string* error) {
+  return ArrancarModo(datos, logs, changed, name, "", error);
+}
+bool ArrancarPC(const std::string& datos, const std::string& logs, std::function<void()> changed,
+                std::function<std::string()> name, const std::string& ip, std::string* error) {
+  return ArrancarModo(datos, logs, changed, name, ip, error);
+}
 bool Revivir(std::string* error) {
   // Los sockets del que cayo los cierran sus hilos en su siguiente vuelta (VUELTA_MS); hasta entonces
   // los puertos siguen cogidos. Unos cuantos intentos, sin el candado durante la espera.
@@ -1551,7 +1629,7 @@ bool Revivir(std::string* error) {
       std::lock_guard<std::mutex> l(g_mutex);
       if (!g_quiere) return false;
       if (g_servidor && !g_servidor->parado()) return true;
-      auto s = std::make_shared<Servidor>(g_datos, g_logs, g_alCambiar, g_nombre);
+      auto s = std::make_shared<Servidor>(g_datos, g_logs, g_alCambiar, g_nombre, g_pcIp);
       std::string motivo;
       if (s->arrancar(&motivo)) {
         g_servidor = s;

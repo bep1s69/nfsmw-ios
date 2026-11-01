@@ -8,6 +8,11 @@ namespace nfsmw::pc {
 // IPv4 uses guest/network numeric order (e.g. 0xc0a801ca).
 bool IsRacePeer(uint32_t ipv4);
 bool Active();
+bool Hosting();
+void StartHosting();
+bool SetHostingPeer(uint32_t ipv4);
+bool HasRaceId(uint32_t ipv4);
+bool HasLocalRaceId(uint32_t ipv4);
 void ObserveRaceId(uint32_t ipv4, uint32_t connectionId);
 uint32_t RaceId(uint32_t ipv4);
 void SetLocalRaceId(uint32_t ipv4, uint32_t connectionId);
@@ -31,5 +36,8 @@ std::string AdaptRoom(const std::string &body);
 std::string AdaptGame(const std::string &body);
 std::string AdaptLogin(const std::string &body, const std::string &sourceIp);
 std::string AdaptUser(const std::string &body);
+std::string HostLogin(const std::string &body, const std::string &ip);
+std::string HostReply(const std::string &command, const std::string &body, const std::string &hostIp);
+std::string Advertisement(const std::string &name, unsigned players, uint32_t session);
 std::string LocalStats(const std::string &name);
 } // namespace nfsmw::pc

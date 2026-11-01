@@ -33,17 +33,21 @@ test=r'''
 bool red_lan=true,pc=true;
 namespace nfsmw::pc{
 uint32_t remoteId=0,localId=0;
+bool host=false,remoteKnown=false,localKnown=false;
+bool Hosting(){return host;}
+bool HasRaceId(uint32_t){return remoteKnown;}
+bool HasLocalRaceId(uint32_t){return localKnown;}
 bool IsRacePeer(uint32_t ip){return ::pc && ip==0xc0a801ca;}
-void ObserveRaceId(uint32_t,uint32_t id){remoteId=id;}
+void ObserveRaceId(uint32_t,uint32_t id){remoteId=id;remoteKnown=true;}
 uint32_t RaceId(uint32_t){return remoteId;}
-void SetLocalRaceId(uint32_t,uint32_t id){localId=id;}
+void SetLocalRaceId(uint32_t,uint32_t id){localId=id;localKnown=true;}
 uint32_t LocalRaceId(uint32_t){return localId;}
 }
 std::vector<std::string> logs;
 namespace nfsmw::boot {void Trace(const std::string&s) {logs.push_back(s);}}
 std::vector<uint8_t> sent;
 int result=8;
-const uint8_t packet[64]={5,0,0,0,0xc5,0xb9,0x64,0xc6,0xde,0xad,0xbe,0xef};
+uint8_t packet[64]={5,0,0,0,0xc5,0xb9,0x64,0xc6,0xde,0xad,0xbe,0xef};
 extern "C" REX_FUNC(sub_8282A4F0);
 extern "C" REX_FUNC(sub_8282A5A0);
 extern "C" REX_FUNC(__imp__sub_8282A4F0){
@@ -96,6 +100,16 @@ int main(){
   sub_8282A5A0(c,base);assert(memcmp(mem+0x2000,packet,result)==0);
  }
  red_lan=true;pc=true;Store32(base,0x104,0xc0a801ca);mem[0x103]=0x4a;
+ // Reverse role: original PC initiates with ID zero. Zero is a known ID.
+ nfsmw::pc::host=true;nfsmw::pc::remoteKnown=false;nfsmw::pc::localKnown=false;
+ packet[0]=1;memset(packet+4,0,4);result=12;c=context();sub_8282A5A0(c,base);
+ assert(nfsmw::pc::remoteKnown && nfsmw::pc::remoteId==0);
+ Store32(base,0x2000,5);Store32(base,0x2004,0x12345678);
+ c=context();sub_8282A4F0(c,base);
+ assert(sent[0]==5 && sent[4]==0 && sent[5]==0 && sent[6]==0 && sent[7]==0);
+ assert(Load32(base,0x2004)==0x12345678 && nfsmw::pc::localId==0x12345678);
+ c=context();sub_8282A5A0(c,base);assert(Load32(base,0x2004)==0x12345678);
+ nfsmw::pc::host=false;packet[0]=5;packet[4]=0xc5;packet[5]=0xb9;packet[6]=0x64;packet[7]=0xc6;
  logs.clear();memcpy(mem+0x2000,original,12);mem[0x2027]=0xa5;
  for(int i=0;i<40;++i){c=context();c.r5.u64=40;result=40;sub_8282A4F0(c,base);}
  assert(std::count_if(logs.begin(),logs.end(),[](auto&s){return s.find("[pc-packet] TX")==0;})==32);

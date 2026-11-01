@@ -20,6 +20,10 @@ namespace nfsmw::servidor {
 // servidores, pedido en cada busqueda. false, con el motivo en `error`, si no pudo abrir los puertos.
 bool Arrancar(const std::string& datos, const std::string& logs, std::function<void()> alCambiar,
               std::function<std::string()> nombre, std::string* error);
+// Separate experimental two-player PC guest mode; native PC needs no helper.
+bool ArrancarPC(const std::string& datos, const std::string& logs,
+                std::function<void()> alCambiar, std::function<std::string()> nombre,
+                const std::string& ip, std::string* error);
 void Parar();
 bool EnMarcha();
 // Si se arranco y se cayo solo (sin Parar()), lo vuelve a abrir con lo mismo que se paso a Arrancar.

@@ -917,7 +917,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--ios_iso_stream=" + b(On(s, @"iso_stream")));
   a.push_back("--ios_xma_starve_reset=" + b(On(s, @"audio_starve_reset")));
   NSString* lanMode = Value(s, @"lan_mode");
-  const bool lan = [lanMode isEqualToString:@"join"] || [lanMode isEqualToString:@"host"];
+  const bool lan = [lanMode isEqualToString:@"join"] || [lanMode isEqualToString:@"host"] || [lanMode isEqualToString:@"host_pc"];
   a.push_back(std::string("--red_lan=") + b(lan));
   a.push_back(std::string("--red_live=") + b(lan));
   a.push_back(std::string("--grant_user_privileges=") + b(lan));

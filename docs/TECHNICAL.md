@@ -14273,3 +14273,107 @@ Git worktree list confirms main19177b6 and isolated localmultiplayer. Added
 explicit Claude entrypoint/path, preservepreview12 and nextvalidation checklist
 to checkpoint. No source/build/test/IPA changes. No push/merge/release. Main's
 pre-existing checkpoint edit and untrackedHANDOFF remain outside this commit.
+
+
+## November 1, 2026 — preview13 separate native PC hosting experiment
+
+Authorization: Stefan explicitly says work can start now, initially separate PC
+hosting, and will test BOTH directions once ready. This supersedes the previous
+session stop/reverse-host deferral. All source in isolated multiplayer worktree;
+no main/control source or shared SDK change. Main pre-existing modified checkpoint
+and untracked HANDOFF preserved. No push/merge/tag/release.
+
+Implementation:
+- Launcher adds opt-in Host for PCs (Experimental), mode host_pc. Original Host
+  remains iOS/Android; Join retains existing native PC gateway. Backend optionally
+  listens on TCP9900 in addition to the host game's mobile control ports. PC
+  sockets retain actual source IP; no loopback relay masquerading as the PC.
+- Source-bound UDP announcement every3s to255.255.255.255:9999, stable ephemeral
+  source/session identity for server lifetime,384-byte gEA3/5 /NFSMWNA packet,
+  first11 name characters (conservative receiver bound),9900|players and native
+  capabilities. Format independently implemented from existing local protocol
+  research OhhhThatVarun/nfsmw-lan-protocol dd2eb3329566f3b0c1e11e3e07a0a26b14da0487,
+  Discovery.md; no imported research implementation. No PC helper required.
+- Per-PC socket output converts known room V192641→192359, host D XboxXUID→PC
+  little-endian IPv4 machine address, user MA and game MADDRi; strips Xbox SESS/
+  PLATPARAMS only from PC recipient's valid game record. Internal canonical
+  records/mobile recipient keep actual Xbox session and identities. Empty/error
+  game replies preserve their body/subtype. PC input auth/pers MADDR normalized
+  into existing synthetic Xbox XUID/XNADDR envelope from real TCP source.
+- PC mode tracks one selected PC address (first auth/pers), rejects a different
+  peer until Host restarted. PC is a guest (ucre/gcre denied). Remote mobile
+  control clients rejected in this mode; custom mobile UDP discovery suppressed.
+  Normal mobile host still never opens9900 or advertises native PC broadcasts.
+  Revivir remembers PC listener/source mode. Existing server-owned detached
+  threads retain object until polling/wake shutdown; announcer wakes on stop.
+- CommUDP mapping now supports reverse role: learn incoming PC INIT1 ID, capture
+  outgoing Xbox host control ID (including opcode5), map only control1–5 between
+  the two identities. Explicit known flags distinguish valid0 ID from unknown.
+  Join path still learns PC listener5, maps outbound1–3; DATA ACK/payload unchanged.
+  Existing exact car serializer conversion and factory diagnostics apply to the
+  selected PC peer after auth; no SDK or generic bitstream changes.
+- Preserve upstream victorgbd original Android and direct C++ adaptation credits
+  and existing car field-map credits; changelog explicitly acknowledges reuse.
+
+Observed verification (all commands from /private/tmp/nfsmw-ios-multiplayer):
+- python3 tools/ios/test_lan_setup.py: exit0, including separate host_pc preflight.
+- python3 tools/ios/test_pc_udp.py: exit0, ASan/UBSan; original join and reverse
+  INIT0/listener-ID mapping, source-buffer/stack/payload/skip paths pass.
+- python3 tools/ios/test_pc_session.py; test_pc_room_filter.py; test_pc_car.py;
+  test_pc_race.py: each exit0, actual generated decoder/validator or actual hook
+  fixtures with ASan/UBSan. No new real game inference from these host tests.
+- python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --reference-server /private/tmp/nfsmw-server-lan-research: exit0. Original
+  Python/C++ parity25 stages, Binary7/session/start/leave, SDK transactional
+  patch checks and UDP-blackhole TCP fallback all pass. Backend test now links
+  pc_gateway.cpp because optional PC output uses its pure protocol helpers.
+- New python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk
+  --ip 192.168.101.118: first run
+  exit1 at forbidden-gcre empty-body assertion. HostReply was adding empty Xbox
+  session fields to error frames. Fixed by requiring IDENT before adapting game
+  records; rerun same command exit0. Earlier announcement/directory/room/game/
+  start assertions already passed; final run confirms them all. ASan/UBSan real
+  C++ backend and synthetic Python clients; receives384-byte broadcast from this
+  Mac's actual LAN IP, validates per-recipient address/version/session changes.
+  No proprietary PC game client is in this test. No claim iOS broadcasts or the
+  original PC browser work on device yet.
+- python3 tools/ios/test_pc_gateway.py: exit0, actual original join adapter with
+  fragmented socket frames, identity cache, physical addresses and shutdown.
+- cmake --build /private/tmp/nfsmw-multiplayer-build --target ipa -j6: exit0,
+  final rebuild after error-frame fix exit0. Release/arm64/iphoneos, isolated SDK,
+  CMake home isolatedworktree/ios. actool emits local CoreSimulator connection
+  warnings but completes assets/package; no build failure. No extra device install.
+- unzip -t IPA: exit0/no errors. codesign --verify --deep --strict built app:
+  exit0. git diff --check clean. Host tests requiring listeners ran with local
+  network permission; no firewall changes or VM actions in this session.
+
+Artifact: /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-multiplayer-preview13-pc-host.ipa,30435895bytes,
+SHA256 96b90c94d0d805f7ab885540549dab4a16dad405d18c71682188f2c9d1abe224.
+App UUIDF7721225-6BE0-38F9-A7BA-CE4E73C57729;
+runtimeDE9DB5F9-8E8C-3A59-A412-0BD728F3161C unchanged.
+Preview12 known-good IPA preserved byte-for-byte; no new reverse device result.
+Build/test logs archived in /Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/
+1 November 2026/nfsmw-preview13-{build,host-tests,mobile-tests,gateway-tests}.log.
+Host-test archive is the successful final run; first failed assertion/exit1 and
+its correction are preserved in the evidence above. Local outputs have same names.
+
+Next: Stefan tests PC-host→mobile-join regression and mobile-host→PC-join via
+native PC LAN browser on same Wi-Fi/hotspot off, distinct names, Logging on.
+For reverse: launch host_pc then XboxLive/QuickMatch/CreateGame; PC select native
+advertised phone name, log in/join room. Check discovery→room→peerready→race,
+then finish/results/rematch. Need both boot/game logs + server log on failure.
+Device validation of broadcast permission/routing, PC client login/QoS/room and
+reverse race readiness remains pending. Mixed/multiple-PC hosting unsupported;
+restart Host before another PC IP. Mobile missing guest names still open.
+
+Final review follow-up, same preview13: preflight is invoked again on Launch.
+Unconditionally stopping the PC adapter there would erase a PC peer that had
+already logged in while the host remained in the launcher. Keep live host_pc
+state when pc::Hosting() and servidor::EnMarcha() are true; other modes/failed
+servers still reset. test_lan_setup.py now asserts launch re-preflight does not
+start/reset the hosting adapter again; exit0. Final build after this fix exit0;
+new final IPA hash/UUID/size are the preview13 identity above, replacing the
+undelivered intermediate build. Signing and ZIP checks repeated, both exit0.
+Additional final build log archived as nfsmw-preview13-build-final.log in the
+same November1 debug folder. No device connection claimed by this unit test.

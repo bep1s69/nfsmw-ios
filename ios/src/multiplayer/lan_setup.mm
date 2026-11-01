@@ -98,7 +98,7 @@ NSString* DefaultName() {
   }] forControlEvents:UIControlEventEditingChanged];
   _timer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer*) {
     NFSLanSetupController* self = weakSelf;
-    if (!self || !self->_ready || ![self->_role isEqualToString:@"host"]) return;
+    if (!self || !self->_ready || !([self->_role isEqualToString:@"host"] || [self->_role isEqualToString:@"host_pc"])) return;
     if (!nfsmw::servidor::EnMarcha()) {
       self->_ready = NO;
       self->_status = @"The lobby stopped. Tap Host to start it again.";
@@ -145,9 +145,9 @@ NSString* DefaultName() {
   [self saveName]; return YES;
 }
 
-- (void)chooseHost {
+- (void)chooseHost:(BOOL)pc {
   if (_busy || ![self checkName]) return;
-  _role = @"host"; _hosts.clear();
+  _role = pc ? @"host_pc" : @"host"; _hosts.clear();
   _endpoint = Text(nfsmw::red::IpLocal()); _serverName = _name.text;
   [self connectAndLaunch:NO restartHost:YES];
 }
@@ -202,7 +202,7 @@ NSString* DefaultName() {
   const auto docs = _docs;
   const NSUInteger generation = ++_generation;
   _busy = YES; _ready = NO; _name.enabled = NO;
-  _status = [NSString stringWithFormat:@"%@…", role == "host" ? @"Starting your lobby" : @"Checking connection to the host"];
+  _status = [NSString stringWithFormat:@"%@…", role != "join" ? @"Starting your lobby" : @"Checking connection to the host"];
   nfsmw::boot::Trace("[lan-setup] " + role + " endpoint=" + endpoint + " launch=" + (launch ? "yes" : "no"));
   [self refresh];
   dispatch_async(SetupQueue(), ^{
@@ -223,6 +223,7 @@ NSString* DefaultName() {
         self->_status = prepared.hosting
           ? [NSString stringWithFormat:@"Hosting as %@\nAddress: %@\n\nOn the other device, tap Join and select %@. Keep this app open.", self->_name.text,self->_endpoint,self->_name.text]
           : [NSString stringWithFormat:@"Connected to %@\nAddress: %@\n\nYou are using the OTHER device’s lobby. You do not need to host here.", self->_serverName,self->_endpoint];
+        if (role == "host_pc") self->_status = [NSString stringWithFormat:@"Hosting for PCs (Experimental)\nAddress: %@\n\nLaunch, then Xbox Live → Quick Match → Create Game. On the PC, open LAN and select %@. Use different player names. Two players only; keep this app open.", self->_endpoint, Text(name.substr(0,11))];
         if (prepared.pc) self->_status = [NSString stringWithFormat:@"PC LAN host: %@\nReady to test joining. Keep the PC’s LAN room open. Use a different player name. PC racing compatibility is still being tested.", self->_endpoint];
         nfsmw::launcher::WriteSettings(self->_docs, self->_settings);
         nfsmw::boot::Trace("[lan-setup] ready " + role + " server=" + prepared.ip);
@@ -241,7 +242,7 @@ NSString* DefaultName() {
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView { return 5; }
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
   if (section == 0 || section == 2) return 1;
-  if (section == 1) return 2;
+  if (section == 1) return 3;
   if (section == 3) return [_role isEqualToString:@"join"] ? NSInteger(_hosts.size()) + 2 : 0;
   return _ready ? 1 : 0;
 }
@@ -254,8 +255,8 @@ NSString* DefaultName() {
 }
 - (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
   if (section == 0) return @"Each device needs a different name. Your single-player saves keep their existing identity.";
-  if (section == 1) return @"Choose Host on ONE device and Join on the others. iPhone, iPad and Android can use the same lobby.";
-  if (section == 4 && _ready) return [_role isEqualToString:@"host"]
+  if (section == 1) return @"Use Host a game for iOS/Android. Use Host for PCs to test a two-player race with the original PC game on the same Wi-Fi.";
+  if (section == 4 && _ready) return ![_role isEqualToString:@"join"]
     ? @"After launching: Xbox Live → Quick Match → Create Game. Create the race on this device; the other player then joins it. Hosting the lobby alone does not create a race."
     : @"After launching: Xbox Live → Quick Match. Find and join the race created by the host. Do not create a second race here.";
   return nil;
@@ -266,9 +267,9 @@ NSString* DefaultName() {
   if (ip.section == 0) {
     cell.textLabel.text = @"Name"; cell.accessoryView = _name; cell.selectionStyle = UITableViewCellSelectionStyleNone;
   } else if (ip.section == 1) {
-    NSString* role = ip.row == 0 ? @"host" : @"join";
-    cell.textLabel.text = ip.row == 0 ? @"Host a game" : @"Join a game";
-    cell.detailTextLabel.text = ip.row == 0 ? @"Start a lobby on this device" : @"Find a mobile or PC LAN lobby";
+    NSString* role = ip.row == 0 ? @"host" : ip.row == 1 ? @"join" : @"host_pc";
+    cell.textLabel.text = ip.row == 0 ? @"Host a game" : ip.row == 1 ? @"Join a game" : @"Host for PCs (Experimental)";
+    cell.detailTextLabel.text = ip.row == 0 ? @"Start an iOS/Android lobby" : ip.row == 1 ? @"Find a mobile or PC LAN lobby" : @"One PC guest; no script or PC modification";
     cell.imageView.image = [UIImage systemImageNamed:ip.row == 0 ? @"wifi" : @"magnifyingglass"];
     cell.accessoryType = [_role isEqualToString:role] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
   } else if (ip.section == 2) {
@@ -294,7 +295,7 @@ NSString* DefaultName() {
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)ip {
   [tableView deselectRowAtIndexPath:ip animated:YES];
   if (_busy) return;
-  if (ip.section == 1) { ip.row == 0 ? [self chooseHost] : [self search]; return; }
+  if (ip.section == 1) { if (ip.row == 1) [self search]; else [self chooseHost:ip.row == 2]; return; }
   if (ip.section == 3) {
     if (size_t(ip.row) < _hosts.size()) {
       _endpoint = Text(_hosts[size_t(ip.row)].ip); _serverName = Text(_hosts[size_t(ip.row)].nombre);

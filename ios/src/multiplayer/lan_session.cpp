@@ -11,16 +11,19 @@ namespace nfsmw::lan {
 Prepared Prepare(const std::string& mode, const std::string& server,
                  const std::string& gamertag, const std::filesystem::path& docs) {
   Prepared result;
-  pc::Stop();
+  // Launch rechecks preflight; retain a PC already connected in the launcher.
+  const bool keepPcHost = mode == "host_pc" && pc::Hosting() && servidor::EnMarcha();
+  if (!keepPcHost) pc::Stop();
   if (mode == "off") {
     servidor::Parar();
     return result;
   }
-  if (mode != "host" && mode != "join") {
+  if (mode != "host" && mode != "host_pc" && mode != "join") {
     result.error = "Choose Off, Host or Join for LAN multiplayer.";
     return result;
   }
-  result.hosting = mode == "host";
+  result.hosting = mode == "host" || mode == "host_pc";
+  if (mode == "host_pc" && !keepPcHost) pc::StartHosting();
   if (!result.hosting && !red::DireccionValida(server)) {
     result.error = "Enter a complete IPv4 address or local hostname for the LAN server.";
     return result;
@@ -46,8 +49,12 @@ Prepared Prepare(const std::string& mode, const std::string& server,
     // Host/Join must allow those sockets to close before rebinding the ports.
     for (int attempt = 0; attempt < 8 && !started; ++attempt) {
       if (attempt) std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      started = servidor::Arrancar((docs / "data/lan_server").string(), (docs / "logs").string(),
-          [] {}, [gamertag] { return red::GamertagEfectivo(gamertag); }, &result.error);
+      auto name = [gamertag] { return red::GamertagEfectivo(gamertag); };
+      started = mode == "host_pc"
+        ? servidor::ArrancarPC((docs / "data/lan_server").string(), (docs / "logs").string(),
+            [] {}, name, result.ip, &result.error)
+        : servidor::Arrancar((docs / "data/lan_server").string(), (docs / "logs").string(),
+            [] {}, name, &result.error);
     }
     if (!started) {
       result.error = "Cannot start the LAN server: " + result.error;
@@ -69,7 +76,7 @@ Prepared Prepare(const std::string& mode, const std::string& server,
     result.error = "That gamertag is already in use. Choose a different name.";
   else if (tag == red::Comprobacion::kSinRespuesta)
     result.error = "The LAN server did not answer. Check its address, local-network permission and Wi-Fi connection.";
-  if (!result.error.empty() && result.hosting) servidor::Parar();
+  if (!result.error.empty() && result.hosting) { servidor::Parar(); pc::Stop(); }
   return result;
 }
 }

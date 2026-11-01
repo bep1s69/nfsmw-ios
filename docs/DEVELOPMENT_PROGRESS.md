@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 1 (Stefan): start reverse PC hosting now, initially as a separate
+  **Host for PCs (Experimental)** option; integrate mixed hosting only after the
+  separate directions work. This supersedes the previous session's testing hold
+  and reverse-host deferral. Stefan will test both PC-host/mobile-join and
+  mobile-host/PC-join when the build is ready. Keep native PC unchanged, all work
+  local on `multiplayer`, and controls/main independently releasable.
+
 - October31 (Stefan, PC UX): final goal is native PC discovery/join directly
   from this port, no extra script/software on PC. Experimental bridge is only
   investigation tooling, not the accepted final user flow.
@@ -234,6 +241,9 @@ python3 tools/ios/test_multiplayer.py --sdk /private/tmp/nfsmw-multiplayer-sdk -
 python3 tools/ios/test_multiplayer_transport.py --sdk /private/tmp/nfsmw-multiplayer-sdk
 python3 tools/ios/test_menu_touch.py
 python3 tools/ios/test_lan_setup.py
+python3 tools/ios/test_pc_host.py --sdk /private/tmp/nfsmw-multiplayer-sdk --ip <this-Mac-LAN-IPv4>
+python3 tools/ios/test_pc_gateway.py
+python3 tools/ios/test_pc_udp.py
 ```
 
 Reference server must be the pinned unchanged upstream tree in TECHNICAL.
@@ -315,17 +325,38 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — October 22, 2026
 
-**Next-session handoff (Stefan, November 1):** Stop testing for now; Stefan is
-leaving his friend's house and saving usage. Resume validation next session.
-Claude should work in `/private/tmp/nfsmw-ios-multiplayer` on local branch
-`multiplayer`, read this checkpoint, BACKLOG and latest TECHNICAL entries.
-Preview12 is the confirmed PC-hosted gameplay baseline; the session ended by
-intentional quit. Preserve it. Next device tests are finish/results/rematch,
-then broader car/track/mobile checks. No release, push or merge authorized.
-Main controls checkout and its pre-existing edits stay separate. All source
-and handoff records are committed on the shared repository's local branch;
-these multiplayer changes are not on GitHub. Isolated SDK/build recreation
-commands and artifact identities are recorded in this file and TECHNICAL.
+**November 1 current handoff — preview13 ready for BOTH directions:** Stefan
+explicitly resumed work and approved a separate PC hosting option. Worktree
+`/private/tmp/nfsmw-ios-multiplayer`, branch `multiplayer`. New **Host for PCs
+(Experimental)** / `lan_mode=host_pc` is opt-in, initially one iOS host + one PC
+guest. Existing Host remains mobile-only; Join still detects native PC hosts.
+No PC script/mod needed. New reverse hosting is **DEVICE UNVALIDATED**; local
+protocol/broadcast/serializer tests and IPA build pass. Stefan will test both
+PC-host/mobile-join (regression) and mobile-host/PC-join next. Keep Logging on;
+collect boot.txt, nfsmw.log and servidor_lan.log if a stage fails. Missing guest
+names on the mobile host remains OPEN; no fix claimed here.
+
+Ready artifact (main checkout's ignored build folder only):
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-multiplayer-preview13-pc-host.ipa`
+30435895 bytes; SHA256
+`96b90c94d0d805f7ab885540549dab4a16dad405d18c71682188f2c9d1abe224`.
+App UUID `F7721225-6BE0-38F9-A7BA-CE4E73C57729`; runtime unchanged
+`DE9DB5F9-8E8C-3A59-A412-0BD728F3161C`. Preserve preview12's confirmed native
+PC-hosted gameplay baseline and its IPA. No release, push or merge authorized.
+Main's pre-existing checkpoint edit/untracked HANDOFF and shared SDK untouched.
+See newest TECHNICAL entry for implementation, limitations and verification.
+Older deferred/pending paragraphs below are historical.
+
+**Device test flow:** same Wi-Fi, Personal Hotspot off, distinct player names.
+- PC hosts: create a native PC LAN room, mobile launcher **Join a game**, select
+  PC (or enter its current LAN IPv4), launch → Xbox Live → Quick Match → join.
+- Mobile hosts: launcher **Host for PCs (Experimental)** → Launch multiplayer →
+  Xbox Live → Quick Match → Create Game. PC opens **LAN**, selects the advertised
+  phone name (first 11 characters), logs in and joins the created room. No Python
+  process or bridge. Start race, finish/results/rematch if possible.
+- Restart hosting before testing another PC/IP; this first reverse experiment
+  pins one PC address for the hosting session. Mobile guests use ordinary Host;
+  mixed hosting and multiple PC guests are not supported in this option yet.
 
 - **November1 preview12: first PC-hosted iOS gameplay CONFIRMED; intentional quit.**
   Stefan reports itworked, thenclarifieslogsendedbecausehequit, NOcrash.
