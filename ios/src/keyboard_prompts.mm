@@ -64,10 +64,11 @@ const char* BindFor(int button) {
 
 NSString* Caption(const std::string& key) {
   static NSDictionary<NSString*, NSString*>* names = @{
-    @"Return" : @"Enter", @"Escape" : @"Esc", @"Backspace" : @"⌫", @"Space" : @"Space",
+    @"Return" : @"↵", @"Escape" : @"Esc", @"Backspace" : @"⌫", @"Space" : @"␣", @"Tab" : @"⇥",
+    @"Shift" : @"⇧", @"Alt" : @"⌥",
     @"Left" : @"←", @"Right" : @"→", @"Up" : @"↑", @"Down" : @"↓", @"LBracket" : @"[",
-    @"RBracket" : @"]", @"PageUp" : @"PgUp", @"PageDown" : @"PgDn", @"Control" : @"Ctrl",
-    @"NumpadEnter" : @"Enter", @"Minus" : @"-", @"Plus" : @"=", @"Comma" : @",",
+    @"RBracket" : @"]", @"PageUp" : @"PgUp", @"PageDown" : @"PgDn", @"Control" : @"⌃",
+    @"NumpadEnter" : @"↵", @"Minus" : @"-", @"Plus" : @"=", @"Comma" : @",",
     @"Period" : @".", @"Slash" : @"/", @"Backslash" : @"\\", @"Semicolon" : @";", @"Quote" : @"'",
   };
   NSString* k = [NSString stringWithUTF8String:key.c_str()];
@@ -158,24 +159,28 @@ bool AnyPadPressed(GCExtendedGamepad* p) {
     if (!bind) continue;
     const std::string k = nfsmw::keyboard::MenuKey(bind);
     if (k.empty()) continue;
-    // A small dark key cap the size of the icon under it, white text, as
-    // the game's own hint icons (dev15 caps were too big and too light,
-    // Stefan). The scan's half sizes include 5 units of tap margin.
-    const CGFloat icon = MAX(12, now[i + 3] * 2 * s);
+    // Styled as the game's own hint icons (dev16/17 caps were too big and
+    // out of place, Stefan): a dark disc (a pill for "Esc") with the hints'
+    // cream outline and glyph, the size of the icon's ring (about 72% of
+    // its drawn quad, which has a margin), keys as symbols so most fit in
+    // a circle (↵ Enter, ⇥ Tab, ⌫ Backspace).
+    const CGFloat ring = MAX(11, now[i + 3] * 2 * s * 0.72);
+    UIColor* cream = [UIColor colorWithRed:0.91 green:0.88 blue:0.78 alpha:1];
     UILabel* cap = [[UILabel alloc] init];
     cap.text = Caption(k);
     cap.textAlignment = NSTextAlignmentCenter;
-    cap.font = [UIFont systemFontOfSize:MAX(8, icon * 0.5) weight:UIFontWeightHeavy];
+    UIFont* font = [UIFont fontWithName:@"AvenirNextCondensed-Heavy" size:ring * 0.62];
+    cap.font = font ?: [UIFont systemFontOfSize:ring * 0.6 weight:UIFontWeightHeavy];
     cap.adjustsFontSizeToFitWidth = YES;
-    cap.minimumScaleFactor = 0.6;
-    cap.textColor = [UIColor colorWithWhite:0.95 alpha:1];
-    cap.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.92];
-    cap.layer.cornerRadius = icon * 0.22;
-    cap.layer.borderColor = [UIColor colorWithWhite:0.85 alpha:0.9].CGColor;
-    cap.layer.borderWidth = MAX(1, icon * 0.06);
+    cap.minimumScaleFactor = 0.5;
+    cap.textColor = cream;
+    cap.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.9];
+    cap.layer.cornerRadius = ring / 2;
+    cap.layer.borderColor = cream.CGColor;
+    cap.layer.borderWidth = MAX(1, ring * 0.08);
     cap.clipsToBounds = YES;
-    const CGFloat ch = icon;
-    const CGFloat cw = MIN(icon * 2.6, MAX(ch, [cap.text sizeWithAttributes:@{NSFontAttributeName : cap.font}].width + icon * 0.35));
+    const CGFloat ch = ring;
+    const CGFloat cw = MIN(ring * 2, MAX(ch, [cap.text sizeWithAttributes:@{NSFontAttributeName : cap.font}].width + ring * 0.45));
     cap.frame = CGRectMake(w / 2 + now[i] * s - cw / 2, h / 2 + now[i + 1] * s - ch / 2, cw, ch);
     [self addSubview:cap];
   }

@@ -15750,3 +15750,21 @@ shown. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev17-keyboard.ipa`
 (Desktop; dev16 to Trash; includes dev16's changes), 30512090 bytes, SHA-256
 ef34386eb20a4b1464ebbd85ed65b741328e36d4fd2dbe11ee67712e83b69c5f. Not run on a device.
 
+
+### November 2: dev17 caps placed right; style closer to the game's icons (dev18)
+
+Stefan (dev17): no stray caps any more, they appear and go quickly, but still
+too big and not the game's style. Log and two screenshots (load save, main
+menu): `~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw_iphone_0.6.0_dev17_keyboard.log`,
+`iphone_0.6.0_dev17_keyboard_IMG_0354.png`, `..._IMG_0355.png`. On them the
+caps are centred on the icons (placement fixed) but taller than the icon's
+ring and as wide as "Enter", covering part of the label. dev18: caps are a
+dark disc (a pill when the text needs it, at most twice as wide) the size of
+the ring (72% of the drawn quad, which has a margin), with the hints' cream
+outline and text (RGB 0.91/0.88/0.78), Avenir Next Condensed Heavy, and keys
+as symbols so most fit a circle (↵ Return, ⇥ Tab, ⌫ Backspace, ␣ Space, ⇧ ⌃ ⌥).
+Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev18-keyboard.ipa` (Desktop; dev17 to Trash), 30512370 bytes,
+SHA-256 b529b6e221a95edd7fc67717c2d17077e4ef3376f987cd49116debe3a9c351ef. Not run on a device. Next if still not right: our own key-cap
+textures drawn in the game's icon style (the PC's 11 key textures cannot be
+shipped).
+
