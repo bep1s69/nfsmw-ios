@@ -44,7 +44,7 @@ TECHNICAL.
 | Unlock all things, skip career intro (dev7, untested) | ExOpts UnlockAllThings, SkipCareerIntro | USA debug bytes 0x82A2CE00-02 (via the prototype's menu) |
 | World animation speed, NOS trail length (dev7, untested) | ExOpts WorldAnimationSpeed, NosTrailRepeatCount | 0x828F9DF8, 0x828F89AC |
 | Auto drive (dev7, untested; Actions tab) | ExOpts AutoDrive hotkey | toggle byte 0x82A2BD93 (prototype Toggle AI Control) |
-| Teleport to 69 places, reset car (dev8, untested; Actions tab) | ExOpts EnableSaveLoadHotPos hotkeys; prototype Teleport by Landmark, Flip Car | the USA hot-position jump's calls (sub_824D8C90), from sub_820FFCC8 |
+| Teleport to 69 places, reset car (dev8; iPhone confirmed Nov 1, dev9) | ExOpts EnableSaveLoadHotPos hotkeys; prototype Teleport by Landmark, Flip Car | the USA hot-position jump's calls (sub_824D8C90), from sub_820FFCC8 |
 | No rev limiter (dev9, untested) | ExOpts NoRevLimiter | EngineRacer/EngineDragster vtable slot 13: sub_824227D0, sub_82425BD0 |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |

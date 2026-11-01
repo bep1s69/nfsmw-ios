@@ -15535,3 +15535,15 @@ replay Blacklist races, Challenge Series bin, hidden tracks, more car
 categories) each rewrite specific PC menu code, so each needs its menu
 function found on the 360 first (by package names / hashes they use).
 
+
+### November 1: dev9 Teleport and Reset car confirmed on the iPhone
+
+Stefan: "both work". Log (one session, build Nov 1 22:58:06):
+`~/Developer/Debug/Most Wanted (2005) Debug/1 November 2026/nfsmw_iphone_0.6.0_dev9_teleport_reset.log`.
+Reset car: five presses while the sheet was open queued one reset, done at
+23:46:23 (-2509 150 1763), two more at 23:49:07/14; teleports to Coastal >
+Fishing Village (23:49:25) and Shops > City Car (23:49:37). Each action ran
+1.5-2.5 s after it was asked for, once the game was driving again (the
+sheet opens only in pause screens). No warnings from these paths. So the
+host-to-guest calls from the sub_820FFCC8 wrapper (PlaceCar) work on device.
+
