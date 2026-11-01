@@ -2095,6 +2095,7 @@ void SetDragRace(bool on) { g_drag.store(on); }
 void SetMapUp(bool up) { g_map_up.store(up); }
 void SetMoviePlaying(bool on) { g_movie_playing.store(on); }
 void SetShowcaseUp(bool on) { g_showcase_up.store(on); }
+bool ShowcaseUp() { return g_showcase_up.load(); }
 
 int TouchesSoFar() { return g_touches_so_far.load(std::memory_order_relaxed); }
 

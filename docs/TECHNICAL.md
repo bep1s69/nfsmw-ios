@@ -15982,3 +15982,17 @@ wrapper T in camera_look.cpp.o, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev28-sho
 Trash), 30527994 bytes, SHA-256 768c2b36f2781e1bd523d4d68ee50fc5fe193a7a324c8ac130b14f0673909ba5. Not run on a device; directions may need
 flipping.
 
+
+### November 2: Showcase with the mouse (dev29)
+
+Stefan: left-click drag should turn the car in Showcase with keyboard and
+mouse. On iPadOS mouse clicks and drags reach UIKit as touches (direct ones
+under LiveContainer, indirect-pointer ones with the Info.plist key), so the
+touch path of dev28 already turns the car on a left-drag; feeding GameController
+mouse deltas too would turn it twice, so that was left out (inference, not
+tested; with a keyboard connected the touch controls start hidden and the
+first click only shows them). Added: the scroll wheel zooms in Showcase
+(GCMouse `scroll` handler chained after SDL's; 8% per notch). New
+`nfsmw::touch::ShowcaseUp()`. Build exit 0, `unzip -tq` ok; `ios/build/NFSMW-0.6.0-dev29-showcase-mouse.ipa` (Desktop;
+dev28 to Trash), 30539627 bytes, SHA-256 a8f8282a960472b136823908990c38328b7204f2c01c547ecf54cb47193bf545. Not run on a device.
+

@@ -52,6 +52,8 @@ void SetMoviePlaying(bool on);
 // Touches on the game's screen so far (the keyboard prompts hide on a touch).
 int TouchesSoFar();
 void SetShowcaseUp(bool on);
+// Showcase.fng is up (keyboard_prompts.mm: mouse drag turns the car there).
+bool ShowcaseUp();
 
 #ifdef __OBJC__
 // The touch layout editor (positions, sizes, opacity), presented full screen

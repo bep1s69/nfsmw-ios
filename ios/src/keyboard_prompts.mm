@@ -35,6 +35,7 @@
 REXCVAR_DECLARE(bool, mnk_mode);
 
 extern "C" void nfsmw_look_mouse(float dx, float dy) __attribute__((weak));  // camera_look.cpp
+extern "C" void nfsmw_showcase_zoom(float factor) __attribute__((weak));  // same
 extern "C" void nfsmw_reset_car_request() __attribute__((weak));        // game_extra_options.cpp
 extern "C" void nfsmw_toggle_auto_drive() __attribute__((weak));        // same
 extern "C" void nfsmw_heat_step_request(int32_t steps) __attribute__((weak));  // same
@@ -88,10 +89,20 @@ void ChainMouse(GCMouse* mouse) {
   if (current && (__bridge void*)current == chained) return;
   GCMouseMoved ours = ^(GCMouseInput* in, float dx, float dy) {
     if (current) current(in, dx, dy);
+    // Showcase's left-drag needs nothing here: iPadOS delivers mouse clicks
+    // and drags as touches, which turn the car already (touch_controls.mm);
+    // adding the deltas too would turn it twice.
     if (nfsmw::battery::InMenu() == 0) nfsmw_look_mouse(dx, dy);
   };
   input.mouseMovedHandler = ours;
   chained = (__bridge void*)input.mouseMovedHandler;
+  // The wheel zooms in Showcase; SDL's scroll handler is kept and called first.
+  GCControllerDirectionPad* scroll = input.scroll;
+  GCControllerDirectionPadValueChangedHandler scroll_current = scroll.valueChangedHandler;
+  scroll.valueChangedHandler = ^(GCControllerDirectionPad* pad, float x, float y) {
+    if (scroll_current) scroll_current(pad, x, y);
+    if (nfsmw::touch::ShowcaseUp() && nfsmw_showcase_zoom && y != 0) nfsmw_showcase_zoom(y > 0 ? 0.92f : 1.08f);
+  };
   REXLOG_INFO("[keyboard] mouse look attached{}", current ? " (after SDL's handler)" : "");
 }
 
