@@ -15255,3 +15255,33 @@ steps, exit 0, `unzip -tq` ok; NFSMW.ipa 30468060 bytes, SHA-256
 199b9a36a7b6a46fb66aa6bcc3ad8323450f91a95c54dc8f9007d9f3ce97efaa (not copied
 to ios/build; same source as NFSMW-0.6.0-dev1-merge.ipa).
 
+
+### November 1: Extra Options batch 2, part 1 (dev2, Stefan approved the batch)
+
+Found with the PC v1.3 `speed.exe` (PC Game Files), ExOpts master source
+(gh api, ExOptsTeam/NFSMWExOpts), the retail image
+`ios/build/managed40-inspection-image.bin` (loaded layout, base 0x82000000)
+and the generated code's instruction comments; method and addresses in the
+comments of `ios/src/game_extra_options.cpp` (RAIN, GAME SPEED, RANDOM QUICK
+RACE). Rain crossing/fall speed/gravity are PC 0x904A24..2C = 0x828F9D30..38
+(same offsets from the table start as the four rain values already used).
+Game speed 0x828FB90C: xrefs are sub_82472F38 (lfs, the reader),
+sub_824402B8 and sub_82538C10 (writers), hence a wrapper rather than a boot
+write. Random race: sub_822C4E68 (inlined rand with 0x1D872B41; opponents
+seed%3+1 to +7, circuit laps seed%5+1 to +4, knockout laps = opponents);
+wrapper redraws with its own xorshift only when a setting differs from the
+game's. Minimum laps/opponents feed the existing `nfsmw_laps_min()` /
+`nfsmw_opponents_min()` (were constant 1). Launcher: Quick Race and Weather
+sections. Not done this part: UnfreezeKO, NoRevLimiter (see MOD_FEATURES).
+The PC modded copy's mods (now present): NFSMWExtraOptions.asi of Aug 7 2022,
+WidescreenFix.asi of Oct 23 2022, ini files Aug 20 2024; older than the
+master sources used, so no new settings from them.
+
+Build: `patch_game_extra_options.py --status` all applied; `cmake --build
+~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 6` exit 0; strong
+`sub_822C4E68`/`sub_82472F38` (T) in game_extra_options.cpp.o override the
+weak generated ones; `unzip -tq` ok. `ios/build/NFSMW-0.6.0-dev2-extra-options.ipa`
+(also on Desktop, dev1 moved to Trash), 30473204 bytes, SHA-256
+d794881e1c38c30357f45b98659e391aea548cf2ccfcb261bd5616280bebc288. Not run on a
+device.
+

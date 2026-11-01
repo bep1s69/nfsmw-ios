@@ -388,6 +388,27 @@ const std::vector<Section>& Sections() {
             @"odd cars; more cars on the road also cost speed and memory.",
             @"3",
             {{@"3 (game)", @"3"}, {@"4", @"4"}, {@"5", @"5"}, {@"6", @"6"}}},
+           {@"laps_min", Type::kChoice, @"Fewest laps",
+            @"The fewest laps you can pick. The game's is 1.",
+            @"1",
+            {{@"1 (game)", @"1"}, {@"2", @"2"}, {@"3", @"3"}, {@"5", @"5"}}},
+           {@"opponents_min", Type::kChoice, @"Fewest opponents",
+            @"The fewest opponents you can pick. The game's is 1.",
+            @"1",
+            {{@"1 (game)", @"1"}, {@"2", @"2"}, {@"3", @"3"}}},
+           {@"random_laps_max", Type::kChoice, @"Random race: most laps",
+            @"The most laps a random circuit race can get. The game's is 5.",
+            @"5",
+            {{@"5 (game)", @"5"}, {@"8", @"8"}, {@"10", @"10"}, {@"20", @"20"}}},
+           {@"random_opponents_max", Type::kChoice, @"Random race: most opponents (experimental)",
+            @"The most opponents a random race can get. The game's is 3; more as in Most opponents.",
+            @"3",
+            {{@"3 (game)", @"3"}, {@"4", @"4"}, {@"5", @"5"}, {@"6", @"6"}}},
+           {@"game_speed", Type::kChoice, @"Game speed (experimental)",
+            @"Makes the whole game run slower or faster, as Extra Options' GameSpeed. The game's is 1x.",
+            @"1",
+            {{@"0.5x", @"0.5"}, {@"0.75x", @"0.75"}, {@"1x (game)", @"1"}, {@"1.25x", @"1.25"},
+             {@"1.5x", @"1.5"}, {@"2x", @"2"}}},
            {@"traffic_low", Type::kChoice, @"Traffic at Low", @"How much traffic the Low setting means.",
             @"10", Percent(@"10")},
            {@"traffic_medium", Type::kChoice, @"Traffic at Medium",
@@ -406,6 +427,12 @@ const std::vector<Section>& Sections() {
             {{@"Light", @"0.25"}, {@"Game", @"0.45"}, {@"Heavy", @"0.7"}, {@"Storm", @"1"}}},
            {@"rain_drop_size", Type::kChoice, @"Drop size", @"The size of the falling drops.", @"0.01",
             {{@"Small", @"0.005"}, {@"Game", @"0.01"}, {@"Large", @"0.02"}}},
+           {@"rain_crossing", Type::kChoice, @"Rain drift", @"How much the rain drifts sideways.", @"0.02",
+            {{@"None", @"0"}, {@"Game", @"0.02"}, {@"Windy", @"0.05"}, {@"Gale", @"0.1"}}},
+           {@"rain_fall_speed", Type::kChoice, @"Rain fall speed", @"How fast the drops fall.", @"0.03",
+            {{@"Slow", @"0.015"}, {@"Game", @"0.03"}, {@"Fast", @"0.06"}}},
+           {@"rain_gravity", Type::kChoice, @"Rain gravity", @"How strongly the drops are pulled down.", @"0.35",
+            {{@"Light", @"0.2"}, {@"Game", @"0.35"}, {@"Heavy", @"0.6"}}},
            {@"road_reflection", Type::kChoice, @"Wet road reflection",
             @"How much the road reflects in the rain.", @"1",
             {{@"Off", @"0"}, {@"0.5x", @"0.5"}, {@"1x (game)", @"1"}, {@"1.5x", @"1.5"}, {@"2x", @"2"}}},
@@ -858,6 +885,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_remove_old_bridge_barrier=" + b(On(s, @"old_bridge")));
   a.push_back("--nfsmw_laps_max=" + str(@"laps_max"));
   a.push_back("--nfsmw_opponents_max=" + str(@"opponents_max"));
+  a.push_back("--nfsmw_laps_min=" + str(@"laps_min"));
+  a.push_back("--nfsmw_opponents_min=" + str(@"opponents_min"));
+  a.push_back("--nfsmw_random_laps_max=" + str(@"random_laps_max"));
+  a.push_back("--nfsmw_random_opponents_max=" + str(@"random_opponents_max"));
+  a.push_back("--nfsmw_game_speed=" + str(@"game_speed"));
   a.push_back("--nfsmw_traffic_low=" + str(@"traffic_low"));
   a.push_back("--nfsmw_traffic_medium=" + str(@"traffic_medium"));
   a.push_back("--nfsmw_traffic_high=" + str(@"traffic_high"));
@@ -865,6 +897,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_rain_amount=" + str(@"rain_amount"));
   a.push_back("--nfsmw_rain_intensity=" + str(@"rain_intensity"));
   a.push_back("--nfsmw_rain_drop_size=" + str(@"rain_drop_size"));
+  a.push_back("--nfsmw_rain_crossing=" + str(@"rain_crossing"));
+  a.push_back("--nfsmw_rain_fall_speed=" + str(@"rain_fall_speed"));
+  a.push_back("--nfsmw_rain_gravity=" + str(@"rain_gravity"));
   a.push_back("--nfsmw_road_reflection=" + str(@"road_reflection"));
   a.push_back("--nfsmw_impound_strikes=" + str(@"impound_strikes"));
   a.push_back("--nfsmw_impound_strikes_max=" + str(@"impound_strikes_max"));

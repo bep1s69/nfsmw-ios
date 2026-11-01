@@ -91,6 +91,10 @@
 // fall speed (0.03), gravity (0.35), drop size (0.01), intensity (0.45),
 // road reflection (1.0). Written at boot.
 //
+// Crossing (0.02, PC 0x904A24), fall speed (0.03, 0x904A28) and gravity
+// (0.35, 0x904A2C) are 0x828F9D30..0x828F9D38 here (the same offset from the
+// table's start as on PC; November 1).
+//
 // Always rain: the PC mod sets a flag the 360 build does not have where it
 // was. Here the rain intensity at a point (sub_824FB818: the scripted
 // override at 0x82A2D6A0 if set, SetChanceOfRain's, else the weather
@@ -132,6 +136,26 @@
 // Only that clamp: the PC mod also raises the maximum heat in menus and in
 // SetHeatLevel (to 10), not ported, so heat above 5 is experimental.
 //
+// GAME SPEED (Extra Options: Gameplay > GameSpeed)
+//
+// The PC mod writes the float at 0x901B1C (1.0). It is 0x828FB90C here: same
+// neighbours (1.0 then a NaN two words on, after seven zeros), and the code
+// that uses it is the PC's: sub_82472F38 loads it first thing and skips its
+// work when it is 1.0. sub_82538C10 (the debug config reader) and
+// sub_824402B8 also write it, so instead of a write at boot sub_82472F38 is
+// wrapped below and sees the game's value times the setting while it runs.
+//
+// RANDOM QUICK RACE (Extra Options: LapControllers/OpponentControllers >
+// RandomRace)
+//
+// PC 0x56DCB0 fills a random race's options: opponents rand(3)+1, laps
+// rand(5)+1 for a circuit, the opponents for a lap knockout, 1 otherwise; the
+// mod changes the 3 and the 5 (0x56DCC1, 0x56DCE9). The 360's is
+// sub_822C4E68 (the same xorshift with 0x1D872B41, stores to +7 and +4 of the
+// options in r4, race type in r5), with the divisions inlined, so it is
+// wrapped below and +7/+4 drawn again with the settings' ranges when they
+// differ from the game's.
+//
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -172,6 +196,18 @@ REXCVAR_DEFINE_BOOL(nfsmw_always_rain, false, "Game", "Rain everywhere, all the 
 REXCVAR_DEFINE_DOUBLE(nfsmw_rain_amount, 1.0, "Game", "How much rain falls (the game's is 1)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_rain_intensity, 0.45, "Game", "Rain intensity (the game's is 0.45)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_rain_drop_size, 0.01, "Game", "Size of the falling drops (the game's is 0.01)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_crossing, 0.02, "Game", "Sideways drift of the rain (the game's is 0.02)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_fall_speed, 0.03, "Game", "How fast the rain falls (the game's is 0.03)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_rain_gravity, 0.35, "Game", "Gravity on the rain drops (the game's is 0.35)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_game_speed, 1.0, "Game",
+                      "Game speed multiplier, as Extra Options' GameSpeed (0.25-4; the game's is 1)");
+REXCVAR_DEFINE_INT32(nfsmw_laps_min, 1, "Game", "Fewest laps you can pick for a Quick Race (1-127; the game's is 1)");
+REXCVAR_DEFINE_INT32(nfsmw_opponents_min, 1, "Game",
+                     "Fewest opponents you can pick for a Quick Race (1-6; the game's is 1)");
+REXCVAR_DEFINE_INT32(nfsmw_random_laps_max, 5, "Game",
+                     "Most laps of a random Quick Race circuit (1-127; the game's is 5)");
+REXCVAR_DEFINE_INT32(nfsmw_random_opponents_max, 3, "Game",
+                     "Most opponents of a random Quick Race (1-6; the game's is 3)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_road_reflection, 1.0, "Game",
                       "How much the wet road reflects (the game's is 1)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_sb_recharge_time, 25.0, "Game",
@@ -345,6 +381,9 @@ extern "C" void nfsmw_extra_options_apply() {
       {0x828F9D20, 1.0f, REXCVAR_GET(nfsmw_rain_amount), "amount"},
       {0x828F9DA0, 0.45f, REXCVAR_GET(nfsmw_rain_intensity), "intensity"},
       {0x828F9D9C, 0.01f, REXCVAR_GET(nfsmw_rain_drop_size), "drop size"},
+      {0x828F9D30, 0.02f, REXCVAR_GET(nfsmw_rain_crossing), "crossing"},
+      {0x828F9D34, 0.03f, REXCVAR_GET(nfsmw_rain_fall_speed), "fall speed"},
+      {0x828F9D38, 0.35f, REXCVAR_GET(nfsmw_rain_gravity), "gravity"},
       {0x828F9E44, 1.0f, REXCVAR_GET(nfsmw_road_reflection), "road reflection"},
   });
   if (REXCVAR_GET(nfsmw_always_rain)) {
@@ -398,14 +437,24 @@ extern "C" REX_FUNC(sub_822CE7D8) {
   }
 }
 
-extern "C" int32_t nfsmw_laps_min() { return 1; }
+extern "C" int32_t nfsmw_laps_max();
+extern "C" int32_t nfsmw_opponents_max();
+
+extern "C" int32_t nfsmw_laps_min() {
+  static std::atomic<bool> logged{false};
+  return Setting(REXCVAR_GET(nfsmw_laps_min), 1, std::max(1, nfsmw_laps_max()), "fewest Quick Race laps", logged);
+}
 
 extern "C" int32_t nfsmw_laps_max() {
   static std::atomic<bool> logged{false};
   return Setting(REXCVAR_GET(nfsmw_laps_max), 1, 127, "most Quick Race laps", logged);
 }
 
-extern "C" int32_t nfsmw_opponents_min() { return 1; }
+extern "C" int32_t nfsmw_opponents_min() {
+  static std::atomic<bool> logged{false};
+  return Setting(REXCVAR_GET(nfsmw_opponents_min), 1, std::max(1, nfsmw_opponents_max()),
+                 "fewest Quick Race opponents", logged);
+}
 
 extern "C" int32_t nfsmw_opponents_max() {
   static std::atomic<bool> logged{false};
@@ -437,4 +486,52 @@ extern "C" int32_t nfsmw_skip_movies() {
     REXLOG_INFO("[extra-options] skip movies: {}", skip ? "on" : "off");
   }
   return skip ? 1 : 0;
+}
+
+// GAME SPEED above: the game's value times the setting while it is used.
+extern "C" void __imp__sub_82472F38(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_82472F38) {
+  constexpr uint32_t kGameSpeed = 0x828FB90C;
+  static std::atomic<bool> logged{false};
+  const double factor = std::clamp(REXCVAR_GET(nfsmw_game_speed), 0.25, 4.0);
+  if (factor == 1.0) {
+    __imp__sub_82472F38(ctx, base);
+    return;
+  }
+  if (!logged.exchange(true)) {
+    REXLOG_INFO("[extra-options] game speed: {:.2f}x", factor);
+  }
+  const uint32_t game = REX_LOAD_U32(kGameSpeed);
+  float v;
+  std::memcpy(&v, &game, 4);
+  REX_STORE_U32(kGameSpeed, FloatBits(float(v * factor)));
+  __imp__sub_82472F38(ctx, base);
+  REX_STORE_U32(kGameSpeed, game);
+}
+
+// RANDOM QUICK RACE above. A leaf; r4 (the options) and r5 (the race type)
+// are read before it runs.
+extern "C" void __imp__sub_822C4E68(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_822C4E68) {
+  const uint32_t options = ctx.r4.u32;
+  const int32_t type = ctx.r5.s32;
+  __imp__sub_822C4E68(ctx, base);
+  static std::atomic<bool> logged_o{false}, logged_l{false};
+  static std::atomic<uint32_t> seed{0x1D872B41};
+  auto draw = [](int32_t n) {
+    uint32_t v = seed.load();
+    v ^= v << 13; v ^= v >> 17; v ^= v << 5;
+    seed.store(v);
+    return int32_t(v % uint32_t(n)) + 1;
+  };
+  const int32_t opponents = Setting(REXCVAR_GET(nfsmw_random_opponents_max), 1, 6, "random race opponents", logged_o);
+  const int32_t laps = Setting(REXCVAR_GET(nfsmw_random_laps_max), 1, 127, "random race laps", logged_l);
+  if (opponents != 3) {
+    const uint8_t n = uint8_t(draw(opponents));
+    REX_STORE_U8(options + 7, n);
+    if (type == 3) REX_STORE_U8(options + 4, n);
+  }
+  if (laps != 5 && type == 1) {
+    REX_STORE_U8(options + 4, uint8_t(draw(laps)));
+  }
 }

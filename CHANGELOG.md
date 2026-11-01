@@ -113,6 +113,9 @@
   speed and weight; the speeds for Speeding, Excessive Speeding and Reckless
   Driving; impound strikes of a new car and the most a car can reach; and a
   heat level override (lowest and highest heat in every event).
+- **Even more Extra Options:** game speed, the fewest laps and opponents for
+  a Quick Race, the most laps and opponents of a random race, and rain drift,
+  fall speed and gravity.
 
 ## 0.5.2
 

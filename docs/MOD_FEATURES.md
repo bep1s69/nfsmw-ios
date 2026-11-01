@@ -35,6 +35,10 @@ TECHNICAL.
 | Infraction speeds (IPA104, untested) | ExOpts SpeedingLimit, ExcessiveSpeedingLimit, RecklessDrivingLimit | `nfsmw_*_limit` |
 | Impound strikes (IPA104, untested) | ExOpts ImpoundStrikesCount, MaximumImpoundStrikesCount | `nfsmw_impound_strikes*` |
 | Heat override (IPA104, untested; clamp only) | ExOpts HeatLevelOverride, Minimum/MaximumHeatLevel | `nfsmw_heat_*` |
+| Rain crossing, fall speed, gravity (dev2, untested) | ExOpts Weather RainCrossing, RainSpeed, RainGravity | `nfsmw_rain_crossing`, `_fall_speed`, `_gravity` |
+| Game speed (dev2, untested) | ExOpts GameSpeed | `nfsmw_game_speed` (wraps sub_82472F38) |
+| Quick Race minimum laps/opponents (dev2, untested) | ExOpts LapControllers/OpponentControllers Minimum | `nfsmw_laps_min`, `nfsmw_opponents_min` (1 and up; the PC's 0 opponents not allowed) |
+| Random race laps/opponents (dev2, untested) | ExOpts LapControllers/OpponentControllers RandomRace | `nfsmw_random_*_max` (wraps sub_822C4E68) |
 | Movies at 16:9 | WSF FMVWidescreenMode (part) | `nfsmw_native_movie_16_9` |
 | Black Edition | ExOpts ForceBlackEdition | Black Edition switch (D-007) |
 | Higher simulation rate | WSF SimRate (old ini) | 120 Hz simulation, Advanced |
@@ -45,8 +49,10 @@ TECHNICAL.
 
 ## Easy (recommended first)
 
-- Race setup leftovers: LapControllers Minimum, RandomRace, UnfreezeKO;
-  OpponentControllers Minimum, RandomRace.
+- Race setup leftovers: UnfreezeKO (the knockout's laps = opponents store is
+  sub_82560C78 `stb r10,104(r11)`; the PC's second edit, which unlocks the
+  laps row for knockouts, 0x7ACF83, a virtual call, is not found on the 360
+  yet).
 - StartingCash: harder than expected. The PC's spot (a function that adds
   10000 to the career's cash, +12) exists on the 360 (sub_822C26E0) but
   nothing calls it; the career default (sub_822C17F8, cash 0) has no direct
@@ -55,9 +61,9 @@ TECHNICAL.
 - Fixes (first check the bug exists on the Xbox 360): HelicopterBountyFix,
   ZeroBountyFix (heat 10 and above; matters only with the heat override
   above 5), DDayFix, BustedNISFix.
-- World: GameSpeed, CarScale, WorldAnimationSpeed, Weather RainCrossing,
-  RainSpeed, RainGravity (written at boot with the defaults, no setting yet),
-  NosTrailRepeatCount, NoRevLimiter.
+- World: CarScale, WorldAnimationSpeed, NosTrailRepeatCount, NoRevLimiter
+  (PC vtable slots 0x8AB78C/0x8AC034, functions returning 1; 360 vtables not
+  found yet).
 - HUD/misc: ShowHUDOnLookBack, ShowPercentOn1LapRaces,
   UnlockBurgerKingChallenge, SkipMovies, SkipCareerIntro, ReplayBlacklistRaces.
 - WSF: FOVFactor, GRAPHICS.RainDropletsScale, CAMERA.ReturnDelay/ReturnSpeed,
