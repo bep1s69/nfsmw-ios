@@ -408,6 +408,42 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, usable dev41 OFF/ON Metal A/B analyzed:** trace
+`Debug/2 November 2026/dev41_iphone_early_foliage_ab.trace` has two~15.5s runs,
+Shader Timeline DISABLED, same iPhone17PM/iOS27.2/Instruments27.2, nominal
+thermals. Log archived as dev41_iphone_foliage_early_ab_metal_nfsmw.log;
+OFF/ON flags verified, no pipeline misses. GPU rows51,685/55,618, submissions
+903/907, CPU samples14,221/16,777. User only disabled Shader Timeline and kept
+capture short; lengths nearly match failed15.57s capture, so duration alone did
+not determine success. Long captures still unverified; no known universal fix.
+
+Aligned fully-contained frames3–10s after driving:419per arm. Reported active
+GPU mean11.058ms OFF/11.169ms ON; envelope11.073/11.182ms, no demonstrated
+shader benefit.3–12s sensitivity gives active10.892/10.954ms; route/scene and
+GPU-state changes prevent causal tiny-delta claims. Dominant fragment encoder
+RenderCommand18 averages6.293/6.364ms (~57%active GPU, main scene inferred);
+next fragment encoders~0.80/~0.67ms. CPU Record self~7%sample weight, attribute
+lookup already ON; no code change ready/approved. Early-alpha stays FALSE,
+compact/resource TRUE. No further device capture requested now.
+
+Interesting D-017 evidence recorded without reopening experiments: ON log
+frame2481 corresponds to trace frame662,111.716ms envelope,39.235ms active and
+72.481ms trace-reported Idle,13gaps4.33–6.17ms;9fragment slices inside SAME
+already-encoded dominant encoder. CPU encoding finished before GPU began.
+Overlapping performance-state records say Minimum; not MHz/physical power-off
+or a diagnosed scheduling/residency/power cause. All5ON>45ms hitches INSIDE
+recording; OFF0inside, but many OFFafter stop, so do not blame early-alpha or
+claim Instruments always prevents hitches. Background GPU-permission errors
+start AFTER each trace, excluded from timing comparison.
+
+Next: read-only investigation of dominant fragment work and sampled Record
+lookup/fingerprint/decode hotspots against prior evidence, then concrete proposal
+before source changes. Keep D-017 parked aside from preserving this distinctive
+trace observation. TECHNICAL “usable dev41 A/B Metal trace” has identities,
+windows, methods, limits and source checks. Documentation-only local commit,
+no build/cache/source changes or push; HANDOFF_CHATGPT.md remains untracked.
+
+
 **November 2, supplied OFF Metal trace not usable for timing A/B:** exported
 15.571979s trace18:34:23.393–38.965 (iPhone17ProMax/iOS27.2(24B119),
 Instruments27.2(27B52), MacOS27.2(26B123), attached LiveContainer1567).

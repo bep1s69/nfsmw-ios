@@ -17949,3 +17949,190 @@ D-017 remains parked; no game-code or defaults change authorized by this test.
 All evidence/checkpoint/backlog updated in local documentation commit, no push.
 Pre-existing untracked HANDOFF_CHATGPT.md preserved. No new build or device test
 performed by this analysis.
+
+### November 2: usable dev41 A/B Metal trace; no demonstrated alpha win, execution gaps captured
+
+Stefan supplied trace and combined two-session log, said finally useful, then
+asked to continue. He confirms only disabling Shader Timeline and keeping
+recording short; unsure duration matters. Both actual recordings~15.5s, near
+failed15.571979s trace. Short duration alone therefore was not sufficient in
+prior capture; Shader Timeline OFF is a strong configuration lead, not proof
+that all longer captures now work or all failures have this cause. Same device,
+OS/tools as failed15s capture. No further test requested in this analysis.
+
+Inputs (private, already ignored/outside tracked repo):
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev41_iphone_early_foliage_ab.trace`
+(initial inventory1282files/1391937078bytes); original bundle not manually changed.
+Pasteboard item E8B89133-9519-4FBD-A5AA-4A1535DCCB30/nfsmw.log archived without
+overwrite, byte-verified as
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev41_iphone_foliage_early_ab_metal_nfsmw.log`,
+2281505bytes/12523lines/SHA256
+`c666db71659520c5f6d838daff06ebf9a1e68bbc76fce23dab691820ecadefca`.
+Combined log sessions19:04:40.746 and19:08:25.118; last line19:09:59.152+02.
+Actual trace CPU binary metadata confirms app UUID925E490E-2487-3D5E-806D-E1E7EAC37EC6
+(dev41), matching prior verified IPA SHA256
+59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329/0.6.0(11).
+Runtime UUID7262021A-1722-31EA-BE08-003B082804FE matches local packaged library.
+
+TOC metadata:
+
+| |OFF/run1 “early foliage false”|ON/run2 “early foliage true”|
+|---|---|---|
+| Attached LiveContainer PID |1738|1781|
+| Trace start,local+02 |19:05:06.236|19:08:56.831|
+| Trace stop |19:05:21.749|19:09:12.621|
+| Duration,s |15.512942|15.789649|
+| Log driving start |19:05:09.665|19:08:58.102|
+| Driving offset in trace,s |3.429|1.271|
+
+Both iPhone17ProMax/iOS27.2(24B119), hostMacBookPro/macOS27.2(26B123),
+Instruments27.2(27B52), Deferred, Performance Limiters, Shader Timeline DISABLED,
+Induced GPU Performance State Default, user Stop. Native1.833/60 Balanced,
+MetalFX/FXAA off/forced MSAA0, compact/resource ON, pass counters/early commit
+OFF; timeline not enabled. Early-alpha OFF then ON verified by device log,
+selected0in OFF/nonzero equal eligible ON. No pipeline cache misses in either
+session. Thermal export Nominal throughout both recordings; battery log55%,
+LPMoff. These are NOT after1minute warmup: capture includes loading/initial race.
+Do not compare whole-run averages or label this a sustained/energy test.
+
+Export/analysis in ignored permanent `ios/build/dev41-metal-ab-analysis/`:
+`xcrun xctrace export --input '<trace>' --toc --output <folder>/toc.xml`, then
+per-run XPath tables for metal-gpu-intervals, application encoders/submissions,
+thermal/performance states, metal-gpu-state-intervals and time-profile.
+Core tables selected with `or` predicates in one export per run; later GPU-state
+and CPU exports separate. All final xctrace exports exit0 (outside sandbox as
+prior tooling requires). No enormous raw-counter export needed this time.
+
+| Actual rows |OFF|ON|
+|---|---:|---:|
+| metal-gpu-intervals (including tiny non-app portion) |51,685|55,618|
+| Matching LiveContainer active GPU intervals |51,682|55,609|
+| metal-application-encoders-list |32,894|35,328|
+| metal-application-command-buffer-submissions |903|907|
+| gpu-performance-state-intervals |1,963|2,180|
+| device-thermal-state-intervals |1Nominal|1Nominal|
+| metal-gpu-state-intervals |103,367|111,234|
+| time-profile |14,221|16,777|
+
+App GPU interval span0.336959083–15.512086791s OFF and
+0.297388166–15.787087791s ON: unlike earlier failed capture, useful execution
+coverage extends throughout. No per-shader rows expected/requested with Shader
+Timeline off. Encoders have generic ordinal labels, no attachment dimensions or
+shader names; don't assert material-specific costs from these alone.
+
+Reproduction helpers retained ignored: read_core.py resolves XML IDs and
+converts rows to runN-rows.jsonl, summarize.py writes runN-compact.json/summary.txt,
+read_extra.py checks state gaps, symbolicate_cpu.py and cpu_summary.py produce
+runN-symbols.json/cpu-symbolicated-summary.txt. Corrected parsing issues preserved:
+first TOC parse attempted before export finished (empty file ParseError), then
+waited for completion. Initial multi-table reader reset IDs per node, hit
+KeyError28301; IDs are global across exported nodes. Union export includes only
+first schema; naïve reader then attributed later rows to first table. Corrected
+node mapping by TOC table index, with matching schema column descriptions from
+previous single-table exports under dev41-metal-off-analysis, global IDs,
+then regenerated all rows/statistics. No final conclusion uses failed counts.
+Schema-less nodes and nested formatted-label references must be handled by any
+future parser. All final helper commands exit0; no game/build code changed.
+
+Comparison method: align by each log driving start. Primary common elapsed
+window[3,10]s (trace[6.429,13.429]OFF/[4.271,11.271]ON). Include only frames
+whose first/last app GPU interval are fully contained.419frames per arm.
+Active time is UNION of Vertex/Fragment/Compute intervals within each app frame,
+not sum of overlapping channels. Envelope is first start to last end.
+Per-stage values below SUM that stage's intervals, not additive with active union.
+Trace timestamps/ns preserved, reported ms rounded. No last-frame draw count
+normalization or presumed deterministic route equality.
+
+| Primary window,mean ms/frame |OFF|ON|
+|---|---:|---:|
+| GPU execution envelope |11.0730|11.1817|
+| Reported active union |11.0578|11.1693|
+| Fragment interval sum |9.3504|9.4472|
+| Vertex interval sum |1.1213|1.1302|
+| Compute interval sum |0.8073|0.8156|
+| Active median |10.3718|10.8949|
+| Active p95 |14.2392|13.4122|
+| Active max |17.4167|14.3190|
+
+No demonstrated early-alpha win. Mean ON active~1%higher, p95lower and medians
+shifted: short scene-dependent distributions, dynamic performance states and
+slightly different route/draw workload, not a causal regression or improvement.
+Sensitivity common[3,12]s,540OFF/532ONcomplete frames: active mean10.8916/10.9537ms,
+envelope10.9371/11.1777ms. Includes first ON hitch; no clear improvement emerges.
+Do not promote default or claim power/thermal benefit. Keep trial opt-in/OFF.
+
+Where current GPU work is:
+- In primary window RenderCommand18 has419fragment intervals each, total
+  2636.557046/2666.671410ms =6.2925/6.3644ms/frame, ~57%active-union time and
+  ~67%fragment work. This is dominant. It is likely main scene (inference from
+  ordinal, timing and dominant encoder CPU work), not independently mapped to
+  attachment/shader in generic labels. Fragment median5.7605/6.2738ms.
+- Next RenderCommand35 median~0.796/0.799ms, RenderCommand39~0.654/0.658ms.
+  Other fragment encoders much smaller. Compute total~0.81ms/frame. Trace has
+  no separate Blit channel; zero Blit rows does NOT mean copies absent (renderer
+  uses compute/render copies too). Don't equate “Fragment” exclusively to scene
+  material work; presentation/copy draws also fragment work.
+- CPU encoder-duration sums,for same selected frame IDs: mean2.6932/2.8235ms,
+  median2.6408/2.7705ms. Not total app CPU or GPU duration. RenderCommand18
+  encoder CPU totals342.016/348.711ms over419frames; many smaller encoders too.
+
+CPU existing-work check (no speculative cache promotion):
+Local xcrun atos -arch arm64 -o <packaged UUID-matching app/runtime> -l <loaded
+address> <sample PCs>, batches<=500, resolves6916/7507formerly unnamed frame
+addresses (app6452/6915,runtime464/592). Same7s primary window7972/8307samples,
+1msweights,total7.972/8.307weighted seconds, not individually timed instructions.
+Record self0.562/0.600weighted s (~7.05/7.22%of app sample weight), RenderFrame
+self0.254/0.311s, Draw destructor0.091/0.087s. __kdebug_trace64 self0.314/0.306s
+(~4%): tracing overhead is part of this sample, not ordinary-play CPU cost.
+Record self line2759(AttributeEntryFor)63/69ms sample weight, line2858decode
+45/33ms, lines2641–42index lookup/fingerprint63/66ms, line3045TextureOf31/32ms;
+inlining/debug line attribution is approximate, not isolated function timing.
+Read source at those lines; log confirms attribute lookup/front cache ON,
+16,384sets, scalar compare; fetch-layout cache ON, fused uploads ON. Prior
+October26 IPA64 attribute-cache work already exists; don't propose it as new.
+These are focused next CPU code-review leads, not a proven removable7%or new
+approved optimization. Pipeline/target lookup flags remain their existing defaults.
+
+Interesting new D-017 trace evidence (preserve without new experiment request):
+ON log19:09:08.409/frame2481/111.7ms matches trace frame662,
+GPU first11.451444041,last11.563159916, envelope111.715875ms. Active GPU union
+39.234912ms; state table labels remaining72.480963ms IDLE.13long idle gaps
+4.330–6.168ms, interleaved with work. Dominant RenderCommand18 fragment is split
+into9slices of the SAME encoder, not a new CPU encoder each time. Its CPU encode
+11.437177041–11.437939708 (0.762667ms), command-buffer submission record ends
+11.450847541, both before GPU starts. Thus late CPU encoding does not explain
+these intra-encoder gaps. State table is derived GPU activity, not a measured
+power-off or independent proof hardware physically idle. Could involve driver,
+scheduling, residency or device conditions; no root cause identified.
+
+Overlapping GPU performance-state records say Minimum, is-induced1/narrative
+“due to active device conditions”, although recorded setting Default. No GPU
+clock MHz/voltage captured; do not claim proven power-state bug or minimum
+clock causal mechanism. Other successful frames report Medium/Maximum too:
+whole-run interval counts OFFMinimum372/Medium1211/Maximum380,
+ONMinimum259/Medium1479/Maximum442 (counts NOT time fractions). Other long ON
+frames trace663/839/850/854 also have multi-slice envelopes59.0/68.4/45.3/76.8ms.
+All5ON>45ms log frames occur INSIDE recording; OFF0inside, more OFFhitches after
+stop (historical intermittency, no blame on alpha setting from this one order).
+This challenges “all GPU frame duration is continuous shader cost” and absolute
+“Instruments prevents stutter”, not an authorization to reopen parked testing.
+Primary API search about performance states found Apple general guidance only,
+no verified explanation for Minimum+Idle pattern; no stronger inference drawn.
+
+Background/performance validity:
+3023OFF and2599ON GPU “Insufficient Permission (to submit GPU work from
+background)” warnings begin19:05:25.471 and19:09:16.748, respectively AFTER
+trace stops by3.7/4.1s. Exclude that post-trace background period; don't call
+this thousands of foreground renderer regressions or include frozen repeated
+draw summaries in timing comparison. Some post-stop long frames straddle
+capture boundary; no extrapolation. Trace-window thermals nominal, no power
+trace. Correctness had already been user-confirmed; no new visual result claimed.
+
+Outcome: current trace is genuinely useful, prior missing-execution-stream
+blocker bypassed for this short/ShaderTimelineOFF configuration. No measurable
+alpha gain; keep default FALSE. Larger GPU lead is dominant fragment work,
+CPU lead Record lookup/fingerprint/decode overhead with existing caches intact.
+Next read-only source/evidence investigation before a concrete code proposal;
+no new build, counter/default/quality change or further device test requested.
+D-017 stays parked, distinctive new evidence recorded. Docs committed locally,
+no push/release; pre-existing HANDOFF_CHATGPT.md preserved untracked.
