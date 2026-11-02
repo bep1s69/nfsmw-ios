@@ -17373,3 +17373,144 @@ No device test/recording run during implementation, no SDK/generated/shader
 edits or release/push. Local code/test/docs commit; no new release changelog
 line for default-off unverified correction. Untracked HANDOFF_CHATGPT.md
 preserved.
+
+
+### November 2: dev40 incremental list work reduced on device; next GPU shader candidate
+
+Stefan supplied dev40 log, then explicitly confirmed “Yes, all normal” when
+asked whether everything looked/felt normal. One enabled test complete; no
+extra baseline requested. Correctness confirmation applies to tested path,
+not every device or rendering mode. D-017 remains parked.
+
+Archive copy/hash verification exit 0, no overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev40_iphone_incremental_resource_list_nfsmw.log`,
+509284 bytes /3128 lines, SHA-256
+`4a0b2d3d10ff42782b93cdc709544d366010e17e57f53cee960175000e67e0bd`.
+Source shared-pasteboard item 000A7B57-651C-4C1E-AEBA-AC0B5ED46E65/nfsmw.log.
+Build dev40 0.6.0 (11), IPA SHA-256
+`a20a07d4578629a0bccbb4cd202ef055e2669106077d1b0800ecc925349efb04`,
+arm64 UUID 68D69080-4619-3451-A839-B72521FE8399 (previous packaging evidence).
+iPhone 17 Pro Max per context; OS not independently established, no trace.
+
+Session 17:44:15.641–17:45:53.289 +02:00, driving first 17:44:43.066 through
+last log: 70.223 s. Verified compact 384 ON, incremental resource cache ON,
+pass counters OFF, timeline not enabled, early commit OFF, Balanced,
+native 1.833/60, MetalFX/FXAA OFF, forced MSAA 0 after scene setup.
+Thermal samples nominal, Low Power Mode OFF, battery samples 70% (no power
+inference). ZERO GPU errors and ZERO >45 ms GPU hitch lines in entire log.
+First driving pacing window has 3/300 off-grid including initial transition;
+next thirteen reported windows all 0/300 (3900 frames). No new stutter testing.
+
+Work counters: select cache summaries emitted >5 s after first driving label,
+excluding partial transition window. Thirteen complete 300-frame windows:
+
+| Quantity | Total over 3900 frames |
+|---|---:|
+| Full list builds | 3,900 |
+| Incremental updates | 70,200 |
+| Unchanged-count reuses | 0 |
+| Source entries copied | 1,317,444 |
+| Suffix entries shifted by insertion | 1,455,492 |
+| Existing entries moved by reserve | 234,137 |
+| Full list entries declared to Metal | 23,226,564 |
+
+Exactly one full build +18 incremental updates per frame, rather than dev39's
+19 full builds (74,100 in equal frame count). Actual current-frame declared
+entry sum is the reference full-rebuild count for SAME lists in this run; no
+need to assume identical content between device runs. Source copying is
+94.33% below that sum. Including source copies +suffix shifts +reserve moves
+(3,007,073 logical entries) gives 87.05% fewer counted pointer operations
+than rebuilding every full list. This is a bookkeeping-work reduction, NOT
+87% less app CPU time, measured DRAM traffic, GPU work, watts or heat. Counter
+model does not count every compiler/ARC/loop operation; count checks/indexed
+lookups have cost too. No time/energy benefit quantified from these short,
+scene-dependent logs, and render averages include drawable waits. Structural
+work reduction plus user/host correctness checks justify keeping this path;
+source default still FALSE pending promotion approval. Compact default TRUE.
+
+GPU investigation (READ-ONLY; no shader/app/cache modification):
+
+- Restored missing source prerequisite: original ISO exists at
+  `/Users/bep1s/Downloads/Need for Speed - Most Wanted (USA).iso` (historical
+  TECHNICAL October 27 path). Spotlight search returned no match, which did
+  NOT mean it was absent; direct path check found it. Live shader cache still
+  has lib/ only. Do not ask user to reupload this ISO.
+- Ignored analysis workspace `ios/build/perf-gpu-nov2/`, not /tmp. Built host
+  `xenosrecomp` with existing build_shaders.sh compile recipe: clang++ C++20,
+  -O2, -Wno-switch/-unused-variable/-null-arithmetic, -fms-extensions, canonical
+  SDK thirdparty/fmt/include, forced tools/xenosrecomp/pch.h, existing
+  shader_recompiler.cpp/main.cpp. Exit 0. No translator source changes.
+- Imported existing nfsmw_shader_containers.py helpers, read NFS/ZZDATA0.BIN
+  (381569024 bytes), scanned aligned 0x102A0E magic candidates with existing
+  header validation/conversion/hash. 205 valid candidates observed, selected
+  two requested pixel keys, NOT a claim of full-game shader count. Generated
+  analysis containers: ps_684f4711f29b9f77.bin (984 bytes, ISO-file data offset
+  within ZZDATA0 163582408) and ps_27d82ea0faa380a8.bin (436 bytes, offset
+  163538484). Standard reproducible alternative is existing tool's --iso mode
+  into an ignored containers folder, then select these two keys.
+- Ran host translator with each container, corresponding .hlsl output and
+  tools/xenosrecomp/shader_common.h; exit 0. Current default preserves parallel
+  ALU sources. Ran EXISTING rewrite_shadow_filter.py on analysis 684f output:
+  one 9-fetch block rewritten, matching existing baseline pipeline. No new
+  optimization rewrite, Metal library compilation or live-cache replacement.
+  Generated game source remains ignored; record paths, not source contents.
+- Analysis source hashes after baseline shadow rewrite:
+  ps_684f4711f29b9f77.hlsl 46728 bytes SHA-256
+  244e998fd90da8d5f5e05bab070db1be962074746484c612bbc00b4821a742cb;
+  ps_27d82ea0faa380a8.hlsl 42224 bytes SHA-256
+  b13e7e6929ca9b2e51417119b1cb4eb28829ba8d5deb874468ed4dfb53e77a87.
+- Concrete dataflow finding: 684f's final opacity depends only on the first
+  diffuse sample's alpha and the incoming vertex alpha. Neither changes while
+  shadow coordinates, the shadow filter and lighting colour are evaluated.
+  The final alpha assignment/test currently appears after this work in source.
+  With shadows enabled, the existing filter uses four gathers by default
+  (fallback nine filtered samples retained). Thus an early identical alpha
+  test could reject cutout fragments before that work, without changing
+  surviving colour/alpha arithmetic. This is source-level eligibility, not
+  proof the device compiler currently executes everything in that order or
+  a measured speedup. Compiler might already hoist some work; helpers may
+  continue execution. Don't promise all overdraw disappears.
+- Checked 27d82ea0 tree shader too: one diffuse fetch and very short colour
+  tail; early rejection there has little obvious arithmetic to remove. Do
+  not generalize the shadowed-material candidate to all foliage.
+- Revisited October 21 nfsmw_run_5_ipad.log cost-state data: 684f uses both
+  alpha-OFF and alpha-ON states, mostly OFF in those historical draw-count
+  samples (main 6668 OFF vs491 ON across recorded state summaries). These are
+  sampled old iPad states, not current pixel coverage or a performance ceiling.
+  Candidate must only operate when alpha test is enabled; count eligible draws
+  in future trial, don't claim whole main-pass savings from draw counts.
+
+Primary API reference checked: [Apple Metal Shading Language specification](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf),
+June 4 2026 revision, pp235–236, sections 6.11.1.1/6.11.1.3. Metal 2.3+
+discard does not by itself make later derivatives undefined; helper execution
+continues as necessary. That constrains implementation and limits guaranteed
+saving. Do not introduce a divergent early return or force early depth/stencil
+updates; retain the same discard semantics, tests and surviving outputs.
+Apple's [archived GPU guidance](https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/OpenGLES_ProgrammingGuide/Performance/Performance.html)
+recommends early rejection as a general principle, not evidence this shader
+will be faster on A19/M4. Official PDF exceeded web tool size limit; downloaded
+via curl (exit 0) into analysis folder and extracted relevant pages with macOS
+PDFKit via xcrun swift, local module cache there (exit 0). Initial exact-string
+page filter returned no matches due text/revision wording; broader
+`discard_fragment` search found pages above. Text retained as spec-discard.txt;
+initial empty spec-discard-gather.txt is not a negative finding about the API.
+metal-objdump was unavailable (xcrun reported no such utility); don't claim a
+machine-code inspection. pdftotext not found on PATH, pypdf/fitz absent from active Python; PDFKit used instead.
+
+Next source proposal AWAITING APPROVAL: promote validated incremental list
+path default true (retain false fallback), plus one independent opt-in GPU
+experiment for ps_684f4711f29b9f77 only. Specialization-controlled earlier
+identical alpha test after diffuse sample, preserving all eight compare modes,
+NaN/threshold behavior, same math/compiler flags, no early-fragment-test
+attribute/geometry/quality reduction. False path unchanged. Leave cheap tree
+shader untouched. Need strict source-pattern/dataflow checks and differential
+alpha predicate tests, deploy rebuilt TARGET shader library for iOS minimum
+18.0 with exact math, preserve all other shader library hashes. Add eligibility
+counts so a single enabled device correctness/log run shows path exercised;
+actual GPU/energy gain remains subject to evidence, not assumed from source.
+One new enabled run against existing baseline, no fresh baseline requested.
+No new source/default/build change this results/research turn. Latest IPA
+remains dev40. All ordinary analysis/extraction commands and git diff --check
+exit 0 apart from discovery limitations explicitly recorded above. No new
+device test or Instruments recording run. Documentation-only local commit,
+no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.

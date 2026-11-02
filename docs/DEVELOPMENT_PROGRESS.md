@@ -389,6 +389,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev40 work reduction + device correctness CONFIRMED:** Stefan
+explicitly says everything normal. Archived
+`Debug/2 November 2026/dev40_iphone_incremental_resource_list_nfsmw.log` (root
+~/Developer/Debug/Most Wanted (2005) Debug/), ~70 s driving, native/60 Balanced,
+cache/compact ON, other diagnostics/early commit OFF. Zero GPU hitches/errors,
+13 full windows perfectly on-grid. Over 3900 frames: 3900 builds +70,200 updates,
+zero unchanged hits; 1,317,444 source entries vs23,226,564 full entries declared
+(94.33% fewer source copies). Including shifts/reserve moves gives 87.05% fewer
+counted pointer operations, NOT total CPU time/energy savings. Cache source
+default still false awaiting promotion; compact true. No more cache baseline
+needed; GPU work next. Latest IPA dev40, no new build in this analysis.
+
+Read-only GPU lead now concrete: recovered two baseline shader sources from
+original ISO `~/Downloads/Need for Speed - Most Wanted (USA).iso` into ignored
+`ios/build/perf-gpu-nov2`. For shadowed cutout shader 684f4711f29b9f77 final
+alpha is known after first diffuse fetch, before shadow filter/lighting now
+preceding its source-level alpha test. Cheap tree 27d82ea0 not a major target.
+Next proposal awaiting approval: incremental cache default ON, and independent
+opt-in early alpha rejection for 684f only, preserving compare/NaN/derivative/
+depth semantics and image quality; exact math, one target library changed,
+eligibility counters, host equivalence then one enabled correctness run.
+Source eligibility is not a GPU-speed claim (compiler/helpers may limit gain).
+TECHNICAL “dev40 incremental list work reduced” has evidence, source recovery
+commands/paths, primary Metal semantics and proposal. D-017 parked; no app/
+shader/default modifications during research. Local-only/no-push; untracked
+HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, dev40 incremental resource list READY, device test pending:**
 Stefan approved correction after dev39 zero hits. Same independent switch
 `nfsmw_native_resource_list_cache`, still default false; ON now builds once
