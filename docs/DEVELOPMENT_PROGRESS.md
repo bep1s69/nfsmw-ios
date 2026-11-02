@@ -389,6 +389,28 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev39 device correctness good, resource-list trial INEFFECTIVE:**
+Stefan reports all good; ~72 s driving, zero driving GPU hitches/errors. Log
+confirms compact 384 ON/cache ON, native/60 Balanced, other diagnostics/early
+commit OFF. However thirteen full 300-frame windows show 74,100 builds and
+ZERO reuses: resolve/view arrays grow between every pass. Do NOT promote the
+count-unchanged cache or claim CPU/power savings; source default stays false.
+Compact shared default true retains separately validated upload/capacity wins.
+Archive `Debug/2 November 2026/dev39_iphone_resource_list_cache_nfsmw.log`
+(root ~/Developer/Debug/Most Wanted (2005) Debug/). No repeat of this exact
+cache experiment needed. Disable/remove its Extra Arg for ordinary play.
+
+Next proposal awaiting code approval: incremental ordered insertion of newly
+appended resources into frame-local list, keeping fixed/seen entries, exact
+group order, all Metal declarations and lifetime unchanged. Full-rebuild
+fallback on shrink, per-frame reset; host interleaved-growth/order tests and
+new work counters before ONE enabled device correctness/log run, no new
+baseline. See TECHNICAL “dev39 correct on device but zero driving list-cache
+reuse”. No new source/default/build this results turn; latest IPA dev39.
+D-017 remains parked; CPU/GPU efficiency active. Local-only/no-push,
+pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, dev39 resource-list cache READY; compact uploads default ON:**
 Stefan approved. New independent restart-only
 `nfsmw_native_resource_list_cache` defaults false: optional frame-local reuse

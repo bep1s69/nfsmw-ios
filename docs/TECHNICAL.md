@@ -17209,3 +17209,80 @@ by these CPU improvements. D-017 parked. No new device test/recording run during
 implementation, no SDK/generated/shader edits or push/release. Local commit
 includes source, tests, CHANGELOG and records; untracked HANDOFF_CHATGPT.md
 preserved.
+
+
+### November 2: dev39 correct on device but zero driving list-cache reuse; do not promote
+
+Stefan: “all good”. This confirms no reported correctness/visual/smoothness
+issue on the tested path, NOT an optimization gain. Source cache default
+remains false; compact shared default true remains validated.
+
+Supplied log archived with copy/hash verification exit 0, no overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev39_iphone_resource_list_cache_nfsmw.log`,
+444650 bytes /2758 lines, SHA-256
+`16c52e32cb42ceca698912762109a78201a3f0c42b570ca4707d9f9b9651b5c8`.
+Original shared-pasteboard item C5A2AAC3-BC70-422A-9C68-F8A7F1931B6D/nfsmw.log.
+Supplied dev39 artifact SHA-256
+`8759e94470f602a2082087c6091374a03224cace38e2743bbd507067397c9425`,
+app UUID D90B9670-E86E-3796-8FBA-E3E403CFEE78 (previous packaging evidence).
+iPhone 17 Pro Max from ongoing test context, OS not independently established
+by supplied log; no Instruments trace supplied.
+
+Session 17:32:37.789–17:34:17.926 +02:00; first driving 17:33:06.158,
+71.768 s driving-labelled coverage to last log, no completion/pause endpoint.
+Confirmed compact 384 ON, resource list cache ON, pass counters OFF,
+no timeline enable line, all early commits OFF, Balanced; settings from energy
+baseline native 1.833/60, MetalFX/FXAA OFF, forced MSAA 0 after startup.
+Zero native GPU errors. One >45 ms GPU hitch in startup only: frame 2,
+17:32:39.440, 47.4 ms, 18 draws/3 uploads. ZERO driving >45 ms GPU hitches.
+Driving pacing first summary 1/300 off grid at initial transition, next
+1/300 worst 4.2 ms off at 17:33:19.704; remaining reported windows zero off.
+No new D-017 investigation; it remains parked per Stefan.
+
+Critical negative result: resource-list counters show ZERO reuses in EVERY
+driving summary. First driving-emitted summary contains 4870 builds, 0 reuses
+(partial loading/driving window). Next thirteen 300-frame summaries each
+5700 builds, 0 reuses: 74,100 list constructions in 3900 frames, 19 per frame.
+All fourteen summaries emitted after driving start total 78,970 builds,
+0 reuses, 24,391,813 entries appended (includes first partial window).
+Whole-session frontend had only four reuses in an early startup window,
+otherwise zero. No budget/logging truncation indicated in these counters.
+
+Conclusion: dev39's unchanged-count cache removes NO list reconstruction in
+this driving workload. Count changes invalidate it on every new main encoder;
+resolve/view arrays grow between passes. It therefore adds checking/counter
+work without the intended driving saving. Do not equate smoothness with an
+optimization win, claim lower CPU/energy, or default this trial on. Dev38's
+shared-payload/capacity reductions are a separate established result and remain.
+The historical proposal was semantically safe but its reuse assumption does
+not match this real pass sequence. No repeated test of this exact approach is
+justified; observed counters answer the eligibility question.
+
+Read-only next proposal (AWAITING APPROVAL): replace unchanged-count reuse
+with INCREMENTAL ordered-list updates under the same independent opt-in flag.
+Build once per frame, then insert only newly appended collection entries at
+that collection's boundary. Fixed texture prefix/volume/cube suffix and
+already-seen resolve/view entries need not be enumerated again. Preserve
+exact group ordering, duplicates, dummy/data suffix, per-encoder useResources
+and all mid-pass declarations/lifetimes. Inserting a new resolved texture must
+occur before assembled-cube/volume/cube entries, NOT at end; appending all
+new pointers blindly would alter the declared order. Reserve capacity for
+new size once per update; support full-rebuild fallback if counts shrink,
+and reset every frame. Same-count replacements remain unsupported by the
+current append-only producer contract and need explicit invalidation if added
+later. CPU cost of vector suffix shifting vs full enumeration must not be
+assumed; new log counters should distinguish initial builds, incremental
+updates and new entries copied, so the device run demonstrates whether work
+is actually eliminated even with zero unchanged passes. Host differential
+list tests should stress interleaved growth, shrink fallback, duplicate
+identities/order and frame reset. One enabled correctness/log run against
+existing data only, no extra unchanged baseline; no new device request until
+approved implementation ready. This is a proposal, not new source authorization
+from “all good”. Keep cache disabled/remove its extra arg for ordinary play;
+no extra device run requested now. GPU optimization remains active in broader
+plan after this bounded CPU follow-up; no claim of GPU savings from list work.
+
+Commands: archive/hash, inline Python log count/timestamp analysis,
+source/checkpoint reads and `git diff --check` exit 0. No new source/SDK/shader
+change, build, device test or recording performed. Documentation-only local
+commit; no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
