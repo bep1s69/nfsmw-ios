@@ -16100,3 +16100,28 @@ loading). Inference: at native / 60 the GPU is the limit, with ~1 ms of
 headroom in this lap (higher than the 11.8 ms median of the Power Profiler
 run: thermal state or the profiler, not established); CPU work is not the
 cause of dropped frames, so GPU work comes first.
+
+### November 2: resolve swap A/B: never applies; removed (dev31)
+
+Log `dev31_resolve_swap_ab_nfsmw.log` (Debug/2 November 2026): session 1
+switch off, session 2 `--nfsmw_native_resolve_swap=true`. Session 2 logged
+`0 swapped, 0 copied back` in every 300-frame window. Measured cause: no
+colour resolve covers its whole target. The scene target is 2933 texels wide
+(the 1600 EDRAM pitch x 1.833) while its resolves copy 2859 x 1320 into a
+2874-wide destination (1560 / 1568 guest): cropped, linear destinations.
+The switch and its code were removed again; a texture handed over would
+need the destination's size, which the target's pitch does not give.
+Negative result, kept here.
+
+Same log, new evidence on the dropped frames: 17 "GPU profile of the slow
+frame" lines at 48-122 ms (15 in session 1 between 14:28:01 and 14:28:19,
+2 in session 2 at 14:30:01-02, each at the start of a race; 2189-2567
+draws, 0 texture uploads, 4-6 new vertex buffers, thermal nominal). In them
+fixed-size work slows too: depth copies 6.8-7.3 ms (normally ~1.0), the six
+320 x 256 cube passes 7.6-8.4 ms (normally 1.8), the 1600 x 1600 shadow
+passes 7.6 ms (normally 0.7), the main pass 26-71 ms (normally ~6.9), while
+the 1466 x 660 and second scene passes stay near normal. Inference: the GPU
+stalls or runs slow in those frames (fixed work grows 4-7x for the same
+draws) rather than doing more work; cause not established (candidates: GPU
+clock ramp, faults on newly allocated memory, contention). Saving the
+normal ~1 ms of copies would not remove these frames.
