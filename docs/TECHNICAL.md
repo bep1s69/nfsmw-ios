@@ -18398,3 +18398,98 @@ baseline/power run requested now. No battery/thermal improvement claimed from
 this research. D-017 parked, overlay deferred, no code/default/test-build change.
 All essential findings recorded here/checkpoint/backlog; local documentation
 commit only, no push/release. HANDOFF_CHATGPT.md preserved pre-existing untracked.
+
+
+## November 2, dev41 native snapshot: foliage inventory and constrained next proposal
+
+Input from Stefan: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw.log`
+and sibling `native/`. Archived log as `dev41_iphone_native_snapshot_frame1923_nfsmw.log`
+in the same directory (copy/check exit0). Log532458bytes,3343lines,
+SHA256 `e2bb32c2bb05701319a9661ee66a7f92d00073ed123a262b02453cbf12de5b18`.
+Log22:19:57.077–22:20:58.984, driving22:20:25.065. A19Pro GPU;
+iPhone17ProMax as continuing user test context. OS version not independently
+established from this log. Existing dev41 identity remains app UUID
+925E490E-2487-3D5E-806D-E1E7EAC37EC6, IPA SHA256
+59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329;
+no new IPA built or supplied, no new binary identity independently extracted.
+Native1.833/60, MSAA0, FXAA/MetalFXoff, foliage early-alphaOFF.
+Pass counters ON in supplied log: do not treat as matching earlier counters-OFF
+performance baseline. Manual snapshot mode has previously documented diagnostic
+path differences; timing/order/readback costs are NOT energy evidence.
+
+Frame1923 saved22:20:42.252:2583/2583draws,9targets,273textures,
+21/21resolves,0pipeline failures,0pixel-coordinate game draws. Native directory
+333files/124005590bytes. Ignored reproducible SHA256/size manifest:
+`ios/build/dev41-snapshot-analysis/manifest.json` (generation exit0).
+Viewed main and final target images: wooded/wet road at race start, Fiat and
+competitor, launch text. Snapshot image artifacts are not a reported ordinary
+visual regression. This one frame is material inventory, not route-wide census.
+
+Target inventory: shadow1600x1600/563draws; reflection800x360/291;
+cube320x256/585total; main2933x1320/1048;400x180/1;400x180/3;
+80x64/1;240x90/3; final2933x1320/89. Main target
+000_1600_0_d468_s1,draw1439–2486,viewport1560x-720 at0,720.
+Main PS groups: tree27d82ea0faa380a8=348(174depth736+174depth732),
+fence/plant684f4711f29b9f77=330(318depth736+12depth732),
+car2442daf2d3a7097a=170,normalmapd8bb87fee2d8ec76=97,
+2d8bf2c63ddd2608=37,road af393d4c46af230c=29,others37.
+Trees+684f=678/1048(64.7%) of DRAWS, not shaded pixels or GPU cost.
+Reflection also58tree+33fence draws; cube126tree+171fence draws.
+Current road rain c2.x0.798 and reflection c1.x0.833: dry-rain assumption rejected
+for this snapshot too. No whole scene per-material timing derivable here.
+
+Tree passes are complementary, not redundant. Current reflective draw1901:
+blend00010001,depth00700736,colorctl8700000e;1902same texture:
+blend07060706,depth00700732,colorctl87000009. Historical detailed state in
+`Debug/21 October 2026/nfsmw_run_5_ipad.log` establishes matched tree groups
+alpha>=threshold opaque/Z-write and alpha<threshold blended/noZ-write,
+including thresholds0.706/0.392. Native depth decoding agrees. Do NOT delete
+one pass, merge by shader identity, or propose stencil skipping opaque alpha
+as a new fix: alpha test already rejects that half in the edge pass.
+
+Important correction to preceding scissor audit: native_renderer.mm6456 has an
+EXPLICIT rationale: window offset/scissor belong to BeginTiling/EndTiling replay,
+but native draws a whole pass together. Earlier note that no rationale was found
+was incomplete; targeted documentation search missed this adjacent code comment.
+Thus full-target scissors are not established as a bug. Correct guest clipping
+would need untiled semantics proof first; do not flip dormant branch or prioritize
+this as a demonstrated broad energy win. Current dumps lack complete scissor state.
+
+Investigated transparent tree texels: regenerated baseline tree PS27 samples
+one diffuse texture, computes alpha directly from sampled alpha, then a few RGB
+ALU operations before generic alpha test. LESS edge predicate also accepts zero
+alpha. Under observed SrcAlpha/InvSrcAlpha additive RGBA blending, normalized
+finite destination, finite source RGB, no depth/stencil/query/other output side
+effects, exact zero-alpha output contributes nothing. Potential candidate is
+specializing ONLY that edge pass to discard exact zero-alpha fragments, preserving
+all positive-alpha soft edges and opaque pass. This could avoid blend/export work,
+not the initial texture fetch. It differs from PS684f early-shadow rejection,
+which already failed to demonstrate a gain and stays OFF.
+
+BUT no discarded-pixel fraction measured: watched texture PNGs deliberately call
+imageBySettingAlphaOneInExtent at native_renderer.mm8013; three tree diffuse PNGs
+are RGB8(type2),128x128/two and256x128/one. Attempted ignored png_alpha.py fails
+exit1 asserting RGBA(type6), correctly preventing fabricated histogram; no alpha
+histogram produced. Base texel histograms would not equal filtered fragment
+coverage anyway. Hardware may already optimize zero-alpha blending; added discard
+can cost more than it saves. Cheap tree shader is not evidence for large ALU gain.
+
+Proposal ONLY, awaiting Stefan approval: opt-in/default-OFF PS27 zero-alpha edge
+rejection trial, strict shader-body digest and exact blend/depth/alpha/target
+eligibility. Preserve all other shaders/states. Guard finite final RGB, single
+normalized color target, no depth writes, no stencil effects, no occlusion query,
+no motion/MRT writes or alpha-to-coverage; fallback otherwise. No early return
+through derivative-dependent work. Record eligible/selected draw counts (not
+fragment savings). Host predicate/state checks then one enabled device visual
+correctness run using existing baseline, no new stutter experiment/cache clear.
+If GPU evidence does not show a useful recurring reduction, discard trial;
+only a successful candidate merits matched battery/thermal validation. This is a
+candidate within the largest measured pass, NOT a proven largest optimization,
+not claimed to save6.3ms or any battery percentage. No rendering/source/default
+changes approved or made in this analysis. No build or device test run by agent.
+
+Source inspection, log grouping, PNG IHDR/manifest checks exit0 except explicitly
+failed histogram above and initial guessed src/gpu/native_renderer.mm path absent;
+actual source ios/src/native_renderer.mm inspected. Analysis artifacts ignored;
+essential evidence is this record. D-017 parked, overlay deferred. Session docs
+committed locally; pre-existing HANDOFF_CHATGPT.md left untracked, no push.

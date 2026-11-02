@@ -420,6 +420,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, native snapshot analyzed; no source change approved:** dev41
+frame1923 contains2583draws/9targets, main1048draws with348tree and330fence/plant
+draws. Those are draw counts, not GPU cost shares. Matched tree groups are
+complementary opaque and blended-edge passes, not removable duplicates. Current
+rain0.798 rules out dry-rain specialization. Watched PNG alpha is deliberately
+forced opaque, so no transparent-fragment census is available.
+Correction: adjacent renderer comment DOES explain full-target scissors as
+untiled reconstruction; previous audit missed it. No established scissor bug.
+Next proposal awaiting approval: narrow default-OFF tree PS27 exact-zero-alpha
+rejection for finite-output blended/no-depth-write states, preserving positive
+soft edges and all side effects. Benefit unproven; may be optimized by hardware
+already. One correctness run if approved, existing baseline; power/thermal claims
+require actual measurements after useful GPU reduction. No new test needed now.
+See TECHNICAL “dev41 native snapshot” for paths, hash, controls, safety gates and
+failed alpha-histogram attempt. Remove dump_manual after snapshot capture.
+D-017 parked, overlay deferred, all dev41 defaults unchanged. Local docs only;
+preserved untracked HANDOFF_CHATGPT.md. Earlier request below is now completed.
+
+
 **November 2, energy-first broad-device scene audit (read-only):** Stefan
 prioritizes thermal/battery benefit across resolutions/devices over more base
 fps. Recovered8additional shader sources from local ISO into ignored
