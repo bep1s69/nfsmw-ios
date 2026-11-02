@@ -19381,3 +19381,14 @@ not handed off) and dev45 (handed off) both answer 0–72 per window (largest 72
 everywhere), similar shares of 0 answers when occluded, no out-of-range value.
 Routes differ, so not frame-equivalence; a longer drive should still watch for
 glare popping/flicker near buildings.
+
+### November 3: proposed matched OFF/ON protocol for culling + handoff (Stefan asked what next)
+
+Same dev45 IPA both arms, native1.833/60 Balanced, MetalFX/FXAA off. A cold
+launch `--nfsmw_native_color_handoff=false --nfsmw_native_guest_culling=false`,
+B both true; both keep dump_manual/foliage_early_alpha/pass_counters/
+gpu_timeline/early_commit false. ~1 min warm-up drive, then ~2 min Power
+Profiler (worked for dev30 long runs) on the same race/path, comparable start
+temperature/charging. Optional 7 s Metal System Trace per arm (long MST came
+out empty before). Deliverables: labelled .trace + nfsmw.log per arm.
+Purpose: decide whether either default should change; no claim until then.
