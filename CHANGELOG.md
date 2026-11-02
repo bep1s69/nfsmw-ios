@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Test skipping the scene picture copy.** Add an optional trial that hands
+  the finished scene image straight to the effects that read it instead of
+  copying it each frame. Off by default; not yet tested on a device.
+
 - **Test native face culling.** Add an optional trial that honors the game's
   face-culling requests for supported geometry. The iPhone visual check passed;
   disabled by default while performance and energy benefits remain unmeasured.

@@ -130,6 +130,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, false, "GPU",
                     "Experiment: honor guest face culling for supported polygon draws (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, false, "GPU",
+                    "Experiment: hand the finished scene color image to its resolve instead of copying it (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -1364,6 +1366,16 @@ struct GuestCullCounters {
   }
 };
 std::map<std::string, GuestCullCounters> guest_cull_counts;
+// nfsmw_native_color_handoff census since the last summary. Scene-sized colour
+// targets per frame by plan outcome; handoffs are copy commands not encoded
+// and their logical payload, NOT measured DRAM traffic, power or frame time.
+enum class HandoffPlan : uint8_t { Planned, Draws, Viewports, Target, Resolves, Layout, Extent, Count };
+struct ColorHandoffCounters {
+  uint64_t plans[size_t(HandoffPlan::Count)] = {};
+  uint64_t frames_excluded = 0, handoffs = 0, lease_misses = 0, mismatches = 0, late_passes = 0, bytes = 0;
+  uint32_t most_images = 0;  // the most pool images of the handed-off kind at once
+};
+ColorHandoffCounters color_handoff_counts;
 
 // PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
 // key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
@@ -3522,6 +3534,11 @@ struct Target {
   uint64_t depth_generation = 0;  // sampled audit only: possible writes or clears this frame
   bool depth_audit_defined = false;  // contents preserved after the last sampled pass
   bool used = false;
+  // nfsmw_native_color_handoff: the colour image is the GPU pool's (retired
+  // through it, never released while a frame may use it); the resolve this
+  // frame that may take the finished image (-1: none); taken this frame.
+  bool pooled_color = false, handed_off = false;
+  int32_t handoff_resolve = -1;
   // A resolve with clear flags: the next pass on this target starts cleared.
   bool clear_color = false, clear_depth = false;
   MTLClearColor clear_color_value = MTLClearColorMake(0, 0, 0, 0);
@@ -3819,6 +3836,7 @@ struct GpuPool {
   std::unordered_map<std::string, std::vector<Free>> free;
   std::deque<Retired> retired;
   std::unordered_map<const void*, std::string> keys;  // the pool's objects
+  std::unordered_map<std::string, uint32_t> live;     // the pool's objects by key (in use, retired or free)
   uint32_t made = 0, reused = 0;
 
   void Reclaim(uint32_t now) {
@@ -3834,6 +3852,7 @@ struct GpuPool {
         list.erase(std::remove_if(list.begin(), list.end(),
                                   [&](const Free& f) {
                                     if (now - f.since <= 600) return false;
+                                    --live[it->first];
                                     keys.erase((__bridge const void*)f.object);
                                     residency::Remove(f.object);
                                     return true;
@@ -3854,9 +3873,24 @@ struct GpuPool {
   }
 
   void Add(id object, std::string key) {
+    ++live[key];
     keys[(__bridge const void*)object] = std::move(key);
     residency::Add(object);
     ++made;
+  }
+
+  // A texture made elsewhere (and already resident) becomes the pool's, unless
+  // the pool has `most` of its kind: retired, reused and released as its own.
+  bool Adopt(id<MTLTexture> t, uint32_t most) {
+    const void* p = (__bridge const void*)t;
+    if (!t || keys.count(p)) return t != nil;
+    std::string key = fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(t.textureType), uint64_t(t.pixelFormat),
+                                  t.width, t.height, t.depth, uint64_t(t.usage), uint64_t(t.storageMode), 0);
+    uint32_t& n = live[key];
+    if (n >= most) return false;
+    ++n;
+    keys[p] = std::move(key);
+    return true;
   }
 
   // Back to the pool once frame `after` is done (objects not the pool's: dropped).
@@ -3886,11 +3920,14 @@ struct GpuPool {
   }
 
   // `row`: a linear texture over a buffer of its own with this row pitch (0: none).
-  id<MTLTexture> Texture(id<MTLDevice> device, MTLTextureDescriptor* d, NSUInteger row = 0) {
+  // `most`: no new one once the pool has that many of this kind (nil instead).
+  id<MTLTexture> Texture(id<MTLDevice> device, MTLTextureDescriptor* d, NSUInteger row = 0,
+                         uint32_t most = UINT32_MAX) {
     const std::string key = fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(d.textureType), uint64_t(d.pixelFormat),
                                         d.width, d.height, d.depth, uint64_t(d.usage), uint64_t(d.storageMode), row);
     id<MTLTexture> t = Take(key);
     if (!t) {
+      if (auto n = live.find(key); n != live.end() && n->second >= most) return nil;
       if (row) {
         id<MTLBuffer> backing = [device newBufferWithLength:row * d.height
                                                     options:MTLResourceOptions(d.storageMode) << MTLResourceStorageModeShift];
@@ -4875,6 +4912,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     for (auto& [key, t] : targets) {
       t.used = false;
       t.clear_color = t.clear_depth = false;
+      t.handed_off = false;
+      t.handoff_resolve = -1;
       t.draws = 0;
       t.depth_generation = 0;
       t.depth_audit_defined = false;
@@ -4937,6 +4976,27 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     };
     const bool reuse_target_lookup = TargetLookupEnabled();
     const bool reuse_pipeline_lookup = PipelineLookupEnabled();
+    // The colour handoff (nfsmw_native_color_handoff, off by default): the
+    // scene's finished colour image becomes its resolve's texture instead of
+    // being copied, the target drawing on into another from the GPU pool.
+    // Only on ordinary displayed frames; never with the diagnostics, motion
+    // vectors or experiments that read or split the target's passes.
+    static const bool color_handoff_setting = REXCVAR_GET(nfsmw_native_color_handoff);
+    const bool color_handoff = color_handoff_setting && !dump && lazy_diagnostics && !capture.active &&
+                               !MetalFxTemporal() && !REXCVAR_GET(nfsmw_native_motion_debug) &&
+                               !REXCVAR_GET(nfsmw_native_cost_probe) && REXCVAR_GET(nfsmw_native_tiled_crops) &&
+                               REXCVAR_GET(nfsmw_native_pass_split_indices) <= 0;
+    if (color_handoff_setting && !color_handoff) ++color_handoff_counts.frames_excluded;
+    // Per target: whether every draw keeps to the conventions the plan below
+    // can bound (translated viewport, triangles, no MRT/query/internal or
+    // mirror path), its last draw and its distinct viewport x scale/offset.
+    struct HandoffDraws {
+      HandoffPlan rejected = HandoffPlan::Planned;
+      size_t last = 0;
+      std::vector<std::pair<float, float>> viewports;
+    };
+    std::map<std::string, HandoffDraws> handoff_draws;
+    HandoffDraws* setup_handoff = nullptr;
     TargetLookupCache setup_target_lookup;
     // Draws in a row mostly share their target (same surface, colour and
     // depth info): its key, map entries and sample count found once per run
@@ -4954,8 +5014,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         setup_size = &sizes[setup_key];
         setup_depth_only = nullptr;
         sample_counts[setup_key] = NativeSampleCount(device, d.surface_info, msaa_disabled, maximum_samples);
+        if (color_handoff) setup_handoff = &handoff_draws[setup_key];
       }
       setup_prev = &d;
+      if (setup_handoff && setup_handoff->rejected == HandoffPlan::Planned) {
+        HandoffDraws& h = *setup_handoff;
+        h.last = &d - frame->draws.data();
+        const uint32_t p = d.guest_primitive;
+        if ((d.vte & 0xF) != 0xF || !(d.viewport[0] > 0) || !(d.viewport[2] < 0) || !std::isfinite(d.viewport[1]) ||
+            d.query >= 0 || d.second_target || !(p == 4 || p == 5 || p == 6 || p == 8 || p == 13) ||
+            d.ps_key == 0x8436534cfafcc0ebull || store.internal_keys.count(d.vs_key)) {
+          h.rejected = HandoffPlan::Draws;
+        } else if (std::find(h.viewports.begin(), h.viewports.end(), std::make_pair(d.viewport[0], d.viewport[1])) ==
+                   h.viewports.end()) {
+          if (h.viewports.size() < 16) {
+            h.viewports.emplace_back(d.viewport[0], d.viewport[1]);
+          } else {
+            h.rejected = HandoffPlan::Viewports;
+          }
+        }
+      }
       const std::string& key = setup_key;
       Target& t = *setup_target;
       auto& size = *setup_size;
@@ -5061,21 +5139,157 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const float shadow_scale = std::clamp(float(REXCVAR_GET(nfsmw_native_shadow_scale)), 0.25f, 1.0f);
       return (scale_shadows ? resolution_scale : 1.0f) * shadow_scale;
     };
+    // The colour handoff's plan: a scene target whose one colour resolve
+    // would copy all of it into a tiled texture of the size the frame samples
+    // gets that physical width (the same height), so that its finished image
+    // can be that resolve's texture. Its viewport, pixel grid and shader
+    // inputs are unchanged; every draw's pixel centres must lie inside the
+    // narrower image and every resolve from it read only inside it.
+    // A colour or depth resolve's destination and rectangle in pixels, and
+    // whether its destination is a tiled texture of the one size the frame
+    // samples (nfsmw_native_tiled_crops): do_resolve's decision, shared with
+    // the handoff's plan so that the two cannot drift apart.
+    struct ResolveLayout {
+      NSUInteger dw, dh, x0, y0, w, h, fit_w = 0, fit_h = 0;
+      bool may_crop, tiled = false;
+    };
+    auto resolve_layout = [&](const ResolveEvent& ev, float scale, NSUInteger src_pitch, NSUInteger src_height) {
+      ResolveLayout l;
+      l.dw = Px(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1)), scale);
+      l.dh = Px(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1)), scale);
+      // Edges rounded on their own, so that rectangles side by side meet.
+      l.x0 = Px(std::max(ev.x0, 0), scale);
+      l.y0 = Px(std::max(ev.y0, 0), scale);
+      const NSUInteger x1 = std::max<NSUInteger>(Px(std::max(ev.x1, 0), scale), l.x0);
+      const NSUInteger y1 = std::max<NSUInteger>(Px(std::max(ev.y1, 0), scale), l.y0);
+      l.w = std::min({x1 - l.x0, src_pitch - std::min<NSUInteger>(l.x0, src_pitch), l.dw - std::min(l.x0, l.dw)});
+      l.h = std::min({y1 - l.y0, src_height - std::min<NSUInteger>(l.y0, src_height), l.dh - std::min(l.y0, l.dh)});
+      // Linear (slow for the GPU to write: a 1600 x 1600 shadow map copy took
+      // 2.5 ms) only when the resolve does not fill its pitch, i.e. when
+      // draws may sample it at a smaller size than the texture.
+      // (In the texture's pixels: the guest rectangle times the scale. In
+      // guest pixels, below 1x a rectangle short of the pitch looked as wide
+      // as the scaled texture: no crop, and the game's coordinates for its
+      // own size read past the picture, a dark bar on the right.)
+      l.may_crop = Px(std::max(ev.x1 - ev.x0, 0), scale) < l.dw || Px(std::max(ev.y1 - ev.y0, 0), scale) < l.dh;
+      // Cropped, but sampled this frame at one size that holds the whole
+      // rectangle (the scene: 1560 x 704 in a 1568 pitch): a tiled texture
+      // of that size, which the draws sample at its own size, instead of a
+      // linear one (slow for the GPU to write).
+      if (!ev.array && l.may_crop && REXCVAR_GET(nfsmw_native_tiled_crops)) {
+        NSUInteger fit_w = 0, fit_h = 0;
+        bool one_size = true;
+        for (const auto& tp : frame->textures) {
+          if (tp->address != ev.dest_base || tp->cube || !tp->width || !tp->height) continue;
+          const NSUInteger fw = Px(tp->width, scale), fh = Px(tp->height, scale);
+          if (fit_w && (fw != fit_w || fh != fit_h)) one_size = false;
+          fit_w = fw;
+          fit_h = fh;
+        }
+        if (one_size && fit_w && fit_h && l.x0 + l.w <= fit_w && l.y0 + l.h <= fit_h && fit_w <= l.dw && fit_h <= l.dh) {
+          l.fit_w = fit_w;
+          l.fit_h = fit_h;
+          l.tiled = true;
+        }
+      }
+      return l;
+    };
+    struct HandoffResolves {
+      int32_t color = -1;
+      uint32_t colors = 0;
+      std::vector<size_t> all;
+    };
+    std::map<std::string, HandoffResolves> handoff_resolves;
+    if (color_handoff) {
+      for (size_t r = 0; r < frame->resolves.size(); ++r) {
+        const ResolveEvent& ev = frame->resolves[r];
+        // The source as do_resolve picks it.
+        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        auto found = targets.find(key);
+        if (found == targets.end() || !(found->second.color || sizes.count(key))) {
+          if (ev.after_draws == 0 || ev.after_draws > frame->draws.size()) continue;
+          key = target_key(frame->draws[ev.after_draws - 1]);
+        }
+        if (!handoff_draws.count(key)) continue;
+        HandoffResolves& hr = handoff_resolves[key];
+        hr.all.push_back(r);
+        if (!ev.depth) {
+          ++hr.colors;
+          hr.color = int32_t(r);
+        }
+      }
+    }
+    auto handoff_most = [](NSUInteger width, NSUInteger height) {  // up to 4 images, 128 MiB
+      return uint32_t(std::min<uint64_t>(4, (uint64_t(128) << 20) / std::max<uint64_t>(uint64_t(width) * height * 4, 1)));
+    };
+    auto plan_handoff = [&](const std::string& key, const Target& t, float scale, uint32_t pitch, uint32_t height,
+                            int32_t& resolve) -> uint32_t {
+      if (sizes[key].first < 640 || depth_only_draws[key] * 2 > t.draws) return pitch;  // not a scene: not counted
+      auto reject = [&](HandoffPlan why) {
+        ++color_handoff_counts.plans[size_t(why)];
+        return pitch;
+      };
+      if (second_of.count(key) || sample_counts[key] != 1 || ColorFormat(t.format) != MTLPixelFormatRGBA8Unorm)
+        return reject(HandoffPlan::Target);
+      const auto draws = handoff_draws.find(key);
+      if (draws == handoff_draws.end()) return reject(HandoffPlan::Draws);
+      if (draws->second.rejected != HandoffPlan::Planned) return reject(draws->second.rejected);
+      const auto reads = handoff_resolves.find(key);
+      if (reads == handoff_resolves.end() || reads->second.colors != 1) return reject(HandoffPlan::Resolves);
+      const ResolveEvent& ev = frame->resolves[reads->second.color];
+      const bool writeback = ev.dest_format == 6 && ev.dest_pitch &&
+                             size_t(ev.dest_pitch) * ev.dest_height * 4 <= size_t(REXCVAR_GET(nfsmw_native_writeback_kb)) * 1024;
+      if (ev.array || !ev.clear_color || ev.exp_bias || (ev.control & 3) || writeback ||
+          draws->second.last >= ev.after_draws) {
+        return reject(HandoffPlan::Resolves);
+      }
+      // The normal resolve's own decision, on the target's normal size.
+      const ResolveLayout layout = resolve_layout(ev, scale, pitch, height);
+      if (!layout.tiled || layout.x0 || layout.y0 || layout.w != layout.fit_w || layout.h != layout.fit_h ||
+          layout.fit_h != height || layout.fit_w > pitch || layout.dw > 8192 || layout.dh > 8192) {
+        return reject(HandoffPlan::Layout);
+      }
+      for (size_t r : reads->second.all) {
+        if (Px(std::max(frame->resolves[r].x1, 0), scale) > layout.fit_w) return reject(HandoffPlan::Extent);
+      }
+      // The viewport's right edge as the draw loop computes it (float, then
+      // Metal's double): no pixel centre at or beyond the narrower width.
+      for (const auto& [vx, ox] : draws->second.viewports) {
+        const float sx = vx * scale, offset = ox * scale;
+        const double right = double(offset - std::fabs(sx)) + double(2 * std::fabs(sx));
+        if (!std::isfinite(right) || !(right < double(layout.fit_w) + 0.5)) return reject(HandoffPlan::Extent);
+      }
+      ++color_handoff_counts.plans[size_t(HandoffPlan::Planned)];
+      resolve = reads->second.color;
+      return uint32_t(layout.fit_w);
+    };
     for (auto& [key, size] : sizes) {
       Target& t = targets[key];
       const float scale = scale_of(key);
-      const uint32_t pitch = Px(size.first, scale);
+      uint32_t pitch = Px(size.first, scale);
       const uint32_t height = std::max<uint32_t>(Px(size.second, scale), 16);
+      int32_t handoff_resolve = -1;
+      if (color_handoff) pitch = plan_handoff(key, t, scale, pitch, height, handoff_resolve);
       t.scale = scale;
       if (t.color && t.pitch == pitch && t.height == height &&
           t.color.pixelFormat == ColorFormat(t.format) &&
           t.requested_sample_count == sample_counts[key]) {
+        // Already this size but not the pool's (made before a plan, or when
+        // the pool had its most of the kind): adopted once, not remade.
+        if (handoff_resolve >= 0 && !t.pooled_color && t.sample_count == 1)
+          t.pooled_color = gpu_pool.Adopt(t.color, handoff_most(t.pitch, t.height));
+        t.handoff_resolve = t.pooled_color ? handoff_resolve : -1;
         continue;  // the same target as the last frame's
       }
-      // Replaced (another size or format): the old ones leave the residency set.
+      // Replaced (another size or format): the old ones leave the residency set
+      // (a pool image goes back to the pool once this frame is done instead).
       if (t.multisample_color != t.color) residency::Remove(t.multisample_color);
       if (t.multisample_depth != t.depth) residency::Remove(t.multisample_depth);
-      residency::Remove(t.color);
+      if (t.pooled_color) {
+        gpu_pool.Retire(t.color, number);
+      } else {
+        residency::Remove(t.color);
+      }
       residency::Remove(t.depth);
       t.pitch = pitch;
       t.height = height;
@@ -5085,8 +5299,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                                     width:t.pitch
                                                                                    height:t.height
                                                                                 mipmapped:NO];
+      t.color = nil;
+      t.pooled_color = false;
+      if (handoff_resolve >= 0) {
+        // From the pool, as the resolve textures it is handed to (their usage).
+        MTLTextureDescriptor* pd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:ColorFormat(t.format)
+                                                                                      width:t.pitch
+                                                                                     height:t.height
+                                                                                  mipmapped:NO];
+        pd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | resolve_view_usage;
+        pd.storageMode = MTLStorageModePrivate;
+        t.color = gpu_pool.Texture(device, pd, 0, handoff_most(t.pitch, t.height));
+        t.pooled_color = t.color != nil;
+      }
+      t.handoff_resolve = t.pooled_color ? handoff_resolve : -1;
       cd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-      t.color = NewTexture(device, cd, "cd@6");
+      if (!t.color) t.color = NewTexture(device, cd, "cd@6");
       MTLTextureDescriptor* dd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8
                                                                                     width:t.pitch
                                                                                    height:t.height
@@ -5127,7 +5355,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         t.multisample_color = t.color;
         t.multisample_depth = t.depth;
       }
-      residency::Add(t.color);
+      if (!t.pooled_color) residency::Add(t.color);  // (the pool's already are)
       residency::Add(t.depth);
       if (t.multisample_color != t.color) residency::Add(t.multisample_color);
       if (t.multisample_depth != t.depth) residency::Add(t.multisample_depth);
@@ -5587,18 +5815,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       current.clear();
       finish_motion(ev.after_draws);
       const float scale = src.scale;
-      NSUInteger dw = Px(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1)), scale);
-      NSUInteger dh = Px(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1)), scale);
-
-      // Edges rounded on their own, so that rectangles side by side meet.
-      const NSUInteger x0 = Px(std::max(ev.x0, 0), scale);
-      const NSUInteger y0 = Px(std::max(ev.y0, 0), scale);
-      const NSUInteger x1 = std::max<NSUInteger>(Px(std::max(ev.x1, 0), scale), x0);
-      const NSUInteger y1 = std::max<NSUInteger>(Px(std::max(ev.y1, 0), scale), y0);
-      const NSUInteger w = std::min({x1 - x0, NSUInteger(src.pitch) - std::min<NSUInteger>(x0, src.pitch),
-                                     dw - std::min(x0, dw)});
-      const NSUInteger h = std::min({y1 - y0, NSUInteger(src.height) - std::min<NSUInteger>(y0, src.height),
-                                     dh - std::min(y0, dh)});
+      const ResolveLayout layout = resolve_layout(ev, scale, src.pitch, src.height);
+      const NSUInteger dw = layout.dw, dh = layout.dh, x0 = layout.x0, y0 = layout.y0, w = layout.w, h = layout.h;
       if (ev.array && !ev.depth && w && h) {
         // Into a face of a cube (the race's environment map, from its 320
         // passes): a Metal cube made at the first face, the face copied.
@@ -5655,33 +5873,45 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           rd.usage |= MTLTextureUsageRenderTarget;  // the scaled copy draws into it
         }
         id<MTLTexture> dest = nil;
-        // Linear (slow for the GPU to write: a 1600 x 1600 shadow map copy took
-        // 2.5 ms) only when the resolve does not fill its pitch, i.e. when
-        // draws may sample it at a smaller size than the texture.
-        // (In the texture's pixels: the guest rectangle times the scale. In
-        // guest pixels, below 1x a rectangle short of the pitch looked as wide
-        // as the scaled texture: no crop, and the game's coordinates for its
-        // own size read past the picture, a dark bar on the right.)
-        const bool may_crop = Px(std::max(ev.x1 - ev.x0, 0), scale) < dw || Px(std::max(ev.y1 - ev.y0, 0), scale) < dh;
-        // Cropped, but sampled this frame at one size that holds the whole
-        // rectangle (the scene: 1560 x 704 in a 1568 pitch): a tiled texture
-        // of that size, which the draws sample at its own size, instead of a
-        // linear one (slow for the GPU to write).
-        if (may_crop && REXCVAR_GET(nfsmw_native_tiled_crops)) {
-          NSUInteger fit_w = 0, fit_h = 0;
-          bool one_size = true;
-          for (const auto& tp : frame->textures) {
-            if (tp->address != ev.dest_base || tp->cube || !tp->width || !tp->height) continue;
-            const NSUInteger fw = Px(tp->width, scale), fh = Px(tp->height, scale);
-            if (fit_w && (fw != fit_w || fh != fit_h)) one_size = false;
-            fit_w = fw;
-            fit_h = fh;
-          }
-          if (one_size && fit_w && fit_h && x0 + w <= fit_w && y0 + h <= fit_h && fit_w <= dw && fit_h <= dh) {
-            rd.width = fit_w;
-            rd.height = fit_h;
+        const bool may_crop = layout.may_crop;
+        bool handed_off = false;
+        if (layout.tiled) {
+          {
+            rd.width = layout.fit_w;
+            rd.height = layout.fit_h;
             rd.storageMode = MTLStorageModePrivate;
-            dest = gpu_pool.Texture(device, rd);
+            // The colour handoff: the source's finished image, already this
+            // size, is the destination; the target draws on into another.
+            if (src.handoff_resolve == int32_t(&ev - frame->resolves.data())) {
+              if (src.pooled_color && !ev.depth && !ev.exp_bias && src.sample_count == 1 &&
+                  src.multisample_color == src.color && x0 == 0 && y0 == 0 && w == layout.fit_w &&
+                  h == layout.fit_h && src.color.width == layout.fit_w && src.color.height == layout.fit_h &&
+                  src.color.pixelFormat == rd.pixelFormat && !(rd.usage & ~src.color.usage)) {
+                MTLTextureDescriptor* nd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.color.pixelFormat
+                                                                                              width:src.color.width
+                                                                                             height:src.color.height
+                                                                                          mipmapped:NO];
+                nd.usage = src.color.usage;
+                nd.storageMode = src.color.storageMode;
+                id<MTLTexture> next = gpu_pool.Texture(device, nd, 0, handoff_most(nd.width, nd.height));
+                if (next) {
+                  dest = src.color;
+                  src.color = src.multisample_color = next;
+                  src.handed_off = handed_off = true;
+                  ++color_handoff_counts.handoffs;
+                  color_handoff_counts.bytes += uint64_t(w) * h * 4;
+                  const std::string kind = fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(nd.textureType),
+                                                       uint64_t(nd.pixelFormat), nd.width, nd.height, nd.depth,
+                                                       uint64_t(nd.usage), uint64_t(nd.storageMode), 0);
+                  color_handoff_counts.most_images = std::max(color_handoff_counts.most_images, gpu_pool.live[kind]);
+                } else {
+                  ++color_handoff_counts.lease_misses;  // copied as normal
+                }
+              } else {
+                ++color_handoff_counts.mismatches;  // copied as normal
+              }
+            }
+            if (!dest) dest = gpu_pool.Texture(device, rd);
             if (dest) {
               ++tiled_crops;
             } else {
@@ -5753,7 +5983,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           [e endEncoding];
         } else {
           id<MTLBlitCommandEncoder> blit = nil;
-          if (!scaled_copy(src.color, dest, 0, x0, y0, x0, y0, w, h, ev, "resolve copy (exp bias)")) {
+          if (!handed_off && !scaled_copy(src.color, dest, 0, x0, y0, x0, y0, w, h, ev, "resolve copy (exp bias)")) {
           blit = new_blit("blit: resolve copy");
           [blit copyFromTexture:src.color
                     sourceSlice:0
@@ -6126,6 +6356,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
+        color_handoff_counts.late_passes += t.handed_off;  // the plan excludes this: must stay 0
         // The target's last pass this frame: nothing loads it again.
         bool last_pass = false, depth_read_later = true, color_read_later = true;
         if (discard_unread && !(split_after && t.scale > 1.0f) && tk != motion_key) {
@@ -7793,6 +8024,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       c.reasons[size_t(nfsmw::GuestCullReason::Viewport)]);
         }
         guest_cull_counts.clear();
+        if (REXCVAR_GET(nfsmw_native_color_handoff)) {
+          const auto& c = color_handoff_counts;
+          REXLOG_INFO("[native] color handoff on (restart required): scene target plans planned/draws/viewports/"
+                      "target/resolves/layout/extent {}/{}/{}/{}/{}/{}/{}, frames excluded {}; {} resolve copies "
+                      "not encoded ({:.1f} MiB logical payload, not measured DRAM traffic or energy), {} pool misses "
+                      "and {} mismatches copied as normal, {} passes after a handoff (must be 0), at most {} images",
+                      c.plans[0], c.plans[1], c.plans[2], c.plans[3], c.plans[4], c.plans[5], c.plans[6],
+                      c.frames_excluded, c.handoffs, double(c.bytes) / (1024.0 * 1024.0), c.lease_misses, c.mismatches,
+                      c.late_passes, c.most_images);
+          color_handoff_counts = {};
+        }
         REXLOG_INFO("[native] resource list cache {}: {} builds, {} incremental updates, {} unchanged reuses; "
                     "{} source entries copied, {} suffix entries shifted, {} existing entries relocated by reserve; "
                     "{} resource entries declared since last summary (full list on every encoder)",

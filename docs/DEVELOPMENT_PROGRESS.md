@@ -427,6 +427,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev43 color handoff BUILT (default off); one enabled device run pending:**
+Stefan approved the isolated trial only. `nfsmw_native_color_handoff=false`
+(restart-only) plans the main scene target's physical width to its normal tiled
+resolve's sampled size under strict draw/viewport/resolve/layout guards, hands
+the finished image to that resolve and leases a pooled replacement (at most
+min(4, 128MiB/image) per kind; normal copy on miss). Shared `resolve_layout`
+helper used by resolve and planner; pool-owned target colors retired, never
+residency-Removed in use; standalone same-size colors adopted once. New host
+harness `tools/native/test_color_handoff.py` PASS (actual GpuPool, ARC/ASan);
+its first failure exposed and fixed per-frame remaking at the pool cap. Build
+exit0; only the app executable differs from dev42, all104 metallibs identical.
+IPA `ios/build/NFSMW-0.6.0-dev43-color-handoff.ipa` (SHA256 9a4d2dc6…44a4).
+Next: Stefan's one enabled correctness run with culling ON (Extra Args in
+TECHNICAL “dev43 color handoff implementation”); log census decides whether the
+plan is reached and copies are removed. No energy claim; default stays false.
+
 **November 2, color-copy elimination DESIGN complete; implementation awaits approval:**
 Prefer main-scene color image handoff before finished-frame copy: main's normal
 resolve already has one-size private/tiled layout. Proposed

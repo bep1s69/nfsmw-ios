@@ -19180,3 +19180,90 @@ Decision/next: propose isolated default-OFF compact color-image handoff trial
 above, awaiting Stefan approval before renderer changes. No broad final-output,
 dependency or culling-default changes bundled. Documentation-only local commit,
 HANDOFF_CHATGPT.md preserved untracked; no push/release.
+
+## November 2, dev43 color handoff implementation: host/build checked, device pending
+
+Stefan approved implementing only the isolated default-OFF trial from “color-copy
+elimination design” above. Nothing else changed: culling default stays false,
+final-output/post/dependency work stays deferred, no default promotion.
+
+Implementation (`ios/src/native_renderer.mm`):
+- `nfsmw_native_color_handoff=false`, restart-only (read once). OFF: no plan,
+  no pooled target colors, no handoff; every new branch is gated by it.
+- Frame-level exclusion when ON: dump, non-lazy diagnostics, GPU capture,
+  MetalFX temporal, motion debug, cost probe, pass split, tiled crops off.
+- `resolve_layout` lambda: the existing do_resolve rectangle/destination and
+  tiled-crop decision moved verbatim into one helper used by BOTH do_resolve and
+  the planner (no second approximation). Fit loop now also skipped for cube
+  (array) resolves, which never used it.
+- Setup loop (ON only): per target, reject on any draw that is not a full-VTE
+  (x/y scale+offset) translated viewport with sx>0, sy<0, finite offset, original
+  primitive 4/5/6/8/13, no query, no MRT, not mirror PS, not internal VS; keeps
+  last draw index and up to 16 distinct (x scale, x offset) pairs.
+- Planner per scene target (pitch640+, not shadow): RGBA8, 1 sample, not a
+  second target; exactly one color resolve sourced from it (source chosen as
+  do_resolve chooses), rt0, clear-color, exp_bias0, not array, no write-back,
+  after its last draw. Normal layout on ORIGINAL size must be tiled, top-left,
+  fill fit_w x fit_h, fit_h == target height, fit_w <= pitch. Every resolve
+  from the target (depth too) must have Px(x1) <= fit_w; every viewport right
+  edge, computed in the draw loop's float then double, < fit_w + 0.5. Planned:
+  target physical width = fit_w (height, viewport, scissor rule, shaders
+  unchanged). Census per plan outcome.
+- Planned targets take their color from GpuPool (RT|ShaderRead|resolve view
+  usage, private). A target already of the planned size but standalone is
+  adopted once (new `GpuPool::Adopt`, no second residency Add) instead of being
+  remade; pool-owned colors are Retired after the frame on resize, never
+  residency-Removed while in use. `GpuPool::live` counts objects per kind;
+  `Texture(..., most)` returns nil rather than make one past `most`.
+- do_resolve: on the planned resolve, revalidates pooled, 1 sample, color
+  attachment == color, top-left full fit rect, exact image size/format and
+  usage, exp_bias0; then leases a same-descriptor replacement (at most
+  min(4, 128MiB/image) of that kind). Success: dest = finished image, target
+  color/multisample_color = replacement, no blit encoded; heap slot, resolved
+  maps, kept_resolves retirement, cube assembly, final selection, clear flags
+  and write-back path all unchanged. Lease miss/mismatch: normal tiled copy.
+- Pass begin counts passes on a target after its handoff (plan excludes them;
+  must stay 0). Summary every 300 frames when ON only: plans
+  planned/draws/viewports/target/resolves/layout/extent, frames excluded,
+  copies not encoded + logical MiB, pool misses, mismatches, late passes, most
+  images of the kind. Counts are commands/payload, NOT DRAM traffic or energy.
+- Known limit (inference): a later frame resolving this target WITHOUT drawing
+  it would read the uncleared replacement instead of the stale image; the
+  planned resolve clears color, so neither was faithful. Not seen in snapshot.
+
+Validation (agent, host only):
+1. `python3 tools/native/test_color_handoff.py` exit0 (new). Compiles the
+   production FrameDoneOnGpu/GpuPool text with xcrun clang++ C++20/O1/ARC/
+   ASan+UBSan on a real Mac Metal device and replays the renderer's handoff
+   sequence (lease, hand to resolve, same-address post overwrite, resizes,
+   full-pool standalone fallback, in-order completion lag mostly1–3, at
+   times16). PASS20000frames: 14652handoffs, 5348pool misses copied,
+   17473overwrites, 207resizes (18made outside a full pool, 0adopted);
+   pool made277/reused37386; at most4 target images of a kind. Asserts: no
+   image owned by target/kept/unfinished frame handed out, per-kind bound,
+   residency Add exactly once per made object. First version FAILED (assert on
+   nil pool image after a resize at the cap): that exposed per-frame remaking
+   of a standalone target, fixed by Adopt + dropping the pooled-equality
+   from the unchanged-target check. Harness mirrors, does not run, RenderFrame;
+   adoption path not reached in this replay; no pixels compared.
+2. `python3 tools/native/test_draw_arena.py` and `test_guest_culling.py` exit0.
+3. `python3 tools/ios/patch_game_extra_options.py` exit0, 0 files written.
+4. `/usr/bin/time -p cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+   exit0, real18.98s (first build), rebuilt exit0 after the fix; no errors.
+5. ZIP member SHA256 vs dev42: added0/removed0, changed ONLY
+   `Payload/NFSMW.app/NFSMW`; all104 metallibs identical. codesign
+   --verify --deep --strict on extracted app exit0. `git diff --check` exit0.
+
+Artifact: `ios/build/NFSMW-0.6.0-dev43-color-handoff.ipa`, 30556492 bytes,
+SHA256 `9a4d2dc63064942dbe0f4d314f1252ab9c2620a398c6d593d5afeaf184ca44a4`;
+app UUID `CA6529BA-2DF8-321F-8A69-3405EBE6D9C5`, runtime dylib unchanged
+`D28C7A83-094A-34B4-B2A4-8DC7D09C3EA0`.
+
+Next/user protocol: one enabled correctness run, same native1.833/60 Balanced
+baseline, cold launch, menus then ~60s drive, culling ON kept. Extra Args:
+`--nfsmw_native_color_handoff=true --nfsmw_native_guest_culling=true --nfsmw_native_dump_manual=false --nfsmw_native_foliage_early_alpha=false --nfsmw_native_pass_counters=false --nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`.
+Check picture (scene, right edge, post/distortion, mirror, menus) and send
+nfsmw.log. The log must show `color handoff on` lines with planned plans,
+nonzero copies not encoded, late passes 0 and bounded images; if plans land in
+draws/extent/layout instead, the reasons say which guard to examine. No
+Instruments/baseline/cache clear requested; no energy claim from this run.
