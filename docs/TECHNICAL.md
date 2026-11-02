@@ -17823,3 +17823,129 @@ D-017 remains parked; early-alpha default FALSE, correctness already accepted.
 This turn read current checkpoint/git status/log; no tests/builds/caches/device
 operations or trace parsing performed. Documentation-only local commit, no
 push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+### November 2: dev41 OFF trace validation; partial counters, no execution timeline
+
+Stefan supplied existing trace path and Desktop pasted log because Universal
+Clipboard is buggy. Asked whether OFF is useful before recording ON and why
+new laptop fails while old laptop recorded successfully but processed slowly.
+Clarification: earlier successful7s recording was MAIN MENU; latest race trace
+also enabled Shader Timeline. Successful menu trace was discarded, cannot
+compare its actual configuration/data. Do not infer length alone, hardware
+insufficiency, missing shader cache or a specific Instruments defect as cause.
+
+Inputs:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev_41_iphone_foliage_early_off.trace`
+(already archived by user; initial inventory538files/324714095bytes).
+`/Users/bep1s/Desktop/Pasted 2026-11-02 at 6.37.05 PM.log`, copied without overwrite
+and byte-verified as
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev41_iphone_foliage_early_off_metal_nfsmw.log`,
+512380bytes/3250lines/SHA256
+`e63bb25ff5635b1b51ced573ec84c8df6a3bd440e8acf86557fd55e60cca8e15`.
+Log18:33:49.786–18:35:11.743; driving begins18:34:24.104. Early-alpha OFF,
+eligible nonzero/selected0, resource cache ON; no cache-miss lines or >45ms GPU
+hitch lines. Final summary60fps/GPU15.33ms; later thermal fair, so do not assume
+all future A/B thermals match. Dev41 per test context; prior verified IPA SHA256
+59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329,
+UUID925E490E-2487-3D5E-806D-E1E7EAC37EC6. No code/default/cache/IPA changes.
+
+Read-only xctrace exports in ignored permanent
+`ios/build/dev41-metal-off-analysis/`, original bundle not overwritten:
+`xcrun xctrace export --input '<trace>' --toc --output <folder>/toc.xml`, then
+`--xpath '/trace-toc/run[@number="1"]/data/table[@schema="<schema>"]'`
+per schema. Exports need access outside sandbox to Xcode services (as prior
+sessions). Export calls exit0. Metadata run1 “foliage early off”, duration
+15.571979s,start18:34:23.393,end18:34:38.965+02, user Stop. iPhone17ProMax,
+iOS27.2(24B119), MacBookPro/macOS27.2(26B123), Instruments27.2(27B52), attached
+LiveContainerPID1567. This establishes OS for THIS test, not older runs.
+Deferred recording, Performance Limiters counter set, Shader Timeline ENABLED,
+Induced GPU Performance State Default,12hour time-limit metadata (not actual
+capture support). Capture starts0.711s BEFORE driving, not after1minute warmup;
+an otherwise successful capture would mainly cover initial race transition.
+
+Actual table contents (schema listed in TOC does NOT establish data):
+
+| Exported schema | Rows |
+|---|---:|
+| metal-gpu-intervals |0|
+| metal-application-command-buffer-submissions |0|
+| metal-application-encoders-list |0|
+| metal-shader-profiler-intervals |0|
+| time-profile |0|
+| gpu-performance-state-intervals |0|
+| process-info |0|
+| gpu-aps-stream |0|
+| device-gpu-info |1|
+| device-thermal-state-intervals |1,Unknown spanning recording|
+| gpu-counter-value |7,128,712|
+| os-signpost (union of matching categories) |17,109|
+
+Raw counter export1132487205bytes, complete XML, SHA256
+`ecf7090c75ad1f4f781aab56a658b3b4966cf14d21d5bc8fdf8d72adbae3c68f`.
+Streaming full-file timestamp-definition scan130351explicit event-time values,
+min0.318165375/max4.627213005s. Definitions by integer second:
+0:7317,1:35184,2:36770,3:36853,4:14227. Remaining rows reuse timestamps via
+XML references; do not mistake7million counter rows for that many frames or
+continuous full-duration coverage. Counter names include GPU/read/write bandwidth,
+texture/ALU/launch utilization/limiters, occupancy and cache pressure. Bounded
+first20k interval rows confirm actual numeric values, not empty schema. These
+are partial/device-wide data without frame/pass attribution; no shader benefit
+or bottleneck conclusion drawn from this initial transient.
+
+Redundant metal-gpu-counter-intervals export eventually completes too,
+3293991305bytes; not whole-DOM parsed. Initial in-progress size/footer inspection
+reported incomplete at3219244683bytes before exporter finished; NOT corrupt
+source/capture evidence. Original source unchanged. Large XML is expansion of
+counter data; bundle/file size alone does not establish execution data quality.
+
+Signposts:1796DrawableLifetime(0.804777041–16.150370250),1800ClientDrawable
+(0.804777041–16.151581166),13364FunctionCompiled(0.839644000–15.870950625),
+149ConditionsStateSignpost(0.839843125–15.588119250). This proves partial channels
+continue after counter timestamps stop. FunctionCompiled signposts are NOT
+13k app pipeline-cache misses; app log has0misses. Signpost timestamps can extend
+past nominal stop; no arbitrary truncation performed. TargetPID1567 matches
+signposts, so wrong-process attachment is not established as explanation.
+
+UI corroboration via read-only computer-use getApp(Instruments), AX snapshot
+and screenshot: user's same trace open, GPU/Metal Resource Events No Data,
+Metal Encoder Hierarchy No Data, thermal Unknown. No recording/options changed,
+no device operation performed. Thus core exports empty is corroborated in UI,
+not merely a table-export failure. Some counters/signposts survive, so do not
+call whole file empty; main timing comparison currently unusable. Missing CPU
+samples too means this is broader than one absent shader lane. Data could
+have failed collection/decoding/modeling; exact failing component unknown.
+No measured dropped-event cause or trace-duration limit in supplied evidence.
+
+Method limitations/failed analysis attempts:
+- `xcrun xctrace export --help` exits46 (unsupported --help); printed valid
+  usage used for later export commands.
+- Parallel independent exports completed; counter exports took minutes and
+  expanded to gigabytes, not a successful game timeline. Initial full-DOM
+  Python parse became unnecessarily large (~2.1GB RSS). Stopped ONLY that own
+  parser PID56459 with TERM (exit143); replaced with bounded/streaming checks.
+  No user process stopped. Sandbox ps denied; outside-sandbox process inspection
+  identified own processes. All exporters finished exit0; none left running.
+- First bounded row-prefix parser hit KeyError6 because XML refs can point to
+  nested formatted-label children; fixed reader indexes nested IDs too, bounded
+  20k rows pass. No counter result inferred from failed parser.
+- Official Apple search: Metal app performance documentation/WWDC shader
+  timeline overview explain available analysis; no verified matching issue/fix
+  found. Generic forum reports/older release notes do not establish this cause.
+  Primary overview https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app/
+  and https://developer.apple.com/videos/play/wwdc2021/10148/ . Markdown retrieval
+  failed content-type in web tool; no claim source diagnosed the trace failure.
+
+Decision/proposed next diagnostic: HOLD ON recording. Shader Timeline adds
+per-shader detail, not required for an initial execution-timing baseline. One
+7s OFF race capture with Shader Timeline DISABLED, other recording/game settings
+unchanged, tests the newly introduced option at race workload. Do not change
+counter set/performance state/OS/cache simultaneously. Check actual rows before
+asking for ON; if usable, ON uses identical recording configuration. This is a
+controlled diagnostic, NOT a proven fix or hardware diagnosis. No need to
+recreate discarded menu capture now. If still empty, investigate collection/
+modeling logs or known-good configuration/version evidence before repeating.
+D-017 remains parked; no game-code or defaults change authorized by this test.
+
+All evidence/checkpoint/backlog updated in local documentation commit, no push.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved. No new build or device test
+performed by this analysis.

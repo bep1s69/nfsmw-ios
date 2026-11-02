@@ -408,6 +408,27 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, supplied OFF Metal trace not usable for timing A/B:** exported
+15.571979s trace18:34:23.393–38.965 (iPhone17ProMax/iOS27.2(24B119),
+Instruments27.2(27B52), MacOS27.2(26B123), attached LiveContainer1567).
+Shader Timeline ENABLED, Performance Limiters, Default induced state, Deferred.
+GPU/pass/shader/submission/encoder/CPU-sample tables all0rows; Instruments UI
+also No Data.7,128,712raw counter rows survive but only timestamps0.318–4.627s;
+17,109signposts continue through16.152s. This is partial collection, not simply
+slow UI processing or proof laptop hardware is at fault. User clarifies successful
+7s capture was MAIN MENU; race capture adds Shader Timeline. Earlier length-only
+hypothesis unsupported. Successful menu trace discarded, unavailable for comparison.
+No diagnosed root cause or known verified fix. Do NOT request ON capture yet.
+
+Next proposed diagnostic: same dev41/OFF,7s in race, Shader Timeline DISABLED,
+other recording/game settings unchanged; inspect whether normal execution
+streams return before asking for ON. No cache clearing, code or OS change.
+If usable, perform ON under that identical recording configuration. Current
+trace and pasted log archived/inspected; no new game build/test this turn.
+TECHNICAL “dev41 OFF trace validation” has exact paths/export evidence/limits.
+D-017 parked; early-alpha default FALSE, resource/compact TRUE. Local-only.
+
+
 **November 2, trace-length correction:** Stefan reports7s Metal System Trace
 worked, but the2minute capture was completely empty. Long capture capability
 is NOT established; earlier proposed2lap/2–3minute recording is superseded.
