@@ -18534,3 +18534,236 @@ This is a research direction, not an implementation proposal or approval request
 Use available source/logs first, request new evidence only for a specific missing
 fact. D-017 parked, overlay deferred, default quality preserved. Source unchanged,
 local documentation commit only, HANDOFF_CHATGPT.md preserved untracked/no push.
+
+
+## November 2, structural GPU audit: omitted culling, serialized stages and versioned outputs
+
+Stefan authorizes investigation of larger savings even if more work is needed.
+Read-only scope remains: propose before game/source changes. Session start read
+AGENTS/checkpoint/backlog/latest evidence, git status/log15: dev-0.5 at accfbe6,
+only pre-existing untracked HANDOFF_CHATGPT.md. No build/device run, no source,
+shader, default, asset or SDK changes. Existing dev41 snapshot/usable A/B inputs
+and binary identities from preceding entries reused; no new test result claimed.
+
+### 1. Confirmed omission: native guest face culling (recommended first trial)
+
+Source observations:
+- ios/src/native_renderer.mm1106 Draw stores depth/blend/color state, not guest
+  cull/front-face mode. Record3063 reads PA_SU_SC_MODE_CNTL only for polygon
+  offsets;3095 captures its window-offset enable. It never saves bits0–2.
+- mm6447 explicitly relies on Metal culling default being OFF. No current
+  setCullMode or setFrontFacingWinding call anywhere in native rendering path.
+  Header comment28 lists culling among original missing features (other entries
+  there are stale; omission confirmed by actual code, not comment alone).
+- git log --all -S setCullMode finds d839985 and1b95c4e. Inspected both:
+  original renderer explicitly set MTLCullModeNone; October12 commit1b95c4e
+  merely removed that redundant call when adding state caching. It did NOT
+  remove functioning guest culling after a failed test. No culling experiment
+  found in targeted history/docs/HANDOFF searches. This is not a repeated trial.
+- tools/ios/patch_ios_native_only.py98ff routes CP draws through the native hook
+  before backend IssueDraw, bypassing SDK rasterizer/pipeline application while
+  native-exclusive. Native CpDraw passes live register pointer into Record;
+  register data is available at that moment, not retained by Draw afterward.
+- Primary local SDK reference:
+  `nfsmw-multiplayer-sdk/include/rex/graphics/registers.h`455ff: register0x2205,
+  bit0cull_front,bit1cull_back,bit2face(0CCW/1CW).
+  SDK graphics/d3d12/pipeline_cache.cpp1381ff and
+  graphics/vulkan/pipeline_cache.cpp1632ff honor this for polygonal primitives.
+  SDK graphics/util/draw.h61ff excludes points/lines/rectangle lists from this
+  polygonal classification; draw.cpp66 handles both faces culled.
+- Native index conversion2910ff turns rectangle lists into ordinary Metal
+  triangles, just as fan/quad expansion does. Therefore final MTLPrimitiveType
+  is INSUFFICIENT to decide whether guest culling applies: retain original
+  primitive type. Do not accidentally cull HUD/post rectangle draws.
+
+Potential: remove unwanted face rasterization/coverage/fragment work across
+main, reflection, cube and shadow passes when the game requests culling. This
+is true work removal, not only scheduling; broadly relevant to resolutions and
+GPU families. Fixed-function face culling does NOT eliminate all vertex shader
+work. Opaque back faces may already be rejected by depth/HSR, and some foliage
+may intentionally be two-sided. Cannot claim half the draws/fragments/time,
+current draw eligibility, or any battery saving. Existing snapshot/log omits
+0x2205 bits0–2; affected counts and measured magnitude remain unknown.
+
+Proposed ONLY, not implemented/approved:
+`nfsmw_native_guest_culling=false` optional trial, capture guest cull/face/original
+primitive state in Draw; decode exact none/front/back/both, preserve guest
+intent including two-sided draws. Apply winding/cull state with encoder-reset
+aware caching. Validate guest-to-Metal winding through actual native position/
+viewport convention (native viewport takes abs scales; current scene sx>0/sy<0,
+reflections/mirrors/internal/pixel-space shaders need specific checks). No blind
+"cull back everywhere" switch. Unsupported primitive/coordinate cases retain
+legacy path with counters. Both-face handling must preserve clears/resolves and
+query semantics; query-sensitive and uncertain paths can initially fall back.
+Host state/triangle-strip/fan/quad/rectangle/winding/reset checks before build.
+Counters partition guest states, supported/fallback draws and submitted indices
+by major target; these are NOT counts of rasterized or saved fragments.
+Single enabled device correctness run on existing baseline settings after
+approval, with ordinary menu/car/foliage/reflection/shadow observations. No new
+shader compilation/rewrite expected from dynamic culling API state. No cache
+clear or renewed D-017 experiment. Only useful measured GPU reduction merits
+matched battery/thermal confirmation; larger effects remain unproven.
+
+Apple primary reference: [setCullMode](https://developer.apple.com/documentation/metal/mtlrendercommandencoder/setcullmode(_:))
+and [front-facing winding](https://developer.apple.com/documentation/metal/mtlrendercommandencoder/setfrontfacing(_:)):
+culling is based on primitive orientation, with encoder default clockwise
+front-facing orientation; correct guest mapping must be set explicitly.
+
+### 2. Concrete broad scheduling lead: overdeclared texture reads
+
+mm6208–6265 declares ALL current textures/resolved_textures/assembled_cubes/
+volumes/cubes plus dummy_array/data as Read in BOTH Vertex and Fragment stages
+on every render encoder. Dynamic buffer-backed crop and swizzle/cube views
+mm6617/6635/6637/6690 also declare both stages. Conservative residency is
+required; stage precision and actual pass consumers are not currently used.
+Previous dev39–41 resource-list changes intentionally preserved this exact
+GPU declaration: they saved CPU pointer construction, not these dependencies.
+
+Read packaged dev41 IPA ZIP `Payload/NFSMW.app/NativeShaders/texture_masks.txt`:
+42VS masks, ALL ZERO;59PS masks. Thus packaged translated VS interfaces do not
+fetch textures according to existing metadata. Native internal VS interfaces
+are registered with mask0 at mm804. Unknown shaders must retain conservative
+fallback. Metadata ForDraw currently exposes only VS|PS union;
+TextureMasks::Lookup is private and mutates recording-thread caches, so a render
+thread must NOT start calling that cached lookup concurrently. Need immutable
+stage-specific query or capture stage masks during Record.
+
+Reanalyzed existing A/B compact exports only; script
+`python3 ios/build/perf-gpu-nov2/structural-audit/analyze_overlap.py` exit0.
+Same fully contained elapsed3–10s windows,419frames each; no fresh recording:
+
+| metric, ms/frame mean | OFF run1 | ON run2 |
+|---|---:|---:|
+| active union, all app GPU stages |11.057798|11.169311|
+| sum vertex active |1.121301|1.130155|
+| vertex active without another app stage in same frame |1.094376|1.103222|
+| vertex active without another app stage across ALL app frames |1.094053|1.103222|
+
+~97.6% of vertex duration has no other app stage overlapping in these windows.
+Second script pass checks non-vertex activity from ALL app frames, confirming
+this is not primarily an artifact of excluding adjacent-frame overlap (exit0).
+Example OFF traceframe479,elapsed5.007212291,9.815125ms envelope:
+last cube blit17 completes1.592ms from frame start; main vertex18 starts1.592
+and ends2.028; main fragment18 then2.028–7.428. This is serialization evidence,
+NOT proof declared vertex texture reads caused it or all1.09ms is recoverable.
+Real attachment hazards, shared target reuse and hardware scheduling also matter;
+within-frame row excludes adjacent-frame overlap; all-app-frames row includes
+it. Other processes are not represented by either metric.
+Scheduling work more tightly is NOT eliminating1.09ms of shader execution or
+proof of lower energy. No claim of a1ms saving yet.
+
+Apple [useResources documentation](https://developer.apple.com/documentation/metal/mtlrendercommandencoder/useresources:count:usage:stages:)
+confirms stages describe dependent shader stages and tracked declarations
+participate in hazard handling. Local installed MTLRenderCommandEncoder.h966ff
+also describes hazard protection and possible color attachment decompression;
+current Read usage already minimizes one such risk. Apple's
+[WWDC20 performance talk](https://developer.apple.com/videos/play/wwdc2020/10632/)
+discusses false resource dependencies and stage overlap. Inference: declaring
+texture reads for VS that never fetch may unnecessarily delay tiling; declaring
+unrelated historical resolves may also add hazards/transitions. Must test cause,
+not present source pattern as measured hardware causality.
+
+Proposed architecture (secondary, unapproved): exact per-pass/per-stage consumer
+sets, respecting resolve generations, aliases/cubes/views and all late-created
+views; unknown metadata fallback BOTH/all as needed. Upload/constant/vertex data
+remain declared in their actual required stages, shader argument heaps retained,
+no residency calls simply deleted and no untracked hazards introduced. A narrower
+first trial can change texture stages only on fully known no-texture VS passes,
+with data buffer still both; exact pass filtering is further work. Keep isolated
+from culling for attribution. CPU overhead of set planning also needs measuring.
+
+### 3. Versioned render outputs: recurring copy traffic, not failed swap repeat
+
+Parsed all snapshot resolves into ignored
+`ios/build/perf-gpu-nov2/structural-audit/snapshot-resolves.json` (exit0):
+18color+3depth. Important full-resolution events:
+- resolve9: main depth after2487 ->08954000;
+- resolve10: main color after2487 ->09689000, clearCD, exp0, swaptrue;
+- resolve19: post color after2495 ->SAME09689000, no clear, exp0, swaptrue;
+- resolve20: final color after2583 ->08dbb000, clearCD, exp0, swaptrue.
+Scene and post physical targets2933x1320; sampled scene crop2859x1320,
+guest rect1560x720 in pitch1568. Main target last draw2486; post target last2582.
+
+Recovered baseline post shaders from existing local ISO with existing host tool,
+only baseline rewrites, using ignored structural-audit/recover.py (exit0,
+205valid containers,3matching/unique PS). No live shader/cache changes:
+PS20710a9a2fef88e9 scene composite:12body tfetch2D sites including8DIFFUSEMAP
+samples at different interpolated coordinates, other blur/depth/effect inputs.
+PS36dac18d9d15b7a8: samples a distortion texture, transforms its values with
+LocalCenter into coordinates for MISCMAP1, which current draw2495 binds to the
+resolve19 image. Also samples opacity;20draws current post group. So post stage
+really needs pre-overlay image at displaced coordinates while it draws back to
+same target. Do not alias that resolve to writable target, fuse via simple
+same-pixel framebuffer fetch, or call it a redundant copy. PS c39841aa2f3db228
+blur has13body samples; not an identity copy. Generic post fusion is not proven.
+
+More promising: source main color at resolve10 and completed post at resolve20
+have no subsequent writes to their respective targets within this captured
+frame. Versioned ownership can preserve these source generations rather than
+copying into new textures. Existing target reuses texture next frame, while
+kept_resolves promises old guest-address snapshots across frames, so generation
+ownership must change. Safe retention must survive later clears, overwrites of
+same guest resolve address, frames in flight, pool retirement and scale changes.
+Source allocation dimensions differ from consumer dimensions: same-format view
+of a private texture does not simply shrink it to the sampled crop. Need either
+proven compact physical target bounds/consistent coordinate layout, or deferred
+materialization/explicit coordinate handling. Compact target inference requires
+ALL viewport/clip/pixel-space/resolve/consumer bounds, unavailable in current
+partial snapshot; do not truncate just from these first group values.
+
+Candidate two-copy payload:2*2859*1320*4=30191040bytes=28.792419MiB/frame,
+1,811,462,400bytes/s at60 copies' one-direction logical payload; read+write
+would be twice this UNCOMPRESSED arithmetic. This is not DRAM bandwidth,
+compression/caches/energy or measured GPU saving. Does not include unavoidable
+post resolve19 or depth copies. At other resolutions area changes, so structural
+copy avoidance could scale with settings/devices, conditional on eligibility.
+
+Final-output-only alternative: retain finished target generation for presentation
+(crop already supported in presenter) and lazily materialize guest resolve only
+if a future game consumer needs it. Requires versioning so a next-frame clear
+cannot destroy retained image, and proper materialization before any shader sees
+wrong dimensions. Presenter linear clamp is at physical texture edge, not crop
+edge: add/prove correct half-texel crop clamping to avoid sampling padding when
+upscaling. FXAA/MetalFX/motion/readback paths need fallback or separate proof.
+No promise to eliminate presentation pass itself, which still fits/filter/blends
+controls. Existing dev31 swap DID implement lifetime restores, but never applied
+because full-target shape guard excluded all scene copies. Correcting earlier
+commentary shorthand: it was shape eligibility, not an absence of any lifetime
+handling in dev31. New work must solve cropped shapes, not rerun same switch.
+
+### 4. Visibility/reordering conclusions and next decision
+
+Current main1048groups all color maskF, with no grouped main-view depth-only
+prepass. Recorded depth-only map563draws is light-space shadow generation,
+NOT reusable camera depth. Thus earlier generic statement “existing depth-only
+passes” does not mean current main already has a Z-prepass. Nonetheless a new
+prepass is not automatically beneficial: Apple hardware removes hidden opaque
+surfaces already, feedback/discard and blended fragments constrain it. Main
+first cutout1440 precedes road1760; tree opaque1901/edge1902 then more opaque
+cars2259. Ordering is unfavorable for maximum HSR but semantically constrained.
+Moving all edge draws after later opaque surfaces can expose contributions that
+were overwritten in original order; no image-equivalence proof. Preserve blend
+order/depth ties/queries/resolves. Front-to-back sort or blind Z-prepass NOT
+selected as a safe broad fix from these data.
+Apple [HSR architecture talk](https://developer.apple.com/videos/play/wwdc2020/10602/)
+explains opaque/feedback/translucent grouping and blended visibility flushes;
+WWDC20 performance talk above warns about unnecessary extra depth prepasses.
+These support the constraints, not a quantified saving for this port.
+
+Recommended order now: (1) isolated guest culling implementation/eligibility
+trial, only after approval; (2) versioned cropped color/final-output ownership
+for actual traffic removal; stage/pass resource precision is another independent
+port-wide lead worth validating, not a guaranteed energy improvement. Priority
+ranking is based on mechanism and evidence strength, not measured relative
+savings (unknown). No additional user capture requested during this audit.
+
+Reproducible analysis files under ignored structural-audit/: recover.py,
+source-index.json with ISO offsets/container/source hashes, three baseline PS
+sources, snapshot-resolves.json, analyze_overlap.py/overlap-summary.json,
+artifact-hashes.json(8files hashed, exit0). Existing compact exports reused;
+no xctrace export/new recording. One attempted raw JSON preview returned huge
+single-line output; replaced by bounded parsed summaries, not repeated.
+Initial guessed tools/sdk/registers.h/alternate SDK source paths absent; actual
+SDK include/source paths above inspected. git searches/checks exit0 as observed;
+no game tests run. Local doc commit; HANDOFF_CHATGPT.md remains untracked,
+D-017 parked, overlay/microtrial deferred, no push/release.

@@ -420,6 +420,37 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, larger structural audit complete; proposed first step awaits approval:**
+Native renderer drops guest face-cull/front-winding bits entirely (D-018).
+Initial code explicitly CullNone; Oct12 removal was redundant-call cleanup,
+not a failed guest-culling trial. Propose isolated opt-in/default-OFF
+`nfsmw_native_guest_culling` plus exact eligibility/state summaries and host
+winding/primitive/reset checks. Respect guest two-sided draws, original primitive
+classification (expanded rectangles must not inherit triangle culling), viewport
+orientation, queries/clear/resolve behavior. Existing logs omit actual cull bits;
+no affected draw count or GPU/battery saving proven. One enabled correctness run
+if approved; no shader rewrite/cache clear required by proposed dynamic state.
+
+Broader ownership project: main resolve10/final20 read completed generations
+in snapshot; copy payload together28.792MiB/frame(native screenshot), not physical
+traffic or measured savings. Need versioned lifetimes AND cropped consumer sizes;
+old dev31 swap never eligible due shape, not absence of its restore logic.
+Post resolve19 really needed by displaced-coordinate distortion; cannot simply
+alias to writable target/framebuffer-fetch it. Presenter remains needed.
+
+Independent port-wide lead: all texture resources declared VS|PS, despite all
+42packaged VS texture masks zero. Existing419frames/arm show1.094/1.103ms
+vertex-only active time vs1.121/1.130ms total vertex; unnecessary dependency is
+plausible, causation/recoverable time/energy NOT established. Exact pass/stage
+resource declarations require residency/alias/fallback safety, separate trial.
+Main snapshot has no camera Z-prepass; depth-only draws are light-space shadows.
+Generic sorting/prepass not selected: blend ordering and hardware HSR constraints.
+No game/source/default/build changes. Research authorized, implementation NOT.
+See TECHNICAL “structural GPU audit” for code references, primary Apple sources,
+analysis scripts, measured bounds, negative findings and proposal. D-017 parked,
+overlay and zero-alpha microtrial deferred. HANDOFF_CHATGPT.md preserved untracked.
+
+
 **November 2, priority correction after Stefan challenges small trial:** zero-alpha
 PS27 trial is deprioritized/unapproved; do not build it or request a device run.
 It still pays texture fetch and almost all shading; no evidence of material
