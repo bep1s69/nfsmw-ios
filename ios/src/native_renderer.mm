@@ -115,6 +115,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
                     "Native renderer: reuse completed geometry ranges and release surplus empty chunks");
 REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, false, "GPU",
                     "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
+REXCVAR_DEFINE_BOOL(nfsmw_native_tiled_crops, true, "GPU",
+                    "Native renderer: a cropped resolve sampled at one size goes to a tiled texture of that size, "
+                    "not a linear one");
+REXCVAR_DEFINE_BOOL(nfsmw_native_small_targets_1x, true, "GPU",
+                    "Native renderer: above 1x, targets up to 800 wide (bloom chain, reflections) stay at 1x");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
@@ -4900,11 +4905,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     *cube_sources.begin());
       }
     }
+    // Above 1x, with a scene (1280+ wide) in the frame: the small colour
+    // targets beside it (the bloom/blur chain 400/240/80, the 800 reflection
+    // pass) at 1x. Blurred or reflected pictures; ~0.5-0.7 ms of a native
+    // iPhone frame (estimate, November 2).
+    bool small_at_1x = false;
+    if (resolution_scale > 1.0f && REXCVAR_GET(nfsmw_native_small_targets_1x)) {
+      for (const auto& [key, size] : sizes) {
+        if (size.first >= 1280 && depth_only_draws[key] * 2 <= targets[key].draws) small_at_1x = true;
+      }
+    }
     auto scale_of = [&](const std::string& key) -> float {
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
       if (cube_sources.count(k)) return 1.0f;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
+      if (!shadow && small_at_1x && sizes.count(k) && sizes[k].first <= 800) return 1.0f;
       if (!shadow) return resolution_scale;
       const float shadow_scale = std::clamp(float(REXCVAR_GET(nfsmw_native_shadow_scale)), 0.25f, 1.0f);
       return (scale_shadows ? resolution_scale : 1.0f) * shadow_scale;
@@ -5146,6 +5162,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const bool deduplicate_cubes = REXCVAR_GET(nfsmw_native_deduplicate_cubes) && !dump;
     const size_t cube_duplicates_removed = deduplicate_cubes ? ConsolidateCubeTargets(cube_targets) : 0;
     uint32_t cube_assembly_copies = 0;
+    uint32_t tiled_crops = 0;
     // Resolved cubes (faces resolved one by one) by address -> cube heap index.
     std::map<uint32_t, id<MTLTexture>> resolved_cubes;
     std::map<uint32_t, uint32_t> resolved_cube_index;
@@ -5497,7 +5514,34 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // as the scaled texture: no crop, and the game's coordinates for its
         // own size read past the picture, a dark bar on the right.)
         const bool may_crop = Px(std::max(ev.x1 - ev.x0, 0), scale) < dw || Px(std::max(ev.y1 - ev.y0, 0), scale) < dh;
-        if (may_crop) {
+        // Cropped, but sampled this frame at one size that holds the whole
+        // rectangle (the scene: 1560 x 704 in a 1568 pitch): a tiled texture
+        // of that size, which the draws sample at its own size, instead of a
+        // linear one (slow for the GPU to write).
+        if (may_crop && REXCVAR_GET(nfsmw_native_tiled_crops)) {
+          NSUInteger fit_w = 0, fit_h = 0;
+          bool one_size = true;
+          for (const auto& tp : frame->textures) {
+            if (tp->address != ev.dest_base || tp->cube || !tp->width || !tp->height) continue;
+            const NSUInteger fw = Px(tp->width, scale), fh = Px(tp->height, scale);
+            if (fit_w && (fw != fit_w || fh != fit_h)) one_size = false;
+            fit_w = fw;
+            fit_h = fh;
+          }
+          if (one_size && fit_w && fit_h && x0 + w <= fit_w && y0 + h <= fit_h && fit_w <= dw && fit_h <= dh) {
+            rd.width = fit_w;
+            rd.height = fit_h;
+            rd.storageMode = MTLStorageModePrivate;
+            dest = gpu_pool.Texture(device, rd);
+            if (dest) {
+              ++tiled_crops;
+            } else {
+              rd.width = dw;
+              rd.height = dh;
+            }
+          }
+        }
+        if (!dest && may_crop) {
           // Linear, in a buffer, so draws sampling it at a smaller size get a
           // texture over the same memory (see the binding). Depth too: its
           // copy is an R32Float colour target (the depth-based post effects
@@ -7515,6 +7559,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     double(cube_stats_bindings) / cube_stats_frames, double(cube_stats_removed) / cube_stats_frames,
                     double(cube_stats_copies) / cube_stats_frames);
         cube_stats_frames = cube_stats_bindings = cube_stats_removed = cube_stats_copies = 0;
+        REXLOG_INFO("[native] resolves: frame {}, {} cropped ones to tiled textures (tiled crops {}), small "
+                    "targets at 1x {}", number, tiled_crops, REXCVAR_GET(nfsmw_native_tiled_crops) ? "on" : "off",
+                    REXCVAR_GET(nfsmw_native_small_targets_1x) ? "on" : "off");
         uint64_t target_bytes = 0;
         for (const auto& [key, t] : targets) {
           (void)key;

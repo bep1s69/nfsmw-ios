@@ -16276,3 +16276,23 @@ resolve, and tiled instead of linear destinations for cropped resolves
 and the reflection pass kept at 1x instead of the native scale (~0.5-0.7 ms,
 estimate). C, the main pass's foliage overdraw (larger project). A + B
 ~1.5 ms of ~14 (~10-15%): not the halving native / 120 needs.
+
+### November 2: tiled cropped resolves and small targets at 1x (dev34)
+
+Stefan chose options A and B in one build. Implemented (both default on,
+switches for A/B):
+- `nfsmw_native_tiled_crops`: a cropped colour or depth resolve (its
+  rectangle short of the destination pitch, e.g. the scene's 1560 x 704 in a
+  1568 pitch) whose address the frame samples at one size that holds the
+  whole rectangle goes to a private (tiled) texture of that size, sampled at
+  its own size, instead of a linear texture over a buffer with a cropped
+  view. Other cases (several sizes, not sampled this frame) stay linear.
+- `nfsmw_native_small_targets_1x`: above 1x, when the frame has a colour
+  target 1280+ wide, colour targets up to 800 wide (bloom/blur chain 400,
+  240, 80; the 800 reflection pass) are drawn at 1x; resolves carry their
+  scale, so sampling is unchanged. Possible side effect: other small targets
+  (e.g. in menus) also at 1x.
+- Not done from A: presenting from the target to skip the final copy (the
+  final resolve's texture may be read again; needs checking first).
+Log: `[native] resolves: frame N, T cropped ones to tiled textures ...`
+every 300 frames. Build OK, not run on a device.
