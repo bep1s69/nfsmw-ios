@@ -17794,3 +17794,32 @@ This turn: read current checkpoint/latest evidence and git status/log; no app,
 shader, cache, IPA, tests or device traces changed/generated. Documentation-only
 local commit; no push/release. HANDOFF_CHATGPT.md remains pre-existing untracked.
 Next: receive/inspect volunteered traces and logs, propose before code changes.
+
+### November 2: short Metal capture works; long recording empty
+
+Stefan reports a7s Metal System Trace worked but the2minute one came out
+completely empty. This qualifies the preceding “works now” report. The prior
+2.5–3minute/two-lap capture recommendation was premature and is superseded;
+a successful short capture does not establish longer-duration capture support.
+No trace bundle, console error, settings screenshot or matching log supplied
+for this failure this turn. Device/OS not newly established; assumed current
+iPhone test context only. Do not invent a fixed duration limit, memory/buffer
+cause, app crash or successful trace export. Failed2minute recording remains
+an inconclusive tooling result, not game performance evidence.
+
+Revised proposed procedure, no app/build/code changes: same dev41 IPA/flags
+and controls as previous protocol, cold launch each arm, drive about1minute
+without recording to warm assets/pipelines. Record ONLY7s in a comparable
+track section/camera for early-alpha OFF and ON. Raw saved.trace and matching
+nfsmw.log each; no cache clearing, no additional long recordings requested.
+Inspect representative GPU command/pass/copy and CPU submission work available
+in these snapshots, account for scene variation and capture-start effects.
+Short traces cannot establish sustained performance, battery/thermal benefit
+or ordinary-run stutter behavior. If they lack sufficient data, report exactly
+what is absent before asking for another recording. Investigate long capture
+failure only from actual supplied evidence, no speculative settings changes.
+D-017 remains parked; early-alpha default FALSE, correctness already accepted.
+
+This turn read current checkpoint/git status/log; no tests/builds/caches/device
+operations or trace parsing performed. Documentation-only local commit, no
+push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.

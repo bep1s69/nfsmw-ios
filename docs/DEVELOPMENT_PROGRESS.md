@@ -408,6 +408,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, trace-length correction:** Stefan reports7s Metal System Trace
+worked, but the2minute capture was completely empty. Long capture capability
+is NOT established; earlier proposed2lap/2–3minute recording is superseded.
+No new file supplied to verify failure mechanism; do not infer a duration limit,
+resource exhaustion or app failure. Next proposed A/B: warm driving about1minute
+WITHOUT recording, then capture ONLY7s at comparable track section/camera in
+OFF and ON arms, same dev41/settings. Supply raw.trace+matching log per arm.
+This is representative-frame/queue/pass inspection, not sustained timing,
+thermal or energy acceptance. No repeated long capture requested. Existing
+same-build/flags/temperature controls remain. D-017 parked, no code changes.
+
+
 **November 2, Metal System Trace now works (Stefan):** he volunteers an A/B
 and broader performance traces. This supersedes the earlier inability to record
 Metal System Trace and the immediately preceding “no device request” status.
