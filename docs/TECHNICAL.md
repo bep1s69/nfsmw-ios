@@ -16257,3 +16257,22 @@ ruled out resolve copies, residency requests, system paging, thread QoS
 and Game Mode; only a running Instruments recording removed them. The
 mechanism stays unknown; next work lowers the GPU frame itself (a lighter
 frame survives a slow GPU state; at 1x none is visible).
+
+### November 2: where a native frame's GPU time goes (smooth lap) and the options
+
+`dev33_time_profile_last_session.log`, a 14.23 ms native frame (iPhone):
+main scene pass 6.89; second scene pass d47c (composite/post) 1.55 (2);
+resolve copies 1.13 (18); six cube faces 1.08 (fixed 320x256); shadow map
+0.94 (fixed 1600); present 0.75; reflection pass 800 (1466x660) 0.51; depth
+copies 0.79; bloom/blur chain passes 400/240/80 (733x330, 440x165, 147x117)
+0.54. About 11.8 ms scales with the resolution. Earlier shader work
+(Oct 21-24 cost probe, half-precision analysis) found the main pass's cost
+in fill, foliage overdraw and fetches rather than arithmetic.
+Options (proposed, not implemented): A, no visual change: the final picture
+is resolved (copied) and then copied again to the screen by the present
+pass, so presenting from the target itself where nothing else reads that
+resolve, and tiled instead of linear destinations for cropped resolves
+(~0.5-1 ms together, estimate). B, slight softening: the bloom/blur chain
+and the reflection pass kept at 1x instead of the native scale (~0.5-0.7 ms,
+estimate). C, the main pass's foliage overdraw (larger project). A + B
+~1.5 ms of ~14 (~10-15%): not the halving native / 120 needs.
