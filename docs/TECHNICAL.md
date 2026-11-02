@@ -18892,3 +18892,100 @@ Together with SDK guest face mapping and supported identical window transform,
 this supports direct guest-bit mapping. Apple archived Metal render-context guide
 and current APIs consulted too; no newly identified reason for a winding inversion.
 These source checks still do not replace Stefan's game/device validation.
+
+
+## November 2, dev42 culling ON: iPhone visual validation passed, savings unmeasured
+
+Stefan supplies temporary attachment
+`/tmp/codex-remote-attachments/01a19c9c-9ee8-7140-b99a-7ff7e4644894/A97C4920-F613-4053-B088-347BE9417334/1-nfsmw.log`
+and explicitly reports “absolutely everything looked just as before”. This is
+visual correctness confirmation for the tested path, not independent timing or
+power measurement. Archived immediately outside temporary storage to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev42_iphone_guest_culling_on_nfsmw.log`
+(copy/hash check exit0).669159bytes,3964lines,SHA256
+`04f016defb94864541b3069b89ac7f6a77b21e9c5fa639401e5615ea7da2516e`.
+Log23:07:28.262–23:09:24.260; driving starts23:08:07.347 (~76.913s
+through last line, no inference every moment is driving from a frame capture).
+A19Pro GPU, continuing iPhone17ProMax test context; OS version not independently
+printed/verified in this log. Associated supplied dev42 IPA from preceding build,
+SHA eb78474c3c71fed82536f17661c1c467d98a1d0a85783f70321e2ae4892d695e,
+app UUID9E55444D-3348-3C70-B1C8-F1D0BB03E0BE/runtime
+D28C7A83-094A-34B4-B2A4-8DC7D09C3EA0,0.6.0(11). Log itself does not independently
+print Mach-O UUID; startup static build banner is not the IPA identity.
+
+Requested args per previous checkpoint: guest_culling=true,dump_manual=false,
+foliage_early_alpha=false,pass_counters=false,gpu_timeline=false,early_commit=false.
+Observed guest culling ON each census, foliage OFF, pass profiling disabled,
+early commitOFF; texture pruning active (last summary8939304/10100784slots
+skipped,0unknown), no saved snapshot. No GPU timeline reports. Native setting
+initially1x then1.833x at23:07:30.001; ordinary summaries scale1.833/cap60,
+MetalFXOFF,FXAAOFF,forced MSAA0,Balanced; LowPowerModeOFF, all48thermal mentions
+nominal. No Instruments requested; absence cannot independently prove no profiler.
+No power trace/device-temperature measurement supplied.
+
+Analysis command `python3 ios/build/dev42-guest-culling-analysis/read_device_log.py`
+exit0, writes ignored device-result.json. Aggregates only14complete driving
+census windows, previous boundary23:08:10.366 through23:09:20.388,
+4200frames/~70s; excludes loading/menu/start-transition and unreported final
+partial window. Frame summaries2701–6601. Census totals:
+
+| target | indexed draws observed | culling applied | applied share |
+|---|---:|---:|---:|
+| main000_1600_0_d468_s1 |4135767|1882340|45.514%|
+| cube000_320_0_d7c0_s1 |2596251|1409140|54.276%|
+| reflection000_800_0_d71a_s1 |1052845|510245|48.463%|
+| shadow000_1600_0_d030_s1 |2577280|0|0%|
+| post/HUD000_1600_0_d47c_s1 |325826|4200|1.289%|
+| small240 |12600|12600|100%|
+| small400 |12600|8400|66.667%|
+| small80 |4200|0|0%|
+
+Across these targets10717369observed draws,3826925applied/eligible and
+805071078indices submitted with culling selected. All requested culling BACK;
+FRONT/BOTH0, both-face skips0. Therefore test exercises supported back-face
+mapping, not front/both hardware behavior (host checks remain evidence there).
+8400internal fallback draws,2134viewport fallback; primitive/query fallbacks0
+among requested-cull draws. Two-sided early return means those zero reason
+counts are NOT proof queries/rectangles absent. Shadow requests NONE throughout,
+so prior conditional shadow-savings lead does not apply to this run. Do not
+force culling on that pass. Source and user report together show feature
+actually exercised widely without noticed visual change. Draw/indices shares
+are not removed triangles/fragments or percentages of main GPU cost. Both-face
+skip0 means equal drawn/recorded totals are expected, not a failed trial.
+
+14driving summaries report59.8–60.0fps,median60.0; GPU command-buffer timing
+8.28–15.51ms,median15.19; recording1.93–4.24ms,median3.275;
+encoding3.25–15.92ms,median12.85 (includes drawable waits). Slow>45ms count0
+in all23frame summaries, missing-shader draw count0. Complete driving pacing
+windows3/4200off-grid (2at23:08:20.429,worst12.5ms;1at23:08:35.435,worst4.2ms).
+Partial start-transition window23:08:10.412 has2/300off,worst50ms, excluded from
+complete-window count. Do not report zero dropped/off-grid frames or call D-017
+fixed. No stutter experiment requested. Last pipeline report230made,230from
+cache,46.0ms total/worst1.4ms, consistent with previously cached pipelines.
+
+Error-severity caveat: log NOT error-free.935error lines:36vigilante and899
+semaforos, all23:07:35.442–23:07:46.485 BEFORE driving;112warnings include
+108NtCreateFile,2vigilante,1SDLcontrollerdb and1render-mode-table warning.
+Targeted native/Metal error-or-warning count0; no command-buffer failure line
+found. Prior dev41 record (TECHNICAL dev41 two-lap test) contains analogous
+pre-driving watchdog/semaphore groups (932error lines). Similarity is not a
+root-cause diagnosis or proof these diagnostics are harmless in all contexts;
+current user sees normal visuals and game proceeds to driving. Preserve these
+counts instead of declaring clean logs or new culling-induced hang.
+
+Performance conclusion: correctness check PASSES on this tested iPhone path,
+and supported culling is active for substantial geometry. Actual GPU cost
+reduction, saved fragments, power/thermal benefit NOT established. Existing OFF
+runs differ in route/view/draw load, starting conditions and sometimes diagnostic
+settings; no subtraction of their averages from this run. Counts of inputs with
+culling enabled cannot establish how many faces were rejected, especially where
+hardware HSR already hides them. Thermal nominal alone is not cooler operation;
+short battery-percentage readings are not used as drain comparison.
+
+Next: preserve opt-in validated dev42, default remains FALSE (no source/default
+promotion authorized by visual report). Do not request another correctness run
+or repeat baseline simply because result positive. Larger copy-elimination/
+versioned-output design remains read-only next priority; any implementation or
+promotion needs concrete proposal and approval. No new IPA/source changes in
+this result-analysis turn. Update checkpoint/D-018/CHANGELOG test status, commit
+local docs; HANDOFF_CHATGPT.md preserved untracked, no push/release.

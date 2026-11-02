@@ -427,6 +427,28 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev42 enabled device correctness PASSED:** Stefan says absolutely
+all visuals looked as before. Archived log
+`Debug/Most Wanted (2005) Debug/2 November 2026/dev42_iphone_guest_culling_on_nfsmw.log`
+under ~/Developer (SHA04f016defb94864541b3069b89ac7f6a77b21e9c5fa639401e5615ea7da2516e).
+14complete driving windows/4200frames: back-face culling applied to45.514%main
+indexed draws,54.276%cube,48.463%reflection; shadow requests NONE, unaffected.
+All eligible draws selected; front/both requests0, so no hardware validation of
+those modes inferred. Counters are NOT saved fragment or time percentages.
+Reported59.8–60fps,0>45ms GPU frames in summaries,3/4200complete driving pacing
+frames off-grid; thermal nominal. Pre-driving watchdog/semaphore diagnostics
+remain in log, analogous to prior baseline, not a clean-error-free claim.
+
+GPU/battery/thermal improvement still UNMEASURED; route/load differences prevent
+attributing timing versus older logs. No more correctness run requested.
+Keep trial available, default FALSE unchanged; visual report does not authorize
+promotion or other source changes. Next read-only priority: versioned cropped
+render-output/copy-elimination design from structural audit, then concrete
+proposal. D-018 remains open/default-off, validated on this iPhone path; D-017
+parked. TECHNICAL “dev42 culling ON” has exact controls/counts/timings/limits.
+No new build/source change. Local docs commit; HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, approved guest-culling trial BUILT as dev42; device result pending:**
 Stefan approved implementing isolated default-OFF culling. Added
 `nfsmw_native_guest_culling=false` (restart-only), captures original primitive
