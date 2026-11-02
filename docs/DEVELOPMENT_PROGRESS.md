@@ -379,6 +379,24 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev36 device comparison COMPLETE; D-017 still open:**
+Archived four-session log `Debug/2 November 2026/dev36_iphone_pass_counters_abba_nfsmw.log`
+(full root ~/Developer/Debug/Most Wanted (2005) Debug/). Counter OFF/ON/ON/OFF
+and early commit OFF verified; native 1.833/60 Balanced. Driving GPU hitches
+>45 ms: 4 / 2 / 0 / 2 over ~33–35 s per run; maxima 120.3 / 139.3 / none /
+86.7 ms. Disabling counters does not prevent severe stalls, so keep default
+true; no further counter A/B needed. User felt two slight stutters / one tiny /
+none / heavier start plus dropped frames. Preserve those reports separately:
+run 3 also logged two ~50–53 fps windows with GPU averages 19–20 ms despite
+no large hitches. Sustained native/60 and battery parity remain unvalidated.
+No source change/new build this analysis; latest IPA remains dev36 below.
+Next proposal awaiting code approval: bounded CPU-side submission/GPU/callback/
+presentation timeline plus pending residency/allocation counts, without
+changing rendering/residency/submission policy. See TECHNICAL “dev36
+OFF/ON/ON/OFF device results” for archive hash, windows, limits and proposal.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved; local commits only.
+
+
 **November 2, dev36 pass-counter diagnostic READY, awaiting device test:**
 Stefan approved the counter-sampling experiment. New restart-only Extra Arg
 `--nfsmw_native_pass_counters=false` skips pass/blit timestamp buffers,

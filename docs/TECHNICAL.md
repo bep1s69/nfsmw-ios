@@ -16514,3 +16514,112 @@ shared hitch-line budget; don't infer success from missing capped log lines.
 One pair is insufficient given recorded launch-order effects. This is a short
 correctness/stutter test, not an energy comparison. No device success or D-017
 fix claimed. Analyze results before proposing timeline/residency work.
+
+
+### November 2: dev36 OFF/ON/ON/OFF device results; counters not required for D-017
+
+Stefan's reports, in order: run 1 very slight stuttering twice; run 2 one very
+small stutter; run 3 none observed; run 4 slightly heavier stutter at the start
+and a few dropped frames afterwards. Reports of perceived stutter are retained
+separately from the log counts below; multiple adjacent GPU hitches can be one
+perceived event, and lower sustained FPS need not feel like a large hitch.
+
+Raw supplied log archived (copy/hash verification exit 0, no overwrite):
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev36_iphone_pass_counters_abba_nfsmw.log`,
+1979476 bytes, SHA-256
+`948cab71325c48806b57ae49148f4758362e4db93d1a2153731dc986683bda0b`.
+Original source was shared-pasteboard item
+`0CD6DD7E-23E5-4DBC-B763-A72FD02B3E7C/nfsmw.log`; archived copy is the
+permanent evidence. Build supplied: dev36, 0.6.0 (11), IPA SHA-256
+`5dc00af7685aa29bae6435f05f9facc2f5fb58e3f1cb80cbe24eb1d9439fc626`,
+arm64 UUID `58D2A088-D95E-32B3-844C-9B54A8DC78F1` (previous build checks,
+not newly measured on device). Device is iPhone 17 Pro Max per ongoing test
+context; this supplied log does not independently establish OS version or
+whether Instruments was recording. Requested procedure was without Instruments;
+no trace supplied with this result.
+
+Session split: each `[ios] game: starting` begins a new process session.
+Actual startup counter-state logs confirm OFF/ON/ON/OFF; every early-commit
+summary says OFF, zero early command buffers. All sessions select Balanced,
+cap 60, scale 1.833 once in game (initial startup summaries say 1.000 before
+scene setup); MetalFX OFF, FXAA OFF, forced MSAA 0. Thermal nominal in all
+reported samples; Low Power Mode OFF. Reported battery mostly 85%, final
+sample 80% (coarse readings, NOT a power measurement).
+
+| Run | Start (+02:00) | Counters | Driving start | Last log | Driving coverage | Logged driving GPU hitches >45 ms | Durations ms |
+|---|---|---|---|---|---:|---:|---|
+| 1 | 16:26:55.984 | OFF | 16:27:25.488 | 16:28:00.022 | 34.534 s | 4 | 55.7, 120.3, 51.9, 100.8 |
+| 2 | 16:28:14.344 | ON | 16:29:01.992 | 16:29:36.288 | 34.296 s | 2 | 139.3, 55.7 |
+| 3 | 16:29:52.575 | ON | 16:30:23.038 | 16:30:56.383 | 33.345 s | 0 | none |
+| 4 | 16:31:15.756 | OFF | 16:31:41.964 | 16:32:15.840 | 33.876 s | 2 | 86.7, 66.9 |
+
+No pause-menu endpoint in these driving windows: coverage ends at last log,
+not a claimed full race completion. Run 1 also has one 57.7 ms startup GPU
+hitch (18 draws), excluded from driving count. All eight driving hitches fall
+within first 30 s, so common-duration truncation does not alter these counts.
+Periodic GPU >45 ms counters sum to 4/2/0/2 during driving, matching the
+individual hitch lines (no observed log-budget truncation of these events).
+OFF sessions have ZERO GPU per-pass profile lines throughout; ON sessions
+have 18 and 12 GPU profile headers respectively (including slow profiles).
+No native GPU error lines in any session.
+
+Corroborating presentation evidence: run 1 frames 2263/2462 have 108/92 ms
+screen gaps at 16:27:35.707/:39.140; run 2 frame 3275 has a 129 ms screen gap
+at 16:29:10.838; run 4 frames 1724/1725 have 75/67 ms screen gaps at
+16:31:46.247/.313. Start-of-driving transition gaps of ~50–67 ms also occur
+in all four runs; do not count them as proof of the same mechanism.
+
+Run 3 is NOT proof of sustained native/60, despite no >45 ms GPU hitches and
+no stutter noticed by Stefan. Two 300-frame rendering summaries at
+16:30:30.236 and 16:30:35.881
+report ~50.5 / 53.1 frames/s and GPU 20.18 / 18.70 ms per frame, then return
+to ~60. Matching pacing lines at :30.297/:35.931 have 114/76 of 300 frames
+off the 16.7 ms grid; later windows mostly 0. Sampled GPU frame at :27.282
+26.93 ms, main scene 15.93, shadow 2.95, post 2.28, resolve copies 1.50 ms.
+This is a sustained missed-budget episode separate from large discrete hitches.
+Run 4 also has a ~52.2 fps window, GPU 17.67 ms, then recovers.
+
+Run 2 profiles reinforce nonuniform pass delay: frame 3275 139.28 ms total,
+main 96.67, post 15.50, depth copies 7.29, reflection 6.43, but shadow 1.32,
+present 1.06 ms. Frame 3303 55.74 ms, main 36.59, depth copies 7.13, cube
+faces 6.12, shadow 1.30, present 0.59. This is elapsed timestamp evidence,
+not measured GPU clocks or active cycles. In run 4's two hitches, VM reports
+zero page-ins/swap-ins/compressions, zero then 14 faults and zero
+compressions; new vertex buffers 5 and 4. Both resource work and scheduling
+remain hypotheses, not established causes.
+
+Conclusion: disabling pass counters does NOT prevent D-017; the hypothesis
+that counter sampling is necessary for the severe stalls is falsified on this
+path. No evidence to recommend disabling it as a fix or changing its default.
+This small sequential sample does not establish that counters improve/worsen
+frequency, nor that dev36/early-commit OFF solved the broader issue. Old
+runs differed in device state/launch order. No battery/120 fps acceptance.
+
+Read-only follow-up reviewed completion/backpressure sites: first completion
+handler does writebacks, diagnostics and FrameLeft (pool/game backpressure),
+then separate visibility completion handles queries. NativeSwap waits up to
+50 ms when two frames are outstanding. Completion delay can amplify following
+frames, but cannot alone account for already elapsed 139 ms GPU spans. Do not
+change handler order or wait policy from these observations.
+
+Next proposal, AWAITING APPROVAL: one optional, bounded CPU-side per-frame
+timeline diagnostic, with pass counters/early commit OFF, capturing native
+swap/encode entry, commit before/after, scheduled-handler arrival, GPU start/
+end, completion-handler arrival/release and presentation time. Include
+per-frame new allocations/pending residency additions at commit (counts only;
+no Apply/request/order change), preserve a short preceding-frame history and
+emit a bounded batch around hitches. Separate pre-submit work, submit/queue
+latency, GPU span and post-GPU callback delay; no GPU instructions/keepalive,
+no quality/QoS/residency behavior changes. This builds on existing TraceFrame,
+which has only swap/handover/GPU-end/shown gaps and cannot answer these
+questions. A scheduled handler's host arrival can itself be delayed; never
+label it exact GPU schedule time. GPU timestamps still cannot distinguish low
+clocks from in-span driver/mapping/scheduling stalls, so a long GPU span with
+short external delays would narrow rather than solve the mechanism. This is
+a proposal only, no implementation authorized by “continue” during analysis.
+One short native/60 drive would follow after explicit code approval.
+
+Commands: inline Python session/window/regex analyses and source reads exit 0;
+no new build, recording or device test was run during this analysis.
+Raw logs remain outside tracked files. Documentation-only local commit;
+pre-existing untracked HANDOFF_CHATGPT.md preserved.
