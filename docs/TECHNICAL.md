@@ -16008,3 +16008,6 @@ after any touch drag, pinch or wheel notch. Build exit 0, `unzip -tq` ok;
 `ios/build/NFSMW-0.6.0-dev30-showcase.ipa` (Desktop; dev29 to Trash), 30540688 bytes, SHA-256 012aa4ff243cebdc50c661051e8c8017696f666b5db5756a348fb1569d1ce3cc. Not run on a
 device.
 
+
+Stefan (November 2, dev30): everything camera-related works as expected
+(mouse look, swipe look, Showcase drag/pinch, no idle spin under the finger).
