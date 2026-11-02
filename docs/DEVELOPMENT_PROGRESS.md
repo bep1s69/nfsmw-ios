@@ -408,6 +408,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev41 two-lap device result:** Stefan reports initial heavy
+stuttering including menu, then confirms visuals normal and stuttering settled.
+Log archived as `Debug/2 November 2026/dev41_iphone_early_foliage_alpha_2laps_nfsmw.log`
+under the existing Debug root. Trial ON verified;410,083 eligible/selected draws
+across all summaries. Startup has22 archive misses, ALL changed shader684f;
+219 old keys warmed in855ms. Pipeline batches total231/209hits/22misses,
+755.8ms; dev40 initial228/228hits/37.4ms. Recaching is supported as a contributor
+to startup disturbance, not proven sole cause. Three GPU >45ms race hitches
+(54.4/51.7/101.1ms) happen6.7–27.9s after driving, after final logged miss;
+do not attribute all stutter to recaching or call D-017 fixed. Final14 complete
+pacing windows4200frames have0off-grid; GPU averages15.15–15.51ms, comparable
+to later dev40 medians, not proof of optimization benefit. No native GPU or
+pipeline failures; nominal thermal samples. No fresh baseline/device repeat
+requested. Correctness passes on tested path; time/energy/thermal benefit
+UNPROVEN, early-alpha default stays FALSE, compact/resource defaults TRUE.
+
+Next: continue read-only GPU cost investigation against existing evidence;
+propose before further code/default changes. No pending device request.
+Pipeline-save shared-mutex blocking remains a possible startup contributor,
+recorded against existing archive backlog, not a diagnosed cause or a request
+to reopen D-017. TECHNICAL “dev41 two-lap result” records times, counters,
+limits and negative results. Latest IPA unchanged dev41 identity below;
+no code, shader, cache, build or device test performed by this analysis turn.
+Local documentation commit only; HANDOFF_CHATGPT.md remains untracked.
+
+
 **November 2, dev41 READY; device test pending:** Stefan approved both the
 resource-list default promotion and the separate early foliage-alpha trial.
 `nfsmw_native_resource_list_cache` now defaults true, false fallback retained;

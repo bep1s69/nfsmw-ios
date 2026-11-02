@@ -17654,3 +17654,101 @@ is not GPU performance, power, thermals or native120 acceptance. Early-alpha
 flag remains false until evidence/review; no further source change approved.
 All session changes documented/committed locally; no push/release. Pre-existing
 untracked HANDOFF_CHATGPT.md preserved, not included in commit.
+
+### November 2: dev41 two-lap result; recaching supported, later GPU stalls distinct
+
+Stefan did the full2laps because heavy initial stuttering included the main
+menu; he suspected shader recaching. Follow-up explicit answer: “Visuals normal;
+stuttering settled”. Correctness accepted for this tested path; not a measured
+performance/energy win or a general stutter fix. No code/default change approved
+or made in this analysis; early-alpha stays default FALSE, resource/compact TRUE.
+
+Archived copy, no overwrite, byte comparison exit0:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev41_iphone_early_foliage_alpha_2laps_nfsmw.log`,
+760383bytes/4504lines, SHA256
+`44937d6456ccf6b26f3307cdad3285c791f904b6b7071a017c8bdf97bd9e39da`.
+Original shared-pasteboard item FCE736EB-C409-416F-B416-83A24087392B/nfsmw.log.
+Device context iPhone17ProMax, log AppleA19Pro; OS not established. Dev41 per
+test context, IPA SHA256
+`59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329`,
+app UUID925E490E-2487-3D5E-806D-E1E7EAC37EC6,0.6.0(11), from prior packaging
+checks; log's old “build Nov2 01:14:22” banner is not the app UUID/build identity.
+No Instruments trace supplied. Session18:18:10.608–18:21:10.837 local+02,
+180.229s. Driving18:18:54.437–adaptive driving stopped18:21:07.024,132.587s;
+no lap marker parsed,2laps is user report. Native1.833/60 Balanced,
+MetalFX/FXAA OFF, forced MSAA0; compact384/resource cache ON, early-alpha ON,
+pass counters OFF, early commit OFF. Timeline not enabled/reported. Low Power
+Mode OFF and all thermal samples nominal; battery70→65%coarse, not a drain rate.
+
+Observed cache evidence:
+
+- Existing archive loaded44256KiB.219old pipeline keys warmup855ms, ends
+  18:18:12.869.20misses during warmup18:18:12.187–12.861, ALL ps684f.
+  Initial batch at18:18:17.486:229made/209archive hits,714.3ms total,worst41.2ms.
+  The changed library invalidates archived variants even with alpha0/old compare
+  bits, consistent with changed source, not a whole-cache invalidation.
+- Two additional misses also684f, alpha9218 (bit13+alpha1026),18:18:28.155
+  and18:18:54.554. Separate batches19.2/22.3ms, no cache hits. All batches
+  total231made/209hits/22misses,755.8ms aggregate. Miss logger cap40 not reached;
+  misses coincide with aggregate miss count, so no cap-based omission here.
+  52draws left out while pipelines compiled across four report groups
+  (13+5+20+14); those counters are dropped draws, not entire dropped frames.
+- Baseline dev40 first batch228made/228hits/37.4ms,worst1.0ms. This directly
+  supports increased first-run compilation work, but is not a matched CPU-time
+  or startup latency experiment. Six startup hitch lines through18:18:12.802
+  include between-swap intervals388.3/249.6/150.2ms and69.9ms encode; dev40
+  ALSO had analogous startup intervals387.8/265.7/149.9ms. Do not assign every
+  startup hitch uniquely to the new shader. Async compilation, asset preparation
+  and cache-save work can overlap; no thread-wait timing or stack trace here.
+- Background save completions18:18:28.059(143656KiB),18:18:43.376(44571KiB),
+  18:19:09.462(44579KiB). No save-failure line. Size changes alone do not prove
+  lost entries/persistence success; no same-build second launch tested/requested.
+- Read PipelineArchive::Make/Report, PipelineCache::Report and prior TECHNICAL
+  October21–22 archive fix. Report called on renderer queue takes the same mutex
+  used across serializeToURL on save queue, so the October fix can still allow
+  blocking when reporting/adding while serialization holds the mutex. Actual
+  waits/durations unmeasured; log's long summary intervals cannot identify the
+  mutex as cause. Preserve existing background/atomic-rename fix; no naive
+  remove-lock or duplicate prior fix proposed. Not a new D-017 diagnosis; noted
+  in existing archive backlog, no source change or device test proposed.
+
+Race and trial evidence:
+
+-33early-alpha summaries total410,083eligible/410,083selected submitted indexed
+  draws (including menu/pre-race and final partial-driving coverage). Selecting
+  summaries >5s after driving and before stop gives390,801selected; the first
+  transition window and final overlapping window excluded. This confirms route
+  exercised, not how many fragments rejected or GPU operations saved.
+- ZERO native GPU errors, pipeline failures or missing-library warnings. The
+  log DOES contain2watchdog/semaphore diagnostic groups18:18:21.801/28.825 before
+  driving (932error-severity lines total:36vigilante/896semaforos). Do not claim
+  “zero errors” for the entire log or label those dumps a proven freeze; similar
+  diagnostic occurs in prior dev40. They are not GPU command-buffer errors.
+- Three actual >45ms GPU hitch lines (not summaries that mention cached-on-GPU
+  textures):18:19:01.148/frame2257/54.4ms,18:19:22.031/frame3152/51.7ms,
+  18:19:22.317/frame3164/101.1ms. All nominal, zero texture uploads,16/0/1new
+  vertex buffers. Relative driving6.711/27.594/27.880s; final logged pipeline
+  miss18:18:54.554. Thus recorded compilation alone does not explain those
+  race hitches; no proof early-alpha caused them either (historical D-017).
+  D-017 remains parked by user instruction, not marked fixed/reopened.
+- Startup pacing first300:15off-grid,worst108.3ms. Full driving summaries >5s
+  after start/before stop:24windows7200frames,59off-grid (4+7+24+24). The two
+  24frame groups are20.8ms spacing/worst4.2ms displacement, not >45msGPU spikes.
+  Final14complete windows from18:19:59.933 through18:21:04.938:4200frames,0off,
+  GPU averages15.15–15.51ms,median15.315. Final partial-driving window18:21:09.939
+  also0off. Last nonzero summary18:19:54.932. Matches user's settled impression.
+- Existing dev40 later35–70s GPU median15.37ms vsdev41 final14windows15.315ms.
+  Different duration, scenes/route/coverage and no per-pass counters; this tiny
+  cross-run difference is not evidence of GPU saving. Early dev41 has varying
+  8.45–12.17ms averages, also seen in baseline evolution. No power/time benefit
+  quantified; do not infer from unchanged60fps or eligible draw counts.
+
+Method: local Python read/regex timestamp/count/median summaries, read production
+cache/counter code and existing dev40 log, archive hash verification; exit0.
+One exploratory wildcard `ios/src/native_pipeline_archive*` failed with zsh
+“no matches found”; implementation is in native_renderer.mm and read there.
+No build/test rerun, no IPA/library/cache mutation in this analysis. Next:
+continue read-only steady GPU cost investigation with current evidence before
+proposing source changes; no new device run requested, do not promote early
+alpha from correctness alone. Documentation committed locally; no push/release.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved.
