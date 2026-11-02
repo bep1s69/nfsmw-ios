@@ -16011,3 +16011,16 @@ device.
 
 Stefan (November 2, dev30): everything camera-related works as expected
 (mouse look, swipe look, Showcase drag/pinch, no idle spin under the finger).
+
+
+### November 2: tile-memory lead re-checked: already in place
+
+Started on Stefan's go. native_renderer.mm already chooses load actions by
+whether the target was cleared, and store actions by whether anything reads
+the attachment later (discard_unread, default on; last-pass MSAA resolve
+without store; stencil discarded on last passes). October 21 concluded that
+memoryless storage would only save memory. No code change. GPU profile of
+the dev26 log (iPhone, 1x, driving) recorded in BACKLOG's performance goal
+entry. Next GPU candidates are the October list (resolve-copy avoidance,
+shader cost), pending Stefan's three baseline traces.
+
