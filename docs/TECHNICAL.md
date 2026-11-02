@@ -16191,3 +16191,10 @@ mostly 8-12 ms with 17-80 stalls of 45-150 ms. Inference: the same work runs
 at a higher GPU speed with intermittent severe slowdowns, a device-side state
 (GPU performance or power management, charging, a lingering developer
 condition) rather than the build; to check: a reboot, not charging.
+
+After a reboot, not charging (`dev33_after_reboot_nfsmw.log`): 33 stalls,
+including menu frames of ~340 draws at 68-83 ms; normal frames 9.7-18.8 ms.
+A reboot does not clear it. Only source change since the dev30 build is
+the renderer's diagnostics (no other source, generated or SDK file newer
+than the dev30 IPA). Next: dev30's IPA reinstalled, one race start, to
+separate build from device.
