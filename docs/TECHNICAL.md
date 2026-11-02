@@ -16198,3 +16198,13 @@ A reboot does not clear it. Only source change since the dev30 build is
 the renderer's diagnostics (no other source, generated or SDK file newer
 than the dev30 IPA). Next: dev30's IPA reinstalled, one race start, to
 separate build from device.
+
+dev30 reinstalled (`dev30_reinstalled_last_session.log`, its own session cut
+from the log): 7 stalls, normal frames 11.7-20.8 ms; Stefan: "the same".
+Measured: the stalls are not from the newer builds. The two smooth runs of
+the day (dev30 Power Profiler runs, dev30 Time Profiler lap) were both
+recorded with Instruments attached; every run since without it stalled
+(17-80 stalls), whatever the build, settings, reboot or charging.
+Inference, untested: power management behaves differently while a recording
+is attached. Next: a race start recorded with the Time Profiler, which did
+record here.
