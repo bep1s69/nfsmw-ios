@@ -408,6 +408,38 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, next optimization recommendation (NOT implemented/approved):**
+conservative sparse coverage for native touch-overlay drawing. Source audit:
+touch_controls.mm draws a premultiplied BGRA image and updates dirty regions;
+native renderer copies/uploads only dirty pixels, but draws the overlay using
+a FULL drawable viewport/scissor every frame (native_renderer.mm7298ff).
+OverlayPipeline4309ff samples with linear/clamp and premultiplied One / OneMinus
+SourceAlpha blending. Fully zero BGRA regions therefore contribute identity;
+current path still rasterizes/samples them. Existing dirty-upload rectangle
+is NOT the complete visible overlay footprint and must not be used alone to
+clip drawing. No existing culling experiment found in targeted docs search.
+
+Proposed opt-in/default-OFF trial, pending Stefan approval: cache conservative
+occupied regions, update coverage only for changed image tiles, include linear
+filter footprint and conservative source-to-drawable rounding; retain full
+viewport/UVs/shader/blending. Draw bounded, disjoint scissor regions, merge
+filter halos to avoid double blending; fallback to existing full-screen draw
+for dense/complex coverage. No full-image scan per render frame. All-channel
+zero test avoids assumptions about alpha0/nonzero RGB. Host pixel-coverage,
+dirty-update/resize/clear/disjointness tests, counters for covered pixel area,
+extra draws/coverage-update CPU work, then one enabled correctness run if
+approved. No game metallib changes/recaching required by proposed approach.
+
+Benefit not measured. Entire likely presentation encoder Render39 median~0.65ms,
+not overlay-alone time; only a fraction recoverable, extra CPU/draw overhead
+could offset benefit. Native-resolution fill reduction is structural hypothesis,
+not a promised fps/power gain. Main fragment work~6.3ms remains largest broader
+GPU target, but no safe scene rewrite established; prior foliage/half/resolve
+negatives remain applicable. CPU attribute/index caches already optimized,
+no repeated old optimization proposed. Next wait approval before source work;
+D-017 parked, no new device test/build in this recommendation turn.
+
+
 **November 2, usable dev41 OFF/ON Metal A/B analyzed:** trace
 `Debug/2 November 2026/dev41_iphone_early_foliage_ab.trace` has two~15.5s runs,
 Shader Timeline DISABLED, same iPhone17PM/iOS27.2/Instruments27.2, nominal

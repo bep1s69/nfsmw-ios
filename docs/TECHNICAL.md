@@ -18136,3 +18136,72 @@ Next read-only source/evidence investigation before a concrete code proposal;
 no new build, counter/default/quality change or further device test requested.
 D-017 stays parked, distinctive new evidence recorded. Docs committed locally,
 no push/release; pre-existing HANDOFF_CHATGPT.md preserved untracked.
+
+### November 2: next target audit: sparse touch-overlay coverage (proposal only)
+
+Stefan asks next optimization target after usable A/B analysis. Read-only audit
+of current source and existing October18/19 attribute-key comparison tests,
+October21 cost probe/October24 half-precision audit, November2 resolve-dataflow
+negative record. Main fragment encoder remains~6.3ms, but dominance alone is
+not a proven rewrite. Prior shader probe omits entire draws (includes raster/
+vertex/overdraw), not an isolated fragment shader measurement. Cheap tree shader
+has1fetch/3colour operations; gather/caster variants already exist. Repeating
+broad fp16, early-alpha or already-implemented attribute/index cache changes is
+not justified. Current resolve path retains destinations across frames, so
+last-resolve/no-later-read within ONE frame is still not a safe copy-elimination
+proof. No unsafe final-target alias or new scene rewrite proposed here.
+
+Concrete different candidate found in native overlay path:
+- ios/src/touch_controls.mm1510–1596: native touch view uses full-size screen-
+  scale premultiplied BGRA backing image, clears/redraws only dirty rect with
+  CGContext, passes complete backing pointer + dirty rect to renderer. View is
+  nonopaque/clear. Existing changes already avoid unconditional full redraw.
+- ios/src/native_renderer.mm8840ff: setter copies only dirty rows/columns into
+  backing vector and unions dirty upload rectangle. Empty/resize behavior
+  established here. Don't confuse changed rectangle with all visible pixels:
+  unchanged controls outside it must continue to appear every rendered frame.
+- mm7260–7310: renderer uploads changed rectangle, then EVERY frame with touch
+  texture sets full-drawable viewport and full-drawable scissor and draws one
+  fullscreen triangle. Thus transparent texture regions are still rasterized/
+  sampled by this path even though they cannot change the output.
+- OverlayPipeline4309–4340: same image sampled with linear/clamp_to_edge, no
+  mips, output premultiplied; source RGB/alpha One, destination OneMinusSourceAlpha.
+  Sampling all-zero BGRA is zero; blending is identity there. This is a concrete
+  opportunity to avoid invoking fragments in provably zero regions, without
+  moving controls, changing opacity, filter/UVs or game shaders. No claim Metal
+  performs no internal transparent-blend optimizations; actual time benefit
+  unknown. Existing final-pass code includes scene presentation and FPS overlay
+  too, so final encoder median~0.65ms is NOT touch overlay cost or projected saving.
+
+Proposed implementation only, NOT authorized by this question:
+independent restart-only flag default FALSE; maintain coarse conservative
+occupancy from all-channel-zero pixel checks on changed tiles only, including
+cleared old locations. Pad occupied footprint for bilinear sampling and round
+outwards in drawable mapping. Keep original full-screen viewport/UV mapping,
+reuse original shader/pipeline/texture, restrict rasterization to a bounded set
+of DISJOINT scissor rectangles; merge expanded halos so translucent pixels are
+never blended twice. Dense/complex coverage uses legacy full-screen draw.
+No scan of full image on every rendered frame. Coverage ownership/update under
+existing mutex must match uploaded image; resize/disable/clear invalidates old
+coverage. Preserve ordinary full-frame presentation and FPS rendering. Pure
+native app draw/coverage change, no game metallib recompilation/recache intended.
+
+Need before device: meaningful host coverage equivalence checks including
+random dirty updates, clearing/moving/fading controls, all-zero/nonzero RGB with
+alpha0, filter halos at screen edges and fractional scaling, disjointness and
+resize/disable, full fallback. Track conservative submitted overlay pixels vs
+full screen, number of extra draws and CPU coverage-update work so logical
+reduction is distinguished from measured whole-frame GPU/energy saving.
+One enabled visual/correctness device run if user approves; no new OFF baseline
+requested now. Extra draw and CPU scan costs can offset GPU benefit; keep
+bounded and optional until actual evidence. Expected scope modest; main-pass
+material/overdraw investigation remains larger subsequent work.
+
+Commands this turn: git status/log, targeted rg/sed/nl reads of code and history,
+git diff --check. Some rg searches returned no match (overlay culling evidence),
+and wildcard ios/src/write_watch* had no matching path; not proof those features
+are globally absent. Existing lookup mode verified ON; bulk comparison is a
+previous default-OFF experiment, not proposed again. No tests/builds/device
+recordings/source/cache/default changes. This is a recommendation, not approval.
+Checkpoint/backlog updated and committed locally; no push/release. Pre-existing
+untracked HANDOFF_CHATGPT.md preserved.
