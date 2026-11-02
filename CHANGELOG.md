@@ -4,7 +4,8 @@
 
 - **Test skipping the scene picture copy.** Add an optional trial that hands
   the finished scene image straight to the effects that read it instead of
-  copying it each frame. Off by default; not yet tested on a device.
+  copying it each frame. The iPhone test skipped the copy on every driving
+  frame with no visible change; off by default while savings are unmeasured.
 
 - **Test native face culling.** Add an optional trial that honors the game's
   face-culling requests for supported geometry. The iPhone visual check passed;

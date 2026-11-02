@@ -19357,3 +19357,20 @@ app executable changed, 104 metallibs identical. IPA
 bytes, SHA256 4639bb98279a6754c9bb478dfdbd429601188e9d3793dc31b273bfc61dafa93c.
 Next: same drive/Extra Args; check the sun glare (occlusion-driven) looks as
 before and that main-target planned share rises; send nfsmw.log.
+
+## November 3, dev45 handoff ON device run: main copy removed on every driving frame
+
+Stefan ran dev45 with the dev43 Extra Args; no visual issue reported. Log
+`~/Developer/Debug/Most Wanted (2005) Debug/3 November 2026/dev45_iphone_handoff_queries_nfsmw.log`
+(SHA256 71525aa84365d74be696b3aa0a3bf990f7f5f6f3b746d1defc7d13cb72e25c75), one launch, 20 summaries.
+- From window 8 on (13 windows, 3900 frames, driving) planned main target
+  300/300 every window; whole log 4848 copies not encoded (14.396 MiB each).
+  Pool misses 0, mismatches 0, late passes 0, at most 3 images, every window.
+- Remaining draw rejections: mirror (another scene target, 300/window),
+  vte ps 8c8b rectangle lists in menus, 43 internal + 75 mirror in one
+  transition window. Query column 0 as intended.
+- Pacing while driving 0–1 of 300 off grid (worst 4.2 ms).
+Not shown: energy, thermal, GPU time or bandwidth change; sun-glare and
+picture equivalence only by Stefan's visual check. Default stays false.
+Next (needs approval): one matched OFF/ON power/thermal or Instruments
+comparison (Stefan records), only if he wants to promote the default.

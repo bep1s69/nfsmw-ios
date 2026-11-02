@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, dev45 device run: main copy removed on 100% of driving frames**
+(3900/3900), 0 misses/mismatches/late passes, visuals unchanged (Stefan). The
+remaining copy-elimination question is whether it saves measurable energy:
+next step is Stefan's choice of a matched OFF/ON comparison before any
+default change. Default false. TECHNICAL “dev45 handoff ON device run”.
+
 **November 3, dev45 BUILT (approved):** color handoff accepts occlusion-query
 draws under the same viewport-extent bound. IPA
 `ios/build/NFSMW-0.6.0-dev45-handoff-queries.ipa`. Next: Stefan's run with
