@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan, compact shared-data experiment): use existing baseline
+  logs; only one new enabled correctness run needed. Do not request another
+  baseline/A-B sequence without a concrete new reason. Keep energy claims
+  limited to what the actual evidence supports.
+
 - November 2 (Stefan, latest): park D-017 unless a very interesting new finding
   emerges. Focus on making actual CPU/GPU work as light as feasible to improve
   performance, battery and thermals. Preserve default visual quality; investigate
@@ -383,6 +388,31 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, dev38 compact shared data READY, awaiting ONE device run:**
+Stefan approved; new restart-only `nfsmw_native_compact_shared_constants`
+default false, true prepares/compares/uploads 384 bytes instead of 1024 per
+shared descriptor/flag set. Shader field offsets and 256-byte alignment
+unchanged; VS/PS float banks untouched. Existing path retained. Host prefix/
+dedup/raw-bit checks (5000 draws) and sizing checks (2011 frames, both compact/
+legacy and fused/unfused modes) pass under ASan/UBSan. Incremental -j 12 build
+17.07 s, ZIP/signature valid, all 104 shaders and runtime dylibs byte-identical
+to dev37; only app executable changed. Latest IPA:
+`ios/build/NFSMW-0.6.0-dev38-compact-shared.ipa`, also Desktop; dev37 archived,
+0.5.2 release preserved. Identity/evidence in TECHNICAL “dev38 compact shared”.
+
+Next (Stefan, one new enabled run; existing dev37 logs are baseline): cold
+LiveContainer launch, native/60 Balanced, no Instruments. Extra Args
+`--nfsmw_native_compact_shared_constants=true`,
+`--nfsmw_native_gpu_timeline=false`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`. Normal menus then same race ~45–60 s;
+export full log, note image/menu/movie issues and smoothness. Verify startup
+shared layout 384 and actual copy/capacity statistics. No new baseline/A-B
+requested. Logical blob bytes shrink 62.5%; CPU/power/thermal savings not yet
+measured. Default stays false pending result; no next source change yet.
+D-017 remains parked; CPU/GPU efficiency active. Local-only/no-push; preserved
+pre-existing untracked HANDOFF_CHATGPT.md remains excluded from commits.
+
 
 **November 2, D-017 PARKED by Stefan; CPU/GPU cost reduction is active:** Latest
 same-dev37 timeline OFF/ON runs both smooth per user, zero logged GPU hitches

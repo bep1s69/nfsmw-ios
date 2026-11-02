@@ -58,13 +58,13 @@ template<class F> __attribute__((noinline)) size_t Reference(const F* frame,bool
  @REFERENCE@
  return total;
 }
-template<class F> __attribute__((noinline)) size_t Candidate(const F* frame,bool fused_upload_sizing) {
+template<class F> __attribute__((noinline)) size_t Candidate(const F* frame,bool fused_upload_sizing,size_t shared_bytes=1024) {
  @CURRENT@
  return total;
 }
 // Independent worst-case upload simulation: every shared-data set changes,
 // and all fresh arrays are consumed. Real encoding may skip some of them.
-size_t UploadBound(const Frame& f) {
+size_t UploadBound(const Frame& f,size_t shared_bytes=1024) {
  size_t used=0;
  auto put=[&](size_t bytes) { used=((used+255)&~size_t(255))+bytes; };
  struct Stage { const void* bank=nullptr;uint16_t first=0,end=0; } stages[3];
@@ -79,7 +79,7 @@ size_t UploadBound(const Frame& f) {
   stage(0,d.vs_constants.get(),d.vs_range);
   stage(1,d.ps_constants.get(),d.ps_range);
   if(d.previous_vs_constants)stage(2,d.previous_vs_constants.get(),d.vs_range);
-  put(1024);
+  put(shared_bytes);
   for(const auto& a:d.attributes)if(a.fresh && a.values)put(a.values->size()*4);
   if(d.indices_fresh)put(d.index_count()*4);
  }
@@ -104,13 +104,16 @@ std::vector<uint64_t> Describe(const Frame& f) {
 size_t checks=0;
 size_t Check(const Frame& f) {
  auto before=Describe(f);size_t expected=Reference(&f,false);
- assert(Candidate(&f,false)==expected && Candidate(&f,true)==expected);
- assert(UploadBound(f)<=expected && std::max<size_t>(expected,256)>=UploadBound(f));
- for(bool fused:{false,true}) {
-  CountedFrame c{{f.draws}};
-  assert(Candidate(&c,fused)==expected);
-  assert(c.draws.starts==(fused?1u:2u));
-  assert(c.draws.visits==f.draws.size()*(fused?1u:2u));
+ for(size_t shared_bytes:{384u,1024u}) {
+  size_t adjusted=expected-f.draws.size()*(1024-shared_bytes);
+  assert(Candidate(&f,false,shared_bytes)==adjusted && Candidate(&f,true,shared_bytes)==adjusted);
+  assert(UploadBound(f,shared_bytes)<=adjusted && std::max<size_t>(adjusted,256)>=UploadBound(f,shared_bytes));
+  for(bool fused:{false,true}) {
+   CountedFrame c{{f.draws}};
+   assert(Candidate(&c,fused,shared_bytes)==adjusted);
+   assert(c.draws.starts==(fused?1u:2u));
+   assert(c.draws.visits==f.draws.size()*(fused?1u:2u));
+  }
  }
  assert(Describe(f)==before);++checks;return expected;
 }
@@ -194,7 +197,7 @@ void Benchmark() {
 int main(int argc,char**) {
  @autoreleasepool {
   Edges();Pools();for(unsigned i=0;i<2000;++i)Check(Generate(rng()%129,rng()%101,true));
-  std::printf("PASS %zu frames: original/current OFF/fused budgets, traversal counts, input preservation, aligned upload bounds; sizeof(Draw)=%zu\n",checks,sizeof(Draw));
+  std::printf("PASS %zu frames: legacy/compact shared budgets, fused/unfused traversal counts, input preservation, aligned upload bounds; sizeof(Draw)=%zu\n",checks,sizeof(Draw));
   if(argc>1)Benchmark();
  }
 }

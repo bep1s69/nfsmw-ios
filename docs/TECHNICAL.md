@@ -16947,3 +16947,93 @@ and a nonexistent generated/usa glob; corrected by reading actual paths and
 recording absent shader-source cache above. No compilation, source/SDK/shader
 modification or new device test in this analysis; documentation only.
 Pre-existing untracked HANDOFF_CHATGPT.md preserved; local commit, no push.
+
+
+### November 2: dev38 compact shared-data experiment ready; one enabled device test next
+
+Stefan approved the compact shared-data proposal and specified using existing
+current-behavior evidence rather than asking for another baseline: only ONE
+new test with the change enabled. Baseline is dev37, particularly first
+(timeline OFF) session of archived
+`dev37_iphone_timeline_off_on_smooth_nfsmw.log` (previous section has full
+path/hash/settings). Do not request an OFF/ON sequence for this change unless
+new evidence supplies a concrete reason. One correctness/log run can validate
+behavior/logical bytes, not independently establish a matched power/thermal
+improvement. D-017 remains parked.
+
+Implementation in `ios/src/native_renderer.mm`:
+- New restart-only `nfsmw_native_compact_shared_constants`, default FALSE for
+  first trial. True selects 384 active bytes, false retains 1024-byte path.
+  Logs `[native] shared constants: 384 bytes per distinct set (compact on)`
+  or `1024 ... (compact off)` once, with unchanged offsets/upload alignment.
+- Retains 256-word stack storage for compatibility; clears only active prefix.
+  Shared-set memcmp, memcpy and actual put() use the SAME active byte count.
+  Both fused and unfused sizing traversals use that count through the shared
+  size_geometry lambda; still conservatively budget one blob per draw.
+- No changed shader ABI offsets or field values: five 16-word descriptor
+  arrays [0,320), NFS common flags through byte 383. Keep reserved prefix
+  words zero, jitter/clip/alpha fields and sampler/cube/volume indices intact.
+  Last renderer write is alpha word 93 (372); ABI words 94/95 still reserved
+  and zero. Float VS/PS constant banks, shaders, draw ordering, resource
+  lifetime, 256-byte upload alignment and scheduling are untouched. No new
+  shader libraries or SDK source changes.
+- Logical shared blob shrinks by 640 bytes /62.5% when enabled; actual CPU
+  timing, memory traffic, GPU speed, battery and thermal gains UNMEASURED.
+  Existing CPU buffer-copy summary accounts actual upload bytes; compare
+  per-distinct-set interpretation and scene differences against dev37.
+  Buffer requested capacity may shrink, depending on rounded pool sizes.
+  Do not claim stack allocation or GPU arithmetic shrinks: legacy stack
+  capacity remains and GPU shaders already read their active fields only.
+
+Host checks:
+- `python3 tools/native/test_compact_shared_constants.py`: exit 0, PASS,
+  ASan/UBSan. Checks current non-GTA shader_common.h reader bounds through
+  byte 383, translator 16-slot descriptor layout and internal movie reads.
+  Extracts production initialization and shared-dedup/upload block into host
+  harness: 5000 draws, identical prefix output and dedup counts, poisoned
+  compact tail ignored, legacy tail zero, aligned uploads, raw -0/NaN/flag
+  bit patterns through last prefix word preserved. This validates declared
+  current ABI/CPU-side bytes, not all precompiled shader accesses or visuals
+  on device; restored cache source limitation remains as previously recorded.
+- Extended `python3 tools/native/test_upload_sizing.py`: exit 0, PASS 2011
+  frames, sizeof(Draw)=336. Extracted actual sizing loops compared against
+  historical 03da344 legacy code: both 1024/384 modes, fused/unfused exact
+  budgets/traversal counts, unchanged inputs and independent worst-case
+  256-byte-aligned upload bounds. Compact expected budget is original minus
+  640 bytes per draw; actual encode can upload fewer identical shared sets.
+- `python3 tools/ios/patch_game_extra_options.py`: exit 0, already patched,
+  zero generated files written. `git diff --check` exit 0.
+- `/usr/bin/time -p cmake --build
+  /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`: exit 0,
+  real 17.07 s, user 14.40, sys 0.90 (incremental compile/link/package, not a
+  full clean-build timing). Log `ios/build/dev38-compact-shared-build.log`
+  (ignored). Six existing warnings: fpscr asm width, four external-screen
+  deprecations, duplicate -lz link warning. No errors.
+- `unzip -tq`, `codesign --verify --deep --strict` on packaged cache
+  ipa/Payload/NFSMW.app and `xcrun dwarfdump --uuid`: exit 0. ZIP comparison
+  against dev37: 104/104 metallibs byte-identical, no removed entries, ONLY
+  changed packaged file Payload/NFSMW.app/NFSMW; runtime/GPU dylibs unchanged.
+  Version still 0.6.0 (11); new switch string present in executable.
+
+Artifact `ios/build/NFSMW-0.6.0-dev38-compact-shared.ipa`, 30544148 bytes,
+SHA-256 `889f22bfae08a99a4622eada296e875df965bce6b485c55cc3dd9d81111627fd`,
+arm64 app UUID `6B95CCD7-33CD-3308-85B4-CD25311B44D4`.
+Hash-verified copy on Desktop; old dev37 Desktop copy moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.0-dev37-gpu-timeline.ipa` after comparison to
+retained repository archive. Released 0.5.2 Desktop IPA preserved.
+
+Next DEVICE test (Stefan, PENDING, ONE new run): force-quit LiveContainer,
+dev38 native/60 Balanced, no Instruments, same race as prior logs. Extra Args:
+`--nfsmw_native_compact_shared_constants=true`,
+`--nfsmw_native_gpu_timeline=false`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`. Normal launch through menus then ~45–60 s
+driving, export complete log and note any visual/menu/movie problems or change
+in smoothness. Existing dev37 timeline-OFF log is the legacy baseline; do not
+ask for another unchanged run. Verify startup shared layout 384, settings and
+copy/pool statistics. If correct, assess actual logical-byte/capacity savings
+before another source change; default remains false pending that result.
+No new device test or Instruments recording performed during implementation.
+No release changelog entry for opt-in experiment; no default visual change.
+No source outside approved renderer/test scope, SDK, shader or generated-code
+edits; no push/release. Local commit includes code, checks and record.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved.

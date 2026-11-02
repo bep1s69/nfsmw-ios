@@ -154,6 +154,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_pass_counters, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_timeline, false, "GPU",
                     "Diagnostic: bounded CPU-side submission/GPU/callback/presentation history around driving "
                     "hitches, with pending residency counts (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, false, "GPU",
+                    "Experiment: prepare/upload only the 384-byte NFS shared descriptor/flag layout instead "
+                    "of 1024 bytes; field offsets unchanged (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -4710,6 +4713,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // Constants: the registers the draw's shader reads, uploaded again only
     // when they are not already (the same set, a range that covers them).
     static const bool fused_upload_sizing = REXCVAR_GET(nfsmw_native_fused_upload_sizing);
+    // NFS: five 16-word descriptor arrays, then flags through byte 383.
+    // Keep the legacy storage/fallback; only the active prefix is touched.
+    // This is separate from the VS/PS float constant banks.
+    static const size_t shared_bytes = REXCVAR_GET(nfsmw_native_compact_shared_constants) ? 384 : 1024;
+    static const bool shared_layout_logged = [] {
+      REXLOG_INFO("[native] shared constants: {} bytes per distinct set (compact {}); "
+                  "field offsets unchanged, 256-byte upload alignment",
+                  shared_bytes, shared_bytes == 384 ? "on" : "off");
+      return true;
+    }();
+    (void)shared_layout_logged;
     struct UploadedConstants {
       const void* set = nullptr;
       std::pair<uint16_t, uint16_t> range{0, 0};
@@ -4737,7 +4751,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
       };
       auto size_geometry = [&](const Draw& d) __attribute__((always_inline)) {
-        total += 1024 + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
+        total += shared_bytes + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
         for (const Attribute& a : d.attributes) {
           if (a.fresh && a.values) total += a.values->size() * 4 + 256;
         }
@@ -6466,7 +6480,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const uint64_t previous_vs_address = motion >= 2 && d.previous_vs_constants
                                                ? upload(uploaded_previous_vs, *d.previous_vs_constants, d.vs_range)
                                                : vs_address;
-      uint32_t shared[256] = {};
+      uint32_t shared[256];
+      std::memset(shared, 0, shared_bytes);
       if (motion_pass && (jitter[0] != 0 || jitter[1] != 0) && vp.width >= 1 && vp.height >= 1) {
         // g_HalfPixelOffset (byte 344): added to the clip-space position (x w).
         const float offset[2] = {2.0f * jitter[0] / float(vp.width), -2.0f * jitter[1] / float(vp.height)};
@@ -6753,9 +6768,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         std::memcpy(&shared[93], &threshold, 4);  // g_AlphaThreshold at byte 372
       }
       // The same as the draw before's (most are): its copy again.
-      if (!have_last_shared || std::memcmp(last_shared, shared, sizeof(shared)) != 0) {
-        last_shared_at = put(shared, sizeof(shared), kSharedUpload);
-        std::memcpy(last_shared, shared, sizeof(shared));
+      if (!have_last_shared || std::memcmp(last_shared, shared, shared_bytes) != 0) {
+        last_shared_at = put(shared, shared_bytes, kSharedUpload);
+        std::memcpy(last_shared, shared, shared_bytes);
         have_last_shared = true;
       }
       const size_t shared_at = last_shared_at;
