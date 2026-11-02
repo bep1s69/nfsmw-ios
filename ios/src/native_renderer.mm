@@ -115,6 +115,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
                     "Native renderer: reuse completed geometry ranges and release surplus empty chunks");
 REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, false, "GPU",
                     "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
+REXCVAR_DEFINE_BOOL(nfsmw_native_residency_request_each, true, "GPU",
+                    "Native renderer: request residency of the whole set at every change (false: once)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
@@ -897,8 +899,9 @@ void Remove(id<MTLAllocation> a) {
   removes.push_back(a);
 }
 
-// The renderer's queue, before encoding a frame.
-void Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
+// The renderer's queue, before encoding a frame. Returns the changes applied
+// (additions, removals), for the hitch log.
+std::pair<size_t, size_t> Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
   static id<MTLResidencySet> set = nil;
   if (!set) {
     MTLResidencySetDescriptor* d = [MTLResidencySetDescriptor new];
@@ -908,7 +911,7 @@ void Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
     set = [device newResidencySetWithDescriptor:d error:&error];
     if (!set) {
       REXLOG_WARN("[native] no residency set: {}", error ? error.localizedDescription.UTF8String : "?");
-      return;
+      return {0, 0};
     }
     [queue addResidencySet:set];
     REXLOG_INFO("[native] resources kept resident in a residency set");
@@ -919,11 +922,17 @@ void Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
     add.swap(adds);
     remove.swap(removes);
   }
-  if (add.empty() && remove.empty()) return;
+  if (add.empty() && remove.empty()) return {0, 0};
   if (!add.empty()) [set addAllocations:add.data() count:add.size()];
   if (!remove.empty()) [set removeAllocations:remove.data() count:remove.size()];
   [set commit];
-  [set requestResidency];
+  // Experiment (race-start GPU stalls): the whole set asked to be made
+  // resident again at every change, or only once (a set on the queue makes
+  // its allocations resident for the command buffers anyway).
+  static bool requested = false;
+  if (!requested || REXCVAR_GET(nfsmw_native_residency_request_each)) [set requestResidency];
+  requested = true;
+  return {add.size(), remove.size()};
 }
 }  // namespace residency
 
@@ -4426,7 +4435,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     id<MTLDevice> device = store.device;
     static id<MTLCommandQueue> queue = [device newCommandQueue];
     bc_queue = queue;  // BC decodes go on the frame's queue (BcDecodeOnGpu)
-    residency::Apply(device, queue);
+    const auto residency_changes = residency::Apply(device, queue);
     static const bool lazy_diagnostics = REXCVAR_GET(nfsmw_native_lazy_diagnostics);
     const bool prepare_snapshots = dump || !lazy_diagnostics;
     const bool compressible_resolves = REXCVAR_GET(nfsmw_native_compressible_resolves);
@@ -7287,6 +7296,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // a texture (with its Metal copy) while the frame is still running.
       NSArray* in_use = @[ textures, cubes, volumes ];
       const uint32_t uploads = frame_uploads, new_buffers = frame_new_buffers;
+      const size_t residency_adds = residency_changes.first, residency_removes = residency_changes.second;
       const size_t probe_frame_draws = frame->draws.size();
       const size_t drawn_count = drawn;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
@@ -7326,8 +7336,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           const bool slow = gpu_ms > 45.0 && hitch_lines_left.fetch_sub(1) > 0;
           if (slow) {
             REXLOG_INFO("[native] hitch: frame {} took {:.1f} ms on the GPU ({} draws, {} texture uploads, "
-                        "{} new vertex buffers; thermal state {})",
-                        number, gpu_ms, drawn_count, uploads, new_buffers, nfsmw::memory::ThermalState());
+                        "{} new vertex buffers, residency +{} -{}; thermal state {})",
+                        number, gpu_ms, drawn_count, uploads, new_buffers, residency_adds, residency_removes,
+                        nfsmw::memory::ThermalState());
           }
           if (profile && (profile_report || slow) && !profile_labels->empty()) {
             const NSUInteger n = profile_labels->size();

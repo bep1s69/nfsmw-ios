@@ -16125,3 +16125,19 @@ stalls or runs slow in those frames (fixed work grows 4-7x for the same
 draws) rather than doing more work; cause not established (candidates: GPU
 clock ramp, faults on newly allocated memory, contention). Saving the
 normal ~1 ms of copies would not remove these frames.
+
+### November 2: race-start stalls: residency in the hitch line, request-once experiment (dev32)
+
+Metal System Trace was not recordable here (attached, launched, wired and
+standalone attempts all came out empty; one launched run stuttered and
+crashed under Instruments). In-app evidence instead. Candidate: every change
+to the residency set (new vertex buffers, pool textures, decoded textures)
+committed the set and called `requestResidency` on the whole set (~1.9 GB,
+thousands of allocations), and race starts make changes nearly every frame.
+dev32: `residency::Apply` returns the frame's additions and removals; the
+hitch line reports them (`residency +A -R`). Experiment switch
+`--nfsmw_native_residency_request_each=false` (default true, as before):
+`requestResidency` only once, when the set is made; the set stays attached
+to the queue, so committed additions are still resident for the command
+buffers. To compare: count and size of "slow frame" lines at a race start
+with the switch on and off.
