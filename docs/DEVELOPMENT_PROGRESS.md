@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, dev44 blocker census BUILT (approved):** logs which draw guard and
+shader keys block the main-target handoff; behavior unchanged, default false.
+IPA `ios/build/NFSMW-0.6.0-dev44-handoff-blockers.ipa`. Next: Stefan's run with
+dev43 Extra Args, then decide whether the blocking draw can be bounded safely.
+
 **November 3, dev43 handoff ON device run: visuals unchanged (Stefan), partial coverage:**
 2347 main copies not encoded (14.396 MiB logical each), 0 pool misses,
 0 mismatches, 0 late passes, at most 3 images. While driving the main target

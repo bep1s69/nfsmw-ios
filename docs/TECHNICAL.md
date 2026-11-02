@@ -19298,3 +19298,23 @@ trace); pixel equivalence beyond Stefan's visual check. Default stays false.
 Next (proposal, needs approval): split the `draws` reject into per-guard
 counts with the first rejecting shader key, to see whether the blocking draw
 can be bounded safely, before any matched power/thermal comparison.
+
+## November 3, dev44 handoff blocker census: built, device run pending
+
+Stefan approved (“yes”) the proposed diagnostic follow-up to dev43. Logging
+only; the handoff decision, guards and default (false) are unchanged.
+- The setup loop now records, per target, which guard the first unsupported
+  draw hit (first match: vte, sign, offset, query, mrt, primitive, mirror,
+  internal) plus that draw's PS/VS keys and guest primitive.
+- When a scene-sized target is rejected by `draws`, the plan counts that guard
+  and the (guard, ps, vs, primitive) blocker (map capped at 256 keys).
+- New summary line every 300 frames when ON: `color handoff draw rejections
+  by first unsupported draw: <per-guard counts>; | <guard> ps … vs … prim …: n`
+  (top 6). Counts are scene-target plans per frame, not draws or time.
+Checks: `patch_game_extra_options.py` exit0; build-0.6 `--target ipa -j 12`
+exit0; `test_color_handoff.py` PASS (same totals as dev43); `git diff --check`
+exit0. ZIP vs dev43: only `Payload/NFSMW.app/NFSMW` changed, 104 metallibs
+identical. IPA `ios/build/NFSMW-0.6.0-dev44-handoff-blockers.ipa` (and Desktop),
+30565224 bytes, SHA256 4a2e9be79e3239215bd8fab94baa17459d8e159bb546e56202d21a2b054a868d.
+Next: same protocol/Extra Args as dev43, include a stretch like dev43's
+07:22–07:42 (0 planned); send nfsmw.log. No power/thermal request.

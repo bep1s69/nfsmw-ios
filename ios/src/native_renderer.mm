@@ -1369,11 +1369,19 @@ std::map<std::string, GuestCullCounters> guest_cull_counts;
 // nfsmw_native_color_handoff census since the last summary. Scene-sized colour
 // targets per frame by plan outcome; handoffs are copy commands not encoded
 // and their logical payload, NOT measured DRAM traffic, power or frame time.
+// Draw guards, first match: VTE x/y scale+offset not all enabled, x scale not
+// positive or y scale not negative, x offset not finite, occlusion query, MRT,
+// primitive, mirror picture, internal (handwritten) vertex shader.
+constexpr const char* kHandoffDrawGuards[8] = {"vte", "sign", "offset", "query", "mrt", "primitive", "mirror", "internal"};
 enum class HandoffPlan : uint8_t { Planned, Draws, Viewports, Target, Resolves, Layout, Extent, Count };
 struct ColorHandoffCounters {
   uint64_t plans[size_t(HandoffPlan::Count)] = {};
   uint64_t frames_excluded = 0, handoffs = 0, lease_misses = 0, mismatches = 0, late_passes = 0, bytes = 0;
   uint32_t most_images = 0;  // the most pool images of the handed-off kind at once
+  // `draws` rejections by the first unsupported draw's guard (HandoffDrawGuard),
+  // and by that draw's guard, shaders and guest primitive.
+  uint64_t draw_guards[8] = {};
+  std::map<std::tuple<uint8_t, uint64_t, uint64_t, uint32_t>, uint64_t> draw_blockers;
 };
 ColorHandoffCounters color_handoff_counts;
 
@@ -4992,6 +5000,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // mirror path), its last draw and its distinct viewport x scale/offset.
     struct HandoffDraws {
       HandoffPlan rejected = HandoffPlan::Planned;
+      uint8_t guard = 0;  // the first unsupported draw's (kHandoffDrawGuards)
+      uint64_t ps = 0, vs = 0;
+      uint32_t primitive = 0;
       size_t last = 0;
       std::vector<std::pair<float, float>> viewports;
     };
@@ -5021,10 +5032,21 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         HandoffDraws& h = *setup_handoff;
         h.last = &d - frame->draws.data();
         const uint32_t p = d.guest_primitive;
-        if ((d.vte & 0xF) != 0xF || !(d.viewport[0] > 0) || !(d.viewport[2] < 0) || !std::isfinite(d.viewport[1]) ||
-            d.query >= 0 || d.second_target || !(p == 4 || p == 5 || p == 6 || p == 8 || p == 13) ||
-            d.ps_key == 0x8436534cfafcc0ebull || store.internal_keys.count(d.vs_key)) {
+        const int guard = (d.vte & 0xF) != 0xF                                       ? 0
+                          : !(d.viewport[0] > 0) || !(d.viewport[2] < 0)               ? 1
+                          : !std::isfinite(d.viewport[1])                               ? 2
+                          : d.query >= 0                                                ? 3
+                          : d.second_target                                             ? 4
+                          : !(p == 4 || p == 5 || p == 6 || p == 8 || p == 13)          ? 5
+                          : d.ps_key == 0x8436534cfafcc0ebull                           ? 6
+                          : store.internal_keys.count(d.vs_key)                         ? 7
+                                                                                        : -1;
+        if (guard >= 0) {
           h.rejected = HandoffPlan::Draws;
+          h.guard = uint8_t(guard);
+          h.ps = d.ps_key;
+          h.vs = d.vs_key;
+          h.primitive = p;
         } else if (std::find(h.viewports.begin(), h.viewports.end(), std::make_pair(d.viewport[0], d.viewport[1])) ==
                    h.viewports.end()) {
           if (h.viewports.size() < 16) {
@@ -5233,6 +5255,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         return reject(HandoffPlan::Target);
       const auto draws = handoff_draws.find(key);
       if (draws == handoff_draws.end()) return reject(HandoffPlan::Draws);
+      if (draws->second.rejected == HandoffPlan::Draws) {
+        const HandoffDraws& b = draws->second;
+        ++color_handoff_counts.draw_guards[b.guard];
+        auto& blockers = color_handoff_counts.draw_blockers;
+        const auto k = std::make_tuple(b.guard, b.ps, b.vs, b.primitive);
+        if (blockers.size() < 256 || blockers.count(k)) ++blockers[k];
+      }
       if (draws->second.rejected != HandoffPlan::Planned) return reject(draws->second.rejected);
       const auto reads = handoff_resolves.find(key);
       if (reads == handoff_resolves.end() || reads->second.colors != 1) return reject(HandoffPlan::Resolves);
@@ -8033,6 +8062,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       c.plans[0], c.plans[1], c.plans[2], c.plans[3], c.plans[4], c.plans[5], c.plans[6],
                       c.frames_excluded, c.handoffs, double(c.bytes) / (1024.0 * 1024.0), c.lease_misses, c.mismatches,
                       c.late_passes, c.most_images);
+          std::string guards;
+          for (size_t g = 0; g < 8; ++g) guards += fmt::format("{}{} {}", g ? ", " : "", kHandoffDrawGuards[g], c.draw_guards[g]);
+          std::vector<std::pair<uint64_t, std::tuple<uint8_t, uint64_t, uint64_t, uint32_t>>> top;
+          for (const auto& [k, n] : c.draw_blockers) top.push_back({n, k});
+          std::sort(top.rbegin(), top.rend());
+          std::string blockers;
+          for (size_t i = 0; i < std::min<size_t>(top.size(), 6); ++i) {
+            const auto& [g, ps, vs, prim] = top[i].second;
+            blockers += fmt::format(" | {} ps {:016x} vs {:016x} prim {}: {}", kHandoffDrawGuards[g], ps, vs, prim,
+                                    top[i].first);
+          }
+          REXLOG_INFO("[native] color handoff draw rejections by first unsupported draw: {};{}", guards,
+                      blockers.empty() ? " none" : blockers);
           color_handoff_counts = {};
         }
         REXLOG_INFO("[native] resource list cache {}: {} builds, {} incremental updates, {} unchanged reuses; "
