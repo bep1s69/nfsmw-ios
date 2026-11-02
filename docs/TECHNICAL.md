@@ -18989,3 +18989,194 @@ versioned-output design remains read-only next priority; any implementation or
 promotion needs concrete proposal and approval. No new IPA/source changes in
 this result-analysis turn. Update checkpoint/D-018/CHANGELOG test status, commit
 local docs; HANDOFF_CHATGPT.md preserved untracked, no push/release.
+
+
+## November 2, color-copy elimination design: compact scene image handoff proposed
+
+Stefan says “let’s do it” after next priority was stated as render-target
+copy-elimination DESIGN. Continued read-only investigation to form the concrete
+implementation proposal required by his approve-before-source-change rule.
+No renderer/header/test source edits, build, new IPA, default promotion or device
+request in this turn. Start at85b6902, status only pre-existing HANDOFF_CHATGPT.md;
+read AGENTS/checkpoint/backlog/latest evidence and git log15.
+
+### Selected first mechanism: render into the shape the normal resolve already uses
+
+Initial thought was finished-frame resolve20. Further code audit finds MAIN
+resolve10 a better first implementation: its normal destination already becomes
+a private/tiled single-size texture under existing nfsmw_native_tiled_crops.
+Current main source is2933x1320, while sampled resolve shape is2859x1320
+(guest1560x720 at scale1.833). Plan the eligible source's physical color/depth
+attachment width to that same sampled shape, preserve the native viewport and
+all shader inputs, then hand the completed COLOR IMAGE to the resolve instead
+of copying it. Target receives a different reusable image for its next clear.
+No per-fetch UV remap, altered game shader or final presentation crop needed.
+When source already has that exact destination shape (possible other settings/
+devices), no compaction needed, but versioned ownership still required.
+
+This is an architectural change, not a retry of dev31's unchanged full-size
+swap. Dev31 could not apply because source/destination shapes differed and had
+load restores. This design explicitly reconciles physical source shape with the
+EXISTING normal private resolve shape and requires an after-last-draw/clear
+boundary, avoiding a later load/restore of donated image. Only one source color
+resolve allowed in initial plan. Main/source scene candidate has1048draws,
+resolve9depth then10color at2487, color clearCD; no subsequent draw on source.
+One observed frame suggests candidate, not proof every runtime frame eligible:
+dump lacks all consumer descriptors and feature would be disabled during dump.
+Runtime planner must check ALL actual consumers, not assume one sampled size.
+
+Relevant source findings in current ios/src/native_renderer.mm:
+- Px461 rounds double(guest)*float(scale) with lround. Target sizing5067 uses
+  EDRAM pitch; normal resolve-layout logic5655ff independently fits sampled
+  one-size cropped image. Share that layout decision between planner/resolve,
+  rather than maintaining two drifting approximations.
+- SourceTarget.t.pitch/t.height are physical dimensions, distinct from raw
+  EDRAM layout key and sizes map. Keep raw guest pitches for keys/small-target
+  policy, change only approved physical allocation width. Recompute same plan
+  each frame so target-size cache doesn't alternate padded/compact allocations.
+- Normal translated viewport setup6480ff depends on guest viewport and t.scale,
+  not attachment width. Width/height-sensitive handwritten/pixel-space/mirror/
+  motion paths are specifically excluded. Scissor is whole target, so geometry
+  sample coverage must be proved before shrinking attachment, not inferred only
+  from final rectangle.
+- Normal do_resolve registers GPU heap slot, resolved_texture/swap/scale,
+  kept_resolves, final-image selection, resolve count and clear flags. Handoff
+  must preserve these operations and only remove allocation/copy of destination.
+  Keep existing source store action (image will be sampled). Depth conversion,
+  bloom, intermediate distortion copy and presenter all stay as before.
+- A subtle same-address generation: MAIN resolve10 and later POST resolve19 both
+  write09689000. Post resolve19 must retire the old main image only after FRAME
+  completion; earlier draws already encoded still reference it. Existing
+  resolved_views keys use physical texture identity and each resolve appends a
+  new heap slot, so old slot/view identity can be preserved without changing
+  shader binding semantics. Don't overwrite old heap entries in place.
+- Original GpuPool only owns resolve/buffer allocations. Target color is currently
+  standalone; adding an image to its raw pointer-key table does NOT itself retain
+  it. Adopt a donated target into pool ownership without duplicating existing
+  residency Add, keep strong resolve/retirement references, and lease replacement
+  using RT|ShaderRead descriptor. Set BOTH src.color and src.multisample_color
+  (1x) to replacement. Depth object unchanged except approved width allocation.
+- Existing target-size/sample-count replacement5074ff unconditionally removes
+  color residency. For pool-owned target colors, instead retire exactly once
+  after current frame fence; never Remove/free while pool or GPU still owns it.
+  Persist pooled-ownership bit across normal per-frame resets; clear only on
+  genuine ownership replacement. Pool must never return current target/kept/
+  retired-but-not-completed images for reuse. Old standalone color adopts once.
+  Target changes scale/sample count, frame snapshots and scene transitions must
+  exercise both cleanup paths. FrameDoneOnGpu is completion-prefix authority on
+  the single queue; don't reclaim merely when CPU encoding returns.
+
+### Proposed eligibility and fail-closed behavior
+
+Proposed flag `nfsmw_native_color_handoff=false`, restart-only, still NOT added.
+OFF bypasses planner/allocation/ownership changes. ON initial trial:
+1. Ordinary displayed frame, lazy diagnostics; no dump/GPU capture, temporal
+   MetalFX/motion-debug or cost probe/split experiment. Existing culling setting
+   stays separately controlled, default false unchanged.
+2. Color scene-sized target (guest pitch640+), RGBA8Unorm, one sample, no MRT.
+   Exactly one ordinary color resolve from this source, at last source draw's
+   boundary, clear-color set, top-left full sampled rectangle, exp_bias0, supported
+   destination format/endian, no array/cube assembly destination or CPU writeback.
+   Reject ambiguous source-layout fallback; don't infer final-only from ordinal.
+3. Run canonical existing resolve-layout decision on ORIGINAL dimensions and
+   all Frame::textures consumer descriptors. Require private/non-buffer/tiled
+   output, one physical size, rectangle fills that complete output, same format,
+   same source height (width-only compaction initially), dimensions<=8192. Don't
+   shrink to a convenient guessed width or treat a linear/buffer view as a crop
+   of a private texture. Every source depth/other read rect must still fit.
+4. Analyze ALL source draws: clipped triangle rasterization, full ordinary X/Y
+   viewport enables, finite scale/offset, sx>0/sy<0, no internal/pixel-space/
+   special mirror path, no query or MRT. No later source writes or mid-generation
+   color snapshot. All visible sample centers inside compact physical extent;
+   bound actual native float viewport calculations, not rough integer viewport.
+   For 1x sampling require left/top>=0 and right<width+0.5,bottom<height+0.5,
+   so sample centers beyond compact edge could not have been covered before.
+   Native XY clip/viewport and pixel grid stay identical for surviving area;
+   exclude uncertain edge/coordinate cases rather than silently cropping them.
+5. Before donating, revalidate actual descriptor/source/resolve layout and lease
+   compatible replacement. If replacement unavailable/budget exceeded, perform
+   normal copy, keep original target owner. A validated compact target still
+   produces same normal resolve in this fallback. Bound version leases (proposed
+   max4images/descriptor plus128MiB total lease budget; fallback when busy/too
+   large), report actual allocated bytes/high water. Those are proposed limits,
+   not measured memory gains. At high scales budget may intentionally retain
+   copy path. No fresh allocations every frame once compatible leases reusable.
+6. On success register finished old color as resolve with existing metadata,
+   retire any overwritten kept image through existing frame fence, rotate target
+   color to replacement, preserve resolves_done/clear logic. No restore blit:
+   source has no subsequent writes this frame and next frame starts cleared.
+   Don't place persistent replacement in FrameResources automatic retirement.
+
+Gather analysis using existing target-sizing traversal and per-target summaries
+where practical, avoiding new per-draw map lookups or geometry transforms. Do
+not spend more CPU on planning than the removed work warrants. Counters when ON:
+eligible/planned targets, handoffs, fallback reasons/allocation misses, explicit
+copies remaining, eliminated logical payload bytes, image leases/reuses/retirements
+and actual memory bounds. Counts define removed commands/payload, NOT physical
+DRAM traffic, power, saved shading or FPS. Preserve other pool/residency flags.
+
+### Why final output and post fusion are deferred
+
+Final resolve20 has no current-frame shader consumer known in snapshot, so its
+normal destination may be linear pitch1568, not sampled-size tiled1560. Source
+handoff there would require lazy future materialization/shape metadata or a more
+substantial target-layout redesign to preserve later game reads. Existing
+presenter clamps at physical texture edge, not crop edge, so direct padded source
+sampling also needs careful half-texel treatment. This trial leaves that whole
+path unchanged. Post resolve19 is needed by displacement sampling in PS36dac18d;
+no simple same-pixel framebuffer-fetch merge. No generic full-frame post rewrite.
+
+### Existing trace bounds: real transfer work, modest frame-time opportunity
+
+Reanalyzed existing dev41 A/B compact exports, same fully-contained3–10s elapsed
+windows/419frames per arm, no new recording/export. Command mapping follows
+source+snapshot structure; generic encoder ordinals are scoped to these traces.
+`python3 ios/build/perf-gpu-nov2/color-handoff-design/trace_copy_spans.py` exit0:
+
+| encoder | OFF mean span ms/frame | ON mean | OFF time without other app-stage overlap | ON equivalent |
+|---|---:|---:|---:|---:|
+| Blit20, main color copy |0.351176|0.353632|0.156883|0.156977|
+| Blit36, pre-distortion post copy |0.158886|0.159736|0.158886|0.159736|
+| Blit38, final picture copy |0.197219|0.202801|0.197219|0.202801|
+
+Main copy overlaps depth conversion. Removing its command is NOT a promise of
+0.35ms shorter frame; exclusive interval also isn't a predictive critical-path
+simulation. Real scheduling/cache/compression changes require device evidence.
+This is not a halving-of-GPU-time proposal; dominant main shading still remains.
+Payload for one eligible native main image2859*1320*4=15095520bytes,
+14.396210MiB/frame. Uncompressed read+write arithmetic at60 is1,811,462,400
+bytes/s; at1x or other devices scales with actual image area. Not measured DRAM,
+compression-adjusted bandwidth, energy or thermal saving. Do NOT reuse earlier
+28.792MiB TWO-copy figure for this first single-copy trial.
+
+### Offline design checks (not production tests or device validation)
+
+Ignored analysis folder `ios/build/perf-gpu-nov2/color-handoff-design/`:
+- check_model.py exit0: generation/lease/retirement design exercised30000frames,
+  randomized completion lag1–16,233resizes,25753handoffs,4247fallback copies,
+  20028same-address post overwrites,50259retirements/50204reuses. Invariants:
+  in-flight snapshot values unchanged, current/kept/in-flight images never free,
+  reclaimed only after completion. Model uses abstract values, not pixels;
+  does not implement/check production GpuPool or proposed memory-budget policy.
+- Float32 viewport/lround checks33combinations: guest1560x720/pitch1600,
+  960x720/pitch1024,1280x720/pitch1280 over11scales0.5–4 including1.833/2.867.
+  Supported-extent pixel-center bounds hold. Further3501scales/shape at0.001
+  increments,10503cases,0strict bound rejections. Models are illustrative;
+  actual draw values must pass runtime guards, including nonzero offsets etc.
+- model-result.json,rounding-census.json,trace-copy-spans.json and artifact-hashes.json
+  preserve results. No result proves rendered pixel equivalence or energy gain.
+
+Implementation validation required AFTER approval: production eligibility helper
+checks for exact format/layout/read/viewport/last-write constraints and OFF path;
+actual ARC Target/KeptResolve/GpuPool ownership harness with source donation,
+same-address overwrite, delayed completion, resize/MSAA/dump transitions,
+allocation/budget failure and no duplicate retirement/residency churn; build and
+verify all104shader hashes unchanged. Then one enabled device correctness run,
+cullingON retained as validated baseline; counters must demonstrate removed copy
+and bounded image reuse. No new baseline/cache clear/Instruments request now.
+Matched power/thermal comparison only after useful work removal is established.
+
+Decision/next: propose isolated default-OFF compact color-image handoff trial
+above, awaiting Stefan approval before renderer changes. No broad final-output,
+dependency or culling-default changes bundled. Documentation-only local commit,
+HANDOFF_CHATGPT.md preserved untracked; no push/release.

@@ -427,6 +427,33 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, color-copy elimination DESIGN complete; implementation awaits approval:**
+Prefer main-scene color image handoff before finished-frame copy: main's normal
+resolve already has one-size private/tiled layout. Proposed
+`nfsmw_native_color_handoff=false` restart-only trial plans eligible scene source
+physical width to that exact normal destination shape, then donates completed
+color image and leases replacement for next clear. Preserve viewport/pixel grid,
+shaders, depth copies, intermediate distortion copy and presenter. Strict full
+consumer/layout/viewport/read/last-write/MSAA/query/MRT/diagnostic guards;
+normal copy fallback, bounded leases. Source/kept/retired ownership and resize
+cleanup must change together; existing raw target residency Remove is insufficient
+for pool-owned colors. Same guest address09689000 is overwritten later by POST,
+so old main image must survive GPU completion even after kept entry replaced.
+
+Old dev31 never eligible due padded shapes; new plan resolves that mismatch.
+Candidate main copy trace span~0.351/0.354ms, only~0.157ms without overlap;
+no large FPS gain promised. One native image14.396MiB explicit copy payload,
+not previous TWO-copy28.792MiB estimate or physical bandwidth/energy. Final
+copy~0.20ms needs additional future-consumer/crop handling, deferred. Existing
+trace reused; abstract30000frame ownership model and10503rounding cases passed,
+not production/GPU tests. No renderer changes/new IPA or device request yet.
+Next: approval of concrete handoff proposal, then production host checks/build
+and one enabled correctness run with cullingON baseline preserved. Culling default
+staysFALSE; no promotion or dependency changes bundled. TECHNICAL “color-copy
+elimination design” has exact plan, bounds, pool constraints and model limits.
+HANDOFF_CHATGPT.md preserved untracked; documentation-only local commit/no push.
+
+
 **November 2, dev42 enabled device correctness PASSED:** Stefan says absolutely
 all visuals looked as before. Archived log
 `Debug/Most Wanted (2005) Debug/2 November 2026/dev42_iphone_guest_culling_on_nfsmw.log`
