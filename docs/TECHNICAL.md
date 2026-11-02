@@ -19267,3 +19267,34 @@ nfsmw.log. The log must show `color handoff on` lines with planned plans,
 nonzero copies not encoded, late passes 0 and bounded images; if plans land in
 draws/extent/layout instead, the reasons say which guard to examine. No
 Instruments/baseline/cache clear requested; no energy claim from this run.
+
+## November 3, dev43 color handoff ON: iPhone visuals unchanged, handoff partial
+
+Stefan ran dev43 (`NFSMW-0.6.0-dev43-color-handoff.ipa`, SHA256 9a4d2dc6…44a4)
+on the iPhone with the protocol args above (handoff ON, culling ON), native
+1.833/60 Balanced. He reports “everything was literally the same” visually.
+Log archived as `~/Developer/Debug/Most Wanted (2005) Debug/3 November 2026/dev43_iphone_color_handoff_on_nfsmw.log`
+(SHA256 9408a2244ce4986b8b26a9333185378a3663a2fb70e3a3adc0221f7e05839e47).
+
+Measured from the 20 `color handoff on` summaries (frames 1–6000):
+- Totals: plans planned/draws/viewports/target/resolves/layout/extent
+  2347/9681/0/838/1638/1871/0; 2347 main resolve copies not encoded,
+  33788.0 MiB logical payload (14.396 MiB each, as designed). Pool misses 0,
+  mismatches 0, passes after a handoff 0 in every window, at most 3 images of
+  the kind, frames excluded 0.
+- Driving (frames 1801–6000, 14 windows): planned main target in 1592 of 4200
+  frames (~38%). Windows 07:22–07:42 (frames 2401–3900) had 0 planned, all
+  scene targets rejected by `draws`; other windows 99–300 planned. So some
+  scenes contain a draw on the main target outside the supported conventions;
+  the census does not say which guard (primitive/VTE/sign/query/MRT/mirror/
+  internal). `layout` rejections are a second scene-sized target per frame
+  (not the main one) whose resolve is not a tiled full crop; expected.
+- Pacing summaries: driving windows 0–3 of 300 frames off grid; footprint
+  peak 1935 MiB. No crash/new error class noticed in a quick scan (not a full
+  log audit).
+
+Not shown: GPU time, energy, thermal or bandwidth change (no matched A/B or
+trace); pixel equivalence beyond Stefan's visual check. Default stays false.
+Next (proposal, needs approval): split the `draws` reject into per-guard
+counts with the first rejecting shader key, to see whether the blocking draw
+can be bounded safely, before any matched power/thermal comparison.

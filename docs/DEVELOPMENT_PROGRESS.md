@@ -427,6 +427,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, dev43 handoff ON device run: visuals unchanged (Stefan), partial coverage:**
+2347 main copies not encoded (14.396 MiB logical each), 0 pool misses,
+0 mismatches, 0 late passes, at most 3 images. While driving the main target
+was planned in ~38% of frames; the rest were rejected by an unsupported draw
+(`draws` guard, reason not split). Log archived under Debug/3 November 2026.
+No energy/GPU-time claim; default false. Next: propose per-guard `draws`
+census (with first rejecting shader) before any power comparison. TECHNICAL
+“dev43 color handoff ON”.
+
 **November 2, dev43 color handoff BUILT (default off); one enabled device run pending:**
 Stefan approved the isolated trial only. `nfsmw_native_color_handoff=false`
 (restart-only) plans the main scene target's physical width to its normal tiled
