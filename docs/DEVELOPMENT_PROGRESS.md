@@ -377,7 +377,35 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — October 22, 2026
+## Current checkpoint — November 2, 2026
+
+**November 2 (Claude), handoff to Codex: 0.6.0 performance work, branch
+`dev-0.5`, local commits only (nothing pushed).** Latest IPA
+`ios/build/NFSMW-0.6.0-dev35-lighter-native.ipa` (on Desktop with 0.5.2).
+Version is 0.6.0. Read BACKLOG "Performance goal for 0.6.0" (status end of
+November 2) and D-017, and the TECHNICAL sections dated November 2 from
+"baseline Power Profiler traces" to the end, before doing anything: they
+hold every measurement and negative result of the day (do not repeat them).
+State: Extra Options, keyboard, mouse look, swipe look and Showcase touch are
+done and device-confirmed. Performance: dev35 saves ~1 ms of the native GPU
+frame (tiled cropped resolves, small targets at 1x); the iPhone's native
+stutter (D-017) is not fixed and its cause is unknown.
+Stefan asked (November 2): **investigate everything yourself first, with
+fresh eyes; you may have different and new ideas.** Then propose before
+changing code. Open choice put to Stefan: (1) foliage overdraw in the main
+scene (largest GPU item, helps iPad 120), or (2) move to the other 0.6.0
+goals (low-RAM support, D-016 My Cars taps, free camera, Extra Options menu
+patches, in-game menu mirroring the launcher); Claude leaned to (2). Also
+confirm with Stefan whether `nfsmw_native_small_targets_1x` stays default
+(working rule: default look must not change).
+Build: `python3 tools/ios/patch_game_extra_options.py`, then
+`cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+(SDK `~/Developer/GitHub/nfsmw-multiplayer-sdk`). Name IPAs
+`NFSMW-0.6.0-devNN-<topic>.ipa`, keep only the newest dev build and the
+latest release on the Desktop. Logs go to Debug/<date>/; Stefan records
+Instruments traces himself.
+
+## Earlier checkpoint — October 22, 2026
 
 - **November 1: 0.5.2 (build 10) released (Stefan's go).** Stefan validated
   test12 Blacklist scrolling in safehouse and free roam, and declares the whole
