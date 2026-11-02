@@ -24,6 +24,13 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan, latest): thermal and battery improvements are the main
+  acceptance criterion; base performance is already good across devices. Seek
+  concrete recurring-work reductions that scale across resolution settings and
+  devices. GPU milliseconds/logical bytes are leads, not proof of lower energy.
+  Keep largest-first priority and propose before source changes.
+
+
 - November 2 (Stefan, latest optimization priority): tackle measured costs from
   largest to smallest. Prioritize dominant GPU work before small overlay/CPU
   opportunities. The sparse-overlay proposal is deferred, not approved.
@@ -412,6 +419,46 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, energy-first broad-device scene audit (read-only):** Stefan
+prioritizes thermal/battery benefit across resolutions/devices over more base
+fps. Recovered8additional shader sources from local ISO into ignored
+`ios/build/perf-gpu-nov2/main-scene-audit/`, applying only existing baseline
+rewrites. No live shaders/build/code/default changes. Shader-body counts narrow
+older rough fetch estimates; no new safe large shader rewrite proven. Dry-rain
+specialization is not substantiated: old af393d c2/RainIntensity samples all
+nonzero(0.8 or0.0482), so no claim those2rain samples are generally removable.
+
+Broad lead: native renderer records guest window scissors but hardcodes full
+render-target scissor (`if(true)` since Oct11). Dormant else path unscaled,
+no window-offset/screen-scissor handling and forces minimum1pixel, so enabling
+it directly is wrong. Potential excess scene raster work is UNQUANTIFIED;
+no change approved. Current iPhone already single-strip, so do not promise
+3xwork reduction. Sky-last, occlusion and compression eligibility already on;
+individual false defaults can be overridden by battery group, check logs.
+
+Current trace labels alone don't map Render18 to current shader/material mix.
+Next smallest missing input: SAME dev41, add
+`--nfsmw_native_dump_manual=true --nfsmw_native_foliage_early_alpha=false`,
+keep other settings/diagnostic overrides unchanged, cold launch, tap SNAP once
+while actually driving in a representative scene. No Instruments/new IPA.
+Snapshot may pause while saving. Send nfsmw.log plus game's Documents/native
+folder; this is material/target inventory, NOT performance/energy comparison.
+Remove dump_manual afterward; that launch mode disables texture-slot pruning
+even on ordinary frames.
+Existing dump doesn't log full effective scissor state, so it will NOT by
+itself quantify clipping savings; further bounded census only if justified and
+approved. Snapshot path disables some optimization paths for diagnostics;
+compare target/shader identities, not its timing/order directly to normal frames.
+
+Next after inventory: rank main-scene work against source, verify exact image/
+depth/blend constraints, then propose specific change. No new baseline/power
+run requested until meaningful candidate exists. Energy acceptance needs actual
+matched frame-cap/brightness/thermal conditions, beyond static work counts.
+D-017 parked, overlay deferred, alpha default OFF. TECHNICAL “energy-first scene
+audit” has commands/artifacts/negative findings. Local docs commit only;
+HANDOFF_CHATGPT.md remains pre-existing untracked, no push/release.
+
 
 **November 2, Stefan redirects priority: largest costs FIRST.** Overlay proposal
 is deferred/unapproved. Next target is dominant RenderCommand18 fragment work,

@@ -18256,3 +18256,145 @@ IPA, device tests or Instruments traces changed. This is priority/handoff
 record, not a claim an optimization has been found. Existing files updated,
 local docs commit only, no push/release. Pre-existing untracked HANDOFF_CHATGPT.md
 preserved.
+
+### November 2: energy-first scene audit; clipping lead, shader recovery and missing material attribution
+
+Stefan: base performance already great on wide range of devices; highest
+priority concrete thermal/battery gains scaling across resolutions/devices.
+Continue largest-first investigation; this approves investigation, not an
+unspecified source change. Lower GPU time/logical work alone isn't proof of
+lower whole-device power/temperature. No new code/default/quality change made.
+
+Read/rechecked AGENTS, checkpoint/latest evidence/backlog and git status/log.
+Overlay remains deferred, early-alpha defaultfalse, compact/resource true.
+
+Read-only source recovery:
+Existing local ISO `~/Downloads/Need for Speed - Most Wanted (USA).iso` contains
+ZZDATA0(381569024bytes). Ignored analysis helper
+`ios/build/perf-gpu-nov2/main-scene-audit/recover.py` imports existing
+nfsmw_shader_containers.py, byte-finds aligned0x102A0E candidates with same
+header bounds checks, converts/hashes matching pixel microcode.205valid
+candidates,17matching containers for8unique keys (duplicate microcode/container
+occurrences follow original extractor's last-occurrence overwrite behavior).
+Existing already-built host xenosrecomp emits baseline hlsl, existing
+rewrite_shadow_filter.py and rewrite_shadow_caster_alpha.py applied. All
+commands/assertions exit0; NO Metal library compile, live-cache replacement or
+new IPA. Private generated sources/containers/index remain ignored. Exact offsets
+and container/source hashes in source-index.json (includes duplicate occurrences);
+final unique file hashes/sizes in final-source-hashes.json. No source contents
+copied into tracked docs.
+
+Eight keys: af393d4c46af230c,d8bb87fee2d8ec76,d1f317fad0f46ac6,
+705e150f5ef6e09b,914048260028ca21,2d8bf2c63ddd2608,fe510d2d256c173b,
+4fbaecfb8e7c4f40. Earlier recovered tree27d82ea0 and cutout684f remain in parent.
+Only actual shaderBody considered, not shared helper definitions:
+
+| Key prefix | Direct2D fetch calls | Shadow9 calls | Other texture calls |
+|---|---:|---:|---|
+| af393d |6|1|none|
+| d8bb87 |4|1|includes conditional parallax2D among4|
+| d1f317 |1|1|1cube|
+| 705e15 |2|1|none|
+| 914048 |3|1|volume path also3D|
+| 2d8bf2 |2|0|none|
+| fe510d |5|0|sky, ordering already optimized|
+| 4fbaec |1|0|caster fetch/discard already specialization gated|
+
+Shadow9 default uses4gathers, nine-sample fallback retained. Source call counts
+are NOT machine instruction counts, executed calls under every state, fragment
+coverage or cost attribution. Earlier October24 rough totals for shaders with
+“two shadow blocks” are not supported as two actual Shadow9 sites in these
+regenerated bodies (one each); old rough/helper-inclusive counts must not be
+used to promise doubled savings. Current source is the evidence for next audit.
+No texture/quality reduction proposed from these counts.
+
+Rejected/narrowed shader lead:
+Road shader af393d makes2MISCMAP2 samples that feed RainIntensity-dependent
+perturbation/reflection arithmetic. At exact+0RainIntensity and suitably finite
+nonnegative texture values their contribution might be removable with full
+math/derivative proof. This is NOT a validated general optimization. Existing
+`Debug/14 October 2026/5th_test/nfsmw.log` has8group-constant af393d samples:
+RainIntensity.x(c2.x)0.8(six) or0.0482(two), all NONZERO. Current trace doesn't
+record these per-draw values. Do not assume dry-rain eligibility or advertise
+2saved samples for current normal gameplay. SurfaceReflection c1.x in these
+samples0.914/0.994/1 also nonzero. Candidate kept as conditional source finding,
+not selected for implementation. af393d's alpha is literal1, but generic alpha1
+blend simplification would need actual current blend states and compiler
+behavior; no current coverage or gain established, not proposed as proven.
+
+Broader raster lead found in ordinary scene path:
+- native_renderer.mm3096ff stores guest window-scissor coordinates in Draw.
+  mm6526ff ALWAYS sets `{0,0,t.pitch,t.height}` under literal `if(true)`.
+  Thus the guest rectangle isn't applied to ordinary Metal scene draws.
+- git blame/log-S places this override in initial native renderer commit
+  d839985(Oct11); no rationale or test result about it found in targeted current
+  TECHNICAL/BACKLOG/HANDOFF search. Absence of a note isn't evidence it is safe
+  to change or that a large fraction of actual fragments are unnecessary.
+- Dormant else branch uses unscaled guest coordinates, ignores scissor offset
+  disable bit/screen-scissor intersection and forces at least1pixel on empties.
+  It is NOT a correct native-scale implementation. Read primary local SDK
+  graphics/util/draw.cpp GetScissor539ff: apply signed window offset when TL
+  allows it, intersect screen scissor, optional pitch clamp, nonnegative empty
+  rectangles; D3D12 then scales coordinates. Native viewport/mirror/pixel-space
+  exceptions and target scaling also require careful treatment.
+- Viewport placement is not itself proof scissor redundant. Conversely a
+  full-screen guest scissor might leave almost no eligible savings, and padded
+  target area alone doesn't establish how many fragments shade it. Need current
+  draw states/coverage before ranking potential against dominant6.3ms.
+- Investigated possible duplicate strip rendering: current iPhone log explicitly
+  wide-scene modes2–5 ONE1560x720 strip, render-probe mode2surface1600x736 and
+  scene rect1560x720. Single-pass game hook already active, so no3xdraw/cost
+  promise. Legacy SDK nfsmw_una_pasada register hack defaultsfalse; game hook
+  is the implemented mode conversion. Sky-last/stencil optimization already
+  present; hardware sun occlusion defaulttrue, not an unused mesh-culling feature.
+- Individual compressible_resolves source defaultfalse is overridden by accepted
+  battery group; existing log/group history confirms enabled compression-eligible
+  usage. Do not present that existing change as a new broad bandwidth win.
+
+Other existing-data checks:
+Exported ONLY gpu-counter-info for run1 from usable A/B with xctrace (outside
+sandbox, exit0),88metadata rows in dev41-metal-ab-analysis/gpu-counter-info.xml.
+Definitions are not measured counter values or a bandwidth bottleneck proof.
+No huge raw counter export repeated. Instruments UI read-only AX/screenshots
+show working trace; inspected GPU counters view, then restored original All
+Tracks filter. No recording settings changed, no device operation. Attempted
+plistlib inspection of internal tables.plist fails InvalidFileException (not
+standard readable plist); no row-count inference from it. One guessed Vulkan
+source filename absent; actual primary GetScissor located in util/draw.cpp.
+No external API fix or hardware causation claim made.
+
+Why next input is a material inventory, not another timing A/B:
+Usable trace has generic encoder ordinals; current Render18 dominance is known,
+but actual shader/material/draw-state contribution inside it is not. Old probe
+omits all draws with one shader across whole frame and includes geometry/raster/
+overdraw, different date/device/scene; cannot use it as current per-shader timing.
+Source recovery alone can't identify current draw frequency/material constants.
+Manual snapshot already implemented in SAME dev41, so no new source permission
+or diagnostic build needed to collect this missing inventory.
+
+Proposed next user test: cold launch same dev41 with additional/replaced args
+`--nfsmw_native_dump_manual=true --nfsmw_native_foliage_early_alpha=false`, keep
+other settings/diagnostics as existing baseline. Tap visible SNAP ONCE while
+actually driving in a representative scene. No Instruments/new IPA/cache clear.
+Send nfsmw.log and game's Documents/native folder. Source confirms SNAP UI via
+touch_controls.mm566/983/1660 and NativeRequestDump, NativeSwap8684 consumes one
+request; dumps save target/texture PNGs and group/shader/constant diagnostics.
+Snapshot may pause during readback/image saving. This is material/target
+inventory, NOT performance comparison. Dumps disable sky-last/resource-list reuse
+for diagnostic completeness; dump_manual launch mode also disables texture-slot
+pruning on ordinary frames. Remove dump_manual after this capture. Don't compare
+snapshot draw order,
+encoding/GPU time to normal frames. Existing dump DOES NOT include complete
+effective scissor registers, so this input alone will NOT quantify clipping
+savings. If scissor census still necessary, propose a bounded diagnostic change
+for approval rather than silently modifying draw behavior.
+
+After inventory: rank substantial current scene-work removal candidates, prove
+safe source/depth/blend/format constraints, propose specific implementation.
+Only then appropriate short correctness check and actual energy comparison at
+fixed cap/brightness/comparable starting thermals; cross-resolution/device
+verification where meaningful. Existing baselines reused when valid; no new
+baseline/power run requested now. No battery/thermal improvement claimed from
+this research. D-017 parked, overlay deferred, no code/default/test-build change.
+All essential findings recorded here/checkpoint/backlog; local documentation
+commit only, no push/release. HANDOFF_CHATGPT.md preserved pre-existing untracked.
