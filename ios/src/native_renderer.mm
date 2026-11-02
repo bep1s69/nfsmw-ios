@@ -79,6 +79,7 @@
 #include "native_arena_ranges.h"
 #include "native_texture_masks.h"
 #include "native_draw_arena.h"
+#include "native_gpu_timeline.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
 extern std::atomic<bool> rex_native_draws_only;
@@ -150,6 +151,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_pass_counters, true, "GPU",
                     "Diagnostic: sample GPU pass/blit timestamp counters; off retains command-buffer timing "
                     "and screen-gap reporting (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_timeline, false, "GPU",
+                    "Diagnostic: bounded CPU-side submission/GPU/callback/presentation history around driving "
+                    "hitches, with pending residency counts (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -906,6 +910,11 @@ void Remove(id<MTLAllocation> a) {
   removes.push_back(a);
 }
 
+std::pair<size_t, size_t> PendingCounts() {
+  std::lock_guard<std::mutex> lock(mutex);
+  return {adds.size(), removes.size()};
+}
+
 // The renderer's queue, before encoding a frame.
 void Apply(id<MTLDevice> device, id<MTLCommandQueue> queue) {
   static id<MTLResidencySet> set = nil;
@@ -1256,6 +1265,48 @@ struct FrameTrace {
 };
 FrameTrace frame_trace;
 void TraceFrame(uint32_t number, int stage, double t);  // average GPU time per frame (paced presentation)
+using GpuTimeline = nfsmw::NativeGpuTimeline;
+GpuTimeline gpu_timeline;
+bool GpuTimelineEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_gpu_timeline);
+  return enabled;
+}
+void TimelineTime(uint32_t frame, GpuTimeline::Stage stage, double time) {
+  if (!GpuTimelineEnabled()) return;
+  gpu_timeline.Update(frame, [&](auto& s) { s.time[stage] = time; });
+}
+void ReportGpuTimeline(uint32_t frontier) {
+  auto report = gpu_timeline.TakeReport(frontier);
+  if (!report) return;
+  // Formatting happens away from encoding/completion handlers and outside the
+  // history lock. At most twelve eight-frame reports per process.
+  const auto snapshot = *report;
+  static dispatch_queue_t queue = dispatch_queue_create("nfsmw.timeline-log",
+      dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
+  dispatch_async(queue, ^{
+    double origin = 0;
+    for (const auto& s : snapshot.samples) {
+      if (s.time[GpuTimeline::Swap] > 0) { origin = s.time[GpuTimeline::Swap]; break; }
+    }
+    REXLOG_INFO("[gpu-timeline] trigger {} emitted from encode {} origin {:.6f} s; "
+                "offsets ms: swap/encode/commit-in/commit-out/scheduled-callback/gpu-start/gpu-end/"
+                "complete-callback/released/shown; '-' missing; host callbacks are not GPU schedule times; "
+                "GPU span is final command buffer only", snapshot.trigger, frontier, origin);
+    for (const auto& s : snapshot.samples) {
+      if (!s.frame) continue;
+      std::string times;
+      for (double t : s.time) {
+        if (!times.empty()) times += '/';
+        times += t > 0 ? fmt::format("{:.3f}", (t - origin) * 1000) : "-";
+      }
+      REXLOG_INFO("[gpu-timeline] frame {}{} {} | pending at entry +{} -{}, commit +{} -{}; "
+                  "new pool {} vertex {} uploads {}; early {}; outstanding {}",
+                  s.frame, s.driving ? " driving" : "", times, s.entry_add, s.entry_remove,
+                  s.commit_add, s.commit_remove, s.pool_new, s.vertex_new, s.uploads,
+                  s.early_commits, s.outstanding);
+    }
+  });
+}
 // For the hitch log (the renderer's queue only): this frame's texture uploads.
 uint32_t frame_uploads = 0, frame_new_buffers = 0;
 uint64_t frame_upload_bytes = 0, frame_upload_us = 0;
@@ -4411,6 +4462,27 @@ bool NativeRenderUtility() {
 }
 
 void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
+  const bool timeline = !dump && GpuTimelineEnabled();
+  if (timeline) {
+    const double now = CACurrentMediaTime();
+    static const bool announced = [] {
+      REXLOG_INFO("[gpu-timeline] enabled: 128-frame history, at most 12 eight-frame reports; "
+                  "driving triggers GPU >45 ms, completion/commit >20 ms, swap/encode >30 ms; "
+                  "formatting on a separate Utility queue, no residency/submission policy change");
+      return true;
+    }();
+    (void)announced;
+    const auto pending = residency::PendingCounts();
+    gpu_timeline.Update(number, [&](auto& s) {
+      s.time[GpuTimeline::Encode] = now;
+      s.driving = nfsmw::battery::InMenu() == 0;
+      s.entry_add = pending.first;
+      s.entry_remove = pending.second;
+      s.outstanding = in_flight.load();
+    });
+    ReportGpuTimeline(number);
+  }
+  const uint32_t timeline_pool_before = timeline ? gpu_pool.made : 0;
   // RenderFrame is called on the renderer's serial dispatch queue. Accumulate
   // the game-thread capture diagnostics here so the hot draw path stays local.
   static VertexDiagnostics vertex_diagnostics;
@@ -7254,6 +7326,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         __block double frame_target = 0;  // set below when legacy pacing is used
         const double system_target = display_frame.managed ? display_frame.presentation_time : 0;
         [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
+          if (timeline) TimelineTime(number, GpuTimeline::Shown, shown.presentedTime);
           if (system_target > 0) nfsmw::metal_pacer::Presented(system_target, shown.presentedTime);
           static std::atomic<double> last_shown{0};
           static std::atomic<int> gap_lines{200};
@@ -7371,6 +7444,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const size_t probe_frame_draws = frame->draws.size();
       const size_t drawn_count = drawn;
       [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
+        if (timeline) {
+          const double arrived = CACurrentMediaTime();
+          gpu_timeline.Update(number, [&](auto& s) {
+            s.time[GpuTimeline::CompleteCallback] = arrived;
+            s.time[GpuTimeline::GpuStart] = done.GPUStartTime;
+            s.time[GpuTimeline::GpuEnd] = done.GPUEndTime;
+          });
+        }
         (void)in_use;
         TraceFrame(number, 2, done.GPUEndTime);
         if (done.error) {
@@ -7468,6 +7549,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         FrameDoneOnGpu(number);
         FrameLeft();
+        if (timeline) TimelineTime(number, GpuTimeline::Released, CACurrentMediaTime());
       }];
     }
     if (visibility && !visibility_slots.empty()) {
@@ -7491,7 +7573,23 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
       }];
     }
+    if (timeline) {
+      const auto pending = residency::PendingCounts();
+      gpu_timeline.Update(number, [&](auto& s) {
+        s.commit_add = pending.first;
+        s.commit_remove = pending.second;
+        s.pool_new = gpu_pool.made - timeline_pool_before;
+        s.vertex_new = frame_new_buffers;
+        s.uploads = frame_uploads;
+        s.early_commits = early_commits;
+      });
+      [cb addScheduledHandler:^(id<MTLCommandBuffer>) {
+        TimelineTime(number, GpuTimeline::ScheduledCallback, CACurrentMediaTime());
+      }];
+      TimelineTime(number, GpuTimeline::CommitIn, CACurrentMediaTime());
+    }
     [cb commit];
+    if (timeline) TimelineTime(number, GpuTimeline::CommitOut, CACurrentMediaTime());
     capture.Finish();
     {
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - render_start).count();
@@ -8429,6 +8527,7 @@ bool NativeSwap() {
     } else {
       ++in_flight;
       const uint32_t number = ++dump_number;
+      if (GpuTimelineEnabled()) TimelineTime(number, GpuTimeline::Swap, CACurrentMediaTime());
       TraceFrame(number, 0, CACurrentMediaTime());
       const bool dump = recording_dumps;
       static dispatch_queue_t queue = dispatch_queue_create("nfsmw.native", DISPATCH_QUEUE_SERIAL);

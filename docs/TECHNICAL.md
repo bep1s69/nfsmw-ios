@@ -16623,3 +16623,112 @@ Commands: inline Python session/window/regex analyses and source reads exit 0;
 no new build, recording or device test was run during this analysis.
 Raw logs remain outside tracked files. Documentation-only local commit;
 pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev37 bounded GPU timeline; approved diagnostic ready
+
+Stefan approved the submission/GPU/callback/presentation timeline proposal.
+New restart-only Extra Arg `--nfsmw_native_gpu_timeline=true`, default false.
+No new GPU commands/counter samples, quality changes or scheduling/residency
+policy changes. Existing Apply/requestResidency, command-buffer commits,
+FrameLeft/visibility callback ordering and NativeSwap wait are unchanged.
+A scheduled callback, small history locks/timestamps, two pending-residency
+count snapshots and a bounded asynchronous logging queue are added only when
+enabled; these have diagnostic overhead and could perturb timing. They are
+not asserted to be free or equivalent to an uninstrumented power measurement.
+
+Implementation:
+- `ios/src/native_gpu_timeline.h`: mutex-protected 128-frame ring. Updates can
+  arrive out of order; an old callback cannot overwrite a newer frame sharing
+  its slot. Missing timestamps stay zero and print `-`; overwritten/missing
+  whole samples are omitted. At most 12 reports per process, coalesced to at
+  least eight frame numbers apart, each containing four preceding frames,
+  the trigger and three following frames. Snapshot is taken from encode entry
+  once four more frames have reached encoding; very late callback/presentation
+  data may still be missing. No guarantee of a report if quitting before the
+  four following encodes or if the budget was exhausted.
+- Driving-only triggers, evaluated once frame release is recorded: final
+  command-buffer GPU span >45 ms, GPU end→completion arrival >20 ms,
+  commit call >20 ms, swap→encode >30 ms, or encode→commit >30 ms. No trigger
+  solely for sustained 18–20 ms GPU work. Default-off leaves these probes
+  inactive (the small static history storage still exists).
+- `native_renderer.mm`: records swap enqueue, encode entry, final commit
+  before/after, scheduled-handler host arrival, final GPUStartTime/GPUEndTime,
+  completion-handler host arrival, time immediately AFTER FrameLeft, and
+  drawable presentedTime. It does not move release/query handlers or wait for
+  logging. Formatting/output uses separate serial Utility queue after copying
+  a report outside the ring lock, max 12 x (header + 8 rows) plus enable line.
+- Counts: pending residency ADD/REMOVE vector entries at encode entry and
+  before final commit; new pooled objects during encoding, newly uploaded
+  persistent vertex buffers, texture uploads, early-commit count and
+  in-flight count at encode entry. These are not total allocation bytes or
+  unique resource counts; pending lists can include other-thread additions.
+  Entry snapshot is before pool reclaim/Apply, not a transactional snapshot
+  of exactly what Apply consumes. Counts do not prove GPU residency or faults.
+
+Log decoding: `[gpu-timeline] trigger N emitted from encode M origin X s`
+followed by up to eight rows. Each row's ten slash-separated offsets in ms
+relative to the SAME origin are:
+`swap/encode/commit-in/commit-out/scheduled-callback/gpu-start/gpu-end/complete-callback/released/shown`.
+Origin/times use the existing CACurrentMediaTime/Metal host-time domain.
+Scheduled callback arrival is NOT the exact GPU schedule time; compare with
+GPUStartTime separately, allowing callback delivery after GPU work starts.
+GPU span is FINAL command buffer only; keep early commit false for this test.
+`released` is after FrameLeft, not after the later visibility handler.
+Compare preceding frame GPU end/release with current commit/GPU start to
+account for queue backlog. Negative callback/presentation ordering differences
+can be legitimate; absent data is unknown, not a zero-duration event.
+
+Host verification:
+- `python3 tools/native/test_gpu_timeline.py`: exit 0, PASS under ASan/UBSan.
+  Tests actual history class: menu/normal/missing-event suppression, completion
+  before commit returns, late presentation, preceding/following history,
+  adjacent-trigger coalescing and 12-report budget, ring wrap/late callbacks,
+  concurrent independent events retaining both fields. This checks bookkeeping,
+  not actual Metal callback ordering/performance or device stutter.
+- `python3 tools/ios/patch_game_extra_options.py`: exit 0, already patched,
+  zero generated files written. `git diff --check`: exit 0.
+- `/usr/bin/time -p cmake --build
+  /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`: exit 0,
+  real 18.91 s, user 22.97, sys 1.89 (incremental, not full clean-build timing).
+  New header triggers CMake GLOB reconfigure; also rebuilds version-stamped
+  debug overlay, relinks runtime/GPU libraries, regenerates edition hook
+  outputs and rebuilds five related app objects. No SDK source edits. Build
+  log `ios/build/dev37-gpu-timeline-build.log` (ignored). Eleven warning lines:
+  five existing fpscr asm-width diagnostics, four external-screen deprecations,
+  two duplicate-library link warnings; no errors.
+- ZIP integrity and `codesign --verify --deep --strict` on packaged
+  ipa/Payload/NFSMW.app exit 0; `xcrun dwarfdump --uuid` exit 0.
+- ZIP comparison to dev36: 104/104 metallibs unchanged, no removed entries.
+  Changed entries only NFSMW, librexruntime.dylib and app CodeResources.
+  Runtime reconfigure changes build stamp from
+  `rexglue-v0.10.0-dev.g59a4a46-ios-arm64-Release@20261102_0139` to
+  `rexglue-v0.10.0-dev.gbcf76be-ios-arm64-Release@20261102_1640`.
+  Python Mach-O section comparison: ONLY __TEXT,__cstring differs; all
+  5815352 bytes of __TEXT,__text byte-identical, all other file-backed sections
+  unchanged. Runtime UUID now 7262021A-1722-31EA-BE08-003B082804FE;
+  GPU dylib byte-identical to dev36. This is build metadata churn, not an SDK
+  rendering/runtime implementation change. No manual IPA library substitution.
+  Info.plist still 0.6.0 (11); new timeline switch string present in NFSMW.
+
+Artifact `ios/build/NFSMW-0.6.0-dev37-gpu-timeline.ipa`, 30553218 bytes,
+SHA-256 `ac02e244de0e1114ca21a161f435576e40352694c2a1e0555321985c957e695c`,
+app arm64 UUID `63DE89DC-4E3E-3DCA-9DDD-EEE825F0EE2D`.
+Hash-verified Desktop copy ready. Old Desktop dev36 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.0-dev36-pass-counters.ipa` after confirming it
+matches retained repo archive. Released 0.5.2 Desktop copy preserved.
+
+Next DEVICE test (Stefan; PENDING): force-quit LiveContainer; dev37, native
+1.833x / 60, Balanced, same race, no Instruments. Extra Args:
+`--nfsmw_native_gpu_timeline=true`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`. One ~45-second drive from race start,
+then export the complete log and perceived stutter report. Enable line and
+counter/early-commit states must be checked. If no stall/report, record that
+as inconclusive; do not infer a fix. No need for another counter A/B.
+Goal: locate pre-submit/queue/GPU/callback/presentation delays and pending
+resource work near real stalls before choosing a behavior change. Even a
+long in-GPU span cannot itself separate clocks, GPU scheduling and mappings.
+No new device test or Instruments recording performed during implementation;
+D-017 remains open, battery/native-120 acceptance not established. No release
+changelog entry for default-off diagnostic. Local commit only, no push/release;
+pre-existing untracked HANDOFF_CHATGPT.md preserved.

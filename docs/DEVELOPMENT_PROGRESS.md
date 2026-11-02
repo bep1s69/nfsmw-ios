@@ -379,6 +379,29 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev37 GPU timeline READY, awaiting device test:** Stefan approved
+bounded timeline instrumentation. New restart-only
+`nfsmw_native_gpu_timeline` default false; enable captures 128-frame history
+and up to 12 eight-frame reports around driving delays. Includes submission,
+GPU, callback/release and presentation timestamps plus pending residency,
+new pool/vertex/upload counts. No GPU commands, QoS, quality, residency or
+submission-policy changes. Host ASan/UBSan ordering/concurrency/history tests
+pass; incremental -j 12 build 18.91 s, ZIP/signature valid, all 104 metallibs
+unchanged. Runtime rebuilt for build-stamp metadata only (__text identical).
+Latest IPA `ios/build/NFSMW-0.6.0-dev37-gpu-timeline.ipa`, also on Desktop;
+dev36 archived in repo, Desktop old copy to Trash; release 0.5.2 preserved.
+
+Next (Stefan): force-quit LiveContainer; native/60 Balanced, no Instruments,
+Extra Args `--nfsmw_native_gpu_timeline=true`,
+`--nfsmw_native_pass_counters=false`, `--nfsmw_native_early_commit=false`.
+One ~45 s same-race drive from start; export complete log and note stutter.
+This is diagnostic, not a fix or battery acceptance. If no hitch/report,
+record inconclusive rather than success. Details, log schema, trigger limits,
+commands, build identity in TECHNICAL “dev37 bounded GPU timeline”. No source
+behavior change beyond optional telemetry; wait for evidence before a fix.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved; local only, no push/release.
+
+
 **November 2, dev36 device comparison COMPLETE; D-017 still open:**
 Archived four-session log `Debug/2 November 2026/dev36_iphone_pass_counters_abba_nfsmw.log`
 (full root ~/Developer/Debug/Most Wanted (2005) Debug/). Counter OFF/ON/ON/OFF
