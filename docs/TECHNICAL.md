@@ -19374,3 +19374,10 @@ Not shown: energy, thermal, GPU time or bandwidth change; sun-glare and
 picture equivalence only by Stefan's visual check. Default stays false.
 Next (needs approval): one matched OFF/ON power/thermal or Instruments
 comparison (Stefan records), only if he wants to promote the default.
+
+Sun-glare follow-up (November 3): Stefan cannot judge the sun from the short
+run. Log comparison instead: active sun query 05D81600 in dev43 (query draws
+not handed off) and dev45 (handed off) both answer 0–72 per window (largest 72
+everywhere), similar shares of 0 answers when occluded, no out-of-range value.
+Routes differ, so not frame-equivalence; a longer drive should still watch for
+glare popping/flicker near buildings.
