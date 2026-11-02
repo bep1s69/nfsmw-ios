@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan): next 0.6.0 work is performance, battery and low-RAM
+  devices, before the remaining items (My Cars taps D-016, free camera,
+  Extra Options menu patches). He tests on device and records traces himself.
+
 - November 2 (Stefan): free look defaults to inverted vertical (mouse and
   swipe). He tests in LiveContainer, so Info.plist keys of the IPA (pointer
   lock's UIApplicationSupportsIndirectInputEvents) do not apply there.
