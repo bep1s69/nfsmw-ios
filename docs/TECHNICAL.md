@@ -16305,3 +16305,12 @@ reflection pass (1376x1032) and 240/160/80 chain stayed at native scale.
 dev35: the scene is the frame's widest colour target 640+ wide, and targets
 at most half its width go to 1x (iPhone: 800, 400, 240, 80 beside 1600; iPad:
 480, 240, 160, 80 beside 960).
+
+dev35 (`dev35_ipad_nfsmw.log`, `dev35_iphone_nfsmw.log`; Stefan: everything
+looks identical, the iPhone still stuttered). Small targets now at 1x on
+both (iPad 480x360 reflection, 240/160/80 chain; iPhone 800x360, 400/240/80).
+iPad: 0 stalls, sampled GPU 8.0-16.1 ms. iPhone (last session): 53 stalls;
+sampled 6.5-16.2 ms; in a fast-state frame resolve copies 0.56 ms and the
+scene depth copy 0.20 ms (dev33 fast-state frames: ~0.9-1.0 and ~0.45-0.7),
+reflection pass 0.21, chain ~0.14. Measured: the copies and small passes cost
+about half; the stalls remain, as expected for a slowdown of the GPU itself.
