@@ -2,6 +2,11 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Test native face culling.** Add an optional trial that honors the game's
+  face-culling requests for supported geometry. Disabled by default; device
+  correctness and performance benefits remain unverified.
+
+
 - **Reduce rendering setup work.** Update frame resource lists incrementally
   while preserving every encoder's resource declarations. Correctness and
   reduced list construction work are confirmed on iPhone; energy gains remain

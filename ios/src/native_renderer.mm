@@ -79,6 +79,7 @@
 #include "gpu_capture.h"
 #include "native_arena_ranges.h"
 #include "native_texture_masks.h"
+#include "native_guest_culling.h"
 #include "native_draw_arena.h"
 #include "native_gpu_timeline.h"
 
@@ -127,6 +128,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, false, "GPU",
+                    "Experiment: honor guest face culling for supported polygon draws (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -1104,6 +1107,7 @@ struct Draw {
   // Render state.
   uint32_t surface_info, color_info, depth_info;
   uint32_t depth_control, blend_control, color_mask;
+  uint32_t raster_mode = 0, guest_primitive = 0;  // before fan/quad/rectangle expansion
   // Polygon offset: constant in host depth units, slope per guest pixel.
   float depth_bias = 0, depth_slope = 0;
   // A second render target (the pixel shader's oC1), when the colour mask
@@ -1340,6 +1344,27 @@ uint64_t resource_list_updates = 0, resource_list_shifted = 0, resource_list_rea
 uint64_t resource_list_declared = 0;
 // Submitted indexed draws only; not fragment coverage or GPU time saved.
 uint64_t foliage_alpha_eligible = 0, foliage_alpha_selected = 0;
+// Render-queue census of indexed draws reaching raster setup. Counts are NOT
+// rasterized faces/fragments or saved GPU time. Snapshots excluded.
+struct GuestCullCounters {
+  uint64_t modes[4] = {}, reasons[size_t(nfsmw::GuestCullReason::Count)] = {};
+  uint64_t eligible = 0, eligible_indices = 0, applied = 0, applied_indices = 0, skipped_both = 0;
+  void Observe(const Draw& d, const nfsmw::GuestCullPlan& p, bool enabled) {
+    ++modes[d.raster_mode & 3];
+    ++reasons[size_t(p.reason)];
+    if (p.reason == nfsmw::GuestCullReason::Eligible) {
+      ++eligible;
+      eligible_indices += d.index_count();
+      if (enabled) {
+        ++applied;
+        applied_indices += d.index_count();
+        skipped_both += p.mode == nfsmw::GuestCullMode::Both;
+      }
+    }
+  }
+};
+std::map<std::string, GuestCullCounters> guest_cull_counts;
+
 // PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
 // key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
 // (librexgpu-xenos, loaded at run time): found with dlsym.  // early command-buffer commits, since the last stats line
@@ -2630,6 +2655,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
 
   // Indices: DMA (a buffer), or auto (0..count-1), plus VGT_INDX_OFFSET.
   const uint32_t prim = in.initiator & 0x3F, source = (in.initiator >> 6) & 3;
+  d.guest_primitive = prim;
+  d.raster_mode = regs[kPaSuScModeCntl];
   const uint32_t count = in.initiator >> 16;
   const bool index32 = (in.initiator >> 11) & 1;
   const uint32_t offset = in.from_arguments ? in.start_vertex : regs[kVgtIndxOffset];
@@ -4805,6 +4832,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       uint32_t stencil_ref = 0;  // a new encoder's
       MTLViewport viewport{};
       MTLScissorRect scissor{};
+      nfsmw::GuestCullCache culling;
       uint64_t push[4] = {};
       __unsafe_unretained id<MTLBuffer> vb[31] = {};
       NSUInteger vb_offset[31] = {};
@@ -5387,6 +5415,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     size_t pass_indices = 0;  // indices drawn in the current pass (see nfsmw_native_pass_split_indices)
     uint32_t pass_splits = 0;
     uint32_t stores_discarded = 0;  // passes that wrote out nothing unread
+    static const bool guest_culling = REXCVAR_GET(nfsmw_native_guest_culling);
+    GuestCullCounters* cull_counts = nullptr;
+    uint32_t culled_both_this_frame = 0;
     uint32_t sky_deferred = 0, sky_covered_draws = 0;  // the sky drawn last: times, solid draws before it
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
@@ -6271,6 +6302,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setVertexBuffer:sampler_heap offset:0 atIndex:4];
         [enc setFragmentBuffer:sampler_heap offset:0 atIndex:4];
         current = pass_key;
+        if (!dump) cull_counts = &guest_cull_counts[tk];
       }
       pass_indices += d.index_count();
       if (probe_ps && d.ps_key == probe_ps) continue;  // the cost probe's left-out shader
@@ -6444,7 +6476,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setStencilReferenceValue:stencil_ref_of[di]];
         state.stencil_ref = stencil_ref_of[di];
       }
-      // (Culling is off by default on a new encoder.)
+      // Culling is selected after the viewport convention is known below.
 
       // Viewport: Xenos window = ndc * scale + offset (each enabled by
       // PA_CL_VTE_CNTL), plus the window offset.
@@ -6536,6 +6568,25 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         [enc setScissorRect:sc];
         state.scissor = sc;
         state.scissor_set = true;
+      }
+
+      const auto cull = nfsmw::PlanGuestCulling(d.raster_mode, d.guest_primitive, d.vte,
+                                              d.viewport, internal, d.query >= 0, mirror);
+      if (!dump && d.index_count()) cull_counts->Observe(d, cull, guest_culling);
+      if (guest_culling) {
+        if (state.culling.Update(cull)) {
+          const MTLCullMode mode = cull.mode == nfsmw::GuestCullMode::Front ? MTLCullModeFront
+                                  : cull.mode == nfsmw::GuestCullMode::Back ? MTLCullModeBack
+                                                                          : MTLCullModeNone;
+          [enc setCullMode:mode];
+          [enc setFrontFacingWinding:cull.clockwise ? MTLWindingClockwise : MTLWindingCounterClockwise];
+        }
+        if (cull.mode == nfsmw::GuestCullMode::Both) {
+          // Keep the draw's place, pass clears and resolves. No rasterization;
+          // queries and unsupported shader/primitive conventions fall back.
+          ++culled_both_this_frame;
+          continue;
+        }
       }
 
       // Constants and shared constants (texture/sampler indices, booleans).
@@ -7728,6 +7779,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     REXCVAR_GET(nfsmw_native_foliage_early_alpha) ? "on" : "off",
                     foliage_alpha_eligible, foliage_alpha_selected);
         foliage_alpha_eligible = foliage_alpha_selected = 0;
+        REXLOG_INFO("[native] guest culling {} (restart required): per-target indexed draw census; "
+                    "raw none/front/back/both; eligible/applied include both-face skips, not saved faces or fragments",
+                    guest_culling ? "on" : "off");
+        for (const auto& [key, c] : guest_cull_counts) {
+          REXLOG_INFO("[native] guest culling target {}: raw {}/{}/{}/{}; eligible {} draws / {} indices, "
+                      "applied {} / {}; both-face skips {}; fallback primitive/internal/query/viewport {}/{}/{}/{}",
+                      key, c.modes[0], c.modes[1], c.modes[2], c.modes[3], c.eligible, c.eligible_indices,
+                      c.applied, c.applied_indices, c.skipped_both,
+                      c.reasons[size_t(nfsmw::GuestCullReason::Primitive)],
+                      c.reasons[size_t(nfsmw::GuestCullReason::Internal)],
+                      c.reasons[size_t(nfsmw::GuestCullReason::Query)],
+                      c.reasons[size_t(nfsmw::GuestCullReason::Viewport)]);
+        }
+        guest_cull_counts.clear();
         REXLOG_INFO("[native] resource list cache {}: {} builds, {} incremental updates, {} unchanged reuses; "
                     "{} source entries copied, {} suffix entries shifted, {} existing entries relocated by reserve; "
                     "{} resource entries declared since last summary (full list on every encoder)",
@@ -7941,6 +8006,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     FrameDoneOnGpu(number);
     FrameLeft();
 
+    diagnostics.push_back(fmt::format("guest culling {}: {} both-face draws omitted (original draw positions preserved)",
+                                      guest_culling ? "on" : "off", culled_both_this_frame));
     // Every target as a PNG, in order of first use.
     NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     NSString* root = [docs stringByAppendingPathComponent:@"native"];

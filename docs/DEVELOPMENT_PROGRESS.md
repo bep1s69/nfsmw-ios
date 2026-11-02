@@ -326,6 +326,13 @@ In this environment Metal compilation also needs access outside the sandbox.
 The runtime switch is restart-only and default off; false keeps the late alpha
 path. Do not enable by default merely because offline compilation passes.
 
+Guest-culling host check (November 2, dev42):
+`python3 tools/native/test_guest_culling.py` compiles the production decision
+helper and extracted renderer integration/EncoderState/counters with ARC and
+ASan/UBSan against a fake Metal encoder; no GPU/device rendering. Existing IPA
+build command above unchanged. Runtime flag default false, restart required.
+No shader rebuild needed; preserve all dev41 native shader libraries.
+
 Host checks (local listener permission required):
 
 ```sh
@@ -419,6 +426,43 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, approved guest-culling trial BUILT as dev42; device result pending:**
+Stefan approved implementing isolated default-OFF culling. Added
+`nfsmw_native_guest_culling=false` (restart-only), captures original primitive
+and PA_SU_SC_MODE_CNTL in Draw even on index-cache hits. Supported triangle
+lists/fans/strips/quads use guest front/back/face bits; both faces suppress only
+the draw, retaining clears/resolves. Two-sided draws retain legacy state.
+Queries, internal shaders, rectangles/lines/points, special mirror viewport and
+nonstandard/nonfinite viewport conventions fall back. New per-target census
+reports guest modes, eligible/applied indexed draws/indices, both-face skips and
+fallback reasons; counts are NOT saved fragments or energy. No shader changes.
+
+Host sanitizer tests PASS: guest-culling16384primitive/register cases,
+100000window-transform/orientation checks and extracted real renderer state/
+counter/skip integration including recycled encoder address; existing draw-arena
+regression3500draws/mode/lifetime/ownership also PASS. iOS IPA build exit0,
+20.17s real(-j12), strict/deep signing and ZIP member read/CRC checks passed.
+All104metallibs identical to dev41. Runtime rebuilt during CMake header-glob
+reconfiguration: all file-backed sections identical except __cstring build ID;
+__text identical. No SDK source edited.
+
+IPA `ios/build/NFSMW-0.6.0-dev42-guest-culling.ipa`, identical Desktop copy,
+30552446bytes, SHA256
+`eb78474c3c71fed82536f17661c1c467d98a1d0a85783f70321e2ae4892d695e`.
+App UUID9E55444D-3348-3C70-B1C8-F1D0BB03E0BE; runtime
+D28C7A83-094A-34B4-B2A4-8DC7D09C3EA0;0.6.0(11),arm64/iOS18min.
+Next: one cold-launch enabled correctness run, same native/60 baseline,
+normal menus then~60s driving; no Instruments/cache clear/new baseline request.
+Use `--nfsmw_native_guest_culling=true --nfsmw_native_dump_manual=false
+--nfsmw_native_foliage_early_alpha=false --nfsmw_native_pass_counters=false
+--nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`.
+Send nfsmw.log and observations of cars/foliage/shadows/reflections/missing faces.
+Real cull-side mapping and benefit still require device evidence; keep default
+OFF, D-018 open. Broader copy/dependency implementation remains unapproved.
+TECHNICAL “dev42 guest-culling implementation” has full evidence/build/limits.
+No push/release; pre-existing HANDOFF_CHATGPT.md preserved untracked.
+
 
 **November 2, larger structural audit complete; proposed first step awaits approval:**
 Native renderer drops guest face-cull/front-winding bits entirely (D-018).

@@ -18767,3 +18767,128 @@ Initial guessed tools/sdk/registers.h/alternate SDK source paths absent; actual
 SDK include/source paths above inspected. git searches/checks exit0 as observed;
 no game tests run. Local doc commit; HANDOFF_CHATGPT.md remains untracked,
 D-017 parked, overlay/microtrial deferred, no push/release.
+
+
+## November 2, dev42 guest-culling implementation: host/build checked, device pending
+
+Stefan explicitly approves the isolated default-OFF culling trial proposed after
+structural audit. No approval inferred for versioned resolves or stage/pass
+resource changes. Implemented only culling and its bounded reporting/host checks;
+all other trial/default settings unchanged. D-018 remains open pending device
+correctness and measured benefit. D-017 parked, zero-alpha/overlay deferred.
+
+Implementation:
+- `ios/src/native_guest_culling.h` pure production decision helper and cache.
+  Guest bits0/1 select none/front/back/both; bit2 selects CCW/CW front orientation.
+  Only original Xenos triangle list4/fan5/strip6/quad13 eligible; expanded
+  rectangle8 and point/line types excluded. Original type/mode captured before
+  the index-cache-hit branch, so cached Metal topology cannot change eligibility.
+- Conservative fallback for internal handwritten VS, occlusion-query draws,
+  special mirror viewport, incomplete X/Y viewport enable, nonfinite first4
+  viewport floats, nonpositive sx or nonnegative sy. Existing native abs-scale
+  viewport exactly matches guest window transform in supported sx>0/sy<0
+  convention. Guest none preserves legacy None/CW without modifying shader
+  front-facing classification; fallback also restores None/CW after eligible
+  draws. Device winding/rendering validation still required; host algebra and
+  primary SDK mapping aren't hardware image validation.
+- `nfsmw_native_guest_culling=false`, restart-only. Explicit Metal dynamic
+  cull/front-facing state only when enabled and state changes, no shader/PSO
+  rewrite. EncoderState owns cache, reset by existing state.For path AND explicit
+  state.enc=nil on new encoder (handles recycled object address/D-011).
+- Eligible both-face draws don't issue raster draw or uploads after culling
+  decision. Their recorded positions/targets/encoder clears and later resolves
+  remain; query draws fall back. Existing sky-last stencil still only written by
+  actual surviving draw fragments. No draw-order/attachment/residency changes.
+- Per-target render-queue census for indexed draws reaching valid pipeline and
+  viewport setup: raw none/front/back/both states, eligible/applied draws+indices,
+  both-face skips, fallback primitive/internal/query/viewport counts. Report/reset
+  every300ordinary frames beside existing summaries, including OFF eligibility.
+  Target-map lookup once per encoder; no per-draw map lookup. Snapshot frames
+  excluded from census; snapshot diagnostic reports both-face skips separately.
+  These are CPU-side submitted-input/state counts, NOT saved/rasterized faces,
+  fragments, bandwidth, GPU time, energy or thermals. Small census bookkeeping
+  also runs OFF; no claim literally identical CPU instructions to dev41.
+
+Validation commands/results:
+1. `python3 tools/native/test_guest_culling.py` exit0. Compiles actual production
+   helper plus extracted EncoderState, GuestCullCounters and culling integration
+   with xcrun clang++ C++20/O1/ARC/ASan+UBSan, fake Objective-C Metal encoder.
+   PASS16384primitive/register cases, including all supported/unsupported types,
+   both guest face directions and irrelevant upper bits; query/internal/mirror,
+   missing VTE axes, wrong/zero scale signs and NaN/Inf fallback checks.
+   PASS100000supported window-transform/orientation-determinant cases.
+   PASSactual integration: OFF issues no cull APIs/skips, requested both omits
+   only draw continuation, census partitions/indices, snapshots don't count,
+   fallback restores None/CW, duplicate state reused and recycled encoder address
+   reset forces state calls. No GPU/device invoked; not a game visual test.
+2. `python3 tools/native/test_draw_arena.py` exit0. Actual ARC renderer types,
+   3500draws/mode, data equality/relocation/shared+Metal ownership/render-thread
+   destruction; alignment/overflow/bad_alloc/bounded hints/in-flight frames PASS.
+   Attribute upstream calls individual13121,pooled cold7,prior-frame hint1.
+   Guards changed Draw storage/lifetime, not culling image or speed.
+3. `python3 tools/ios/patch_game_extra_options.py` exit0: already patched,
+   0files written. Required build-preparation step, no generated patch change.
+4. `/usr/bin/time -p cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+   exit0; real20.17s,user23.28,sys2.15. Header added to CMake glob triggers
+   reconfiguration. Required SDK `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`,
+   Release/arm64/iOS18min/native lib cache verified in CMakeCache. No full
+   shader/compiler/cache rebuild or cache clear. Existing warnings: optional
+   PkgConfig/LibUSB not found, thirdparty glslang CMake policies, fpscr asm operand
+   width, UIKit screen APIs deprecated and duplicate linker libraries. No build
+   error. SDK runtime/debug-overlay object and both shared libraries relinked
+   because generated build ID changed at configure, despite no SDK source edit.
+5. Read every non-directory member from baseline/trial ZIP with Python zipfile
+   (CRC verification, exit0), compare SHA256 member maps. Added0/removed0;
+   changed ONLY app executable, librexruntime.dylib, app CodeResources signature.
+   All104metallibs AND all remaining resources/frameworks/metadata identical.
+   codesign --verify --deep --strict --verbose=2 on extracted trial app exit0,
+   valid on disk/satisfies Designated Requirement. Extracted app is analysis
+   copy, actual distributable retains original packaging.
+6. Runtime Mach-O section comparison exit0: all file-backed sections identical
+   except __TEXT,__cstring; executable __text identical. Only changed strings:
+   old `build: rexglue-v0.10.0-dev.gbcf76be-ios-arm64-Release@20261102_1640`,
+   new `build: rexglue-v0.10.0-dev.g7453db4-ios-arm64-Release@20261102_2256`.
+   UUID/code signature change as expected. Do not claim framework file identical.
+   `git -C nfsmw-multiplayer-sdk status --short` fails128: this SDK directory is
+   not a Git repository; no external source version inferred from that command.
+7. `git diff --check` exit0. Host tests used temporary build harnesses only;
+   all essential results are recorded here. No device/Instruments run by agent.
+
+Artifact:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.0-dev42-guest-culling.ipa`
+and identical `/Users/bep1s/Desktop/NFSMW-0.6.0-dev42-guest-culling.ipa`
+(copy/hash check exit0);30552446bytes,SHA256
+`eb78474c3c71fed82536f17661c1c467d98a1d0a85783f70321e2ae4892d695e`.
+Info.plist0.6.0(11),arm64 app UUID
+`9E55444D-3348-3C70-B1C8-F1D0BB03E0BE`,runtime
+`D28C7A83-094A-34B4-B2A4-8DC7D09C3EA0` (dwarfdump exit0).
+Ignored `ios/build/dev42-guest-culling-analysis/identity.json` and
+runtime-sections.json hold reproducible packaging comparison/identity; full
+extracted app there for read-only inspection. No private assets/logs tracked.
+
+Next/user protocol: same native1.833/60 Balanced ordinary baseline, cold launch
+new IPA, normal menus then~60s drive, one enabled correctness run. Extra Args:
+`--nfsmw_native_guest_culling=true --nfsmw_native_dump_manual=false --nfsmw_native_foliage_early_alpha=false --nfsmw_native_pass_counters=false --nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`.
+Keep remaining baseline args/settings; explicitly disable leftover manual SNAP
+mode because it disables texture pruning and changes renderer diagnostic paths.
+No Instruments/cache clear/new baseline request. Observe car/scenery/foliage,
+shadows/reflections and disappearing faces; send nfsmw.log and observations.
+Logs will establish whether game requests supported culling and which targets
+apply it. Ordinary CB timings can inform next step but one drive does not prove
+energy/thermal improvement or correct every device/scene. Keep default false
+until device evidence. No shader recaching should be attributed to this change:
+all104libraries identical to dev41. No claim of stutter fix.
+
+CHANGELOG notes optional unverified trial, checkpoint/procedure/backlog updated
+in same local source commit. Preserve configured author, untracked original
+HANDOFF_CHATGPT.md; no unrelated changes included, no push/release.
+
+
+Additional winding cross-check before commit: local SDK's MoltenVK
+`thirdparty/moltenvk/MoltenVK/MoltenVK/Utility/MVKStateTracking.h`350 maps Vulkan
+CLOCKWISE/COUNTER_CLOCKWISE directly to the corresponding Metal winding;
+Commands/MVKCommandEncoderState.mm1144 passes that mapping unchanged to encoder.
+Together with SDK guest face mapping and supported identical window transform,
+this supports direct guest-bit mapping. Apple archived Metal render-context guide
+and current APIs consulted too; no newly identified reason for a winding inversion.
+These source checks still do not replace Stefan's game/device validation.
