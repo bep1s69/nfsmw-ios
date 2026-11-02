@@ -408,6 +408,27 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, Metal System Trace now works (Stefan):** he volunteers an A/B
+and broader performance traces. This supersedes the earlier inability to record
+Metal System Trace and the immediately preceding “no device request” status.
+No new build/source change needed. Proposed next: iPhone17ProMax, SAME dev41
+IPA, native/60 Balanced, same race2laps per arm; A early-alpha FALSE then B TRUE,
+cold restart between flags. Keep pass counters/timeline/early commit FALSE,
+compact/resource defaults TRUE, other graphics/settings/brightness/charging
+state same and comparable initial temperature. Record both laps with Instruments
+already recording before race start in BOTH arms; first lap provides warmup,
+compare later steady common driving windows, exclude transitions/compilation.
+Stefan supplies raw.trace plus corresponding nfsmw.log for each arm. No cache
+clearing, no extra OFF/ON/OFF repetitions initially. Analyze GPU work, queue/
+submission/copy timing available in trace, count eligibility and failures,
+check whether observed change is meaningful vs scene variation. Instruments
+can change GPU behavior (prior evidence); this comparison measures instrumented
+performance and cannot establish ordinary-run stutter cure or battery savings.
+Additional GPU passes/CPU stalls may supply next proposal, not authorization
+to change code. D-017 remains parked; early-alpha default FALSE. See TECHNICAL
+“Metal System Trace available; volunteered dev41 A/B protocol”.
+
+
 **November 2, dev41 two-lap device result:** Stefan reports initial heavy
 stuttering including menu, then confirms visuals normal and stuttering settled.
 Log archived as `Debug/2 November 2026/dev41_iphone_early_foliage_alpha_2laps_nfsmw.log`

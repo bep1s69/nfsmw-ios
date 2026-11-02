@@ -17752,3 +17752,45 @@ continue read-only steady GPU cost investigation with current evidence before
 proposing source changes; no new device run requested, do not promote early
 alpha from correctness alone. Documentation committed locally; no push/release.
 Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+### November 2: Metal System Trace available; volunteered dev41 A/B protocol
+
+Stefan reports Metal System Traces now work in Instruments and offers an A/B
+and insight into further optimization. This is his capability report, not a
+trace verified here; no trace/result supplied this turn. Supersedes prior
+recording-unavailable state and previous no-repeat-needed status for this
+specific volunteered comparison. No request to resume D-017, no source/default
+change approved. Current code/IPA stays dev41 (8f03edd), early-alpha default OFF.
+
+Proposed first comparison: iPhone17ProMax, SAME
+NFSMW-0.6.0-dev41-foliage-early-alpha.ipa both arms, SHA256
+59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329,
+UUID925E490E-2487-3D5E-806D-E1E7EAC37EC6. Native1.833/60 Balanced, MetalFX/FXAA
+OFF, forced MSAA0, same race,2laps each as last run. A cold launch with
+`--nfsmw_native_foliage_early_alpha=false`, B cold launch with it TRUE.
+Both keep `--nfsmw_native_pass_counters=false --nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`;
+compact/resource defaults true. Same brightness, charging state and other
+settings; comparable starting temperature. No cache deletion/reinstallation
+needed between arms; same library already contains both specializations.
+Keep Instruments recording before race start in BOTH arms, record both laps;
+first lap warms assets/pipelines. Analyze later common steady driving windows,
+exclude menu/loading, initial compilation and capture transitions. If thermal
+state differs materially, report limitation before attributing a small delta.
+No extra repeated/reversed order tests initially requested.
+
+Deliverables: raw saved Metal System Trace .trace bundle AND matching nfsmw.log
+for each arm, clearly label OFF/ON. User alone performs recording/device tests.
+First verify flags/eligibility, GPU/pipeline errors, missed/added pipeline work,
+settings and thermal samples. Compare available GPU command/pass durations,
+CPU submission/queue gaps, copy/blit work and pacing, accounting for scene/draw
+variation. Seek broader redundant GPU/CPU work for next source proposal too.
+Metal System Trace is not itself a shader coverage/energy measurement; inspect
+what this recording actually exposes before promising per-shader cycle savings.
+Prior recording changed GPU behavior; identical tracing conditions control that
+confound within A/B, but results do not prove non-instrumented stutter cure or
+battery/thermal savings. Correctness already accepted, benefit remains unknown.
+
+This turn: read current checkpoint/latest evidence and git status/log; no app,
+shader, cache, IPA, tests or device traces changed/generated. Documentation-only
+local commit; no push/release. HANDOFF_CHATGPT.md remains pre-existing untracked.
+Next: receive/inspect volunteered traces and logs, propose before code changes.
