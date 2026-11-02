@@ -16208,3 +16208,16 @@ recorded with Instruments attached; every run since without it stalled
 Inference, untested: power management behaves differently while a recording
 is attached. Next: a race start recorded with the Time Profiler, which did
 record here.
+
+Confirmed (`dev33_time_profile_last_session.log`, race start recorded with
+the Time Profiler, trace `dev33_time_profile_iphone.trace`): 3 GPU frames
+over 45 ms (all at the start), normal frames 14.3-16.4 ms, pacing 0-2 of 300
+off the grid in the race; Stefan: "fully smooth". Measured: with Instruments
+recording, the GPU runs the same frames steadily at ~15 ms; without it, at
+~9-12 ms with 7-80 stalls of 45-150 ms per race (14 runs today). Inference:
+iOS GPU power management alternates between a fast state and severe
+slowdowns when the GPU idles ~40% of each 16.7 ms frame; at 1x the light
+frames hide it (a 5x slower 3 ms frame still fits). Not established: the
+mechanism. Next lever to test: `--nfsmw_native_early_commit=true` (up to
+three command buffers committed during encoding, so the GPU starts sooner
+and idles less), on the iPad while the iPhone charges, then the iPhone.
