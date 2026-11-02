@@ -16314,3 +16314,139 @@ sampled 6.5-16.2 ms; in a fast-state frame resolve copies 0.56 ms and the
 scene depth copy 0.20 ms (dev33 fast-state frames: ~0.9-1.0 and ~0.45-0.7),
 reflection pass 0.21, chain ~0.14. Measured: the copies and small passes cost
 about half; the stalls remain, as expected for a slowdown of the GPU itself.
+
+
+### November 2: independent D-017 evidence audit; diagnostic proposal, no source changes
+
+Scope: read AGENTS.md, current checkpoint, BACKLOG performance goal/D-017,
+all November 2 TECHNICAL sections, recent history (`git log --oneline -20`),
+renderer submission/profiling/residency/pooling, frame clock, Metal display
+pacer, performance policy/adaptive QoS and CPU reporting. Reviewed raw logs
+and existing trace metadata in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/`.
+No build, source/SDK/generated/shader changes or new device test. Stefan alone
+runs device tests and recordings. His latest instruction keeps performance
+active; do not move on to other 0.6.0 goals or change code before approval.
+Initial/final preserved pre-existing untracked file: HANDOFF_CHATGPT.md; do
+not stage it. Branch dev-0.5, initial HEAD bea9e30; local documentation only.
+
+Corrections and limits, measured from existing evidence:
+
+1. `dev33_time_profile_iphone.trace` run 1 metadata: iPhone 17 Pro Max,
+   iOS 27.2 (24B119), LiveContainer PID 789; recording
+   15:36:26.844–15:37:07.222 +02:00 (40.377998 s). All three GPU hitch lines
+   in `dev33_time_profile_last_session.log` are AFTER recording stopped:
+   15:37:09.283 (88.3 ms), .300 (61.4), .350 (51.9). The earlier November 2
+   statement that they were at the start is incorrect. Zero logged >45 ms
+   GPU hitches within this recording window. Driving begins 15:36:32.050.
+   Completion-log time is not GPU-start time; these lines occur ~2 s after
+   stop, far more than their reported spans. This supports a recording-state
+   association but does not identify its mechanism.
+2. “Absent whenever Instruments records” is too absolute. Match
+   `dev30_power_profiles.trace` run 3 (13:57:20.946–13:58:40.173 +02:00) to
+   `nfsmw_iphone_0.6.0_dev30_power_profiles.1.log`: SEVEN GPU hitch lines
+   within recording, three menu frames at 13:57:21.677/.868/.950, four driving
+   frames at 13:57:30.337, :31.460/.693/.902 (69.6, 79.8, 46.1, 54.8 ms).
+   Driving begins :27.116. Run 6 has four (87.7–94.1 ms except one 67.9 ms)
+   at 14:06:40.981–41.558 within 14:06:22.080–14:07:40.142; run 7 has nine
+   (53.2–135.1 ms) at 14:08:37.789–40.404 in the other power log, within
+   14:08:29.138–14:09:49.473. Runs 1/2/4/5 have zero logged GPU hitches in
+   those two logs. These are log counts, not exhaustive per-frame telemetry.
+   Run 3 SystemPowerLevel actually contains 82 rows starting 0.704 s into
+   recording, so the early native hitches fall inside recorded power coverage.
+3. Power trace run 3 GPU-state/performance-state/power-control tables export
+   no rows (one has a schema only); layer per-frame metric also has no rows.
+   Their presence in the TOC is not evidence of measured frequency or
+   utilization. Time Profiler records running threads, without waiting-thread
+   stacks/context-switch sampling; CPU headroom there does not rule out
+   every CPU/driver dependency in the unrecorded failure condition. Likewise,
+   GPUStartTime→GPUEndTime/pass spans are elapsed intervals, not a separation
+   of active GPU work from waits, scheduling interruptions or low clocks.
+4. Not every pass slows uniformly. Example, `dev33_performance_max_nfsmw.log`
+   frame 1874 at 15:22:16.367: total 52.01 ms; main 31.15, reflection 7.63,
+   cube faces 7.13, but shadow 1.83, post 1.23, copies 0.98, present 0.59 ms.
+   Frame 1859: present 6.91 ms, shadow 7.75; those values do not establish
+   a single frequency multiplier. Inference: interrupted progress or
+   per-stage/per-resource delays deserve consideration alongside power states.
+   No actual GPU frequency trace supports a definitive clock explanation.
+5. `dev35_iphone_nfsmw.log` has early commit ON in both sessions (93 logged
+   GPU hitches across the file; earlier record's 53 is last session only).
+   native_renderer.mm hitch/aggregate time uses first command-buffer start
+   to last end when early commit is on, but GPU profile header prints only
+   the FINAL command buffer's GPUStartTime→GPUEndTime. Profiles sample all
+   command buffers. Example 16:07:41.744: 9.32 ms incremental, 15.99 ms
+   first-to-last, printed frame 7.17 ms. Do not compare that 7.17 directly to
+   whole-frame dev33 times or call its negative residual a measurement error
+   in the real stutter. Screen gaps corroborate real stalls. Keep early
+   commit explicitly false in the proposed next diagnostic comparison.
+
+Untested source leads (hypotheses, not fixes):
+
+- Pass-counter sampling itself: native_renderer.mm creates four shared
+  MTLCounterSampleBuffers and attaches start-vertex/end-fragment timestamps
+  to passes and start/end timestamps to blits. `profile` is enabled EVERY
+  eligible frame while hitch_lines_left > 0, otherwise every 300th; the
+  samples are only READ/reported periodically or on hitches. None of the
+  November 2 experiments disables this path. Same-build comparisons do not
+  exclude an instrumentation/driver interaction. No evidence yet that
+  counters cause D-017; this is a cheap, distinct falsifiable test.
+- Residency coverage/timing: the only residency::Apply is near RenderFrame
+  entry, BEFORE pooled frame buffers, targets, decoded textures and geometry
+  buffers can be created and queued with residency::Add during encoding.
+  These additions reach the set on the next frame. Visibility ring buffers
+  and touch/FPS overlay textures also are not explicitly added to that set.
+  Existing Metal resource binding/declarations can still make resources
+  accessible; this is not proof of invalid access. It does mean the request-
+  once experiment did not test complete coverage before first use, and CPU
+  host_statistics64 paging deltas do not measure GPU mappings/wiring or
+  driver waits. Some stalls have zero new vertex buffers/uploads, so newly
+  created geometry alone cannot explain all of them (Max: 20/80 GPU hitch
+  lines have zero new vertex buffers; reboot: 11/33). Audit coverage before
+  proposing a residency correction; do not rerun the failed request-once A/B.
+- Callback/backpressure: FrameLeft releases the game only after writebacks,
+  counter resolution/calibration and formatted logging in its completion
+  handler. A callback delay can affect following frames even though it
+  cannot explain already elapsed GPU time by itself. The 50 ms NativeSwap
+  wait timeout is another possible secondary amplifier, not an established
+  origin. Avoid diagnosing this from CPU averages in a smooth recording.
+
+External primary references checked November 2:
+[Apple counter profiling](https://developer.apple.com/videos/play/tech-talks/10001/)
+describes separate vertex/fragment timing and overlapping stages;
+[requestResidency](https://developer.apple.com/documentation/metal/mtlresidencyset/requestresidency())
+and [residency-set guide](https://developer.apple.com/documentation/metal/simplifying-gpu-resource-management-with-residency-sets)
+describe committed allocations, command-buffer commit and advance residency
+requests; [Apple GPU performance-state tools](https://developer.apple.com/videos/play/wwdc2021/10157/?time=558)
+describes induced states, but that is NOT proof these recordings induced one.
+
+Commands/results: read/search commands and Python inline log/XML analysis
+exit 0, except an initial `rg --files src` / nonexistent
+performance_profile.cpp read (actual paths ios/src and performance_profile.h).
+First sandboxed `xcrun xctrace export --input <dev33 trace> --toc` failed,
+exit 134: InstrumentsCLI analysis cache under ~/Library/Caches not writable
+in sandbox. Approved read-only export rerun exit 0. Power TOC, run 3 GPU
+and power/layer table exports exit 0. Scratch XML outputs only:
+/private/tmp/nfsmw-nov2-power-toc.xml, nfsmw-nov2-power3-gpu.xml,
+nfsmw-nov2-power3-metrics.xml; expendable, source traces/logs remain at the
+permanent Debug path above. Reproduce exports with
+`xcrun xctrace export --input <trace> --toc` and `--xpath
+'/trace-toc/run[@number="3"]/data/table[@schema="SystemPowerLevel"]'`;
+compare bracketed log timestamps against run summary start/end in +02:00.
+No recording command was run. No claim of a fresh power result or fix.
+
+Proposed next step, AWAITING APPROVAL: one diagnostic build with a new
+restart-only pass-counter enable switch (default existing behavior), so OFF
+omits counter attachments/resolution/calibration while retaining lightweight
+command-buffer GPU timing and presentation-gap reporting. No rendering,
+quality, QoS, residency or submission changes. On device, native/60 Balanced,
+early commit explicitly OFF, no Instruments, same race; compare counter OFF
+and ON in both launch orders (short correctness/stutter runs, not power
+acceptance). This is not a repeat of a recorded experiment. If stalls persist,
+next propose a bounded timeline of commit/scheduled/GPU start/end/callback/
+present plus the residency coverage audit, separately. Do not stack a
+residency change or GPU keepalive with this test. Sustained iPad native/120
+optimization remains active; a ~100 fps interval needs ~17% less elapsed
+frame time to reach 120, whereas a 15–17 ms GPU frame needs ~44–51% less.
+“Halve every frame” overstates the universal requirement. Battery goal is
+still unproven: unmatched short power runs, brightness/thermal differences
+and profiler dependence prevent acceptance from 39.0 vs 37.4 %/h alone.

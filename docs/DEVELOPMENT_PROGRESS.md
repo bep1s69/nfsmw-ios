@@ -379,6 +379,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, independent evidence audit (documentation only):** Performance
+remains the active goal per Stefan; do not switch to other 0.6.0 work. No code
+change approved or made. Next proposed experiment is a restart-only switch to
+disable GPU pass-counter instrumentation while retaining command-buffer timing
+and screen-gap logs, with early commit explicitly OFF; implementation awaits
+approval. Details/reproduction in TECHNICAL, “independent D-017 evidence audit”.
+Corrections to the earlier handoff: dev33 Time Profiler's three GPU hitches
+were AFTER recording stopped (zero inside its 40.378 s window); the earlier
+Power Profiler native run does contain seven during recording (four driving).
+Recording-state association is strong but “always absent” is not established.
+Power-state mechanism, complete residency coverage, and instrumentation effects
+remain unproven. dev35 iPhone logs retain early commit ON and mix whole-frame
+and final-command-buffer profile times. Native/60 battery target is not yet
+validated. No new device test/build; latest IPA remains dev35 below.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved, excluded from this session's
+local documentation commit. No source, SDK, generated code or shaders edited;
+no push/release. Stefan runs all device tests and Instruments recordings.
+
+
 **November 2 (Claude), handoff to Codex: 0.6.0 performance work, branch
 `dev-0.5`, local commits only (nothing pushed).** Latest IPA
 `ios/build/NFSMW-0.6.0-dev35-lighter-native.ipa` (on Desktop with 0.5.2).
