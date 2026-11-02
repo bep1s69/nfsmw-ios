@@ -16024,3 +16024,41 @@ the dev26 log (iPhone, 1x, driving) recorded in BACKLOG's performance goal
 entry. Next GPU candidates are the October list (resolve-copy avoidance,
 shader cost), pending Stefan's three baseline traces.
 
+
+### November 2: baseline Power Profiler traces, seven settings (dev30, iPhone)
+
+Stefan (iPhone 17 Pro Max, LiveContainer, Balanced, LPM off): one race lap
+per setting, recording from the menu. Trace
+`~/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev30_power_profiles.trace`
+(7 runs, 78-84 s each); logs `nfsmw_iphone_0.6.0_dev30_power_profiles(.1).log`
+(settings from `[native] energy baseline`, race windows from `[game] driving`
+to `menu: Pause_Main.fng`). Instruments showed "charge connected" though he
+recorded wirelessly (not explained). Method: `xctrace export` of
+SystemPowerLevel, ProcessSubsystemPowerImpact (LiveContainer rows),
+thermal; duration-weighted over each race window only (scratchpad
+trace/power.py, temporary). Log columns: `[native] GPU profile` frame ms
+and `[cpu]` % of a core (median of the samples in the window), and
+`[native] off grid` lines per second (frames shown off the display grid).
+
+| Run (race ~72 s) | Drain %/h | CPU impact | GPU impact | Display | CPU instr G/s | Bright | Thermal | GPU ms med/max | Log CPU % | Off-grid /s |
+|---|---:|---:|---:|---:|---:|---:|---|---|---:|---:|
+| 1x / 40 | 37.4 | 7.75 | 1.15 | 0.67 | 2.30 | 40% | Nominal | 9.3 / 14.3 | 51 | 0.01 |
+| 1x / 60 | 35.7 | 7.42 | 1.85 | 0.66 | 3.06 | 35% | Nominal | 11.2 / 15.6 | 97 | 0.01 |
+| native 1.83x / 60 | 39.0 | 4.27 | 6.28 | 0.66 | 3.08 | 35% | Nominal | 11.8 / 20.9 | 138 | 1.32 |
+| 0.85x + MetalFX lower / 60 | 41.7 | 6.23 | 4.14 | 0.67 | 3.32 | 36% | Fair/Nominal | 11.5 / 12.0 | 151 | 0.04 |
+| 0.85x + MetalFX screen / 60 | 38.4 | 4.55 | 4.62 | 0.66 | 3.23 | 38% | Fair | 11.0 / 18.2 | 196 | 0.50 |
+| 1x + MetalFX lower / 60 | 43.7 | 6.03 | 5.02 | 0.66 | 3.19 | 35% | Fair | 11.5 / 13.4 | 137 | 0.14 |
+| 1x + MetalFX screen / 60 | 38.2 | 3.67 | 5.49 | 0.66 | 3.17 | 36% | Fair | 10.1 / 16.6 | 217 | 1.46 |
+
+Measured: whole-system drain estimates lie within 35.7-43.7 %/h; 1x/60 did
+not cost more than 1x/40 here; native/60 was +1.6 %/h over 1x/40. At 1x the
+process's CPU impact is ~7x its GPU impact; rendering at native moves the
+balance to the GPU. Native and MetalFX-to-screen runs show missed frames
+(off-grid 0.5-1.5 per second, GPU frames up to 17-21 ms). Thermal went from
+Nominal to Fair from run 4 on and stayed. Not established: single run per
+setting, run order not alternated (heat accumulates), brightness 35-40%,
+the charging state unexplained; differences of a few %/h are within this
+noise. The log's CPU % rising run after run (51 -> 217) contradicts the
+trace's falling CPU impact; not explained (inference: a counting artefact or
+heat), not used for conclusions.
+
