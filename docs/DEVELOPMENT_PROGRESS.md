@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan, latest): park D-017 unless a very interesting new finding
+  emerges. Focus on making actual CPU/GPU work as light as feasible to improve
+  performance, battery and thermals. Preserve default visual quality; investigate
+  and propose before code changes. Do not keep requesting stutter experiments.
+
 - November 2 (Stefan): next 0.6.0 work is performance, battery and low-RAM
   devices, before the remaining items (My Cars taps D-016, free camera,
   Extra Options menu patches). He tests on device and records traces himself.
@@ -378,6 +383,30 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, D-017 PARKED by Stefan; CPU/GPU cost reduction is active:** Latest
+same-dev37 timeline OFF/ON runs both smooth per user, zero logged GPU hitches
+>45 ms over ~49/~48 s driving coverage. No clear timeline effect; mechanism
+unresolved, not fixed. Archive `Debug/2 November 2026/dev37_iphone_timeline_off_on_smooth_nfsmw.log`
+(root ~/Developer/Debug/Most Wanted (2005) Debug/). No more D-017 experiments
+unless exceptional new evidence emerges. Latest IPA remains dev37, no new
+build/source change in this analysis.
+
+New read-only optimization finding: shared per-draw descriptor/flag payload
+uses a 1024-byte block but current NFS shader ABI fits first 384 bytes. Next
+proposal awaiting code approval: independent default-off compact-payload
+switch, preserving offsets/alignment and 1024-byte fallback; update sizing,
+zero/compare/copy/upload together, prove prefix/layout equivalence then device
+correctness. Logical shared upload bytes could fall 62.5%; CPU/energy/GPU gains
+unmeasured. Do not shrink VS/PS float banks. Then resource-list CPU caching and
+larger GPU shader/copy work, each separately reviewed/tested. Foliage early
+alpha rejection is a hypothesis requiring actual shader-source analysis;
+restored shader cache has libraries only, historical source paths absent.
+Details in TECHNICAL “timeline OFF/ON both smooth; park D-017”. Default visual
+fidelity and local-only/no-push rules remain. Ordinary optimization baseline:
+timeline OFF, early commit OFF, settings matched; no claimed energy savings.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
 
 **November 2, dev37 first device run SMOOTH; D-017 not reproduced:** Stefan saw
 no stutters. Archived `Debug/2 November 2026/dev37_iphone_gpu_timeline_smooth_nfsmw.log`

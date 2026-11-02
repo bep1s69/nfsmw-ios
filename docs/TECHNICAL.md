@@ -16820,3 +16820,130 @@ new discriminator. No new source/SDK/shader/build changes authorized or made.
 D-017 remains open. Inline Python parsing/time subtraction, source read/search
 and `git diff --check` exit 0. No device test or recording run here; analysis
 only. Documentation committed locally, untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev37 timeline OFF/ON both smooth; park D-017, resume cost reduction
+
+Stefan: still did not notice stutters; explicitly PARK D-017 unless a very
+interesting new finding emerges. New priority: make actual CPU/GPU work as
+light as feasible to improve performance, battery life and thermals together.
+This does not authorize unreviewed code changes; preserve the existing
+investigate/propose/approve sequence and default visual quality. No more
+D-017-specific tests proposed from this evidence.
+
+Archive copy/hash verification exit 0, no overwrite:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev37_iphone_timeline_off_on_smooth_nfsmw.log`,
+954634 bytes, SHA-256
+`3560517747b2f05024a55fefbf72e20aa142dabe56fff506154922c5559b5a9b`.
+Source shared-pasteboard item 50147091-7B34-4A62-831D-28E38AD1FB76/nfsmw.log.
+Same supplied dev37 artifact, IPA SHA-256
+`ac02e244de0e1114ca21a161f435576e40352694c2a1e0555321985c957e695c`,
+app UUID 63DE89DC-4E3E-3DCA-9DDD-EEE825F0EE2D. iPhone 17 Pro Max from ongoing
+test context, OS not independently established; no Instruments trace supplied.
+
+Two starts: 16:58:11.820 (timeline OFF: no enabled line) and 16:59:44.286
+(timeline ON: enabled line at 16:59:45.554). Both counter-disabled lines
+present, all early-commit summaries OFF, Balanced, native scale 1.833, cap 60,
+MetalFX/FXAA OFF, forced MSAA 0 (initial startup scale 1.000 as before).
+First driving label 16:58:39.581, last available first-session log timestamp
+16:59:28.774: 49.193 s. Second driving 17:00:13.439 to last log
+17:01:01.617: 48.178 s. Raw log has a truncated final first-session energy
+line directly joined to second startup; session split uses the new timestamp
+and `[ios] game: starting` marker, not line boundaries. Original preserved.
+ZERO GPU hitch lines >45 ms across both sessions, and no timeline trigger
+reports in ON session. Driving aggregate FPS summaries mostly 60, after
+initial transition 59.0/58.8; later occasional 59.4–59.9. GPU averages move
+from ~8–11 to ~15–15.5 ms in BOTH sessions. This comparison does not establish
+that the timeline causes the smooth state. D-017 has NOT been fixed or its
+mechanism established; status parked by user, not resolved. No exceptional
+new fault evidence to override the parking request. No battery acceptance.
+
+Read-only optimization audit after the new instruction:
+
+1. Concrete next CPU/upload candidate: native_renderer.mm currently allocates
+   `uint32_t shared[256] = {}` per draw and `last_shared[256]`, memcmp/copies
+   their full 1024 bytes, and puts 1024-byte shared blobs on changes. Budget
+   sizing also reserves 1024+256 per draw regardless of actual shared upload.
+   This block contains texture/sampler indices and flags, distinct from the
+   VS/PS float constant banks (do NOT shrink those).
+   `tools/xenosrecomp/shader_common.h` non-GTA4 layout uses 80 descriptor words
+   [0,320), then flags/clip/alpha/etc through uint at offset 380: defined ABI
+   fits 384 bytes/96 words. `textureDescriptorByteOffset` in translator uses
+   dimension*descriptorCount+slot; NFS has 16 slots, five arrays. Renderer
+   writes through word 93, reserved remaining words stay zero. Internal movie
+   shader in native_renderer.mm uses descriptor words 0–2 and 64–66, also
+   within this prefix. No current renderer write uses words 96–255.
+   Inference: a guarded 384-byte path can remove 640 unused bytes from logical
+   clear/compare/copy per block; repeated shared uploads shrink 62.5% before
+   256-byte alignment (a shared allocation's following aligned offset can
+   shrink from 1024 to 512). The actual benefit in CPU ms/DRAM/energy remains
+   UNMEASURED. Do not equate logical bytes with measured bus traffic or claim
+   GPU shading work becomes cheaper: shaders already only read their fields.
+   Latest log reports ~0.62–1.09 MiB/frame shared payload in several driving
+   windows; proportional reduction would be ~0.39–0.68 MiB/frame of logical
+   payload at matching distinct-set counts. Budget/pool capacity might fall
+   but must be observed, not promised.
+   Proposed implementation, NOT YET APPROVED: independent restart-only switch
+   default false for first trial; keep field offsets and 256-byte alignment,
+   initialize/compare/copy/upload only 384 active bytes when enabled, update
+   BOTH sizing traversals and actual upload coherently, keep 1024-byte fallback.
+   Validate all defined ABI readers including clip, motion/jitter, debug movie
+   paths and packaged shader compatibility; actual generated shader source
+   cache is absent, so distinguish current translator ABI review from a full
+   inspection of all precompiled libraries. Host prefix/packing/size tests,
+   then user visual/correctness check, then matched cost/energy work if sound.
+   No shader arithmetic, image content or scheduling changes proposed here.
+2. CPU follow-up (previously proposed, not already tested/implemented): new
+   pass rebuilds a flattened array from textures/resolved_textures/
+   assembled_cubes/volumes/cubes, then dummy_array/data, for every encoder.
+   A frame-local cache invalidated on collection growth could retain the SAME
+   list/order and SAME useResources call per encoder, avoiding repeated ObjC
+   enumeration. Historical TECHNICAL sections around the lazy-diagnostics and
+   upload-sizing audits already identify this opportunity, not a measured
+   experiment. Do not remove residency/hazard declarations as a shortcut.
+   More aggressive per-pass actual-read lists need separate shader/binding
+   liveness proof and CPU cost evidence; not in first change.
+3. GPU: main-scene cost (~half the smooth native frame) remains the largest
+   target. Re-read October 21 cost probe and October 24 half-precision audit:
+   top foliage/cutout shaders involve fetch/overdraw, not large removable
+   arithmetic. New hypothesis to verify, NOT an established optimization:
+   the translator's generic alpha test is emitted at return, so where final
+   alpha is provably known earlier, reject transparent pixels before expensive
+   colour/shadow work. Need actual shader dependency/derivative/LOD/control-
+   flow analysis and matching alpha/depth/blend results; cannot assume this
+   helps the already-cheap one-fetch tree shader, or force early depth in a
+   discard shader. No broad fp16/fast-math or fidelity reduction proposed.
+   Historical source paths `.../shaders/air/ps_684f....metal` and 27d82ea0
+   no longer exist on this restored machine: cache currently has lib/ only.
+   Read-only targeted search found libraries/capture PNGs but no matching
+   generated .metal/.hlsl/.bin sources. Source recovery/regeneration into an
+   ignored analysis directory is prerequisite to claiming a proven rewrite;
+   do not rebuild/replace the live cache without approval. Current translator
+   source alone establishes late generic alpha-test emission, not a particular
+   material's earliest safe discard point.
+4. GPU resolve/presentation dataflow: do not repeat failed whole-target swap.
+   Re-read current resolve path: every destination is kept in kept_resolves
+   across frames, resolved_texture maps it for subsequent draws, final_texture
+   simply tracks last colour resolve. Cropping/linear views, exponent bias,
+   CPU writebacks, cube assembly and next-frame consumers complicate eliminating
+   final/intermediate copies. Existing strict whole-target test had zero hits.
+   A crop-aware/liveness-proven presentation bypass or cube-face path may
+   save work, but a final-frame-only no-reader check does not prove next-frame
+   safety. Keep as a second GPU route; no unsafe alias/direct-draw proposal.
+
+Plan: start with measurable removal of unused shared-payload bytes (subject
+to code approval), then separate resource-list CPU work and shader/dataflow GPU
+work rather than stacking unrelated changes. No claim that these small CPU
+changes alone deliver native/120 or a particular battery/thermal gain. Keep
+settings/visual quality identical; short correctness runs first, accumulate
+verified wins before demanding long matched energy comparisons. Disable
+`nfsmw_native_gpu_timeline` for ordinary optimization baselines; early commit
+remains false. Counter default remains true unless a test explicitly controls
+it; log comparison arms identically. No further D-017 tests needed.
+
+Commands: copy/hash verification, inline Python log analysis and source/history
+searches exit 0. Some discovery reads used historical nonexistent shader paths
+and a nonexistent generated/usa glob; corrected by reading actual paths and
+recording absent shader-source cache above. No compilation, source/SDK/shader
+modification or new device test in this analysis; documentation only.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved; local commit, no push.
