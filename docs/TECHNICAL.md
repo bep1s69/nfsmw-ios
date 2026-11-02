@@ -16221,3 +16221,8 @@ frames hide it (a 5x slower 3 ms frame still fits). Not established: the
 mechanism. Next lever to test: `--nfsmw_native_early_commit=true` (up to
 three command buffers committed during encoding, so the GPU starts sooner
 and idles less), on the iPad while the iPhone charges, then the iPhone.
+
+iPad Pro M4 (`dev33_ipad_early_commit_ab_nfsmw.log`, scale 2.867, cap 60):
+0 GPU frames over 45 ms in either launch (default; early commit), sampled
+GPU frames 7-15 ms. Measured: the iPhone's stalls do not occur on the iPad
+at native / 60.
