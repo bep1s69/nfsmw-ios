@@ -16249,3 +16249,11 @@ over 45 ms. Early commit does not prevent the stalls. Open lead: Game Mode
 (GCSupportsGameMode / LSSupportsGameMode are in our Info.plist, but under
 LiveContainer iOS reads the host app's); a standalone install run without
 Instruments would show whether Game Mode changes the GPU's behaviour.
+
+Standalone install with Game Mode active, no Instruments (Stefan, 15:54):
+"same behavior". Game Mode does not prevent the stalls. Summary of the day:
+ruled out resolve copies, residency requests, system paging, thread QoS
+(Max), charging, reboot, the build (dev30 too), early commit, LiveContainer
+and Game Mode; only a running Instruments recording removed them. The
+mechanism stays unknown; next work lowers the GPU frame itself (a lighter
+frame survives a slow GPU state; at 1x none is visible).
