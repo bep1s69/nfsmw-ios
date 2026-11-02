@@ -1370,8 +1370,11 @@ std::map<std::string, GuestCullCounters> guest_cull_counts;
 // targets per frame by plan outcome; handoffs are copy commands not encoded
 // and their logical payload, NOT measured DRAM traffic, power or frame time.
 // Draw guards, first match: VTE x/y scale+offset not all enabled, x scale not
-// positive or y scale not negative, x offset not finite, occlusion query, MRT,
-// primitive, mirror picture, internal (handwritten) vertex shader.
+// positive or y scale not negative, x offset not finite, (occlusion query:
+// no longer rejected, dev45), MRT, primitive, mirror picture, internal
+// (handwritten) vertex shader. A query draw counts samples that pass: with
+// its viewport inside the narrower image (the extent bound below, as for
+// every draw) no sample it could count lies outside it.
 constexpr const char* kHandoffDrawGuards[8] = {"vte", "sign", "offset", "query", "mrt", "primitive", "mirror", "internal"};
 enum class HandoffPlan : uint8_t { Planned, Draws, Viewports, Target, Resolves, Layout, Extent, Count };
 struct ColorHandoffCounters {
@@ -5035,7 +5038,6 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const int guard = (d.vte & 0xF) != 0xF                                       ? 0
                           : !(d.viewport[0] > 0) || !(d.viewport[2] < 0)               ? 1
                           : !std::isfinite(d.viewport[1])                               ? 2
-                          : d.query >= 0                                                ? 3
                           : d.second_target                                             ? 4
                           : !(p == 4 || p == 5 || p == 6 || p == 8 || p == 13)          ? 5
                           : d.ps_key == 0x8436534cfafcc0ebull                           ? 6

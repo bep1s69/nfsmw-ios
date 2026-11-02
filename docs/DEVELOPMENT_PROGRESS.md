@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, dev45 BUILT (approved):** color handoff accepts occlusion-query
+draws under the same viewport-extent bound. IPA
+`ios/build/NFSMW-0.6.0-dev45-handoff-queries.ipa`. Next: Stefan's run with
+dev43 Extra Args; watch sun glare, compare main planned share.
+
 **November 3, dev44 blocker census:** the main-target handoff is blocked in
 the 0-planned stretches by an occlusion-query draw (ps 2d8bf2c6, likely sun
 glare); mirror rejections are on another target. Proposal awaiting approval:

@@ -19343,3 +19343,17 @@ Proposal (needs approval): accept query draws when they pass the same
 viewport-extent bound as every other draw. Occlusion counts are samples that
 pass; if no sample centre lies at or beyond the compact width, counts are
 unchanged. Mirror/internal/vte stay rejected. Not a power claim.
+
+## November 3, dev45 handoff accepts occlusion-query draws: built, device run pending
+
+Stefan approved (“yes”) the dev44 proposal. Only change: the `query` draw guard
+is removed; query draws must now pass the same viewport-extent bound as all
+other draws (their viewport joins the target's list). Mirror/internal/vte/
+MRT/primitive/sign/offset guards unchanged; `query` census column stays (0).
+Default false unchanged. Checks: patch script exit0, build-0.6 ipa exit0,
+`test_color_handoff.py` PASS, `git diff --check` exit0; ZIP vs dev44 only the
+app executable changed, 104 metallibs identical. IPA
+`ios/build/NFSMW-0.6.0-dev45-handoff-queries.ipa` (and Desktop), 30565052
+bytes, SHA256 4639bb98279a6754c9bb478dfdbd429601188e9d3793dc31b273bfc61dafa93c.
+Next: same drive/Extra Args; check the sun glare (occlusion-driven) looks as
+before and that main-target planned share rises; send nfsmw.log.
