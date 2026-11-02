@@ -18493,3 +18493,44 @@ failed histogram above and initial guessed src/gpu/native_renderer.mm path absen
 actual source ios/src/native_renderer.mm inspected. Analysis artifacts ignored;
 essential evidence is this record. D-017 parked, overlay deferred. Session docs
 committed locally; pre-existing HANDOFF_CHATGPT.md left untracked, no push.
+
+
+## November 2, scope correction: meaningful optimization headroom
+
+Stefan questions whether proposed zero-alpha tree rejection matters and expects
+larger port optimization opportunities. Reassessed prior evidence and source:
+TECHNICAL October19/21 resolve/depth-generation audits, October24 precision
+findings, November2 frame breakdown/dev34 implementation, latest snapshot;
+native_renderer.mm6860–6935 shows final resolves then sampled presentation.
+Read/search commands exit0; no test/build/device run. The old source shader
+is one-fetch/few-ALU; zero-alpha rejection still pays fetch/most shading and
+might add discard cost. No basis to rank it as a substantial energy improvement.
+Deprioritize that unapproved proposal, no new IPA/correctness request for it.
+
+Current usable trace ~6.3ms main fragment encoder out of~11.1ms active GPU
+makes scene execution the largest measured target, not any specific material
+rewrite. ~57% fraction is scoped to those captured windows/device/settings;
+not a universal bound or a predicted saving. Snapshot draw counts cannot
+supply missing shader cost or visibility information. Larger image-equivalent
+savings require removing executed fragments/fetches or data transfers, not just
+trimming three arithmetic instructions. Port translation has potential overhead,
+but modern hardware and translated source alone do not quantify recoverable work.
+No evidence yet supports promising tens of percent or halving GPU time.
+
+Next read-only work, before asking for another trial: inspect scene draw/depth
+ordering and visibility reuse with exact blend/depth/alpha semantics (opaque
+reordering cannot move blended edges indiscriminately; existing depth-only
+passes mean a generic extra prepass is not automatically useful). Separately,
+trace retained/versioned color snapshots and final-output consumer lifetimes
+for eligible copy elimination. Previous whole-target swap not applicable;
+315depth snapshots/arm had zero unchanged candidates, so do not recycle those
+negative experiments as new. Versioning must preserve old resolves across later
+clears/writes; merely aliasing textures is unsafe. Copy costs are secondary and
+only partly removable; older copy timing percentages are not current energy
+measurements. Final output still may require fitting/filtering/overlays, so do
+not promise to delete entire presentation pass.
+
+This is a research direction, not an implementation proposal or approval request.
+Use available source/logs first, request new evidence only for a specific missing
+fact. D-017 parked, overlay deferred, default quality preserved. Source unchanged,
+local documentation commit only, HANDOFF_CHATGPT.md preserved untracked/no push.

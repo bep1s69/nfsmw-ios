@@ -420,6 +420,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, priority correction after Stefan challenges small trial:** zero-alpha
+PS27 trial is deprioritized/unapproved; do not build it or request a device run.
+It still pays texture fetch and almost all shading; no evidence of material
+energy benefit. Being inside the largest pass does not make a change large.
+Next is read-only structural investigation: (1) visibility/opaque ordering and
+existing depth generations in dominant scene, without a blind extra prepass or
+reordering blended edges; (2) retained/versioned color resolve and final-output
+consumer lifetimes, without repeating failed whole-target swap. Existing data
+bounds copy opportunities as secondary; neither track has a proven saving yet.
+No new capture requested, no code changes authorized, no large speedup promised.
+Details: TECHNICAL “scope correction: meaningful optimization headroom”.
+
+
 **November 2, native snapshot analyzed; no source change approved:** dev41
 frame1923 contains2583draws/9targets, main1048draws with348tree and330fence/plant
 draws. Those are draw counts, not GPU cost shares. Matched tree groups are
