@@ -16141,3 +16141,15 @@ hitch line reports them (`residency +A -R`). Experiment switch
 to the queue, so committed additions are still resident for the command
 buffers. To compare: count and size of "slow frame" lines at a race start
 with the switch on and off.
+
+Result, log `dev32_residency_ab_nfsmw.log` (one race start each, ~30 s of
+race): session 1 default (request at every change) 65 frames over 45 ms on
+the GPU (most 80-137 ms, sustained 15:06:23-15:06:47), pacing up to 40 of 300
+frames off the grid; session 2 `--nfsmw_native_residency_request_each=false`
+5 such frames (46-133 ms, all within the first 2 s of the race), then none;
+off-grid frames remained (up to 51 of 300) but each only 16.7 ms off. The
+slow frames' own residency changes were +0 -0 (one +1, one +4): not the
+commit in the same frame. Inference: `requestResidency` is asynchronous, and
+the work it starts (the whole set) slows the GPU in the frames after it.
+Not established: one pair, same order (default first); repeat reversed
+before changing the default.
