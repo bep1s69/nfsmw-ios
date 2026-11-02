@@ -16181,3 +16181,13 @@ stalls; the memory-pressure candidate is not supported. Next candidate: GPU
 performance state tied to the submitting threads' QoS (Balanced puts the
 render queue at Utility, `nfsmw_native_render_utility`); test with the
 launcher's Performance: Max (no Utility QoS for any game or render thread).
+
+Performance: Max (`dev33_performance_max_nfsmw.log`, render queue not at
+Utility: "utility requested off"): 80 GPU frames over 45 ms. QoS candidate
+not supported. Across today's logs the normal (sampled) GPU frames differ:
+the dev30 Time Profiler lap (14:20) 14.3-17.5 ms, steady, 1 stall; every run
+from 14:27 on (dev31-dev33, the renderer unchanged with the switches off)
+mostly 8-12 ms with 17-80 stalls of 45-150 ms. Inference: the same work runs
+at a higher GPU speed with intermittent severe slowdowns, a device-side state
+(GPU performance or power management, charging, a lingering developer
+condition) rather than the build; to check: a reboot, not charging.
