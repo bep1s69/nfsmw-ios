@@ -389,6 +389,31 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev39 resource-list cache READY; compact uploads default ON:**
+Stefan approved. New independent restart-only
+`nfsmw_native_resource_list_cache` defaults false: optional frame-local reuse
+of flattened resource list when five collection counts unchanged. Same objects,
+order, usage/stages and useResources on EVERY encoder; no GPU work removed.
+Separate modest CPU-saving candidate, not additional savings from defaulting
+compact uploads. Compact validated dev38 path now default true, false fallback
+retained. Host production/reference identity/invalidation/ARC checks pass under
+ASan/UBSan; incremental -j 12 build 16.50 s, ZIP/signature valid. All 104 shaders
+and runtime libraries identical to dev38, only app executable changed. Latest
+IPA `ios/build/NFSMW-0.6.0-dev39-resource-list-cache.ipa`, also Desktop; dev38
+archived, release 0.5.2 preserved. Identity/limits in TECHNICAL “dev39 frame-local”.
+
+Next (Stefan): ONE enabled correctness/log run vs existing dev38 baseline,
+no additional baseline. Cold LiveContainer, native/60 Balanced, no Instruments,
+Extra Args `--nfsmw_native_resource_list_cache=true`,
+`--nfsmw_native_gpu_timeline=false`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`; compact default ON (remove explicit false).
+Normal menus then same race ~45–60 s, full log and any issues. Inspect cache
+build/reuse/entries counters and shared layout 384. Actual CPU/power/thermal
+benefit unmeasured; new cache default stays false pending result. D-017 parked;
+larger GPU work still active. No further source step yet. Local-only/no-push,
+pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, dev38 DEVICE-CONFIRMED on tested iPhone path:** Stefan reports
 stutter-free performance, no visual bugs; log confirms 384-byte compact ON,
 native/60 Balanced, timeline/counters/early commit OFF, ~72 s driving, zero

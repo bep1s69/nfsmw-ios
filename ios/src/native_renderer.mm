@@ -154,9 +154,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_pass_counters, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_timeline, false, "GPU",
                     "Diagnostic: bounded CPU-side submission/GPU/callback/presentation history around driving "
                     "hitches, with pending residency counts (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, false, "GPU",
-                    "Experiment: prepare/upload only the 384-byte NFS shared descriptor/flag layout instead "
+REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, true, "GPU",
+                    "Prepare/upload only the 384-byte NFS shared descriptor/flag layout instead "
                     "of 1024 bytes; field offsets unchanged (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, false, "GPU",
+                    "Experiment: reuse the frame's flattened resource list while collection counts are "
+                    "unchanged; declare resources on every encoder as before (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -1327,6 +1330,8 @@ std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
 uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};
+// Renderer queue only: list construction work, not Metal declarations avoided.
+uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
 // PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
 // key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
 // (librexgpu-xenos, loaded at run time): found with dlsym.  // early command-buffer commits, since the last stats line
@@ -5374,6 +5379,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     uint32_t sky_deferred = 0, sky_covered_draws = 0;  // the sky drawn last: times, solid draws before it
     const size_t split_after = size_t(std::max(REXCVAR_GET(nfsmw_native_pass_split_indices), 0));
     std::vector<__unsafe_unretained id<MTLResource>> resident;  // the arrays above keep them alive
+    // Frame-local: the first three input arrays only grow during encoding;
+    // volumes/cubes are fixed. Data/dummy are also fixed for the whole frame.
+    std::array<NSUInteger, 5> resident_counts{};
+    bool resident_valid = false;
+    static const bool resource_cache_enabled = REXCVAR_GET(nfsmw_native_resource_list_cache);
+    const bool reuse_resource_lists = resource_cache_enabled && !dump;
     std::map<std::string, std::pair<size_t, size_t>> groups;  // snapshot: draw groups of the pass (first draw, count)
     std::string group_target;
     __unsafe_unretained id<MTLRenderCommandEncoder> clip_mode_encoder = nil;  // the depth clip mode set on
@@ -6185,12 +6196,26 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         clip_mode_clamp = false;
         // Everything the argument heaps point to, resident for this pass: one
         // call (it was one per texture, for each of the frame's passes).
-        resident.clear();
-        for (NSArray<id<MTLTexture>>* list in @[ textures, resolved_textures, assembled_cubes, volumes, cubes ]) {
-          for (id<MTLTexture> tex in list) resident.push_back(tex);
+        const std::array<NSUInteger, 5> counts = reuse_resource_lists
+            ? std::array<NSUInteger, 5>{textures.count, resolved_textures.count, assembled_cubes.count,
+                                       volumes.count, cubes.count}
+            : std::array<NSUInteger, 5>{};
+        if (!reuse_resource_lists || !resident_valid || counts != resident_counts) {
+          resident.clear();
+          for (NSArray<id<MTLTexture>>* list in @[ textures, resolved_textures, assembled_cubes, volumes, cubes ]) {
+            for (id<MTLTexture> tex in list) resident.push_back(tex);
+          }
+          resident.push_back(dummy_array);
+          resident.push_back(data);
+          resident_counts = counts;
+          resident_valid = true;
+          if (!dump) {
+            ++resource_list_builds;
+            resource_list_entries += resident.size();
+          }
+        } else if (!dump) {
+          ++resource_list_reuses;
         }
-        resident.push_back(dummy_array);
-        resident.push_back(data);
         [enc useResources:resident.data() count:resident.size()
                     usage:MTLResourceUsageRead
                    stages:MTLRenderStageVertex | MTLRenderStageFragment];
@@ -7647,6 +7672,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         static bool settings_logged = false;
         const bool log_settings = !settings_logged;
         settings_logged = true;
+        REXLOG_INFO("[native] resource list cache {}: {} builds, {} reuses, {} entries appended "
+                    "since last summary; every encoder still declares the full list",
+                    resource_cache_enabled ? "on" : "off", resource_list_builds, resource_list_reuses,
+                    resource_list_entries);
+        resource_list_builds = resource_list_reuses = resource_list_entries = 0;
         if (log_settings) REXLOG_INFO("[native] upload sizing: {} (restart required)",
                     fused_upload_sizing ? "fused single traversal" : "legacy two traversals");
         if (log_settings) REXLOG_INFO("[native] GPU buffer selector: {}; {} direct-mapped slots (restart required)",

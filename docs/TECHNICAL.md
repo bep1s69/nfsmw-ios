@@ -17123,3 +17123,89 @@ Commands: archive/hash, inline Python log/median analysis, source mutation
 search and `git diff --check` exit 0. No build, source/SDK/shader modification,
 new device test or recording performed here. Documentation-only local commit,
 no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev39 frame-local resource-list cache ready; compact uploads default on
+
+Stefan approved the next step and asked whether it adds savings. Distinction:
+compact default-on simply carries forward the already validated upload benefit;
+resource-list reuse is a SEPARATE CPU optimization. It skips repeated ObjC
+array enumeration/vector reconstruction, not GPU work or any Metal resource
+declaration. Potential CPU saving likely modest and not measured on device.
+Do not add a claimed GPU/power/thermal improvement to this bookkeeping change.
+
+Changes in native_renderer.mm:
+- `nfsmw_native_compact_shared_constants` now defaults TRUE following dev38
+  device success, retains explicit false fallback. No compact-path algorithm
+  changes; CHANGELOG notes smaller uploads and observed per-frame capacity,
+  explicitly not measured battery/thermal gains.
+- New restart-only `nfsmw_native_resource_list_cache`, default FALSE for trial.
+  Per-frame resident vector now has cached counts for textures,
+  resolved_textures, assembled_cubes, volumes and cubes, plus a valid bit.
+  OFF rebuilds exactly as before without extra NSArray count calls. ON checks
+  counts; first encoder or any count change rebuilds the SAME ordered list,
+  retaining duplicates, dummy_array/data suffix and unsafe pointer semantics.
+  With no count change, reuse existing vector. No cache survives a frame.
+  Snapshot/dump frames force the original path.
+- Correctness condition from source audit: textures/volumes/cubes fixed before
+  draw loop, resolve/cube/view arrays only append during it. No in-place
+  replacement/removal/same-count identity mutation supported by this cache;
+  future code adding those operations must invalidate explicitly. Every new
+  encoder still executes the identical useResources call with Read usage and
+  Vertex|Fragment stages; mid-pass view useResource calls unchanged. Owning
+  arrays, argument buffers, GPU lifetime/reclaim and queue/commit behavior intact.
+- Every summary logs `[native] resource list cache on/off: B builds, R reuses,
+  E entries appended since last summary; every encoder still declares the full
+  list`. Counters are renderer-queue-only, exclude dump frames, reset with
+  summary. They measure list construction avoided, NOT resource declarations,
+  GPU work or CPU time saved. If lists grow every pass, little reuse is possible
+  and count checks add overhead; evaluate actual hit statistics.
+
+Host checks/build:
+- `python3 tools/native/test_resource_list_cache.py`: exit 0, PASS ASan/UBSan.
+  Extracts production cache construction and dev38 (febbb08) reference loop
+  into ARC harness. Checks exact object identity/order/duplicates across 200
+  simulated encoders, growth of all five collections, OFF behavior, fresh
+  frame with same counts/different resources, empty collections/fixed suffix,
+  snapshot behavior and deallocation after owning arrays die (no retaining
+  cache/lifetime extension). Source check preserves original Metal declaration,
+  addObject, commit and pool-retire statements. Synthetic ON builds <30 of
+  200 lists, OFF builds 200; NOT an app hit rate or CPU benchmark. Device
+  Metal correctness/performance still pending.
+- `python3 tools/ios/patch_game_extra_options.py`: exit 0, already patched,
+  zero generated files written. `git diff --check` exit 0. Previously validated
+  compact payload algorithm unchanged; no unnecessary repeated compact tests.
+- `/usr/bin/time -p cmake --build
+  /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`: exit 0,
+  real 16.50 s, user 14.27, sys 0.79 (incremental compile/link/package, not a
+  full clean build). Log `ios/build/dev39-resource-list-cache-build.log`
+  (ignored). Six existing warnings: fpscr operand width, four external-screen
+  deprecations, duplicate -lz at link. No errors.
+- `unzip -tq`, `codesign --verify --deep --strict` on packaged
+  ipa/Payload/NFSMW.app and `xcrun dwarfdump --uuid`: exit 0.
+  ZIP comparison against dev38: only changed entry NFSMW executable; all
+  104/104 metallibs and both runtime/GPU dylibs identical, no removed entries.
+  Info.plist version unchanged 0.6.0 (11).
+
+Artifact `ios/build/NFSMW-0.6.0-dev39-resource-list-cache.ipa`, 30544841 bytes,
+SHA-256 `8759e94470f602a2082087c6091374a03224cace38e2743bbd507067397c9425`,
+app arm64 UUID `D90B9670-E86E-3796-8FBA-E3E403CFEE78`.
+Hash-verified Desktop copy ready. Old Desktop dev38 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.0-dev38-compact-shared.ipa` after verifying
+retained repository archive matches; released 0.5.2 Desktop IPA preserved.
+
+Next DEVICE test (Stefan, PENDING): ONE new enabled run, existing dev38 is
+baseline. Force-quit LiveContainer, dev39 native/60 Balanced, no Instruments;
+Extra Args `--nfsmw_native_resource_list_cache=true`,
+`--nfsmw_native_gpu_timeline=false`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`. Compact shared defaults ON (existing
+explicit true may stay; remove any explicit false). Normal menus plus same
+race ~45–60 seconds, full log and any visual/correctness/smoothness issues.
+Verify shared layout 384 and resource-cache ON/hit counters. No new OFF run or
+long battery test requested. Do not promote new cache default until evidence;
+no claim that current CPU savings are quantified or sufficient for native/120.
+Larger GPU main-scene/shader/copy work remains next investigation, not replaced
+by these CPU improvements. D-017 parked. No new device test/recording run during
+implementation, no SDK/generated/shader edits or push/release. Local commit
+includes source, tests, CHANGELOG and records; untracked HANDOFF_CHATGPT.md
+preserved.

@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Use smaller rendering uploads.** Remove unused padding from shared draw
+  data without changing the picture. The tested iPhone run used roughly half
+  the upload-buffer capacity; battery and thermal gains are not yet measured.
+
 - **Show later joiners on the PC.** A phone host now refreshes the PC's room
   player count when someone joins or leaves, so the PC lists everyone. Needs
   device testing (preview18).
