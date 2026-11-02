@@ -379,6 +379,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev37 first device run SMOOTH; D-017 not reproduced:** Stefan saw
+no stutters. Archived `Debug/2 November 2026/dev37_iphone_gpu_timeline_smooth_nfsmw.log`
+(root ~/Developer/Debug/Most Wanted (2005) Debug/). Verified timeline ON,
+pass counters OFF, early commit OFF, native/60 Balanced. ~51 s after first
+driving label, zero GPU frames logged >45 ms, nine consecutive 300-frame
+pacing windows with zero off-grid frames; GPU averages later ~14–15.5 ms.
+One initial-load timeline report triggered by 31.1 ms encoding (GPU 9.2 ms,
+completion lag 0.084 ms), not D-017. No fault timeline yet; not a fix or power
+acceptance. Latest IPA remains dev37; no new code/build this analysis.
+Next proposed device comparison: SAME dev37 timeline OFF then ON, keeping
+counters/early commit OFF and native/60 Balanced, no Instruments, cold
+force-quit between runs, same race ~45 s. Tests whether the diagnostic itself
+changes the smooth/stalling state; not another counter A/B. Reverse order
+only if a difference appears. If both smooth, record inconclusive rather than
+repeat without a new discriminator. See TECHNICAL “dev37 first timeline run
+smooth” for evidence/limits. No further source change approved; local only,
+pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, dev37 GPU timeline READY, awaiting device test:** Stefan approved
 bounded timeline instrumentation. New restart-only
 `nfsmw_native_gpu_timeline` default false; enable captures 128-frame history

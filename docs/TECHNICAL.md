@@ -16732,3 +16732,91 @@ No new device test or Instruments recording performed during implementation;
 D-017 remains open, battery/native-120 acceptance not established. No release
 changelog entry for default-off diagnostic. Local commit only, no push/release;
 pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev37 first timeline run smooth; D-017 not reproduced
+
+Stefan: “no observed stutters this time”. No behavior fix has been made.
+Supplied log archived with copy/hash verification exit 0 to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev37_iphone_gpu_timeline_smooth_nfsmw.log`,
+493706 bytes / 3158 lines, SHA-256
+`12fd05df078305d04785385da112ed1d856e43178338799b58e3845178b5dc55`.
+Original shared-pasteboard item FF42CA42-815D-4A62-9A20-1C35C5EF363B/nfsmw.log;
+use permanent archive. Supplied dev37 build identity remains IPA SHA-256
+`ac02e244de0e1114ca21a161f435576e40352694c2a1e0555321985c957e695c`,
+app arm64 UUID `63DE89DC-4E3E-3DCA-9DDD-EEE825F0EE2D`; no new build.
+Device iPhone 17 Pro Max from test context; OS version not independently
+established in this log, and no trace supplied. Procedure requested no
+Instruments; do not claim recording state was measured from this log.
+
+One process session 16:44:38.159–16:45:56.248 +02:00. Verified timeline enable
+line at :39.464, pass counters OFF at :39.473, every early-commit summary OFF.
+Scale 1.833 in game, cap 60, Balanced, MetalFX/FXAA OFF, forced MSAA 0;
+initial startup summary scale 1.000 before scene configuration as before.
+Thermal samples nominal, Low Power Mode OFF, battery samples 80% (not power).
+Driving labels 16:45:05.337–33.542 (28.205 s), PostRace_Results until
+:35.458, driving again :35.458–56.248 (20.790 s to log end). No claim that
+this is two separate races or that the last log marks a completed action.
+Total observed time after first driving label 50.911 s, driving-labelled
+coverage 48.995 s.
+
+Measured: ZERO GPU hitch lines >45 ms in whole session; all periodic GPU slow
+counts zero; ZERO native GPU error lines. Pacing at 16:45:10.034 has 2/300 off
+the 16.7 ms grid including the initial 67 ms screen gap. Nine consecutive
+300-frame pacing windows at :15.034 through :55.040 each have 0/300 off-grid
+and 2:300 refresh counts: 2700 frames of even reported presentation. Driving
+GPU aggregate averages begin 9.78 ms, then 13.91–15.54 ms in subsequent
+windows; output summaries after the first driving-transition window say 60.0
+fps. These are per-window averages, not proof every GPU frame was <=16.7 ms.
+Earlier startup menu gaps 67/150 ms are separate from driving evidence.
+This run agrees with Stefan's smoothness observation but does not reproduce
+the severe fault, validate battery parity, or establish an effect of the probe.
+
+Only ONE timeline report, trigger frame 1528 emitted at encode 1532,
+16:45:05.496. Eight samples 1524–1531, some following timestamps still missing
+as documented. Trigger is encode duration 31.068 ms >30, not a severe GPU
+hitch. Selected offsets from SAME report origin (calculated by subtraction):
+
+| Frame | Encode→commit-in | Commit duration | Commit-out→GPU start | GPU span | GPU end→completion arrival | Completion→post-release stamp | Swap→shown |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1527 | 14.408 | 0.006 | 14.386 | 21.049 | 0.114 | 0.013 | 58.109 |
+| 1528 | 31.068 | 0.010 | 2.701 | 9.162 | 0.084 | 0.014 | 66.287 |
+
+All durations ms. Frame 1527 has 227 texture uploads, 1407 “new vertex
+buffers” in the renderer's existing counter, 11 new pooled objects, pending
+residency entry +0/-0 and commit +244/-2. Frame 1528: 3 uploads, 3015 new
+vertex entries, 27 pooled objects, pending entry +244/-2 and commit +31/-0.
+These new-vertex counts refer to the existing renderer counter, not a newly
+verified count of separately allocated Metal buffers. Queue/callback times
+are observations, not active GPU utilization. Frame 1527 scheduled callback
+arrives 10.463 ms AFTER its GPU-start timestamp; this demonstrates why host
+callback arrival must not be treated as exact GPU scheduling time. Completion
+delivery and first-handler release overhead are tiny in these two frames.
+The 67 ms initial presentation gap corresponds to frame 1527 loading work,
+not a 50–150 ms GPU span. Pending lists confirm the existing first-use coverage
+question, but smooth operation with many pending additions does not establish
+it as a D-017 cause or justify a residency change.
+
+At final log, frame 4573 takes 36.7 ms to encode including 32.4 ms waiting
+for a drawable. No later encodes/report in the supplied file; don't infer the
+reporting path missed it (reports deliberately need four following encodes),
+or that this final event was a user-visible stutter. Only one of twelve report
+slots used, so absence of other reports is not budget exhaustion.
+
+Inference/next test proposal, NO CODE CHANGE: GPU aggregates near 15 ms and
+smooth presentation resemble earlier smooth profiler recordings, but dev36
+also had occasional smooth states. The new timeline includes a scheduled
+handler, locks and timestamp reads even without Instruments; a probe-induced
+state is possible, NOT established. Before adding diagnostics or changing
+residency, compare dev37 against ITSELF with timeline OFF then ON, keeping
+pass counters OFF, early commit OFF, native/60 Balanced and no Instruments,
+cold force-quit between launches, same race ~45 s. Only change
+`nfsmw_native_gpu_timeline=false` / `true`. This is a new comparison of the
+timeline probe, not a repeat of the completed counter A/B. If a difference
+appears, reverse order before attributing it; if a timeline-ON run stutters,
+its report can answer the pending fault-location question. If both stay smooth,
+record inconclusive rather than ask for repeated identical runs without a
+new discriminator. No new source/SDK/shader/build changes authorized or made.
+D-017 remains open. Inline Python parsing/time subtraction, source read/search
+and `git diff --check` exit 0. No device test or recording run here; analysis
+only. Documentation committed locally, untracked HANDOFF_CHATGPT.md preserved.
