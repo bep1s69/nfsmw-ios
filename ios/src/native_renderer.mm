@@ -158,9 +158,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_timeline, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, true, "GPU",
                     "Prepare/upload only the 384-byte NFS shared descriptor/flag layout instead "
                     "of 1024 bytes; field offsets unchanged (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, false, "GPU",
-                    "Experiment: incrementally insert new frame resource-list entries; declare the full "
+REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, true, "GPU",
+                    "Incrementally insert new frame resource-list entries; declare the full "
                     "ordered list on every encoder as before (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, false, "GPU",
+                    "Experiment: test shadowed cutout shader alpha before shadow filtering; "
+                    "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -1335,6 +1338,8 @@ std::atomic<uint64_t> early_commit_total{0};
 uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
 uint64_t resource_list_updates = 0, resource_list_shifted = 0, resource_list_reallocated = 0;
 uint64_t resource_list_declared = 0;
+// Submitted indexed draws only; not fragment coverage or GPU time saved.
+uint64_t foliage_alpha_eligible = 0, foliage_alpha_selected = 0;
 // PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
 // key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
 // (librexgpu-xenos, loaded at run time): found with dlsym.  // early command-buffer commits, since the last stats line
@@ -3247,6 +3252,9 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
   desc.vertexFunction = vs;
   desc.fragmentFunction = k.alpha_spec ? store.PixelVariant(k.ps, k.alpha_spec) : ps;
   if (!desc.fragmentFunction) {
+    // A failed trial specialization must not silently draw the base shader
+    // and get counted as having exercised early rejection.
+    if (k.alpha_spec & 0x2000u) return nil;
     desc.fragmentFunction = ps;
   }
   if (k.motion >= 2) {  // nil (no such entry point): the pipeline fails, its draws are left out
@@ -3321,7 +3329,7 @@ class PipelineCache {
     }
     MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps);
     if (!desc) {
-      Finish(k, nil, false, "no motion entry point");
+      Finish(k, nil, false, "shader specialization or motion entry point unavailable");
       *failed = true;
       return nil;
     }
@@ -6294,6 +6302,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       uint32_t alpha_spec = (d.color_control & 8) ? (2u | ((d.color_control & 7) << 8))
                             : alpha_to_coverage && t.sample_count == 1 ? (2u | (6u << 8))
                                                                       : 0u;
+      // Bit 13 is consumed only by the audited shader rewrite. It remains
+      // part of the pipeline/variant key, including motion entry points.
+      static const bool foliage_early_alpha = REXCVAR_GET(nfsmw_native_foliage_early_alpha);
+      const bool foliage_eligible = d.ps_key == 0x684f4711f29b9f77ull && (alpha_spec & 2u);
+      if (foliage_early_alpha && foliage_eligible) alpha_spec |= 0x2000u;
       // The shadow caster (ps 4fbaecfb) with its cut-out off (c1.x 0): the
       // variant without the discard compiled in (bit 12, see
       // tools/native/rewrite_shadow_caster_alpha.py), so the GPU can drop
@@ -6879,6 +6892,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                          indexType:MTLIndexTypeUInt32
                        indexBuffer:ib
                  indexBufferOffset:index_at];
+        foliage_alpha_eligible += foliage_eligible;
+        foliage_alpha_selected += foliage_eligible && foliage_early_alpha;
         ++drawn;
       }
     }
@@ -7708,6 +7723,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         static bool settings_logged = false;
         const bool log_settings = !settings_logged;
         settings_logged = true;
+        REXLOG_INFO("[native] foliage early alpha {}: {} eligible / {} selected submitted indexed draws "
+                    "since last summary (shader 684f only; not fragment counts or GPU savings)",
+                    REXCVAR_GET(nfsmw_native_foliage_early_alpha) ? "on" : "off",
+                    foliage_alpha_eligible, foliage_alpha_selected);
+        foliage_alpha_eligible = foliage_alpha_selected = 0;
         REXLOG_INFO("[native] resource list cache {}: {} builds, {} incremental updates, {} unchanged reuses; "
                     "{} source entries copied, {} suffix entries shifted, {} existing entries relocated by reserve; "
                     "{} resource entries declared since last summary (full list on every encoder)",

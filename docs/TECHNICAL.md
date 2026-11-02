@@ -17514,3 +17514,143 @@ remains dev40. All ordinary analysis/extraction commands and git diff --check
 exit 0 apart from discovery limitations explicitly recorded above. No new
 device test or Instruments recording run. Documentation-only local commit,
 no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+### November 2: dev41 resource-list default and opt-in early foliage alpha
+
+Stefan explicitly approved BOTH proposals after dev40 correctness confirmation:
+make incremental resource-list construction default on, and implement a separate
+opt-in early-alpha GPU trial. No broader quality, SDK, scheduling, resolve or
+stutter experiment approved/added. D-017 remains parked. One enabled device run
+uses existing baseline logs; no new OFF comparison requested.
+
+Source:
+
+- `ios/src/native_renderer.mm`: `nfsmw_native_resource_list_cache` defaults TRUE;
+  explicit false retains full rebuild fallback. Compact shared remains TRUE.
+- New restart-only `nfsmw_native_foliage_early_alpha` defaults FALSE. Sets
+  specialization bit13 (0x2000, previously unused) only on ps684f4711f29b9f77
+  draws with effective alpha test enabled. Includes the existing single-sample
+  alpha-to-coverage emulation. Original compare bits remain unchanged. Bit13
+  participates in existing PS variant, pipeline hash/equality, persisted key and
+  motion-entry specialization paths; no struct/file ABI change. Cheap tree
+  ps27d82ea0faa380a8 is untouched; no additional function constant added.
+- `tools/native/rewrite_foliage_early_alpha.py` runs after existing shadow
+  rewrites, integrated into build_shaders.sh. Target name + SHA256 of audited
+  shader body gate the transform. Unexpected/mutated/already rewritten target
+  raises an error; the full build fails rather than shipping a silent no-op.
+  If translator body changes, re-audit alpha input stability/control flow before
+  changing guard `7d22a9278b1b15fd973c194464aee0237c2aa6b7f3351ef664a9eb9f585e1c66`.
+  No game source embedded in tracked tool or docs.
+- Copies the generated alpha predicate verbatim, including explicit NaN rule
+  for NOT_EQUAL, and uses the identical opacity expression after the first
+  diffuse fetch. Early clip selected by bit13+alpha-enable; original late clip
+  runs when bit13 unset. Original final alpha assignment and all RGB/lighting/
+  shadow operations retained. No register inputs/writes changed. False-path
+  source reconstructs byte-for-byte after removing the guarded insertion and
+  restoring its late condition; this is not a claim of identical machine code.
+- No divergent early return, early_fragment_tests attribute, forced early
+  depth updates, fp16, fast math, geometry or graphics-quality change. Existing
+  shadow-gather true/fallback paths retained. Metal helper work and compiler
+  optimization can limit savings; no GPU-time or energy claim from source.
+- Every 300 frames log eligible vs selected SUBMITTED INDEXED DRAWS since last
+  summary (after pipeline/index-buffer availability). These are not fragments,
+  covered pixels, executed discard counts or saved GPU work. A failed trial
+  specialization returns nil rather than silently using base PS and counting a
+  false trial success; existing failure reporting now accurately says shader
+  specialization or motion entry point unavailable. Async readiness behavior
+  otherwise unchanged. No measurements/timestamps added to GPU commands.
+- CHANGELOG records resource-list setup improvement without timing/energy claim.
+
+Host checks and exact outcomes:
+
+- `python3 tools/native/test_foliage_early_alpha.py ios/build/perf-gpu-nov2/ps_684f4711f29b9f77.hlsl`
+  exit0 (initial and extended version). Uses regenerated baseline private source,
+  extracts actual early/late generated predicates, compiles clang++ C++20/O2,
+  `-fno-fast-math -ffp-contract=off -fsanitize=address,undefined`. PASS 3,264,000
+  predicate cases: all8 compares, disabled alpha, NaNs (including signaling bit
+  patterns), infinities, signed zero/subnormals, threshold boundaries/equality
+  and seeded random bit patterns; compares with independent switch reference.
+  PASS 4608 production selection calls covering target/cheap-tree/caster keys,
+  256 controls, 1/2/4 samples, trial OFF/ON; original alpha bits preserved.
+  PASS exact false-path reconstruction, unchanged final math/assignment,
+  target-only and changed-body/reapplication rejection. These are CPU/source
+  checks, not proof of GPU raster/derivative/image equivalence on device.
+- `python3 tools/native/test_resource_list_cache.py` exit0: production-vs-dev38
+  ARC/ASan/UBSan exact identity/order/duplicates, every-pass growth/shrink,
+  reserve, frame reset, OFF/snapshot and lifetime checks remain passing.
+- Inline existing `constant_ranges.ranges` and `texture_masks.mask_for` checks
+  exit0: baseline vs trial both Pixel constants [0,3), texture mask3/known true.
+  No metadata changes. `sh -n tools/native/build_shaders.sh` and
+  `git diff --check` exit0. Full all-shader rebuild not performed/needed.
+
+Shader compile prerequisite and failed attempts preserved:
+
+- First sandboxed xcrun compile exit1: missing Metal Toolchain. `xcode-select -p`
+  found /Applications/Xcode.app/Contents/Developer; xcrun --find metal found
+  Xcode wrapper, not an installed compiler. Asset/toolchain directories absent;
+  xcodebuild -showComponent MetalToolchain reported no downloaded assets, with
+  sandbox cache/CoreSimulator warnings. Compound discovery command's final rg
+  exited0, so do not mistake that for successful component availability.
+- Retried identical compile outside sandbox exit1 with same missing-toolchain
+  message. Concrete evidence it was absent, not just sandbox access.
+- `xcodebuild -downloadComponent MetalToolchain` outside sandbox exit0; installed
+  Apple Metal Toolchain27B47, reported 838.9MB download, asset at
+  `/System/Library/AssetsV2/com_apple_MobileAsset_MetalToolchain/e5b5544bf11850c8bd817f7702339b202c00661b.asset/AssetData/Restore/022-22476-056.dmg`.
+- Retried approved compilation/link outside sandbox exit0 using:
+  `xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off -mios-version-min=18.0 -c <target.metal> -o <target.air>`
+  then `xcrun -sdk iphoneos metal -mios-version-min=18.0 <target.air> -o <target.metallib>`.
+  No compiler source changes; no device shader/pipeline specialization test yet.
+
+Private generated files under ignored `ios/build/perf-gpu-nov2/dev41/`:
+rewritten ps684f hlsl47683bytes SHA256
+`cbb6bdd923956743bad45693eeaa863e7b31ba5d81e81f2d8c0ada41bba2d628`;
+trial metallib37600bytes SHA256
+`a5ebdeb8e958dfada8105955887091d3f5a7bd0f1125a152459db1fb327748a6`;
+backup ps_684f4711f29b9f77.baseline.metallib36976bytes SHA256
+`3a53a28ffc946893a0413d9ef626289d19b24eff353670959b9df6c71ade92cb`.
+Generated Metal/air retained there, original baseline hlsl in parent. The
+baseline-library-hashes.json manifest has108files/104metallibs. Installed ONLY
+trial target into configured `~/Library/Caches/nfsmw-ios/shaders/lib/` (shared
+cache now contains opt-in-capable library; older app does not set bit13).
+All other107cache files identical. Built library advertises apple-ios18.0.0.
+Do not restore old target while testing dev41; false flag already uses late path.
+
+Build:
+`python3 tools/ios/patch_game_extra_options.py` exit0, already patched, 0files
+written; then `/usr/bin/time -p cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit0,17.55real/14.53user/0.97sys; isolated multiplayer SDK. Log
+`ios/build/dev41-foliage-early-alpha-build.log`. A subsequent correction to
+failure diagnostic text required a second incremental package build, recorded
+below. This is not clean-build timing. Six existing warnings: fpscr asm operand
+width, four UIScreen deprecations, duplicate -lz; no compiler errors.
+
+Final incremental rebuild exit0:16.34real/14.26user/0.89sys, same six warnings,
+log `ios/build/dev41-foliage-early-alpha-final-build.log`. Final artifact
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.0-dev41-foliage-early-alpha.ipa`,
+30,547,741 bytes, SHA256
+`59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329`,
+arm64 UUID `925E490E-2487-3D5E-806D-E1E7EAC37EC6`, version0.6.0(11).
+ZIP integrity, codesign --verify --deep --strict on packaged app, dwarfdump
+exit0. ZIP comparison with dev40: same file set/104metallibs; only app executable,
+target ps684f metallib and CodeResources signature changed. Other103 shader
+libraries, metadata and every Frameworks/ file byte-identical. Identical final
+Desktop copy verified. Dev40 Desktop copy moved to Trash after verifying repo
+archive match; release0.5.2 Desktop untouched. Intermediate pre-diagnostic IPA
+retained ignored as `ios/build/perf-gpu-nov2/dev41/pre-diagnostic.ipa`, SHA256
+`820135c39eaf652404e23c6f707c7a377d809c969227837f27e0671a628f4d19`,
+UUID8B1729A9-DAA6-34C7-8355-397F020DA81F; it was replaced on Desktop before
+handoff, not device-tested or the current test identity.
+
+Next device test (Stefan only): force-quit/relaunch LiveContainer, native1.833/60
+Balanced, same settings as dev40 (MetalFX/FXAA off, forced MSAA0), no Instruments,
+one ~60s drive including foliage/fences. Extra Args:
+`--nfsmw_native_foliage_early_alpha=true --nfsmw_native_pass_counters=false --nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`.
+Resource cache and compact defaults true; remove an old explicit resource-cache
+false; explicit true is harmless. Inspect foliage edges, shadows and motion,
+report visual/feel result and log. Eligible/selected counts must show actual
+submission. Reuse existing dev40 baseline; no new OFF run requested. No device
+run/Instruments trace performed by this session. Host/compile/package success
+is not GPU performance, power, thermals or native120 acceptance. Early-alpha
+flag remains false until evidence/review; no further source change approved.
+All session changes documented/committed locally; no push/release. Pre-existing
+untracked HANDOFF_CHATGPT.md preserved, not included in commit.

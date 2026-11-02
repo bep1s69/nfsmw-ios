@@ -295,6 +295,25 @@ cmake -S ios -B /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 -G Ninja -DCMAKE
 cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12
 ```
 
+Native shader trial build note (November 2, dev41): the normal
+`tools/native/build_shaders.sh` now runs `rewrite_foliage_early_alpha.py` after
+the existing shadow rewrites. This fails on an unaudited target-body change;
+do not bypass its guard or update the digest without a new dataflow review.
+For a single-library build, preserve the existing lib/ manifest and metadata,
+translate the target container, run `rewrite_shadow_filter.py`, then
+`python3 tools/native/test_foliage_early_alpha.py <baseline-target.hlsl>`,
+then `rewrite_foliage_early_alpha.py <target.hlsl>`. Compile/link ONLY that target
+with `xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off -mios-version-min=18.0 -c <target.metal> -o <target.air>`
+and `xcrun -sdk iphoneos metal -mios-version-min=18.0 <target.air> -o <target.metallib>`.
+Copy just the target into the configured native shader lib/ cache; verify all
+other hashes and unchanged constant-range/texture-mask metadata before packaging.
+The source body for the host test is generated private data, kept ignored.
+If xcrun reports missing Metal Toolchain, install Apple's component with
+`xcodebuild -downloadComponent MetalToolchain` (dev41 installed 27B47).
+In this environment Metal compilation also needs access outside the sandbox.
+The runtime switch is restart-only and default off; false keeps the late alpha
+path. Do not enable by default merely because offline compilation passes.
+
 Host checks (local listener permission required):
 
 ```sh
@@ -388,6 +407,38 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, dev41 READY; device test pending:** Stefan approved both the
+resource-list default promotion and the separate early foliage-alpha trial.
+`nfsmw_native_resource_list_cache` now defaults true, false fallback retained;
+compact shared constants remain true. New restart-only
+`nfsmw_native_foliage_early_alpha` defaults FALSE. When enabled it selects
+specialization bit13 only for shader684f4711f29b9f77 with effective alpha test
+(including single-sample alpha-to-coverage emulation); all compare/NaN rules,
+late-path math, surviving outputs and depth state preserved. No early return
+or forced early depth updates. Rebuilt only that shader library with exact
+math/iOS18.0. Counts report eligible/selected submitted indexed draws, not
+fragments or GPU time saved. Production-body digest guard fails closed on
+translation changes; re-audit before changing it. Host checks pass: 3,264,000
+predicate cases, 4608 selection cases, exact false-path reconstruction,
+resource-list ARC/ASan/UBSan. Build/signature/ZIP checks pass; other103 shader
+libraries and all bundled frameworks unchanged. No device/GPU/energy success
+claimed yet. D-017 stays parked.
+
+IPA `ios/build/NFSMW-0.6.0-dev41-foliage-early-alpha.ipa`, identical Desktop
+copy; SHA256 `59ba4c08522362532e7800d6328245c5b52984f11227847fe460081a11971329`,
+arm64 UUID `925E490E-2487-3D5E-806D-E1E7EAC37EC6`, 0.6.0(11).
+Next: ONE enabled correctness run by Stefan at the existing native/60 Balanced
+settings, no Instruments, ~60s driving past foliage/fences, check edges,
+shadows and motion. Cold-launch LiveContainer with:
+`--nfsmw_native_foliage_early_alpha=true --nfsmw_native_pass_counters=false --nfsmw_native_gpu_timeline=false --nfsmw_native_early_commit=false`.
+Remove any old `resource_list_cache=false`; explicit true is optional now.
+Use existing dev40 baseline, no fresh OFF run requested. Send log and visual
+result. Do not promote foliage trial or infer savings before evidence.
+TECHNICAL “dev41 resource-list default and opt-in early foliage alpha” records
+implementation, toolchain installation, build identities/commands and limits.
+Local-only, no push/release. HANDOFF_CHATGPT.md remains pre-existing untracked.
+
 
 **November 2, dev40 work reduction + device correctness CONFIRMED:** Stefan
 explicitly says everything normal. Archived

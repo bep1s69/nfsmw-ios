@@ -2,6 +2,11 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Reduce rendering setup work.** Update frame resource lists incrementally
+  while preserving every encoder's resource declarations. Correctness and
+  reduced list construction work are confirmed on iPhone; energy gains remain
+  unmeasured.
+
 - **Use smaller rendering uploads.** Remove unused padding from shared draw
   data without changing the picture. The tested iPhone run used roughly half
   the upload-buffer capacity; battery and thermal gains are not yet measured.
