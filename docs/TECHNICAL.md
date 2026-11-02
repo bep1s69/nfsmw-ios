@@ -17286,3 +17286,90 @@ Commands: archive/hash, inline Python log count/timestamp analysis,
 source/checkpoint reads and `git diff --check` exit 0. No new source/SDK/shader
 change, build, device test or recording performed. Documentation-only local
 commit; no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev40 incremental resource-list correction ready
+
+Stefan approved replacing the ineffective unchanged-count cache. The old dev39
+negative result remains recorded; no claimed saving is carried over from it.
+Same restart-only switch `nfsmw_native_resource_list_cache`, default FALSE.
+Compact shared upload stays default TRUE. No shader/GPU operation/declaration
+or scheduling change.
+
+native_renderer.mm now:
+- Builds ordered resource list once per frame. On append-only collection
+  growth, inserts only new entries at each group's boundary, NOT vector end,
+  preserving original textures/resolves/assembled-cubes/volumes/cubes order,
+  duplicate identities and dummy_array/data suffix. Previous groups' inserted
+  entries are included when locating later boundaries. Indexed NSArray reads
+  touch only newly appended entries; fixed/already-seen entries are not
+  re-enumerated.
+- Reserves enough capacity for the full new size before insertions, using
+  std::bit_ceil (at least 16 slots). This prevents an allocation on each small
+  append. Suffix shifting still has CPU cost and is counted explicitly.
+- Full rebuild if any collection shrinks; first encoder always builds anew.
+  Frame-local cache still assumes no same-count identity replacements (current
+  producer contract is append-only); future replacement needs invalidation.
+  OFF/snapshot path performs the original rebuild and leaves cache invalid,
+  so even a later enabled call cannot reuse stale metadata. Every encoder
+  still makes the identical full-list useResources call, usage/stages intact.
+  Existing individual mid-pass view declarations and ownership remain intact.
+- Summary now distinguishes builds, incremental updates, unchanged reuses,
+  source entries copied, suffix entries shifted, existing entries relocated
+  by reserve, and full resource entries declared. Last quantity is the sum of
+  list lengths passed to encoders; it should NOT decrease from caching.
+  Source reads avoided can occur with ZERO unchanged reuses. Counters count
+  logical pointer operations, not exact compiler memory traffic, CPU time or
+  GPU/battery savings. Reserve movement and insert shifts must not be hidden
+  when interpreting the reduction in source enumeration. Dumps excluded.
+
+Host checks/build:
+- `python3 tools/native/test_resource_list_cache.py`: exit 0, PASS ASan/UBSan.
+  Existing extracted production/reference ARC tests extended for interleaved
+  multi-group insertion, a 300-resource fixed prefix with new resolves/cubes
+  EVERY pass, fallback after shrinking each of all five groups, large
+  simultaneous growth/reserve, exact pointer order/duplicates, per-frame reset,
+  empty lists, OFF/snapshot and lifetime. In 200-pass every-pass-growth fixture,
+  ON records one full build +199 updates +zero unchanged reuses; declared
+  resource-entry count equals full-reference path. Assertions require source
+  entries <1/10 of full path AND source+suffix shifts+reserve relocations less
+  than full path. This is a synthetic structural check, NOT app savings or a
+  timing benchmark. Original Metal/addObject/commit/retire statements checked
+  unchanged against dev38 reference. Device effectiveness still pending.
+- `python3 tools/ios/patch_game_extra_options.py`: exit 0, already patched,
+  zero generated files written. `git diff --check`: exit 0.
+- `/usr/bin/time -p cmake --build
+  /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`: exit 0,
+  real 16.53 s, user 14.32, sys 0.91 (incremental compile/link/package, not a
+  full clean-build timing). Log `ios/build/dev40-resource-list-incremental-build.log`
+  (ignored). Six existing warnings: fpscr operand width, four external-screen
+  deprecations, duplicate -lz. No errors.
+- `unzip -tq`, `codesign --verify --deep --strict` on packaged
+  ipa/Payload/NFSMW.app, `xcrun dwarfdump --uuid`: exit 0.
+  ZIP against dev39: only NFSMW executable changed, 104/104 metallibs and both
+  runtime/GPU dylibs identical, no removed files. Version 0.6.0 (11).
+
+Artifact `ios/build/NFSMW-0.6.0-dev40-resource-list-incremental.ipa`,
+30545211 bytes, SHA-256
+`a20a07d4578629a0bccbb4cd202ef055e2669106077d1b0800ecc925349efb04`,
+app arm64 UUID `68D69080-4619-3451-A839-B72521FE8399`.
+Hash-verified Desktop copy ready; old Desktop dev39 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.0-dev39-resource-list-cache.ipa` after matching
+retained repository archive. Released 0.5.2 Desktop IPA preserved.
+
+Next DEVICE (Stefan, PENDING): ONE enabled correctness/log run, using existing
+dev39/dev38 logs for baseline. Force-quit LiveContainer; dev40 native/60
+Balanced, no Instruments, normal menus then same race ~45–60 s. Extra Args
+unchanged from dev39 test: `--nfsmw_native_resource_list_cache=true`,
+`--nfsmw_native_gpu_timeline=false`, `--nfsmw_native_pass_counters=false`,
+`--nfsmw_native_early_commit=false`; compact default ON. Export complete log
+and any visual/smoothness/correctness issues. Verify new incremental-update
+counters active, full builds fall toward one/frame, source copied entries
+fall despite unchanged hits possibly zero; include shifts/relocation before
+calling this cheaper. No extra OFF baseline/long battery trial requested.
+Default stays false pending actual evidence. D-017 parked; GPU main-scene/
+shader/dataflow work remains broader next investigation, not solved by this.
+No device test/recording run during implementation, no SDK/generated/shader
+edits or release/push. Local code/test/docs commit; no new release changelog
+line for default-off unverified correction. Untracked HANDOFF_CHATGPT.md
+preserved.

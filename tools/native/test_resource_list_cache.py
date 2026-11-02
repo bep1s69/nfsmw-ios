@@ -21,6 +21,8 @@ for needle in ("[enc useResource:", "[enc useResources:", "[resolved_textures ad
 HARNESS = r'''
 #import <Foundation/Foundation.h>
 #include <array>
+#include <algorithm>
+#include <bit>
 #include <cassert>
 #include <vector>
 @protocol MTLResource <NSObject> @end
@@ -53,6 +55,8 @@ struct Cache {
   std::array<NSUInteger,5> resident_counts{};
   bool resident_valid=false;
   uint64_t resource_list_builds=0,resource_list_reuses=0,resource_list_entries=0;
+  uint64_t resource_list_updates=0,resource_list_shifted=0,resource_list_reallocated=0;
+  uint64_t resource_list_declared=0;
   List Declare(const Inputs& i,bool reuse_resource_lists,bool dump=false) {
     INPUTS
     @CANDIDATE@
@@ -77,9 +81,41 @@ int main() {
       Equal(expected,on.Declare(i,true));Equal(expected,off.Declare(i,false));
     }
     assert(off.resource_list_builds==200 && off.resource_list_reuses==0);
-    assert(on.resource_list_builds+on.resource_list_reuses==200);
-    assert(on.resource_list_builds<30 && on.resource_list_reuses>170);
+    assert(on.resource_list_builds+on.resource_list_updates+on.resource_list_reuses==200);
+    assert(on.resource_list_builds==1 && on.resource_list_reuses>170);
     assert(on.resource_list_entries<off.resource_list_entries);
+    assert(on.resource_list_declared==off.resource_list_declared);
+    // Real dev39 pattern: every pass grows a resolve/cube/view collection,
+    // so there are zero unchanged-count hits. Incremental updates must still
+    // avoid repeatedly copying the fixed texture prefix from NSArray.
+    Inputs growing; Cache incremental,full;
+    for(unsigned n=0;n<300;++n)[growing.lists[0] addObject:[Probe new]];
+    for(unsigned pass=0;pass<200;++pass) {
+      [growing.lists[1] addObject:[Probe new]];
+      if(pass%3==0)[growing.lists[2] addObject:growing.dummy_array];
+      Equal(Reference(growing),incremental.Declare(growing,true));
+      Equal(Reference(growing),full.Declare(growing,false));
+    }
+    assert(incremental.resource_list_builds==1 && incremental.resource_list_updates==199);
+    assert(incremental.resource_list_reuses==0);
+    assert(incremental.resource_list_declared==full.resource_list_declared);
+    assert(incremental.resource_list_entries*10<full.resource_list_entries);
+    assert(incremental.resource_list_entries+incremental.resource_list_shifted+
+           incremental.resource_list_reallocated<full.resource_list_entries);
+    // Shrink any group: rebuild instead of keeping removed/dangling entries.
+    for(unsigned kind=0;kind<5;++kind) {
+      if(growing.lists[kind].count==0)[growing.lists[kind] addObject:[Probe new]];
+      Equal(Reference(growing),incremental.Declare(growing,true));
+      auto builds=incremental.resource_list_builds;
+      [growing.lists[kind] removeLastObject];
+      Equal(Reference(growing),incremental.Declare(growing,true));
+      assert(incremental.resource_list_builds==builds+1);
+    }
+    // Large simultaneous growth in several groups must reserve once and
+    // insert before later groups/the fixed suffix, including duplicates.
+    for(unsigned kind=0;kind<5;++kind)
+      for(unsigned n=0;n<300;++n)[growing.lists[kind] addObject:growing.dummy_array];
+    Equal(Reference(growing),incremental.Declare(growing,true));
     // A new frame with identical counts and different identities must build
     // afresh; no cache survives across frames, and fixed extras change too.
     Inputs next;
@@ -107,4 +143,4 @@ with tempfile.TemporaryDirectory(prefix="nfsmw-resource-cache-") as folder:
                     "-fsanitize=address,undefined", "-fno-omit-frame-pointer", str(path),
                     "-framework", "Foundation", "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
-print("PASS: production list identity/order/duplicates, all collection invalidations, frame reset, empty lists, OFF/snapshot path and ARC lifetime (ASan/UBSan)")
+print("PASS: production incremental list identity/order/duplicates, every-pass growth, shrink fallback, reserve, frame reset, OFF/snapshot path and ARC lifetime (ASan/UBSan)")

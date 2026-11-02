@@ -45,6 +45,7 @@
 #include <mach/task_info.h>
 
 #include <algorithm>
+#include <bit>
 #include <dlfcn.h>
 #include <deque>
 #include <atomic>
@@ -158,8 +159,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, true, "GPU",
                     "Prepare/upload only the 384-byte NFS shared descriptor/flag layout instead "
                     "of 1024 bytes; field offsets unchanged (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, false, "GPU",
-                    "Experiment: reuse the frame's flattened resource list while collection counts are "
-                    "unchanged; declare resources on every encoder as before (restart required)");
+                    "Experiment: incrementally insert new frame resource-list entries; declare the full "
+                    "ordered list on every encoder as before (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -1332,6 +1333,8 @@ uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out comp
 std::atomic<uint64_t> early_commit_total{0};
 // Renderer queue only: list construction work, not Metal declarations avoided.
 uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
+uint64_t resource_list_updates = 0, resource_list_shifted = 0, resource_list_reallocated = 0;
+uint64_t resource_list_declared = 0;
 // PM4 census (tools/ios/patch_ios_packet_census.py, --ios_packet_census=true):
 // key 0-127 type-3 opcode, 128 type 0, 129 type 1/2. In the GPU plugin
 // (librexgpu-xenos, loaded at run time): found with dlsym.  // early command-buffer commits, since the last stats line
@@ -6200,7 +6203,20 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             ? std::array<NSUInteger, 5>{textures.count, resolved_textures.count, assembled_cubes.count,
                                        volumes.count, cubes.count}
             : std::array<NSUInteger, 5>{};
-        if (!reuse_resource_lists || !resident_valid || counts != resident_counts) {
+        bool shrank = false;
+        if (reuse_resource_lists && resident_valid) {
+          for (size_t group = 0; group < counts.size(); ++group)
+            shrank |= counts[group] < resident_counts[group];
+        }
+        if (reuse_resource_lists && (!resident_valid || counts != resident_counts)) {
+          size_t needed = 2;  // dummy/data suffix
+          for (NSUInteger n : counts) needed += n;
+          if (needed > resident.capacity()) {
+            if (!dump) resource_list_reallocated += resident.size();
+            resident.reserve(std::bit_ceil(std::max<size_t>(needed, 16)));
+          }
+        }
+        if (!reuse_resource_lists || !resident_valid || shrank) {
           resident.clear();
           for (NSArray<id<MTLTexture>>* list in @[ textures, resolved_textures, assembled_cubes, volumes, cubes ]) {
             for (id<MTLTexture> tex in list) resident.push_back(tex);
@@ -6208,14 +6224,34 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           resident.push_back(dummy_array);
           resident.push_back(data);
           resident_counts = counts;
-          resident_valid = true;
+          resident_valid = reuse_resource_lists;
           if (!dump) {
             ++resource_list_builds;
             resource_list_entries += resident.size();
           }
+        } else if (counts != resident_counts) {
+          // Resolve/view arrays grow between almost every pass (dev39).
+          // Insert only their new entries at the matching group's boundary:
+          // appending at the vector's end would change the original order.
+          __unsafe_unretained NSArray<id<MTLTexture>>* lists[] = {
+              textures, resolved_textures, assembled_cubes, volumes, cubes};
+          size_t boundary = 0;
+          for (size_t group = 0; group < counts.size(); ++group) {
+            boundary += resident_counts[group];
+            for (NSUInteger i = resident_counts[group]; i < counts[group]; ++i) {
+              __unsafe_unretained id<MTLResource> added = [lists[group] objectAtIndex:i];
+              if (!dump) resource_list_shifted += resident.size() - boundary;
+              resident.insert(resident.begin() + boundary, added);
+              ++boundary;
+              if (!dump) ++resource_list_entries;
+            }
+          }
+          resident_counts = counts;
+          if (!dump) ++resource_list_updates;
         } else if (!dump) {
           ++resource_list_reuses;
         }
+        if (!dump) resource_list_declared += resident.size();
         [enc useResources:resident.data() count:resident.size()
                     usage:MTLResourceUsageRead
                    stages:MTLRenderStageVertex | MTLRenderStageFragment];
@@ -7672,11 +7708,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         static bool settings_logged = false;
         const bool log_settings = !settings_logged;
         settings_logged = true;
-        REXLOG_INFO("[native] resource list cache {}: {} builds, {} reuses, {} entries appended "
-                    "since last summary; every encoder still declares the full list",
-                    resource_cache_enabled ? "on" : "off", resource_list_builds, resource_list_reuses,
-                    resource_list_entries);
+        REXLOG_INFO("[native] resource list cache {}: {} builds, {} incremental updates, {} unchanged reuses; "
+                    "{} source entries copied, {} suffix entries shifted, {} existing entries relocated by reserve; "
+                    "{} resource entries declared since last summary (full list on every encoder)",
+                    resource_cache_enabled ? "on" : "off", resource_list_builds, resource_list_updates,
+                    resource_list_reuses, resource_list_entries, resource_list_shifted,
+                    resource_list_reallocated, resource_list_declared);
         resource_list_builds = resource_list_reuses = resource_list_entries = 0;
+        resource_list_updates = resource_list_shifted = resource_list_reallocated = resource_list_declared = 0;
         if (log_settings) REXLOG_INFO("[native] upload sizing: {} (restart required)",
                     fused_upload_sizing ? "fused single traversal" : "legacy two traversals");
         if (log_settings) REXLOG_INFO("[native] GPU buffer selector: {}; {} direct-mapped slots (restart required)",

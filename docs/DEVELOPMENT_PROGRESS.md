@@ -389,6 +389,32 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev40 incremental resource list READY, device test pending:**
+Stefan approved correction after dev39 zero hits. Same independent switch
+`nfsmw_native_resource_list_cache`, still default false; ON now builds once
+and inserts newly appended entries at exact collection boundaries, preserving
+all objects/order/duplicates and per-encoder declarations. Shrink rebuild
+fallback, per-frame reset, geometric reserve. New counters separate full builds,
+updates, unchanged hits, source copies, suffix shifts, reserve relocations and
+full entries declared. Compact upload default true unchanged. Host actual-code
+ARC/ASan/UBSan tests cover every-pass growth and shrink/order/lifetime; pass.
+Incremental -j 12 build 16.53 s, ZIP/signature valid, all shaders/runtime libs
+identical to dev39. Latest IPA
+`ios/build/NFSMW-0.6.0-dev40-resource-list-incremental.ipa`, also Desktop;
+old dev39 archived, 0.5.2 release preserved. Identity/limits in TECHNICAL
+“dev40 incremental resource-list correction”. No actual savings claimed yet.
+
+Next (Stefan): ONE new enabled ~45–60 s native/60 Balanced same-race run,
+existing dev39/dev38 baseline; no Instruments. Cold LiveContainer, Extra Args
+`--nfsmw_native_resource_list_cache=true`, `--nfsmw_native_gpu_timeline=false`,
+`--nfsmw_native_pass_counters=false`, `--nfsmw_native_early_commit=false`.
+Compact default ON. Full log + any issues; inspect source copies plus shifts/
+relocations, not just unchanged hits (can still be zero). No extra OFF run.
+Cache default false until evidence; no further source step yet. D-017 parked,
+CPU/GPU efficiency active; local-only/no-push, untracked HANDOFF_CHATGPT.md
+preserved.
+
+
 **November 2, dev39 device correctness good, resource-list trial INEFFECTIVE:**
 Stefan reports all good; ~72 s driving, zero driving GPU hitches/errors. Log
 confirms compact 384 ON/cache ON, native/60 Balanced, other diagnostics/early
