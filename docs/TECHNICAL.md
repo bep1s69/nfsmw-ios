@@ -16242,3 +16242,10 @@ established: with every thread at normal QoS the CPU takes more of the
 shared power budget, leaving the GPU slower; Max ran second (warmer).
 Stefan: Max "even worse", both much hotter and higher drain than his usual
 1.5x / 120.
+
+iPhone, early commit (`dev33_iphone_early_commit_nfsmw.log`, 900 early
+command buffers per 300 frames, battery 55%, thermal nominal): 43 GPU frames
+over 45 ms. Early commit does not prevent the stalls. Open lead: Game Mode
+(GCSupportsGameMode / LSSupportsGameMode are in our Info.plist, but under
+LiveContainer iOS reads the host app's); a standalone install run without
+Instruments would show whether Game Mode changes the GPU's behaviour.
