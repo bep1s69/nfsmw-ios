@@ -119,7 +119,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_tiled_crops, true, "GPU",
                     "Native renderer: a cropped resolve sampled at one size goes to a tiled texture of that size, "
                     "not a linear one");
 REXCVAR_DEFINE_BOOL(nfsmw_native_small_targets_1x, true, "GPU",
-                    "Native renderer: above 1x, targets up to 800 wide (bloom chain, reflections) stay at 1x");
+                    "Native renderer: above 1x, targets at most half the scene's width (bloom chain, reflections) "
+                    "stay at 1x");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
@@ -4905,14 +4906,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     *cube_sources.begin());
       }
     }
-    // Above 1x, with a scene (1280+ wide) in the frame: the small colour
-    // targets beside it (the bloom/blur chain 400/240/80, the 800 reflection
-    // pass) at 1x. Blurred or reflected pictures; ~0.5-0.7 ms of a native
-    // iPhone frame (estimate, November 2).
-    bool small_at_1x = false;
+    // Above 1x: the colour targets at most half as wide as the frame's scene
+    // (its widest colour target, 640+) at 1x: the bloom/blur chain and the
+    // reflection pass (400/240/80 and 800 beside a 1600 scene on the iPhone,
+    // 240/160/80 and 480 beside 960 in the iPad's 4:3). Blurred or reflected
+    // pictures; ~0.5-0.7 ms of a native iPhone frame (estimate, November 2).
+    uint32_t scene_pitch = 0;
     if (resolution_scale > 1.0f && REXCVAR_GET(nfsmw_native_small_targets_1x)) {
       for (const auto& [key, size] : sizes) {
-        if (size.first >= 1280 && depth_only_draws[key] * 2 <= targets[key].draws) small_at_1x = true;
+        if (size.first >= 640 && depth_only_draws[key] * 2 <= targets[key].draws)
+          scene_pitch = std::max<uint32_t>(scene_pitch, size.first);
       }
     }
     auto scale_of = [&](const std::string& key) -> float {
@@ -4920,7 +4923,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const std::string& k = first != second_of.end() ? first->second : key;
       if (cube_sources.count(k)) return 1.0f;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
-      if (!shadow && small_at_1x && sizes.count(k) && sizes[k].first <= 800) return 1.0f;
+      if (!shadow && scene_pitch && sizes.count(k) && sizes[k].first * 2 <= scene_pitch) return 1.0f;
       if (!shadow) return resolution_scale;
       const float shadow_scale = std::clamp(float(REXCVAR_GET(nfsmw_native_shadow_scale)), 0.25f, 1.0f);
       return (scale_shadows ? resolution_scale : 1.0f) * shadow_scale;

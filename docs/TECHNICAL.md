@@ -16296,3 +16296,12 @@ switches for A/B):
   final resolve's texture may be read again; needs checking first).
 Log: `[native] resolves: frame N, T cropped ones to tiled textures ...`
 every 300 frames. Build OK, not run on a device.
+
+dev34 on the iPad (`dev34_lighter_native_nfsmw.log`, 2.867x, cap 60): no
+visual problem (Stefan); 7 cropped resolves per frame to tiled textures; 0
+stalls; sampled GPU frames 7.4-14.3 ms. B did not apply: the iPad's 4:3
+scene is a 960-pitch target (2752x2064), below the 1280 test, so its 480
+reflection pass (1376x1032) and 240/160/80 chain stayed at native scale.
+dev35: the scene is the frame's widest colour target 640+ wide, and targets
+at most half its width go to 1x (iPhone: 800, 400, 240, 80 beside 1600; iPad:
+480, 240, 160, 80 beside 960).
