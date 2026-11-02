@@ -16153,3 +16153,20 @@ commit in the same frame. Inference: `requestResidency` is asynchronous, and
 the work it starts (the whole set) slows the GPU in the frames after it.
 Not established: one pair, same order (default first); repeat reversed
 before changing the default.
+
+Repeat, reversed (`dev32_residency_ab_reversed_nfsmw.log`): session 1 with
+the switch (request once) 42 frames over 45 ms on the GPU (15:10:58-15:11:30),
+session 2 default 4. Measured: in both pairs the first launch's race
+stalled and the second launch's barely did, whichever setting; the switch
+makes no difference. dev33 removes it and the residency counts again.
+
+### November 2: system paging in the pacing and hitch lines (dev33)
+
+Candidate for the first-launch stalls: the game growing to ~1.9 GB takes
+memory from other apps on a first launch (the system compresses or drops
+their pages, raising memory traffic), and a launch soon after finds it
+free. dev33 appends the whole system's `host_statistics64` deltas since the
+previous such line to every `pacing` line (every 300 frames) and every GPU
+`hitch` line: page-ins, swap-ins, decompressions, compressions, purges,
+faults, free and compressor MiB. To test: a first launch after other apps
+were used, then a second launch; compare the deltas at the stalls.
