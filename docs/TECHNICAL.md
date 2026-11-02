@@ -16226,3 +16226,19 @@ iPad Pro M4 (`dev33_ipad_early_commit_ab_nfsmw.log`, scale 2.867, cap 60):
 0 GPU frames over 45 ms in either launch (default; early commit), sampled
 GPU frames 7-15 ms. Measured: the iPhone's stalls do not occur on the iPad
 at native / 60.
+
+### November 2: iPad Pro M4 at native (2.867x) / 120, Balanced then Max (dev33)
+
+Log `dev33_ipad_native_120_balanced_max_nfsmw.log` (battery 100%, thermal
+nominal throughout). Rate from the pacing lines' spacing (300 frames per
+line): Balanced (tablet profile, adaptive QoS) 120 in menus, 78-117 in the
+race (most ~100-115); Max ("no Utility QoS for any game or render thread",
+applied as logged) 120 in menus, 50-88 in the race (most 71-84). Sampled
+GPU frames: Balanced 6-17 ms, Max 11-19 ms; no GPU stalls over 45 ms.
+Process CPU: Balanced up to 231% of a core, Max up to 99% (shorter run).
+Measured: native / 120 is GPU-bound on the M4 (an 8.3 ms frame needs the GPU
+roughly halved), and Max ran slower than Balanced. Inference, not
+established: with every thread at normal QoS the CPU takes more of the
+shared power budget, leaving the GPU slower; Max ran second (warmer).
+Stefan: Max "even worse", both much hotter and higher drain than his usual
+1.5x / 120.
