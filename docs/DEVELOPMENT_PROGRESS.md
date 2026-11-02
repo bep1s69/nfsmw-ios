@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, dev44 blocker census:** the main-target handoff is blocked in
+the 0-planned stretches by an occlusion-query draw (ps 2d8bf2c6, likely sun
+glare); mirror rejections are on another target. Proposal awaiting approval:
+allow query draws under the same viewport-extent bound. TECHNICAL
+“dev44 blocker census result”.
+
 **November 3, dev44 blocker census BUILT (approved):** logs which draw guard and
 shader keys block the main-target handoff; behavior unchanged, default false.
 IPA `ios/build/NFSMW-0.6.0-dev44-handoff-blockers.ipa`. Next: Stefan's run with

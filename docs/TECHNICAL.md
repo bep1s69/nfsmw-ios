@@ -19318,3 +19318,28 @@ identical. IPA `ios/build/NFSMW-0.6.0-dev44-handoff-blockers.ipa` (and Desktop),
 30565224 bytes, SHA256 4a2e9be79e3239215bd8fab94baa17459d8e159bb546e56202d21a2b054a868d.
 Next: same protocol/Extra Args as dev43, include a stretch like dev43's
 07:22–07:42 (0 planned); send nfsmw.log. No power/thermal request.
+
+## November 3, dev44 blocker census result: occlusion-query draws block the main handoff
+
+Stefan's log (two runs in one file; the first, dev43, has no blocker lines and
+matches run 2 of dev43). dev44 part starts at line 3405. Archived as
+`~/Developer/Debug/Most Wanted (2005) Debug/3 November 2026/dev44_iphone_handoff_blockers_nfsmw.log`
+(SHA256 52f585ae895d72e0b9cf6cb682ae28b15e28d7ca1d4042fbf4fc6bbc091714fd); an
+earlier upload of the dev43 half only is `run2_expected_dev44_no_blocker_lines_nfsmw.log`.
+Visuals: same race/path as close as possible; no visual issue reported.
+
+dev44 part totals: plans 2971/9805/0/837/2086/1986/0, 2971 copies not encoded,
+0 pool misses/mismatches, 0 late passes in all 22 summaries.
+Blocking draws (first unsupported draw per scene-target plan):
+- `query` ps 2d8bf2c63ddd2608 vs d1a204bd95212e7c, triangle fan: up to 600 per
+  300 frames (two scene targets per frame) in the windows where the main
+  handoff is 0; inference: the sun-glare occlusion query draw (see sun
+  occlusion history) is what stops the main target there.
+- `mirror` ps 8436534c (rear-view mirror picture, quad list): 300 per window
+  even when main is planned 300, so it is on another scene-sized target.
+- `vte` ps 8c8b535864c59f03 rectangle list: menu/front-end windows only.
+- `internal` (ps 4c94f03d) 10 in one transition window.
+Proposal (needs approval): accept query draws when they pass the same
+viewport-extent bound as every other draw. Occlusion counts are samples that
+pass; if no sample centre lies at or beyond the compact width, counts are
+unchanged. Mirror/internal/vte stay rejected. Not a power claim.
