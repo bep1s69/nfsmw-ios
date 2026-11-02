@@ -18205,3 +18205,54 @@ previous default-OFF experiment, not proposed again. No tests/builds/device
 recordings/source/cache/default changes. This is a recommendation, not approval.
 Checkpoint/backlog updated and committed locally; no push/release. Pre-existing
 untracked HANDOFF_CHATGPT.md preserved.
+
+### November 2: largest cost first; overlay deferred, dominant fragment investigation next
+
+Stefan explicitly asks to tackle issues largest to smallest. This supersedes
+selection of sparse touch-overlay coverage as the next trial. That proposal
+is deferred, NOT approved. Adopt this as a working rule; main current target
+is~6.3ms/frame RenderCommand18 fragment work (~57%reported active GPU in usable
+A/B), with main-scene attribution still inferred from generic encoder labels.
+Not the~0.65ms entire presentation pass (overlay only part), and not small CPU
+cache adjustments before addressing larger work. No implementation permission
+implied. Early-alpha stays default false, compact/resource defaults true.
+
+Initial read-only follow-up used current code, existing evidence and inputs:
+- Native renderer cost-probe/state capture6277ff groups alpha/blend/depth/mask
+  for four watched shaders; historical October21 iPad log556cost-state lines
+  exists at `Debug/21 October 2026/nfsmw_run_5_ipad.log`. Samples include
+  colour-mask0/depth736 draws, colour-writing depth736 and blended depth732;
+  old targets/draw counts are not current pixel coverage or per-shader cost.
+  Main trace generic Render18 must be mapped before assigning historical
+  shader costs to its measured6.3ms.
+- Existing sky-last implementation5965ff already reorders sky behind eligible
+  opaque draws and rejects covered pixels with stencil. Don't present sky
+  ordering as a new optimization. Historical late-sky shader fe510d is sky,
+  not an unidentified fullscreen effect; previous probe0.49ms predates later
+  ordering changes, not current removable cost.
+- Historical Oct21 omission probe's top trees/fences/shadow cost includes
+  geometry/raster/overdraw. Oct24 precision audit found one-fetch tree shader
+  and little removable arithmetic; gathers/caster specializations already
+  implemented. Broad fp16/repeated early-alpha not justified by new trace.
+- Existing depth-only/colour passes mean a generic depth prepass cannot be
+  assumed new/useful. Reordering blended material passes could change output.
+  Need actual state/dependencies and shader work before a concrete safe change.
+- CPU attribute/front lookup and index fingerprints already have prior
+  optimizations; last trace confirms cache on. Smaller CPU proposals deferred
+  by current priority, not newly measured regressions.
+
+Next work: map dominant encoder to actual scene draws/materials using current
+recorded evidence and recovered shader sources, audit redundant fragment work,
+texture/shadow work and coverage, challenge previous conclusions while avoiding
+recorded failed experiments. Identify exact removable work and image/depth/
+blend equivalence constraints before proposing code. No new device trace or
+repeated omission experiment requested now; request only a specific missing
+measurement if existing sources cannot resolve it. D-017 remains parked aside
+from preserving prior new trace observation.
+
+Commands: git status/log, source/docs rg/sed and Python read/count of existing
+historical state log; exit0. No code, generated shader, live cache, defaults,
+IPA, device tests or Instruments traces changed. This is priority/handoff
+record, not a claim an optimization has been found. Existing files updated,
+local docs commit only, no push/release. Pre-existing untracked HANDOFF_CHATGPT.md
+preserved.

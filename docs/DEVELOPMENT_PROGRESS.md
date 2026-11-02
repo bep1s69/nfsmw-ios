@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 2 (Stefan, latest optimization priority): tackle measured costs from
+  largest to smallest. Prioritize dominant GPU work before small overlay/CPU
+  opportunities. The sparse-overlay proposal is deferred, not approved.
+
+
 - November 2 (Stefan, compact shared-data experiment): use existing baseline
   logs; only one new enabled correctness run needed. Do not request another
   baseline/A-B sequence without a concrete new reason. Keep energy claims
@@ -407,6 +412,26 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
+
+**November 2, Stefan redirects priority: largest costs FIRST.** Overlay proposal
+is deferred/unapproved. Next target is dominant RenderCommand18 fragment work,
+~6.3ms/frame (~57%reported active GPU), main scene inferred; establish actual
+shader/material/draw-state attribution before any code proposal. Existing A/B
+proves no early-alpha gain, not that every scene shader is already optimal.
+Use current trace, recovered sources and historical cost/state logs first.
+Do not start a smaller CPU/overlay change while this larger target is unresolved.
+
+Read-only follow-up: sky-last/stencil rejection already implemented; no new
+“draw sky last” proposal. Historical Oct21 cost-state log includes colour-mask0
+and colour-writing passes with distinct depth/blend/alpha states; don't blindly
+add a generic depth prepass or reorder blended draws. Historical omission
+probe includes geometry/raster/overdraw, not isolated shader time. Need map the
+current dominant encoder and determine which repeated shading/texture/coverage
+work can be safely removed; no specific rewrite proven or new capture requested
+yet. D-017 remains parked. No source/flag/build/cache changes. TECHNICAL “largest
+cost first” records priority and initial code/evidence check. Local docs commit,
+HANDOFF_CHATGPT.md remains pre-existing untracked; no push/release.
+
 
 **November 2, next optimization recommendation (NOT implemented/approved):**
 conservative sparse coverage for native touch-overlay drawing. Source audit:
