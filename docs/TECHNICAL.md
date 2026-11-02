@@ -16081,3 +16081,22 @@ resolve texture retires, a target still pointing at it is copied back. Off
 with the dump. Log: `[native] resolve swap: frame N, S swapped, R copied back`
 every 300 frames. Expected: up to the 1.6 ms of copies less per frame where
 the restores are few; not yet measured on the device.
+
+### November 2: Time Profiler lap at native / 60 (dev30, iPhone)
+
+Trace `dev30_native_time_profile_iphone.trace`, log
+`dev30_native_time_profile_nfsmw.log` (Debug/2 November 2026), 77 s of
+samples, LiveContainer process, Running samples only. Busiest threads, ms of
+CPU per second: game main thread 217 (largest self: `sub_82699100` 31),
+GPU command thread 201 (`Record` 91 self, 146 inclusive; `Fingerprint` 11,
+`LoadShader` 10), a game worker 184, audio decode thread 89, Metal encoding
+(`RenderFrame` from `NativeSwap`, on dispatch threads) 165 inclusive. In
+50 ms windows the busiest thread's 95th percentile is 15-16 ms of 50 (max 32
+on the GPU command thread). Measured: no CPU thread is near a frame's 16.7 ms.
+The log over the race: GPU frame (profile every 300 frames) median 15.19 ms,
+max 17.51 ms (21 profiles, the lowest 4.86 ms in the menus); pacing 0 of 300
+frames off the grid in every race window (off-grid lines only during
+loading). Inference: at native / 60 the GPU is the limit, with ~1 ms of
+headroom in this lap (higher than the 11.8 ms median of the Power Profiler
+run: thermal state or the profiler, not established); CPU work is not the
+cause of dropped frames, so GPU work comes first.
