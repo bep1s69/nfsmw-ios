@@ -16170,3 +16170,14 @@ previous such line to every `pacing` line (every 300 frames) and every GPU
 `hitch` line: page-ins, swap-ins, decompressions, compressions, purges,
 faults, free and compressor MiB. To test: a first launch after other apps
 were used, then a second launch; compare the deltas at the stalls.
+
+Result (`dev33_vmstats_nfsmw.log`, first launch after other apps, then a
+relaunch): both launches stalled this time (first ~55 GPU frames over 45 ms,
+second ~10, one at 136 ms with only 429 draws in a menu). System paging in
+the 0.1-1 s before each stall: 0 page-ins and swap-ins, 0-5 decompressions,
+0 compressions, 0-1300 faults in almost every case (system free 87-128 MiB,
+compressor ~890-960 MiB throughout). Measured: no paging coincides with the
+stalls; the memory-pressure candidate is not supported. Next candidate: GPU
+performance state tied to the submitting threads' QoS (Balanced puts the
+render queue at Utility, `nfsmw_native_render_utility`); test with the
+launcher's Performance: Max (no Utility QoS for any game or render thread).
