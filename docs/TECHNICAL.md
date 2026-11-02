@@ -16450,3 +16450,67 @@ frame time to reach 120, whereas a 15–17 ms GPU frame needs ~44–51% less.
 “Halve every frame” overstates the universal requirement. Battery goal is
 still unproven: unmatched short power runs, brightness/thermal differences
 and profiler dependence prevent acceptance from 39.0 vs 37.4 %/h alone.
+
+
+### November 2: dev36 pass-counter switch; approved diagnostic ready
+
+Stefan approved the previous section's narrow experiment. Only source edit:
+`ios/src/native_renderer.mm` adds restart-only boolean
+`nfsmw_native_pass_counters`, default true (existing behavior). False short-
+circuits counter capability enumeration, buffer creation and initial timestamp
+calibration. The four sample buffers stay nil, making `profile` false for every
+pass/blit, so no sample attachments or completion-time counter resolution/
+calibration run. Startup logs `GPU pass profiling disabled
+(nfsmw_native_pass_counters off)` or `available ... on` (unsupported hardware
+still reports `not available`). GPUStartTime/GPUEndTime timing, GPU hitch
+counts/lines, screen gaps and pacing logs remain intact. No shading/rendering,
+quality, residency, QoS, submission or early-commit behavior changed. No release
+changelog entry: diagnostic switch only, default experience unchanged.
+
+Checks and build (host only; no new device/OS test):
+- `python3 tools/ios/patch_game_extra_options.py`: exit 0, already patched,
+  zero generated files written.
+- `/usr/bin/time -p cmake --build
+  /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`:
+  exit 0; real 17.72 s, user 14.28, sys 1.14. Incremental native_renderer
+  compilation/link/package, NOT a full clean-build timing. Six warnings in
+  existing code/toolchain paths: fpscr inline-assembly operand width, four
+  deprecated external-screen APIs and duplicate -lz at link. No errors. Existing cache
+  points to this checkout, multiplayer SDK and native shader cache. Build log
+  `ios/build/dev36-pass-counters-build.log` (ignored, permanent repo location).
+- `unzip -tq` exit 0, no errors; `codesign --verify --deep --strict` on the
+  packaged cache's ipa/Payload/NFSMW.app exit 0. `xcrun dwarfdump --uuid` exit 0.
+- Python ZIP comparison with dev35: 104/104 metallibs byte-identical; only
+  changed packaged entry is Payload/NFSMW.app/NFSMW, no removed entries.
+  Info.plist 0.6.0 (11), com.bep1s.nfsmwios; new switch string in executable.
+- `git diff --check` exit 0. Source review: false leaves profile_buffer nil;
+  profile_pass returns without attachments, new_blit uses ordinary encoder,
+  profile report/resolve branch is bypassed. True executes prior counter path.
+  No synthetic timing test: device behavior is the point of this experiment.
+
+Artifact: `ios/build/NFSMW-0.6.0-dev36-pass-counters.ipa`, 30535695 bytes,
+SHA-256 `5dc00af7685aa29bae6435f05f9facc2f5fb58e3f1cb80cbe24eb1d9439fc626`,
+app arm64 UUID `58D2A088-D95E-32B3-844C-9B54A8DC78F1`.
+Identical verified copy on `/Users/bep1s/Desktop/`; previous Desktop dev35 copy
+moved to `/Users/bep1s/.Trash/NFSMW-0.6.0-dev35-lighter-native.ipa` after hash
+comparison with retained ios/build archive. Latest release 0.5.2 left on
+Desktop. No SDK, shader, generated-code or version change; no push/release.
+Preserved pre-existing untracked HANDOFF_CHATGPT.md, not staged.
+
+Device procedure (Stefan; PENDING): use dev36 for all four runs, iPhone
+17 Pro Max native resolution, 60 fps, Balanced, same race/start and short
+~30-second drive; no Instruments. Always explicitly set
+`--nfsmw_native_early_commit=false` (previous iPhone logs retained true).
+Set `--nfsmw_native_pass_counters=false` / `true` in Extra Args for
+OFF / ON / ON / OFF launch order, force-quit LiveContainer between every run
+(the switches are read once per process). Keep other Extra Args and graphics
+settings identical. Collect each log and subjective stutter report. Verify
+startup counter-state log and early commit off before interpreting results.
+Compare >45 ms GPU hitch counts/durations and screen gaps over comparable
+race windows, plus GPU slow-frame counts in periodic summaries. OFF deliberately
+has no GPU per-pass profiles, so absence of those lines is expected; it must
+still have aggregate GPU timing/pacing. Counts depend on run duration and the
+shared hitch-line budget; don't infer success from missing capped log lines.
+One pair is insufficient given recorded launch-order effects. This is a short
+correctness/stutter test, not an energy comparison. No device success or D-017
+fix claimed. Analyze results before proposing timeline/residency work.

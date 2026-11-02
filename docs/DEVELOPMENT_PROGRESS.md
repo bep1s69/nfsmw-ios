@@ -379,6 +379,29 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev36 pass-counter diagnostic READY, awaiting device test:**
+Stefan approved the counter-sampling experiment. New restart-only Extra Arg
+`--nfsmw_native_pass_counters=false` skips pass/blit timestamp buffers,
+attachments, resolution and calibration. Default true preserves prior behavior;
+command-buffer GPU timing, hitch counts and presentation-gap reporting remain.
+No rendering, quality, residency, QoS or submission changes. Latest IPA:
+`ios/build/NFSMW-0.6.0-dev36-pass-counters.ipa`, also on Desktop (0.5.2 release
+retained; dev35 Desktop copy moved to Trash, repo archive retained). Incremental
+`-j 12` build 17.72 s, exit 0; ZIP/signature valid, all 104 metallibs and all
+other packaged files except NFSMW executable byte-identical to dev35.
+
+Next (Stefan): native / 60, Balanced, no Instruments; Extra Args
+`--nfsmw_native_early_commit=false` in every launch. Short same-race runs in
+order pass counters OFF / ON / ON / OFF, force-quit LiveContainer between
+runs. Use explicit `--nfsmw_native_pass_counters=false` or `true`; collect logs
+and perceived stutter. Inspect startup `GPU pass profiling disabled ... off`
+vs `available ... on`; keep other settings/conditions unchanged. This tests
+D-017's instrumentation lead, not battery acceptance. No device result yet;
+do not stack another experiment until results. Build identity/limits in
+TECHNICAL “dev36 pass-counter switch”. Pre-existing untracked HANDOFF_CHATGPT.md
+remains untouched/excluded from commits. Local only, no push or release.
+
+
 **November 2, independent evidence audit (documentation only):** Performance
 remains the active goal per Stefan; do not switch to other 0.6.0 work. No code
 change approved or made. Next proposed experiment is a restart-only switch to

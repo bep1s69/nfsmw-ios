@@ -147,6 +147,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_stats, false, "GPU",
                     "Diagnostics: count GPU-buffer front-cache hits, collisions and new map entries (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_lazy_diagnostics, true, "GPU",
                     "Experiment: prepare snapshot metadata and GPU labels only when consumed (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_pass_counters, true, "GPU",
+                    "Diagnostic: sample GPU pass/blit timestamp counters; off retains command-buffer timing "
+                    "and screen-gap reporting (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
@@ -5297,11 +5300,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // One sample buffer per frame in flight.
     constexpr int kProfileBuffers = 4;
     static id<MTLCounterSampleBuffer> profile_buffers[kProfileBuffers] = {};
+    static const bool pass_counters = REXCVAR_GET(nfsmw_native_pass_counters);
     static bool profile_checked = false;
     static MTLTimestamp profile_cpu0 = 0, profile_gpu0 = 0;
     if (!profile_checked) {
       profile_checked = true;
-      if ([device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary]) {
+      if (pass_counters && [device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary]) {
         for (id<MTLCounterSet> set in device.counterSets) {
           if (![set.name isEqualToString:MTLCommonCounterSetTimestamp]) continue;
           MTLCounterSampleBufferDescriptor* sd = [MTLCounterSampleBufferDescriptor new];
@@ -5312,7 +5316,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           [device sampleTimestamps:&profile_cpu0 gpuTimestamp:&profile_gpu0];
         }
       }
-      REXLOG_INFO("[native] GPU pass profiling {}", profile_buffers[kProfileBuffers - 1] ? "available" : "not available");
+      REXLOG_INFO("[native] GPU pass profiling {} (nfsmw_native_pass_counters {}); "
+                  "command-buffer timing and screen-gap reporting unchanged",
+                  !pass_counters ? "disabled" : profile_buffers[kProfileBuffers - 1] ? "available" : "not available",
+                  pass_counters ? "on" : "off");
     }
     id<MTLCounterSampleBuffer> profile_buffer = profile_buffers[number % kProfileBuffers];
     const bool profile_report = number % 300 == 150;
