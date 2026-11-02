@@ -115,6 +115,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_reclaim_geometry, true, "GPU",
                     "Native renderer: reuse completed geometry ranges and release surplus empty chunks");
 REXCVAR_DEFINE_BOOL(nfsmw_native_compressible_resolves, false, "GPU",
                     "Native renderer: omit unnecessary pixel-format-view usage on resolves and reflection cubes");
+REXCVAR_DEFINE_BOOL(nfsmw_native_resolve_swap, false, "GPU",
+                    "Native renderer: a whole-target colour resolve takes the target's texture instead of a copy");
 REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
@@ -3420,6 +3422,9 @@ struct Target {
   bool clear_color = false, clear_depth = false;
   MTLClearColor clear_color_value = MTLClearColorMake(0, 0, 0, 0);
   double clear_depth_value = 1.0;
+  // Resolve swap: the texture a resolve took (what `color` held). `color`
+  // is a new one, undefined until a pass clears it or this is copied back.
+  id<MTLTexture> swapped_from;
 };
 
 // One instance per traversal, on the serial render queue. The map owns the
@@ -3780,9 +3785,21 @@ struct GpuPool {
   }
 
   // `row`: a linear texture over a buffer of its own with this row pitch (0: none).
+  static std::string TextureKey(MTLTextureType type, MTLPixelFormat format, NSUInteger width, NSUInteger height,
+                                NSUInteger depth, MTLTextureUsage usage, MTLStorageMode storage, NSUInteger row) {
+    return fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(type), uint64_t(format), width, height, depth,
+                       uint64_t(usage), uint64_t(storage), row);
+  }
+
+  // A texture made elsewhere (already resident) joins the pool, so Retire takes it.
+  void Adopt(id<MTLTexture> t) {
+    keys.try_emplace((__bridge const void*)t, TextureKey(t.textureType, t.pixelFormat, t.width, t.height, t.depth,
+                                                         t.usage, t.storageMode, 0));
+  }
+
   id<MTLTexture> Texture(id<MTLDevice> device, MTLTextureDescriptor* d, NSUInteger row = 0) {
-    const std::string key = fmt::format("t {} {} {}x{}x{} {} {} {}", uint64_t(d.textureType), uint64_t(d.pixelFormat),
-                                        d.width, d.height, d.depth, uint64_t(d.usage), uint64_t(d.storageMode), row);
+    const std::string key = TextureKey(d.textureType, d.pixelFormat, d.width, d.height, d.depth, d.usage,
+                                       d.storageMode, row);
     id<MTLTexture> t = Take(key);
     if (!t) {
       if (row) {
@@ -4896,7 +4913,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       // Replaced (another size or format): the old ones leave the residency set.
       if (t.multisample_color != t.color) residency::Remove(t.multisample_color);
       if (t.multisample_depth != t.depth) residency::Remove(t.multisample_depth);
-      residency::Remove(t.color);
+      // A pool texture since a resolve swap: back to the pool.
+      if (gpu_pool.keys.count((__bridge const void*)t.color)) {
+        gpu_pool.Retire(t.color, number);
+      } else {
+        residency::Remove(t.color);
+      }
+      t.swapped_from = nil;
       residency::Remove(t.depth);
       t.pitch = pitch;
       t.height = height;
@@ -5119,6 +5142,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     const bool deduplicate_cubes = REXCVAR_GET(nfsmw_native_deduplicate_cubes) && !dump;
     const size_t cube_duplicates_removed = deduplicate_cubes ? ConsolidateCubeTargets(cube_targets) : 0;
     uint32_t cube_assembly_copies = 0;
+    uint32_t resolve_swaps = 0, swap_restores = 0;
+    const bool resolve_swap = REXCVAR_GET(nfsmw_native_resolve_swap) && !dump;
     // Resolved cubes (faces resolved one by one) by address -> cube heap index.
     std::map<uint32_t, id<MTLTexture>> resolved_cubes;
     std::map<uint32_t, uint32_t> resolved_cube_index;
@@ -5291,6 +5316,19 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       profile_labels->push_back(label);
       return [cb blitCommandEncoderWithDescriptor:bd];
     };
+    // A target whose texture a resolve took: its picture copied back into
+    // the new one (a pass loads it), or dropped (a pass clears it, or the
+    // multisample resolve at the pass's end rewrites all of it).
+    auto settle_swap = [&](Target& t, bool copy_back) {
+      if (!t.swapped_from) return;
+      if (copy_back && t.sample_count == 1) {
+        id<MTLBlitCommandEncoder> blit = new_blit("blit: swap restore");
+        [blit copyFromTexture:t.swapped_from toTexture:t.color];
+        [blit endEncoding];
+        ++swap_restores;
+      }
+      t.swapped_from = nil;
+    };
     // A colour resolve with an exponent bias: copied by a draw that scales by
     // 2^bias (a blit cannot). False when there is no bias: the caller blits.
     auto scaled_copy = [&](id<MTLTexture> from, id<MTLTexture> to, NSUInteger slice, NSUInteger fx, NSUInteger fy,
@@ -5394,6 +5432,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       current.clear();
       finish_motion(ev.after_draws);
       const float scale = src.scale;
+      // The target's picture: in the texture a resolve took, until drawn again.
+      id<MTLTexture> const src_color = src.swapped_from ? src.swapped_from : src.color;
       NSUInteger dw = Px(ev.dest_pitch ? ev.dest_pitch : uint32_t(std::max(ev.x1, 1)), scale);
       NSUInteger dh = Px(ev.dest_height ? ev.dest_height : uint32_t(std::max(ev.y1, 1)), scale);
 
@@ -5411,7 +5451,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // passes): a Metal cube made at the first face, the face copied.
         id<MTLTexture> cube = resolved_cubes[ev.dest_base];
         if (!cube && next_cube < cube_capacity) {
-          MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:src.color.pixelFormat
+          MTLTextureDescriptor* cd = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:src_color.pixelFormat
                                                                                          size:std::max(w, h)
                                                                                     mipmapped:NO];
           cd.usage = MTLTextureUsageShaderRead | resolve_view_usage | MTLTextureUsageRenderTarget;
@@ -5428,12 +5468,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         if (cube && ev.slice < 6) {
           resolved_cube_swap[ev.dest_base] = ev.swap;
-          if (scaled_copy(src.color, cube, ev.slice, x0, y0, 0, 0, std::min(w, cube.width), std::min(h, cube.height),
+          if (scaled_copy(src_color, cube, ev.slice, x0, y0, 0, 0, std::min(w, cube.width), std::min(h, cube.height),
                           ev, "cube face (exp bias)")) {
             ++resolves_done;
           } else {
           id<MTLBlitCommandEncoder> blit = new_blit("blit: cube face");
-          [blit copyFromTexture:src.color
+          [blit copyFromTexture:src_color
                     sourceSlice:0
                     sourceLevel:0
                    sourceOrigin:MTLOriginMake(x0, y0, 0)
@@ -5452,7 +5492,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         ++resolves_skipped;
       } else {
         MTLTextureDescriptor* rd = [MTLTextureDescriptor
-            texture2DDescriptorWithPixelFormat:(ev.depth ? MTLPixelFormatR32Float : src.color.pixelFormat)
+            texture2DDescriptorWithPixelFormat:(ev.depth ? MTLPixelFormatR32Float : src_color.pixelFormat)
                                          width:dw
                                         height:dh
                                      mipmapped:NO];
@@ -5470,7 +5510,28 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // as the scaled texture: no crop, and the game's coordinates for its
         // own size read past the picture, a dark bar on the right.)
         const bool may_crop = Px(std::max(ev.x1 - ev.x0, 0), scale) < dw || Px(std::max(ev.y1 - ev.y0, 0), scale) < dh;
-        if (may_crop) {
+        // Resolve swap: the whole of a colour target, as it is (no exponent
+        // bias): the resolve takes the target's texture, the target a new one
+        // from the pool, instead of a copy (~1.6 ms a frame at native).
+        if (resolve_swap && !ev.depth && !src.swapped_from && !may_crop && x0 == 0 && y0 == 0 &&
+            w == dw && h == dh && dw == src.color.width && dh == src.color.height &&
+            !(ev.exp_bias && REXCVAR_GET(nfsmw_native_exp_bias))) {
+          MTLTextureDescriptor* nd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.color.pixelFormat
+                                                                                        width:dw
+                                                                                       height:dh
+                                                                                    mipmapped:NO];
+          nd.usage = src.color.usage;
+          nd.storageMode = src.color.storageMode;
+          if (id<MTLTexture> fresh = gpu_pool.Texture(device, nd)) {
+            gpu_pool.Adopt(src.color);
+            dest = src.color;
+            src.swapped_from = dest;
+            if (src.multisample_color == src.color) src.multisample_color = fresh;
+            src.color = fresh;
+            ++resolve_swaps;
+          }
+        }
+        if (!dest && may_crop) {
           // Linear, in a buffer, so draws sampling it at a smaller size get a
           // texture over the same memory (see the binding). Depth too: its
           // copy is an R32Float colour target (the depth-based post effects
@@ -5533,9 +5594,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           [e endEncoding];
         } else {
           id<MTLBlitCommandEncoder> blit = nil;
-          if (!scaled_copy(src.color, dest, 0, x0, y0, x0, y0, w, h, ev, "resolve copy (exp bias)")) {
+          if (dest == src.swapped_from) {
+            // Swapped: nothing to copy.
+          } else if (!scaled_copy(src_color, dest, 0, x0, y0, x0, y0, w, h, ev, "resolve copy (exp bias)")) {
           blit = new_blit("blit: resolve copy");
-          [blit copyFromTexture:src.color
+          [blit copyFromTexture:src_color
                     sourceSlice:0
                     sourceLevel:0
                    sourceOrigin:MTLOriginMake(x0, y0, 0)
@@ -5599,6 +5662,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // The texture it replaces: back to the pool after this frame (which
         // may still sample it, from before this resolve).
         if (auto old = kept_resolves.find(ev.dest_base); old != kept_resolves.end() && old->second.texture != dest) {
+          // A target still holding its picture there: copied back first.
+          for (auto& [key, t] : targets) {
+            if (t.swapped_from == old->second.texture) settle_swap(t, true);
+          }
           gpu_pool.Retire(old->second.texture, number);
         }
         kept_resolves[ev.dest_base] = {dest, !ev.depth && ev.swap, scale};
@@ -5906,6 +5973,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
         const bool clear_color = !t.used || t.clear_color, clear_depth = !t.used || t.clear_depth;
+        settle_swap(t, !clear_color);
+        if (t1) settle_swap(*t1, !(!t1->used || t1->clear_color));
         // The target's last pass this frame: nothing loads it again.
         bool last_pass = false, depth_read_later = true, color_read_later = true;
         if (discard_unread && !(split_after && t.scale > 1.0f) && tk != motion_key) {
@@ -7487,6 +7556,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                     double(cube_stats_bindings) / cube_stats_frames, double(cube_stats_removed) / cube_stats_frames,
                     double(cube_stats_copies) / cube_stats_frames);
         cube_stats_frames = cube_stats_bindings = cube_stats_removed = cube_stats_copies = 0;
+        if (resolve_swap) {
+          REXLOG_INFO("[native] resolve swap: frame {}, {} swapped, {} copied back", number, resolve_swaps,
+                      swap_restores);
+        }
         uint64_t target_bytes = 0;
         for (const auto& [key, t] : targets) {
           (void)key;

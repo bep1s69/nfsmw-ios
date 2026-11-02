@@ -16062,3 +16062,22 @@ noise. The log's CPU % rising run after run (51 -> 217) contradicts the
 trace's falling CPU impact; not explained (inference: a counting artefact or
 heat), not used for conclusions.
 
+
+### November 2: resolve swap instead of resolve copies (dev31, off by default)
+
+Native run (dev30, iPhone, 2933x1320, 14 GPU profiles): the main pass
+averaged 11.70 ms (max 50.55), resolve copies 1.57 ms (18 blits), depth
+copies ~1.1 ms, present 0.88 ms; the worst frame (20.91 ms) had 1.66 ms of
+resolve copies. Change: `--nfsmw_native_resolve_swap=true` (default false,
+for A/B in Extra arguments). A colour resolve of a whole target (rectangle
+from 0,0 the size of the target's texture and of the destination, no crop,
+no exponent-bias draw) takes the target's colour texture as the resolved
+texture; the target gets a texture of the same descriptor from the GPU pool
+(the old one is adopted into the pool so it retires like any resolve).
+`Target::swapped_from` keeps the taken texture: later resolves of the target
+read it; a pass that loads the target (1 sample) copies it back first ("blit:
+swap restore"), a clearing pass or an MSAA pass drops it; before a kept
+resolve texture retires, a target still pointing at it is copied back. Off
+with the dump. Log: `[native] resolve swap: frame N, S swapped, R copied back`
+every 300 frames. Expected: up to the 1.6 ms of copies less per frame where
+the restores are few; not yet measured on the device.
