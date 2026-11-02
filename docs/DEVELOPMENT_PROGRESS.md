@@ -389,6 +389,28 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 2, dev38 DEVICE-CONFIRMED on tested iPhone path:** Stefan reports
+stutter-free performance, no visual bugs; log confirms 384-byte compact ON,
+native/60 Balanced, timeline/counters/early commit OFF, ~72 s driving, zero
+GPU hitches >45 ms/errors. Archive
+`Debug/2 November 2026/dev38_iphone_compact_shared_success_nfsmw.log` (root
+~/Developer/Debug/Most Wanted (2005) Debug/). Existing dev37 OFF session reused:
+eight complete windows in first 45 s, shared-payload median 0.6825→0.258
+MiB/frame (~62% less); upload capacity median 8→4 MiB, used span 2.064→1.674.
+Logical allocation/upload evidence, not measured battery/thermal/CPU-speed
+improvement. One enabled run complete; do not request another baseline.
+
+Next proposal awaiting source approval: compact default ON with false fallback,
+plus independently switchable frame-local resource-list reuse (new switch
+initially OFF). Cache only list construction when array counts unchanged;
+preserve every encoder's identical useResources objects/order/flags and all
+owning arrays/mid-pass view declarations. Host equivalence checks then ONE new
+enabled correctness run using dev38 baseline. No new code/default/build this
+turn; latest IPA remains dev38. Details in TECHNICAL “dev38 compact shared
+uploads device-confirmed”. D-017 stays parked; CPU/GPU efficiency active.
+Local-only/no-push; untracked HANDOFF_CHATGPT.md preserved.
+
+
 **November 2, dev38 compact shared data READY, awaiting ONE device run:**
 Stefan approved; new restart-only `nfsmw_native_compact_shared_constants`
 default false, true prepares/compares/uploads 384 bytes instead of 1024 per

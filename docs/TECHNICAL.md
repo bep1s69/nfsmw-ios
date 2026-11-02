@@ -17037,3 +17037,89 @@ No release changelog entry for opt-in experiment; no default visual change.
 No source outside approved renderer/test scope, SDK, shader or generated-code
 edits; no push/release. Local commit includes code, checks and record.
 Pre-existing untracked HANDOFF_CHATGPT.md preserved.
+
+
+### November 2: dev38 compact shared uploads device-confirmed; lower payload/capacity
+
+Stefan: “nothing to report other than stutter free performance and no visual
+bugs”. This is the one enabled run requested; existing dev37 evidence reused
+as baseline, no additional baseline/A-B requested. D-017 remains parked.
+
+Supplied source shared-pasteboard item
+60937AFE-83C6-447C-A6E7-B8F8998F04E9/nfsmw.log archived with verified copy
+(exit 0, no overwrite) to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev38_iphone_compact_shared_success_nfsmw.log`,
+438913 bytes /2730 lines, SHA-256
+`cf22d85f59b1bb0b534e566c4829a3e33b4f4ff0a0a6d8eeb6f956d9c67d76e6`.
+Supplied build dev38 0.6.0 (11), IPA SHA-256
+`889f22bfae08a99a4622eada296e875df965bce6b485c55cc3dd9d81111627fd`,
+app UUID 6B95CCD7-33CD-3308-85B4-CD25311B44D4 (previous artifact verification,
+not remeasured on device). iPhone 17 Pro Max from ongoing context; OS not
+independently established in this log. No Instruments trace supplied.
+
+One session 17:19:17.032–17:20:57.176 +02:00. Startup confirms shared constants
+384 bytes/compact ON at 17:19:18.391, pass counters OFF, no timeline enable
+line, all early commits OFF. Native 1.833/60 Balanced, MetalFX/FXAA OFF,
+forced MSAA 0 after scene setup. Driving starts 17:19:45.219, continues to
+last supplied line (71.957 s); no pause/finish endpoint observed. Thermal
+samples nominal, Low Power Mode OFF, battery samples 75% (coarse, no energy
+inference). Zero >45 ms GPU hitch lines and zero native GPU error lines in
+whole session. First driving presentation window has 2/300 off grid (initial
+transition), later all 0/300 except two windows 1/300, worst 4.2 ms off.
+FPS summaries 60.0 except initial 59.4 and two 59.9; GPU averages mostly
+~15–15.5 ms after ramp. User confirms no visual bugs/stutters on this path;
+not a separate validation of every aspect ratio/postprocessing/device mode.
+
+Logical upload comparison reuses first, timeline-OFF session of
+`dev37_iphone_timeline_off_on_smooth_nfsmw.log`. Extract `CPU buffer copies:
+over 300 frames` with summary time >5 and <=45 seconds after each run's first
+`[game] driving` label (eight windows per build). Excluding first partial
+transition window avoids comparing different loading fractions.
+
+| Median logged quantity (MiB/frame) | dev37 legacy | dev38 compact |
+|---|---:|---:|
+| Shared payload | 0.6825 | 0.258 |
+| Entire used upload-buffer span, including padding | 2.064 | 1.674 |
+| Allocated per-frame upload-buffer capacity | 8.0 | 4.0 |
+
+Observed shared-payload median about 62.2% lower, consistent with per-set
+1024→384 reduction (exact logical per-set reduction 62.5%); differences in
+number/content of sets prevent exact between-run ratio. Capacity is a
+per-frame pooled-buffer quantity, NOT total app memory halved. Alignment
+padding can grow per shared set (384 rounds to 512), already included in
+used span; do not count raw-payload savings as total-span savings. Over the
+whole supplied driving log, shared payload ranges 0.194–0.376 MiB/frame
+(including transition), capacity mostly ~4 MiB (some windows 4.013/4.053/4.240,
+last 3.880). These are logical/upload allocator figures, not measured DRAM
+traffic, watts, heat or proof GPU arithmetic was reduced. Render averages
+include drawable waits; short scene-dependent CPU/GPU differences do not
+establish timing/energy improvement. No additional device test required for
+this change from current evidence.
+
+Read-only next-scope check of resource-list cache: in current renderer,
+textures/volumes/cubes finish assembly before draw loop; subsequent additions
+are only append operations to resolved_textures/assembled_cubes (kept entries,
+resolve results, cube replacements/views, texture views). No replacement,
+removal or in-place array mutation found in draw loop. Thus a frame-local
+flattened list keyed by these collection counts can skip re-enumeration when
+unchanged, while preserving the same resource identities/order and existing
+useResources call/usage/stages for EVERY new encoder. Owning arrays and
+individual mid-pass view declarations must remain unchanged. This opportunity
+was proposed historically but not implemented/tested; do not claim a measured
+CPU gain in advance.
+
+Proposed next source step, AWAITING APPROVAL: make tested compact payload the
+default (retain explicit false fallback), and add independently switchable
+frame-local flattened resource-list reuse (default false for its first trial).
+Only new optimization is list construction reuse: do not skip any Metal
+resource declaration, change binding/lifetimes/QoS or narrow per-pass sets.
+Host exact-list/invalidation checks and one enabled correctness/log run using
+existing dev38 data as baseline; no new baseline requested. Larger GPU shader/
+dataflow investigation remains active after small verified CPU/upload wins;
+these CPU measures are not presented as sufficient for native/120 or the
+battery goal. No implementation or default change made in this results turn.
+
+Commands: archive/hash, inline Python log/median analysis, source mutation
+search and `git diff --check` exit 0. No build, source/SDK/shader modification,
+new device test or recording performed here. Documentation-only local commit,
+no push/release. Pre-existing untracked HANDOFF_CHATGPT.md preserved.
