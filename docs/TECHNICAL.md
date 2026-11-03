@@ -19554,3 +19554,20 @@ simulation on the iPad (sim 120 is what fixed the iPhone). Mechanism inside
 the game's 120 Hz path still unknown. Proposed (needs approval): launcher
 passes sim 60 below the 120 cap on 6+ efficiency-core devices (tablet profile),
 120 elsewhere and at the 120 cap (which needs it).
+
+### November 3: iPad 120 Hz sawtooth lead — world quantum sits exactly on the 2-substep boundary
+
+Stefan rejects per-device sim 60 (120 fps on the iPad needs sim 120): fix the
+120 Hz simulation itself. Only measured difference found between the devices
+in the world clock: the display period used as the world quantum.
+`[world-clock]` quantum: iPad 16.6667 ms (exact 60 Hz from ProMotion), iPhone
+16.6682 ms (+1.5 µs). Two 1/120 s steps are exactly 16.6667 ms, so on the iPad
+each frame's time lands on the boundary of the guest's 120 Hz step
+accumulator, where float rounding can give 1, 2 or 3 steps (fits the ~1:2:3
+camera ratios); the iPhone's 1.5 µs surplus keeps it at 2 (a 3rd step only
+every few thousand frames). Inference, not verified in guest code (substep
+loop not located; many readers of the 1/120 constant).
+Proposed experiment (needs approval): cvar `nfsmw_world_quantum_bias_us`
+(default 0) adding a few µs to the world quantum in AdvanceWorldClock's
+period; test 2 on the iPad at sim 120. Long-term world speed changes by
+~0.01%; existing debt resync bounds the drift.
