@@ -1072,6 +1072,7 @@ struct ResolveEvent {
   uint32_t dest_format = 6;    // RB_COPY_DEST_INFO bits 7-12 (6: k_8_8_8_8)
 };
 
+// (PooledConstantBank, below ConstantBank: nfsmw_native_record_memo.)
 // A stage's float constants, c0-c255 (1024 dwords). Only the registers its
 // draws' shaders read are filled in (Record copies just those): the rest is
 // left as it was allocated, never read.
@@ -1082,6 +1083,32 @@ struct ConstantBank {
   const uint32_t& operator[](size_t i) const { return v[i]; }
   uint32_t& operator[](size_t i) { return v[i]; }
 };
+
+// nfsmw_native_record_memo: banks (4 KB) reused instead of a heap allocation
+// per change of constants. Recorded on the command thread, released wherever
+// a frame's last reference goes (the render queue): a locked free list, at
+// most 4096 kept. Contents are not cleared (as a new bank is not zeroed).
+std::shared_ptr<ConstantBank> PooledConstantBank() {
+  static std::mutex mutex;
+  static std::vector<ConstantBank*> free;
+  ConstantBank* bank = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!free.empty()) {
+      bank = free.back();
+      free.pop_back();
+    }
+  }
+  if (!bank) bank = new ConstantBank;
+  return std::shared_ptr<ConstantBank>(bank, [](ConstantBank* b) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (free.size() < 4096) {
+      free.push_back(b);
+    } else {
+      delete b;
+    }
+  });
+}
 
 struct Draw {
   explicit Draw(std::pmr::memory_resource* attributes_resource) : attributes(attributes_resource) {}
@@ -1865,6 +1892,23 @@ struct IndexEntry {
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
 };
 std::unordered_map<IndexKey, IndexEntry, IndexKeyHash> index_cache;
+// nfsmw_native_record_memo: a direct-mapped front for index_cache (its nodes
+// stay put on rehash), invalidated as a whole when the sweep erases entries.
+struct IndexFront {
+  IndexKey key;
+  IndexEntry* entry;
+  uint64_t epoch;
+};
+uint64_t index_cache_epoch = 1;
+IndexEntry& IndexEntryFor(const IndexKey& key) {
+  static constexpr size_t kSlots = 4096;
+  static IndexFront* front = new IndexFront[kSlots]();
+  IndexFront& f = front[IndexKeyHash()(key) & (kSlots - 1)];
+  if (f.epoch == index_cache_epoch && f.key == key) return *f.entry;
+  IndexEntry& e = index_cache[key];
+  f = {key, &e, index_cache_epoch};
+  return e;
+}
 
 // The index memory's fingerprint: every word up to 4 KB (most draws), else
 // the sampled one. One FNV chain is a multiply per 8 bytes that each waits for
@@ -2716,11 +2760,11 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   const IndexKey ikey{source == 0 ? in.index_base : 0u, count, offset,
                       (in.initiator & 0xFFFF) | (endian_bits << 16)};
   // Rectangle lists add vertices to the attributes: not cached.
-  IndexEntry* ientry = prim != 8 && count ? &index_cache[ikey] : nullptr;
   // Checked once a frame, like the vertex memo below, for buffers that have
   // not changed in the last frames; a stable buffer rewritten mid-frame is
   // seen on the next frame (the accepted vertex-memo rule).
   static const bool record_memo = REXCVAR_GET(nfsmw_native_record_memo);
+  IndexEntry* ientry = prim != 8 && count ? (record_memo ? &IndexEntryFor(ikey) : &index_cache[ikey]) : nullptr;
   const bool index_trusted = record_memo && source == 0 && ientry && ientry->indices &&
                              ientry->verified_frame == frame_counter && frame_counter - ientry->changed_frame > 2;
   const uint64_t ifp = index_trusted ? ientry->fingerprint
@@ -2882,7 +2926,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         static uint64_t memo_frame = UINT64_MAX;
         static const bool memo_on = REXCVAR_GET(nfsmw_native_fingerprint_memo);
         const bool memo_ok = memo_on && !acached.dynamic && !in.up_vertices;
-        if (memo_on && memo_frame != frame_counter) {
+        if (memo_on && !record_memo && memo_frame != frame_counter) {
           memo.clear();
           memo_frame = frame_counter;
         }
@@ -2890,10 +2934,39 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         const bool entry_memo = record_memo && memo_ok && acached.memo_frame == frame_counter &&
                                 acached.memo_base == base && acached.memo_start == region &&
                                 acached.memo_size == region_size;
-        const auto memo_hit = memo_ok && !entry_memo ? memo.find(mkey) : memo.end();
+        // nfsmw_native_record_memo: the frame-wide memo in a flat table
+        // stamped with the frame (no per-frame clear, no node allocations,
+        // no bucket chains); a full probe run falls back to fingerprinting.
+        struct FlatMemo {
+          const uint8_t* base;
+          size_t start, size;
+          uint64_t frame, fingerprint;
+        };
+        static constexpr size_t kFlatMemo = 8192, kFlatProbes = 8;
+        static FlatMemo* flat = record_memo ? new FlatMemo[kFlatMemo]() : nullptr;
+        const size_t flat_home = record_memo ? MemoHash()(mkey) & (kFlatMemo - 1) : 0;
+        FlatMemo* flat_hit = nullptr;
+        if (record_memo && memo_ok && !entry_memo) {
+          for (size_t i = 0; i < kFlatProbes; ++i) {
+            FlatMemo& e = flat[(flat_home + i) & (kFlatMemo - 1)];
+            if (e.frame != frame_counter) break;
+            if (e.base == base && e.start == region && e.size == region_size) {
+              flat_hit = &e;
+              break;
+            }
+          }
+        }
+        const auto memo_hit = memo_ok && !entry_memo && !record_memo ? memo.find(mkey) : memo.end();
         if (base == region_fp_base && region == region_fp_start && region_size == region_fp_size) {
           afp = region_fp;
           ++frame.vertex_diagnostics.fingerprint_shared;
+        } else if (flat_hit) {
+          afp = flat_hit->fingerprint;
+          region_fp_base = base;
+          region_fp_start = region;
+          region_fp_size = region_size;
+          region_fp = afp;
+          ++frame.vertex_diagnostics.fingerprint_memo;
         } else if (entry_memo) {
           afp = acached.memo_fingerprint;
           region_fp_base = base;
@@ -2914,8 +2987,15 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         const bool sample = (call & 63) == 0;
         const auto fingerprint_start = sample ? FastClock::now() : FastClock::time_point{};
         afp = Fingerprint(base + region, region_size);
-        if (memo_ok) memo[mkey] = afp;
+        if (memo_ok && !record_memo) memo[mkey] = afp;
         if (record_memo && memo_ok) {
+          for (size_t i = 0; i < kFlatProbes; ++i) {  // the first free (older frame's) slot
+            FlatMemo& e = flat[(flat_home + i) & (kFlatMemo - 1)];
+            if (e.frame != frame_counter) {
+              e = {base, region, region_size, frame_counter, afp};
+              break;
+            }
+          }
           acached.memo_base = base;
           acached.memo_start = region;
           acached.memo_size = region_size;
@@ -3076,7 +3156,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
                        std::pair<uint16_t, uint16_t> range) {
     const size_t at = size_t(range.first) * 4, n = size_t(range.second - range.first) * 16;
     if (!last || (n && std::memcmp(last->data() + at, from + at, n) != 0)) {
-      auto bank = std::shared_ptr<ConstantBank>(new ConstantBank);  // default-initialized: no zeroing
+      std::shared_ptr<ConstantBank> bank = record_memo ? PooledConstantBank()
+                                                       : std::shared_ptr<ConstantBank>(new ConstantBank);  // default-initialized: no zeroing
       std::memcpy(bank->data() + at, from + at, n);
       last = std::move(bank);
     }
@@ -9036,7 +9117,9 @@ bool NativeSwap() {
   ++frame_counter;
   SweepTextureCache();
   SweepAttributeCache();
+  const size_t indices_before = index_cache.size();
   Sweep(index_cache);
+  if (index_cache.size() != indices_before) ++index_cache_epoch;  // erased: the front's pointers too
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {
     std::unique_ptr<Frame> frame = std::move(recording);

@@ -19865,3 +19865,33 @@ fingerprints and 387k–610k vertex-memo lookups skipped per 300 frames
 ring-wait ~840–1070/s-per-10s, ~half timed out (unchanged). Single runs,
 route variation; inference: roughly a 10% cut of the GPU-commands thread, not
 enough for E cores to keep up. Visual check not yet reported.
+
+## November 3, dev53 record memo round 2 (default off): built, iPad check pending
+
+Second Time Profiler (`Debug/3 November 2026/dev52_ipad_old_balanced_memo.trace`,
+76.7 s, memo on; log `dev52_ipad_old_balanced_memo_time_profile_nfsmw.log`).
+GPU Commands 25.0 s sampled: Record self 43.8% / incl 73.3%, Fingerprint 11.5%,
+operator new incl 6.4%, LoadShader 4.9%. Record-self by line (dev52 .o DWARF):
+inlined/unattributed 35.6%, 2893 frame-memo find 12.6%, 2719 index_cache[]
+9.0%, 2849 AttributeEntryFor 8.2%, 2966 vertex decode 6.5%; allocation callers
+mostly constants() new ConstantBank (3101–3102) and memo clear/insert
+(2886/2917). The flat memo was edited before approval (disclosed); Stefan then
+approved it plus bank pooling and faster cache lookups. Under the same
+`nfsmw_native_record_memo` (off by default):
+- Frame-wide vertex memo: flat 8192-slot linear-probe table stamped with the
+  frame (no clear, no allocation; ≤ 8 probes, else fingerprint as before)
+  replaces the unordered_map when the memo is on.
+- Constant banks: `PooledConstantBank` (locked free list, ≤ 4096 kept;
+  shared_ptr deleter returns them from any thread; contents not cleared, as
+  before).
+- Index cache: direct-mapped 4096-slot front (`IndexEntryFor`) over
+  index_cache; node pointers stable on rehash; `index_cache_epoch` bumped
+  whenever the end-of-frame Sweep erases entries.
+Not done: AttributeEntryFor already has its own lookup cache (unchanged).
+Checks: build-0.6 ipa exit0; host tests draw_arena, color_handoff,
+resource_list_cache, texture_masks, upload_sizing, compact_shared_constants,
+guest_culling, transform_copies, gpu_timeline PASS; `git diff --check` exit0;
+ZIP vs dev52 only the executable changed. IPA
+`ios/build/NFSMW-0.6.0-dev53-record-memo2.ipa` (and Desktop), SHA256 4762053703c1c04c3f5a999dca1650843acb5e9dffb1e2690b256a9dc3014dd6.
+Test: same args as the dev52 run (old Balanced, 1.5x, four diagnostic args,
+record memo on); compare GPU Commands % / pacing / ring-wait with dev52.
