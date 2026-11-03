@@ -19599,3 +19599,13 @@ exact 16.6667 ms quantum causes the iPad 120 Hz camera sawtooth. Next: locate
 the guest 120 Hz step accumulator and make it count steps exactly (proper
 fix); until then the bias is a working mitigation. Balanced on the iPad still
 has the separate Utility QoS hitch problem (229 vs 42 host gaps > 20 ms).
+
+dev48 iPad Balanced + bias 2 (`dev48_ipad_bias2_balanced_nfsmw.log`, 1.5x, sim 120,
+tablet profile). Camera zigzag 50/1853 (2.7%, iPhone level; Max+bias was 5.7%,
+within run-to-run noise of this metric). But presentation is much worse than
+Max: 40–158 of 300 frames off grid per window (Max+bias: 0–112, last windows
+0–2), refresh gaps up to 3:79 and 1:61 per 300 (late/early pairs), host gaps
+sd 3.57, >20 ms 322 (Max 56). `[cpu]` 148% of a core vs 69% on Max (same work
+on slower cores). Conclusion: the quantum bias fixes the motion cadence on
+both profiles; tablet Balanced's Utility QoS still makes frames miss refreshes
+(uneven frame delivery), the separate scheduling problem.
