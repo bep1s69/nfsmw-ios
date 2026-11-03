@@ -19789,3 +19789,7 @@ GPU-commands thread (ring consumer) is the throughput bottleneck on E cores and
 the main loop stalls behind it (inference). Proposed: (1) boost only GPU
 Commands while driving, Power Profiler vs old/new Balanced; (2) cut the
 GPU-commands thread's per-frame CPU work (Time Profiler on old Balanced first).
+Stefan chose (2), cutting GPU-commands/main-loop CPU work. Requested: Time
+Profiler (high-frequency if offered), iPad, dev51, 1.5x, cap 60, old Balanced
+args `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`, ~1 min warm-up
+then ~15 s driving; .trace + nfsmw.log. Propose cuts before code changes.
