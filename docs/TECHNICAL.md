@@ -19589,3 +19589,13 @@ Test: iPad, Max, 1.5x, sim 120 (no sim_rate arg), same lap and four diagnostic
 args plus `--nfsmw_world_quantum_bias_us=2`; compare camera zigzag with 37.6%.
 If confirmed, locate the guest 120 Hz step loop and fix it exactly; this cvar
 is a confirmation tool, not the intended final fix.
+
+dev48 iPad result (`dev48_ipad_quantum_bias2_nfsmw.log`, Max, 1.5x, sim 120,
+`--nfsmw_world_quantum_bias_us=2`; log confirms "quantum bias 2 us" and quantum
+16.6687 ms). Camera zigzag 92 of 1605 moving frames (5.7%) vs 37.6% at the
+same settings without bias (sim 60: 2.9%, iPhone 1.8%). Stefan left the
+judgement to the log. Conclusion: confirmed that the 2-step boundary of the
+exact 16.6667 ms quantum causes the iPad 120 Hz camera sawtooth. Next: locate
+the guest 120 Hz step accumulator and make it count steps exactly (proper
+fix); until then the bias is a working mitigation. Balanced on the iPad still
+has the separate Utility QoS hitch problem (229 vs 42 host gaps > 20 ms).
