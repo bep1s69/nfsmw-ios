@@ -554,6 +554,29 @@ extern "C" void nfsmw_extra_options_apply() {
   nfsmw_extra_options_tunables();
 }
 
+// The world's fixed-step loops count steps as (int)(time * 60.0), a shared
+// 60.0 the sim rate patch leaves alone (tools/ios/patch_game_sim_steps.py):
+// at 120 Hz they count with this rate instead, so each step taken is one
+// 1/120 s step subtracted. 1e-4 more: a frame of exactly two steps (the
+// iPad's 16.6667 ms) truncated by float rounding to one would leave a
+// step's remainder and take three the next frame (1/3 alternation); counted
+// 1.7 us early it stays at two, the remainder a few microseconds below 0.
+// Experiment (default off): an offline float model of these loops does not
+// reproduce the iPad's sawtooth with either rule, so this is tested on the
+// device before it becomes the default.
+REXCVAR_DEFINE_BOOL(nfsmw_sim_step_count, false, "Game",
+                    "Experiment: at 120 Hz simulation count world steps at 120 per second (the game's "
+                    "loops count at 60 while subtracting 1/120 per step)");
+extern "C" double nfsmw_sim_steps_per_second(double rate) {
+  static const bool fixed = REXCVAR_GET(nfsmw_sim_rate) == 120 && REXCVAR_GET(nfsmw_sim_step_count);
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[extra-options] sim step count: {}", fixed ? "120 per second (experiment)" : "the game's 60");
+  }
+  return fixed ? 120.0 * (1 + 1e-4) : rate;
+}
+
 // Before the pursuit's heat clamp (see HEAT LEVEL OVERRIDE above).
 extern "C" void nfsmw_heat_override(uint32_t object, uint8_t* base) {
   if (!REXCVAR_GET(nfsmw_heat_override)) {

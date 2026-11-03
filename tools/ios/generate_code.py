@@ -211,6 +211,10 @@ def main():
             "patch_game_world_step_trace.py")), "--dir", str(out)])
         if world_step.returncode:
             fail("patch_game_world_step_trace.py failed. See its output above.")
+        sim_steps = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
+            "patch_game_sim_steps.py")), "--dir", str(out)])
+        if sim_steps.returncode:
+            fail("patch_game_sim_steps.py failed. See its output above.")
 
     # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
     # language and country, and whether the hooks need translating).

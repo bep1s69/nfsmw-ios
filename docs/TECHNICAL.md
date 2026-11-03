@@ -19609,3 +19609,38 @@ sd 3.57, >20 ms 322 (Max 56). `[cpu]` 148% of a core vs 69% on Max (same work
 on slower cores). Conclusion: the quantum bias fixes the motion cadence on
 both profiles; tablet Balanced's Utility QoS still makes frames miss refreshes
 (uneven frame delivery), the separate scheduling problem.
+
+## November 3, 120 Hz step loop found: steps counted at 60/s, subtracted at 1/120; dev49 experiment
+
+Stefan approved step 1 (fix the 120 Hz step loop properly). Found in generated
+USA code (`ios/generated/default`): sub_823C66C8 (nfsmw_recomp.91.cpp) and
+sub_823C6858 (nfsmw_recomp.23.cpp) add the frame time (0x82A39660, written by
+sub_823C6500 as world ticks × step) to an accumulator (0x82A2CD18 /
+0x82A2CD1C area), take steps = fctiwz(acc × [0x82057114]) with a minimum of 1,
+and subtract steps × [0x820AFDD0]. Inspection image
+(`ios/build/managed40-inspection-image.bin`, original values): 0x82057114 =
+60.0, 0x820AFDD0 = 1/60. Our sim-rate patch changes only 0x820AFDD0 (and
+0x828F85AC) to 1/120, so at 120 Hz the loops count with the 60 Hz rule and
+subtract 1/120 per step: steady state keeps ~16.7–33.3 ms in the accumulator
+(two steps' worth) instead of < one step. Also read: sub_824CF3A8 integrates
+in ≤1/120 s slices to a continuous target time (not quantized; not the cause);
+World_Service sub_824CE048 only stores its timestep.
+Offline float32 model (input pattern 60/60/59 ticks per frame, or constant)
+gives the same step counts with the original, plain-120 and fixed rules (2 per
+frame, rare 1s), so it does NOT reproduce the iPad sawtooth; the measured
+quantum-bias effect therefore acts somewhere this model omits. The counting
+inconsistency is real, its effect on the camera unproven.
+Change: `tools/ios/patch_game_sim_steps.py` (new, apply/--status/--revert,
+idempotent; added to generate_code.py after world_step_trace; applied to the
+local generated code) routes the 60.0 load in both functions through
+`nfsmw_sim_steps_per_second` (game_extra_options.cpp). New cvar
+`nfsmw_sim_step_count` (default false): at sim 120 returns 120 × (1+1e-4)
+(tolerance so an exact two-step frame is not truncated to one), else the
+game's value; logs `[extra-options] sim step count: ...` once.
+Checks: patch script status/apply twice (idempotent), patch_game_extra_options
+exit0, build-0.6 ipa exit0, `git diff --check` exit0, binary contains the log
+string; ZIP vs dev48 only the executable changed. IPA
+`ios/build/NFSMW-0.6.0-dev49-sim-step-count.ipa` (and Desktop), 30580703
+bytes, SHA256 af03a4e36b01755e48e90581512388910be65a36262fd5fe968160b1221b9469.
+Test: iPad Max 1.5x sim 120, four diagnostic args, NO quantum bias, plus
+`--nfsmw_sim_step_count=true`; compare zigzag with 37.6% (none) / 5.7% (bias).
