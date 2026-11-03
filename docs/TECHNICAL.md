@@ -19510,3 +19510,21 @@ error fixed: UIBarButtonItem title initializer → initWithPrimaryAction),
 `git diff --check` exit0; ZIP vs dev46 only the executable changed.
 Not run in a simulator or on a device. IPA `ios/build/NFSMW-0.6.0-dev47-args-editor.ipa`
 (and Desktop), 30568970 bytes, SHA256 88e6b538ed82687f97438b6a699f5bbed46c40aaee25616deb3290355a9f7465.
+
+### November 3: why the earlier judder fixes do not cover the iPad camera sawtooth
+
+Stefan asks how to fix the iPad (Codex's earlier world/camera timing changes
+fixed the general judder). Comparing the 1.5x iPad Max log with the iPhone log:
+- World step identical on both: fixed given 16.667 ms (mode 2), output
+  pattern 16.667/16.667/16.389 ms (60/60/59 ticks) every 3 frames — iPad 2774
+  60-tick / 1376 59-tick, iPhone 2863 / 1391. Sim rate 120 on both.
+- Host gaps are NOT the difference: iPad sd 2.72 ms, iPhone sd 3.19 (more
+  uneven) yet the iPhone camera is smooth.
+- iPad camera sawtooth values are close to 1:2:3 (0.32 / 0.64 / 0.95), as if
+  the camera advanced by a varying number of 120 Hz substeps per frame on the
+  iPad only. Not verified: no per-frame substep count is logged.
+Conclusion: the existing fixes work on the iPad too; the remaining cause is
+iPad-specific and unidentified. Proposed (needs approval): a diagnostic-only
+log of 120 Hz substeps per displayed frame and of the camera update count, to
+see where the iPad diverges, before any fix. Candidate fix to test afterwards:
+remove the 59-tick output frame so every frame gets exactly 2 substeps.
