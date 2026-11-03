@@ -19460,3 +19460,15 @@ similar on both, not the difference. Inference: Utility QoS on the game/GPU
 threads causes the uneven host frame gaps and missed vsyncs on the iPad.
 Next (no code change): same drive on iPad with Performance Max and the same
 args; if off-grid frames fall to near 0, revisit the tablet Balanced choice.
+
+iPad Performance Max run (same args; `dev46_ipad_pacing_max_nfsmw.log`): Stefan
+says it felt the same for the first half of the lap. Measured: no Utility QoS
+(frame-entry default 300/300). Host gaps after warm-up sd 2.56 (Balanced 2.87),
+>20 ms 42 (229), <15 ms 248 (1228). Off-grid frames: first 10 windows 57–124 of
+300 (refresh pairs 1+3, i.e. late then early), last 6 windows 4–63. Frame trace
+in the bad stretches: swap→GPU end 9–13.4 ms rising, shown only 1.5–6 ms
+later, so the GPU frame at 2.867x approaches the 16.7 ms budget there and
+frames miss their vsync (inference: GPU-bound in heavy track sections; not
+correlated with geometry decode or page-ins). Conclusion: Utility QoS causes
+the large host hitches (Balanced only); the remaining first-half judder is GPU
+time near budget at native on this iPad. Not yet tested: a lower iPad scale.
