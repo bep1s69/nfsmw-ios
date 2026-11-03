@@ -19901,3 +19901,16 @@ proving a draw unchanged costs much of what Record does). Proposed order:
 dev53 result, then a counting-only census of per-draw matches with the
 previous frame (shaders/textures/buffers/state, with and without constants),
 then a design for approval. Nothing built.
+
+dev53 iPad result (`dev53_ipad_old_balanced_record_memo2_nfsmw.log`, same args as
+dev52). No measurable change vs dev52: GPU Commands 29–37% of a core (dev52
+29–37%), main loop 28–40%, total 142–186%; pacing 33–137 off grid (13–136);
+host gaps >20 ms 4.0% (5.4%), sd 3.47 (3.45); ring-wait unchanged.
+Re-reading game_hooks.cpp: ring-wait counts include the CP's normal vblank
+wait (Oct 24 iPhone: ~709 waits/s, mostly timeouts), so they are not evidence
+of a CPU-bound CP; the System Trace had GPU Commands mostly blocked (3.9 s
+running of 16 s). Conclusion: Record CPU cuts (dev52/53) do not fix old
+Balanced; the E-core misses are not explained by GPU-commands CPU time alone
+(inference). Recommendation: keep `nfsmw_native_record_memo` default off (no
+measured benefit), keep dev51 boosted Balanced; cheapest remaining trade-off
+test: boost only GPU Commands while driving. Draw-reuse census deprioritized.
