@@ -19665,3 +19665,11 @@ alone: 9/9–16/19 for 8 lines). Pacing last windows 0–4 of 300.
 Best result so far. Proposal (needs approval): make both defaults
 (`nfsmw_sim_step_count` true, `nfsmw_world_quantum_bias_us` 2), then one
 iPhone check, since neither has been run there.
+
+Correction (Nov 3): the dev48 note "existing debt resync bounds the drift" is
+wrong. AdvanceWorldClock always gives steps × period; the resync only zeroes
+`debt`. With bias 2 µs the world runs 2/16666.7 = 0.012% fast indefinitely:
+~10.4 s per 24 h, ~0.43 s per hour (Stefan asked about a 24 h pursuit).
+The iPhone without bias runs ~0.009% fast vs a nominal 60 Hz because its
+measured period is 16.6682 ms (if the panel is truly nominal). Option offered:
+pay the bias back periodically to make long-term drift zero.
