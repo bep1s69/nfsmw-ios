@@ -19694,3 +19694,11 @@ scale 1.000, defaults active per log; Stefan: "did alright too"). Pacing 0–2 o
 0–5 per line, no burst. Inference: within run-to-run spread of this metric
 (iPad bias runs 2.7–5.7%), no visible regression; not a matched A/B. Errors are
 the known pre-driving [semaforos] (961) / [vigilante] (36) diagnostics.
+
+### November 3: trace protocol moved to the iPad (Stefan will record there)
+
+1) Scheduling: dev50, 1.5x, cap 60, four diagnostic args; System Trace ~10 s
+after ~1 min warm-up, same stretch, Balanced then Max. 2) GPU trials: dev50,
+native, Max; A handoff/culling false, B both true; Power Profiler ~2 min after
+warm-up (+ optional 7 s Metal System Trace). Each trace with its nfsmw.log.
+Supersedes the iPhone variant of the OFF/ON protocol above.
