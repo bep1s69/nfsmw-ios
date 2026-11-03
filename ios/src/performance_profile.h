@@ -10,7 +10,13 @@ struct Policy {
 };
 inline Policy Resolve(int mode, int efficiency_cores, int cap) {
   const bool eco = mode == 0, max = mode == 2;
-  const bool tablet = !eco && !max && efficiency_cores >= 6;
+  // Balanced with 6+ efficiency cores (M-series iPads) kept the main and GPU
+  // command threads at Utility below the 120 cap until dev51: the System
+  // Trace (Nov 3) had both 100% on the efficiency cores, the same frame work
+  // taking ~1.9x the core time, and frames missing refreshes. Now Balanced is
+  // the same on every device (boosted while driving).
+  (void)efficiency_cores;
+  const bool tablet = false;
   return {eco || (tablet && cap <= 60), !max,
           !eco && !max && (!tablet || cap > 60), tablet, !max};
 }

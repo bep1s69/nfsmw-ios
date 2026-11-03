@@ -19729,3 +19729,20 @@ Profiler A/B decides). Proposal (needs approval): tablet Balanced boosts only
 Main XThread and GPU Commands while driving (the phone Balanced rule), other
 guest and native worker threads stay on Utility; then Power Profiler
 old-Balanced vs new-Balanced vs Max.
+
+## November 3, dev51: iPad Balanced boosts the frame threads while driving (tablet profile removed)
+
+Stefan approved. `ios/src/performance_profile.h` Resolve: no tablet profile
+(Balanced = phone rule on every device: main/GPU threads not fixed at Utility,
+adaptive QoS boosts while driving, other guest + native render work Utility,
+original adaptive rules off). `ios_main.mm`: performance_tablet always false
+(its log string no longer appears). Overrides via Extra Args unchanged
+(e.g. `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true` restores the
+old tablet behaviour). `tools/ios/test_performance_profiles.py` expectation
+updated: PASS 98304 round trips + bridge/patch checks. Build-0.6 ipa exit0,
+`git diff --check` exit0; ZIP vs dev50 only the executable changed. IPA
+`ios/build/NFSMW-0.6.0-dev51-ipad-balanced-boost.ipa` (and Desktop), SHA256
+2a15bee4422b2d12be50cef4f9f47c16638320f03aa31e3923ab76e260c257dd.
+Next: iPad Balanced drive with the four args (expect frame-entry QoS
+user-initiated while driving, pacing like Max), then Power Profiler: old
+Balanced (the override args above), new Balanced, Max.

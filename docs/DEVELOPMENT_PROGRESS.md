@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 3, 2026 (continued from November 2)
 
+**November 3, dev51:** iPad System Traces showed tablet Balanced running the
+main loop and GPU-commands threads 100% on E cores (~1.9x core time); the
+tablet profile is removed, Balanced boosts them while driving everywhere.
+Next: iPad Balanced check, then Power Profiler old/new Balanced vs Max, then
+the GPU trial comparison at native.
+
 **November 3, dev50:** iPad camera smooth (step count + 2 µs bias, 2.8% zigzag,
 no start burst; Stefan "fully smooth"), both now default. Next: iPhone
 regression drive; then Balanced/core scheduling (step 2, System Traces from

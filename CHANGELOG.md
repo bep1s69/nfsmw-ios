@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Smoother Balanced mode on iPads.** Balanced now gives the game's main and
+  GPU threads the fast cores while driving on every device, as on iPhones;
+  M-series iPads used to keep them on the efficiency cores (dev51).
+
 - **Smooth camera on the iPad.** The 120 Hz simulation now counts its steps
   correctly and keeps frames off a timing boundary that made the iPad's camera
   move unevenly. The game runs 0.012% fast, which is not noticeable (dev50).
