@@ -425,7 +425,13 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 2, 2026
+## Current checkpoint — November 3, 2026 (continued from November 2)
+
+**November 3, dev47:** full-screen Extra arguments editor (Stefan's request),
+untested. iPad findings today: Balanced tablet profile's Utility QoS causes big
+host hitches; heavy sections at native are GPU-near-budget; at 1.5x/Max the
+remaining judder is an iPad-only camera sawtooth (37.6% vs iPhone 1.8% zigzag
+frames), cause open. Matched OFF/ON trace comparison still pending.
 
 **November 3, iPad crash loop fixed in dev46 (device check pending):** a damaged
 pipeline cache made Metal abort inside our background save at every launch

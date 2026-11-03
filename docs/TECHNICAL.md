@@ -19493,3 +19493,20 @@ frames >0.15 deg with both neighbours moving, value <0.7x the smaller or
 1057 (37.6%). The camera sawtooth is iPad-specific (scale differs, 1.0 vs 1.5,
 so resolution not fully excluded but GPU headroom was ample on both).
 Next: investigate what drives the iPad's 20 Hz camera cadence (open).
+
+## November 3, dev47 full-screen Extra arguments editor (Stefan request)
+
+Stefan: from the next build, edit launcher Extra arguments in a full-screen
+text editor (many test args were hard to manage in the one-line field).
+`ios/src/launcher.mm`: the Extra arguments row now shows how many are set and
+a 3-line monospaced preview with a disclosure arrow; tapping it pushes
+`NFSArgumentsEditorController` (UITextView, monospaced 15 pt, no autocorrect,
+capitalization, spell check, smart dashes/quotes/insert; follows the keyboard
+via keyboardLayoutGuide; Done pops, Clear empties). Saved on every change to
+the same `extra_args` setting; a previously single-line value opens one
+argument per line. `ApplyLauncherArguments` already splits on spaces and
+newlines, so parsing is unchanged. Checks: build-0.6 ipa exit0 (one compile
+error fixed: UIBarButtonItem title initializer → initWithPrimaryAction),
+`git diff --check` exit0; ZIP vs dev46 only the executable changed.
+Not run in a simulator or on a device. IPA `ios/build/NFSMW-0.6.0-dev47-args-editor.ipa`
+(and Desktop), 30568970 bytes, SHA256 88e6b538ed82687f97438b6a699f5bbed46c40aaee25616deb3290355a9f7465.

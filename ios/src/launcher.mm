@@ -1354,6 +1354,94 @@ NSString* AchievementSummary(const Achievements& a) {
 - (instancetype)initWithPrompt:(NSString*)prompt done:(void (^)(NSString* key))done;
 @end
 
+// Extra arguments, edited full screen (many test options did not fit the
+// row's one-line field): one per line, monospaced, no autocorrection or smart
+// punctuation; saved as typed, on every change.
+@interface NFSArgumentsEditorController : UIViewController <UITextViewDelegate>
+- (instancetype)initWithText:(NSString*)text changed:(void (^)(NSString*))changed;
+@end
+
+@implementation NFSArgumentsEditorController {
+  NSString* _text;
+  void (^_changed)(NSString*);
+  UITextView* _view;
+}
+
+- (instancetype)initWithText:(NSString*)text changed:(void (^)(NSString*))changed {
+  if ((self = [super initWithNibName:nil bundle:nil])) {
+    // Written on one line before (separated by spaces): shown one per line.
+    NSArray* words = [[text componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet]
+        filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
+    _text = [text containsString:@"\n"] ? text : [words componentsJoinedByString:@"\n"];
+    _changed = changed;
+    self.title = @"Extra arguments";
+  }
+  return self;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.view.backgroundColor = UIColor.systemBackgroundColor;
+  _view = [[UITextView alloc] init];
+  _view.translatesAutoresizingMaskIntoConstraints = NO;
+  _view.font = [UIFont monospacedSystemFontOfSize:15 weight:UIFontWeightRegular];
+  _view.text = _text;
+  _view.autocorrectionType = UITextAutocorrectionTypeNo;
+  _view.autocapitalizationType = UITextAutocapitalizationTypeNone;
+  _view.spellCheckingType = UITextSpellCheckingTypeNo;
+  _view.smartDashesType = UITextSmartDashesTypeNo;
+  _view.smartQuotesType = UITextSmartQuotesTypeNo;
+  _view.smartInsertDeleteType = UITextSmartInsertDeleteTypeNo;
+  _view.alwaysBounceVertical = YES;
+  _view.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
+  _view.textContainerInset = UIEdgeInsetsMake(12, 8, 12, 8);
+  _view.delegate = self;
+  [self.view addSubview:_view];
+  UILabel* hint = [[UILabel alloc] init];
+  hint.translatesAutoresizingMaskIntoConstraints = NO;
+  hint.text = @"One option per line (or separated by spaces), e.g. --nfsmw_hud_watch=true. "
+              @"They win over the settings and Documents/extra_args.txt.";
+  hint.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+  hint.textColor = UIColor.secondaryLabelColor;
+  hint.numberOfLines = 0;
+  [self.view addSubview:hint];
+  UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
+  [NSLayoutConstraint activateConstraints:@[
+    [hint.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+    [hint.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
+    [hint.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+    [_view.topAnchor constraintEqualToAnchor:hint.bottomAnchor constant:4],
+    [_view.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
+    [_view.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
+    [_view.bottomAnchor constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor],
+  ]];
+  self.navigationItem.rightBarButtonItem =
+      [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                   primaryAction:[UIAction actionWithHandler:^(UIAction*) {
+                                                     [self->_view resignFirstResponder];
+                                                     [self.navigationController popViewControllerAnimated:YES];
+                                                   }]];
+  self.navigationItem.leftItemsSupplementBackButton = YES;
+  self.navigationItem.leftBarButtonItem =
+      [[UIBarButtonItem alloc] initWithPrimaryAction:[UIAction actionWithTitle:@"Clear"
+                                                                         image:nil
+                                                                    identifier:nil
+                                                                       handler:^(UIAction*) {
+                                                                         self->_view.text = @"";
+                                                                         [self textViewDidChange:self->_view];
+                                                                       }]];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+  [super viewDidAppear:animated];
+  if (!_view.text.length) [_view becomeFirstResponder];
+}
+
+- (void)textViewDidChange:(UITextView*)view {
+  _changed(view.text);
+}
+@end
+
 @implementation NFSKeyCaptureController {
   NSString* _prompt;
   void (^_done)(NSString*);
@@ -1933,6 +2021,18 @@ NSString* AchievementSummary(const Achievements& a) {
     }
     case Type::kText: {
       const bool args = [key isEqualToString:@"extra_args"];
+      if (args) {  // edited full screen (didSelectRow): here how many there are
+        NSArray* words = [[value componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]
+            filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
+        c.secondaryText = words.count ? [NSString stringWithFormat:@"%lu set: %@", (unsigned long)words.count,
+                                                                   [words componentsJoinedByString:@" "]]
+                                      : o.summary;
+        c.secondaryTextProperties.numberOfLines = 3;
+        c.secondaryTextProperties.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        break;
+      }
       UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, args ? 230 : 170, 34)];
       field.borderStyle = UITextBorderStyleRoundedRect;
       const bool address = [key isEqualToString:@"lan_server"];
@@ -1993,6 +2093,17 @@ NSString* AchievementSummary(const Achievements& a) {
       }
       [self.navigationController pushViewController:nfsmw::lan::MakeSetup(_docs, _settings,
           [self] { [self launchSelectedGame]; }) animated:YES];
+      return;
+    }
+    if (o.type == Type::kText && [o.key isEqualToString:@"extra_args"]) {
+      NSString* key = o.key;
+      [self.navigationController
+          pushViewController:[[NFSArgumentsEditorController alloc] initWithText:Value(_settings, key)
+                                                                        changed:^(NSString* text) {
+                                                                          [self set:key to:text];
+                                                                          [self.tableView reloadData];
+                                                                        }]
+                    animated:YES];
       return;
     }
     if (o.type == Type::kLink && [o.key isEqualToString:@"saves"]) {

@@ -2,6 +2,9 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Edit test options full screen.** Extra arguments in the launcher now open
+  in a full-screen editor, one option per line. Needs device testing (dev47).
+
 - **Stop a crash loop after launch.** A damaged shader cache could close the
   game about 15 seconds after every start. The game now discards that cache
   after one failed save and rebuilds it. Needs device testing (dev46).
