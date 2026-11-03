@@ -19422,3 +19422,23 @@ changed, 104 metallibs identical. Not run on a device yet. IPA
 bytes, SHA256 ac68fb34120c331808475407e7a04143589d9fab55bfadbaa69969b9ad3e51d7.
 Next: iPad launch, expect one crash or the warning, then stable menus/race and
 a "pipeline cache saved in the background" line; send nfsmw.log.
+
+## November 3, dev46 iPad check: cache self-heal works; iPad pacing and issue #15 notes
+
+`Debug/3 November 2026/dev46_ipad_pipeline_cache_heal_nfsmw.log` (two launches):
+launch 1 loaded the damaged 68295 KiB archive, added 684f variants and ended
+(log stops, the expected last crash); launch 2 logged "the last save did not
+finish, starting a new one", then "pipeline cache saved in the background"
+167/5172/6287 KiB and ran ~100 s to the end of the log. Fix confirmed on iPad.
+iPad pacing (same log, 60 cap, 2.867): 3–124 of 300 frames off the 16.7 ms grid
+per window, later driving windows still 36–100 with worst 8–25 ms; iPhone dev45
+was 0–1. Supports Stefan's impression that the iPad is less smooth (measured
+presentation timing, cause not investigated; first windows include recompiles).
+Suggested diagnostic args (logging only, existing): `--nfsmw_native_frame_trace=true
+--nfsmw_frame_ticks_log=true --nfsmw_native_repeat_log=true --nfsmw_native_camera_log=true`.
+GitHub issue #15 (engine audio cuts at fixed 1 s intervals), supplied
+`github_issue15_engine_audio_nfsmw-4.log`: only a 24 s tail (23:35:47–36:11),
+no header so no version/device/settings; MetalFX on, scale 1.891, cap 60.
+Output clean (coreaudio 0 gaps), no `[ea-budget]` line, XMA resets 1–66
+contexts/s and up to 117 voices stopped after a reset per 5 s. Inconclusive:
+needs the whole log, version/device and when a cut is heard.
