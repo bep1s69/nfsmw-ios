@@ -171,6 +171,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, false, "GPU",
                     "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_record_memo, false, "GPU",
+                    "Experiment: per-frame index fingerprint memo, per-entry vertex memo and last-key "
+                    "constant ranges in draw recording (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",
                     "Native renderer: hash index buffers in four independent lanes (every word, "
                     "as before, but not one long dependent chain)");
@@ -1145,6 +1148,7 @@ struct VertexDiagnostics {
   uint64_t fingerprint_sample_ns = 0;
   uint64_t fingerprint_shared = 0;  // inputs that reused their draw's region fingerprint
   uint64_t fingerprint_memo = 0;    // regions fingerprinted earlier in the same frame (fingerprint memo)
+  uint64_t index_memo_hits = 0, entry_memo_hits = 0;  // nfsmw_native_record_memo: hashes and map lookups skipped
   uint64_t decoded_vertex_elements = 0;
   uint64_t decoded_bytes = 0, dynamic_decoded_bytes = 0;
   uint64_t expanded_input_indices = 0;
@@ -1174,6 +1178,8 @@ struct VertexDiagnostics {
     fingerprint_sample_ns += other.fingerprint_sample_ns;
     fingerprint_shared += other.fingerprint_shared;
     fingerprint_memo += other.fingerprint_memo;
+    index_memo_hits += other.index_memo_hits;
+    entry_memo_hits += other.entry_memo_hits;
     decoded_vertex_elements += other.decoded_vertex_elements;
     decoded_bytes += other.decoded_bytes;
     dynamic_decoded_bytes += other.dynamic_decoded_bytes;
@@ -1580,6 +1586,11 @@ struct CacheEntry {
   uint64_t last_changed = 0;  // frame it last had to be decoded again
   bool dynamic = false;       // rewritten frame after frame: fingerprinted, not watched
   uint64_t last_false_alarm = 0;  // its pages written, its data unchanged (shared with hot data)
+  // nfsmw_native_record_memo: the region fingerprinted for this entry this
+  // frame (the frame-wide memo's answer without its hash-map lookup).
+  const uint8_t* memo_base = nullptr;
+  size_t memo_start = 0, memo_size = 0;
+  uint64_t memo_frame = UINT64_MAX, memo_fingerprint = 0;
 };
 
 // Guest memory write watch: a cached decode of a watched range stays valid
@@ -1846,6 +1857,10 @@ struct IndexKeyHash {
 struct IndexEntry {
   std::shared_ptr<const std::vector<uint32_t>> indices;
   uint64_t fingerprint = 0, last_used = 0;
+  // nfsmw_native_record_memo: fingerprint checked this frame (later draws of
+  // the same buffer, e.g. shadow/reflection/cube passes, trust it), and the
+  // frame it last changed (recently rewritten buffers are checked every draw).
+  uint64_t verified_frame = UINT64_MAX, changed_frame = 0;
   uint32_t lo = 0, hi = 0;
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
 };
@@ -2702,9 +2717,21 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
                       (in.initiator & 0xFFFF) | (endian_bits << 16)};
   // Rectangle lists add vertices to the attributes: not cached.
   IndexEntry* ientry = prim != 8 && count ? &index_cache[ikey] : nullptr;
-  const uint64_t ifp = source == 0 && count ? IndexFingerprint(Physical(in.index_base), size_t(count) * (index32 ? 4 : 2))
-                                            : 0;
+  // Checked once a frame, like the vertex memo below, for buffers that have
+  // not changed in the last frames; a stable buffer rewritten mid-frame is
+  // seen on the next frame (the accepted vertex-memo rule).
+  static const bool record_memo = REXCVAR_GET(nfsmw_native_record_memo);
+  const bool index_trusted = record_memo && source == 0 && ientry && ientry->indices &&
+                             ientry->verified_frame == frame_counter && frame_counter - ientry->changed_frame > 2;
+  const uint64_t ifp = index_trusted ? ientry->fingerprint
+                       : source == 0 && count ? IndexFingerprint(Physical(in.index_base), size_t(count) * (index32 ? 4 : 2))
+                                              : 0;
   const bool index_hit = ientry && ientry->indices && ientry->fingerprint == ifp;
+  if (record_memo && ientry) {
+    if (index_trusted) ++frame.vertex_diagnostics.index_memo_hits;
+    if (ientry->indices && !index_hit) ientry->changed_frame = frame_counter;
+    if (index_hit) ientry->verified_frame = frame_counter;
+  }
   uint32_t lo = UINT32_MAX, hi = 0;
   static std::vector<uint32_t> raw_buffer;  // reused: no allocation or zeroing per draw
   uint32_t* raw = nullptr;
@@ -2860,10 +2887,21 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
           memo_frame = frame_counter;
         }
         const MemoKey mkey{base, region, region_size};
-        const auto memo_hit = memo_ok ? memo.find(mkey) : memo.end();
+        const bool entry_memo = record_memo && memo_ok && acached.memo_frame == frame_counter &&
+                                acached.memo_base == base && acached.memo_start == region &&
+                                acached.memo_size == region_size;
+        const auto memo_hit = memo_ok && !entry_memo ? memo.find(mkey) : memo.end();
         if (base == region_fp_base && region == region_fp_start && region_size == region_fp_size) {
           afp = region_fp;
           ++frame.vertex_diagnostics.fingerprint_shared;
+        } else if (entry_memo) {
+          afp = acached.memo_fingerprint;
+          region_fp_base = base;
+          region_fp_start = region;
+          region_fp_size = region_size;
+          region_fp = afp;
+          ++frame.vertex_diagnostics.fingerprint_memo;
+          ++frame.vertex_diagnostics.entry_memo_hits;
         } else if (memo_hit != memo.end()) {
           afp = memo_hit->second;
           region_fp_base = base;
@@ -2877,6 +2915,13 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
         const auto fingerprint_start = sample ? FastClock::now() : FastClock::time_point{};
         afp = Fingerprint(base + region, region_size);
         if (memo_ok) memo[mkey] = afp;
+        if (record_memo && memo_ok) {
+          acached.memo_base = base;
+          acached.memo_start = region;
+          acached.memo_size = region_size;
+          acached.memo_frame = frame_counter;
+          acached.memo_fingerprint = afp;
+        }
         region_fp_base = base;
         region_fp_start = region;
         region_fp_size = region_size;
@@ -3011,6 +3056,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     if (ientry) {
       ientry->indices = made;
       ientry->fingerprint = ifp;
+      ientry->verified_frame = frame_counter;
       ientry->last_used = frame_counter;
       ientry->lo = lo;
       ientry->hi = hi;
@@ -3040,8 +3086,18 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   if (timed_draw) {
     record_vertex_ns += 8 * uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(texture_start - vertex_start).count());
   }
+  if (record_memo) {
+    // Runs of draws share their shaders: the range found once per run.
+    static uint64_t range_keys[2] = {~0ull, ~0ull};
+    static std::pair<uint16_t, uint16_t> ranges[2];
+    if (range_keys[0] != d.vs_key) ranges[0] = store.ConstantRange(false, range_keys[0] = d.vs_key);
+    if (range_keys[1] != d.ps_key) ranges[1] = store.ConstantRange(true, range_keys[1] = d.ps_key);
+    d.vs_range = ranges[0];
+    d.ps_range = ranges[1];
+  } else {
   d.vs_range = store.ConstantRange(false, d.vs_key);
   d.ps_range = store.ConstantRange(true, d.ps_key);
+  }
   d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
   d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range);
   // Motion vectors: matched with the frame before's draw of the same identity.
@@ -8220,6 +8276,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                         : 0.0,
                     vertex_diagnostics.fingerprint_memo,
                     textures_decoded_total.exchange(0), texture_decode_bytes_total.exchange(0) >> 20);
+        if (REXCVAR_GET(nfsmw_native_record_memo)) {
+          REXLOG_INFO("[native] record memo on (restart required): {} index fingerprints and {} vertex memo "
+                      "lookups skipped since the last summary",
+                      vertex_diagnostics.index_memo_hits, vertex_diagnostics.entry_memo_hits);
+        }
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
                     "shadow caster variant {}: {} draws; CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,

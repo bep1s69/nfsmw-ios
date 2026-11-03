@@ -15,8 +15,11 @@ candidate = current[start:current.index("        [enc useResources:", start)]
 # Existing Metal declarations, binding, ownership changes and commits remain.
 for needle in ("[enc useResource:", "[enc useResources:", "[resolved_textures addObject:",
                "[assembled_cubes addObject:", "[cb commit]", "gpu_pool.Retire("):
+    # Added later on purpose: the color handoff's pool-owned target colors
+    # retire through the pool on resize (dev43, docs/TECHNICAL.md).
+    added = {"gpu_pool.Retire(t.color, number);"}
     assert [l.strip() for l in old.splitlines() if needle in l] == [
-        l.strip() for l in current.splitlines() if needle in l], needle
+        l.strip() for l in current.splitlines() if needle in l and l.strip() not in added], needle
 
 HARNESS = r'''
 #import <Foundation/Foundation.h>

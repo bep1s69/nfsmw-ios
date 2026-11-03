@@ -19821,3 +19821,36 @@ reflection/cube passes); (2) a last-key cache for the per-draw map lookups
 TargetLookupCache does for targets; (3) reserve/pool to cut operator new.
 Each default-off first, host-tested, then one iPad old-Balanced check
 (pacing / ring-wait / [cpu]).
+
+## November 3, dev52 draw-recording memo (default off): built, iPad check pending
+
+Stefan approved all three proposed cuts. Implemented (1) and (2); (3) the
+operator-new share is not attributable to a caller from the exported data
+(profile was deleted after analysis), so it waits for the next profile.
+New cvar `nfsmw_native_record_memo` (false, restart-only):
+- Index fingerprint memo: IndexEntry gains `verified_frame`/`changed_frame`.
+  A cached index buffer already verified this frame and unchanged for > 2
+  frames skips IndexFingerprint (same rule as the vertex memo: a stable
+  buffer rewritten mid-frame is noticed next frame; recently changed buffers
+  are hashed every draw).
+- Per-entry vertex memo: CacheEntry keeps the region (base/start/size) and
+  fingerprint taken this frame; a repeat skips the frame-wide memo's
+  unordered_map lookup (same eligibility: not dynamic, not UP vertices).
+- Constant ranges: last vs/ps key per stage reuses the found range across a
+  run of draws (fallback range {0,256} is conservative).
+- Summary line `[native] record memo on ...: N index fingerprints and M vertex
+  memo lookups skipped`. OFF leaves every path unchanged.
+Checks: build-0.6 ipa exit0; host tests: color_handoff, compact_shared_constants,
+draw_arena, gpu_timeline, guest_culling, texture_masks, transform_copies,
+upload_sizing PASS. `test_resource_list_cache.py` had been FAILING since dev43
+(its ownership-line guard did not know the handoff's intentional
+`gpu_pool.Retire(t.color, number);`); guard updated, PASS. Already failing
+before today (verified at 2276402, stale extraction/anchors, not fixed now):
+test_attribute_lookup, test_foliage_early_alpha, test_gpu_buffer_lookup,
+test_lazy_diagnostics, test_pipeline_lookup, test_target_lookup.
+`git diff --check` exit0. ZIP vs dev51 only the executable changed. IPA
+`ios/build/NFSMW-0.6.0-dev52-record-memo.ipa` (and Desktop), SHA256
+5d12b034a8f5a06e2117b6cad5d989bf1042687e704fa0e36d1c80d5d3dbc522.
+Test: iPad old Balanced (`--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`),
+1.5x, four diagnostic args, `--nfsmw_native_record_memo=true`; compare
+pacing/ring-wait/[cpu] with dev51 old-Balanced run; visuals unchanged.
