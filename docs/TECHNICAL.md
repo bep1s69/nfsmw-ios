@@ -19571,3 +19571,21 @@ Proposed experiment (needs approval): cvar `nfsmw_world_quantum_bias_us`
 (default 0) adding a few µs to the world quantum in AdvanceWorldClock's
 period; test 2 on the iPad at sim 120. Long-term world speed changes by
 ~0.01%; existing debt resync bounds the drift.
+
+## November 3, dev48 world quantum bias experiment: built, iPad test pending
+
+Stefan approved building the confirmation experiment (accepts ~0.01% speed).
+`ios/src/frame_clock.cpp`: cvar `nfsmw_world_quantum_bias_us` (int, default 0,
+clamped 0–100) added to the world period before `AdvanceWorldClock` in the
+ordinary mode-2 path (not the managed-40 path); logs
+`[world-clock] quantum bias N us per world frame` when it changes. Default 0
+leaves behavior unchanged. Debt drifts by −bias per frame and the existing
+resync (< −2 periods) resets it about every 4.6 min at 2 µs (inference).
+Checks: patch script exit0, build-0.6 ipa exit0, `test_world_step_limit.py`
+PASS (36 combinations, 2 fixtures), `git diff --check` exit0; ZIP vs dev47
+only the executable changed. IPA `ios/build/NFSMW-0.6.0-dev48-world-quantum-bias.ipa`
+(and Desktop), 30579341 bytes, SHA256 db4736b7179973cf5c85c90b4d1ec680c8223ea2805ad537de874527cc62efd5.
+Test: iPad, Max, 1.5x, sim 120 (no sim_rate arg), same lap and four diagnostic
+args plus `--nfsmw_world_quantum_bias_us=2`; compare camera zigzag with 37.6%.
+If confirmed, locate the guest 120 Hz step loop and fix it exactly; this cvar
+is a confirmation tool, not the intended final fix.

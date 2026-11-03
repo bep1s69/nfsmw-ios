@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 3, 2026 (continued from November 2)
 
+**November 3, dev48:** iPad camera sawtooth is tied to the 120 Hz simulation
+(sim 60: 2.9% vs 37.6% zigzag) and likely to the iPad's exact 16.6667 ms
+quantum sitting on the 2-step boundary. Stefan wants the 120 Hz sim fixed, not
+per-device sim 60. dev48 adds default-off `nfsmw_world_quantum_bias_us` to
+confirm; then fix the guest step loop properly (not yet located).
+
 **November 3, dev47:** full-screen Extra arguments editor (Stefan's request),
 untested. iPad findings today: Balanced tablet profile's Utility QoS causes big
 host hitches; heavy sections at native are GPU-near-budget; at 1.5x/Max the

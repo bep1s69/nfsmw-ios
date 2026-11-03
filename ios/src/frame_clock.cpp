@@ -36,6 +36,14 @@
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
                      "Game frame time: 2 one display period per frame (smooth motion), 0 the game's own "
                      "(uneven)");
+// Experiment (Nov 3): the iPad's world quantum is exactly 16.6667 ms, two
+// 1/120 s simulation steps, so each frame lands on the boundary of the game's
+// 120 Hz step accumulator (camera sawtooth, ~1:2:3); the iPhone's measured
+// period is 1.5 us longer and stays smooth. A few microseconds more per
+// frame test that; the world then runs ~0.01% fast (debt resync bounds it).
+REXCVAR_DEFINE_INT32(nfsmw_world_quantum_bias_us, 0, "Game",
+                     "Experiment: microseconds added to each world frame's time (0 off; 2 to test the "
+                     "iPad's 120 Hz step boundary)");
 REXCVAR_DEFINE_BOOL(nfsmw_frame_ticks_log, false, "Game",
                     "Diagnostic: buffer 60 world updates and log raw/given time, quantum, debt, "
                     "engine accumulator/clamp/output and host gap");
@@ -166,8 +174,14 @@ extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double ra
     return TraceTicks(ticks * (give / milliseconds), ticks, milliseconds,
                       frame_period, debt, false, mode, rate, wait, clamp);
   }
+  const int32_t bias_us = std::clamp(REXCVAR_GET(nfsmw_world_quantum_bias_us), 0, 100);
+  static int32_t logged_bias = -1;
+  if (bias_us != logged_bias) {
+    logged_bias = bias_us;
+    REXLOG_INFO("[world-clock] quantum bias {} us per world frame", bias_us);
+  }
   const double world_period = nfsmw::WorldFramePeriod(period,
-      rex::cvar::Query<int32_t>("ios_fps_cap"), nfsmw::battery::InMenu() == 0);
+      rex::cvar::Query<int32_t>("ios_fps_cap"), nfsmw::battery::InMenu() == 0) + bias_us / 1000.0;
   const auto step = nfsmw::AdvanceWorldClock(debt, milliseconds, world_period);
   return TraceTicks(ticks * (step.given / milliseconds), ticks, milliseconds,
                     world_period, debt, step.resync, mode, rate, wait, clamp);
