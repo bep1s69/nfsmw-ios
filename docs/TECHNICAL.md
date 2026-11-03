@@ -19392,3 +19392,33 @@ Profiler (worked for dev30 long runs) on the same race/path, comparable start
 temperature/charging. Optional 7 s Metal System Trace per arm (long MST came
 out empty before). Deliverables: labelled .trace + nfsmw.log per arm.
 Purpose: decide whether either default should change; no claim until then.
+
+## November 3, iPad crash loop: pipeline cache save aborts in Metal; dev46 self-heal
+
+Report: iPad16,6, iPadOS 27.2 (24B119), LiveContainer 3.8.11, app UUID
+c2bb4003-cc69-38db-94b7-2deeded2073b, native 2.867. Crashes ~15 s after every
+launch, with and without the trial args; 0.5.2 and some earlier 0.6 builds fine.
+Files: `~/Developer/Debug/Most Wanted (2005) Debug/3 November 2026/LiveContainer-2026-11-03-012806.ips`
+and `ipad_pipeline_cache_crash_nfsmw.log` (four launches appended, each ends
+the same way; the first "game: starting" line only once).
+Crash (measured): EXC_CRASH SIGABRT, thread `MTLBinaryArchive`: std::terminate
+from `std::__throw_out_of_range` in Metal, under `-[_MTLBinaryArchive
+loadAirntBlocksForSlice:...]` ← `loadFromURL:` ← `airntSerializeToURL:` —
+i.e. our background `serializeToURL:` in `PipelineArchive::Report`. Log: cache
+loaded (68295 KiB), ps_684f alpha variants missed and added, crash ~2 s after
+the next 300-frame summary (01:28:04 → capture 01:28:06), the save point.
+Inference: the on-disk archive is damaged; loading is lazy and succeeds,
+serializing re-reads every entry and Metal throws an uncatchable C++ exception.
+Since dev41's 684f variants every launch adds pipelines, so every launch saves
+and crashes; builds that added nothing never saved. Cause of the damage unknown.
+Fix (Stefan approved): a `.saving` marker beside the archive is written before
+`serializeToURL:` and removed after it returns; `Open` finding the marker deletes
+the archive and starts a new one (warning logged). At most one more crash, then
+one launch of recompiling (stutter). No switch; affects all devices/players.
+Checks: patch script exit0, build-0.6 ipa exit0, `git diff --check` exit0;
+binary contains the new warning string; ZIP vs dev45 only the executable
+changed, 104 metallibs identical. Not run on a device yet. IPA
+`ios/build/NFSMW-0.6.0-dev46-pipeline-cache-heal.ipa` (and Desktop), 30565805
+bytes, SHA256 ac68fb34120c331808475407e7a04143589d9fab55bfadbaa69969b9ad3e51d7.
+Next: iPad launch, expect one crash or the warning, then stable menus/race and
+a "pipeline cache saved in the background" line; send nfsmw.log.

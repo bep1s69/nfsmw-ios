@@ -1433,6 +1433,8 @@ struct PipelineArchive {
     return a ? a.fileSize : 0;
   }
 
+  NSURL* SavingMarker() const { return [url URLByAppendingPathExtension:@"saving"]; }
+
   void Open(id<MTLDevice> device) {
     std::lock_guard<std::mutex> lock(mutex);
     if (tried) return;
@@ -1444,6 +1446,15 @@ struct PipelineArchive {
         removeItemAtURL:[caches URLByAppendingPathComponent:@"nfsmw_native_pipelines.metalarchive"]
                   error:nil];
     url = [caches URLByAppendingPathComponent:@"nfsmw_native_pipelines_v2.metalarchive"];
+    // A save that never finished: Metal ended the app while serializing
+    // (on the iPad, November 3: std::out_of_range thrown inside its loading
+    // of the archive's entries, SIGABRT, at every launch that added a
+    // pipeline). That file is not used again: a new archive instead.
+    if ([[NSFileManager defaultManager] fileExistsAtPath:SavingMarker().path]) {
+      REXLOG_WARN("[native] pipeline cache: the last save did not finish, starting a new one");
+      [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+      [[NSFileManager defaultManager] removeItemAtURL:SavingMarker() error:nil];
+    }
     MTLBinaryArchiveDescriptor* desc = [MTLBinaryArchiveDescriptor new];
     if ([[NSFileManager defaultManager] fileExistsAtPath:url.path]) desc.url = url;
     NSError* error = nil;
@@ -1520,7 +1531,9 @@ struct PipelineArchive {
         {
           std::lock_guard<std::mutex> lock(mutex);
           [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
+          [[NSFileManager defaultManager] createFileAtPath:SavingMarker().path contents:nil attributes:nil];
           ok = [archive serializeToURL:tmp error:&error];
+          [[NSFileManager defaultManager] removeItemAtURL:SavingMarker() error:nil];
         }
         if (ok) ok = rename(tmp.fileSystemRepresentation, url.fileSystemRepresentation) == 0;
         if (!ok) {

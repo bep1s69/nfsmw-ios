@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Stop a crash loop after launch.** A damaged shader cache could close the
+  game about 15 seconds after every start. The game now discards that cache
+  after one failed save and rebuilds it. Needs device testing (dev46).
+
 - **Test skipping the scene picture copy.** Add an optional trial that hands
   the finished scene image straight to the effects that read it instead of
   copying it each frame. The iPhone test skipped the copy on every driving

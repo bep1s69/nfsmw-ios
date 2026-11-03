@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 2, 2026
 
+**November 3, iPad crash loop fixed in dev46 (device check pending):** a damaged
+pipeline cache made Metal abort inside our background save at every launch
+that added pipelines. A `.saving` marker now makes the next launch discard an
+archive whose save never finished. Stefan prioritized this before the OFF/ON
+trace comparison (still next after it). TECHNICAL “iPad crash loop”.
+
 **November 3, dev45 device run: main copy removed on 100% of driving frames**
 (3900/3900), 0 misses/mismatches/late passes, visuals unchanged (Stefan). The
 remaining copy-elimination question is whether it saves measurable energy:
