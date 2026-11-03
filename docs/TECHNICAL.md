@@ -19484,3 +19484,12 @@ unresolved October 29 iPad "3-frame sawtooth" (20 Hz component in the camera
 updates), now persisting beyond the first seconds. Inference: the perceived
 judder is camera/world motion cadence, not frame delivery or GPU. Next
 (proposed): same args on the iPhone to see whether the sawtooth is iPad-only.
+
+iPhone comparison (`dev46_iphone_camera_compare_nfsmw.log`, Balanced, scale
+1.000 per energy baseline, same four args; Stefan: "felt perfectly smooth right
+from the start"). Pacing 0–1 of 300 off grid. Camera zigzag count (moving
+frames >0.15 deg with both neighbours moving, value <0.7x the smaller or
+>1.3x the larger neighbour): iPhone 29 of 1578 (1.8%) vs iPad 1.5x Max 397 of
+1057 (37.6%). The camera sawtooth is iPad-specific (scale differs, 1.0 vs 1.5,
+so resolution not fully excluded but GPU headroom was ample on both).
+Next: investigate what drives the iPad's 20 Hz camera cadence (open).
