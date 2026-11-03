@@ -19442,3 +19442,21 @@ no header so no version/device/settings; MetalFX on, scale 1.891, cap 60.
 Output clean (coreaudio 0 gaps), no `[ea-budget]` line, XMA resets 1–66
 contexts/s and up to 117 voices stopped after a reset per 5 s. Inconclusive:
 needs the whole log, version/device and when a cut is heard.
+
+### November 3: iPad pacing diagnostics (dev46, 60 cap, Balanced) — game thread timing uneven
+
+Log `Debug/3 November 2026/dev46_ipad_pacing_diagnostics_nfsmw.log`, args frame_trace,
+frame_ticks_log, repeat_log, camera_log. Measured: pacing 23–114 of 300 frames
+off grid per window; 120 Hz refresh gaps mostly 2 but 7–53 of 300 at 3 (25 ms)
+versus 3–18 at 1 — net missed frames, not only jitter. GPU end ~4–8 ms after
+swap (not GPU-bound). World step given a fixed 16.667 ms (smooth per frame),
+but world-clock raw host gaps (5140 updates after warm-up) mean 16.60 ms,
+sd 2.87, 1656 > 17.5, 229 > 20, 1228 < 15. Camera turn per frame steady.
+Configuration difference from the iPhone: iPad Balanced is the tablet profile
+(Oct 29: 6+ efficiency cores, original behavior): main/GPU threads at Utility
+QoS, adaptive off; frame-entry QoS utility 300/300 while driving. iPhone
+Balanced boosts while driving (user-initiated 291/300). ring-wait counts are
+similar on both, not the difference. Inference: Utility QoS on the game/GPU
+threads causes the uneven host frame gaps and missed vsyncs on the iPad.
+Next (no code change): same drive on iPad with Performance Max and the same
+args; if off-grid frames fall to near 0, revisit the tablet Balanced choice.
