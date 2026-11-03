@@ -36,14 +36,14 @@
 REXCVAR_DEFINE_INT32(nfsmw_frame_ticks, 2, "Game",
                      "Game frame time: 2 one display period per frame (smooth motion), 0 the game's own "
                      "(uneven)");
-// Experiment (Nov 3): the iPad's world quantum is exactly 16.6667 ms, two
-// 1/120 s simulation steps, so each frame lands on the boundary of the game's
-// 120 Hz step accumulator (camera sawtooth, ~1:2:3); the iPhone's measured
-// period is 1.5 us longer and stays smooth. A few microseconds more per
-// frame test that; the world then runs ~0.01% fast (debt resync bounds it).
-REXCVAR_DEFINE_INT32(nfsmw_world_quantum_bias_us, 0, "Game",
-                     "Experiment: microseconds added to each world frame's time (0 off; 2 to test the "
-                     "iPad's 120 Hz step boundary)");
+// The iPad's world quantum is exactly 16.6667 ms, two 1/120 s simulation
+// steps, so each frame landed on a step boundary (camera sawtooth, Nov 3);
+// the iPhone's measured period is 1.5 us longer and was smooth. 2 us more
+// per frame (default from dev50, with nfsmw_sim_step_count): the world runs
+// 0.012% fast for good (~0.4 s an hour; the debt resync does not pay it back).
+REXCVAR_DEFINE_INT32(nfsmw_world_quantum_bias_us, 2, "Game",
+                     "Microseconds added to each world frame's time (keeps frames off the 120 Hz step "
+                     "boundary; 0 off)");
 REXCVAR_DEFINE_BOOL(nfsmw_frame_ticks_log, false, "Game",
                     "Diagnostic: buffer 60 world updates and log raw/given time, quantum, debt, "
                     "engine accumulator/clamp/output and host gap");

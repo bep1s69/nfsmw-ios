@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Smooth camera on the iPad.** The 120 Hz simulation now counts its steps
+  correctly and keeps frames off a timing boundary that made the iPad's camera
+  move unevenly. The game runs 0.012% fast, which is not noticeable (dev50).
+
 - **Edit test options full screen.** Extra arguments in the launcher now open
   in a full-screen editor, one option per line. Needs device testing (dev47).
 

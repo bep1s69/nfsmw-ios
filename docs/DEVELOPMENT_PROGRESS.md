@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 3, 2026 (continued from November 2)
 
+**November 3, dev50:** iPad camera smooth (step count + 2 µs bias, 2.8% zigzag,
+no start burst; Stefan "fully smooth"), both now default. Next: iPhone
+regression drive; then Balanced/core scheduling (step 2, System Traces from
+Stefan when available) and the pending OFF/ON GPU trace comparison.
+
 **November 3, dev48:** iPad camera sawtooth is tied to the 120 Hz simulation
 (sim 60: 2.9% vs 37.6% zigzag) and likely to the iPad's exact 16.6667 ms
 quantum sitting on the 2-step boundary. Stefan wants the 120 Hz sim fixed, not

@@ -561,18 +561,18 @@ extern "C" void nfsmw_extra_options_apply() {
 // iPad's 16.6667 ms) truncated by float rounding to one would leave a
 // step's remainder and take three the next frame (1/3 alternation); counted
 // 1.7 us early it stays at two, the remainder a few microseconds below 0.
-// Experiment (default off): an offline float model of these loops does not
-// reproduce the iPad's sawtooth with either rule, so this is tested on the
-// device before it becomes the default.
-REXCVAR_DEFINE_BOOL(nfsmw_sim_step_count, false, "Game",
-                    "Experiment: at 120 Hz simulation count world steps at 120 per second (the game's "
-                    "loops count at 60 while subtracting 1/120 per step)");
+// On by default from dev50 (with nfsmw_world_quantum_bias_us 2: the iPad's
+// camera as smooth as the iPhone's, Nov 3). An offline float model of these
+// loops did not reproduce the sawtooth with either rule: measured on device.
+REXCVAR_DEFINE_BOOL(nfsmw_sim_step_count, true, "Game",
+                    "At 120 Hz simulation count world steps at 120 per second (the game's loops count "
+                    "at 60 while subtracting 1/120 per step); false: the game's count");
 extern "C" double nfsmw_sim_steps_per_second(double rate) {
   static const bool fixed = REXCVAR_GET(nfsmw_sim_rate) == 120 && REXCVAR_GET(nfsmw_sim_step_count);
   static bool said = false;
   if (!said) {
     said = true;
-    REXLOG_INFO("[extra-options] sim step count: {}", fixed ? "120 per second (experiment)" : "the game's 60");
+    REXLOG_INFO("[extra-options] sim step count: {}", fixed ? "120 per second" : "the game's 60");
   }
   return fixed ? 120.0 * (1 + 1e-4) : rate;
 }

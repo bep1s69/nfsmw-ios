@@ -19673,3 +19673,17 @@ wrong. AdvanceWorldClock always gives steps × period; the resync only zeroes
 The iPhone without bias runs ~0.009% fast vs a nominal 60 Hz because its
 measured period is 16.6682 ms (if the panel is truly nominal). Option offered:
 pay the bias back periodically to make long-term drift zero.
+
+## November 3, dev50: 120 Hz step count and 2 µs quantum bias on by default
+
+Stefan agreed (after the 24 h drift answer: +10.4 s/day, 0.012%). Defaults:
+`nfsmw_sim_step_count` true (still only acts at sim 120), `nfsmw_world_quantum_bias_us`
+2 (ordinary mode-2 path; not managed 40). Either can be turned off with
+`=false` / `=0`. Open: why the iPad showed a start-of-drive period-3 burst
+with step count alone (the bias masks it); the bias is a workaround for a
+timing boundary not fully explained. Checks: patch scripts exit0 (sim_steps
+applied), build-0.6 ipa exit0, test_world_step_limit PASS, git diff --check 0.
+IPA `ios/build/NFSMW-0.6.0-dev50-smooth-120hz-sim.ipa` (and Desktop), SHA256 c42e60d4f89b1af432447894677eb868f9371b798e838e17c3e5af7617bc1756.
+Next: one iPhone drive (Balanced, usual args + the four diagnostic args) to
+confirm no regression; log shows `sim step count: 120 per second` and
+`quantum bias 2 us`.
