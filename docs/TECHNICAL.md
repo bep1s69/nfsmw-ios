@@ -19779,3 +19779,13 @@ not lower with the trials on (2.67 vs 2.75); single run each, fixed order
 alpha +1.9 %/h (within noise). Next: Stefan's choice on the Balanced
 smoothness/battery trade-off; candidate middle ground: boost only on late
 frames, or only one of the two threads.
+
+Nov 3 follow-up (Stefan: late-frame boosting was tried before and gave more
+inconsistent frames; battery seems hard to get right). Analysis offered: in the
+old-Balanced System Trace each frame thread was only ~23–24% busy on E cores,
+but `[ring-wait]` shows ~90 waits/s for ring space with ~half hitting the
+8.3 ms cap (similar counts on the iPhone, where the consumer is fast), so the
+GPU-commands thread (ring consumer) is the throughput bottleneck on E cores and
+the main loop stalls behind it (inference). Proposed: (1) boost only GPU
+Commands while driving, Power Profiler vs old/new Balanced; (2) cut the
+GPU-commands thread's per-frame CPU work (Time Profiler on old Balanced first).
