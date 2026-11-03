@@ -19854,3 +19854,14 @@ test_lazy_diagnostics, test_pipeline_lookup, test_target_lookup.
 Test: iPad old Balanced (`--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`),
 1.5x, four diagnostic args, `--nfsmw_native_record_memo=true`; compare
 pacing/ring-wait/[cpu] with dev51 old-Balanced run; visuals unchanged.
+
+dev52 iPad result (`dev52_ipad_old_balanced_record_memo_nfsmw.log`, old Balanced
+args, 1.5x, record memo on; compared with dev51 old-Balanced run 2 of
+`dev51_ipad_balanced_new_vs_old_nfsmw.log`). Memo active: 349k–576k index
+fingerprints and 387k–610k vertex-memo lookups skipped per 300 frames
+(~1,200–1,900 and ~1,300–2,000 per frame). Effect small: GPU Commands share of
+`[cpu]` 29–37% (old 32–41%), total 137–177% (147–186%); pacing 13–136 off grid
+(22–135); host gaps >20 ms 5.4% of updates (old 7.0%), sd 3.45 (3.70);
+ring-wait ~840–1070/s-per-10s, ~half timed out (unchanged). Single runs,
+route variation; inference: roughly a 10% cut of the GPU-commands thread, not
+enough for E cores to keep up. Visual check not yet reported.
