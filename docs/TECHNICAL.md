@@ -19702,3 +19702,30 @@ after ~1 min warm-up, same stretch, Balanced then Max. 2) GPU trials: dev50,
 native, Max; A handoff/culling false, B both true; Power Profiler ~2 min after
 warm-up (+ optional 7 s Metal System Trace). Each trace with its nfsmw.log.
 Supersedes the iPhone variant of the OFF/ON protocol above.
+
+## November 3, iPad System Traces (dev50): Balanced runs the frame threads entirely on E cores
+
+Trace `Debug/3 November 2026/dev50_ipad_system_traces.trace` (iPad Pro 13" M4,
+iPadOS 27.2, run 1 "balanced" 15.83 s, run 2 "max" 15.99 s; logs
+`dev50_ipad_system_trace_balanced_nfsmw.log` / `..._max_nfsmw.log`).
+Method: `xctrace export --xpath '/trace-toc/run[N]/data/table[@schema="thread-state"]'`
+(~300 MB XML each, deleted after), parsed per thread: Running time by core
+type (CPU 0–5 E, 6–9 P), Runnable/Preempted time. Script was in the session
+scratchpad (not kept). Top threads, ms in ~16 s:
+| thread | Balanced P / E / runnable | Max P / E / runnable |
+|---|---|---|
+| LiveContainer (unnamed native threads, summed) | 1070 / 4139 / 439 | 2894 / 262 / 256 |
+| GPU Commands | 0 / 3877 / 111 | 1939 / 161 / 34 |
+| Main XThread (game main loop) | 0 / 3614 / 110 | 1831 / 189 / 40 |
+| guest worker (XThreadB93F / XThread4213) | 3 / 3216 / 303 | 1940 / 92 / 216 |
+| XThread13A0B / XThread10C07 | 0 / 1641 / 83 | 854 / 107 / 20 |
+| Main Thread (UI) | 676 / 116 / 80 | 722 / 4 / 61 |
+Total running ≈ 19.3 s (Balanced, almost all E) vs ≈ 11.6 s (Max, P): the same
+frame work takes ~1.8–1.9× the core time on E cores. Runnable (waiting for a
+core) stays small in both, so the hitches come from slower execution of the
+serial main-loop → GPU-commands chain, not from waiting for cores (inference).
+Energy not measured (E cores use far less power per unit of work; a Power
+Profiler A/B decides). Proposal (needs approval): tablet Balanced boosts only
+Main XThread and GPU Commands while driving (the phone Balanced rule), other
+guest and native worker threads stay on Utility; then Power Profiler
+old-Balanced vs new-Balanced vs Max.
