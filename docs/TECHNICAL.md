@@ -19756,3 +19756,26 @@ pacing 22–135 throughout; sd 3.70, >20 ms 388; `[cpu]` 147–186%.
 New Balanced ≈ Max for smoothness and uses about half the summed core time of
 old Balanced (core time, not energy: E-core power per unit work is lower).
 Power Profiler still needed for the battery question.
+
+## November 3, dev51 iPad Power Profiler runs: smooth Balanced costs ~8 %/h; GPU trials lead
+
+Trace `Debug/3 November 2026/dev51_ipad_power_profiles.trace` (5 runs, 72–81 s,
+Power Profiler, iPad Pro 13" M4, brightness 32% all runs, thermal Nominal all
+runs); logs `dev51_ipad_power_profiles_nfsmw(_2).log`. Method: xctrace export of
+SystemPowerLevel and ProcessSubsystemPowerImpact (LiveContainer rows),
+duration-weighted, first 10 s dropped (no log-based race windowing this time).
+| Run (Stefan's name) | Drain %/h | CPU impact | GPU impact | Display | CPU instr G/s |
+|---|---:|---:|---:|---:|---:|
+| old Balanced 1.5x, trials on | 26.0 | 1.74 | 1.03 | 1.90 | 2.95 |
+| new Balanced 1.5x, trials on | 34.1 | 4.24 | 1.10 | 1.88 | 3.07 |
+| new native, trials on | 39.6 | 4.12 | 2.75 | 1.77 | 3.07 |
+| new native, trials on + foliage early alpha | 41.5 | 4.13 | 2.37 | 1.83 | 3.06 |
+| new native, trials off | 43.2 | 4.24 | 2.67 | 1.95 | 3.15 |
+Measured: at 1.5x the P-core boost raises whole-device drain by 8.1 %/h
+(+31%) with similar instruction rate, i.e. the same work at higher power.
+Native: trials off 43.2 vs on 39.6 (−3.6 %/h) but the trace's GPU impact is
+not lower with the trials on (2.67 vs 2.75); single run each, fixed order
+(trials-off last, heat may accumulate), so not established. Foliage early
+alpha +1.9 %/h (within noise). Next: Stefan's choice on the Balanced
+smoothness/battery trade-off; candidate middle ground: boost only on late
+frames, or only one of the two threads.
