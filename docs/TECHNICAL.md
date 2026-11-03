@@ -19746,3 +19746,13 @@ updated: PASS 98304 round trips + bridge/patch checks. Build-0.6 ipa exit0,
 Next: iPad Balanced drive with the four args (expect frame-entry QoS
 user-initiated while driving, pacing like Max), then Power Profiler: old
 Balanced (the override args above), new Balanced, Max.
+
+dev51 iPad Balanced new vs old (`dev51_ipad_balanced_new_vs_old_nfsmw.log`, run 1
+new, run 2 old via `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`,
+four diagnostic args). New: frame-entry QoS user-initiated 300/300 while
+driving; pacing last windows 0–4 of 300 (first 90/24/38/54); host gaps sd
+2.71, >20 ms 51 (Max earlier 56); `[cpu]` 73–88% of a core. Old: utility 300/300;
+pacing 22–135 throughout; sd 3.70, >20 ms 388; `[cpu]` 147–186%.
+New Balanced ≈ Max for smoothness and uses about half the summed core time of
+old Balanced (core time, not energy: E-core power per unit work is lower).
+Power Profiler still needed for the battery question.
