@@ -19895,3 +19895,9 @@ ZIP vs dev52 only the executable changed. IPA
 `ios/build/NFSMW-0.6.0-dev53-record-memo2.ipa` (and Desktop), SHA256 4762053703c1c04c3f5a999dca1650843acb5e9dffb1e2690b256a9dc3014dd6.
 Test: same args as the dev52 run (old Balanced, 1.5x, four diagnostic args,
 record memo on); compare GPU Commands % / pacing / ring-wait with dev52.
+Stefan asked about reusing recorded draws from previous frames. Answer: large
+redesign of uncertain value (constants change every frame with the camera;
+proving a draw unchanged costs much of what Record does). Proposed order:
+dev53 result, then a counting-only census of per-draw matches with the
+previous frame (shaders/textures/buffers/state, with and without constants),
+then a design for approval. Nothing built.
