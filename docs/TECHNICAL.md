@@ -19657,3 +19657,11 @@ start-of-driving 20 Hz pattern (matches Stefan); bias 2 µs remains the best
 measured result. The period-3 burst after driving starts resembles the
 October 29 start judder. Next: try step count + bias together, and look for
 another 60-based counter active early in a drive.
+
+dev49 iPad step count + bias 2 (`dev49_ipad_step_count_plus_bias2_nfsmw.log`,
+Max, 1.5x, sim 120; Stefan: "seemed fully smooth now"). Zigzag 44/1569 (2.8%,
+iPhone 1.8%); period-3 metric 0–5 per line throughout, no start burst (dev49
+alone: 9/9–16/19 for 8 lines). Pacing last windows 0–4 of 300.
+Best result so far. Proposal (needs approval): make both defaults
+(`nfsmw_sim_step_count` true, `nfsmw_world_quantum_bias_us` 2), then one
+iPhone check, since neither has been run there.
