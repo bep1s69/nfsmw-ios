@@ -19644,3 +19644,16 @@ string; ZIP vs dev48 only the executable changed. IPA
 bytes, SHA256 af03a4e36b01755e48e90581512388910be65a36262fd5fe968160b1221b9469.
 Test: iPad Max 1.5x sim 120, four diagnostic args, NO quantum bias, plus
 `--nfsmw_sim_step_count=true`; compare zigzag with 37.6% (none) / 5.7% (bias).
+
+dev49 iPad result (`dev49_ipad_sim_step_count_nfsmw.log`, Max, 1.5x, sim 120,
+step count on, bias 0; Stefan: "still felt off, at least at the start").
+Zigzag metric 48/1499 (3.2%; none 37.6%, bias 5.7%). But a second metric
+(per 60-frame line, triples with a high/mid/low period-3 shape) shows a burst
+in lines 8–15 (9/9, 14/14, 10/12, 15/19, 16/18, 16/19, 10/15, 10/15), e.g.
+0.45 0.33 0.16 0.52 0.36 0.16 deg, then clean. Same metric: no-fix run
+(ccdeca21) burst at lines 17–21 (12/19, 12/18, 8/10); bias run, sim-60 run
+and iPhone: no burst. Conclusion: the step-count change does not remove the
+start-of-driving 20 Hz pattern (matches Stefan); bias 2 µs remains the best
+measured result. The period-3 burst after driving starts resembles the
+October 29 start judder. Next: try step count + bias together, and look for
+another 60-based counter active early in a drive.
