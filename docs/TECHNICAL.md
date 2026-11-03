@@ -19793,3 +19793,31 @@ Stefan chose (2), cutting GPU-commands/main-loop CPU work. Requested: Time
 Profiler (high-frequency if offered), iPad, dev51, 1.5x, cap 60, old Balanced
 args `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`, ~1 min warm-up
 then ~15 s driving; .trace + nfsmw.log. Propose cuts before code changes.
+
+## November 3, iPad Time Profiler (old Balanced, dev51): GPU-commands thread is mostly our Record()
+
+Trace `Debug/3 November 2026/dev51_ipad_old_balanced_time_profile.trace`
+(157.6 s, high-frequency 100 µs sampling, full 2-minute race; log
+`dev51_ipad_old_balanced_time_profile_nfsmw.log`). Export
+`table[@schema="time-profile"]` (620 MB, deleted after); per-thread self and
+inclusive weights; hot PCs in Record mapped to lines via
+`build-0.6/CMakeFiles/nfsmw.dir/src/native_renderer.mm.o` DWARF (atos, Record
+base 0x66c00; binary load 0x10c074000; dev51 source lines).
+Sampled CPU: native render queue 70.7 s, GPU Commands 52.8 s, Main XThread
+52.2 s, guest worker 43.1 s, audio decode 20.4 s.
+GPU Commands: inclusive Record() 76.7% (self 46.0%), Fingerprint 12.5%,
+operator new 6.3%, LoadS 4.9%, ExecutePacket 3.3%, hash-map hashing 2.3%.
+Hottest Record lines (samples): 2704–2709 index_cache lookup + IndexFingerprint
+of the whole index buffer on every draw, including cache hits (~29k); 2863
+fingerprint-memo map find (~18k); unattributed inlined (line 0) ~32k; 2822
+AttributeEntryFor (~10k); 3039–3045 constant ranges/banks (~12k); 2921 vertex
+decode loop (~5.5k); 3095 texture slots (~5k).
+Note: Fingerprint samples 32 points across the region (cheap arithmetic, but
+32 scattered loads, likely cache misses; inference).
+Proposed CPU cuts (need approval): (1) memoize index fingerprints per frame
+like the existing vertex-region memo (same buffer drawn by main/shadow/
+reflection/cube passes); (2) a last-key cache for the per-draw map lookups
+(index cache, fingerprint memo, attribute entries, constant ranges), as
+TargetLookupCache does for targets; (3) reserve/pool to cut operator new.
+Each default-off first, host-tested, then one iPad old-Balanced check
+(pacing / ring-wait / [cpu]).
