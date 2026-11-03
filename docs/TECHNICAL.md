@@ -19542,3 +19542,15 @@ persistent 3-frame sawtooth, and the same pattern is on the iPhone. So the
 before more reverse engineering: iPad, same lap/args, plus
 `--nfsmw_sim_rate=60`; if the camera pattern changes, the cause is tied to the
 120 Hz simulation and the hook point is in that path. No code changed.
+
+iPad sim-rate 60 result (dev47, Max, 1.5x, same lap/args + `--nfsmw_sim_rate=60`;
+`dev47_ipad_sim60_camera_nfsmw.log`). Stefan: "pretty sure it felt better now";
+also: the full-screen Extra arguments editor works well ("fire").
+Camera zigzag (same metric): 48 of 1632 moving frames (2.9%), vs 37.6% at
+sim 120 on the same iPad; only 2 still frames between moving ones (no return of
+the Oct 29 start-of-pursuit 2-of-3 freeze). Pacing 0–46 of 300 off grid, last
+windows 0–2. Conclusion: the iPad camera sawtooth is caused by the 120 Hz
+simulation on the iPad (sim 120 is what fixed the iPhone). Mechanism inside
+the game's 120 Hz path still unknown. Proposed (needs approval): launcher
+passes sim 60 below the 120 cap on 6+ efficiency-core devices (tablet profile),
+120 elsewhere and at the 120 cap (which needs it).
