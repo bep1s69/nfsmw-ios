@@ -19528,3 +19528,17 @@ iPad-specific and unidentified. Proposed (needs approval): a diagnostic-only
 log of 120 Hz substeps per displayed frame and of the camera update count, to
 see where the iPad diverges, before any fix. Candidate fix to test afterwards:
 remove the 59-tick output frame so every frame gets exactly 2 substeps.
+
+Follow-up (Stefan approved the substep/camera logging build): read
+`ios/generated/default/nfsmw_recomp.108.cpp` sub_823C6500 (where
+nfsmw_world_step_trace sits). It converts accumulated time to integer world
+ticks (r30, 3600/s: 60 or 59 per frame), stores them (0x82A2CD14) and the
+float step; it has no 120 Hz substep loop. The substeps happen further
+downstream (not yet located), so a true per-frame substep counter needs that
+code found first. Arithmetic check: with 30 ticks per 120 Hz step, the
+60/60/59 pattern yields a 1-step frame only about once per 30 cycles, not a
+persistent 3-frame sawtooth, and the same pattern is on the iPhone. So the
+1:2:3 hypothesis is weakened (inference). Cheaper discriminator proposed
+before more reverse engineering: iPad, same lap/args, plus
+`--nfsmw_sim_rate=60`; if the camera pattern changes, the cause is tied to the
+120 Hz simulation and the hook point is in that path. No code changed.
