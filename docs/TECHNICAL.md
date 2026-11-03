@@ -19687,3 +19687,10 @@ IPA `ios/build/NFSMW-0.6.0-dev50-smooth-120hz-sim.ipa` (and Desktop), SHA256 c42
 Next: one iPhone drive (Balanced, usual args + the four diagnostic args) to
 confirm no regression; log shows `sim step count: 120 per second` and
 `quantum bias 2 us`.
+
+dev50 iPhone regression drive (`dev50_iphone_regression_nfsmw.log`, Balanced,
+scale 1.000, defaults active per log; Stefan: "did alright too"). Pacing 0–2 of
+300 off grid. Zigzag 81/1719 (4.7%; earlier iPhone run 1.8%), period-3 metric
+0–5 per line, no burst. Inference: within run-to-run spread of this metric
+(iPad bias runs 2.7–5.7%), no visible regression; not a matched A/B. Errors are
+the known pre-driving [semaforos] (961) / [vigilante] (36) diagnostics.
