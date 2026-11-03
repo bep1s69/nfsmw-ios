@@ -19472,3 +19472,15 @@ frames miss their vsync (inference: GPU-bound in heavy track sections; not
 correlated with geometry decode or page-ins). Conclusion: Utility QoS causes
 the large host hitches (Balanced only); the remaining first-half judder is GPU
 time near budget at native on this iPad. Not yet tested: a lower iPad scale.
+
+iPad Max at scale 1.500 (`dev46_ipad_pacing_max_1.5x_nfsmw.log`; Stefan: still
+not as smooth as the iPhone though in-game fps/frame times excellent).
+Presentation now clean: last 8 windows 0–4 of 300 off grid, repeats 0/300;
+host gaps sd 2.26, >20 ms 32. But the camera log still shows uneven motion:
+most windows 27–47 of 60 frames off their neighbours by >25% (last few 1–10),
+with a repeating 3-frame sawtooth while turning, e.g. 0.60 0.30 0.55 0.93 0.32
+0.64 0.95 0.33 0.71 1.02 0.34 0.67 deg/frame (sim rate 120). This matches the
+unresolved October 29 iPad "3-frame sawtooth" (20 Hz component in the camera
+updates), now persisting beyond the first seconds. Inference: the perceived
+judder is camera/world motion cadence, not frame delivery or GPU. Next
+(proposed): same args on the iPhone to see whether the sawtooth is iPad-only.
