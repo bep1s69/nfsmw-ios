@@ -86,6 +86,9 @@ REXCVAR_DEFINE_BOOL(ios_background_qos, false, "Kernel",
                     "Battery trial (Nov 4): the threads Balanced/Eco put at Utility run at "
                     "Background QoS instead (lower efficiency-core clocks, like Low Power Mode "
                     "showed; restart required)");
+REXCVAR_DEFINE_BOOL(ios_background_qos_workers, false, "Kernel",
+                    "Battery trial (Nov 4): only the guest workers and render-queue blocks at "
+                    "Background QoS; the frame threads keep Utility (restart required)");
 REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
@@ -149,13 +152,17 @@ void PublishProfile(int cap) {
       bool(flags&RenderUtility), explicit_mask);
 }
 // ios_background_qos: the low class used instead of Utility (read once).
-qos_class_t LowQos() {
-  static const qos_class_t low = [] {
-    const bool background = REXCVAR_GET(ios_background_qos);
-    if (background) REXLOG_INFO("[adaptive-qos] low class: Background instead of Utility (trial)");
-    return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
+qos_class_t LowQos(bool frame_thread = false) {
+  static const bool all = REXCVAR_GET(ios_background_qos);
+  static const bool workers = REXCVAR_GET(ios_background_qos_workers);
+  static const bool said = [] {
+    if (all || workers)
+      REXLOG_INFO("[adaptive-qos] low class: Background instead of Utility for {} (trial)",
+                  all ? "every Utility thread" : "guest workers and render queue only");
+    return true;
   }();
-  return low;
+  (void)said;
+  return all || (workers && !frame_thread) ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
 // ios_boost_threads: whether a boost raises this frame thread (read once).
 bool BoostRaises(bool main) {
@@ -170,8 +177,8 @@ bool BoostRaises(bool main) {
 }
 qos_class_t PrimaryQos(int m, bool main) {
   if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
-  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos();
-  return Flag(MainUtility) ? LowQos() : QOS_CLASS_DEFAULT;
+  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos(true);
+  return Flag(MainUtility) ? LowQos(true) : QOS_CLASS_DEFAULT;
 }
 void ApplyQos(qos_class_t qos, int& applied, const char* role) {
   // All cooperative and main-loop callers share one cache on each thread.

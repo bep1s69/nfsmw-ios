@@ -20438,3 +20438,30 @@ from the Desktop), 30611477 bytes, SHA256
 Test: iPad, Balanced 1.5x, normal power mode, Power Profiler + Thermal State,
 B `--ios_background_qos=true`; compare with dev62 1.5x 24.4 and LPM 16.8; report
 smoothness.
+
+dev63 Background QoS result (Stefan, Nov 4; trace `Debug/4 November 2026/dev63_ipad_power_profile.trace`,
+one run 76.4 s, 1.5x, Low Power Mode off, `--ios_background_qos=true`; log
+`dev63_ipad_background_qos_nfsmw.log`; brightness 27 %, Nominal): **15.2 %/h**,
+CPU impact 2.48, GPU 3.16, display 5.06. Pacing much worse (Stefan): fps
+windows 47–60, off-grid 0–133 of 300 per window (later windows 84–133);
+`[cpu]` GPU Commands 58–59 %, Main XThread 47–52 %, main loop 47–53 % of a
+core, recording 6.5 ms/frame: the frame threads become CPU-bound at the lower
+clocks. Stefan: may be the way forward for the 30/40 fps caps.
+Stefan's idea: enable all default-off improvements. Assessment: at Utility
+on the iPad they were within noise (GPU not limiting at 1.5x); at lower clocks
+the frame threads are CPU-bound, so CPU cuts there (record memo: ~10 % of GPU
+Commands' work) can matter for fps; culling/handoff/foliage early alpha cut GPU
+work (GPU impact unchanged at 1.5x, but at lower clocks unknown);
+multi-wait/submission wake are wake-up changes (no measured effect).
+
+dev64: adds `ios_background_qos_workers` (false): Background only for guest
+workers and render-queue blocks, frame threads keep Utility (LowQos(frame)).
+Test PASS (performance profiles); build-0.6 exit0; `unzip -t` OK; codesign
+exit0; `git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev64-background-workers.ipa`
+(Desktop; dev63 to Trash from the Desktop), 30611882 bytes, SHA256
+33fdd01206b6d40c8b7d5459772c02e0bfd0a59c7efba6cadb26ee5988630829.
+Proposed runs: W `--ios_background_qos_workers=true`; A
+`--ios_background_qos=true` plus every trial (`--nfsmw_native_record_memo=true
+--ios_multi_wait=true --nfsmw_native_foliage_early_alpha=true`, culling and
+handoff already in the base args); optional 40-cap run with
+`--ios_background_qos=true`.
