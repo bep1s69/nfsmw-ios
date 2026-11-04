@@ -20251,3 +20251,36 @@ wait, dev57 one-thread boost, dev58 CP submission wake and the GPU trials
 each within noise. Remaining unmeasured ideas: audio multi-wait (~825
 wakes/s, utility thread), the CP's memory-flag poll (needs the CPU-side
 writer), render-queue per-draw CPU.
+
+## November 4: dev60 multi-object waits sleep until signalled (audio worker)
+
+Stefan asked whether the trials and other default-off changes improve
+performance even without battery gains. Answer from the logs: no measurable
+benefit on the iPad (1.5x GPU 8.30 vs 8.35 ms/frame with/without culling +
+handoff, 60 fps capped with ~half the GPU budget used; record memo ~10 % less
+GPU-commands CPU without pacing change; one-thread boost and submission wake no
+change). Native resolution with the trials remains unmeasured for GPU time.
+Stefan: then move on to the next items.
+
+`tools/ios/patch_ios_multi_wait.py` (10 blocks, threading_posix.cpp, in
+prepare_sdk.py after patch_ios_cp_wait_wptr, applied to the multiplayer SDK):
+cvar `ios_multi_wait` (true; false = the 1 ms polling). PosixConditionBase
+gains `ios_multi_waiters` and IosMultiNotify(); WaitMultiple registers on every
+object for the whole wait, reads a global `ios_multi_seq` before each check
+and sleeps on it with os_sync (20 ms safety cap) instead of
+sleep_for(min(remaining, 1 ms)). Event Signal, Semaphore Release, Mutant
+Release, Timer Signal and both thread-exit paths bump and wake the sequence
+(under the object's mutex, after notify_all) only when that object has a
+registered multi-waiter. Single-object waits are unchanged.
+Checks: host model (scratchpad multi_test.cpp: WaitAny over 3 semaphores,
+3 producers, same registration/sequence protocol): 300000 releases consumed in
+0.13 s, 2585 sleeps, 0 safety-cap timeouts, counts 0/0/0 at the end, exit 0
+(model, not the SDK code). Patch apply/revert/apply OK; build-0.6 exit0
+(threading_posix.cpp rebuilt, runtime relinked); `unzip -t` OK; codesign exit0;
+`git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev60-multi-wait.ipa`
+(Desktop copy; dev59 moved to Trash from the Desktop only), 30610612 bytes,
+SHA256 d73bcbc29de4d83f2058be063fdddf3105176e2d91b92da9f1f79120aa9dd58c.
+Risks: a state change path not covered (none known) costs up to 20 ms per wait
+lap; audio must be checked by ear (crackles D-003, engine sound D-004).
+Test: iPad, dev55 setup (7 base args, census not needed), A
+`--ios_multi_wait=false`, M default; listen for audio problems in M.

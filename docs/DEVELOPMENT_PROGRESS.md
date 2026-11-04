@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev60 BUILT (multi-object waits, ON by default):** the audio
+worker's WaitAny no longer polls every 1 ms (`ios_multi_wait`, false = old).
+Next: Stefan's iPad A/M run + listening check; then the CP flag writer and
+render-queue CPU.
+
 **November 4, dev59 (defaults):** dev58 submission wake and the GPU trials at
 1.5x showed no battery change; `ios_cp_wait_wptr` now default false. New
 Balanced is ~27–28 %/h on the iPad (from 32.9) with the same smoothness, from

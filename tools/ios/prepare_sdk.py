@@ -163,6 +163,7 @@ IOS_PATCHES = [
     "patch_ios_sdl_event_wait",
     "patch_ios_cp_wait_census",
     "patch_ios_cp_wait_wptr",
+    "patch_ios_multi_wait",
     "patch_ios_multiplayer",
 ]
 
