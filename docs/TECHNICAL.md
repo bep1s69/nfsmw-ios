@@ -20402,3 +20402,39 @@ is in question (asked Stefan). Measured: 1x vs 1.5x saves only ~0.4 %/h
 (GPU impact 2.08 vs ~3.2); native costs ~+8.7 %/h over 1.5x. Inference: with
 a 5.4 %/h floor, Q's 24.0 is ~18.6 %/h of game cost; 20 %/h needs ~−22 % of
 that, which GPU resolution at 1.5x cannot provide.
+
+dev62 iPad runs (Stefan, Nov 4; trace `Debug/4 November 2026/dev62_ipad_profiles.trace`,
+four launches; log `dev62_ipad_profiles_nfsmw.log`; `[utility-qos] 6 efficiency
+cores; main/GPU threads on, ... adaptive off (default)`: tablet profile active;
+brightness 27 %, Nominal all runs):
+| run | drain %/h | CPU impact | GPU impact | display |
+|---|---:|---:|---:|---:|
+| 1x | 23.6 | 5.33 | 2.19 | 5.10 |
+| 1.5x (Balanced default) | 24.4 | 5.29 | 3.00 | 5.01 |
+| 1.5x, iOS Low Power Mode on | **16.8** | 3.33 | 1.91 | 5.00 |
+| native | 34.1 | 5.17 | 9.34 | 5.11 |
+Measured: dev62 Balanced 24.4 (= run Q 24.0); 1x saves ~0.8 %/h; native
+costs ~+10 %/h. Low Power Mode: −7.6 %/h (−31 %) with the game's own settings
+unchanged (`[battery] 30 fps when warm off, 30 fps in menus off, 0.75x when hot
+off`); `[cpu]` 266 % of a core (vs ~100 % normally: the same work at much lower
+clocks), recording 5.0 ms/frame (vs ~1.8), GPU 8.6 ms/frame; pacing 0–8 of
+300 frames off grid per window, fps windows 55.4–60 (Stefan: never below 58,
+minor drops). Inference: the saving is clock/voltage (DVFS) on CPU and GPU,
+not less work; the efficiency cores at Utility still run at high clocks.
+
+## November 4: dev63 Background QoS trial (default off)
+
+`ios/src/adaptive_qos.cpp`: cvar `ios_background_qos` (false, restart-only):
+every thread the profile puts at Utility (frame threads in the tablet profile,
+guest workers, render-queue blocks) uses QOS_CLASS_BACKGROUND instead (LowQos(),
+logged once). Aim: lower efficiency-core clocks without Low Power Mode. Risk:
+Background threads can be throttled further under load (pacing). SDK thread
+start-up sets (xthread.cpp, command_processor.cpp) stay Utility until the next
+safe point re-applies the class. `tools/ios/test_performance_profiles.py` PASS;
+build-0.6 exit0; `unzip -t` OK; codesign exit0; `git diff --check` exit0.
+IPA `ios/build/NFSMW-0.6.0-dev63-background-qos.ipa` (Desktop; dev62 to Trash
+from the Desktop), 30611477 bytes, SHA256
+592ea60b184e1a46b6936fdfd4b68e7df752362229fc84e262fbc54cd6536e1c.
+Test: iPad, Balanced 1.5x, normal power mode, Power Profiler + Thermal State,
+B `--ios_background_qos=true`; compare with dev62 1.5x 24.4 and LPM 16.8; report
+smoothness.

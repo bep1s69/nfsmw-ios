@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev63 BUILT (Background QoS trial, default off):** dev62
+confirmed 24.4 %/h at 1.5x; iOS Low Power Mode gives 16.8 %/h with minor
+drops (clocks, not work). dev63 `--ios_background_qos=true` tries lower
+classes for the Utility threads. Next: Stefan's 1.5x run with it.
+
 **November 4, dev62 BUILT (iPad Balanced on efficiency cores):** sizing run Q
 (frame threads at Utility, no boost) 24.0 vs ~28 %/h, smooth (Stefan); 60 Hz
 sim saves nothing. dev62 restores the tablet profile (6+ E cores). Time

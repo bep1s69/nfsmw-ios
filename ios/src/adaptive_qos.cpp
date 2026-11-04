@@ -82,6 +82,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_adaptive_qos_original, false, "Kernel",
                     "Balanced on devices with 6+ efficiency cores (restart required)");
 REXCVAR_DEFINE_STRING(nfsmw_performance_source, "default", "Kernel",
                       "Why that Performance mode (launcher): setting, battery_mode or default");
+REXCVAR_DEFINE_BOOL(ios_background_qos, false, "Kernel",
+                    "Battery trial (Nov 4): the threads Balanced/Eco put at Utility run at "
+                    "Background QoS instead (lower efficiency-core clocks, like Low Power Mode "
+                    "showed; restart required)");
 REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
@@ -144,6 +148,15 @@ void PublishProfile(int cap) {
       bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
       bool(flags&RenderUtility), explicit_mask);
 }
+// ios_background_qos: the low class used instead of Utility (read once).
+qos_class_t LowQos() {
+  static const qos_class_t low = [] {
+    const bool background = REXCVAR_GET(ios_background_qos);
+    if (background) REXLOG_INFO("[adaptive-qos] low class: Background instead of Utility (trial)");
+    return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
+  }();
+  return low;
+}
 // ios_boost_threads: whether a boost raises this frame thread (read once).
 bool BoostRaises(bool main) {
   static const int which = [] {
@@ -157,8 +170,8 @@ bool BoostRaises(bool main) {
 }
 qos_class_t PrimaryQos(int m, bool main) {
   if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
-  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : QOS_CLASS_UTILITY;
-  return Flag(MainUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos();
+  return Flag(MainUtility) ? LowQos() : QOS_CLASS_DEFAULT;
 }
 void ApplyQos(qos_class_t qos, int& applied, const char* role) {
   // All cooperative and main-loop callers share one cache on each thread.
@@ -378,7 +391,7 @@ void AdoptGuestQos(int role) {
   qos_class_t qos;
   if (role == 1 || role == 3) qos = PrimaryQos(mode.load(std::memory_order_relaxed), role == 1);
   else {
-    qos = Flag(GuestUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+    qos = Flag(GuestUtility) ? LowQos() : QOS_CLASS_DEFAULT;
     if (AdaptiveEnabled() && WorkersOn() && Settings().workers == 0 &&
         mode.load(std::memory_order_relaxed) == 1) qos = Settings().qos;
   }
@@ -411,7 +424,7 @@ void Choose(const std::string& name) {
 }
 unsigned RenderQos() {
   if (AdaptiveEnabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1) return Settings().qos;
-  return Flag(RenderUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
+  return Flag(RenderUtility) ? LowQos() : QOS_CLASS_DEFAULT;
 }
 unsigned PipelineQos() {
   return selected_profile.load(std::memory_order_relaxed) == 0 ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED;
