@@ -207,9 +207,9 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   // the iPads' fixed Utility for the main and GPU threads is gone with it);
   // "max" no Utility QoS for any game or render thread; "eco" (the default
   // with Battery mode on) every one of them at Utility, no boost.
-  // Balanced with 6+ efficiency cores (the M-series iPads; Stefan, Oct 29)
-  // kept the original behaviour (main/GPU fixed at Utility below the 120 cap)
-  // until dev51: Balanced is now the same on every device (performance_profile.h).
+  // Balanced with 6+ efficiency cores (the M-series iPads): main/GPU fixed at
+  // Utility below the 120 cap (dev51 removed it, dev62 restores it after the
+  // dev55 hand-off fix made it smooth; performance_profile.h).
   int cap = 60;
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
@@ -221,8 +221,7 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
     if (OptionName(arg) == "--nfsmw_performance_source") performance_source = value;
   }
   const bool max = performance_mode == "max", eco = performance_mode == "eco";
-  performance_tablet = false;  // the tablet profile's fixed Utility is gone (dev51, Nov 3 System Trace)
-  (void)on;
+  performance_tablet = !max && !eco && on;  // back in dev62 (see performance_profile.h)
   nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")" +
                      (performance_tablet ? ", tablet profile: 6+ efficiency cores, original behavior" : ""));
   nfsmw::performance::CaptureOverrides(args, cores);

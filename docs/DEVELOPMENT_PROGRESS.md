@@ -427,6 +427,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev62 BUILT (iPad Balanced on efficiency cores):** sizing run Q
+(frame threads at Utility, no boost) 24.0 vs ~28 %/h, smooth (Stefan); 60 Hz
+sim saves nothing. dev62 restores the tablet profile (6+ E cores). Time
+Profile: render queue 29 % of CPU (Metal submit 23 % of it), GPU Commands
+19 %, guest code ~44 %. Next: Stefan's dev62 confirmation drive (+ iPhone
+unchanged check); then render-queue submit/Record cuts toward 20 %/h.
+
 **November 4, dev60 BUILT (multi-object waits, ON by default):** the audio
 worker's WaitAny no longer polls every 1 ms (`ios_multi_wait`, false = old).
 Next: Stefan's iPad A/M run + listening check; then the CP flag writer and

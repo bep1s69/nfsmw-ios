@@ -20314,3 +20314,44 @@ no longer polls); S = `--nfsmw_sim_rate=60` (cost of the 120 Hz simulation,
 which Stefan keeps for the judder fix; size only); plus one Time Profiler
 (not Power) of default dev61 Balanced, ~60 s driving, to map the CPU work
 on P cores for render-queue/Record cuts.
+
+Sizing runs (Stefan, Nov 4; trace `Debug/4 November 2026/dev60_ipad_profiles.trace`
+(dev61 build), runs Q 76.2 s, S 83.3 s, Time Profile 75.0 s; one log for all
+three launches `dev61_ipad_q_s_tp_nfsmw.log`; brightness 27 %, Nominal; Stefan:
+neither Q nor S showed stutters, judder or fps drops):
+| run | drain %/h | CPU impact | GPU | display |
+|---|---:|---:|---:|---:|
+| Q frame threads at Utility (E cores, no boost) | **24.0** | 5.26 | 3.24 | 5.03 |
+| S `--nfsmw_sim_rate=60` (boosted) | 28.7 | 11.78 | 3.20 | 5.03 |
+(boosted default dev58–60: 28.0–28.5). Q pacing windows 0/23/1/0/0/0/0/0 of
+300 off grid, 19 of 21 fps windows at 60.0; `[cpu]` Main XThread 30–39 %,
+GPU Commands 29–35 % of a core (E cores). Measured: on the iPad the driving
+boost costs ~4 %/h and, with dev55's hand-off, is no longer needed for
+smoothness; the 120 Hz simulation costs nothing measurable (S not lower).
+Time Profile (default boosted, 75 s): LiveContainer unnamed threads (render
+queue, Metal) 16.3 s = 29 % of samples, of which IOGPUCommandQueueSubmitCommandBuffers
+(iokit_user_client_trap) 22.7 % (one frame command buffer per frame, ~0.8 ms
+kernel time per submit; inference: per-submit work over the queue's large
+residency set / allocation count), AGX encoders 3.7 %, objc retain/release
+~5 %; Main XThread (guest render thread) 10.8 s 19 % (sub_82699100 14.8 %
+self); GPU Commands 10.7 s 19 % (unsymbolized Record 47.7 % self,
+unordered_map 6.1 %, LoadShader 4.7 %, mach_absolute_time 3.9 %, malloc
+2.8 %); guest main loop 9.9 s 17 %; guest audio stream decode (WMA) 4.8 s 8 %;
+UI thread 2.4 s 4 % (NFSTouchView drawNative CoreGraphics ~0.5 s). Generated
+code already -O3. Time-profile XML deleted after analysis.
+
+## November 4: dev62 iPad Balanced runs the frame threads on the efficiency cores again
+
+Reverts dev51's removal of the tablet profile (Stefan's goal 20 %/h; Q measured
+24.0 vs 28 %/h and smooth): `performance_profile.h` Resolve tablet =
+Balanced with 6+ efficiency cores (main/GPU threads Utility below the 120 cap,
+no adaptive boost; above 60 the old adaptive rules); `ios_main.mm`
+performance_tablet restored; `tools/ios/test_performance_profiles.py`
+expectation restored (PASS 98304 round trips + bridge/patch checks). Phones
+unchanged (driving boost). Old dev51 behaviour on an iPad via Extra Args:
+`--ios_utility_qos=false --nfsmw_adaptive_qos_original=false`.
+build-0.6 exit0; `unzip -t` OK; codesign exit0; `git diff --check` exit0;
+log string "tablet profile: 6+ efficiency cores" present. IPA
+`ios/build/NFSMW-0.6.0-dev62-ipad-balanced-ecores.ipa` (Desktop; dev61 to
+Trash from the Desktop), 30610201 bytes, SHA256
+2d38b86510d01d56e17de0c7d582e28207d7bfb2b2e51850ec3f8d6106f3ed8e.

@@ -17,7 +17,7 @@ int main() {
     auto next = nfsmw::performance::Resolve(to,cores,cap);
     unsigned a = nfsmw::performance::Encode(previous), b = nfsmw::performance::Encode(next);
     // Compare shared policy against original launch-table expectations.
-    const bool eco=to==0,max=to==2,tablet=false;  // no tablet profile since dev51
+    const bool eco=to==0,max=to==2,tablet=to==1&&cores>=6;  // tablet profile back in dev62
     unsigned expected = unsigned(eco||(tablet&&cap<=60)) | (unsigned(!max)<<1) |
         (unsigned(!max&&!eco&&(!tablet||cap>60))<<2) | (unsigned(tablet)<<3) | (unsigned(!max)<<4);
     assert(b == expected);
