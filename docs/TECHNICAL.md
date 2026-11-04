@@ -20064,3 +20064,11 @@ timed out, 120 wakes sent/s (two stores per frame): the render thread's
 real wake (inference from counts). Single runs. Remaining option: a longer
 safety net (e.g. 8 ms) would cut those ~360 timeouts/s; gain likely small.
 Not yet checked: slower devices (iPhone), long sessions, other cap settings.
+
+dev55 iPhone drive (Stefan, Nov 4, iPhone (6 GB limit in the log), scale 1.0,
+cap 60, defaults; log `Debug/4 November 2026/dev55_iphone_drive_nfsmw.log`):
+Stefan "felt normal". `[handoff-wait]` menus ~430/s all timed out, 0 wakes;
+driving ~480–500/s waits, ~3,600–3,800 per 10 s timed out, 1,200 wakes sent
+per 10 s (same pattern as the iPad); `[delay0]` silent; fps windows 12 at
+60.0, dips to 55–59.9 like the iPad runs; 15 hitch lines; no WARN lines;
+`[cpu]` 72–92 % of a core. ~1 min of driving; no power measurement.

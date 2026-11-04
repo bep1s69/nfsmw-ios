@@ -433,7 +433,7 @@ benefit). Stefan chose the device-independent fix: the two frame hand-off
 waits sleep on the hand-off word and both writers wake them
 (`nfsmw_handoff_wait`, `--nfsmw_handoff_wait=false` restores polling). Next:
 Stefan's iPad Power Profiler A (off) / H (on), pacing and menus/loading check.
-Result: A 32.7, H **27.1 %/h** (−17 %), pacing unchanged. Next: iPhone check.
+Result: A 32.7, H **27.1 %/h** (−17 %), pacing unchanged; iPhone drive normal. Next: Stefan's choice of the remaining plan items (one boosted thread, render-queue CPU).
 
 **November 4, dev54 BUILT (probe, default unchanged):** battery work now starts
 from new Balanced (dev51, 34.1 %/h). The game main loop and render threads
