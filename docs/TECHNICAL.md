@@ -20465,3 +20465,45 @@ Proposed runs: W `--ios_background_qos_workers=true`; A
 --ios_multi_wait=true --nfsmw_native_foliage_early_alpha=true`, culling and
 handoff already in the base args); optional 40-cap run with
 `--ios_background_qos=true`.
+
+dev64 iPad results (Stefan, Nov 4; trace `Debug/4 November 2026/dev64_ipad_power_profiles.trace`,
+five launches ~76–79 s; log `dev64_ipad_power_profiles_nfsmw.log`; 1.5x, Low
+Power Mode off, brightness 27 %, Nominal; "improvements" = color handoff,
+guest culling, foliage early alpha, record memo, multi-wait):
+| run | drain %/h | CPU | GPU | off-grid per 300 | fps windows | Stefan |
+|---|---:|---:|---:|---|---|---|
+| W workers-only Background | 24.2 | 5.17 | 3.38 | 0–13 | 58.3–60 | very smooth |
+| T improvements, Utility | 24.7 | 5.29 | 3.15 | 4–55 | 58.6–60 | very smooth |
+| W+T | 23.5 | 4.97 | 3.11 | 0–35 | 59.4–60 | very smooth |
+| A all Background + improvements | 15.6 | 2.68 | 3.33 | 14–119 | 57.1–60 | pretty bad, better than without |
+| A at the 40 cap | **12.6** | 2.06 | 2.20 | 1–14 (25 ms grid) | 39.6–40.0 | almost a perfect 40 |
+(dev63 all Background without improvements at 60: 15.2 %/h, fps 47–60,
+off-grid 0–133.) Measured: workers-only Background and the improvements at
+Utility are within noise of 24.4 (inference: the efficiency-core cluster
+clock follows its busiest threads, the frame threads, so lowering only the
+workers does not lower it); at all-Background the improvements raise the
+worst fps windows (57 vs 47) but 60 stays unsmooth; at 40 fps all-Background
+is smooth at 12.6 %/h. T's higher off-grid counts at Utility (cause not
+split) were not visible to Stefan.
+
+## November 4: dev65 Background QoS by default at the iPad's 30/40 caps; Utility-boost trial
+
+- `performance_profile.h`: Policy gains `background` (Encode bit 5) = tablet
+  Balanced (6+ efficiency cores) at caps 1–40. `adaptive_qos.cpp`: policy flag
+  Background, `ios_background_qos` is now the sixth live policy cvar (explicit
+  Extra Arg still overrides at every cap); LowQos() reads the live flag, so a
+  cap change in game switches it at the next safe point; the live-profile log
+  line reports `background`. `ios_main.mm` inserts the default.
+  `ios_adaptive_qos_level=utility` (trial): the late-frame boost class
+  Utility, so adaptive mode alternates Background/Utility.
+- `tools/ios/test_performance_profiles.py`: expectation bit 5, 6-bit masks:
+  PASS 393216 round trips + bridge/patch checks.
+Checks: build-0.6 exit0, no warnings in touched files; `unzip -t` OK; codesign
+exit0; `git diff --check` exit0. IPA
+`ios/build/NFSMW-0.6.0-dev65-background-at-30-40.ipa` (Desktop; dev64 to Trash
+from the Desktop), 30611907 bytes, SHA256
+59eee0e99b6c4aa1e3fe58fdc06732119e73f4942980383c3b8fabd0ab3eb416.
+Tests proposed: 40 cap default (expect ~12.6 %/h, check live cap switching
+60<->40); 60 cap adaptive Background/Utility trial with `--ios_utility_qos=false
+--ios_adaptive_qos=true --nfsmw_adaptive_qos_original=true
+--ios_adaptive_qos_level=utility --ios_background_qos=true` + improvements.

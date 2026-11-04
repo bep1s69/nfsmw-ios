@@ -231,7 +231,8 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
       {"--ios_utility_qos_guest", policy.guest_utility},
       {"--ios_adaptive_qos", policy.adaptive},
       {"--nfsmw_adaptive_qos_original", policy.original},
-      {"--nfsmw_native_render_utility", policy.render_utility}};
+      {"--nfsmw_native_render_utility", policy.render_utility},
+      {"--ios_background_qos", policy.background}};
   for (const auto& [flag, value] : defaults) {
     const bool given = std::any_of(args.begin() + 1, args.end(),
                                    [&](const std::string& a) { return OptionName(a) == flag; });

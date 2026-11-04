@@ -114,17 +114,22 @@ const Boost& Settings() {
   static const Boost boost = [] {
     if (REXCVAR_GET(ios_adaptive_qos_ipa48)) return Boost{QOS_CLASS_USER_INITIATED, "User Initiated", 240.0, 0};
     const bool user_initiated = REXCVAR_GET(ios_adaptive_qos_level) == "user_initiated";
-    return Boost{user_initiated ? QOS_CLASS_USER_INITIATED : QOS_CLASS_DEFAULT,
-                 user_initiated ? "User Initiated" : "Default",
+    // "utility" (Nov 4 trial): with Background as the low class, a late-frame
+    // boost back to Utility only.
+    const bool utility = REXCVAR_GET(ios_adaptive_qos_level) == "utility";
+    return Boost{user_initiated ? QOS_CLASS_USER_INITIATED : utility ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT,
+                 user_initiated ? "User Initiated" : utility ? "Utility" : "Default",
                  double(std::clamp<int32_t>(REXCVAR_GET(ios_adaptive_qos_max_hold), 5, 240)),
                  std::max<int32_t>(REXCVAR_GET(ios_adaptive_qos_workers_count), 0)};
   }();
   return boost;
 }
 
-enum : unsigned { MainUtility=1, GuestUtility=2, Adaptive=4, Original=8, RenderUtility=16 };
+enum : unsigned { MainUtility=1, GuestUtility=2, Adaptive=4, Original=8, RenderUtility=16, Background=32 };
 const char* policy_names[] = {"ios_utility_qos", "ios_utility_qos_guest", "ios_adaptive_qos",
-                            "nfsmw_adaptive_qos_original", "nfsmw_native_render_utility"};
+                            "nfsmw_adaptive_qos_original", "nfsmw_native_render_utility",
+                            "ios_background_qos"};
+constexpr unsigned kPolicyCount = 6;
 std::atomic<unsigned> policy_flags{0}, profile_epoch{0};
 std::atomic<int> selected_profile{1}, policy_cap{60};
 unsigned explicit_mask = 0, override_values = 0;
@@ -141,27 +146,23 @@ void PublishProfile(int cap) {
       nfsmw::performance::Encode(p), explicit_mask, override_values);
   // Existing thread-start code still reads these flags. Publish the atomic
   // snapshot only after the legacy flags reflect the selected policy.
-  for (unsigned i = 0; i < 5; ++i)
+  for (unsigned i = 0; i < kPolicyCount; ++i)
     rex::cvar::SetFlagByName(policy_names[i], flags & (1u<<i) ? "true" : "false");
   policy_cap.store(cap, std::memory_order_relaxed);
   policy_flags.store(flags, std::memory_order_release);
   const unsigned epoch = profile_epoch.fetch_add(1, std::memory_order_acq_rel)+1;
-  REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} overrides {:02X}",
+  REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} background {} overrides {:02X}",
       selected == 0 ? "eco" : selected == 2 ? "max" : "balanced", epoch, cap,
       bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
-      bool(flags&RenderUtility), explicit_mask);
+      bool(flags&RenderUtility), bool(flags&Background), explicit_mask);
 }
 // ios_background_qos: the low class used instead of Utility (read once).
+bool Flag(unsigned flag);
+// The low class: Background when the profile (tablet Balanced at 30/40) or
+// --ios_background_qos asks, live; workers-only trial via its own cvar.
 qos_class_t LowQos(bool frame_thread = false) {
-  static const bool all = REXCVAR_GET(ios_background_qos);
   static const bool workers = REXCVAR_GET(ios_background_qos_workers);
-  static const bool said = [] {
-    if (all || workers)
-      REXLOG_INFO("[adaptive-qos] low class: Background instead of Utility for {} (trial)",
-                  all ? "every Utility thread" : "guest workers and render queue only");
-    return true;
-  }();
-  (void)said;
+  const bool all = Flag(Background);
   return all || (workers && !frame_thread) ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
 // ios_boost_threads: whether a boost raises this frame thread (read once).
@@ -388,7 +389,7 @@ void CaptureOverrides(const std::vector<std::string>& args, int cores) {
   explicit_mask = 0;
   for (const auto& arg : args) {
     const auto name = arg.substr(0, arg.find('='));
-    for (unsigned i=0; i<5; ++i)
+    for (unsigned i=0; i<kPolicyCount; ++i)
       if (name == std::string("--")+policy_names[i]) explicit_mask |= 1u<<i;
   }
 }
@@ -406,7 +407,7 @@ void AdoptGuestQos(int role) {
 }
 void Initialize() {
   override_values = 0;
-  for (unsigned i=0; i<5; ++i) {
+  for (unsigned i=0; i<kPolicyCount; ++i) {
     const auto source = rex::cvar::GetFlagSource(policy_names[i]);
     if (source == rex::cvar::Source::kConfig || source == rex::cvar::Source::kEnvironment)
       explicit_mask |= 1u<<i;

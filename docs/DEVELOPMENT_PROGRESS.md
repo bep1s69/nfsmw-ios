@@ -427,6 +427,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev65 BUILT (iPad 30/40 caps at Background QoS by default):**
+dev64: 40 cap all-Background 12.6 %/h at an almost perfect 40; 60 cap
+all-Background 15.6 %/h unsmooth; workers-only and improvements at Utility
+within noise of 24.4. dev65 makes tablet Balanced at 30/40 use Background and
+adds a Background/Utility adaptive trial for 60. Next: Stefan's 40-cap
+confirmation and the 60 adaptive trial.
+
 **November 4, dev63 BUILT (Background QoS trial, default off):** dev62
 confirmed 24.4 %/h at 1.5x; iOS Low Power Mode gives 16.8 %/h with minor
 drops (clocks, not work). dev63 `--ios_background_qos=true` tries lower
