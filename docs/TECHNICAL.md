@@ -20134,3 +20134,14 @@ Test: iPad, dev55 setup (7 base args, Power Profiler + Thermal State), both runs
 with `--ios_cp_wait_census=true`; A `--ios_event_wait=false`, U default; order
 A U (A U if time); in U check touch driving, menus, a controller/keyboard if
 available, pause/resume.
+
+dev56 iPad result (Stefan, Nov 4; trace `Debug/4 November 2026/dev55_ipad_power_profile.trace`
+(named dev55; log has `[ui-wait] ... waits for events`, so dev56), one run U
+74.3 s, touch controls, controller disconnected; log `dev56_ipad_power_u_nfsmw.log`).
+No A run and no `--ios_cp_wait_census=true` (no `[cp-wait]` lines). U: drain
+27.7 %/h, CPU impact 10.43, GPU 2.77, display 5.17, brightness 27 %, Nominal;
+compare dev55 H (same code with ios_event_wait unavailable) 27.1 %/h, CPU
+10.56. UI thread in `[cpu]`: 4–5 % of a core (dev55 H: 3–7 %). Stefan: input
+lag as small as before, menus normal. Measured: no battery change beyond
+single-run noise. Not established: whether the new wait is engaged (no wake
+counter); the UI thread's CPU share was small in both builds.
