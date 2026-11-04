@@ -20042,3 +20042,25 @@ Test: iPad, same setup as dev54 (new Balanced 1.5x, cap 60, trials on, same
 brightness, Power Profiler + Thermal State only), runs A
 `--nfsmw_handoff_wait=false` and H (default), A H; watch pacing, menus,
 loading and pause/resume; logs give `[handoff-wait]` timeouts and `[delay0]`.
+
+dev55 iPad Power Profiler result (Stefan, Nov 4; trace
+`Debug/4 November 2026/dev54_ipad_power_profiles.trace` (named dev54; the log
+has `[handoff-wait]`, so dev55), runs A 73.4 s / H 72.9 s; log
+`dev55_ipad_power_ah_nfsmw.log`). Same setup as the dev54 set (new Balanced
+1.5x, cap 60, trials on, brightness 27 %, thermal Nominal both runs); A =
+`--nfsmw_handoff_wait=false`, H = default. Same export method:
+| run | drain %/h | CPU impact | GPU impact | display | instr G/s |
+|---|---:|---:|---:|---:|---:|
+| A polling | 32.7 | 12.66 | 3.25 | 5.05 | 8.94 |
+| H exact wake | **27.1** | 10.56 | 3.37 | 5.10 | 8.96 |
+Measured: H −5.6 %/h (−17 %) vs A, CPU impact −17 %, same instruction rate;
+A repeats dev54's A (32.9). Better than dev54's fixed 400 us (28.5). On-screen
+fps summaries identical in shape (33 windows at 60.0 each run, same dips),
+hitch lines 10 vs 12, off-grid lines 120 each. H log: `[delay0]` silent
+(no zero-length polls left); `[handoff-wait]` in menus 445/s waits, all timed
+out, 0 wakes (no hand-offs, as expected); while driving ~480 waits/s, ~360
+timed out, 120 wakes sent/s (two stores per frame): the render thread's
+~16 ms idle wait ends on the 2 ms safety net ~6 times per frame before the
+real wake (inference from counts). Single runs. Remaining option: a longer
+safety net (e.g. 8 ms) would cut those ~360 timeouts/s; gain likely small.
+Not yet checked: slower devices (iPhone), long sessions, other cap settings.
