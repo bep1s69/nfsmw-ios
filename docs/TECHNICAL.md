@@ -20284,3 +20284,10 @@ Risks: a state change path not covered (none known) costs up to 20 ms per wait
 lap; audio must be checked by ear (crackles D-003, engine sound D-004).
 Test: iPad, dev55 setup (7 base args, census not needed), A
 `--ios_multi_wait=false`, M default; listen for audio problems in M.
+
+dev60 iPad result (Stefan, Nov 4; trace `Debug/4 November 2026/dev60_ipad_power_profile.trace`,
+one run M (default, ios_multi_wait on) 74.8 s; log `dev60_ipad_power_m_nfsmw.log`;
+Xbox controller connected; brightness 27 %, Nominal): 28.0 %/h, CPU 11.44, GPU
+3.30 (dev58 W 28.0, trials-off 28.1). 60 fps windows as before; coreaudio
+0 gaps; `[xma] context ... reset` lines 48 as in dev58 W. Measured: no
+battery change. No listening report yet.
