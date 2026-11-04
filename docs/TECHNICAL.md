@@ -20291,3 +20291,26 @@ Xbox controller connected; brightness 27 %, Nominal): 28.0 %/h, CPU 11.44, GPU
 3.30 (dev58 W 28.0, trials-off 28.1). 60 fps windows as before; coreaudio
 0 gaps; `[xma] context ... reset` lines 48 as in dev58 W. Measured: no
 battery change. No listening report yet.
+
+## November 4: target 20 %/h; dev61 defaults and sizing runs
+
+Stefan: audio sounded normal on dev60; keep `ios_multi_wait` on the backlog
+(BACKLOG performance-goal list) but off by default; drain still too high,
+target 20 %/h or lower on the iPad, more device runs welcome.
+dev61: `ios_multi_wait` default false (patch re-applied), otherwise dev60.
+build-0.6 exit0; `unzip -t` OK; codesign exit0. IPA
+`ios/build/NFSMW-0.6.0-dev61-defaults.ipa` (Desktop; dev60 moved to Trash from
+the Desktop), 30610576 bytes, SHA256
+2499b7ce40f50e181c09441f8ed7d5da2abd5802999f02e5c516fa8f69b97791.
+Where the ~28 %/h goes (dev58–60 exports, inference: impact values treated as
+relative energy): CPU ~11.4 (~58 %), display ~5.0 (~25 %, panel already at
+60 Hz: `[display] refresh now 60 Hz`), GPU ~3.3 (~17 %). 20 %/h needs ~−29 %
+of the total, i.e. roughly half of the CPU share. Remaining wake-up polls are
+not the cause (dev56–60 within noise).
+Sizing runs requested (dev61, Extra Args only): Q = Balanced frame threads on
+E cores again (`--ios_utility_qos=true --nfsmw_adaptive_qos_original=true`,
+the pre-dev51 behaviour; question: is pacing acceptable now that the hand-off
+no longer polls); S = `--nfsmw_sim_rate=60` (cost of the 120 Hz simulation,
+which Stefan keeps for the judder fix; size only); plus one Time Profiler
+(not Power) of default dev61 Balanced, ~60 s driving, to map the CPU work
+on P cores for render-queue/Record cuts.

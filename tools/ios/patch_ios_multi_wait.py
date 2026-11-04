@@ -2,7 +2,8 @@
 """
 Waits on several objects at once (WaitAny/WaitAll, e.g. the audio worker)
 sleep until one of their objects is signalled instead of polling every 1 ms
-(cvar ios_multi_wait, default true; false = the 1 ms polling as before).
+(cvar ios_multi_wait, default false since dev61: dev60 showed no battery change;
+kept for CPU-overhead work).
 
     python3 tools/ios/patch_ios_multi_wait.py            apply
     python3 tools/ios/patch_ios_multi_wait.py --status
@@ -45,7 +46,7 @@ INC_NEW = INC_ANCHOR + """// LOCAL PATCH - iOS (tools/ios/patch_ios_multi_wait.p
 #if defined(__APPLE__)
 #include <os/os_sync_wait_on_address.h>
 #endif
-REXCVAR_DEFINE_BOOL(ios_multi_wait, true, "Kernel",
+REXCVAR_DEFINE_BOOL(ios_multi_wait, false, "Kernel",
                     "iOS: waits on several objects sleep until one is signalled instead of 1 ms "
                     "polling (restart required)");
 """
