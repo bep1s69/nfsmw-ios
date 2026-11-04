@@ -20211,3 +20211,22 @@ IPA `ios/build/NFSMW-0.6.0-dev58-cp-wake.ipa` (and Desktop), 30609433 bytes,
 SHA256 8cb074f4d08231cdf665ee8b631e9fe8a793370158d9588bafface761bdc0a4f.
 Test: iPad, dev55 setup + `--ios_cp_wait_census=true`; A
 `--ios_cp_wait_wptr=false`, W default; order A W.
+
+dev58 iPad result (Stefan, Nov 4; trace `Debug/4 November 2026/dev58_ipad_power_profile.trace`,
+runs A 75.1 s (`--ios_cp_wait_wptr=false` left in the Extra Args, logs
+`dev58_ipad_power_aw_nfsmw.log`) and W 73.9 s (default, `dev58_ipad_power_w_nfsmw.log`);
+census on, brightness 27 %, Nominal; Xbox Wireless Controller connected in both
+(`[ui-wait] open input devices: joystick 'Xbox Wireless Controller' joystick
+'NFSMW touch controls' (virtual)`), which explains the UI wait's 1 ms cap
+(SDL polls real controllers; expected, also in dev57)).
+A 28.5 %/h (CPU 11.52), W 28.0 %/h (CPU 11.30): no change beyond noise.
+W `[cp-wait-wake]`: ~840 waits/s, ~75–140/s woken (vblank or submission),
+~700–785/s timed out; `[cp-wait]` laps unchanged (~720–890/s). Measured: the
+CPU side does not clear 0x1FCA5004 around a CP_RB_WPTR write, so submission
+wakes do not end the wait early. Decision: `ios_cp_wait_wptr` brings no
+benefit; set its default to false in the next build (code kept). The exact
+writer of that word is unknown (runtime pointer; not greppable in the
+generated code).
+Note: every Power Profiler number since Nov 3 used `--nfsmw_native_guest_culling=true
+--nfsmw_native_color_handoff=true`, which are default off: players without
+Extra Args do not get them. Their battery effect at 1.5x is unmeasured.
