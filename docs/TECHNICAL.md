@@ -19977,3 +19977,25 @@ A B C A B C, no diagnostic logging args; all with
 A nothing else; B `--nfsmw_native_record_memo=true`; C `--ios_delay0_us=400`.
 Compare drain %/h, CPU impact, `[delay0]` rate and pacing. If C lowers drain,
 the proper fix is an exact wake on the awaited flag instead of any fixed sleep.
+
+dev54 iPad Power Profiler result (Stefan, Nov 4; trace
+`Debug/4 November 2026/dev53_ipad_power_profiled.trace` (named dev53, but the
+log has `[delay0]` lines, so dev54), runs A1/B1/C1 only, 72.8/75.8/74.5 s; log
+`dev54_ipad_power_abc_nfsmw.log`, all three launches). New Balanced 1.5x,
+cap 60, trials on, brightness 27 % (yesterday 32 %), thermal Nominal in all
+runs. Same method as Nov 3 (first 10 s dropped, duration-weighted; impact
+values from this export are on a different scale than Nov 3's table, compare
+only within this trace):
+| run | drain %/h | CPU impact | GPU impact | display | instr G/s | `[delay0]` while driving |
+|---|---:|---:|---:|---:|---:|---:|
+| A baseline | 32.9 | 12.98 | 3.31 | 5.10 | 9.01 | ~6,700–7,800/s |
+| B + record memo | 32.6 | 12.28 | 3.38 | 5.08 | 8.75 | ~6,600–7,800/s |
+| C + `ios_delay0_us=400` | 28.5 | 11.14 | 3.31 | 5.11 | 8.55 | ~1,800/s |
+All 60.0 fps, GPU 5.2–6.8 ms/frame; `[cpu]` ~65–78 % of a core in all three;
+Stefan: pacing in C as excellent as the others. Measured: C −4.4 %/h (−13 %)
+vs A with CPU impact −14 % and GPU/display unchanged; B −0.3 %/h (noise).
+Single runs in fixed order A, B, C; heat/battery level would bias C upward,
+not down (inference), so the C gain is unlikely to be order-caused. The second
+A/B/C set was not needed for the decision. Conclusions: the record memo has no
+measurable battery benefit (keep default off); frame-thread zero-length wait
+wake-ups are a real battery cost on new Balanced.
