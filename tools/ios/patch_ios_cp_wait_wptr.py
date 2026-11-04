@@ -2,7 +2,7 @@
 """
 The command processor's WAIT_REG_MEM also wakes when the game submits more
 commands, not only at the vblank or after its 1 ms lap (cvar
-ios_cp_wait_wptr, default true; false = the vblank-only wait as before), and
+ios_cp_wait_wptr, default false since dev59: dev58 showed no benefit), and
 counts how its waits end ("[cp-wait-wake]" every 10 s).
 
     python3 tools/ios/patch_ios_cp_wait_wptr.py            apply
@@ -35,9 +35,9 @@ FILE = "src/graphics/command_processor.cpp"
 CVAR_ANCHOR = '''// LOCAL PATCH - iOS (tools/ios/patch_ios_cp_wait_census.py).
 REXCVAR_DEFINE_BOOL(ios_cp_wait_census, false, "GPU",'''
 CVAR_NEW = '''// LOCAL PATCH - iOS (tools/ios/patch_ios_cp_wait_wptr.py).
-REXCVAR_DEFINE_BOOL(ios_cp_wait_wptr, true, "GPU",
+REXCVAR_DEFINE_BOOL(ios_cp_wait_wptr, false, "GPU",
                     "iOS: WAIT_REG_MEM also wakes when the game submits commands (false: vblank "
-                    "or its 1 ms lap only)");
+                    "or its 1 ms lap only; Nov 4 dev58: no benefit)");
 ''' + CVAR_ANCHOR
 
 SEQ_ANCHOR = '''void CommandProcessor::UpdateWritePointer(uint32_t value) {

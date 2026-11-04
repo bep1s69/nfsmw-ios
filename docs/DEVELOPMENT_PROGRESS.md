@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev59 (defaults):** dev58 submission wake and the GPU trials at
+1.5x showed no battery change; `ios_cp_wait_wptr` now default false. New
+Balanced is ~27–28 %/h on the iPad (from 32.9) with the same smoothness, from
+dev55. Next: Stefan's choice among audio multi-wait, CP flag writer search,
+render-queue CPU.
+
 **November 4, dev58 BUILT (CP wait wakes on submissions, ON by default):**
 dev57: boosting one frame thread saved nothing (B 27.9, G 29.0, M 29.4 %/h),
 keep both. The CP's only WAIT_REG_MEM waits for the CPU to clear memory

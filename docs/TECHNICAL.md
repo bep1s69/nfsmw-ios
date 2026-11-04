@@ -20230,3 +20230,24 @@ generated code).
 Note: every Power Profiler number since Nov 3 used `--nfsmw_native_guest_culling=true
 --nfsmw_native_color_handoff=true`, which are default off: players without
 Extra Args do not get them. Their battery effect at 1.5x is unmeasured.
+
+dev58 trials-off run (Stefan, Nov 4; trace
+`Debug/4 November 2026/dev58_ipad_power_profile_culling_handoff_off.trace`, 80.5 s;
+log `dev58_ipad_power_trials_off_nfsmw.log`; same as W but without
+`--nfsmw_native_guest_culling=true --nfsmw_native_color_handoff=true`):
+28.1 %/h, CPU 11.55, GPU impact 3.16 (W with trials: 28.0 %/h, CPU 11.30, GPU
+3.26); mean logged GPU 8.35 vs 8.30 ms/frame; 60 fps. Measured: at Balanced
+1.5x the two trials make no battery difference (native-resolution lead of
+Nov 3, 39.6 vs 43.2 %/h, still unconfirmed). Keep both default off.
+
+dev59: `ios_cp_wait_wptr` default false (patch re-applied); otherwise dev58.
+build-0.6 exit0; `unzip -t` OK; codesign exit0. IPA
+`ios/build/NFSMW-0.6.0-dev59-defaults.ipa` (Desktop copy replaces dev58's, per
+Stefan's Desktop rule), 30609635 bytes, SHA256
+cff910d8de0be439bf1c7c55bbd574799f4d87dee3c63d3fffded00f778baf25.
+Battery status on new Balanced (iPad Pro M4, 1.5x, cap 60, brightness 27 %):
+32.9 %/h (dev54 A) -> ~27–28 %/h with dev55's exact-wake hand-off; dev56 UI
+wait, dev57 one-thread boost, dev58 CP submission wake and the GPU trials
+each within noise. Remaining unmeasured ideas: audio multi-wait (~825
+wakes/s, utility thread), the CP's memory-flag poll (needs the CPU-side
+writer), render-queue per-draw CPU.
