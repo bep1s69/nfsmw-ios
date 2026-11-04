@@ -425,7 +425,14 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 3, 2026 (continued from November 2)
+## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 4, dev54 BUILT (probe, default unchanged):** battery work now starts
+from new Balanced (dev51, 34.1 %/h). The game main loop and render threads
+wake ~6,800 times/s on 100 us zero-length guest sleeps (sub_82441DB0,
+sub_82441B60). `--ios_delay0_us` (default 100) probes their cost. Next: Stefan's
+one Power Profiler session A/B/C (baseline, record memo, delay 400); then an
+exact-wake fix if C helps. TECHNICAL "November 4: battery plan".
 
 **November 3, dev51:** iPad System Traces showed tablet Balanced running the
 main loop and GPU-commands threads 100% on E cores (~1.9x core time); the

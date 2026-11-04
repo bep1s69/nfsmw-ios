@@ -19924,3 +19924,56 @@ setVertexBufferOffset 2.4%, Draw::~Draw 5.8%; (2) audio decode thread 20.4 s
 sampled while `[xma-resets]` drops ~1,000 decoded blocks/s (wasted decode,
 inference); (3) GPU trials native lead (39.6 vs 43.2 %/h) to confirm with an
 alternated OFF/ON/OFF/ON Power Profiler set. Suggested order 3, 1, 2.
+
+## November 4: battery plan on new Balanced; guest zero-length waits; dev54 probe
+
+Stefan: increase battery life substantially while keeping new Balanced
+(dev51) performance; new Balanced is the baseline (34.1 %/h, iPad Pro M4,
+1.5x, cap 60, trials on; Power Profiler CPU impact 4.24 vs old 1.74, GPU 1.10,
+display 1.88). Inference: the +8 %/h is CPU power at the same instruction rate,
+the process uses ~0.75 of a core, so the lever is how often/long the frame
+threads keep cores awake. Ranked plan sent (estimates, unmeasured): (1)
+Power Profiler of the already-built record memo on new Balanced; (2) boost
+only one frame thread; (3) cut frame-thread wake-ups; then render-queue CPU,
+audio decode waste (~1,000 dropped blocks/s), and a frame-overlap redesign.
+60 Hz simulation not proposed (Stefan keeps 120 Hz). Stefan approved (1) and
+a probe for (3), both in one Power Profiler session.
+
+Wake-up count, `Debug/3 November 2026/dev50_ipad_system_traces.trace` run 2
+(Max, 15.99 s), thread-state and syscall tables (xctrace export, ~450/350 MB
+XML, deleted after; scripts in the session scratchpad, not kept). Blocked
+intervals per second (= wakes) and median blocked time:
+| thread | wakes/s | median blocked | cause (syscall table stacks) |
+|---|---:|---:|---|
+| XThread4213 (game main loop) | 5,395 | 0.125 ms | 5,365/s `mach_wait_until` 127.5 us: rex::thread::Sleep(100 us) < XThread::Delay < KeDelayExecutionThread < sub_8262F060 < sub_82441DB0 < sub_82441050 < sub_823AFC68 < sub_823AFE20 < sub_823B0008 |
+| Main XThread (render thread) | 1,495 | 0.125 ms | 1,398/s same 100 us sleep < sub_8262F060 < sub_82441B60 < xstart |
+| GPU Commands | 842 | 1.12 ms | 808/s ulock in WAIT_REG_MEM, 279/s MaybeYield |
+| Audio Worker / XMA Decoder | 1,008 / 1,175 | | XMAEnableContext notify_all 1,177/s |
+Median running interval of both frame threads ~2 us: they wake, test a flag
+and sleep again. sub_82441DB0 is the Oct 28 render hand-off wait (render
+state 0x82A2CF40 leaving 1); sub_82441B60 is the ~236/s wait left alone in
+IPA52 as game timing (now 1,398/s at 120 Hz sim). SDK `XThread::Delay`: a
+relative timeout under 1 ms becomes 0, and threads at or below BelowNormal
+then sleep 100 us (others MaybeYield). Energy cost of these wakes not measured.
+
+dev54 (approved probe): new SDK patch `tools/ios/patch_ios_delay0.py` (in
+prepare_sdk.py before the multiplayer patch; applied to
+`~/Developer/GitHub/nfsmw-multiplayer-sdk`, status 2/2, multiplayer patch still
+applied; not applied to the shared `rexglue-sdk-ios`). Cvar `ios_delay0_us`
+(default 100 = unchanged; <= 0 yields; read once) and `[delay0] 10 s: N
+zero-length waits (R/s), host sleep U us`. Risk: a longer sleep can delay the
+render hand-off by up to its length. `patch_game_extra_options.py` exit0 (0
+files); `cmake --build build-0.6 --target ipa -j 12` exit0, real 8.86 s;
+`unzip -t` OK; codesign --verify --deep --strict exit0; ZIP vs dev53: only
+NFSMW, Frameworks/librexruntime.dylib and CodeResources changed;
+`git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev54-delay0-probe.ipa`
+(and Desktop), 30591327 bytes, SHA256
+4c317dedd35c74970752c04174790dddc40a44aa267af927fc03313cd0bd17dc, app UUID
+CF3C5CCE-DFB4-3F28-A058-82A972BEDD21.
+Test (one Power Profiler session, iPad, new Balanced 1.5x, cap 60, brightness
+32 %, thermal Nominal, same route, ~1 min warm-up + ~2 min each, order
+A B C A B C, no diagnostic logging args; all with
+`--nfsmw_native_guest_culling=true --nfsmw_native_color_handoff=true`):
+A nothing else; B `--nfsmw_native_record_memo=true`; C `--ios_delay0_us=400`.
+Compare drain %/h, CPU impact, `[delay0]` rate and pacing. If C lowers drain,
+the proper fix is an exact wake on the awaited flag instead of any fixed sleep.

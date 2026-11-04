@@ -159,6 +159,7 @@ IOS_PATCHES = [
     "patch_ios_live_fps",
     "patch_ios_live_profiles",
     "patch_ios_mouse_axes",
+    "patch_ios_delay0",
     "patch_ios_multiplayer",
 ]
 
