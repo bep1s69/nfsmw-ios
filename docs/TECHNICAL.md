@@ -19914,3 +19914,13 @@ Balanced; the E-core misses are not explained by GPU-commands CPU time alone
 (inference). Recommendation: keep `nfsmw_native_record_memo` default off (no
 measured benefit), keep dev51 boosted Balanced; cheapest remaining trade-off
 test: boost only GPU Commands while driving. Draw-reuse census deprioritized.
+
+### November 4: next concrete performance+battery targets (proposal)
+
+From the two iPad Time Profiles and logs: (1) native render queue thread is
+the largest CPU consumer (70.7 s sampled vs GPU Commands 52.8 s): RenderFrame
+self 17.9%, drawIndexedPrimitives ~10.8%, objc_msgSend/retain/release ~10%,
+setVertexBufferOffset 2.4%, Draw::~Draw 5.8%; (2) audio decode thread 20.4 s
+sampled while `[xma-resets]` drops ~1,000 decoded blocks/s (wasted decode,
+inference); (3) GPU trials native lead (39.6 vs 43.2 %/h) to confirm with an
+alternated OFF/ON/OFF/ON Power Profiler set. Suggested order 3, 1, 2.
