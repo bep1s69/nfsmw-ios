@@ -20383,3 +20383,22 @@ textures are untracked; BC-decoded textures come from another queue).
 Expected energy effect small on E cores (render queue already Utility);
 not started. Waiting for Stefan's floor (home screen) and scale 1.0 runs to
 size what is reachable toward 20 %/h.
+
+Floor and resolution runs (Stefan, Nov 4; trace `Debug/4 November 2026/dev6s_ipad_profiles.trace`,
+runs "1." home screen 60.4 s (no Thermal State; iPad cold to the touch),
+"2. 1x" 76.8 s, "2. native" 74.1 s; log `dev62_ipad_1x_native_nfsmw.log`;
+brightness 27 %; Stefan: native just as smooth):
+| run | drain %/h | CPU impact | GPU impact | display |
+|---|---:|---:|---:|---:|
+| home screen (device floor) | **5.4** | – | – | – |
+| scale 1x | 27.6 | 11.88 | 2.08 | 5.00 |
+| native (2.867x) | 36.7 | 12.22 | 7.90 | 5.00 |
+(boosted 1.5x dev58–60: 28.0–28.5, GPU ~3.2). Both game runs logged
+`[utility-qos] 6 efficiency cores; main/GPU threads off ... adaptive on
+(default)` and `[cpu]` Main XThread 15–17 %: the driving boost was active,
+i.e. not dev62's tablet profile (expected "main/GPU threads on"); dev62 code
+resolves Utility for 6 E cores at cap 60 (test PASS), so the installed build
+is in question (asked Stefan). Measured: 1x vs 1.5x saves only ~0.4 %/h
+(GPU impact 2.08 vs ~3.2); native costs ~+8.7 %/h over 1.5x. Inference: with
+a 5.4 %/h floor, Q's 24.0 is ~18.6 %/h of game cost; 20 %/h needs ~−22 % of
+that, which GPU resolution at 1.5x cannot provide.
