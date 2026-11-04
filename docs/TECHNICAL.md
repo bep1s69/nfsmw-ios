@@ -20072,3 +20072,65 @@ driving ~480–500/s waits, ~3,600–3,800 per 10 s timed out, 1,200 wakes sent
 per 10 s (same pattern as the iPad); `[delay0]` silent; fps windows 12 at
 60.0, dips to 55–59.9 like the iPad runs; 15 hitch lines; no WARN lines;
 `[cpu]` 72–92 % of a core. ~1 min of driving; no power measurement.
+
+## November 4: remaining timed-wait wake-ups; dev56 UI-thread event wait
+
+Second pass over `dev50_ipad_system_traces.trace` run 2 (Max, 15.99 s), syscall
+table (XML deleted after; script in the session scratchpad). Per second:
+- UI Main Thread: SDL_WaitEvent's polling loop (SDL's UIKit backend has no
+  WaitEventTimeout): `SDL_SYS_DelayNS` 1 ms sleeps 831/s, UIKit_PumpEvents
+  run-loop passes with mach_msg 3,964/s, kevent 2,125/s, port insert/extract
+  2,123/s each, workq 2,086/s (~15,000 syscalls/s, 2,842 wakes/s). The touch
+  controls' virtual joystick (touch_controls.mm SetPadState) keeps SDL's 1 ms
+  joystick polling interval on.
+- GPU Commands: 787/s `sys_ulock_wait2` in ExecutePacketType3_WAIT_REG_MEM,
+  median 1.13 ms (NfsmwEsperarVblank with the packet's wait/0x100 ms cap).
+- Audio Worker: AudioSystem::WorkerThreadMain's WaitAny over the client
+  semaphores goes through PosixConditionBase::WaitMultiple, which polls with
+  sleep_for(min(remaining, 1 ms)): 825/s. XMA Decoder woken 1,173/s by
+  XMAEnableContext (PosixEvent::Set from guest sub_825E3F40).
+- TimerQueue 1,284/s condition waits of ~0.93 ms; two guest threads
+  (XThreadDBA3 944/s, XThread14E0B 864/s) in KeDelayExecutionThread 1 ms
+  sleeps (game timing, left alone).
+Stefan approved (1) a real UI-thread wait, (2) a WAIT_REG_MEM census, (3) a
+real audio multi-wait. (3) deferred: needs a notifier in the shared
+PosixCondition primitive used by guest waits too (higher risk) for a
+utility-QoS thread's ~825 wakes/s; revisit after (1)/(2) are measured.
+
+dev56 changes (SDK patches, applied to `~/Developer/GitHub/nfsmw-multiplayer-sdk`,
+in prepare_sdk.py after patch_ios_delay0; not applied to the shared SDK):
+- `tools/ios/patch_ios_sdl_event_wait.py` (8 blocks): UIKit_WaitEventTimeout
+  runs CFRunLoopRunInMode(default, timeout, returnAfterSourceHandled) on the
+  main thread; returns on any source (touch, display links, main dispatch
+  queue, performSelector), on its own run-loop source signalled by
+  UIKit_SendWakeupEvent (SDL calls it when another thread pushes an event
+  while the loop waits; CFRunLoopSourceSignal + CFRunLoopWakeUp), and via a
+  run-loop observer when the loop woke for anything else (a timer) and is
+  about to sleep again; 100 ms safety cap on untimed waits (returns 1, SDL
+  pumps and waits again). With only virtual joysticks open
+  (SDL_NfsmwOnlyVirtualJoysticksOpened, joystick->is_virtual) SDL's 1 ms
+  joystick polling interval is dropped; a real controller keeps it. Cvar
+  `ios_event_wait` (true; false = SDL polling, via hint NFSMW_IOS_EVENT_WAIT;
+  -1 from the wait makes SDL fall back), log `[ui-wait] UI thread event loop: ...`.
+- `tools/ios/patch_ios_cp_wait_census.py` (3 blocks): cvar
+  `ios_cp_wait_census` (false; logging only) logs `[cp-wait] 10 s: N unmatched
+  laps ... | laps: mem/reg ADDR func F ref R mask M wait W last V` (top 4).
+Checks: host model of the run-loop logic on macOS CoreFoundation (scratchpad
+rl_test.mm): idle wait slept the full 100 ms (TimedOut), cross-thread signal
+returned in 22.9 ms of a 20 ms delay, a signal before the wait was not lost
+(0.02 ms), a 30 ms NSTimer returned the wait (Stopped, fired once), a main-queue
+dispatch returned it, 200 idle 2 ms waits took 496 ms (no busy loop). Model,
+not iOS UIKit. Build-0.6 `--target ipa -j 12` exit0, real 6.85 s, no new
+warnings in touched files; SDL is linked once (UIKit_WaitEventTimeout,
+SDL_WaitEvent, SDL_SetHint defined only in librexruntime.dylib); `unzip -t`
+OK; codesign deep/strict exit0; ZIP vs dev55: NFSMW, librexruntime.dylib,
+librexgpu-xenos.dylib, CodeResources changed; `git diff --check` exit0.
+IPA `ios/build/NFSMW-0.6.0-dev56-ui-wait.ipa` (and Desktop), 30593864 bytes,
+SHA256 f2f342b1560a03e6409e96cac6887382aeecbbda1367d4ff46a245c34908af4b.
+Risks: an input path that changes state without waking the main run loop
+would be picked up on the next wake (display links tick every refresh while
+the game runs); touch, controller, keyboard, menus and the launcher need a check.
+Test: iPad, dev55 setup (7 base args, Power Profiler + Thermal State), both runs
+with `--ios_cp_wait_census=true`; A `--ios_event_wait=false`, U default; order
+A U (A U if time); in U check touch driving, menus, a controller/keyboard if
+available, pause/resume.

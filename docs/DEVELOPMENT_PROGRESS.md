@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev56 BUILT (UI-thread event wait, ON by default):** SDL's iOS
+event loop polled every 1 ms (~2,800 wakes/s on the UI thread); dev56 waits on
+the run loop instead (`ios_event_wait`, false = old polling) and adds a
+logging-only WAIT_REG_MEM census (`ios_cp_wait_census`). Audio multi-wait
+deferred. Next: Stefan's iPad A/U Power Profiler + input check.
+
 **November 4, dev55 BUILT (exact-wake hand-off, ON by default):** dev54
 measured 400 us zero-length sleeps at 28.5 vs 32.9 %/h (record memo 32.6, no
 benefit). Stefan chose the device-independent fix: the two frame hand-off
