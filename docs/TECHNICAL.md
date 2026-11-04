@@ -20145,3 +20145,29 @@ compare dev55 H (same code with ios_event_wait unavailable) 27.1 %/h, CPU
 lag as small as before, menus normal. Measured: no battery change beyond
 single-run noise. Not established: whether the new wait is engaged (no wake
 counter); the UI thread's CPU share was small in both builds.
+
+## November 4: dev57 driving-boost thread selector and UI-wait counters
+
+Stefan: keep `ios_event_wait` on (even a small saving is welcome; he will watch
+keyboard/controller input in later sessions). Approved: a selector for which
+frame thread the Balanced driving boost raises, and a counter showing whether
+the UI-thread wait is engaged.
+- `ios/src/adaptive_qos.cpp`: cvar `ios_boost_threads` ("both" default =
+  dev51 behaviour; "gpu" = GPU Commands only; "main" = Main XThread only;
+  "none" = neither; read once). PrimaryQos boosts a frame thread only if the
+  selector allows it; logs `[adaptive-qos] boost raises: ...` once. Max/Eco
+  and the explicit QoS overrides unchanged.
+- `patch_ios_sdl_event_wait.py` now 9 blocks (reverted and re-applied to the
+  multiplayer SDK): UIKit_WaitEventTimeout counts waits by result and
+  RunMainMessageLoop logs `[ui-wait] 10 s: E events/s, W waits/s (T timed out,
+  S timers, R sources /s)`, with "not waiting (SDL polling)" when W is 0.
+Checks: `tools/ios/test_performance_profiles.py` PASS (98304 round trips,
+bridge/patch checks); patch_game_extra_options exit0; build-0.6 exit0, real
+7.23 s, no warnings in touched files; `unzip -t` OK; codesign exit0;
+`git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev57-boost-select.ipa`
+(and Desktop), 30606301 bytes, SHA256
+dbec94cbfd6630b029b111eb583a7d826e8748ee8f8f3ba2e1481227ceba59a9.
+Test: iPad, dev55 setup (7 base args, Power Profiler + Thermal State), all runs
+with `--ios_cp_wait_census=true`; B (default both), G
+`--ios_boost_threads=gpu`, M `--ios_boost_threads=main`; order B G M; report
+pacing/smoothness per run.

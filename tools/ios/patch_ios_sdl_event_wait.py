@@ -69,6 +69,8 @@ static CFRunLoopSourceRef UIKit_wakeup_source;
 static CFRunLoopObserverRef UIKit_wait_observer;
 static bool UIKit_in_wait;
 static bool UIKit_woke;
+// Wait results for the [ui-wait] line: waits, timed out, stopped (a timer), sources.
+static uint64_t UIKit_wait_stats[4];
 
 static void UIKit_WakeupPerform(void *info)
 {
@@ -122,8 +124,19 @@ int UIKit_WaitEventTimeout(SDL_VideoDevice *_this, Sint64 timeoutNS)
         UIKit_woke = false;
         const SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, (CFTimeInterval)waitNS / SDL_NS_PER_SECOND, TRUE);
         UIKit_in_wait = false;
+        UIKit_wait_stats[0]++;
+        UIKit_wait_stats[result == kCFRunLoopRunTimedOut ? 1 : result == kCFRunLoopRunStopped ? 2 : 3]++;
         // 0 only for a caller's own timeout; otherwise SDL pumps and waits again.
         return (result == kCFRunLoopRunTimedOut && finite) ? 0 : 1;
+    }
+}
+
+// Read and reset by the [ui-wait] line (UI thread only).
+void UIKit_NfsmwWaitStats(uint64_t out[4])
+{
+    for (int i = 0; i < 4; ++i) {
+        out[i] = UIKit_wait_stats[i];
+        UIKit_wait_stats[i] = 0;
     }
 }
 
@@ -188,6 +201,10 @@ extern bool SDL_NfsmwOnlyVirtualJoysticksOpened(void);
 A_DEF_ANCHOR = "#include <rex/ui/window_sdl.h>\n"
 A_DEF_NEW = A_DEF_ANCHOR + """
 // LOCAL PATCH - iOS (tools/ios/patch_ios_sdl_event_wait.py).
+#include <chrono>
+#if REX_PLATFORM_IOS
+extern "C" void UIKit_NfsmwWaitStats(uint64_t out[4]);
+#endif
 REXCVAR_DEFINE_BOOL(ios_event_wait, true, "UI",
                     "iOS: the UI thread waits for events instead of SDL's 1 ms polling "
                     "(restart required)");
@@ -196,6 +213,37 @@ A_CVAR_ANCHOR = "int SDLWindowedAppContext::RunMainMessageLoop() {\n"
 A_CVAR_NEW = A_CVAR_ANCHOR + """  SDL_SetHint("NFSMW_IOS_EVENT_WAIT", REXCVAR_GET(ios_event_wait) ? "1" : "0");
   REXLOG_INFO("[ui-wait] UI thread event loop: {}",
               REXCVAR_GET(ios_event_wait) ? "waits for events" : "SDL polling (1 ms)");
+#if REX_PLATFORM_IOS
+  auto ios_wait_since = std::chrono::steady_clock::now();
+  uint64_t ios_events = 0;
+#endif
+"""
+
+A_LOOP_ANCHOR = """    ProcessEvent(event);
+  }
+  return EXIT_SUCCESS;
+}
+"""
+A_LOOP_NEW = """    ProcessEvent(event);
+#if REX_PLATFORM_IOS
+    // LOCAL PATCH - iOS (tools/ios/patch_ios_sdl_event_wait.py): [ui-wait] every 10 s.
+    ++ios_events;
+    const auto ios_now = std::chrono::steady_clock::now();
+    if (ios_now - ios_wait_since >= std::chrono::seconds(10)) {
+      uint64_t s[4];
+      UIKit_NfsmwWaitStats(s);
+      const double secs = std::chrono::duration<double>(ios_now - ios_wait_since).count();
+      REXLOG_INFO("[ui-wait] 10 s: {:.0f} events/s, {:.0f} waits/s ({:.0f} timed out, {:.0f} timers, "
+                  "{:.0f} sources /s){}",
+                  ios_events / secs, s[0] / secs, s[1] / secs, s[2] / secs, s[3] / secs,
+                  s[0] == 0 ? " - not waiting (SDL polling)" : "");
+      ios_events = 0;
+      ios_wait_since = ios_now;
+    }
+#endif
+  }
+  return EXIT_SUCCESS;
+}
 """
 
 BLOCKS = [
@@ -207,6 +255,7 @@ BLOCKS = [
     (EVC, "no 1 ms polling for virtual joysticks only", E_ANCHOR, E_NEW),
     (APP, "the ios_event_wait cvar", A_DEF_ANCHOR, A_DEF_NEW),
     (APP, "the hint and [ui-wait] line", A_CVAR_ANCHOR, A_CVAR_NEW),
+    (APP, "the [ui-wait] counters", A_LOOP_ANCHOR, A_LOOP_NEW),
 ]
 
 if __name__ == "__main__":

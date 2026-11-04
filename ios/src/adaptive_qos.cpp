@@ -82,6 +82,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_adaptive_qos_original, false, "Kernel",
                     "Balanced on devices with 6+ efficiency cores (restart required)");
 REXCVAR_DEFINE_STRING(nfsmw_performance_source, "default", "Kernel",
                       "Why that Performance mode (launcher): setting, battery_mode or default");
+REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
+                      "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
+                      "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -141,9 +144,20 @@ void PublishProfile(int cap) {
       bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
       bool(flags&RenderUtility), explicit_mask);
 }
+// ios_boost_threads: whether a boost raises this frame thread (read once).
+bool BoostRaises(bool main) {
+  static const int which = [] {
+    const std::string s = REXCVAR_GET(ios_boost_threads);
+    const int w = s == "gpu" ? 1 : s == "main" ? 2 : s == "none" ? 3 : 0;
+    REXLOG_INFO("[adaptive-qos] boost raises: {}", w == 1 ? "GPU Commands only" : w == 2 ? "Main XThread only"
+                                                     : w == 3 ? "neither frame thread" : "both frame threads");
+    return w;
+  }();
+  return which == 0 || (which == 1 && !main) || (which == 2 && main);
+}
 qos_class_t PrimaryQos(int m, bool main) {
   if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
-  if (AdaptiveEnabled()) return m == 1 ? Settings().qos : QOS_CLASS_UTILITY;
+  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : QOS_CLASS_UTILITY;
   return Flag(MainUtility) ? QOS_CLASS_UTILITY : QOS_CLASS_DEFAULT;
 }
 void ApplyQos(qos_class_t qos, int& applied, const char* role) {

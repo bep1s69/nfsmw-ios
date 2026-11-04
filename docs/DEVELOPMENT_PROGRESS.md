@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev57 BUILT (boost selector, default unchanged):** dev56 U run
+27.7 %/h (no measurable change vs dev55 27.1); Stefan keeps `ios_event_wait`
+on. dev57 adds `ios_boost_threads` (both/gpu/main/none) and `[ui-wait]`
+counters. Next: Stefan's iPad B/G/M Power Profiler set with the census on.
+
 **November 4, dev56 BUILT (UI-thread event wait, ON by default):** SDL's iOS
 event loop polled every 1 ms (~2,800 wakes/s on the UI thread); dev56 waits on
 the run loop instead (`ios_event_wait`, false = old polling) and adds a
