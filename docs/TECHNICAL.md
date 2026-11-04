@@ -20355,3 +20355,31 @@ log string "tablet profile: 6+ efficiency cores" present. IPA
 `ios/build/NFSMW-0.6.0-dev62-ipad-balanced-ecores.ipa` (Desktop; dev61 to
 Trash from the Desktop), 30610201 bytes, SHA256
 2d38b86510d01d56e17de0c7d582e28207d7bfb2b2e51850ec3f8d6106f3ed8e.
+
+## November 4: why the frame submit is expensive (Mac micro-benchmark, code reading)
+
+Stefan approved the submit/Record investigation (iPhone E-core question moved to
+a separate thread). Code: one frame command buffer per frame (`[queue
+commandBuffer]`, retained references; early commit off), plus the BC-decode
+queue's buffers; a queue residency set (`residency::Apply`, initialCapacity
+4096) holds arena chunks, pool buffers and textures; geometry is sub-allocated
+from the geometry arena (GpuBufferFor -> buffer_arena chunks), so vertex and
+index buffers are few allocations; textures and render targets are one
+allocation each (272 textures in use per frame in the Time Profile run's log,
+21 resolves); per-encoder useResources declares ~259 entries per summary.
+Host micro-benchmark (scratchpad submit_bench.mm, M2 Pro Mac, Metal, 300
+frames each, one compute encoder per command buffer, process CPU via
+getrusage): residency-set size does not matter (0/1k/4k/16k allocations:
+0.02–0.04 ms/frame empty); distinct buffers bound per command buffer do:
+300 distinct 0.12–0.19 ms CPU (0.05–0.10 ms kernel), 2000 distinct 0.51–0.63
+ms (0.16–0.23 ms kernel); the same 2000 binds over 8 distinct buffers 0.25 ms
+(0.04 ms kernel); unretained command buffers ~20 % less CPU at equal binds.
+Inference: the iPad's ~0.8 ms kernel time per frame submit scales with the
+number of distinct allocations (textures, render targets, pool buffers) the
+frame's command buffer references, on a slower E core; sub-allocating static
+game textures from MTLHeaps (useHeap, few allocations) and unretained command
+buffers would cut it. Both are lifetime/hazard-sensitive changes (heap
+textures are untracked; BC-decoded textures come from another queue).
+Expected energy effect small on E cores (render queue already Utility);
+not started. Waiting for Stefan's floor (home screen) and scale 1.0 runs to
+size what is reachable toward 20 %/h.
