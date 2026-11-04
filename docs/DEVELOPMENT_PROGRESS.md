@@ -427,6 +427,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev55 BUILT (exact-wake hand-off, ON by default):** dev54
+measured 400 us zero-length sleeps at 28.5 vs 32.9 %/h (record memo 32.6, no
+benefit). Stefan chose the device-independent fix: the two frame hand-off
+waits sleep on the hand-off word and both writers wake them
+(`nfsmw_handoff_wait`, `--nfsmw_handoff_wait=false` restores polling). Next:
+Stefan's iPad Power Profiler A (off) / H (on), pacing and menus/loading check.
+
 **November 4, dev54 BUILT (probe, default unchanged):** battery work now starts
 from new Balanced (dev51, 34.1 %/h). The game main loop and render threads
 wake ~6,800 times/s on 100 us zero-length guest sleeps (sub_82441DB0,

@@ -19999,3 +19999,46 @@ not down (inference), so the C gain is unlikely to be order-caused. The second
 A/B/C set was not needed for the decision. Conclusions: the record memo has no
 measurable battery benefit (keep default off); frame-thread zero-length wait
 wake-ups are a real battery cost on new Balanced.
+
+## November 4: dev55 exact-wake frame hand-off waits (on by default)
+
+Stefan chose the proper fix over a fixed sleep length (a fixed length may not
+suit slower devices). Generated code (USA, ios/generated/default): the hand-off
+word 0x82A2CF40 (base 0x82A30000 = lis -32093, offset -12480) has exactly two
+stores in the generated code (all six `+ -12480` references checked: 2 in
+sub_82441B60 loads + 1 store, 2 loads in sub_82441DB0, 1 store in
+sub_82441EF0): sub_82441EF0 stores 1 (main loop hands a frame over),
+sub_82441B60 stores 0 (r26 = 0, render thread done). Waits: sub_82441B60 loops
+on Sleep(0) (sub_8262D790, lr 0x82441BBC) while the word is 0; sub_82441DB0
+loops (lr 0x82441E4C) while it is 1. So the ~6,900 wakes/s of Nov 4 are the
+two sides of one handshake.
+
+Change: `tools/ios/patch_game_handoff_wait.py` (4 sites, apply/--status/
+--revert; also run by generate_code.py after sim_steps) replaces those two
+Sleep(0) calls with `if (!nfsmw_handoff_wait(base, value)) sub_8262D790(...)`
+and adds `nfsmw_handoff_wake(base)` after both stores. New
+`ios/src/game_handoff_wait.cpp` (in CMake's game sources):
+os_sync_wait_on_address_with_timeout on the guest word (big-endian raw
+compare), os_sync_wake_by_address_all after each store; cvars
+`nfsmw_handoff_wait` (true, restart-only; false = the game's Sleep(0)
+polling, i.e. dev54 behaviour) and `nfsmw_handoff_wait_us` (2000, safety-net
+timeout 100–50000); log `[handoff-wait] on ...` once and `[handoff-wait] 10 s:
+N waits (R/s), T timed out, K wakes sent`. dev54's `ios_delay0_us` stays
+(default 100); its `[delay0]` rate now shows the remaining zero-length polls.
+Checks: patch apply/revert/apply round trip OK, status 4/4; host model
+(scratchpad handoff_test.cpp, same wait/wake on a byteswapped word, two
+threads, clang++ -O2): 200000 hand-offs in 0.58 s (2.9 us each), 389413
+waits, 0 timeouts, exit 0 (model, not the game). `patch_game_extra_options.py`
+exit0 (0 files); build-0.6 `--target ipa -j 12` exit0, real 13.34 s (only a
+pre-existing SDK fpscr.h warning); `unzip -t` OK; codesign deep/strict exit0;
+ZIP vs dev54: NFSMW, Frameworks/librexruntime.dylib, CodeResources changed.
+IPA `ios/build/NFSMW-0.6.0-dev55-handoff-wait.ipa` (and Desktop), 30584701
+bytes, SHA256 e208d46d4c840cfaad035910d5ccf71cf58028e84cc3ae3ccb9b3a59cb21832b,
+app UUID 634FAA64-D9B7-3205-B483-53D37D26AD6C.
+Risks: a writer outside these sites (none found) would cost up to 2 ms per
+wait lap; the render thread waiting while nothing is handed over (menus,
+loading) wakes every 2 ms (~500/s) instead of ~10,000/s.
+Test: iPad, same setup as dev54 (new Balanced 1.5x, cap 60, trials on, same
+brightness, Power Profiler + Thermal State only), runs A
+`--nfsmw_handoff_wait=false` and H (default), A H; watch pacing, menus,
+loading and pause/resume; logs give `[handoff-wait]` timeouts and `[delay0]`.

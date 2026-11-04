@@ -215,6 +215,11 @@ def main():
             "patch_game_sim_steps.py")), "--dir", str(out)])
         if sim_steps.returncode:
             fail("patch_game_sim_steps.py failed. See its output above.")
+        print("\n== Frame hand-off waits")
+        handoff = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
+            "patch_game_handoff_wait.py")), "--dir", str(out)])
+        if handoff.returncode:
+            fail("patch_game_handoff_wait.py failed. See its output above.")
 
     # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
     # language and country, and whether the hooks need translating).
