@@ -237,6 +237,34 @@ A_LOOP_NEW = """    ProcessEvent(event);
                   "{:.0f} sources /s){}",
                   ios_events / secs, s[0] / secs, s[1] / secs, s[2] / secs, s[3] / secs,
                   s[0] == 0 ? " - not waiting (SDL polling)" : "");
+      // What keeps SDL's 1 ms polling interval (opened joysticks / sensors), when it changes.
+      static std::string ios_devices_said;
+      std::string devices;
+      int count = 0;
+      if (SDL_JoystickID* ids = SDL_GetJoysticks(&count)) {
+        for (int i = 0; i < count; ++i) {
+          if (SDL_GetJoystickFromID(ids[i])) {
+            const char* name = SDL_GetJoystickNameForID(ids[i]);
+            devices += fmt::format(" joystick '{}'{}", name ? name : "?",
+                                   SDL_IsJoystickVirtual(ids[i]) ? " (virtual)" : "");
+          }
+        }
+        SDL_free(ids);
+      }
+      if (SDL_SensorID* ids = SDL_GetSensors(&count)) {
+        for (int i = 0; i < count; ++i) {
+          if (SDL_GetSensorFromID(ids[i])) {
+            const char* name = SDL_GetSensorNameForID(ids[i]);
+            devices += fmt::format(" sensor '{}'", name ? name : "?");
+          }
+        }
+        SDL_free(ids);
+      }
+      if (devices.empty()) devices = " none";
+      if (devices != ios_devices_said) {
+        REXLOG_INFO("[ui-wait] open input devices:{}", devices);
+        ios_devices_said = devices;
+      }
       ios_events = 0;
       ios_wait_since = ios_now;
     }

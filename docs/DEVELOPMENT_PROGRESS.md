@@ -427,6 +427,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 4, dev58 BUILT (CP wait wakes on submissions, ON by default):**
+dev57: boosting one frame thread saved nothing (B 27.9, G 29.0, M 29.4 %/h),
+keep both. The CP's only WAIT_REG_MEM waits for the CPU to clear memory
+0x1FCA5004 in 1 ms laps; dev58 also wakes it on every submission
+(`ios_cp_wait_wptr`) and logs open input devices (the UI wait is still capped
+at 1 ms). Next: Stefan's iPad A/W set.
+
 **November 4, dev57 BUILT (boost selector, default unchanged):** dev56 U run
 27.7 %/h (no measurable change vs dev55 27.1); Stefan keeps `ios_event_wait`
 on. dev57 adds `ios_boost_threads` (both/gpu/main/none) and `[ui-wait]`

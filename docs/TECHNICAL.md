@@ -20171,3 +20171,43 @@ Test: iPad, dev55 setup (7 base args, Power Profiler + Thermal State), all runs
 with `--ios_cp_wait_census=true`; B (default both), G
 `--ios_boost_threads=gpu`, M `--ios_boost_threads=main`; order B G M; report
 pacing/smoothness per run.
+
+dev57 iPad result (Stefan, Nov 4; trace `Debug/4 November 2026/dev57_ipad_power_profiles.trace`,
+runs B 73.8 s / G 72.4 s / M 74.7 s, fixed order; log `dev57_ipad_power_bgm_nfsmw.log`;
+`--ios_cp_wait_census=true` in all; brightness 27 %, Nominal; Stefan: all three
+identically smooth):
+| run | drain %/h | CPU impact | GPU impact | instr G/s |
+|---|---:|---:|---:|---:|
+| B both boosted (default) | 27.9 | 11.52 | 3.19 | 9.21 |
+| G GPU Commands only | 29.0 | 10.57 | 3.22 | 8.57 |
+| M Main XThread only | 29.4 | 11.44 | 3.44 | 9.19 |
+Measured: boosting one frame thread saves nothing (G/M not lower; fixed
+order may bias later runs up). Keep `ios_boost_threads=both`.
+`[ui-wait]`: engaged but ~990 waits/s, ~680 of them timed out, ~295 sources,
+~18 timers, ~200 events/s: SDL still caps the wait at its 1 ms polling
+interval, so something besides the virtual pad keeps it (not identified).
+`[cp-wait]`: one kind only, ~580–840 unmatched laps/s: memory 0x1FCA5004
+(endian 2) func 3 (== ref 0), mask FFFFFFFF, wait 0x100 (1 ms), last value 1:
+the CP waits for the CPU side to clear that word, each lap ending on the 1 ms cap.
+
+## November 4: dev58 WAIT_REG_MEM wakes on submissions; input-device line
+
+- `tools/ios/patch_ios_cp_wait_wptr.py` (6 blocks, in prepare_sdk.py after
+  patch_ios_cp_wait_census, applied to the multiplayer SDK): one sequence
+  `ios_cp_wake_seq` bumped and woken by every vblank (NfsmwAvisarVblank) and
+  every CP_RB_WPTR write (UpdateWritePointer); WAIT_REG_MEM reads it before
+  each check and sleeps on it with the same wait/0x100 ms cap. Cvar
+  `ios_cp_wait_wptr` (true; false = vblank-only wait). `[cp-wait-wake] 10 s:
+  N waits, W woken (vblank or submission), T timed out`. Inference to test:
+  the CPU clears the word around a submission; if not, the waits still end on
+  the cap (no worse than before).
+- `patch_ios_sdl_event_wait.py`: `[ui-wait] open input devices: ...` (opened
+  joysticks with virtual flag, opened sensors) when it changes, to find what
+  keeps SDL's 1 ms polling interval.
+Checks: build-0.6 exit0, real 6.59 s, warning count in command_processor.cpp
+unchanged (40, all pre-existing unused parameters); `unzip -t` OK; codesign
+exit0; `git diff --check` exit0; revert/apply round trip of the new patch OK.
+IPA `ios/build/NFSMW-0.6.0-dev58-cp-wake.ipa` (and Desktop), 30609433 bytes,
+SHA256 8cb074f4d08231cdf665ee8b631e9fe8a793370158d9588bafface761bdc0a4f.
+Test: iPad, dev55 setup + `--ios_cp_wait_census=true`; A
+`--ios_cp_wait_wptr=false`, W default; order A W.
