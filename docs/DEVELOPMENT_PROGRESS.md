@@ -437,6 +437,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, wake-up sources outside D3D analysed (dev88 iPhone trace); proposal awaiting Stefan.**
+On dev-0.5 (not native-d3d). Causes found: (1) `rex::thread::AlertableSleep`
+polls for APCs in 1 ms slices, so the game's 5 ms and 10 ms alertable sleeps
+(XThread14B27, XThread10407) wake 5-10 times each (~1,780/s); (2) every XMA
+kick decodes inline and then wakes the XMA worker for a sweep that mostly
+finds nothing (~1,500/s); (3) the audio worker wakes ~930/s for ~188 real
+permits/s (multi-wait's single global sequence, or 1 ms polling without it);
+(4) TimerQueue ~1,240/s are two guest threads re-arming one-shot timers
+(game data, unknown due time). Proposed: (1)-(3) as switchable fixes in one
+build plus a timer due-time census for (4); no code until approved. Prior
+negative result kept in view: dev56-dev60 wake cuts on E-core threads showed
+no measurable iPad drain change. TECHNICAL "November 6: wake-up sources".
+
 **November 6, dev88 confirmed on the iPhone:** the displayed frame is shown
 from the post target on every frame (300/300), picture normal (Stefan), the
 0.42 ms copy gone. Soak continues with the same two lines. Stefan wants to

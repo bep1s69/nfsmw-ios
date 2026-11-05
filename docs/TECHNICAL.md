@@ -21345,3 +21345,54 @@ in every full window; first-skip lines for 09222000 (2859x1320) and
 08dbb000 (1560x720, menus); no "sampled now" lines; the "-> 09222000" copy
 is absent from the pass profiles (dev81: 0.42 ms). Short drive (3 profiles
 over 12 ms), so no frame-time comparison. Soak continues with the same flag.
+
+### November 6: wake-up sources outside D3D (dev88 iPhone System Trace)
+
+Input: same trace as the N0 entry on branch native-d3d
+(`Debug/6 November 2026/dev88_iphone_system_trace.trace`, 69.97 s, iPhone,
+1x, cap 60); N0's wake counts per second: XMA Decoder 1,522 and TimerQueue
+1,241 `psynch_cvwait`, Audio Worker 930 `ulock_wait2`, XThread14B27 919 and
+XThread10407 864 `mach_wait_until`. New: time-profile table exported
+(`xctrace export --xpath .../table[@schema="time-profile"]`, 33 MB, scratchpad,
+not kept), stacks per thread; SDK source in `~/Developer/GitHub/nfsmw-multiplayer-sdk`;
+guest code in `ios/generated/default`. Read-only, no code changed.
+
+- XThread14B27 / XThread10407 (~1,780/s): both sleep through SleepEx
+  sub_8262D758 (alertable) < KeDelayExecutionThread < XThread::Delay <
+  `rex::thread::AlertableSleep`, which loops `Sleep(min(remaining, 1 ms))`
+  checking for queued user callbacks (APCs) each slice
+  (threading_posix.cpp ~272). The guest asks for 10 ms (sub_823BA298:
+  `li r3,10; li r4,1` after sub_823B96A8, the stream-decode lap) and 5 ms
+  (sub_825B3900 loop, virtual call with r4=5 at 0x825B3B28). So each guest
+  sleep becomes 5-10 host wakes. QueueUserCallback (~986) already signals the
+  target thread (pthread_kill on Apple). Inference: an event-driven wait
+  (sleep the whole remaining time on a per-thread word that
+  QueueUserCallback bumps and wakes) keeps the game's timing exactly and
+  cuts these to ~100 + ~200 wakes/s.
+- XMA Decoder (~1,522/s): XmaDecoder::WriteRegister on a kick enables the
+  contexts, decodes them inline (local patch: the worker sweep stalled the
+  audio thread) and then still sets `work_event_`; the worker wakes, sweeps
+  320 contexts (Work() returns early: inline Work() already cleared
+  is_enabled) and waits again. Samples: worker 636 (349 in cvwait, 181 in
+  Work). `[xma-work]` 1,500-4,100 Work calls/s, 25-60 ms/s in all.
+  Inference: skipping that Set when every kicked context ran inline removes
+  most of these wakes; decode timing is unchanged (it is inline already).
+- Audio Worker (~930/s): stack is the multi-wait os_sync path
+  (`__ulock_wait2 < os_sync_wait_on_address_with_timeout < WaitMultiple`),
+  which runs only with `ios_multi_wait=true` (default false since dev61), so
+  that switch was on in this run (inference: Extra Args). `[coreaudio]` 938
+  blocks / 5 s = ~188 permits/s, one client. The ~740/s extra come from the
+  single global `ios_multi_seq`: any object with a registered multi-waiter
+  wakes every multi-waiter (inference), plus the 20 ms cap. Without the
+  switch the 1 ms polling gives ~1,000/s.
+- TimerQueue (~1,241/s): timer fires (CompletionRoutine < Signal) for two
+  guest threads (XThread10A07 sub_82625AB8, XThreadDC0B sub_828132A0) that
+  loop WaitForSingleObject(timer) then re-arm it with SetWaitableTimer
+  (sub_8284E418, one-shot, due time read from guest data at r29+8). The
+  rate is the game's request; due times unknown (needs a log census).
+  Each fire also wakes the guest waiter.
+
+Not proven: any battery effect. dev56-dev60 removed ~3,000 polling wakes/s on
+E-core/utility threads with no measurable iPad drain change; dev55's −17 %
+came from P-core frame threads. These threads' QoS on the iPhone run not
+checked here.
