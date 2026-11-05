@@ -20736,3 +20736,15 @@ Checks: patch apply/revert/apply OK; test_draw_arena, test_upload_sizing,
 test_color_handoff, test_performance_profiles PASS; build-0.6 exit0; `unzip -t`
 OK; codesign exit0; `git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev74-shader-lookups.ipa` (Desktop;
 dev73 to Trash from the Desktop), 30616746 bytes, SHA256 bd4e827d796c4e40c783575eef4de137898e6cd699543f823763ced474db3f08.
+
+dev74 iPad 60 fps checkpoint (Stefan, Nov 5; trace `Debug/5 November 2026/dev74_ipad_power_profile.trace`;
+log `dev74_ipad_power_nfsmw.log`; T block, 1.5x): 24.9 %/h, CPU 5.25, GPU 2.95,
+display 5.42 (other runs ~5.0 at the same 27 % brightness). Measured: the
+stacked dev67–74 CPU trims (OnMainLoop, swizzle log, unretained shaders,
+upload sizing, resolve misses, shader memo/last key) do not change the
+whole-device drain beyond single-run noise (CPU impact 5.2–5.3 throughout).
+Conclusion: CPU micro-cuts in our code have reached their floor at Balanced
+60; remaining CPU is game code, Metal driver and buffer content checks.
+Proposed next (Stefan's choice): GPU work at native/high resolutions (GPU impact
+9.3 at native) starting with a Metal System Trace; iPhone in its own thread;
+Metal indirect command buffers as a larger project.
