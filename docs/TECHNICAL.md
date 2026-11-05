@@ -21024,3 +21024,27 @@ median ~18 %, dev78 ~15.5 % -> roughly 0.3-0.5 ms less at a 15 ms frame
 (inference, short run: 11 driving profiles). Main pass share 48.7 % ->
 48.0 %, within noise. Conclusion: image-identical, modest saving; most of
 the tree cost is the solid pass and the edge pixels themselves.
+
+### November 5: dev79 tree edge LESS default ON; full cost probe and sky-wait census
+
+Stefan approved the default ("not a negligible gain") and asked to tackle the
+remaining costs. `nfsmw_native_tree_edge_less` now defaults true.
+
+Remaining items checked before new work: shadow casters 4fbaecfb already
+use the cut-out-free variant (~100k draws per summary window) and colour
+mask 0; their alpha-tested tree casters need the discard. The sky (fe510d)
+is drawn last only behind the run of opaque draws right after it (43 in
+the earlier frame summary). The iPhone post pass d47c (2.0-2.5 ms, a single
+pass of it 1.2 ms) was never probed: the probe only rotates through the 16
+shaders with the most draws.
+
+New diagnostic `nfsmw_native_cost_probe_all` (default false, with the cost
+probe): every pixel shader seen while driving in turn (first-seen order),
+one probe every 20th frame, each logged as "[cost-probe] frame N leaves out
+ps K: D draws, first on TARGET"; plus "[sky-wait] ended by ..." every 600
+frames (resolve/frame end, another target, or the first non-opaque draw's
+shader and states, with the average solid draws before it). Build exit 0,
+`unzip -t` OK, `git diff --check` clean. IPA
+`ios/build/NFSMW-0.6.0-dev79-tree-edge-default-probe-all.ipa`, 30609563
+bytes, SHA256 7717df99696da6b672335c3765a919f54b533997390320ea4768cb3e49686ad5;
+on the iCloud Desktop, dev78 moved to Trash from the Desktop. Not yet run.

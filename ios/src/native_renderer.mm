@@ -346,7 +346,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_tree_edge_less, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_tree_edge_less, true, "GPU",
                     "Native renderer: the trees' blended edge pass tests depth with less instead of less-or-equal, "
                     "so the pixels their solid pass already drew are not shaded again only to be discarded");
 REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, true, "GPU",
@@ -398,6 +398,9 @@ REXCVAR_DEFINE_INT32(nfsmw_native_writeback_kb, 16, "GPU",
                      "game's CPU (the exposure reads its brightness from one); 256 = the old limit");
 REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe, false, "GPU",
                     "Native renderer diagnostics: measure each pixel shader's GPU cost by leaving it out of one frame");
+REXCVAR_DEFINE_BOOL(nfsmw_native_cost_probe_all, false, "GPU",
+                    "Native renderer diagnostics (with nfsmw_native_cost_probe): every pixel shader in turn, not "
+                    "only the 16 with the most draws, one every 20th frame; also says what ends the sky's wait");
 REXCVAR_DEFINE_INT32(nfsmw_native_pass_split_indices, 0, "GPU",
                      "Native renderer: above 1x, a pass is split after this many indices (0 = never)");
 REXCVAR_DEFINE_STRING(nfsmw_native_fxaa, "off", "GPU",
@@ -6472,7 +6475,31 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         REXLOG_INFO("[cost-probe] on: one pixel shader left out every 60th frame of over 1000 draws");
       }
     }
-    if (!dump && REXCVAR_GET(nfsmw_native_cost_probe) && number % 60 == 30 && frame->draws.size() > 1000) {
+    static const bool probe_all = REXCVAR_GET(nfsmw_native_cost_probe_all);
+    if (!dump && REXCVAR_GET(nfsmw_native_cost_probe) && probe_all && number % 20 == 10 &&
+        frame->draws.size() > 1000) {
+      // Every shader seen while driving, in the order first seen, in turn.
+      static std::vector<uint64_t> seen;
+      static std::unordered_set<uint64_t> known;
+      static size_t turn = 0;
+      std::unordered_map<uint64_t, std::pair<size_t, std::string>> counts;  // draws, first target
+      for (const Draw& d : frame->draws) {
+        auto& c = counts[d.ps_key];
+        if (!c.first++) c.second = target_key(d);
+        if (known.insert(d.ps_key).second) seen.push_back(d.ps_key);
+      }
+      for (size_t tries = 0; tries < seen.size() && !probe_ps; ++tries) {
+        const uint64_t k = seen[turn++ % seen.size()];
+        auto found = counts.find(k);
+        if (found == counts.end()) continue;
+        probe_ps = k;
+        probe_draws = found->second.first;
+        REXLOG_INFO("[cost-probe] frame {} leaves out ps {:016x}: {} draws, first on {} ({} shaders seen)", number,
+                    k, probe_draws, found->second.second, seen.size());
+      }
+    }
+    if (!dump && REXCVAR_GET(nfsmw_native_cost_probe) && !probe_all && number % 60 == 30 &&
+        frame->draws.size() > 1000) {
       std::unordered_map<uint64_t, size_t> counts;
       for (const Draw& d : frame->draws) ++counts[d.ps_key];
       std::vector<std::pair<size_t, uint64_t>> top;
@@ -6590,6 +6617,33 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         const std::string key = target_key(sky);
         size_t j = i + 1;
         while (j < n && j < next_event && opaque(frame->draws[j]) && target_key(frame->draws[j]) == key) ++j;
+        if (probe_all && REXCVAR_GET(nfsmw_native_cost_probe)) {
+          // What ends the sky's wait: a resolve, another target, or the
+          // first draw that is not opaque (its shader and states).
+          static std::map<std::string, std::pair<uint64_t, uint64_t>> ends;  // times, solid draws before
+          static uint32_t frames = 0;
+          std::string why;
+          if (j >= n || j >= next_event) {
+            why = "resolve or frame end";
+          } else {
+            const Draw& e = frame->draws[j];
+            why = target_key(e) != key
+                      ? "another target"
+                      : fmt::format("ps {:016x} depth {:03x} blend {:08x} mask {:x} color control {:02x} second {}",
+                                    e.ps_key, e.depth_control & 0xFFF, e.blend_control, e.color_mask & 0xF,
+                                    e.color_control & 0x1F, e.second_target ? 1 : 0);
+          }
+          auto& end = ends[why];
+          ++end.first;
+          end.second += j - i - 1;
+          if (++frames >= 600) {
+            for (const auto& [k, c] : ends)
+              REXLOG_INFO("[sky-wait] ended by {}: {} times, {:.1f} solid draws before it on average", k, c.first,
+                          double(c.second) / double(std::max<uint64_t>(c.first, 1)));
+            ends.clear();
+            frames = 0;
+          }
+        }
         if (j - i < 2) continue;  // nothing solid after it
         if (draw_order.empty()) {
           draw_order.resize(n);

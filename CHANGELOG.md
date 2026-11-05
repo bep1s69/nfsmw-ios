@@ -6,6 +6,9 @@
   only where they are, not over the whole screen every frame: about 0.7 ms
   less GPU work a frame on an iPhone 17 Pro Max at native resolution (dev77).
 
+- **Lighter trees.** The soft edges of trees no longer re-shade the pixels
+  their solid part already drew; same picture, a little less GPU work (dev79).
+
 - **Longer battery at 30 fps.** Balanced at the 30 fps cap now runs the game
   on the efficiency cores on every device, and moves back to the fast cores
   by itself if frames start arriving late (about 23 % less drain on an iPhone

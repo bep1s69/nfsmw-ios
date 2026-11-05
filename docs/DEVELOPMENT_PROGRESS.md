@@ -433,6 +433,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev79 BUILT: tree edge LESS default ON (Stefan approved) + full cost probe.**
+dev78 run: identical picture, trees ~18 % -> ~15.5 % of the frame. dev79 adds
+`nfsmw_native_cost_probe_all=false` (diagnostic: every shader in turn, sky-wait
+census) to find what in the iPhone post pass and sky is left to cut. IPA
+`ios/build/NFSMW-0.6.0-dev79-tree-edge-default-probe-all.ipa` (Desktop).
+Next: Stefan's long iPhone race with `--nfsmw_native_cost_probe=true
+--nfsmw_native_cost_probe_all=true --nfsmw_native_pass_counters=true`.
+TECHNICAL "dev79".
+
 **November 5, dev78 BUILT (approved trial): tree edge pass depth LESS, default off.**
 dev77 cost probe (iPhone native): trees 27d82ea0 2.74 ms median, then sky
 1.02, shadow casters 0.78. Tree edge pass re-shades pixels the solid pass
