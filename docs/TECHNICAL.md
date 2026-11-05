@@ -21048,3 +21048,56 @@ shader and states, with the average solid draws before it). Build exit 0,
 `ios/build/NFSMW-0.6.0-dev79-tree-edge-default-probe-all.ipa`, 30609563
 bytes, SHA256 7717df99696da6b672335c3765a919f54b533997390320ea4768cb3e49686ad5;
 on the iCloud Desktop, dev78 moved to Trash from the Desktop. Not yet run.
+
+### November 5: dev79 full cost probe (iPhone) and dev80 trials (both default off)
+
+Log `Debug/5 November 2026/dev79_iphone_native60_cost_probe_all_nfsmw.log`
+(SHA256 7d8bfcd6…), iPhone, dev79, native/60 Balanced, Stefan's usual trial
+Extra Args plus `--nfsmw_native_cost_probe=true --nfsmw_native_cost_probe_all=true
+--nfsmw_native_pass_counters=true`. 35 shaders probed (~35 samples each);
+median share of the frame before each probe (frames before >= 8 ms):
+
+| ps | share | ms | draws | first target |
+|---|---:|---:|---:|---|
+| 20710a9a2fef88e9 final post composite | 12.9 % | 1.95 | 1 | d47c |
+| 684f4711f29b9f77 fences/plants | 7.5 % | 1.15 | 501 | d71a |
+| fe510d2d256c173b sky | 5.5 % | 0.84 | 8 | d71a |
+| d1a189fdbb29cf1a | 5.2 % | 0.78 | 71 | d468 |
+| 27d82ea0faa380a8 trees (edge LESS on) | 4.7 % | 0.72 | 364 | d71a |
+| 705e150f5ef6e09b | 3.7 % | 0.56 | 16 | d71a |
+| 2d8bf2c6 / d8bb87fe / f91b85ab | ~3.1 % each | ~0.47 | | |
+| others | < 2.5 % | | | |
+
+Sky-wait census: in the cube faces and mirror the sky's wait always ends at
+once (0 solid draws before it), at ps 684f / f1f0e5ca with colour mask 7:
+`opaque()` required mask 0xF, and those targets write RGB only (sky too).
+
+ps 20710a9a (recovered baseline in ignored `ios/build/perf-gpu-nov2/structural-audit/`):
+colour = sharp + amount * (7 offset scene taps combined - sharp), with
+amount = saturate((blurmap.x + BlurParams.x) * saturate(-rcp(1 - depth) *
+c254.x + c255.y) + BlurParams.y * blurmap.w). Where amount is exactly 0 the
+taps (finite samples) contribute nothing.
+
+dev80 adds two default-off restart-only trials:
+- `nfsmw_native_post_blur_skip`: new `tools/native/rewrite_post_blur_skip.py`
+  (run by build_shaders.sh after the foliage rewrite; body-digest guarded)
+  gives ps 20710a9a a specialization bit 14 (0x4000) that computes the
+  amount first with the same operations in the same order and fetches the 7
+  offset taps only where it is not 0 (NaN keeps them); unset = original.
+  Renderer sets the bit for that shader's draws; a failed variant returns
+  nil (like bit 13); counted in the early-commit summary line. Library
+  rebuilt alone from the recovered baseline hlsl with the build_shaders
+  commands (iOS 18.0); the baseline recompiled here has the same size as the
+  cached library but 92 differing bytes (two 32-byte hash blocks, a 16-byte
+  id and 12 single bytes), so the bit-off path is a recompile of the same
+  translation, not byte-identical. Previous library kept at
+  `~/Library/Caches/nfsmw-ios/shaders/previous/ps_20710a9a2fef88e9.metallib.pre-dev80`;
+  new SHA256 ab7ca29a…eca1c. No host GPU equivalence test (inputs are
+  bindless heaps); the taps sit in non-uniform control flow, exact for the
+  single-level resolve texture. First launch recompiles that pipeline.
+- `nfsmw_native_sky_last_masked`: sky-last also accepts solid draws whose
+  colour mask is non-zero and covers every channel the sky writes.
+Build exit 0, `unzip -t` OK, `git diff --check` clean. IPA
+`ios/build/NFSMW-0.6.0-dev80-post-blur-skip-sky-masked.ipa`, 30625477 bytes,
+SHA256 db5cf6a8cbc665bcad8ded9f8c79d722eb85cbd0a8a3c9489c54aea0f5afc309; on
+the iCloud Desktop, dev79 moved to Trash from the Desktop. Not yet run.

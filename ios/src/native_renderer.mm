@@ -346,6 +346,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_post_blur_skip, false, "GPU",
+                    "Native renderer: the final post composite (ps 20710a9a) fetches its 7 blur taps only where its "
+                    "blur amount is not 0 (restart required; tools/native/rewrite_post_blur_skip.py)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_sky_last_masked, false, "GPU",
+                    "Native renderer: the sky is also drawn last behind solid draws that write fewer channels than "
+                    "all four, as long as they write every channel the sky writes (the reflections and mirror)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_tree_edge_less, true, "GPU",
                     "Native renderer: the trees' blended edge pass tests depth with less instead of less-or-equal, "
                     "so the pixels their solid pass already drew are not shaded again only to be discarded");
@@ -1387,6 +1393,7 @@ bool timed_draw = false;  // this draw's recording is timed (one in eight; comma
 uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
+uint64_t post_blur_skip_draws = 0;  // post composite draws with bit 14 (render queue only)
 uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};
 // Renderer queue only: list construction work, not Metal declarations avoided.
@@ -3556,7 +3563,7 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
   if (!desc.fragmentFunction) {
     // A failed trial specialization must not silently draw the base shader
     // and get counted as having exercised early rejection.
-    if (k.alpha_spec & 0x2000u) return nil;
+    if (k.alpha_spec & 0x6000u) return nil;
     desc.fragmentFunction = ps;
   }
   if (k.motion >= 2) {  // nil (no such entry point): the pipeline fails, its draws are left out
@@ -6602,10 +6609,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     if (REXCVAR_GET(nfsmw_native_sky_last) && !dump) {
       constexpr uint64_t kSky = 0xfe510d2d256c173bull;
       const size_t n = frame->draws.size();
+      // nfsmw_native_sky_last_masked: a solid draw writing only some
+      // channels still replaces every channel the sky writes (the cube
+      // faces and mirror write RGB only, sky included): the same picture.
+      static const bool masked = REXCVAR_GET(nfsmw_native_sky_last_masked);
+      uint32_t sky_mask = 0xF;
       auto opaque = [&](const Draw& e) {
         const bool a2c = !(e.color_control & 8) && (e.color_control & 0x10);
+        const uint32_t m = e.color_mask & 0xF;
         return (e.depth_control & 7) == 6 && (e.blend_control & 0x1FFF1FFF) == 0x00010001 &&
-               (e.color_mask & 0xF) == 0xF && !e.second_target && !a2c;
+               (masked ? m != 0 && (m & sky_mask) == sky_mask : m == 0xF) && !e.second_target && !a2c;
       };
       uint8_t next_ref = 0;
       size_t r = 0;  // resolves before the draw looked at
@@ -6615,6 +6628,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (sky.ps_key != kSky || (sky.depth_control & 7) != 2 || sky.second_target || sky.query >= 0) continue;
         const size_t next_event = r < frame->resolves.size() ? frame->resolves[r].after_draws : n;
         const std::string key = target_key(sky);
+        sky_mask = sky.color_mask & 0xF;
         size_t j = i + 1;
         while (j < n && j < next_event && opaque(frame->draws[j]) && target_key(frame->draws[j]) == key) ++j;
         if (probe_all && REXCVAR_GET(nfsmw_native_cost_probe)) {
@@ -6963,6 +6977,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       static const bool foliage_early_alpha = REXCVAR_GET(nfsmw_native_foliage_early_alpha);
       const bool foliage_eligible = d.ps_key == 0x684f4711f29b9f77ull && (alpha_spec & 2u);
       if (foliage_early_alpha && foliage_eligible) alpha_spec |= 0x2000u;
+      // Bit 14: the post composite's blur taps only where they count
+      // (tools/native/rewrite_post_blur_skip.py).
+      static const bool post_blur_skip = REXCVAR_GET(nfsmw_native_post_blur_skip);
+      if (post_blur_skip && d.ps_key == 0x20710a9a2fef88e9ull) {
+        alpha_spec |= 0x4000u;
+        ++post_blur_skip_draws;
+      }
       // The shadow caster (ps 4fbaecfb) with its cut-out off (c1.x 0): the
       // variant without the discard compiled in (bit 12, see
       // tools/native/rewrite_shadow_caster_alpha.py), so the GPU can drop
@@ -8652,12 +8673,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       vertex_diagnostics.index_memo_hits, vertex_diagnostics.entry_memo_hits);
         }
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
-                    "shadow caster variant {}: {} draws; CP fast runs {}",
+                    "shadow caster variant {}: {} draws; post blur skip {}: {} draws; CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
                     REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws,
+                    REXCVAR_GET(nfsmw_native_post_blur_skip) ? "on" : "off", post_blur_skip_draws,
                     rex::cvar::Query<bool>("ios_cp_fast_runs") ? "on" : "off");
         caster_variant_draws = 0;
+        post_blur_skip_draws = 0;
         static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
         static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));
         if (census_packets && census_words && rex::cvar::Query<bool>("ios_packet_census")) {

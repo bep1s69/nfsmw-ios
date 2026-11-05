@@ -433,6 +433,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev80 BUILT: post blur skip + masked sky-last trials (both default off).**
+dev79 full probe (iPhone): final post composite 20710a9a 12.9 % of the
+frame (1 draw), fences 7.5 %, sky 5.5 % (never deferred in cube/mirror,
+mask 7). `nfsmw_native_post_blur_skip=false` (shader bit 14, new rewrite
+script, one library rebuilt) and `nfsmw_native_sky_last_masked=false`.
+IPA `ios/build/NFSMW-0.6.0-dev80-post-blur-skip-sky-masked.ipa` (Desktop).
+Next: Stefan's iPhone run with both on + cost probe all; check blur/depth of
+field, sky in reflections and mirror. TECHNICAL "dev80".
+
 **November 5, dev79 BUILT: tree edge LESS default ON (Stefan approved) + full cost probe.**
 dev78 run: identical picture, trees ~18 % -> ~15.5 % of the frame. dev79 adds
 `nfsmw_native_cost_probe_all=false` (diagnostic: every shader in turn, sky-wait
