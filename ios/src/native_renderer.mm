@@ -346,6 +346,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_skip_unread_resolves, false, "GPU",
+                    "Native renderer: large colour resolves (1M pixels and up) to an address no texture has named "
+                    "since launch are not copied, except the frame's displayed one (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_resolve_labels, false, "GPU",
                     "Native renderer diagnostics (with nfsmw_native_pass_counters): each resolve copy timed under "
                     "its own name (source target, size, destination) instead of all together");
@@ -1393,7 +1396,12 @@ std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the l
 uint64_t caster_variant_draws = 0;
 // Large linear colour resolves under watch: destination -> (frame first
 // written, writes since). Render queue only.
-std::map<uint32_t, std::pair<uint32_t, uint32_t>> linear_watch;  // shadow-caster draws with the cut-out compiled out (render queue only)
+std::map<uint32_t, std::pair<uint32_t, uint32_t>> linear_watch;
+// nfsmw_native_skip_unread_resolves: every address a texture has named since
+// launch, and the destinations whose copies were left out. Render queue only.
+std::unordered_set<uint32_t> ever_sampled;
+std::unordered_set<uint32_t> unread_skipped;
+uint64_t unread_skips = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};
 // Renderer queue only: list construction work, not Metal declarations avoided.
 uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
@@ -4994,6 +5002,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     NSMutableArray<id<MTLTexture>>* cubes = [NSMutableArray array];
     // The large linear resolves' destinations (logged below): when a later
     // frame first samples one, or that none did for 1200 frames.
+    static const bool skip_unread = REXCVAR_GET(nfsmw_native_skip_unread_resolves);
+    if (skip_unread) {
+      for (const auto& tp : frame->textures) {
+        if (ever_sampled.insert(tp->address).second && unread_skipped.count(tp->address)) {
+          REXLOG_INFO("[native] unread resolve {:08x} is sampled now (frame {}): copied again from here on",
+                      tp->address, number);
+        }
+      }
+    }
     if (!linear_watch.empty()) {
       for (auto it = linear_watch.begin(); it != linear_watch.end();) {
         const uint32_t dest = it->first;
@@ -6167,6 +6184,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     uint32_t depth_audit_copies = 0, depth_audit_candidates = 0;
     auto writebacks = std::make_shared<std::vector<WriteBack>>();
     std::vector<char> skip_draw, skip_resolve;  // battery: cube faces kept from the frame before (below)
+    int32_t last_color_resolve = -1;  // what the frame displays: always copied
+    for (size_t r = 0; r < frame->resolves.size(); ++r) {
+      if (!frame->resolves[r].depth && !frame->resolves[r].array) last_color_resolve = int32_t(r);
+    }
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
       if (!skip_resolve.empty() && skip_resolve[&ev - frame->resolves.data()]) {
         ++resolves_skipped;
@@ -6193,6 +6214,30 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const float scale = src.scale;
       const ResolveLayout layout = resolve_layout(ev, scale, src.pitch, src.height);
       const NSUInteger dw = layout.dw, dh = layout.dh, x0 = layout.x0, y0 = layout.y0, w = layout.w, h = layout.h;
+      // A large colour copy nothing has ever read (see ever_sampled): left
+      // out, unless it is what the frame displays or the colour handoff's.
+      // The resolve's clears still apply.
+      if (skip_unread && !ev.depth && !ev.array && w * h >= 1000000 &&
+          int32_t(&ev - frame->resolves.data()) != last_color_resolve &&
+          src.handoff_resolve != int32_t(&ev - frame->resolves.data()) && !ever_sampled.count(ev.dest_base)) {
+        if (unread_skipped.insert(ev.dest_base).second) {
+          REXLOG_INFO("[native] unread resolve {:08x}: {} {}x{} not copied (no texture has named it since launch)",
+                      ev.dest_base, own ? own_key : target_key(last), w, h);
+        }
+        ++unread_skips;
+        ++resolves_skipped;
+        if (ev.clear_color) {
+          src.clear_color = true;
+          const uint32_t c = ev.clear_color_value;  // A8R8G8B8
+          src.clear_color_value = MTLClearColorMake(((c >> 16) & 0xFF) / 255.0, ((c >> 8) & 0xFF) / 255.0,
+                                                    (c & 0xFF) / 255.0, (c >> 24) / 255.0);
+        }
+        if (ev.clear_depth) {
+          src.clear_depth = true;
+          src.clear_depth_value = double(ev.clear_depth_value >> 8) / double(0xFFFFFF);
+        }
+        return;
+      }
       if (ev.array && !ev.depth && w && h) {
         // Into a face of a cube (the race's environment map, from its 320
         // passes): a Metal cube made at the first face, the face copied.
@@ -8708,12 +8753,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       vertex_diagnostics.index_memo_hits, vertex_diagnostics.entry_memo_hits);
         }
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
-                    "shadow caster variant {}: {} draws; CP fast runs {}",
+                    "shadow caster variant {}: {} draws; unread resolves skipped {}; CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
                     REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws,
+                    unread_skips,
                     rex::cvar::Query<bool>("ios_cp_fast_runs") ? "on" : "off");
         caster_variant_draws = 0;
+        unread_skips = 0;
         static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
         static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));
         if (census_packets && census_words && rex::cvar::Query<bool>("ios_packet_census")) {

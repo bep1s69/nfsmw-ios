@@ -21185,3 +21185,23 @@ textures name it logs "first sampled N frames after it was written, at WxH
 No behaviour change. Build exit 0, `unzip -t` OK. IPA
 `ios/build/NFSMW-0.6.0-dev83-linear-resolve-watch.ipa` (SHA256 a5ce00c638396cfec0c1d50bba4efa6331891359891f5817508cfb205ad6bc91), on the
 iCloud Desktop; dev82 moved to Trash.
+
+### November 6: dev83 result (copies never read); dev84 skips unread large resolves (default off)
+
+Log `Debug/6 November 2026/dev83_iphone_native60_linear_resolve_watch_nfsmw.log`
+(SHA256 4379695a…), Stefan drove and opened the pause menu (fine). Both
+watched destinations: "not sampled in 1200 frames (601 writes)" for
+08dbb000 (1560x720) and 09222000 (2859x1320), in both sessions of the log.
+The renderer binds a resolve only to textures naming its address, so a copy
+no texture names cannot reach the picture. Inference: the game's own
+consumer of these (if any) is not reached in normal driving.
+dev84: `nfsmw_native_skip_unread_resolves` (default false, restart-only).
+Each frame adds every texture address to `ever_sampled`; a colour, non-cube
+resolve of >= 1M pixels to an address never named since launch is skipped
+(its clears still applied), except the frame's last colour resolve (the
+displayed one) and a planned colour-handoff resolve. Logs the first skip
+per destination, "sampled now ... copied again" if one is named later (that
+first frame would read guest memory instead: one-frame risk), and the skip
+count in the early-commit summary line. Build exit 0, `unzip -t` OK. IPA
+`ios/build/NFSMW-0.6.0-dev84-skip-unread-resolves.ipa` (SHA256 a472b44271ea82f32e15ed5f427417329fbf8ddc70fbf9202140061e2c96f85e), on the
+iCloud Desktop; dev83 moved to Trash.

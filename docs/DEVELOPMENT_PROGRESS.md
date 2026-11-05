@@ -433,6 +433,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev84 BUILT: skip large resolves nothing reads (default off).**
+dev83: the post copies to 09222000 (0.42 ms) and 08dbb000 are never sampled
+(1200 frames, pause menu included). `nfsmw_native_skip_unread_resolves=false`
+leaves such copies out. IPA `ios/build/NFSMW-0.6.0-dev84-skip-unread-resolves.ipa`
+(SHA256 a472b44271ea82f32e15ed5f427417329fbf8ddc70fbf9202140061e2c96f85e). Next: Stefan's iPhone race with it on + pass counters
++ resolve labels; check menus, pause, race end, replays. TECHNICAL "dev84".
+
 **November 6, dev82 BUILT: one-time log of why large colour resolves stay linear.**
 dev81 split: colour copies ~0.75 ms (post intermediate 0.42 ms LINEAR, final
 0.33 ms); depth copies 0.44 + 0.34 ms. Fence/plant shader 684f read: one
