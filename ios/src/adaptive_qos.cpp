@@ -58,6 +58,7 @@
 #include <vector>
 
 #include <rex/cvar.h>
+#include <rex/system/xthread.h>
 
 #include "nfsmw_pch.h"
 
@@ -86,6 +87,10 @@ REXCVAR_DEFINE_BOOL(ios_background_qos, false, "Kernel",
                     "Battery trial (Nov 4): the threads Balanced/Eco put at Utility run at "
                     "Background QoS instead (lower efficiency-core clocks, like Low Power Mode "
                     "showed; restart required)");
+REXCVAR_DEFINE_BOOL(ios_background_qos_low_workers, false, "Kernel",
+                    "Battery trial (Nov 5): when the frame threads are at Background, guest "
+                    "workers at normal or lower guest priority go too; raised-priority guest "
+                    "threads (audio is expected there) and host threads keep Utility");
 REXCVAR_DEFINE_BOOL(ios_background_qos_workers, false, "Kernel",
                     "Battery trial (Nov 4): only the guest workers and render-queue blocks at "
                     "Background QoS; the frame threads keep Utility (restart required)");
@@ -410,6 +415,20 @@ void AdoptGuestQos(int role) {
   if (role == 1 || role == 3) qos = PrimaryQos(mode.load(std::memory_order_relaxed), role == 1);
   else {
     qos = Flag(GuestUtility) ? LowQos(LowRole::Worker) : QOS_CLASS_DEFAULT;
+    // Trial: low-priority guest workers follow the frame threads to Background.
+    static const bool low_workers = REXCVAR_GET(ios_background_qos_low_workers);
+    if (low_workers && qos == QOS_CLASS_UTILITY && Flag(Background)) {
+      thread_local int32_t said_priority = INT32_MIN;
+      auto* xt = rex::system::XThread::GetCurrentThread();
+      const bool guest = xt && xt->is_guest_thread();
+      const int32_t priority = xt ? xt->priority() : 0;
+      if (guest && priority <= 0) qos = QOS_CLASS_BACKGROUND;
+      if (priority != said_priority) {
+        said_priority = priority;
+        REXLOG_INFO("[adaptive-qos] worker {} ({}), guest priority {}: {}", xt ? xt->thread_id() : 0,
+                    guest ? "guest" : "host", priority, qos == QOS_CLASS_BACKGROUND ? "Background" : "Utility");
+      }
+    }
     if (AdaptiveEnabled() && WorkersOn() && Settings().workers == 0 &&
         mode.load(std::memory_order_relaxed) == 1) qos = Settings().qos;
   }

@@ -20638,3 +20638,21 @@ function alive itself; asserts released after) PASS; test_color_handoff,
 test_guest_culling PASS; build-0.6 exit0; `unzip -t` OK; codesign exit0;
 `git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev69-unretained-shaders.ipa` (Desktop; dev68 to Trash
 from the Desktop), 30615542 bytes, SHA256 85d4917876d8431e904c57ea9f72e87e1b4220efe1f2d0b9049357a9258563df.
+
+dev69 iPad 60 fps (Stefan, Nov 5; trace `Debug/5 November 2026/dev69_ipad_power_profile.trace`;
+log `dev69_ipad_power_nfsmw.log`; T block): 24.2 %/h, CPU 5.22, GPU 2.89 (dev62
+24.4, dev67 24.4): within noise.
+
+## November 5: dev70 low-priority guest workers at Background (trial, default off)
+
+`adaptive_qos.cpp`: cvar `ios_background_qos_low_workers` (false). When the
+Background flag is active (tablet Balanced at 30/40), a guest worker whose
+guest priority (XThread::priority()) is 0 or lower joins the frame threads at
+Background; raised-priority guest threads and host threads (Audio Worker, XMA
+Decoder) keep Utility. Logs `[adaptive-qos] worker <id> (guest|host), guest
+priority <p>: Background|Utility` when a thread's priority changes, as a
+census. Aim: most of dev65's 12.5 %/h without its audio starvation (dev66
+16.3 %/h). Inference: the game's audio decode thread runs at raised priority
+(to be checked in the log). build-0.6 exit0; performance-profile test PASS;
+`unzip -t` OK; codesign exit0; `git diff --check` exit0. IPA
+`ios/build/NFSMW-0.6.0-dev70-low-priority-workers.ipa` (Desktop; dev69 to Trash from the Desktop), 30614690 bytes, SHA256 de1c0722d966a0c1378f493b7f2957e09337aa3b8cc59c37ea54ae355c01056a.
