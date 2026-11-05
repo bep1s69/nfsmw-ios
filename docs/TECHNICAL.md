@@ -20940,3 +20940,6 @@ hitches 46–89 ms). 21:01:20 back to 30: 18 s on Background, then boosted
 on the 14 Pro Max (falls back within 12–18 s, no stuck low class). Not
 measured: a cool-phone drive at 30 long enough to judge Background driving
 smoothness or savings (the second 30 stretch followed thermal serious).
+Stefan (context for the 14 Pro Max log): the phone had just come off the
+charger, and the 60 stretch was at native resolution (held 60 for a while).
+Inference: that combination, not the 30 cap policy, explains thermal serious.
