@@ -21151,3 +21151,21 @@ totals were not split, so not comparable. Removable without shader work:
 the final copy (B2, ~0.33 ms, needs proof nothing reads 09689000 later) and
 making the 09222000 copy tiled (~0.1 ms if it behaves like the final one;
 why it is linear not yet checked). Main pass 8.29 ms (54 %) on this route.
+
+### November 6: fence/plant shader audit; dev82 linear-resolve log
+
+ps 684f4711f29b9f77 (dev41 recovered source in ignored
+`ios/build/perf-gpu-nov2/dev41/`): one DIFFUSEMAP fetch, optional early
+alpha (bit 13), then under `g_iShadowMapEnabled` the shadow 9-tap (already
+tfetch2DShadow9 = 4 gathers) and ~15 ALU ops, output diffuse * lighting.
+In the main target its draws are mostly opaque without alpha test (311
+draws, 36k indices per sample). No redundant shader work found; the probe's
+~1.2 ms is mostly many small draws (vertex, raster, fill). Further cuts
+would change the image (e.g. cheaper distant shadows), not proposed.
+
+dev82: for colour resolves of >= 1M pixels that take the linear path, a
+one-time line per destination "[native] linear resolve: SOURCE WxH at x,y
+-> DEST (dw x dh), array N; sampled this frame at guest sizes: ..." (max 16
+destinations). No behaviour change. Build exit 0, `unzip -t` OK,
+`git diff --check` clean; IPA `ios/build/NFSMW-0.6.0-dev82-linear-resolve-log.ipa`
+on the iCloud Desktop, dev81 moved to Trash.

@@ -433,6 +433,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev82 BUILT: one-time log of why large colour resolves stay linear.**
+dev81 split: colour copies ~0.75 ms (post intermediate 0.42 ms LINEAR, final
+0.33 ms); depth copies 0.44 + 0.34 ms. Fence/plant shader 684f read: one
+diffuse fetch, the shadow 9-tap (already 4 gathers) and a few ALU ops, so
+its ~1.2 ms is mostly drawing ~500 small objects, not removable shader work.
+IPA `ios/build/NFSMW-0.6.0-dev82-linear-resolve-log.ipa` (SHA256 db0e753a0f9c19337488b5ff9b3e28991b12ddf3a6d9b9f7cb47e9097c0ab99a).
+Next: one iPhone race with pass counters (resolve labels optional) to read
+the "[native] linear resolve" lines, then make that copy tiled. Other
+follow-ups queued in BACKLOG "Native GPU follow-ups".
+
 **November 5, dev81 BUILT: dev80 trials removed (negative), resolve-copy labels.**
 Post blur skip slowed the post pass (2.38 -> 2.78 ms); masked sky-last never
 applied. Both removed, original composite library restored.

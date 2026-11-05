@@ -6265,6 +6265,22 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             }
           }
         }
+        if (!dest && may_crop && w * h >= 1000000 && !ev.depth) {
+          // Why a large colour resolve stays linear (slow to write): the
+          // sizes it is sampled at this frame (once per destination).
+          static std::set<uint32_t> said;
+          if (said.size() < 16 && said.insert(ev.dest_base).second) {
+            std::string sizes;
+            for (const auto& tp : frame->textures) {
+              if (tp->address != ev.dest_base) continue;
+              sizes += fmt::format(" {}x{}{}", tp->width, tp->height, tp->cube ? " cube" : "");
+            }
+            REXLOG_INFO("[native] linear resolve: {} {}x{} at {},{} -> {:08x} ({}x{}), array {}; sampled this frame "
+                        "at guest sizes:{}",
+                        own ? own_key : target_key(last), w, h, x0, y0, ev.dest_base, dw, dh, ev.array ? 1 : 0,
+                        sizes.empty() ? " none" : sizes);
+          }
+        }
         if (!dest && may_crop) {
           // Linear, in a buffer, so draws sampling it at a smaller size get a
           // texture over the same memory (see the binding). Depth too: its
