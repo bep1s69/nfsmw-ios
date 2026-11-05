@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 4 (Stefan, all threads): after every new dev IPA build, copy the
+  `.ipa` (no zip) from `ios/build/` to iCloud Drive's Desktop
+  (`~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/`) and move any older
+  dev IPA there to Trash (Desktop only, never from `ios/build/`). The latest
+  stable release IPA always stays on the Desktop.
+
 - November 2 (Stefan, latest): thermal and battery improvements are the main
   acceptance criterion; base performance is already good across devices. Seek
   concrete recurring-work reductions that scale across resolution settings and
