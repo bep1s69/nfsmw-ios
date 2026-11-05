@@ -1390,7 +1390,10 @@ bool timed_draw = false;  // this draw's recording is timed (one in eight; comma
 uint64_t geometry_upload_bytes = 0, geometry_upload_arrays = 0;
 std::atomic<uint64_t> gpu_us{0};  // the GPU's own time per frame
 std::atomic<uint32_t> gpu_slow_frames{0};  // over 45 ms on the GPU, since the last stats line
-uint64_t caster_variant_draws = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
+uint64_t caster_variant_draws = 0;
+// Large linear colour resolves under watch: destination -> (frame first
+// written, writes since). Render queue only.
+std::map<uint32_t, std::pair<uint32_t, uint32_t>> linear_watch;  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};
 // Renderer queue only: list construction work, not Metal declarations avoided.
 uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
@@ -4989,6 +4992,34 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     // Cube and 3D textures go to their own heaps (index 0 a placeholder);
     // their slot in the 2D list holds white so indices stay aligned.
     NSMutableArray<id<MTLTexture>>* cubes = [NSMutableArray array];
+    // The large linear resolves' destinations (logged below): when a later
+    // frame first samples one, or that none did for 1200 frames.
+    if (!linear_watch.empty()) {
+      for (auto it = linear_watch.begin(); it != linear_watch.end();) {
+        const uint32_t dest = it->first;
+        const Texture* hit = nullptr;
+        for (const auto& tp : frame->textures) {
+          if (tp->address == dest) {
+            hit = tp.get();
+            break;
+          }
+        }
+        if (hit || number - it->second.first > 1200) {
+          if (hit) {
+            REXLOG_INFO("[native] linear resolve {:08x}: first sampled {} frames after it was written, at {}x{}{}{} "
+                        "({} written meanwhile)",
+                        dest, number - it->second.first, hit->width, hit->height, hit->cube ? " cube" : "",
+                        hit->persistent ? ", from an earlier frame" : "", it->second.second);
+          } else {
+            REXLOG_INFO("[native] linear resolve {:08x}: not sampled in 1200 frames ({} writes)", dest,
+                        it->second.second);
+          }
+          it = linear_watch.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
     std::vector<uint32_t> cube_index(frame->textures.size(), 0);
     NSMutableArray<id<MTLTexture>>* volumes = [NSMutableArray array];
     std::vector<uint32_t> volume_index(frame->textures.size(), 0);
@@ -6269,7 +6300,9 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           // Why a large colour resolve stays linear (slow to write): the
           // sizes it is sampled at this frame (once per destination).
           static std::set<uint32_t> said;
+          if (auto watched = linear_watch.find(ev.dest_base); watched != linear_watch.end()) ++watched->second.second;
           if (said.size() < 16 && said.insert(ev.dest_base).second) {
+            linear_watch[ev.dest_base] = {number, 1};
             std::string sizes;
             for (const auto& tp : frame->textures) {
               if (tp->address != ev.dest_base) continue;

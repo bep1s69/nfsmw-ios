@@ -21169,3 +21169,19 @@ one-time line per destination "[native] linear resolve: SOURCE WxH at x,y
 destinations). No behaviour change. Build exit 0, `unzip -t` OK,
 `git diff --check` clean; IPA `ios/build/NFSMW-0.6.0-dev82-linear-resolve-log.ipa`
 on the iCloud Desktop, dev81 moved to Trash.
+
+### November 6: dev82 result; dev83 watches whether the linear copies are ever read
+
+Log `Debug/6 November 2026/dev82_iphone_native60_linear_resolve_nfsmw.log`
+(SHA256 0a14e5d3…). Two large linear colour resolves, both from the post
+target d47c: 1560x720 -> 08dbb000 (1568x720, 1x, menus) and 2859x1320 ->
+09222000 (2874x1320). Both "sampled this frame at guest sizes: none": no
+fetch constant in the writing frame points at them, so the tiled path (which
+needs this frame's sample size) cannot apply. Either a later frame reads
+them, or nothing does (then the copy is wasted, ~0.42 ms).
+dev83: each logged destination is watched; the first later frame whose
+textures name it logs "first sampled N frames after it was written, at WxH
+(... from an earlier frame)", or "not sampled in 1200 frames (K writes)".
+No behaviour change. Build exit 0, `unzip -t` OK. IPA
+`ios/build/NFSMW-0.6.0-dev83-linear-resolve-watch.ipa` (SHA256 a5ce00c638396cfec0c1d50bba4efa6331891359891f5817508cfb205ad6bc91), on the
+iCloud Desktop; dev82 moved to Trash.
