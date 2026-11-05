@@ -20,9 +20,10 @@ int main() {
     const bool eco=to==0,max=to==2,tablet=to==1&&cores>=6;  // tablet profile back in dev62
     unsigned expected = unsigned(eco||(tablet&&cap<=60)) | (unsigned(!max)<<1) |
         (unsigned(!max&&!eco&&(!tablet||cap>60))<<2) | (unsigned(tablet)<<3) | (unsigned(!max)<<4) |
-        (unsigned(tablet&&cap<=40)<<5);  // dev65: tablet Balanced at 30/40 uses Background
+        (unsigned(!max&&cores>=6&&cap<=40)<<5) |  // dev73: Balanced and Eco at 30/40 on 6+ E cores
+        (unsigned(eco&&cores>=6&&cap<=40)<<6);  // dev73: Eco also lowers normal-priority workers
     assert(b == expected);
-    for (unsigned mask=0;mask<64;++mask) for (unsigned values=0;values<64;++values) {
+    for (unsigned mask=0;mask<128;++mask) for (unsigned values=0;values<128;++values) {
       unsigned result=nfsmw::performance::WithOverrides(b,mask,values);
       assert((result&mask)==(values&mask));
       assert((result&~mask)==(b&~mask));

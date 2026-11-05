@@ -20694,3 +20694,19 @@ test_guest_culling, test_resource_list_cache, test_compact_shared_constants,
 test_texture_masks PASS; build-0.6 exit0; `unzip -t` OK; codesign exit0;
 `git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev72-render-queue-trims.ipa` (Desktop; dev71 to Trash from
 the Desktop), 30615763 bytes, SHA256 3d5cb85bd882f6a230d7f3fb5ca63d2af4271d9a6cb8528488ad1e9d41f8179f.
+
+## November 5: dev73 Balanced smooth, Eco aggressive at the 30/40 caps
+
+Stefan: yes; Balanced should stay balanced (16 %/h at 40 is already low), Eco
+takes the aggressive rule; the profiles need a wording/function overhaul later
+(maybe after more savings even Eco becomes smooth). `performance_profile.h`:
+Policy `low_workers` (bit 6). On 6+ efficiency-core devices at caps 1–40:
+Balanced and Eco both set `background` (frame threads + render queue at
+Background); Eco also sets `low_workers` (normal-priority guest workers at
+Background, raised-priority and host threads Utility). Max unchanged; 60+ caps
+unchanged. `ios_background_qos_low_workers` is now the seventh live policy
+cvar (default false; explicit Extra Arg overrides). Live-profile log reports
+`low-workers`. test_performance_profiles PASS (1572864 round trips +
+bridge/patch); build-0.6 exit0; `unzip -t` OK; codesign exit0; `git diff
+--check` exit0. IPA `ios/build/NFSMW-0.6.0-dev73-balanced-smooth-eco-low.ipa` (Desktop; dev72 to Trash from the
+Desktop), 30615997 bytes, SHA256 2d06de6598216f0d1da84966bba5335ff91936a23dcbcf0dc0c1676fa23b506b. Includes dev72's trims (not yet measured).

@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev73:** iPad 30/40 caps: Balanced = frame threads + render queue
+at Background (16.3 %/h, smooth); Eco also lowers normal-priority workers
+(12.5 %/h, isolated late frames). Profile wording/function overhaul wanted
+later (Stefan). dev72/73 render-queue trims await a power run. Next: power runs
+60/40, then a fresh Time Profiler for the next tier.
+
 **November 5, dev71 (defaults):** iPad Balanced 60 fps 24.4 %/h (E cores,
 smooth); 30/40 caps: frame threads, render queue and normal-priority guest
 workers at Background, raised-priority (audio) workers at Utility: 12.5 %/h at

@@ -87,7 +87,7 @@ REXCVAR_DEFINE_BOOL(ios_background_qos, false, "Kernel",
                     "Battery trial (Nov 4): the threads Balanced/Eco put at Utility run at "
                     "Background QoS instead (lower efficiency-core clocks, like Low Power Mode "
                     "showed; restart required)");
-REXCVAR_DEFINE_BOOL(ios_background_qos_low_workers, true, "Kernel",  // default since dev71 (Stefan, Nov 5)
+REXCVAR_DEFINE_BOOL(ios_background_qos_low_workers, false, "Kernel",  // live policy flag since dev73 (Eco at 30/40)
                     "Battery trial (Nov 5): when the frame threads are at Background, guest "
                     "workers at normal or lower guest priority go too; raised-priority guest "
                     "threads (audio is expected there) and host threads keep Utility");
@@ -130,11 +130,11 @@ const Boost& Settings() {
   return boost;
 }
 
-enum : unsigned { MainUtility=1, GuestUtility=2, Adaptive=4, Original=8, RenderUtility=16, Background=32 };
+enum : unsigned { MainUtility=1, GuestUtility=2, Adaptive=4, Original=8, RenderUtility=16, Background=32, LowWorkers=64 };
 const char* policy_names[] = {"ios_utility_qos", "ios_utility_qos_guest", "ios_adaptive_qos",
                             "nfsmw_adaptive_qos_original", "nfsmw_native_render_utility",
-                            "ios_background_qos"};
-constexpr unsigned kPolicyCount = 6;
+                            "ios_background_qos", "ios_background_qos_low_workers"};
+constexpr unsigned kPolicyCount = 7;
 std::atomic<unsigned> policy_flags{0}, profile_epoch{0};
 std::atomic<int> selected_profile{1}, policy_cap{60};
 unsigned explicit_mask = 0, override_values = 0;
@@ -156,10 +156,10 @@ void PublishProfile(int cap) {
   policy_cap.store(cap, std::memory_order_relaxed);
   policy_flags.store(flags, std::memory_order_release);
   const unsigned epoch = profile_epoch.fetch_add(1, std::memory_order_acq_rel)+1;
-  REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} background {} overrides {:02X}",
+  REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} background {} low-workers {} overrides {:02X}",
       selected == 0 ? "eco" : selected == 2 ? "max" : "balanced", epoch, cap,
       bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
-      bool(flags&RenderUtility), bool(flags&Background), explicit_mask);
+      bool(flags&RenderUtility), bool(flags&Background), bool(flags&LowWorkers), explicit_mask);
 }
 // ios_background_qos: the low class used instead of Utility (read once).
 bool Flag(unsigned flag);
@@ -416,8 +416,7 @@ void AdoptGuestQos(int role) {
   else {
     qos = Flag(GuestUtility) ? LowQos(LowRole::Worker) : QOS_CLASS_DEFAULT;
     // Trial: low-priority guest workers follow the frame threads to Background.
-    static const bool low_workers = REXCVAR_GET(ios_background_qos_low_workers);
-    if (low_workers && qos == QOS_CLASS_UTILITY && Flag(Background)) {
+    if (Flag(LowWorkers) && qos == QOS_CLASS_UTILITY && Flag(Background)) {
       thread_local int32_t said_priority = INT32_MIN;
       auto* xt = rex::system::XThread::GetCurrentThread();
       const bool guest = xt && xt->is_guest_thread();

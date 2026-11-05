@@ -6,7 +6,7 @@
 namespace nfsmw::performance {
 // Pure policy shared by startup argument expansion and live selection.
 struct Policy {
-  bool main_utility, guest_utility, adaptive, original, render_utility, background;
+  bool main_utility, guest_utility, adaptive, original, render_utility, background, low_workers;
 };
 inline Policy Resolve(int mode, int efficiency_cores, int cap) {
   const bool eco = mode == 0, max = mode == 2;
@@ -20,13 +20,19 @@ inline Policy Resolve(int mode, int efficiency_cores, int cap) {
   // Tablet Balanced at the 30/40 caps: the Utility threads at Background QoS
   // (lower efficiency-core clocks; Nov 4 dev64: 12.6 %/h at a smooth 40, vs
   // 15.6 %/h with drops at 60), dev65.
+  // dev73 (Stefan, Nov 5): Balanced = smooth, Eco = aggressive. At the 30/40
+  // caps on 6+ efficiency-core devices both put the frame threads and render
+  // queue at Background (Balanced 16.3 %/h, smooth); Eco also lowers the
+  // normal-priority guest workers (12.5 %/h, a few isolated late frames).
+  const bool ecores = efficiency_cores >= 6, low_cap = cap > 0 && cap <= 40;
   return {eco || (tablet && cap <= 60), !max,
-          !eco && !max && (!tablet || cap > 60), tablet, !max, tablet && cap > 0 && cap <= 40};
+          !eco && !max && (!tablet || cap > 60), tablet, !max, !max && ecores && low_cap,
+          eco && ecores && low_cap};
 }
 inline unsigned Encode(const Policy& p) {
   return unsigned(p.main_utility) | (unsigned(p.guest_utility)<<1) |
          (unsigned(p.adaptive)<<2) | (unsigned(p.original)<<3) | (unsigned(p.render_utility)<<4) |
-         (unsigned(p.background)<<5);
+         (unsigned(p.background)<<5) | (unsigned(p.low_workers)<<6);
 }
 inline unsigned WithOverrides(unsigned defaults, unsigned mask, unsigned values) {
   return (defaults & ~mask) | (values & mask);
