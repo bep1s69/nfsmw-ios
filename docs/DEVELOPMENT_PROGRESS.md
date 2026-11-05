@@ -433,7 +433,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
-**November 5, iPhone thread started:** sizing session A60/E60/A40/E40 on dev74 via Extra Args (TECHNICAL, "iPhone Balanced on efficiency cores"); awaiting Stefan's traces.
+**November 5, iPhone sizing:** E60 (frame threads on E cores at 60) saves ~7 % (21.4 vs 23.0 %/h) but microstutters (~100 off-grid frames vs ~3): no 60 fps change for phones. The E40 run lacked `--ios_utility_qos=true` (stayed boosted), so the 40 cap is untested; next: one proper A40/E40 pair (TECHNICAL, "iPhone Balanced on efficiency cores").
 
 **November 5, iPad battery thread closed (dev74, 616f66f):** CPU micro-cuts at
 their floor (24.4–24.9 %/h at 60). Next, per Stefan: iPhone battery in a new

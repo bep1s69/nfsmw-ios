@@ -20762,3 +20762,29 @@ with `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true` held 60
 Extra Args only, alternated, ~75 s driving each): A60 default Balanced 60; E60
 + those two args; A40 default 40 cap; E40 + those two args +
 `--ios_background_qos=true`. No source change until the results are in.
+
+iPhone sizing results (Stefan, Nov 5; iPhone 17 Pro Max, iOS 27.2, dev74,
+LiveContainer; trace `Debug/5 November 2026/dev74_iphone_power_profiles.trace`,
+log `dev74_iphone_power_nfsmw.log` (all four launches); scale 1.0, brightness
+27 %, Nominal thermal throughout). Method: SystemPowerLevel and
+ProcessSubsystemPowerImpact (LiveContainer rows), duration-weighted, first 10 s
+dropped; QoS seconds from ProcessQOSExecution; off-grid/hitch counts from the
+log during driving only. Run names are Stefan's; run 3 is labelled "A60" but
+the log shows cap 40 with default args, so it is A40.
+| run | drain %/h | CPU | GPU | display | instr G/s | QoS on core (s) | driving off-grid |
+|---|---:|---:|---:|---:|---:|---|---:|
+| 1 A60 | 23.0 | 4.64 | 1.51 | 0.68 | 3.04 | UI 83.6, Utility 0 | ~3 |
+| 2 E60 | 21.4 | 2.93 | 1.37 | 0.67 | 2.90 | Utility 122.7, UI 0.2 | ~100 |
+| 3 A40 (labelled A60) | 17.9 | 3.53 | 1.14 | 0.68 | 2.24 | UI 59.7 | 1 |
+| 4 E40 | 17.6 | 3.40 | 1.18 | 0.69 | 2.22 | UI 56.0, Utility/Background 0 | 1 |
+Stefan: E60 some microstutters, possibly a few very small audio hitches; E40
+perfect. Log: E60 audio 0 coreaudio gaps while driving (the hitches he heard
+are not visible as ring gaps). Measured: E60 runs the frame threads on Utility
+(E cores) and saves ~7 % (one run each) with ~100 off-grid frames in ~75 s of
+driving vs ~3 boosted: the 4 E cores do not hold 60 cleanly on the phone, so
+the iPad's 60 fps rule does not carry over. E40 was not actually on the E
+cores: its launch logs `main/GPU threads off ... (Extra Args)` and
+"driving: boosted until driving stops", i.e. `--ios_utility_qos=true` (and
+probably `--nfsmw_adaptive_qos_original=true`) was missing, so run 4 = A40
+(17.6 vs 17.9, same QoS split). The 40 cap question is still open. Next: one
+proper E40 vs A40 pair.
