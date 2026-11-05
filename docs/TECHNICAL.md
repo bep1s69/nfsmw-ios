@@ -21205,3 +21205,21 @@ first frame would read guest memory instead: one-frame risk), and the skip
 count in the early-commit summary line. Build exit 0, `unzip -t` OK. IPA
 `ios/build/NFSMW-0.6.0-dev84-skip-unread-resolves.ipa` (SHA256 a472b44271ea82f32e15ed5f427417329fbf8ddc70fbf9202140061e2c96f85e), on the
 iCloud Desktop; dev83 moved to Trash.
+
+### November 6: unidentified main-scene shader d1a189fd recovered: lit surface, no redundant work
+
+Recovered with a copy of the structural-audit recover.py (wanted d1a189fd,
+f91b85ab) into ignored `ios/build/perf-gpu-nov6-unknown/` from the local
+ISO (205 valid candidates, 4 matches incl. duplicate f91b85ab; exit 0).
+ps d1a189fdbb29cf1a: opaque (alpha 1.0), normal map + specular map +
+diffuse (3 fetches), per-pixel normalize x3, specular pow (log2/exp2 with
+SpecularPower), shadow 9-tap (already tfetch2DShadow9), then diffuse/
+specular combination. Inference: a large normal-mapped surface (road or
+facades). No duplicated fetch or dead arithmetic found; its ~0.8 ms is
+ordinary per-pixel lighting over a large area. Not proposed for a change.
+Remaining image-identical candidates are the shadow/scene depth copies
+(~0.44 + 0.34 ms, need shader changes to sample depth directly) and the
+final copy to 09689000, which is the same address the main scene resolves
+to and the post pass samples, so skip-unread cannot apply; frame summaries
+also report one "resolve from earlier frames" per frame (unverified whether
+it is this one).
