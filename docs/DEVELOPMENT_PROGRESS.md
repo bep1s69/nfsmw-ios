@@ -437,6 +437,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev88 confirmed on the iPhone:** the displayed frame is shown
+from the post target on every frame (300/300), picture normal (Stefan), the
+0.42 ms copy gone. Soak continues with the same two lines. Stefan wants to
+pursue a native Direct3D-to-Metal layer (replacing the game's statically
+linked D3D functions instead of decoding PM4): separate project/plan.
+
 **November 6, dev88 BUILT: half taps removed (no gain); the displayed frame shown from its target.**
 The skip-unread soak never skipped anything: the unread copy is the displayed
 one. dev88 (same soak flag) presents it straight from the post target.

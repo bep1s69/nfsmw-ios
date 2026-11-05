@@ -21334,3 +21334,14 @@ draw and within the target, the present reads the target's own colour image
 "unread resolves skipped N (M shown from the target)". Build exit 0,
 `unzip -t` OK. IPA `ios/build/NFSMW-0.6.0-dev88-present-from-target.ipa`
 (SHA256 4bfba4d86ebbfde13efc1966e7f5a1ac7b5a43e05e41459e92545a89d4cb2518), on the iCloud Desktop; dev87 moved to Trash.
+
+### November 6: dev88 present-from-target ON, iPhone: works, copy gone
+
+Stefan: everything looks good. Log
+`Debug/6 November 2026/dev88_iphone_native60_present_from_target_nfsmw.log`
+(SHA256 ad798834…), his trial + soak Extra Args (skip_unread_resolves,
+resolve_labels). "unread resolves skipped 300 (300 shown from the target)"
+in every full window; first-skip lines for 09222000 (2859x1320) and
+08dbb000 (1560x720, menus); no "sampled now" lines; the "-> 09222000" copy
+is absent from the pass profiles (dev81: 0.42 ms). Short drive (3 profiles
+over 12 ms), so no frame-time comparison. Soak continues with the same flag.
