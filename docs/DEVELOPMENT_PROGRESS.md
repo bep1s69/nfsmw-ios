@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, iPad battery thread closed (dev74, 616f66f):** CPU micro-cuts at
+their floor (24.4–24.9 %/h at 60). Next, per Stefan: iPhone battery in a new
+thread; GPU work at native deferred to a later thread (first step: Metal
+System Trace at native, Balanced 60, T block, 10–15 s driving).
+
 **November 5, dev73:** iPad 30/40 caps: Balanced = frame threads + render queue
 at Background (16.3 %/h, smooth); Eco also lowers normal-priority workers
 (12.5 %/h, isolated late frames). Profile wording/function overhaul wanted
