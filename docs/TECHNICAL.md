@@ -20813,3 +20813,26 @@ original (`adaptive_qos.cpp` 290–335) starts the frame threads on the low clas
 an existing safety net. Proposal (awaiting Stefan): Balanced at the 30 cap on
 every device = frame threads + render queue at Background with that net
 (Resolve: adaptive, original, background at cap 30); 40/60 unchanged.
+
+iPhone A30 and MetalFX runs (Stefan, Nov 5; same device/build, all default
+Balanced, scale 1.0; trace `Debug/5 November 2026/dev74_iphone_power_profiles3.trace`
+runs ~75–79 s; log `dev74_iphone_power3_metalfx_nfsmw.log`; same method; Nominal).
+Log: MetalFX temporal 1560x720 to 2868x1320 ("To the screen") or 2151x990
+("Lighter", 0.75 of the screen, present pass stretches the rest).
+| run | drain %/h | CPU | GPU | display | instr G/s |
+|---|---:|---:|---:|---:|---:|
+| A30 MetalFX off | 14.0 | 2.27 | 0.71 | 0.51 | 1.73 |
+| A60 MetalFX screen | 43.4 | 5.55 | 5.67 | 0.67 | 3.08 |
+| A40 MetalFX screen | 34.2 | 5.22 | 3.39 | 0.67 | 2.24 |
+| A60 MetalFX lighter | 37.4 | 5.42 | 4.24 | 0.68 | 3.18 |
+| A40 MetalFX lighter | 24.6 | 3.69 | 2.55 | 0.69 | 2.31 |
+Against the earlier MetalFX-off runs (A60 23.0, A40 17.4; different session):
+"To the screen" ~+89 % at 60 and ~+97 % at 40, "Lighter" ~+63 % / ~+41 %.
+E30 10.8 vs A30 14.0: −23 % (cross-session, inference). Reading: GPU impact
+rises ~3–4x and CPU ~+20 %; the cost follows the output size (3.8 Mpx screen,
+2.1 Mpx lighter) more than the 1.1 Mpx input, so a lower base scale would cut
+the scene (already cheap at 1x, GPU 1.5) but not the upscaler (inference, not
+measured). The HUD is drawn by the game into the same target before the
+upscale, so it is upscaled with the scene (fuzzy); BACKLOG "Sharp HUD with
+upscaling". Possible cheaper mode: MetalFX spatial (no motion/depth, cheaper
+per output pixel); not implemented or measured.
