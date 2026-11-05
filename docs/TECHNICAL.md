@@ -21396,3 +21396,44 @@ Not proven: any battery effect. dev56-dev60 removed ~3,000 polling wakes/s on
 E-core/utility threads with no measurable iPad drain change; dev55's −17 %
 came from P-core frame threads. These threads' QoS on the iPhone run not
 checked here.
+
+### November 6: dev89 wake-up cuts (fixes 1-3 + timer census)
+
+Stefan approved fixes 1-3 and the timer census from the entry above, and
+noted the wider goal of moving away from the Xbox 360 roots (an XMA
+replacement with native audio is not planned anywhere yet; separate project).
+New SDK patch `tools/ios/patch_ios_wake_cuts.py` (13 blocks; prepare_sdk.py
+after patch_ios_multi_wait; applied to `~/Developer/GitHub/nfsmw-multiplayer-sdk`;
+revert/apply round trip OK, status 13/13, multi_wait still 10/10):
+- `ios_alertable_wait` (true): AlertableSleep reads the thread's
+  `ios_apc_word`, checks queued callbacks, then os_sync-waits the whole
+  remaining time on the word; QueueUserCallback bumps and wakes it after
+  queueing (EnqueueApc goes through QueueUserCallback). No current thread
+  condition or false = the 1 ms slices.
+- `ios_xma_kick_wake` (false): WriteRegister's kick no longer sets
+  `work_event_` after its inline Work() calls; true = old wake. Logs
+  `[xma] worker wake after inline kick decode: on|off` once.
+- `ios_multi_wait_own` (true, only with `ios_multi_wait=true`): each
+  multi-wait takes a word from a never-freed pool of 256 (per thread) and
+  CASes it into one of 4 slots on each object; IosMultiNotify bumps/wakes the
+  slot words (still under the object's mutex); an object with no free slot
+  gives that wait a 1 ms cap. `[multi-wait] 10 s: N waits, S sleeps, O
+  overflowed (own words)`. false = dev60 global sequence.
+- `ios_timer_census` (false): `[timer-census] 10 s: N SetTimer calls (R/s) |
+  due D (ms) period P ms xK ...`, logging only.
+Checks: build-0.6 `--target ipa -j 12` exit 0 (7.2 s, no errors), the four
+cvar names present in Frameworks/librexruntime.dylib, `unzip -t` OK,
+codesign --verify --deep --strict exit 0, `git diff --check` exit 0. No host
+model this time (not run). IPA `ios/build/NFSMW-0.6.0-dev89-wake-cuts.ipa`,
+30648239 bytes, SHA256
+1b8a2de44844d685c95eb26b87b938c728e4e4ccb9e3f65a91e0a738121272d5; on the
+iCloud Desktop, dev88 moved to Trash from the Desktop only.
+Risks: a callback-queue path that does not go through QueueUserCallback
+would now be picked up only at the end of the sleep (none known); a kick
+whose context could not run inline waits for the next kick or other Set
+(Work() blocks on the context lock, so inline always runs); audio by ear
+(issue #15 Golf engine sound).
+Test: iPhone, dev88 setup (1x, cap 60) with `--ios_timer_census=true` and
+`--ios_multi_wait=true` as in the dev88 trace; one System Trace for wake
+counts, listen for audio cuts; A/B by setting `--ios_alertable_wait=false
+--ios_xma_kick_wake=true --ios_multi_wait_own=false`.

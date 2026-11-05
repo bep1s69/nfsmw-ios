@@ -437,6 +437,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev89 BUILT: wake-up cuts (Stefan approved fixes 1-3 + census).**
+`tools/ios/patch_ios_wake_cuts.py` (SDK, after patch_ios_multi_wait): alertable
+sleeps wait the whole time (`ios_alertable_wait`, true), no XMA worker wake
+after an inline kick decode (`ios_xma_kick_wake`, false = skip), multi-waits
+on their own word (`ios_multi_wait_own`, true; only matters with
+`--ios_multi_wait=true`), census `ios_timer_census` (false). IPA
+`ios/build/NFSMW-0.6.0-dev89-wake-cuts.ipa` (SHA256 1b8a2de44844d685c95eb26b87b938c728e4e4ccb9e3f65a91e0a738121272d5).
+Next: Stefan's iPhone run (listen for audio, issue #15) and a System Trace or
+Power Profiler A/B. Stefan also wants to move further from the 360 roots:
+replacing XMA with native audio is a separate, unscoped project.
+
 **November 6, wake-up sources outside D3D analysed (dev88 iPhone trace); proposal awaiting Stefan.**
 On dev-0.5 (not native-d3d). Causes found: (1) `rex::thread::AlertableSleep`
 polls for APCs in 1 ms slices, so the game's 5 ms and 10 ms alertable sleeps
