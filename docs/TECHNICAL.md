@@ -20748,3 +20748,17 @@ Conclusion: CPU micro-cuts in our code have reached their floor at Balanced
 Proposed next (Stefan's choice): GPU work at native/high resolutions (GPU impact
 9.3 at native) starting with a Metal System Trace; iPhone in its own thread;
 Metal indirect command buffers as a larger project.
+
+## November 5: iPhone Balanced on efficiency cores — sizing plan
+
+New thread (iPhone battery). Code reading: `performance_profile.h` Resolve
+gives the E-core Balanced profile only with 6+ efficiency cores; the iPhone 17
+Pro Max reports 4 (Oct 24 log), so phones keep the driving boost at every cap.
+Earlier phone failures on Utility (Oct 21 iPhone 17 Pro 45–55 fps; Oct 22 IPA45
+adaptive settles boosted; Oct 29 tester flat 40) all predate the dev55 exact-wake
+hand-off that made the iPad smooth on E cores. Stefan's short dev74 iPhone test
+with `--ios_utility_qos=true --nfsmw_adaptive_qos_original=true` held 60
+(user report, no log or power data recorded). Proposed sizing session (dev74,
+Extra Args only, alternated, ~75 s driving each): A60 default Balanced 60; E60
++ those two args; A40 default 40 cap; E40 + those two args +
+`--ios_background_qos=true`. No source change until the results are in.

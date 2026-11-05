@@ -427,6 +427,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, iPhone thread started:** sizing session A60/E60/A40/E40 on dev74 via Extra Args (TECHNICAL, "iPhone Balanced on efficiency cores"); awaiting Stefan's traces.
+
 **November 5, iPad battery thread closed (dev74, 616f66f):** CPU micro-cuts at
 their floor (24.4–24.9 %/h at 60). Next, per Stefan: iPhone battery in a new
 thread; GPU work at native deferred to a later thread (first step: Metal
