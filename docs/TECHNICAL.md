@@ -20788,3 +20788,28 @@ cores: its launch logs `main/GPU threads off ... (Extra Args)` and
 probably `--nfsmw_adaptive_qos_original=true`) was missing, so run 4 = A40
 (17.6 vs 17.9, same QoS split). The 40 cap question is still open. Next: one
 proper E40 vs A40 pair.
+
+iPhone 30/40 pair (Stefan, Nov 5; same device/build; trace
+`Debug/5 November 2026/dev74_iphone_power_profiles2.trace` runs A40 86.9 s,
+E40 78.5 s, E30 82.1 s; log `dev74_iphone_power2_nfsmw.log`; E args
+`--ios_utility_qos=true --nfsmw_adaptive_qos_original=true --ios_background_qos=true`,
+confirmed by `main/GPU threads on ... (Extra Args)` and QoS on core; same method):
+| run | drain %/h | CPU | GPU | display | QoS on core (s) | driving off-grid | encode >30 ms |
+|---|---:|---:|---:|---:|---|---:|---:|
+| A40 default | 17.4 | 3.40 | 0.98 | 0.68 | UI 70.4 | 0 | 6 |
+| E40 | 12.9 | 1.46 | 0.99 | 0.68 | Background 80.2, Utility 36.0 | 99 | 64 (30–80 ms) |
+| E30 | 10.8 | 1.02 | 0.78 | 0.50 | Background 62.6, Utility 32.7 | 3 | 278 (256 at 30–35 ms) |
+Stefan: E40 inconsistent fps; E30 seemed fine. Measured: E40 −26 % but misses
+the 25 ms budget (~1.2 off-grid frames/s), not usable on the phone. E30 holds
+30 (3 off-grid frames, 0 audio gaps while driving) but the Background render
+queue's encode sits at 30–35 ms against a 33.3 ms budget: little headroom
+(inference: a slower or hotter device may miss). No A30 baseline yet, so E30's
+saving is not measured (display impact 0.50 vs 0.68 is the 60 Hz panel at the
+30 cap vs 80 Hz at 40). Stefan's concern: defaults reach older iPhones/iPads
+nobody has tested; he will test an iPhone 14 Pro Max. Code reading: adaptive +
+original (`adaptive_qos.cpp` 290–335) starts the frame threads on the low class
+(Background with the flag) and boosts to User Initiated only on late swaps
+(2 of 120 over 1.2x the budget), ignoring encode time and the driving rule:
+an existing safety net. Proposal (awaiting Stefan): Balanced at the 30 cap on
+every device = frame threads + render queue at Background with that net
+(Resolve: adaptive, original, background at cap 30); 40/60 unchanged.

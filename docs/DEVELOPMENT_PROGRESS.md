@@ -433,7 +433,7 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
-**November 5, iPhone sizing:** E60 (frame threads on E cores at 60) saves ~7 % (21.4 vs 23.0 %/h) but microstutters (~100 off-grid frames vs ~3): no 60 fps change for phones. The E40 run lacked `--ios_utility_qos=true` (stayed boosted), so the 40 cap is untested; next: one proper A40/E40 pair (TECHNICAL, "iPhone Balanced on efficiency cores").
+**November 5, iPhone sizing:** E60 (~7 % less, stutters) and E40 (−26 %, inconsistent fps) not usable on the phone; E30 smooth at 10.8 %/h (no A30 baseline). Proposal awaiting Stefan: Balanced 30 cap on every device at Background with the late-swap boost as safety net (TECHNICAL, "iPhone Balanced on efficiency cores").
 
 **November 5, iPad battery thread closed (dev74, 616f66f):** CPU micro-cuts at
 their floor (24.4–24.9 %/h at 60). Next, per Stefan: iPhone battery in a new
