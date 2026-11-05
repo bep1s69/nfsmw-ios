@@ -433,6 +433,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev77 BUILT (Stefan approved): sparse touch overlay default ON.**
+`nfsmw_native_sparse_touch_overlay=true`; `=false` restores the full-screen
+draw. IPA `ios/build/NFSMW-0.6.0-dev77-sparse-touch-default.ipa` (Desktop;
+dev76 trashed from Desktop). Stefan tests on the iPhone for now; iPad
+comparison after all GPU changes. Next: B2 assessment (final-resolve copy,
+~0.2 ms) vs larger targets. TECHNICAL "dev77".
+
 **November 5, dev76 sparse touch overlay ON, iPhone: present 1.17 -> 0.44 ms,
 controls identical (Stefan).** ~13.5 % of the screen still blended. Proposal
 to Stefan: default ON (iPad check in the same build), then B2. TECHNICAL

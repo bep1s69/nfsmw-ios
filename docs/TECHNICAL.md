@@ -20957,3 +20957,12 @@ log (23 profiles), i.e. ~0.73 ms (~4.7 % of the GPU frame) less; frame 15.47
 vs 15.77 ms (different run length/route coverage, so the frame totals are
 not a controlled comparison). Other passes within run-to-run spread. No
 energy measurement. iPad not run with the flag yet.
+
+### November 5: dev77 sparse touch overlay on by default
+
+Stefan approved making it the default. Only change: cvar default true.
+Build exit 0 (incremental), `unzip -t` OK. IPA
+`ios/build/NFSMW-0.6.0-dev77-sparse-touch-default.ipa`, 30609130 bytes,
+SHA256 1a48cb54d5993487cc60abe9d5cbee7dd7b3c32c665e05fc56ffddcbe91a16d2;
+on the iCloud Desktop, dev76 moved to Trash from the Desktop. CHANGELOG line
+added. Not yet run.

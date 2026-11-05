@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Lighter touch controls on the GPU.** The on-screen controls are now drawn
+  only where they are, not over the whole screen every frame: about 0.7 ms
+  less GPU work a frame on an iPhone 17 Pro Max at native resolution (dev77).
+
 - **Longer battery at 30 fps.** Balanced at the 30 fps cap now runs the game
   on the efficiency cores on every device, and moves back to the fast cores
   by itself if frames start arriving late (about 23 % less drain on an iPhone

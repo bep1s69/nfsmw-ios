@@ -346,7 +346,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, true, "GPU",
                     "Native renderer: the touch controls blended only over the screen tiles that hold "
                     "them, not the whole screen every frame (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
