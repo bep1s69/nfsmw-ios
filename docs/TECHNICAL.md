@@ -20925,3 +20925,18 @@ path. Not host-tested; build `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6
 e277eaf619b32f79a27344667719ca917fd7c7e1f5a552c4dd1fa09c4661c463; on the
 iCloud Desktop, dev75 moved to Trash from the Desktop. Not yet run.
 Next: enabled run with pass counters; compare "present: main display".
+
+dev75 iPhone 14 Pro Max (Stefan, Nov 5; logs `Debug/5 November 2026/dev75_iphone14pm_a_nfsmw.log`
+(older sessions first; dev75 session from line 23590, 20:57:59) and
+`dev75_iphone14pm_b_nfsmw.log` (its continuation, to 21:01:55); 4 E cores;
+Balanced, default args; no power trace). Timeline: start at cap 30 (policy
+original+background): boosts at 20:58:02 (2 late of 120 after 1 s, 40 s hold;
+loading/menus; the ~110 off-grid frames at 20:58:2x–3x fall inside that boost),
+back to Background 20:58:42, boost again 20:58:53 (12 s on Background, 40 s)
+at the world-load fade. 20:59:17 live switch to 60 (old phone rules: driving
+boost); thermal fair then **serious** at 21:00:27 while driving at 60 (GPU
+hitches 46–89 ms). 21:01:20 back to 30: 18 s on Background, then boosted
+(2 late of 120, 20 s hold); log ends 21:01:55. Measured: the safety net works
+on the 14 Pro Max (falls back within 12–18 s, no stuck low class). Not
+measured: a cool-phone drive at 30 long enough to judge Background driving
+smoothness or savings (the second 30 stretch followed thermal serious).
