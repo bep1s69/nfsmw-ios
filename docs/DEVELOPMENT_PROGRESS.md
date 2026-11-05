@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 6 (Stefan): skip-unread resolves stays an Extra Args soak trial
+  (`--nfsmw_native_skip_unread_resolves=true --nfsmw_native_resolve_labels=true`)
+  until made default; remind him of these lines if he forgets.
+
 - November 4 (Stefan, all threads): after every new dev IPA build, copy the
   `.ipa` (no zip) from `ios/build/` to iCloud Drive's Desktop
   (`~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/`) and move any older
@@ -432,6 +436,13 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 6, skip-unread resolves: long soak by Stefan (decision).** Not
+testable in one session (race replays do not exist in this game). Stefan
+keeps `--nfsmw_native_skip_unread_resolves=true --nfsmw_native_resolve_labels=true`
+in Extra Args for normal play until it can become the default; remind him if
+he forgets. In his logs look for "[native] unread resolve ... sampled now".
+Next: unidentified main-scene shader d1a189fd (read-only source recovery).
 
 **November 6, dev84 BUILT: skip large resolves nothing reads (default off).**
 dev83: the post copies to 09222000 (0.42 ms) and 08dbb000 are never sampled
