@@ -20615,3 +20615,26 @@ fingerprinting buffer contents. Inference: that removes part of Record's self
 time (~44 % of GPU Commands), not Fingerprint (13 %) or constants; the guest
 render thread and main loop (game code) are unchanged, so 60 fps at
 Background clocks remains doubtful. Awaiting Stefan's decision.
+
+## November 5: render-queue line map (dev66 profile) and dev69
+
+Stefan agreed to skip the draw template cache (ceiling: lookup glue, ~10 % of
+GPU Commands, under ~0.5 %/h; buffer fingerprints, textures and constants
+must be redone each frame) and work on the render queue instead. Line map:
+dev66 native_renderer.mm (git 84f39e4) recompiled alone with the build's
+command into a scratchpad .o (RenderFrame/Record at the same offsets as the
+dev66 binary), atos -i on the 700 hottest RenderFrame-self PCs (97 %):
+5006 upload-size pre-pass over every draw's attributes (fused_upload_sizing)
+19.2 %, unattributed inlined 12 %, 7337/7338 per-draw vertex buffer binding
+via GpuBufferFor + VertexBuffer ~12 %, 6787 pipeline_cache.Get 5.6 %,
+7028/7032 texture slot resolution 8 %, 7349 index buffer lookup 1.8 %.
+Render queue overall: RenderFrame self 19 %, AGX driver ~25 %, objc
+retain/release/msgSend ~10 %, Frame teardown 4.8 %, Draw::~Draw 4.3 %.
+dev69: Draw's shader functions (vs, ps) are __unsafe_unretained (the shader
+store and the by-key maps keep every function for the run; nothing clears
+them), removing two retain/release pairs per draw and per move.
+`tools/native/test_draw_arena.py` updated for that contract (the test keeps the
+function alive itself; asserts released after) PASS; test_color_handoff,
+test_guest_culling PASS; build-0.6 exit0; `unzip -t` OK; codesign exit0;
+`git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev69-unretained-shaders.ipa` (Desktop; dev68 to Trash
+from the Desktop), 30615542 bytes, SHA256 85d4917876d8431e904c57ea9f72e87e1b4220efe1f2d0b9049357a9258563df.

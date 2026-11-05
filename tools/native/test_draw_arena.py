@@ -133,9 +133,10 @@ static Results FrameChecks(bool pooled, size_t previous_bytes, size_t previous_d
   {
     auto frame=std::make_unique<Frame>(pooled, previous_bytes, previous_draws);
     if(pooled) assert(frame->draws.capacity()>=std::min(previous_draws,nfsmw::DrawArena::kMaxDrawHint));
-    NSObject* function=[NSObject new]; weak_function=function;
-    for(size_t i=0;i<3500;++i) AddDraw(*frame,cache,i,(id<MTLFunction>)function);
-    function=nil;
+    // Since dev69 a Draw does not retain its shader functions (the shader
+    // store owns them for the whole run): the store's reference is `keep`.
+    NSObject* keep=[NSObject new]; weak_function=keep;
+    for(size_t i=0;i<3500;++i) AddDraw(*frame,cache,i,(id<MTLFunction>)keep);
     assert(weak_function!=nil);
     // An abandoned draw must release its references even though its arena
     // bytes are reclaimed only at frame destruction.

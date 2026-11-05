@@ -1116,7 +1116,10 @@ struct Draw {
   Draw& operator=(const Draw&) = delete;
   Draw(Draw&&) noexcept = default;
   Draw& operator=(Draw&&) = delete;
-  id<MTLFunction> vs, ps;
+  // Unretained (dev69): the shader store keeps every function for the whole
+  // run (never cleared), and the retain/release per draw and per move showed
+  // in the render queue's profile (objc retain/release ~6 %, Draw teardown).
+  __unsafe_unretained id<MTLFunction> vs = nil, ps = nil;
   uint64_t vs_key, ps_key;
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
   std::pmr::vector<Attribute> attributes;
