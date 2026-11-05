@@ -346,6 +346,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_depth_handoff, false, "GPU",
+                    "Native renderer: a whole-target depth resolve (the shadow maps) hands over the depth texture itself, "
+                    "sampled as the copy was (depth in red, 0, 0, 1), instead of copying it to a float texture; the "
+                    "target draws on into another from the GPU pool (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_skip_unread_resolves, false, "GPU",
                     "Native renderer: large colour resolves (1M pixels and up) to an address no texture has named "
                     "since launch are not copied, except the frame's displayed one (restart required)");
@@ -1401,7 +1405,8 @@ std::map<uint32_t, std::pair<uint32_t, uint32_t>> linear_watch;
 // launch, and the destinations whose copies were left out. Render queue only.
 std::unordered_set<uint32_t> ever_sampled;
 std::unordered_set<uint32_t> unread_skipped;
-uint64_t unread_skips = 0;  // shadow-caster draws with the cut-out compiled out (render queue only)
+uint64_t unread_skips = 0;
+uint64_t depth_handoffs = 0, depth_handoff_misses = 0;  // nfsmw_native_shadow_depth_handoff  // shadow-caster draws with the cut-out compiled out (render queue only)
 std::atomic<uint64_t> early_commit_total{0};
 // Renderer queue only: list construction work, not Metal declarations avoided.
 uint64_t resource_list_builds = 0, resource_list_reuses = 0, resource_list_entries = 0;
@@ -3816,6 +3821,8 @@ struct Target {
   // frame that may take the finished image (-1: none); taken this frame.
   bool pooled_color = false, handed_off = false;
   int32_t handoff_resolve = -1;
+  // nfsmw_native_shadow_depth_handoff: the depth texture is the GPU pool's.
+  bool pooled_depth = false;
   // A resolve with clear flags: the next pass on this target starts cleared.
   bool clear_color = false, clear_depth = false;
   MTLClearColor clear_color_value = MTLClearColorMake(0, 0, 0, 0);
@@ -5678,7 +5685,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       } else {
         residency::Remove(t.color);
       }
-      residency::Remove(t.depth);
+      if (t.pooled_depth) {
+        gpu_pool.Retire(t.depth, number);
+      } else {
+        residency::Remove(t.depth);
+      }
+      t.pooled_depth = false;
       t.pitch = pitch;
       t.height = height;
       t.requested_sample_count = sample_counts[key];
@@ -5710,6 +5722,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       dd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;  // depth resolves read it
       dd.storageMode = MTLStorageModePrivate;
       t.depth = NewTexture(device, dd, "dd@7");
+      t.pooled_depth = false;
       if (t.sample_count > 1) {
         MTLTextureDescriptor* cm = [MTLTextureDescriptor new];
         cm.textureType = MTLTextureType2DMultisample;
@@ -6294,6 +6307,39 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           rd.usage |= MTLTextureUsageRenderTarget;  // the scaled copy draws into it
         }
         id<MTLTexture> dest = nil;
+        // The shadow depth handoff: the whole single-sample depth, unscaled,
+        // with the depth cleared after (the next pass starts over): the
+        // depth texture becomes the resolve's, the target gets another.
+        bool depth_handed = false;
+        static const bool shadow_depth_handoff = REXCVAR_GET(nfsmw_native_shadow_depth_handoff);
+        if (shadow_depth_handoff && ev.depth && !ev.array && ev.clear_depth && !depth_audit && src.depth &&
+            src.sample_count == 1 && src.multisample_depth == src.depth && x0 == 0 && y0 == 0 && w == dw &&
+            h == dh && w == src.depth.width && h == src.depth.height) {
+          bool unscaled = true;
+          for (const auto& tp : frame->textures) {
+            if (tp->address == ev.dest_base && tp->exp_adjust) unscaled = false;
+          }
+          if (unscaled && gpu_pool.Adopt(src.depth, 6)) {
+            MTLTextureDescriptor* nd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.depth.pixelFormat
+                                                                                          width:src.depth.width
+                                                                                         height:src.depth.height
+                                                                                      mipmapped:NO];
+            nd.usage = src.depth.usage;
+            nd.storageMode = src.depth.storageMode;
+            id<MTLTexture> next = gpu_pool.Texture(device, nd, 0, 6);
+            if (next) {
+              dest = src.depth;
+              src.depth = src.multisample_depth = next;
+              src.pooled_depth = true;
+              depth_handed = true;
+              ++depth_handoffs;
+            } else {
+              ++depth_handoff_misses;  // copied as normal
+            }
+          } else {
+            ++depth_handoff_misses;
+          }
+        }
         const bool may_crop = layout.may_crop;
         bool handed_off = false;
         if (layout.tiled) {
@@ -6375,7 +6421,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
           rd.storageMode = MTLStorageModePrivate;
           dest = gpu_pool.Texture(device, rd);
         }
-        if (ev.depth) {
+        if (ev.depth && !depth_handed) {
           id<MTLRenderPipelineState> copy = DepthCopyPipeline(device);
           MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
           rp.colorAttachments[0].texture = dest;
@@ -6480,7 +6526,8 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = dest.gpuResourceID;
         // A depth copy (R32Float) where the GPU cannot filter 32-bit floats
         // (A16, M1): sampled nearest, not linear (undefined there).
-        if (dest.pixelFormat == MTLPixelFormatR32Float && !device.supports32BitFloatFiltering) {
+        if ((dest.pixelFormat == MTLPixelFormatR32Float || dest.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) &&
+            !device.supports32BitFloatFiltering) {
           static_cast<MTLResourceID*>(sampler_heap.contents)[next_heap] =
               SamplerFor(device, false, 2, 2, false).gpuResourceID;
         }
@@ -7365,7 +7412,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
             const uint32_t fw = Px(ft.width, fs), fh = Px(ft.height, fs);
             const bool crop = base.buffer && fw && fh && (fw < base.width || fh < base.height) && fw <= base.width &&
                               fh <= base.height;
-            if (sw != 0x688 || swap || crop) {
+            // A handed-over depth texture reads (depth, depth, depth, 1);
+            // the copy it stands for read (depth, 0, 0, 1): always a view.
+            const bool handed_depth = base.pixelFormat == MTLPixelFormatDepth32Float_Stencil8;
+            if (sw != 0x688 || swap || crop || handed_depth) {
               const auto view_key = std::make_tuple(uintptr_t((__bridge void*)base), sw | (swap ? 0x1000u : 0u),
                                                     crop ? fw : 0u, crop ? fh : 0u);
               auto view = resolved_views.find(view_key);
@@ -7373,6 +7423,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                 index = int(view->second);
               } else if (next_heap < heap_capacity) {
                 auto channel = [&](uint32_t sel) {
+                  if (handed_depth) {  // as the R32Float copy: red, then 0, 0, 1
+                    switch (sel & 7) {
+                      case 0: return MTLTextureSwizzleRed;
+                      case 1: case 2: case 4: return MTLTextureSwizzleZero;
+                      default: return MTLTextureSwizzleOne;
+                    }
+                  }
                   switch (sel & 7) {
                     case 0: return swap ? MTLTextureSwizzleBlue : MTLTextureSwizzleRed;
                     case 1: return MTLTextureSwizzleGreen;
@@ -8753,14 +8810,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                       vertex_diagnostics.index_memo_hits, vertex_diagnostics.entry_memo_hits);
         }
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
-                    "shadow caster variant {}: {} draws; unread resolves skipped {}; CP fast runs {}",
+                    "shadow caster variant {}: {} draws; unread resolves skipped {}; depth handoffs {} (misses {}); "
+                    "CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
                     REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws,
-                    unread_skips,
+                    unread_skips, depth_handoffs, depth_handoff_misses,
                     rex::cvar::Query<bool>("ios_cp_fast_runs") ? "on" : "off");
         caster_variant_draws = 0;
         unread_skips = 0;
+        depth_handoffs = depth_handoff_misses = 0;
         static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
         static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));
         if (census_packets && census_words && rex::cvar::Query<bool>("ios_packet_census")) {

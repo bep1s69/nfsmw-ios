@@ -437,6 +437,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev85 BUILT: shadow depth handoff (default off).** The two
+1600x1600 shadow depth copies (~0.44 ms iPhone) are replaced by handing the
+depth texture itself to the receivers through an (R,0,0,1) view.
+`nfsmw_native_shadow_depth_handoff=false`. IPA
+`ios/build/NFSMW-0.6.0-dev85-shadow-depth-handoff.ipa` (SHA256 22be06e20d67a26fe9a4398c562aea8e2c5e6a3208fb4cdfdcaf292423fb7fa3).
+Next: Stefan's iPhone race with it on (+ his soak args, pass counters, resolve
+labels); check car and world shadows. TECHNICAL "dev85".
+
 **November 6, skip-unread resolves: long soak by Stefan (decision).** Not
 testable in one session (race replays do not exist in this game). Stefan
 keeps `--nfsmw_native_skip_unread_resolves=true --nfsmw_native_resolve_labels=true`

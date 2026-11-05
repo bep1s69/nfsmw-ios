@@ -21223,3 +21223,32 @@ final copy to 09689000, which is the same address the main scene resolves
 to and the post pass samples, so skip-unread cannot apply; frame summaries
 also report one "resolve from earlier frames" per frame (unverified whether
 it is this one).
+
+### November 6: dev85 shadow depth handoff (default off)
+
+Stefan chose the depth copies next (battery runs later: he cannot match 27 %
+brightness in his current environment). dev81 depth audit lines: the shadow
+target d030 resolves its whole 1600x1600 depth twice per frame (to 07d70000
+and 073ac000), value scale 1; the main depth 2859x1320 -> 2874x1320 differs
+in size, so it is left for later.
+Mac check (scratchpad test, Metal API + shader validation on): a
+Depth32Float_Stencil8 (and Depth32Float) texture placed by MTLResourceID in
+a texture2d<float> argument-buffer heap samples, gathers and reads the depth
+with no validation error, but returns (d, d, d, 1) where the R32Float copy
+returns (d, 0, 0, 1); a same-format swizzle view (R, 0, 0, 1) of it
+(no PixelFormatView usage needed) returns (d, 0, 0, 1). A view of a view
+does not compose swizzles (applies to the base's channels).
+`nfsmw_native_shadow_depth_handoff` (default false, restart-only): for a
+single-sample, unscaled (no exp_adjust), whole-target depth resolve with a
+depth clear and no audit this frame, the target's depth texture (adopted by
+the GPU pool, at most 6 of the kind) becomes the resolve's texture and the
+target takes another from the pool (Target.pooled_depth; retired through the
+pool on resize). No copy pass. At bind, a Depth32Float_Stencil8 resolve
+always goes through a swizzle view mapping the fetch's channels onto (R, 0,
+0, 1) (composed in the existing view code, made from the base). The A16/M1
+nearest-sampler rule also covers it at its own heap slot; views use the
+regular sampler (Depth32Float filtering, possible tiny difference on those
+GPUs only). Counts "depth handoffs N (misses M)" in the early-commit line.
+Build exit 0, `unzip -t` OK. IPA
+`ios/build/NFSMW-0.6.0-dev85-shadow-depth-handoff.ipa` (SHA256 22be06e20d67a26fe9a4398c562aea8e2c5e6a3208fb4cdfdcaf292423fb7fa3), on the
+iCloud Desktop; dev84 moved to Trash. Not yet run.
