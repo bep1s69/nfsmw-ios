@@ -21011,3 +21011,16 @@ the iCloud Desktop, dev77 moved to Trash from the Desktop. Not yet run.
 Test: same race, `--nfsmw_native_tree_edge_less=true
 --nfsmw_native_cost_probe=true --nfsmw_native_pass_counters=true`; compare
 the tree probe delta (2.74 ms in dev77) and main pass time; check tree edges.
+
+### November 5: dev78 tree edge LESS ON, iPhone: no visual change, small saving
+
+Stefan: no visual differences at all. Log
+`Debug/5 November 2026/dev78_iphone_native60_tree_edge_less_probe_nfsmw.log`
+(SHA256 39850414…), flag + cost probe + pass counters; ~900000 edge draws
+switched. Tree probe: median 1.36 ms saved (6 samples) vs 2.74 ms (14) in
+dev77, but the probe frames' GPU totals vary with the GPU clock (7-24 ms), so
+absolute ms mislead. As a share of the frame before each probe: dev77
+median ~18 %, dev78 ~15.5 % -> roughly 0.3-0.5 ms less at a 15 ms frame
+(inference, short run: 11 driving profiles). Main pass share 48.7 % ->
+48.0 %, within noise. Conclusion: image-identical, modest saving; most of
+the tree cost is the solid pass and the edge pixels themselves.
