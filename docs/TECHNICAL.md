@@ -20966,3 +20966,32 @@ Build exit 0 (incremental), `unzip -t` OK. IPA
 SHA256 1a48cb54d5993487cc60abe9d5cbee7dd7b3c32c665e05fc56ffddcbe91a16d2;
 on the iCloud Desktop, dev76 moved to Trash from the Desktop. CHANGELOG line
 added. Not yet run.
+
+### November 5: dev77 cost probe, iPhone native 60: trees dominate
+
+Log `Debug/5 November 2026/dev77_iphone_native60_cost_probe_nfsmw.log`
+(SHA256 475cb572…), iPhone, dev77, native/60 Balanced,
+`--nfsmw_native_cost_probe=true --nfsmw_native_pass_counters=true`. Median
+GPU time saved when a pixel shader's draws are left out (vs the 8 frames
+before; includes vertex/raster/overdraw; single-sample outliers ignored):
+
+| ps | samples | median saved ms | draws/frame |
+|---|---:|---:|---:|
+| 27d82ea0faa380a8 (trees) | 14 | 2.74 (0.88-4.77) | 477 |
+| fe510d2d256c173b (sky) | 10 | 1.02 | 8 |
+| 4fbaecfb8e7c4f40 (shadow casters) | 5 | 0.78 | 456 |
+| d1a189fdbb29cf1a | 8 | 0.69 | 40 |
+| 684f4711f29b9f77 (fences/plants) | 9 | 0.46 | 542 |
+| d8bb87fee2d8ec76 | 9 | 0.36 | 126 |
+| others | | < 0.35 | |
+
+Trees (cost-state lines) are drawn twice in every target (main d468, cube
+d7c0, mirror d71a): an opaque core pass (alpha test GEQUAL 0.706 or 0.392,
+no blend, depth 0x736 = test LEQUAL + write) and a matching edge pass
+(alpha test LESS, same ref, blend 0x07060706 src-alpha, depth 0x732 = test
+LEQUAL, no write), with equal draw counts. In the edge pass every pixel
+the core pass wrote passes the LEQUAL depth test (same depth) and then runs
+the full shader only to be discarded by the alpha test. Lead (proposal, not
+built): for ps 27d82ea0 edge-pass draws use LESS instead of LEQUAL, so those
+pixels are rejected by the depth test before shading. Same picture except
+exact depth ties with other geometry; saving unknown (part of 2.74 ms).
