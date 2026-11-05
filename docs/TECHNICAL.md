@@ -20656,3 +20656,13 @@ census. Aim: most of dev65's 12.5 %/h without its audio starvation (dev66
 (to be checked in the log). build-0.6 exit0; performance-profile test PASS;
 `unzip -t` OK; codesign exit0; `git diff --check` exit0. IPA
 `ios/build/NFSMW-0.6.0-dev70-low-priority-workers.ipa` (Desktop; dev69 to Trash from the Desktop), 30614690 bytes, SHA256 de1c0722d966a0c1378f493b7f2957e09337aa3b8cc59c37ea54ae355c01056a.
+
+dev70 iPad 40 cap with `--ios_background_qos_low_workers=true` (Stefan, Nov 5;
+trace `Debug/5 November 2026/dev70_ipad_power_profile.trace`; log
+`dev70_ipad_power_nfsmw.log`; T block, 1.5x): **12.5 %/h**, CPU 2.03, GPU 2.08
+(dev65 all-Background 12.5 with audio starved; dev66 16.3). Stefan: no audio
+issues, some isolated stutters. Log: guest priorities 0 → Background for 17
+workers; raised priorities 2, 10, 16, 16, 17 kept Utility; off-grid 0–12 of
+300 per window (dev66 0–5); 65 hitch lines (dev66 32); 1 coreaudio window with
+gaps. Measured: the raised-priority threads were the ones that mattered for
+audio; the remaining cost is a few more isolated late frames.
