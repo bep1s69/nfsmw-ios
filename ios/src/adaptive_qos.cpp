@@ -87,7 +87,7 @@ REXCVAR_DEFINE_BOOL(ios_background_qos, false, "Kernel",
                     "Battery trial (Nov 4): the threads Balanced/Eco put at Utility run at "
                     "Background QoS instead (lower efficiency-core clocks, like Low Power Mode "
                     "showed; restart required)");
-REXCVAR_DEFINE_BOOL(ios_background_qos_low_workers, false, "Kernel",
+REXCVAR_DEFINE_BOOL(ios_background_qos_low_workers, true, "Kernel",  // default since dev71 (Stefan, Nov 5)
                     "Battery trial (Nov 5): when the frame threads are at Background, guest "
                     "workers at normal or lower guest priority go too; raised-priority guest "
                     "threads (audio is expected there) and host threads keep Utility");

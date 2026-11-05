@@ -20666,3 +20666,11 @@ workers; raised priorities 2, 10, 16, 16, 17 kept Utility; off-grid 0–12 of
 300 per window (dev66 0–5); 65 hitch lines (dev66 32); 1 coreaudio window with
 gaps. Measured: the raised-priority threads were the ones that mattered for
 audio; the remaining cost is a few more isolated late frames.
+
+dev71: Stefan made the low-priority-workers rule the default ("for now; further
+overhead reductions may fix the stutters"): `ios_background_qos_low_workers`
+default true (only acts when the Background flag is on, i.e. tablet Balanced
+at 30/40 or `--ios_background_qos=true`; false restores dev66's 16.3 %/h
+behaviour). build-0.6 exit0; performance-profile test PASS; `unzip -t` OK;
+codesign exit0. IPA `ios/build/NFSMW-0.6.0-dev71-40fps-defaults.ipa` (Desktop; dev70 to Trash from the
+Desktop), 30615239 bytes, SHA256 db2e7a4e1a647e64dc8c8e841f583721baa3842ba3f6eedc918f0d6bdf1bf585.

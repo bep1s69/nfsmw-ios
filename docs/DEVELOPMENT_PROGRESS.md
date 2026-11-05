@@ -427,6 +427,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev71 (defaults):** iPad Balanced 60 fps 24.4 %/h (E cores,
+smooth); 30/40 caps: frame threads, render queue and normal-priority guest
+workers at Background, raised-priority (audio) workers at Utility: 12.5 %/h at
+40 with clean audio and a few isolated late frames. Next: Stefan's choice of
+GPU work (matters mostly at native) or more CPU overhead cuts.
+
 **November 5, dev66 40 cap confirmed: 16.3 %/h, "perfect" (Stefan).** Next: CPU
 cuts on the frame threads for 60 fps (still ~24 %/h); iPhone in its own thread.
 
