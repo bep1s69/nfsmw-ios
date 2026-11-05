@@ -433,6 +433,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, GPU-at-native thread: dev76 sparse touch overlay BUILT (default off):**
+dev75 native/60 Balanced pass profiles, both devices (logs
+`Debug/5 November 2026/dev75_{ipad,iphone}_native60_pass_profiles_nfsmw.log`):
+~15 ms GPU per frame driving; main scene 65 % iPad / 46 % iPhone, then post
+(iPhone), cube faces, present, shadow map, resolve copies. Stefan approved
+B (cheaper present) and D (shadow depth copies). A (half-rate cube) is the
+existing Car reflections setting; fixed reflection rates went to BACKLOG.
+D turned out to need shader-library changes (the copies are read): parked in
+BACKLOG awaiting Stefan. B1 built: `nfsmw_native_sparse_touch_overlay=false`
+(restart-only) blends the touch layer only over occupied 32 px tiles.
+IPA `ios/build/NFSMW-0.6.0-dev76-sparse-touch-overlay.ipa` (on Desktop).
+Next: Stefan's enabled run with `--nfsmw_native_sparse_touch_overlay=true
+--nfsmw_native_pass_counters=true`, compare "present: main display" with the
+dev75 logs and check controls look identical. B2 (final-resolve handoff,
+~0.2 ms) next after that. TECHNICAL "dev75 native pass profiles; dev76".
+
 **November 5, dev75 BUILT (Stefan approved both):** Balanced at the 30 cap on
 every device = frame threads + render queue at Background with the original
 adaptive late-swap boost as safety net (`performance_profile.h`); MetalFX

@@ -346,6 +346,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, false, "GPU",
+                    "Native renderer: the touch controls blended only over the screen tiles that hold "
+                    "them, not the whole screen every frame (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
                     "Native renderer (battery): half the environment cube's faces drawn each frame, the "
                     "others kept from the frame before");
@@ -4622,6 +4625,44 @@ std::vector<uint8_t> touch_overlay_pixels;
 int touch_overlay_w = 0, touch_overlay_h = 0;
 int touch_overlay_dirty[4] = {0, 0, 0, 0};  // x0, y0, x1, y1
 bool touch_overlay_changed = false;
+// nfsmw_native_sparse_touch_overlay: which 32x32 tiles of the picture hold a
+// non-zero pixel within 2 pixels of the tile (the bilinear sampling's reach),
+// updated where the picture changed. Under touch_overlay_mutex.
+constexpr int kTouchTile = 32, kTouchPad = 2;
+std::vector<uint8_t> touch_overlay_tiles;
+int touch_tiles_w = 0, touch_tiles_h = 0;
+void UpdateTouchTiles(int x0, int y0, int x1, int y1) {
+  const int w = touch_overlay_w, h = touch_overlay_h;
+  const int gw = (w + kTouchTile - 1) / kTouchTile, gh = (h + kTouchTile - 1) / kTouchTile;
+  if (gw != touch_tiles_w || gh != touch_tiles_h) {
+    touch_tiles_w = gw;
+    touch_tiles_h = gh;
+    touch_overlay_tiles.assign(size_t(gw) * size_t(gh), 0);
+    x0 = 0, y0 = 0, x1 = w, y1 = h;
+  }
+  const int tx0 = std::max(0, (x0 - kTouchPad) / kTouchTile);
+  const int ty0 = std::max(0, (y0 - kTouchPad) / kTouchTile);
+  const int tx1 = std::min(gw, (x1 + kTouchPad + kTouchTile - 1) / kTouchTile);
+  const int ty1 = std::min(gh, (y1 + kTouchPad + kTouchTile - 1) / kTouchTile);
+  const auto* px = reinterpret_cast<const uint32_t*>(touch_overlay_pixels.data());
+  for (int ty = ty0; ty < ty1; ++ty) {
+    const int ry0 = std::max(0, ty * kTouchTile - kTouchPad), ry1 = std::min(h, (ty + 1) * kTouchTile + kTouchPad);
+    for (int tx = tx0; tx < tx1; ++tx) {
+      const int rx0 = std::max(0, tx * kTouchTile - kTouchPad), rx1 = std::min(w, (tx + 1) * kTouchTile + kTouchPad);
+      uint8_t any = 0;
+      for (int y = ry0; y < ry1 && !any; ++y) {
+        const uint32_t* row = px + size_t(y) * size_t(w);
+        for (int x = rx0; x < rx1; ++x) {
+          if (row[x]) {
+            any = 1;
+            break;
+          }
+        }
+      }
+      touch_overlay_tiles[size_t(ty) * size_t(gw) + size_t(tx)] = any;
+    }
+  }
+}
 // The touch overlay: the texture as it is (premultiplied), blended over the
 // picture.
 id<MTLRenderPipelineState> OverlayPipeline(id<MTLDevice> device) {
@@ -7820,6 +7861,12 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // The touch controls, over the whole drawable (the window's size).
         {
           static id<MTLTexture> touch;
+          static const bool sparse_touch = REXCVAR_GET(nfsmw_native_sparse_touch_overlay);
+          static std::vector<std::array<int, 4>> touch_rects;  // x0, y0, x1, y1 in tiles
+          static bool touch_rects_full = true;
+          static int touch_tex_w = 0, touch_tex_h = 0;
+          static uint64_t touch_frames = 0, touch_draws = 0;
+          static double touch_share = 0;
           {
             std::lock_guard<std::mutex> lock(touch_overlay_mutex);
             if (touch_overlay_changed) {
@@ -7852,6 +7899,41 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                            bytesPerRow:NSUInteger(touch_overlay_w) * 4];
                 }
                 touch_overlay_dirty[0] = touch_overlay_dirty[1] = touch_overlay_dirty[2] = touch_overlay_dirty[3] = 0;
+                // The occupied tiles as disjoint rectangles (tile units):
+                // runs along each tile row, merged with the row above when
+                // they span the same columns. Too many: the whole screen.
+                touch_rects.clear();
+                touch_rects_full = !sparse_touch || touch_tiles_w != (touch_overlay_w + kTouchTile - 1) / kTouchTile ||
+                                   touch_tiles_h != (touch_overlay_h + kTouchTile - 1) / kTouchTile;
+                std::vector<size_t> open;  // rects ending at the row above
+                for (int ty = 0; ty < touch_tiles_h && !touch_rects_full; ++ty) {
+                  std::vector<size_t> now;
+                  const uint8_t* row = touch_overlay_tiles.data() + size_t(ty) * size_t(touch_tiles_w);
+                  for (int tx = 0; tx < touch_tiles_w;) {
+                    if (!row[tx]) {
+                      ++tx;
+                      continue;
+                    }
+                    int end = tx;
+                    while (end < touch_tiles_w && row[end]) ++end;
+                    size_t merged = SIZE_MAX;
+                    for (size_t o : open) {
+                      if (touch_rects[o][0] == tx && touch_rects[o][2] == end) merged = o;
+                    }
+                    if (merged != SIZE_MAX) {
+                      touch_rects[merged][3] = ty + 1;
+                    } else {
+                      touch_rects.push_back({tx, ty, end, ty + 1});
+                      merged = touch_rects.size() - 1;
+                    }
+                    now.push_back(merged);
+                    tx = end;
+                  }
+                  open.swap(now);
+                  if (touch_rects.size() > 64) touch_rects_full = true;
+                }
+                touch_tex_w = touch_overlay_w;
+                touch_tex_h = touch_overlay_h;
               }
             }
           }
@@ -7861,7 +7943,40 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               [e setScissorRect:(MTLScissorRect){0, 0, NSUInteger(dw), NSUInteger(dh)}];
               [e setRenderPipelineState:overlay_pso];
               [e setFragmentTexture:touch atIndex:0];
-              [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+              if (!sparse_touch || touch_rects_full || touch_tex_w <= 0 || touch_tex_h <= 0) {
+                [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                ++touch_draws;
+                touch_share += 1.0;
+              } else {
+                // Tile edges mapped once each (shared by neighbours, so the
+                // rectangles stay disjoint and nothing blends twice).
+                const NSUInteger sw_d = NSUInteger(dw), sh_d = NSUInteger(dh);
+                auto ex = [&](int k) {
+                  return std::min<NSUInteger>(sw_d, NSUInteger(std::lround(double(k) * kTouchTile * dw / touch_tex_w)));
+                };
+                auto ey = [&](int k) {
+                  return std::min<NSUInteger>(sh_d, NSUInteger(std::lround(double(k) * kTouchTile * dh / touch_tex_h)));
+                };
+                double covered = 0;
+                for (const auto& r : touch_rects) {
+                  const NSUInteger x0 = ex(r[0]), y0 = ey(r[1]), x1 = ex(r[2]), y1 = ey(r[3]);
+                  if (x1 <= x0 || y1 <= y0) continue;
+                  [e setScissorRect:(MTLScissorRect){x0, y0, x1 - x0, y1 - y0}];
+                  [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                  ++touch_draws;
+                  covered += double(x1 - x0) * double(y1 - y0);
+                }
+                touch_share += covered / std::max(1.0, double(dw) * double(dh));
+                [e setScissorRect:(MTLScissorRect){0, 0, sw_d, sh_d}];
+              }
+              if (sparse_touch && ++touch_frames >= 1800) {
+                REXLOG_INFO("[native] sparse touch overlay: {:.1f} draws a frame, {:.1f}% of the screen blended "
+                            "(last {} frames; {} rectangles now{})",
+                            double(touch_draws) / touch_frames, 100.0 * touch_share / touch_frames, touch_frames,
+                            touch_rects.size(), touch_rects_full ? ", whole screen" : "");
+                touch_frames = touch_draws = 0;
+                touch_share = 0;
+              }
               [e setRenderPipelineState:present_pso];
             }
           }
@@ -9466,6 +9581,8 @@ extern "C" void nfsmw_native_set_touch_overlay(const uint8_t* bgra, int w, int h
     const size_t at = (size_t(row) * size_t(w) + size_t(x0)) * 4;
     std::memcpy(touch_overlay_pixels.data() + at, bgra + at, size_t(x1 - x0) * 4);
   }
+  static const bool sparse = REXCVAR_GET(nfsmw_native_sparse_touch_overlay);
+  if (sparse) UpdateTouchTiles(x0, y0, x1, y1);
   int* d = touch_overlay_dirty;
   if (d[2] <= d[0] || d[3] <= d[1]) {
     d[0] = x0, d[1] = y0, d[2] = x1, d[3] = y1;

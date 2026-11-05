@@ -20873,3 +20873,55 @@ binary. IPA `ios/build/NFSMW-0.6.0-dev75-balanced30-ecores-no-metalfx.ipa`,
 ade4600b836fd4f717fda17a893eb282636e51359b86383bfcc9759b7f1f4e05; copied to
 the iCloud Desktop, dev74 moved to Trash from the Desktop (0.5.2 kept).
 Not yet run on any device.
+
+## November 5: dev75 native pass profiles; dev76 sparse touch overlay (default off)
+
+Logs from Stefan, one full test race on each device, dev75, native, Balanced
+60, `--nfsmw_native_pass_counters=true` (color handoff on in both): archived
+as `~/Developer/Debug/Most Wanted (2005) Debug/5 November 2026/dev75_ipad_native60_pass_profiles_nfsmw.log`
+(SHA256 37b92255…) and `dev75_iphone_native60_pass_profiles_nfsmw.log`
+(de360843…). Averaged over profiles with frame > 12 ms (iPad 24 of 31,
+iPhone 23 of 32; parse script in the session scratchpad, not kept):
+
+| pass | iPhone ms | iPad ms |
+|---|---:|---:|
+| main scene (iPhone d468 2859x1320, iPad d5e4 2752x2064) | 7.21 | 9.73 |
+| post/HUD d47c (2 passes, iPhone only) | 1.99 | — |
+| cube faces 320x256 x6 (reflections every frame) | 1.48 | 1.26 |
+| present: main display | 1.17 | 0.65 |
+| shadow map 1600 + its depth copies | 1.16 + 0.39 | 0.73 + 0.26 |
+| resolve copies | 0.99 | 1.14 |
+| main depth copy | 0.51 | 0.51 |
+| reflection/mirror 800 (iPhone) / 480 (iPad) | 0.40 | 0.27 |
+| frame | 15.77 | 14.93 |
+
+GPU ~15 ms of a 16.7 ms frame at 60 fps on both: likely low GPU clock
+filling the frame (inference); ms are shares, not energy. Color handoff:
+iPhone 300/300 planned and copied out; iPad 0 planned, every frame rejected
+by the mirror draw guard (ps 8436534cfafcc0eb).
+
+Options discussed with Stefan: A (half the cube faces) = existing "Car
+reflections: Half each frame"; dropped. Fixed reflection rates: BACKLOG,
+moderate. D (shadow depth copies): the copies are sampled by the shadow
+receivers, so removal needs shader changes; parked in BACKLOG. B split into
+B1 (touch overlay only where drawn) and B2 (present from the post pass's own
+image, ~0.2 ms, needs bounds for its non-viewport-transformed draws, guard 0
+"vte", ps 8c8b535864c59f03).
+
+B1 built as dev76: `nfsmw_native_sparse_touch_overlay` (default false,
+restart-only). The setter keeps a 32x32 tile occupancy grid of the touch
+picture (a tile counts if any non-zero pixel lies within 2 px of it, the
+bilinear reach), rescanned only for tiles touching the dirty rectangle. On
+upload the renderer turns occupied tiles into disjoint rectangles (row runs
+merged downward when spanning the same columns; >64 falls back to the full
+draw) and draws the same overlay triangle once per rectangle with a scissor;
+tile edges are mapped to drawable pixels with one shared rounding so
+rectangles never overlap (no double blending). Every 1800 frames it logs
+draws per frame and the share of the screen blended. Off: unchanged code
+path. Not host-tested; build `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6
+--target ipa -j 12` exit 0 (19 s incremental), `unzip -t` OK, `git diff
+--check` clean. IPA `ios/build/NFSMW-0.6.0-dev76-sparse-touch-overlay.ipa`,
+30608923 bytes, SHA256
+e277eaf619b32f79a27344667719ca917fd7c7e1f5a552c4dd1fa09c4661c463; on the
+iCloud Desktop, dev75 moved to Trash from the Desktop. Not yet run.
+Next: enabled run with pass counters; compare "present: main display".
