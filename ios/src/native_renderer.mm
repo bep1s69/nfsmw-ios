@@ -346,6 +346,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_tree_edge_less, false, "GPU",
+                    "Native renderer: the trees' blended edge pass tests depth with less instead of less-or-equal, "
+                    "so the pixels their solid pass already drew are not shaded again only to be discarded");
 REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, true, "GPU",
                     "Native renderer: the touch controls blended only over the screen tiles that hold "
                     "them, not the whole screen every frame (restart required)");
@@ -3826,6 +3829,25 @@ bool TargetLookupEnabled() {
 
 // Depth resolves: the depth buffer read into an R32Float texture (the game
 // samples the shadow map as a 24-bit depth texture: the value in [0, 1]).
+// RB_DEPTHCONTROL's z bits for a draw (enable 1, write 2, function 4-6).
+// nfsmw_native_tree_edge_less: the tree shader's edge pass (alpha test
+// less-than, depth tested less-or-equal without writing) after its solid
+// pass (alpha test greater-or-equal at the same reference, depth written).
+// Where the solid pass drew, the edge pass's own fragment has the same
+// depth and an alpha at or over the reference, so it was discarded anyway:
+// less rejects it before shading. Elsewhere the depth is farther: as before.
+std::atomic<uint64_t> tree_edge_less_draws{0};
+uint32_t TreeEdgeDepth(const Draw& d) {
+  static const bool on = REXCVAR_GET(nfsmw_native_tree_edge_less);
+  const uint32_t dc = d.depth_control & 0x76;
+  if (on && dc == 0x32 && d.ps_key == 0x27d82ea0faa380a8ull && (d.color_control & 0xF) == (8 | 1)) {
+    const uint64_t n = tree_edge_less_draws.fetch_add(1, std::memory_order_relaxed) + 1;
+    if (n == 1 || n % 100000 == 0) REXLOG_INFO("[native] tree edge pass depth less: {} draws so far", n);
+    return 0x12;
+  }
+  return dc;
+}
+
 id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -6992,7 +7014,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       const uint32_t dc = (REXCVAR_GET(nfsmw_native_test_small_no_depth) &&
                            (t.color.width == 320 || t.color.width == 240))
                               ? 0u
-                              : d.depth_control & 0x76;
+                              : TreeEdgeDepth(d);
       const uint32_t smode = stencil_mode.empty() ? 0u : stencil_mode[di];
       id<MTLDepthStencilState> ds = depth_states[dc | smode << 8];
       if (!ds) {

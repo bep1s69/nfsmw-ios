@@ -20995,3 +20995,19 @@ the full shader only to be discarded by the alpha test. Lead (proposal, not
 built): for ps 27d82ea0 edge-pass draws use LESS instead of LEQUAL, so those
 pixels are rejected by the depth test before shading. Same picture except
 exact depth ties with other geometry; saving unknown (part of 2.74 ms).
+
+### November 5: dev78 tree edge pass depth LESS (default off)
+
+Stefan approved testing the lead above. New restart-only
+`nfsmw_native_tree_edge_less` (default false). `TreeEdgeDepth()` returns the
+draw's z bits; with the flag on, for ps 27d82ea0faa380a8 draws with alpha
+test on + LESS (color_control & 0xF == 9) and z bits 0x32 (test LEQUAL, no
+write) it returns 0x12 (LESS). Everything else unchanged. Logs "[native]
+tree edge pass depth less: N draws so far" at the first draw and every
+100000. Build exit 0 (incremental), `unzip -t` OK, `git diff --check`
+clean. IPA `ios/build/NFSMW-0.6.0-dev78-tree-edge-less.ipa`, 30620251 bytes,
+SHA256 96178b64390ab312f51e5b096ecc27e7ef49d167aa21d90dbf3c6795ea23096a; on
+the iCloud Desktop, dev77 moved to Trash from the Desktop. Not yet run.
+Test: same race, `--nfsmw_native_tree_edge_less=true
+--nfsmw_native_cost_probe=true --nfsmw_native_pass_counters=true`; compare
+the tree probe delta (2.74 ms in dev77) and main pass time; check tree edges.

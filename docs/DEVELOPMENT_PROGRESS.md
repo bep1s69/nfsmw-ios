@@ -433,6 +433,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev78 BUILT (approved trial): tree edge pass depth LESS, default off.**
+dev77 cost probe (iPhone native): trees 27d82ea0 2.74 ms median, then sky
+1.02, shadow casters 0.78. Tree edge pass re-shades pixels the solid pass
+drew; `nfsmw_native_tree_edge_less=false` switches its depth test to LESS.
+IPA `ios/build/NFSMW-0.6.0-dev78-tree-edge-less.ipa` (Desktop). Next:
+Stefan's iPhone run with the flag + cost probe + pass counters; check tree
+edges look the same. TECHNICAL "dev78".
+
 **November 5, dev77 BUILT (Stefan approved): sparse touch overlay default ON.**
 `nfsmw_native_sparse_touch_overlay=true`; `=false` restores the full-screen
 draw. IPA `ios/build/NFSMW-0.6.0-dev77-sparse-touch-default.ipa` (Desktop;
