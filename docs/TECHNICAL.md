@@ -20600,3 +20600,18 @@ OK; codesign exit0; `git diff --check` exit0. IPA
 `ios/build/NFSMW-0.6.0-dev68-reuse-census.ipa` (Desktop; dev67 to Trash from
 the Desktop), SHA256 in the next record line.
 IPA SHA256 f3627886f1d0d1b48f726a5bb4aa2fa74b908e8a603189a287613965223168c8, 30615707 bytes.
+
+dev68 census result (Stefan, Nov 5, iPad, 2-lap test race, T block +
+`--nfsmw_native_reuse_census=true`; log `Debug/5 November 2026/dev68_ipad_reuse_census_nfsmw.log`):
+menus ~26–30 draws/frame, 0 % repeats (inference: menu hashes include
+animated state); loading/pre-race ~330–540 draws, state 48–86 %,
+state+constants 2.6–30 %; driving ~2,000–3,000 draws/frame: state equal to a
+draw anywhere in the previous frame 79–92 % (same position only 24–38 %, the
+draw order shifts), state+ALU constants **0.0 %** in every driving window.
+Measured: no draw can be reused whole (the constant block, camera included,
+changes every frame); ~90 % could reuse a per-state template (fetch layouts,
+attribute/index cache entries, texture lookups) with fresh constants, still
+fingerprinting buffer contents. Inference: that removes part of Record's self
+time (~44 % of GPU Commands), not Fingerprint (13 %) or constants; the guest
+render thread and main loop (game code) are unchanged, so 60 fps at
+Background clocks remains doubtful. Awaiting Stefan's decision.
