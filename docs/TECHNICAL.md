@@ -21271,3 +21271,19 @@ compute kernel through a texture2d<float> heap: sample, linear, gather, read)
 and up to 4 lines reporting whether the bind-time view for a handed depth
 was made. IPA `ios/build/NFSMW-0.6.0-dev86-depth-read-selftest.ipa`
 (SHA256 72ccd6b8a1f6fef5520d6f37d3949f1f6cb4168ad99554b6bcb2fe11b04dcd6b), on the iCloud Desktop; dev85 moved to Trash.
+
+### November 6: dev86 self-test on the iPhone: depth reads are fine; cause elsewhere (PARKED)
+
+Log `Debug/6 November 2026/dev86_iphone_depth_read_selftest_nfsmw.log`
+(SHA256 7b953ee8…). Self-test raw: sample/linear/read (0.375, 0.375, 0.375,
+1), gather 0.375 x4; through the view: (0.375, 0, 0, 1), gather 0.375 x4,
+exactly the R32Float copy's semantics. Bind-time views for the handed
+07d70000 were made (fetch swizzle b48 = R, G, 1, 1 -> R, 0, 1, 1, as the copy
+reads) for receivers ps 1181eda3 and 684f4711. So texture reads are not the
+cause; the wrong picture comes from ownership/order (unidentified: the first
+shadow resolve 07d70000 is the one with a depth clear and is handed; the
+second, 073ac000, is still copied from the replacement texture). Not
+pursued further now (~0.44 ms at stake); flag stays default false. Next
+step if resumed: a frame-level check that copies the handed depth to a
+scratch R32Float as well and compares (count of differing texels) to find
+which frame/texture diverges.

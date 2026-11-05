@@ -437,6 +437,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, shadow depth handoff PARKED:** dev86 self-test shows the iPhone
+reads depth through the shader heap and the (R,0,0,1) view exactly like the
+copy, so the fault is in ownership/order, not reads. Flag stays off; BACKLOG
+"Native GPU follow-ups" has the next step. TECHNICAL "dev86 self-test".
+
 **November 6, dev85 handoff WRONG on the iPhone (darker, shadows off); dev86 self-test.**
 Keep `nfsmw_native_shadow_depth_handoff` off. dev86 (SHA256 72ccd6b8a1f6fef5520d6f37d3949f1f6cb4168ad99554b6bcb2fe11b04dcd6b) logs
 how the iPhone GPU reads a depth texture through the shader heap. Next: one
