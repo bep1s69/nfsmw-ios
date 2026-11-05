@@ -427,6 +427,9 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev66 40 cap confirmed: 16.3 %/h, "perfect" (Stefan).** Next: CPU
+cuts on the frame threads for 60 fps (still ~24 %/h); iPhone in its own thread.
+
 **November 5, dev66 BUILT:** dev65 40 cap 12.5 %/h but microstutters and audio
 cut-outs (guest audio decode starved at Background); the 60 Background/Utility
 trial stays on Utility (24.6, no saving). dev66 lowers only frame threads +

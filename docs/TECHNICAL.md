@@ -20535,3 +20535,12 @@ OK; codesign exit0. IPA `ios/build/NFSMW-0.6.0-dev66-background-frame-threads.ip
 84e48172ff26c83066c74b300567a270f2eea261581a50e974e69887a0dac615.
 Test: iPad 40 cap, 1.5x, improvements block (T), Power Profiler; listen for
 audio; compare 12.5 %/h.
+
+dev66 iPad 40 cap (Stefan, Nov 5; trace `Debug/5 November 2026/dev66_ipad_power_profile.trace`,
+one run; log `dev66_ipad_40_nfsmw.log`; 1.5x, improvements on, brightness 27 %,
+Nominal): **16.3 %/h**, CPU 3.56, GPU 2.06. Stefan: 40 fps perfect now. Log:
+off-grid 0–5 of 300 per window (25 ms grid), 1 coreaudio window with gaps,
+32 hitch lines. Measured: keeping the guest workers at Utility costs ~3.8 %/h
+vs dev65 (12.5, audio starved) but removes the stutters/audio cuts; vs the
+Utility 40 cap (not measured on dev62; 60 fps Utility 24.4). Possible later
+refinement: only the audio-related workers at Utility.
