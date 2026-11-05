@@ -21101,3 +21101,20 @@ Build exit 0, `unzip -t` OK, `git diff --check` clean. IPA
 `ios/build/NFSMW-0.6.0-dev80-post-blur-skip-sky-masked.ipa`, 30625477 bytes,
 SHA256 db5cf6a8cbc665bcad8ded9f8c79d722eb85cbd0a8a3c9489c54aea0f5afc309; on
 the iCloud Desktop, dev79 moved to Trash from the Desktop. Not yet run.
+
+### November 5: dev80 trials ON, iPhone: picture identical, both NEGATIVE
+
+Stefan: everything looked identical. Log
+`Debug/5 November 2026/dev80_iphone_native60_blur_skip_sky_masked_probe_nfsmw.log`
+(SHA256 56776a56…), dev79 Extra Args plus both trials. Bit 14 applied to
+the composite (~300 draws per summary window, i.e. every frame).
+Pass profiles, frames > 12 ms: post pass d47c 2.38 ms (dev79, 65 profiles)
+-> 2.78 ms (dev80, 60): the blur skip made it SLOWER (the branch, its two
+extra fetches and divergence cost more than the taps it skipped; blur
+amount evidently rarely 0 across whole SIMD groups). Probe share of ps
+20710a9a 12.9 % -> 15.7 %. Sky-last masked: no measurable change (sky
+5.5 % -> 5.8 %, sky deferrals 1.74 -> 1.81 per frame); the census still
+ends at once at mask-7 solid draws in cube/mirror, so the sky there writes
+all four channels and the RGB-only draws cannot stand in for it without
+changing alpha. Conclusion: neither worth keeping; remove both with the
+next build and restore the pre-dev80 composite library.
