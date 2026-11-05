@@ -433,6 +433,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev76 sparse touch overlay ON, iPhone: present 1.17 -> 0.44 ms,
+controls identical (Stefan).** ~13.5 % of the screen still blended. Proposal
+to Stefan: default ON (iPad check in the same build), then B2. TECHNICAL
+"dev76 sparse touch overlay ON".
+
 **November 5, GPU-at-native thread: dev76 sparse touch overlay BUILT (default off):**
 dev75 native/60 Balanced pass profiles, both devices (logs
 `Debug/5 November 2026/dev75_{ipad,iphone}_native60_pass_profiles_nfsmw.log`):

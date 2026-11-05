@@ -20943,3 +20943,17 @@ smoothness or savings (the second 30 stretch followed thermal serious).
 Stefan (context for the 14 Pro Max log): the phone had just come off the
 charger, and the 60 stretch was at native resolution (held 60 for a while).
 Inference: that combination, not the 30 cap policy, explains thermal serious.
+
+### November 5: dev76 sparse touch overlay ON, iPhone: present 1.17 -> 0.44 ms
+
+Stefan: touch controls looked and worked exactly as before. Log
+`Debug/5 November 2026/dev76_iphone_native60_sparse_touch_nfsmw.log`
+(SHA256 eedeed3b…), iPhone, dev76, native/60 Balanced, same race,
+`--nfsmw_native_sparse_touch_overlay=true --nfsmw_native_pass_counters=true`.
+Overlay summaries while driving: 41.2 and 41.9 draws a frame, 13.3 % and
+13.7 % of the screen blended (39-46 rectangles). Driving profiles (frame >
+12 ms, 13 of 22): "present: main display" 0.44 ms vs 1.17 ms in the dev75
+log (23 profiles), i.e. ~0.73 ms (~4.7 % of the GPU frame) less; frame 15.47
+vs 15.77 ms (different run length/route coverage, so the frame totals are
+not a controlled comparison). Other passes within run-to-run spread. No
+energy measurement. iPad not run with the flag yet.
