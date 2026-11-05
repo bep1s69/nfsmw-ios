@@ -21132,3 +21132,22 @@ SOURCE WxH -> DEST (dest WxH[, linear])", so the pass profile lists the
 copies separately. Build exit 0, `unzip -t` OK, `git diff --check` clean.
 IPA `ios/build/NFSMW-0.6.0-dev81-resolve-labels.ipa`, SHA256 in the next
 line of the checkpoint; on the iCloud Desktop, dev80 moved to Trash.
+
+### November 6: dev81 labelled resolve copies (iPhone): copies are small now
+
+Log `Debug/5 November 2026/dev81_iphone_native60_resolve_labels_nfsmw.log`
+(SHA256 e0fad22f…), iPhone, dev81, native/60 Balanced, trial Extra Args +
+`--nfsmw_native_pass_counters=true --nfsmw_native_resolve_labels=true`, no
+probe. 41 driving profiles (frame > 12 ms), mean frame 15.25 ms. Copies
+(each listed only while in a block's top 14):
+- d47c -> 09222000, 2859x1320 into a LINEAR 2874x1320: 0.42 ms (the
+  post stage's intermediate copy read by the distortion shader).
+- d47c -> 09689000, 2859x1320 tiled: 0.33 ms (the final picture).
+- depth copies: shadow 0.44 ms, main 0.34 ms (read by receivers / the post
+  composite's depth input; removal needs shader changes).
+- main scene copy absent (colour handoff on); cube face copies ~0.01 ms.
+Colour resolve copies ~0.75 ms in all; the larger dev79/dev80 "resolve copy"
+totals were not split, so not comparable. Removable without shader work:
+the final copy (B2, ~0.33 ms, needs proof nothing reads 09689000 later) and
+making the 09222000 copy tiled (~0.1 ms if it behaves like the final one;
+why it is linear not yet checked). Main pass 8.29 ms (54 %) on this route.
