@@ -20674,3 +20674,23 @@ at 30/40 or `--ios_background_qos=true`; false restores dev66's 16.3 %/h
 behaviour). build-0.6 exit0; performance-profile test PASS; `unzip -t` OK;
 codesign exit0. IPA `ios/build/NFSMW-0.6.0-dev71-40fps-defaults.ipa` (Desktop; dev70 to Trash from the
 Desktop), 30615239 bytes, SHA256 db2e7a4e1a647e64dc8c8e841f583721baa3842ba3f6eedc918f0d6bdf1bf585.
+
+## November 5: dev72 render-queue trims (stacking small CPU savings)
+
+Stefan: keep stacking small savings (~0.3 %/h each). Profiles: proposed
+Balanced = smooth (back to dev66 at 30/40) and Eco = aggressive (the
+low-priority-workers rule); awaiting his yes.
+- Upload sizing: Record sums each draw's fresh attribute upload bytes into
+  `Draw::fresh_attribute_bytes` (while the arrays are in cache); RenderFrame's
+  pre-pass (19 % of RenderFrame self) adds that instead of walking every
+  attribute's array. Same budget.
+- Texture slots: per frame texture, the resolved-map generation of its last
+  miss; a slot whose texture was already looked up and not found since the
+  last resolve skips the std::map lookup (`resolved_generation` bumped at both
+  inserts).
+Checks: test_upload_sizing updated (its synthetic draws get the sum Record
+would compute) PASS 2011 frames; test_draw_arena, test_color_handoff,
+test_guest_culling, test_resource_list_cache, test_compact_shared_constants,
+test_texture_masks PASS; build-0.6 exit0; `unzip -t` OK; codesign exit0;
+`git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev72-render-queue-trims.ipa` (Desktop; dev71 to Trash from
+the Desktop), 30615763 bytes, SHA256 3d5cb85bd882f6a230d7f3fb5ca63d2af4271d9a6cb8528488ad1e9d41f8179f.

@@ -1123,6 +1123,10 @@ struct Draw {
   uint64_t vs_key, ps_key;
   MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
   std::pmr::vector<Attribute> attributes;
+  // Upload bytes of the fresh attributes (each + 256 alignment), summed at
+  // Record while they are in cache: the render queue's sizing pre-pass read
+  // every attribute's array size (19 % of RenderFrame self, Nov 5).
+  size_t fresh_attribute_bytes = 0;
   // Rebased to the decoded vertices; shared with the index cache (and the
   // renderer's Metal buffer for them) unless made this frame (indices_fresh).
   std::shared_ptr<const std::vector<uint32_t>> indices;
@@ -3377,6 +3381,9 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.scissor[1] = (tl >> 16) & 0x7FFF;
   d.scissor[2] = br & 0x7FFF;
   d.scissor[3] = (br >> 16) & 0x7FFF;
+  for (const Attribute& a : d.attributes) {
+    if (a.fresh && a.values) d.fresh_attribute_bytes += a.values->size() * 4 + 256;
+  }
   frame.draws.push_back(std::move(d));
 }
 
@@ -5071,10 +5078,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
       };
       auto size_geometry = [&](const Draw& d) __attribute__((always_inline)) {
-        total += shared_bytes + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0);
-        for (const Attribute& a : d.attributes) {
-          if (a.fresh && a.values) total += a.values->size() * 4 + 256;
-        }
+        total += shared_bytes + 256 + (d.indices_fresh ? d.index_count() * 4 + 256 : 0) + d.fresh_attribute_bytes;
       };
       // Only the budget calculation is fused. The same per-stage coverage
       // state and byte allowances size the same buffer; put() below still
@@ -5761,6 +5765,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     auto early_gpu_start = std::make_shared<std::atomic<double>>(0.0);
     // Resolved textures by destination address -> heap index.
     std::map<uint32_t, uint32_t> resolved;
+    // Per frame texture: the resolved-map generation at which its address was
+    // last looked up and not found (dev72): most draws' slots are plain game
+    // textures, and the map lookup per slot per draw showed in the profile.
+    uint32_t resolved_generation = 1;
+    std::vector<uint32_t> resolved_miss(frame->textures.size(), 0);
     // For sampling a resolve the way the console does: what it swapped in
     // memory (RB_COPY_DEST_INFO swap) then the fetch constant's swizzle.
     std::map<uint32_t, id<MTLTexture>> resolved_texture;
@@ -5842,7 +5851,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       if (kept == kept_resolves.end() || next_heap >= heap_capacity || kept->second.texture.textureType != MTLTextureType2D) continue;
       static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = kept->second.texture.gpuResourceID;
       if (prepare_snapshots) heap_object[next_heap] = kept->second.texture;
-      resolved[tp->address] = next_heap++;
+      resolved[tp->address] = next_heap++; ++resolved_generation;
       resolved_texture[tp->address] = kept->second.texture;
       resolved_swap[tp->address] = kept->second.swap;
       resolved_scale[tp->address] = kept->second.scale;
@@ -6302,7 +6311,7 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
               SamplerFor(device, false, 2, 2, false).gpuResourceID;
         }
         if (prepare_snapshots) heap_object[next_heap] = dest;
-        resolved[ev.dest_base] = next_heap++;
+        resolved[ev.dest_base] = next_heap++; ++resolved_generation;
         resolved_texture[ev.dest_base] = dest;
         resolved_swap[ev.dest_base] = !ev.depth && ev.swap;
         resolved_scale[ev.dest_base] = scale;
@@ -7108,7 +7117,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (d.textures[s] >= 0) {
           // Resolved earlier in this frame: our texture, not guest memory.
           const Texture& ft = *frame->textures[d.textures[s]];
-          auto it = resolved.find(ft.address);
+          const size_t ti = size_t(d.textures[s]);
+          const bool known_miss = ti < resolved_miss.size() && resolved_miss[ti] == resolved_generation;
+          auto it = known_miss ? resolved.end() : resolved.find(ft.address);
+          if (!known_miss && it == resolved.end() && ti < resolved_miss.size()) resolved_miss[ti] = resolved_generation;
           if (it != resolved.end()) {
             index = int(it->second);
             // The console reads the resolve back from memory: in memory X

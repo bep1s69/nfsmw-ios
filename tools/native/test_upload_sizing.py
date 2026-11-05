@@ -103,6 +103,9 @@ std::vector<uint64_t> Describe(const Frame& f) {
 }
 size_t checks=0;
 size_t Check(const Frame& f) {
+ // dev72: Record sums the fresh attributes' upload bytes into the draw; do
+ // the same here, as the production Record would have.
+ for(Draw& d:const_cast<Frame&>(f).draws){d.fresh_attribute_bytes=0;for(const auto& a:d.attributes)if(a.fresh&&a.values)d.fresh_attribute_bytes+=a.values->size()*4+256;}
  auto before=Describe(f);size_t expected=Reference(&f,false);
  for(size_t shared_bytes:{384u,1024u}) {
   size_t adjusted=expected-f.draws.size()*(1024-shared_bytes);
