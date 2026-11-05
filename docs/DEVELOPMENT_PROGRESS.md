@@ -437,6 +437,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev87 BUILT: post composite blur taps from a half-size scene (default off).**
+`nfsmw_native_post_half_taps=false`; composite library rebuilt with the new
+rewrite (bit-off path = recompiled baseline). IPA
+`ios/build/NFSMW-0.6.0-dev87-post-half-taps.ipa` (SHA256 bc8d4019186e527f59bf8020ad06e79958b8d6f33bbeec0d835ad4da84fa66af). Next:
+Stefan's iPhone race with it on + pass counters; compare post pass d47c with
+dev81 (1.99 ms) and judge blur/depth-of-field look. TECHNICAL "dev87".
+Also: 0.85x scene + sharp HUD only as a Battery-mode idea (Stefan).
+
 **November 6, shadow depth handoff PARKED:** dev86 self-test shows the iPhone
 reads depth through the shader heap and the (R,0,0,1) view exactly like the
 copy, so the fault is in ownership/order, not reads. Flag stays off; BACKLOG

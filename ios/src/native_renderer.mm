@@ -346,6 +346,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_external_controls_only, true, "GPU",
                     "Native renderer: with an external display, the phone shows only the touch "
                     "controls, over black (off: the picture on both)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_post_half_taps, false, "GPU",
+                    "Native renderer: the final post composite (ps 20710a9a) takes its 7 blur taps from a half-size, "
+                    "2x2-averaged copy of the scene made right after its resolve (restart required; "
+                    "tools/native/rewrite_post_half_taps.py)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_depth_handoff, false, "GPU",
                     "Native renderer: a whole-target depth resolve (the shadow maps) hands over the depth texture itself, "
                     "sampled as the copy was (depth in red, 0, 0, 1), instead of copying it to a float texture; the "
@@ -3575,7 +3579,7 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
   if (!desc.fragmentFunction) {
     // A failed trial specialization must not silently draw the base shader
     // and get counted as having exercised early rejection.
-    if (k.alpha_spec & 0x2000u) return nil;
+    if (k.alpha_spec & 0x6000u) return nil;
     desc.fragmentFunction = ps;
   }
   if (k.motion >= 2) {  // nil (no such entry point): the pipeline fails, its draws are left out
@@ -3943,6 +3947,38 @@ void DepthReadSelfTest(id<MTLDevice> device, id<MTLCommandQueue> queue) {
                 cb.error ? std::string(" | error ") + cb.error.localizedDescription.UTF8String : std::string());
   }
 }
+
+// nfsmw_native_post_half_taps: a half-size copy, each pixel the average of
+// the 2x2 below it (one linear sample between their centres).
+id<MTLRenderPipelineState> HalfSizePipeline(id<MTLDevice> device, MTLPixelFormat format) {
+  static std::map<MTLPixelFormat, id<MTLRenderPipelineState>> made;
+  if (auto it = made.find(format); it != made.end()) return it->second;
+  NSString* source = @"#include <metal_stdlib>\n"
+                      "using namespace metal;\n"
+                      "struct V { float4 p [[position]]; };\n"
+                      "vertex V vs(uint id [[vertex_id]]) {\n"
+                      "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                      "  V v; v.p = float4(uv * 2.0 - 1.0, 0.0, 1.0); return v; }\n"
+                      "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]],\n"
+                      "                   constant float2& size [[buffer(0)]]) {\n"
+                      "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+                      "  return t.sample(s, in.p.xy / size); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  id<MTLRenderPipelineState> pso = nil;
+  if (library) {
+    MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+    desc.vertexFunction = [library newFunctionWithName:@"vs"];
+    desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+    desc.colorAttachments[0].pixelFormat = format;
+    pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+  }
+  if (!pso) REXLOG_WARN("[native] half-size scene shader: {}", error ? error.localizedDescription.UTF8String : "?");
+  made[format] = pso;
+  return pso;
+}
+uint32_t composite_scene_address = 0;  // what ps 20710a9a samples in slot 0 (render queue only)
+uint64_t half_tap_draws = 0;
 
 id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
@@ -5984,6 +6020,21 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
     std::map<uint32_t, id<MTLTexture>> resolved_texture;
     std::map<uint32_t, bool> resolved_swap;
     std::map<uint32_t, float> resolved_scale;  // the resolution scale of its source target
+    std::map<uint32_t, uint32_t> half_index;      // nfsmw_native_post_half_taps: address -> heap index
+    static const bool post_half_taps = REXCVAR_GET(nfsmw_native_post_half_taps);
+    // The composite's draw takes its blur taps from the half-size copy:
+    // its slot 0 is a resolve of this frame with a copy, read as it is
+    // (no swizzle, swap or crop view).
+    auto half_taps = [&](const Draw& d) -> int64_t {
+      if (!post_half_taps || d.ps_key != 0x20710a9a2fef88e9ull || d.textures[0] < 0) return -1;
+      const Texture& ft = *frame->textures[d.textures[0]];
+      const auto h = half_index.find(ft.address);
+      if (h == half_index.end() || ft.fetch_swizzle != 0x688 || resolved_swap[ft.address]) return -1;
+      id<MTLTexture> base = resolved_texture[ft.address];
+      const float fs = resolved_scale.count(ft.address) ? resolved_scale[ft.address] : 1.0f;
+      if (!base || base.buffer || Px(ft.width, fs) != base.width || Px(ft.height, fs) != base.height) return -1;
+      return int64_t(h->second);
+    };
     // (resolved texture, swizzle | swap << 12, width, height) -> heap index:
     // keyed by the texture, not the address (one address can be resolved
     // several times in a frame: each resolve is a new texture).
@@ -6611,6 +6662,37 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         if (prepare_snapshots) heap_object[next_heap] = dest;
         resolved[ev.dest_base] = next_heap++; ++resolved_generation;
         resolved_texture[ev.dest_base] = dest;
+        if (post_half_taps && !ev.depth && ev.dest_base == composite_scene_address && !dest.buffer &&
+            !half_index.count(ev.dest_base) &&
+            dest.width >= 4 && dest.height >= 4 && next_heap < heap_capacity) {
+          if (id<MTLRenderPipelineState> half_pso = HalfSizePipeline(device, dest.pixelFormat)) {
+            MTLTextureDescriptor* hd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:dest.pixelFormat
+                                                                                          width:dest.width / 2
+                                                                                         height:dest.height / 2
+                                                                                      mipmapped:NO];
+            hd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+            hd.storageMode = MTLStorageModePrivate;
+            if (id<MTLTexture> half = gpu_pool.Texture(device, hd)) {
+              MTLRenderPassDescriptor* hp = [MTLRenderPassDescriptor renderPassDescriptor];
+              hp.colorAttachments[0].texture = half;
+              hp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+              hp.colorAttachments[0].storeAction = MTLStoreActionStore;
+              if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+                profile_pass(hp, "post: half-size scene");
+              id<MTLRenderCommandEncoder> he = [cb renderCommandEncoderWithDescriptor:hp];
+              const float size[2] = {float(half.width), float(half.height)};
+              [he setRenderPipelineState:half_pso];
+              [he setFragmentTexture:dest atIndex:0];
+              [he setFragmentBytes:size length:sizeof(size) atIndex:0];
+              [he drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+              [he endEncoding];
+              static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = half.gpuResourceID;
+              half_index[ev.dest_base] = next_heap++;
+              [resolved_textures addObject:half];
+              gpu_pool.Retire(half, number);  // reused once this frame is done
+            }
+          }
+        }
         resolved_swap[ev.dest_base] = !ev.depth && ev.swap;
         resolved_scale[ev.dest_base] = scale;
         // The texture it replaces: back to the pool after this frame (which
@@ -7188,6 +7270,13 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
       static const bool foliage_early_alpha = REXCVAR_GET(nfsmw_native_foliage_early_alpha);
       const bool foliage_eligible = d.ps_key == 0x684f4711f29b9f77ull && (alpha_spec & 2u);
       if (foliage_early_alpha && foliage_eligible) alpha_spec |= 0x2000u;
+      // Bit 14: the post composite's blur taps from the half-size scene.
+      if (post_half_taps && d.ps_key == 0x20710a9a2fef88e9ull && d.textures[0] >= 0)
+        composite_scene_address = frame->textures[d.textures[0]]->address;
+      if (half_taps(d) >= 0) {
+        alpha_spec |= 0x4000u;
+        ++half_tap_draws;
+      }
       // The shadow caster (ps 4fbaecfb) with its cut-out off (c1.x 0): the
       // variant without the discard compiled in (bit 12, see
       // tools/native/rewrite_shadow_caster_alpha.py), so the GPU can drop
@@ -7756,6 +7845,10 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                              ft.fetch_swizzle, resolved_swap[ft.address] ? "_swap" : "",
                                              ft.persistent ? "_kept" : ft.format == MTLPixelFormatInvalid ? "_resolved" : "")});
         }
+      }
+      if (const int64_t half = half_taps(d); half >= 0) {
+        shared[15] = uint32_t(half);       // texture slot 15: the half-size scene
+        shared[64 + 15] = uint32_t(half);  // its sampler (linear, clamped)
       }
       shared[80] = d.booleans;  // g_Booleans at byte 320
       {
@@ -8896,15 +8989,17 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         }
         REXLOG_INFO("[native] early commit {}: {} early command buffers over {} frames; fingerprint memo {}; "
                     "shadow caster variant {}: {} draws; unread resolves skipped {}; depth handoffs {} (misses {}); "
+                    "half-size blur taps {} draws; "
                     "CP fast runs {}",
                     REXCVAR_GET(nfsmw_native_early_commit) ? "on" : "off", early_commit_total.exchange(0), frames,
                     REXCVAR_GET(nfsmw_native_fingerprint_memo) ? "on" : "off",
                     REXCVAR_GET(nfsmw_native_shadow_caster_variant) ? "on" : "off", caster_variant_draws,
-                    unread_skips, depth_handoffs, depth_handoff_misses,
+                    unread_skips, depth_handoffs, depth_handoff_misses, half_tap_draws,
                     rex::cvar::Query<bool>("ios_cp_fast_runs") ? "on" : "off");
         caster_variant_draws = 0;
         unread_skips = 0;
         depth_handoffs = depth_handoff_misses = 0;
+        half_tap_draws = 0;
         static uint64_t* census_packets = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_packets"));
         static uint64_t* census_words = static_cast<uint64_t*>(dlsym(RTLD_DEFAULT, "nfsmw_cp_census_words"));
         if (census_packets && census_words && rex::cvar::Query<bool>("ios_packet_census")) {

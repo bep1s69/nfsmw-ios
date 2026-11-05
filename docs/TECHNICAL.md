@@ -21287,3 +21287,26 @@ pursued further now (~0.44 ms at stake); flag stays default false. Next
 step if resumed: a frame-level check that copies the handed depth to a
 scratch R32Float as well and compares (count of differing texels) to find
 which frame/texture diverges.
+
+### November 6: dev87 post composite blur taps from a half-size scene (default off)
+
+Stefan: 0.85x scene with a sharp HUD only for Battery mode (looks bad,
+especially on iPads); try the half-size blur taps. Not pixel-identical by
+design. New `tools/native/rewrite_post_half_taps.py` (build_shaders.sh,
+same baseline digest as the removed dev80 rewrite): under specialization bit
+14 the 7 offset DIFFUSEMAP taps of ps 20710a9a read texture slot 15 (new
+NFSMW_HALF_SAMPLER_* index macros at SharedConstants + 60 / + 316, both
+heap variants); centre sample unchanged. Renderer
+`nfsmw_native_post_half_taps` (default false, restart-only): learns the
+address the composite samples in slot 0; at the first colour resolve to it
+each frame (non-linear dest) draws a half-size copy (one linear sample
+between 2x2 texel centres = their average; pool texture retired after the
+frame; profiled as "post: half-size scene") and records its heap index;
+the composite draw gets bit 14 and slots 15 (texture + sampler) only when
+its slot 0 is that resolve read without a swizzle/swap/crop view; else the
+original path. Failed bit-14 pipelines return nil (with bit 13). Counted as
+"half-size blur taps N draws" in the early-commit line. Library built from
+the recovered baseline + rewrite (iOS 18.0), SHA256 47174927…8f10 (verified in
+the IPA); the pre-dev80 original stays in shaders/previous. Build exit 0,
+`unzip -t` OK. IPA `ios/build/NFSMW-0.6.0-dev87-post-half-taps.ipa`
+(SHA256 bc8d4019186e527f59bf8020ad06e79958b8d6f33bbeec0d835ad4da84fa66af), on the iCloud Desktop; dev86 moved to Trash. Not yet run.
