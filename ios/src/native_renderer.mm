@@ -2658,9 +2658,80 @@ const CachedFetchLayout* FetchLayoutFor(const NfsmwNativeDraw& in, const std::ve
   return &layout;
 }
 
+// Draw-reuse census (nfsmw_native_reuse_census, Nov 5, counting only): how
+// many draws repeat the previous frame's inputs. Per draw two hashes: "state"
+// (shader keys, draw packet, context registers 0x2000-0x22FF, fetch constants
+// 0x4800-0x48FF, bool/loop constants) and "constants" (ALU constants
+// 0x4000-0x47FF). Buffer contents are not covered (Record fingerprints
+// those), so the counts are an upper bound for reuse. The hashing is slow:
+// a census run is not a performance or battery run.
+REXCVAR_DEFINE_BOOL(nfsmw_native_reuse_census, false, "GPU",
+                    "Log how many draws repeat the previous frame's state and constants (slow; "
+                    "counting only)");
+struct ReuseCensus {
+  std::vector<std::pair<uint64_t, uint64_t>> previous, current;
+  const Frame* last_frame = nullptr;  // the frame being recorded (a new one starts a new census frame)
+  uint64_t frames = 0, draws = 0, pos_state = 0, pos_all = 0, any_state = 0, any_all = 0, same_count = 0;
+  static uint64_t Hash(const uint32_t* p, size_t n, uint64_t h) {
+    for (size_t i = 0; i < n; ++i) h = (h ^ p[i]) * 0x100000001B3ull;
+    return h;
+  }
+  void Draw(const Frame& frame, const NfsmwNativeDraw& in) {
+    const uint32_t* r = in.regs;
+    if (&frame != last_frame) {
+      if (!current.empty()) EndFrame();
+      last_frame = &frame;
+    }
+    uint64_t h = 0xCBF29CE484222325ull;
+    const uint64_t head[] = {in.vs_key, in.ps_key, in.initiator, in.index_base, in.index_size,
+                             in.inline_draw, in.from_arguments, in.start_vertex, in.up_vertices};
+    h = Hash(reinterpret_cast<const uint32_t*>(head), sizeof(head) / 4, h);
+    h = Hash(r + 0x2000, 0x300, h);
+    h = Hash(r + 0x4800, 0x100, h);
+    h = Hash(r + 0x4900, 0x28, h);
+    const uint64_t c = Hash(r + 0x4000, 0x800, 0xCBF29CE484222325ull);
+    current.push_back({h, c});
+  }
+  void EndFrame() {
+    ++frames;
+    draws += current.size();
+    same_count += current.size() == previous.size();
+    std::unordered_set<uint64_t> prev_state, prev_all;
+    for (const auto& [h, c] : previous) {
+      prev_state.insert(h);
+      prev_all.insert(h * 31 + c);
+    }
+    for (size_t i = 0; i < current.size(); ++i) {
+      const auto& [h, c] = current[i];
+      if (i < previous.size() && previous[i].first == h) {
+        ++pos_state;
+        pos_all += previous[i].second == c;
+      }
+      any_state += prev_state.count(h) != 0;
+      any_all += prev_all.count(h * 31 + c) != 0;
+    }
+    previous.swap(current);
+    current.clear();
+    if (frames % 300 == 0 && draws) {
+      const double d = double(draws);
+      REXLOG_INFO("[reuse-census] {} frames, {:.0f} draws/frame ({} frames same draw count): same as last frame "
+                  "at the same position: state {:.1f}%, state+constants {:.1f}%; anywhere in last frame: state "
+                  "{:.1f}%, state+constants {:.1f}% (buffer contents not compared)",
+                  frames, d / 300, same_count, 100 * pos_state / d, 100 * pos_all / d, 100 * any_state / d,
+                  100 * any_all / d);
+      draws = pos_state = pos_all = any_state = any_all = same_count = 0;
+    }
+  }
+};
+
 void Record(Frame& frame, const NfsmwNativeDraw& in) {
   if (in.vs_key==0xacc15ef6157ec934ull || in.ps_key==0x2d2462de73d283deull) frame.movie_picture=true;
   const uint32_t* regs = in.regs;
+  static const bool reuse_census = REXCVAR_GET(nfsmw_native_reuse_census);
+  if (reuse_census) {
+    static ReuseCensus census;
+    census.Draw(frame, in);
+  }
   // Inline draws (DRAW_INDX_2: D3D's draws from user memory, e.g. the bloom
   // chain): their vertices are in the ring, behind a vertex fetch constant
   // like any other; drawn the same way. Most use vertex shaders D3D builds at

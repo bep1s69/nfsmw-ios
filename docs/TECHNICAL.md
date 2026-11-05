@@ -20579,3 +20579,24 @@ exit0; performance-profile test PASS; `unzip -t` OK; codesign exit0. IPA
 `ios/build/NFSMW-0.6.0-dev67-hot-path-trims.ipa` (Desktop; dev66 to Trash from
 the Desktop), 30612094 bytes, SHA256
 39dd9c990d93b2d567b51c41c6dd0bcc5fe8698c24ea96d2d4ddaadbc284427f.
+
+dev67 iPad (Stefan, Nov 5; trace `Debug/5 November 2026/dev67_ipad_power_profile.trace`,
+60 cap, T block; log `dev67_ipad_power_nfsmw.log`): 24.4 %/h, CPU 5.19, GPU
+3.05 (= dev62): the two trims are below what a single run resolves.
+
+## November 5: dev68 draw-reuse census (counting only, default off)
+
+Stefan approved the census. `native_renderer.mm`: cvar
+`nfsmw_native_reuse_census` (false, read once). At the top of Record, per draw:
+a "state" hash (shader keys, draw packet fields, registers 0x2000–0x22FF,
+fetch constants 0x4800–0x48FF, bool/loop 0x4900–0x4927) and a "constants"
+hash (ALU constants 0x4000–0x47FF); a new Frame object starts a census frame;
+every 300 frames `[reuse-census]` logs draws/frame, frames with the same draw
+count, and the share of draws equal to the previous frame at the same
+position (state; state+constants) and anywhere in it. Buffer contents are not
+compared (upper bound). The hashing (~3,000 dwords per draw) slows the
+GPU-commands thread: not a pacing or battery run. build-0.6 exit0; `unzip -t`
+OK; codesign exit0; `git diff --check` exit0. IPA
+`ios/build/NFSMW-0.6.0-dev68-reuse-census.ipa` (Desktop; dev67 to Trash from
+the Desktop), SHA256 in the next record line.
+IPA SHA256 f3627886f1d0d1b48f726a5bb4aa2fa74b908e8a603189a287613965223168c8, 30615707 bytes.
