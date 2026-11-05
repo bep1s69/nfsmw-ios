@@ -160,10 +160,15 @@ void PublishProfile(int cap) {
 bool Flag(unsigned flag);
 // The low class: Background when the profile (tablet Balanced at 30/40) or
 // --ios_background_qos asks, live; workers-only trial via its own cvar.
-qos_class_t LowQos(bool frame_thread = false) {
+// dev66: the Background flag lowers the frame threads and the render queue
+// only; guest workers (audio stream decode among them) keep Utility, since
+// dev65's 40 cap starved audio (31 gaps in 5 s) with every worker at
+// Background. ios_background_qos_workers still lowers the workers too.
+enum class LowRole { Frame, Render, Worker };
+qos_class_t LowQos(LowRole role) {
   static const bool workers = REXCVAR_GET(ios_background_qos_workers);
-  const bool all = Flag(Background);
-  return all || (workers && !frame_thread) ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
+  const bool background = role == LowRole::Worker ? workers : Flag(Background);
+  return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
 // ios_boost_threads: whether a boost raises this frame thread (read once).
 bool BoostRaises(bool main) {
@@ -178,8 +183,8 @@ bool BoostRaises(bool main) {
 }
 qos_class_t PrimaryQos(int m, bool main) {
   if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
-  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos(true);
-  return Flag(MainUtility) ? LowQos(true) : QOS_CLASS_DEFAULT;
+  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos(LowRole::Frame);
+  return Flag(MainUtility) ? LowQos(LowRole::Frame) : QOS_CLASS_DEFAULT;
 }
 void ApplyQos(qos_class_t qos, int& applied, const char* role) {
   // All cooperative and main-loop callers share one cache on each thread.
@@ -399,7 +404,7 @@ void AdoptGuestQos(int role) {
   qos_class_t qos;
   if (role == 1 || role == 3) qos = PrimaryQos(mode.load(std::memory_order_relaxed), role == 1);
   else {
-    qos = Flag(GuestUtility) ? LowQos() : QOS_CLASS_DEFAULT;
+    qos = Flag(GuestUtility) ? LowQos(LowRole::Worker) : QOS_CLASS_DEFAULT;
     if (AdaptiveEnabled() && WorkersOn() && Settings().workers == 0 &&
         mode.load(std::memory_order_relaxed) == 1) qos = Settings().qos;
   }
@@ -432,7 +437,7 @@ void Choose(const std::string& name) {
 }
 unsigned RenderQos() {
   if (AdaptiveEnabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1) return Settings().qos;
-  return Flag(RenderUtility) ? LowQos() : QOS_CLASS_DEFAULT;
+  return Flag(RenderUtility) ? LowQos(LowRole::Render) : QOS_CLASS_DEFAULT;
 }
 unsigned PipelineQos() {
   return selected_profile.load(std::memory_order_relaxed) == 0 ? QOS_CLASS_UTILITY : QOS_CLASS_USER_INITIATED;

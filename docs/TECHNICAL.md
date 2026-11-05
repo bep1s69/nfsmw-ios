@@ -20507,3 +20507,31 @@ Tests proposed: 40 cap default (expect ~12.6 %/h, check live cap switching
 60<->40); 60 cap adaptive Background/Utility trial with `--ios_utility_qos=false
 --ios_adaptive_qos=true --nfsmw_adaptive_qos_original=true
 --ios_adaptive_qos_level=utility --ios_background_qos=true` + improvements.
+
+## November 5: dev65 results; dev66 keeps guest workers off Background
+
+dev65 iPad (Stefan; trace `Debug/5 November 2026/dev65_ipad_power_profiles.trace`,
+runs "1. 1.5x 40fps" 76.9 s, "2. 1.5x 60fps" 74.9 s; log
+`Debug/5 November 2026/dev65_ipad_power_nfsmw.log`, also holds older sessions;
+improvements on; brightness 27 %, Nominal):
+- 40 cap default (Background): **12.5 %/h**, CPU 1.79, GPU 2.06. Stefan: weird
+  microstutters, audio briefly cutting out (iPhone at 40 fps very smooth in an
+  unrelated session). Log: fps windows 39.5–40, 53 hitch lines, a coreaudio
+  window with 31 gaps / 7936 frames of silence and 31 permits refused (ring
+  at 0 blocks). Inference: with every guest worker at Background, the guest
+  audio stream decode thread (WMA, a guest worker) and its feeders starve.
+- 60 Background/Utility adaptive trial: 24.6 %/h (= Utility), Stefan:
+  flawless; log shows "Utility for 40 s / 80 s (2 late frames of 120)" and
+  "back to Utility": it boosts to Utility almost all the time, so no saving.
+  Trial not pursued.
+dev66: `LowQos(LowRole)` — the Background flag (tablet Balanced at 30/40, or
+`--ios_background_qos=true`) now lowers only the frame threads and the
+render-queue blocks; guest workers stay Utility unless
+`--ios_background_qos_workers=true`. Inference to test: the cluster clock is
+set by the frame threads, so the saving should mostly remain without starving
+audio. Test PASS (performance profiles 393216); build-0.6 exit0; `unzip -t`
+OK; codesign exit0. IPA `ios/build/NFSMW-0.6.0-dev66-background-frame-threads.ipa`
+(Desktop; dev65 to Trash from the Desktop), 30611853 bytes, SHA256
+84e48172ff26c83066c74b300567a270f2eea261581a50e974e69887a0dac615.
+Test: iPad 40 cap, 1.5x, improvements block (T), Power Profiler; listen for
+audio; compare 12.5 %/h.

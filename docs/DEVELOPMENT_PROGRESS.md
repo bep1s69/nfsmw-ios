@@ -427,6 +427,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev66 BUILT:** dev65 40 cap 12.5 %/h but microstutters and audio
+cut-outs (guest audio decode starved at Background); the 60 Background/Utility
+trial stays on Utility (24.6, no saving). dev66 lowers only frame threads +
+render queue at 30/40. Next: Stefan's 40-cap run with audio check.
+
 **November 4, dev65 BUILT (iPad 30/40 caps at Background QoS by default):**
 dev64: 40 cap all-Background 12.6 %/h at an almost perfect 40; 60 cap
 all-Background 15.6 %/h unsmooth; workers-only and improvements at Utility
