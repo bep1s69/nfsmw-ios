@@ -21252,3 +21252,22 @@ GPUs only). Counts "depth handoffs N (misses M)" in the early-commit line.
 Build exit 0, `unzip -t` OK. IPA
 `ios/build/NFSMW-0.6.0-dev85-shadow-depth-handoff.ipa` (SHA256 22be06e20d67a26fe9a4398c562aea8e2c5e6a3208fb4cdfdcaf292423fb7fa3), on the
 iCloud Desktop; dev84 moved to Trash. Not yet run.
+
+### November 6: dev85 shadow depth handoff ON, iPhone: WRONG picture; dev86 self-test
+
+Stefan: shadows looked different/missing, the whole game darker, and about
+every 10 s the old look flickered back for a split second. Log
+`Debug/6 November 2026/dev85_iphone_native60_shadow_depth_handoff_BAD_nfsmw.log`
+(SHA256 5069c003…): 299 handoffs per 300-frame window (one of the two shadow
+resolves per frame qualifies), 0 misses. The periodic flicker matches the
+depth-audit frames (every 300th), which keep the copy path: the handed path
+itself reads differently on the iPhone, unlike the Mac test. Hypotheses
+(untested): the A19 reads a depth texture through texture2d<float> (gather
+or sample) differently from the M-series Mac, or the (R,0,0,1) view fails
+there. Flag stays default false; Stefan told to turn it off.
+dev86 adds, with the flag on only: a one-time in-app self-test (16x16
+Depth32Float_Stencil8 cleared to 0.375, read raw and through the view by a
+compute kernel through a texture2d<float> heap: sample, linear, gather, read)
+and up to 4 lines reporting whether the bind-time view for a handed depth
+was made. IPA `ios/build/NFSMW-0.6.0-dev86-depth-read-selftest.ipa`
+(SHA256 72ccd6b8a1f6fef5520d6f37d3949f1f6cb4168ad99554b6bcb2fe11b04dcd6b), on the iCloud Desktop; dev85 moved to Trash.

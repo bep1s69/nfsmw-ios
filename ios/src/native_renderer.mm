@@ -3872,6 +3872,78 @@ uint32_t TreeEdgeDepth(const Draw& d) {
   return dc;
 }
 
+// nfsmw_native_shadow_depth_handoff: once, how this GPU reads a depth texture
+// through the shaders' texture2d<float> heap (raw and through the (R,0,0,1)
+// view): sample, linear sample, gather and read of a depth cleared to 0.375.
+void DepthReadSelfTest(id<MTLDevice> device, id<MTLCommandQueue> queue) {
+  static const char* src =
+      "#include <metal_stdlib>\nusing namespace metal;\n"
+      "struct Heap { texture2d<float> tex; };\n"
+      "kernel void k(constant Heap* heap [[buffer(0)]], device float4* out [[buffer(1)]]) {\n"
+      "  constexpr sampler pt(filter::nearest, address::clamp_to_edge);\n"
+      "  constexpr sampler li(filter::linear, address::clamp_to_edge);\n"
+      "  for (int i = 0; i < 2; ++i) { texture2d<float> t = heap[i].tex;\n"
+      "    out[i * 4 + 0] = t.sample(pt, float2(0.3, 0.6));\n"
+      "    out[i * 4 + 1] = t.sample(li, float2(0.3, 0.6));\n"
+      "    out[i * 4 + 2] = t.gather(li, float2(0.125, 0.125));\n"
+      "    out[i * 4 + 3] = t.read(uint2(3, 9)); } }\n";
+  NSError* error = nil;
+  id<MTLLibrary> lib = [device newLibraryWithSource:@(src) options:nil error:&error];
+  id<MTLComputePipelineState> pso =
+      lib ? [device newComputePipelineStateWithFunction:[lib newFunctionWithName:@"k"] error:&error] : nil;
+  if (!pso) {
+    REXLOG_WARN("[native] depth read self-test: {}", error ? error.localizedDescription.UTF8String : "no pipeline");
+    return;
+  }
+  MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8
+                                                                                width:16
+                                                                               height:16
+                                                                            mipmapped:NO];
+  td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+  td.storageMode = MTLStorageModePrivate;
+  id<MTLTexture> t = [device newTextureWithDescriptor:td];
+  id<MTLTexture> v = [t newTextureViewWithPixelFormat:t.pixelFormat
+                                          textureType:MTLTextureType2D
+                                               levels:NSMakeRange(0, 1)
+                                               slices:NSMakeRange(0, 1)
+                                              swizzle:MTLTextureSwizzleChannelsMake(MTLTextureSwizzleRed, MTLTextureSwizzleZero,
+                                                                                    MTLTextureSwizzleZero, MTLTextureSwizzleOne)];
+  id<MTLCommandBuffer> cb = [queue commandBuffer];
+  MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
+  rp.depthAttachment.texture = t;
+  rp.depthAttachment.loadAction = MTLLoadActionClear;
+  rp.depthAttachment.clearDepth = 0.375;
+  rp.depthAttachment.storeAction = MTLStoreActionStore;
+  rp.stencilAttachment.texture = t;
+  rp.stencilAttachment.loadAction = MTLLoadActionClear;
+  rp.stencilAttachment.storeAction = MTLStoreActionDontCare;
+  [[cb renderCommandEncoderWithDescriptor:rp] endEncoding];
+  id<MTLBuffer> heap = [device newBufferWithLength:64 options:MTLResourceStorageModeShared];
+  static_cast<MTLResourceID*>(heap.contents)[0] = t.gpuResourceID;
+  static_cast<MTLResourceID*>(heap.contents)[1] = (v ? v : t).gpuResourceID;
+  id<MTLBuffer> out = [device newBufferWithLength:8 * 16 options:MTLResourceStorageModeShared];
+  std::memset(out.contents, 0xFF, out.length);
+  id<MTLComputeCommandEncoder> ce = [cb computeCommandEncoder];
+  [ce setComputePipelineState:pso];
+  [ce setBuffer:heap offset:0 atIndex:0];
+  [ce setBuffer:out offset:0 atIndex:1];
+  [ce useResource:t usage:MTLResourceUsageRead];
+  if (v) [ce useResource:v usage:MTLResourceUsageRead];
+  [ce dispatchThreads:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
+  [ce endEncoding];
+  [cb commit];
+  [cb waitUntilCompleted];
+  const float* o = static_cast<const float*>(out.contents);
+  for (int i = 0; i < 2; ++i) {
+    const float* q = o + i * 16;
+    REXLOG_INFO("[native] depth read self-test ({}{}): sample {:.4f} {:.4f} {:.4f} {:.4f} | linear {:.4f} {:.4f} {:.4f} "
+                "{:.4f} | gather {:.4f} {:.4f} {:.4f} {:.4f} | read {:.4f} {:.4f} {:.4f} {:.4f}{}",
+                i ? "view" : "raw", i && !v ? " FAILED, raw" : "", q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7],
+                q[8], q[9], q[10], q[11], q[12], q[13], q[14], q[15],
+                cb.error ? std::string(" | error ") + cb.error.localizedDescription.UTF8String : std::string());
+  }
+}
+
 id<MTLRenderPipelineState> DepthCopyPipeline(id<MTLDevice> device) {
   static id<MTLRenderPipelineState> pso;
   if (pso) {
@@ -6312,6 +6384,11 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         // depth texture becomes the resolve's, the target gets another.
         bool depth_handed = false;
         static const bool shadow_depth_handoff = REXCVAR_GET(nfsmw_native_shadow_depth_handoff);
+        static bool self_tested = false;
+        if (shadow_depth_handoff && !self_tested) {
+          self_tested = true;
+          DepthReadSelfTest(device, cb.commandQueue);
+        }
         if (shadow_depth_handoff && ev.depth && !ev.array && ev.clear_depth && !depth_audit && src.depth &&
             src.sample_count == 1 && src.multisample_depth == src.depth && x0 == 0 && y0 == 0 && w == dw &&
             h == dh && w == src.depth.width && h == src.depth.height) {
@@ -7460,6 +7537,14 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                                                swizzle:MTLTextureSwizzleChannelsMake(
                                                                            channel(sw), channel(sw >> 3),
                                                                            channel(sw >> 6), channel(sw >> 9))];
+                if (handed_depth) {
+                  static int said = 0;
+                  if (said < 4) {
+                    ++said;
+                    REXLOG_INFO("[native] depth handoff view for {:08x} (fetch swizzle {:03x}, ps {:016x}): {}",
+                                ft.address, sw, d.ps_key, v ? "made" : "FAILED (raw depth bound)");
+                  }
+                }
                 if (v) {
                   static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = v.gpuResourceID;
                   if (prepare_snapshots) heap_object[next_heap] = v;
