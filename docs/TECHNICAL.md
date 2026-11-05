@@ -21310,3 +21310,27 @@ the recovered baseline + rewrite (iOS 18.0), SHA256 47174927…8f10 (verified in
 the IPA); the pre-dev80 original stays in shaders/previous. Build exit 0,
 `unzip -t` OK. IPA `ios/build/NFSMW-0.6.0-dev87-post-half-taps.ipa`
 (SHA256 bc8d4019186e527f59bf8020ad06e79958b8d6f33bbeec0d835ad4da84fa66af), on the iCloud Desktop; dev86 moved to Trash. Not yet run.
+
+### November 6: dev87 result (half taps: no gain, removed); skip-unread never fired; dev88 shows the displayed frame from its target
+
+Log `Debug/6 November 2026/dev87_iphone_native60_post_half_taps_nfsmw.log`
+(SHA256 4513c0bf…). Stefan: passes the vibe check. The bit-14 pipeline was
+built (alpha16384); post pass d47c 1.97 ms (13 driving profiles) vs 1.99 ms
+in dev81, plus the new "post: half-size scene" 0.19 ms: no gain, slightly
+worse (the taps were already cache-friendly). The early-commit counter read
+0 (likely skipped by the pipeline lookup memo; not investigated). Removed:
+flag, renderer code, `tools/native/rewrite_post_half_taps.py`, its
+build_shaders.sh line; original composite library restored (16fd57b0…,
+verified in the dev88 IPA).
+Finding: in dev84-dev87 logs "unread resolves skipped 0" and no first-skip
+line, although Stefan had the soak flag on. The never-sampled 2859x1320 copy
+to 09222000 is the frame's LAST colour resolve, i.e. the displayed picture
+(the present pass reads it, not a texture), so the guard kept it: the soak
+trial removed nothing. dev88 extends `nfsmw_native_skip_unread_resolves`
+(same flag, still default false): when the displayed resolve is never
+sampled, at origin 0,0, single-sample, no exp bias, after the frame's last
+draw and within the target, the present reads the target's own colour image
+(final_texture = src.color, rect 0,0,w,h) instead of a copy. Counted as
+"unread resolves skipped N (M shown from the target)". Build exit 0,
+`unzip -t` OK. IPA `ios/build/NFSMW-0.6.0-dev88-present-from-target.ipa`
+(SHA256 4bfba4d86ebbfde13efc1966e7f5a1ac7b5a43e05e41459e92545a89d4cb2518), on the iCloud Desktop; dev87 moved to Trash.

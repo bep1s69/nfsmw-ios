@@ -437,6 +437,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev88 BUILT: half taps removed (no gain); the displayed frame shown from its target.**
+The skip-unread soak never skipped anything: the unread copy is the displayed
+one. dev88 (same soak flag) presents it straight from the post target.
+IPA `ios/build/NFSMW-0.6.0-dev88-present-from-target.ipa` (SHA256 4bfba4d86ebbfde13efc1966e7f5a1ac7b5a43e05e41459e92545a89d4cb2518).
+Next: Stefan's iPhone race with the soak lines; expect "M shown from the
+target" counts and no "blit: resolve copy ... -> 09222000" line.
+
 **November 6, dev87 BUILT: post composite blur taps from a half-size scene (default off).**
 `nfsmw_native_post_half_taps=false`; composite library rebuilt with the new
 rewrite (bit-off path = recompiled baseline). IPA

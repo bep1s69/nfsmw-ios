@@ -61,7 +61,6 @@ for container in "$out"/containers/*.bin; do
   python3 "$repo/tools/native/rewrite_shadow_caster_alpha.py" "$out/msl/$name.hlsl" | grep -v ": 0 shadow" || true
   # Fail closed if the audited target body changed; never ship a silent no-op.
   python3 "$repo/tools/native/rewrite_foliage_early_alpha.py" "$out/msl/$name.hlsl"
-  python3 "$repo/tools/native/rewrite_post_half_taps.py" "$out/msl/$name.hlsl" | grep -v ": 0 post half" || true
   cp "$out/msl/$name.hlsl" "$out/air/$name.metal"
   if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off \
        -mios-version-min="$ios_min" -c "$out/air/$name.metal" -o "$out/air/$name.air" &&
