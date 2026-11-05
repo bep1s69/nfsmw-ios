@@ -370,6 +370,11 @@ void OnSwap(double interval_ms) {
 // thousands of times a second in pursuits, and the compare-exchange on every
 // call cost ~8 ms/s on the iPhone (IPA63 profile).
 void OnMainLoop() {
+  // Called from the game's deferred-call runner very often: 5.5 % of the
+  // render thread incl. thread-local lookups (Nov 5 Time Profile). The mode
+  // and policy change rarely, so only every 64th call does the work.
+  static std::atomic<uint32_t> calls{0};
+  if ((calls.fetch_add(1, std::memory_order_relaxed) & 63) != 0) return;
   static std::atomic<uint64_t> owner{0};
   thread_local int applied = -1;
   thread_local int8_t is_owner = -1;  // -1 not checked yet

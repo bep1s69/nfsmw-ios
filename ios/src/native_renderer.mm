@@ -2867,8 +2867,13 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       int remap[4] = {0, 1, 2, 3};  // input component k <- decoded component remap[k] (4 zero, 5 one)
       bool remapped = false;
       if (f.swizzle != input.swizzle) {
+        // Logged during the first 20000 mismatching fetches only: the set
+        // lookup on every draw cost ~3 % of the GPU-commands thread (Nov 5
+        // Time Profile) since it never filled to its 200 entries.
         static std::set<std::pair<uint64_t, uint32_t>> logged_swizzles;
-        if (logged_swizzles.size() < 200 && logged_swizzles.insert({in.vs_key, input.address}).second) {
+        static uint32_t swizzle_checks = 0;
+        if (swizzle_checks < 20000 && ++swizzle_checks && logged_swizzles.size() < 200 &&
+            logged_swizzles.insert({in.vs_key, input.address}).second) {
           REXLOG_INFO("[native] vs {:016x} vfetch {} (usage {}, format {}): swizzle {:03x} in the file, {:03x} bound",
                       in.vs_key, input.address, input.usage, f.format, input.swizzle, f.swizzle);
         }

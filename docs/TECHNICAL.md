@@ -20544,3 +20544,38 @@ off-grid 0–5 of 300 per window (25 ms grid), 1 coreaudio window with gaps,
 vs dev65 (12.5, audio starved) but removes the stutters/audio cuts; vs the
 Utility 40 cap (not measured on dev62; 60 fps Utility 24.4). Possible later
 refinement: only the audio-related workers at Utility.
+
+## November 5: dev66 Time Profile (E-core Balanced, 60 fps) and dev67 hot-path trims
+
+Trace `Debug/5 November 2026/dev66_ipad_time_profile.trace` (73.8 s,
+high-frequency, Balanced 1.5x 60 cap, improvements on incl. record memo; log
+`dev66_ipad_time_profile_nfsmw.log`; binary UUID 32A89060 = dev66; symbols in
+the trace; dSYMs kept as `dev66_NFSMW.dSYM` / `dev66_librexgpu-xenos.dSYM`,
+symbol table only). Export deleted after analysis. Sampled CPU:
+render queue (LiveContainer) 27.7 s, Main XThread (guest render thread) 23.4 s,
+GPU Commands 20.7 s, guest main loop 19.0 s, guest audio stream decode 9.4 s,
+UI 2.7 s. The ~0.8 ms submit trap of the boosted run is gone at Utility
+(iokit_user_client_trap 1.6 % of the render queue; resource-list hashing 2.7 %).
+- GPU Commands: Record self 43.9 % (incl 74 %), Fingerprint 13 %, LoadShader
+  5.5 %, ExecutePacket 3.6 %. Record lines (atos -i on
+  build-0.6 native_renderer.mm.o, 600 hottest PCs = 97 % of Record self):
+  inlined/unattributed 32 %, 2893 AttributeEntryFor 9.2 %, 3046 DecodeElement
+  4.6 %, 2771 IndexFingerprint 4.5 %, 3245 TextureOf 3.7 %, 2871 swizzle-log set
+  insert 3.3 %, 3228/3233 texture slot loop ~4 %, 3301 draws.push_back 2.1 %.
+  Memo active: ~1,070 fingerprint calls/frame after ~2,000 memo skips/frame.
+- Render queue: RenderFrame self 19 %, AGX encoders ~14 %, drawIndexedPrimitives
+  11 %, renderCommandEncoderWithDescriptor 4.9 %, Frame teardown 4.8 %,
+  Draw::~Draw 4.3 %, objc retain/release/msgSend ~10 %, memmove 4.1 %.
+- Main XThread: sub_82699100 15.4 % self (game scene/visibility code, not a
+  copy), nfsmw::adaptive_qos::OnMainLoop 5.5 % incl with _tlv_get_addr 3.7 %
+  (our hook on the deferred-call runner sub_823C8290, called very often).
+Inference: the frame threads' CPU is spread over many small costs; no single
+cut approaches the ~40 % needed for 60 fps at Background clocks (recording
+6.5 vs ~3.4 ms/frame).
+dev67 (approved CPU-cut work): OnMainLoop does its work on every 64th call
+(atomic counter, no thread-local access otherwise); the vertex swizzle-mismatch
+log checks its set only during the first 20000 mismatching fetches. build-0.6
+exit0; performance-profile test PASS; `unzip -t` OK; codesign exit0. IPA
+`ios/build/NFSMW-0.6.0-dev67-hot-path-trims.ipa` (Desktop; dev66 to Trash from
+the Desktop), 30612094 bytes, SHA256
+39dd9c990d93b2d567b51c41c6dd0bcc5fe8698c24ea96d2d4ddaadbc284427f.
