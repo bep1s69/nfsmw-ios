@@ -20836,3 +20836,12 @@ measured). The HUD is drawn by the game into the same target before the
 upscale, so it is upscaled with the scene (fuzzy); BACKLOG "Sharp HUD with
 upscaling". Possible cheaper mode: MetalFX spatial (no motion/depth, cheaper
 per output pixel); not implemented or measured.
+
+iPhone A60 native (Stefan, Nov 5; trace `Debug/5 November 2026/dev74_iphone_power_profiles4.trace`,
+76.2 s; log `dev74_iphone_power4_native_nfsmw.log`; scale 1.833, MetalFX off,
+cap 60, default Balanced; Nominal): **33.9 %/h**, CPU 4.59, GPU 5.36, display
+0.68. Versus 1x + MetalFX at 60: screen 43.4 (+28 % over native), lighter 37.4
+(+10 %). Measured: on the 17 Pro Max MetalFX temporal upscaling to the screen
+costs more energy than rendering at native outright; "Lighter" too. Not
+measured: "Anti-aliasing only", the iPad (native is far heavier there, GPU
+impact 9.3), older devices. Stefan leans towards removing MetalFX.
