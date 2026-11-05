@@ -21118,3 +21118,17 @@ ends at once at mask-7 solid draws in cube/mirror, so the sky there writes
 all four channels and the RGB-only draws cannot stand in for it without
 changing alpha. Conclusion: neither worth keeping; remove both with the
 next build and restore the pre-dev80 composite library.
+
+### November 5: dev81 removes the dev80 trials; labelled resolve copies (diagnostic)
+
+Stefan agreed. Removed `nfsmw_native_post_blur_skip` (renderer bit 14,
+`tools/native/rewrite_post_blur_skip.py`, its build_shaders.sh line) and
+`nfsmw_native_sky_last_masked`; their negative results stay recorded above.
+Restored the pre-dev80 composite library in the shader cache (SHA256
+16fd57b0…4ac3, verified inside the new IPA). New diagnostic
+`nfsmw_native_resolve_labels` (default false, restart-only, needs pass
+counters): each colour resolve copy is profiled as "blit: resolve copy
+SOURCE WxH -> DEST (dest WxH[, linear])", so the pass profile lists the
+copies separately. Build exit 0, `unzip -t` OK, `git diff --check` clean.
+IPA `ios/build/NFSMW-0.6.0-dev81-resolve-labels.ipa`, SHA256 in the next
+line of the checkpoint; on the iCloud Desktop, dev80 moved to Trash.

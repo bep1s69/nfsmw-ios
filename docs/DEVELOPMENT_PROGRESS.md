@@ -433,6 +433,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev81 BUILT: dev80 trials removed (negative), resolve-copy labels.**
+Post blur skip slowed the post pass (2.38 -> 2.78 ms); masked sky-last never
+applied. Both removed, original composite library restored.
+`nfsmw_native_resolve_labels=false` names each resolve copy in the pass
+profile. IPA `ios/build/NFSMW-0.6.0-dev81-resolve-labels.ipa` (SHA256 841518017e0cca9dfe1e14f62ff7d5390ae9362fe6a1dc61c3064165b52c3c6f).
+Next: Stefan's iPhone race with `--nfsmw_native_resolve_labels=true
+--nfsmw_native_pass_counters=true` (no cost probe), then cut the largest
+copies. TECHNICAL "dev81".
+
 **November 5, dev80 BUILT: post blur skip + masked sky-last trials (both default off).**
 dev79 full probe (iPhone): final post composite 20710a9a 12.9 % of the
 frame (1 draw), fences 7.5 %, sky 5.5 % (never deferred in cube/mirror,
