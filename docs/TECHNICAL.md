@@ -20710,3 +20710,29 @@ cvar (default false; explicit Extra Arg overrides). Live-profile log reports
 bridge/patch); build-0.6 exit0; `unzip -t` OK; codesign exit0; `git diff
 --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev73-balanced-smooth-eco-low.ipa` (Desktop; dev72 to Trash from the
 Desktop), 30615997 bytes, SHA256 2d06de6598216f0d1da84966bba5335ff91936a23dcbcf0dc0c1676fa23b506b. Includes dev72's trims (not yet measured).
+
+dev72/73 runs (Stefan, Nov 5; trace `Debug/5 November 2026/dev73_ipad_power_time_profiles.trace`,
+four launches; log `dev73_ipad_power_time_profiles_nfsmw.log`; T block, 1.5x;
+Stefan: the first two runs were dev72, runs 2 and 3 may be swapped): run 1
+dev72 60 fps 24.4 %/h (CPU 5.23); run 2 40 fps 12.4 %/h (CPU 1.89, low-workers
+rule active: dev72 default or dev73 Eco); run 3 40 fps 15.8 %/h (CPU 3.26,
+Balanced-like); run 4 dev73 Time Profile at 60 fps. Measured: the dev69/72
+render-queue trims are not visible at 60 fps (24.4); 40 fps pair unchanged
+(12.4–12.5 / 15.8–16.3). Time Profile run 4: GPU Commands Record self 44.4 %,
+Fingerprint 12.8 %, LoadShader 5.4 %, by-key shader map hashing 2.6 %; render
+queue RenderFrame self 17.1 % (dev66 19.0 %); Main XThread unchanged.
+
+## November 5: dev74 shader lookups (LoadShader memo, last-key shader find)
+
+- SDK patch `tools/ios/patch_ios_load_shader_memo.py` (4 blocks,
+  plugin_main.cpp, in prepare_sdk.py after patch_ios_multi_wait, applied to the
+  multiplayer SDK): NativeCommandProcessor::LoadShader keeps the microcode last
+  seen per (address, size, type) and returns its Shader after a memcmp instead
+  of re-hashing every dword with FNV; changed/new microcode takes the original
+  path; bounded (8192, cleared when full) and cleared at ShutdownContext.
+- `native_renderer.mm` Record: last key per kind (vs/ps) before the by-key
+  function map.
+Checks: patch apply/revert/apply OK; test_draw_arena, test_upload_sizing,
+test_color_handoff, test_performance_profiles PASS; build-0.6 exit0; `unzip -t`
+OK; codesign exit0; `git diff --check` exit0. IPA `ios/build/NFSMW-0.6.0-dev74-shader-lookups.ipa` (Desktop;
+dev73 to Trash from the Desktop), 30616746 bytes, SHA256 bd4e827d796c4e40c783575eef4de137898e6cd699543f823763ced474db3f08.

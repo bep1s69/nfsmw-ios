@@ -2754,9 +2754,16 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.ps_key = in.ps_key;
   {  // by key, without building the name (the store is loaded before any recording)
     static std::unordered_map<uint64_t, id<MTLFunction>> by_key[2];
-    auto find = [](int kind, uint64_t key) {
+    // Consecutive draws mostly share shaders: the last key per kind first
+    // (the map hash per draw showed in the Nov 5 profile, ~2.6 %).
+    static uint64_t last_key[2] = {~0ull, ~0ull};
+    static __unsafe_unretained id<MTLFunction> last_function[2] = {nil, nil};
+    auto find = [](int kind, uint64_t key) -> id<MTLFunction> {
+      if (key == last_key[kind]) return last_function[kind];
       auto [it, added] = by_key[kind].try_emplace(key, nil);
       if (added) it->second = store.Find(kind ? "ps" : "vs", key);
+      last_key[kind] = key;
+      last_function[kind] = it->second;
       return it->second;
     };
     d.vs = find(0, in.vs_key);
