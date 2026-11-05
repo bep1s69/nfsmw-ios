@@ -121,7 +121,7 @@ bool EmulatorOnly(NSString* key) {
   return [keys containsObject:key];
 }
 bool NativeOnly(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"metalfx_mode", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate", @"reflection_size", @"heat_scale", @"heat_scale_test" ]];
+  static NSSet* keys = [NSSet setWithArray:@[ @"no_vulkan", @"async_pipelines", @"motion_debug", @"battery_mode", @"cost_probe", @"shadow_scale", @"reflection_rate", @"reflection_size", @"heat_scale", @"heat_scale_test" ]];
   return [keys containsObject:key];
 }
 
@@ -539,15 +539,6 @@ const std::vector<Section>& Sections() {
             {{@"0.85x · 612p", @"0.85"}, {@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"},
              {NativeScaleTitle(), @"native"}}},
-           {@"metalfx_mode", Type::kChoice, @"MetalFX",
-            @"Native renderer: Apple's MetalFX builds each frame from several, with the game's "
-            @"motion: finer detail (thin, distant things stay whole) and anti-aliasing of its "
-            @"own. To the screen: the sharpest, the most GPU time. Lighter: to three quarters of "
-            @"the screen's size, the rest stretched. Anti-aliasing only: at the render "
-            @"resolution, the cheapest. Best with a low render resolution, e.g. 1x.",
-            @"off",
-            {{@"Off", @"off"}, {@"To the screen", @"screen"}, {@"Lighter", @"lower"},
-             {@"Anti-aliasing only", @"drawn"}}},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. Higher caps make motion smoother when the game "
             @"can keep up. 40 and 120 are available on 120 Hz displays. With Battery mode: "
@@ -567,7 +558,7 @@ const std::vector<Section>& Sections() {
             @"false"},
            {@"battery_mode", Type::kSwitch, @"Battery mode",
             @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
-            @"marked \"Set by Battery mode\" (0.85x, no MetalFX, FXAA, half-size shadows, car "
+            @"marked \"Set by Battery mode\" (0.85x, FXAA, half-size shadows, car "
             @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
             @"menus and pause, 0.75x when hot) and keeps the frame rate cap at 30 or 40 (60 and 120 "
             @"become 30). Each can also be chosen on its own with Battery mode off.",
@@ -600,8 +591,7 @@ const std::vector<Section>& Sections() {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
             @"Smooths jagged edges. MSAA is the finest and the most expensive (with the native "
             @"renderer at every screen shape; without it, the game's own, not at 19.5:9). FXAA is "
-            @"a filter over the final image: much cheaper, but a little softer. MetalFX does "
-            @"its own: FXAA is then left out.",
+            @"a filter over the final image: much cheaper, but a little softer.",
             @"off",
             {{@"Off", @"off"},
              {@"MSAA 2x", @"msaa2"},
@@ -872,7 +862,6 @@ bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"scale" : @"0.85",
-    @"metalfx_mode" : @"off",
     @"antialiasing" : @"fxaa",
     @"anisotropic" : @"3",
     @"shadow_size" : @"1600",
@@ -1096,7 +1085,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_half_rate_reflections=" + b([Value(s, @"reflection_rate") isEqualToString:@"half"]));
     a.push_back("--nfsmw_native_shadow_scale=" + str(@"shadow_scale"));
     a.push_back("--nfsmw_native_scale_reflections=" + b([Value(s, @"reflection_size") isEqualToString:@"scaled"]));
-    a.push_back("--nfsmw_native_metalfx=" + str(@"metalfx_mode"));
+    // MetalFX removed from the launcher in dev75 (Stefan, Nov 5): on the iPhone 17
+    // Pro Max 1x + MetalFX to the screen drew 43.4 %/h vs 33.9 at native (60 fps).
+    // The renderer path stays for diagnostics via --nfsmw_native_metalfx (default off).
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));
     a.push_back("--nfsmw_heat_scale=" + b(On(s, @"heat_scale")));

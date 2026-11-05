@@ -20845,3 +20845,31 @@ cap 60, default Balanced; Nominal): **33.9 %/h**, CPU 4.59, GPU 5.36, display
 costs more energy than rendering at native outright; "Lighter" too. Not
 measured: "Anti-aliasing only", the iPad (native is far heavier there, GPU
 impact 9.3), older devices. Stefan leans towards removing MetalFX.
+
+## November 5: dev75 Balanced 30 on efficiency cores everywhere; MetalFX removed
+
+Stefan approved both (Nov 5). `performance_profile.h` Resolve: `balanced30`
+(Balanced, cap 1–30) sets adaptive + original + background and clears
+main_utility (AdaptiveEnabled needs it off), on every device: frame threads
+and render queue start at Background, guest workers at Utility, and the
+original rules boost everything to User Initiated on 2 late swaps of 120
+(over 1.2x the 33.3 ms budget), with the 40→240 s hold backoff; no driving
+boost. Tablets at 30 gain the net (before: fixed Utility/Background). 40/60
+unchanged. `tools/ios/test_performance_profiles.py` expectation updated:
+PASS 1572864 round trips + bridge/patch checks, exit 0. Old phone behaviour
+at 30 via `--nfsmw_adaptive_qos_original=false --ios_background_qos=false`.
+Expected log at 30: `[adaptive-qos] on: ...` then boosts during loading
+(inference: loading's late frames may lengthen the first holds; check that
+driving returns to Background).
+MetalFX: launcher entry, Battery-mode value, in-game options keys and the
+`--nfsmw_native_metalfx` launcher argument removed (saved values ignored);
+anti-aliasing and Battery mode texts updated. Renderer code kept, reachable
+via Extra Args for diagnostics. CHANGELOG lines added.
+Build: `patch_game_extra_options.py` (already patched, 0 written), build-0.6
+`--target ipa -j 12` exit 0, 19.3 s (incremental); `unzip -t` OK; codesign
+exit 0; `git diff --check` clean; "To the screen" string absent from the
+binary. IPA `ios/build/NFSMW-0.6.0-dev75-balanced30-ecores-no-metalfx.ipa`,
+30617715 bytes, SHA256
+ade4600b836fd4f717fda17a893eb282636e51359b86383bfcc9759b7f1f4e05; copied to
+the iCloud Desktop, dev74 moved to Trash from the Desktop (0.5.2 kept).
+Not yet run on any device.

@@ -2,6 +2,15 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Longer battery at 30 fps.** Balanced at the 30 fps cap now runs the game
+  on the efficiency cores on every device, and moves back to the fast cores
+  by itself if frames start arriving late (about 23 % less drain on an iPhone
+  17 Pro Max). Needs testing on older devices (dev75).
+
+- **MetalFX option removed.** It used more battery than rendering at the
+  screen's full resolution (43 vs 34 %/h on an iPhone 17 Pro Max at 60 fps).
+  Saved MetalFX settings are ignored (dev75).
+
 - **Smoother Balanced mode on iPads.** Balanced now gives the game's main and
   GPU threads the fast cores while driving on every device, as on iPhones;
   M-series iPads used to keep them on the efficiency cores (dev51).

@@ -18,9 +18,10 @@ int main() {
     unsigned a = nfsmw::performance::Encode(previous), b = nfsmw::performance::Encode(next);
     // Compare shared policy against original launch-table expectations.
     const bool eco=to==0,max=to==2,tablet=to==1&&cores>=6;  // tablet profile back in dev62
-    unsigned expected = unsigned(eco||(tablet&&cap<=60)) | (unsigned(!max)<<1) |
-        (unsigned(!max&&!eco&&(!tablet||cap>60))<<2) | (unsigned(tablet)<<3) | (unsigned(!max)<<4) |
-        (unsigned(!max&&cores>=6&&cap<=40)<<5) |  // dev73: Balanced and Eco at 30/40 on 6+ E cores
+    const bool b30=to==1&&cap<=30;  // dev75: Balanced 30 on every device, Background + late-swap net
+    unsigned expected = unsigned(eco||(tablet&&cap<=60&&!b30)) | (unsigned(!max)<<1) |
+        (unsigned(!max&&!eco&&(!tablet||cap>60||b30))<<2) | (unsigned(tablet||b30)<<3) | (unsigned(!max)<<4) |
+        (unsigned((!max&&cores>=6&&cap<=40)||b30)<<5) |  // dev73: Balanced and Eco at 30/40 on 6+ E cores
         (unsigned(eco&&cores>=6&&cap<=40)<<6);  // dev73: Eco also lowers normal-priority workers
     assert(b == expected);
     for (unsigned mask=0;mask<128;++mask) for (unsigned values=0;values<128;++values) {

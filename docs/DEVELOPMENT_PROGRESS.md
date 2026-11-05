@@ -433,6 +433,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 5, dev75 BUILT (Stefan approved both):** Balanced at the 30 cap on
+every device = frame threads + render queue at Background with the original
+adaptive late-swap boost as safety net (`performance_profile.h`); MetalFX
+removed from the launcher and in-game options (renderer path kept, cvar
+`nfsmw_native_metalfx` default off). Old 30 cap via Extra Args:
+`--nfsmw_adaptive_qos_original=false --ios_background_qos=false` (phones).
+Next: Stefan's 17 Pro Max A30/new-30 pair, an iPhone 14 Pro Max drive at 30
+and a quick iPad 30 check; watch `[adaptive-qos]` boosts in the logs.
+
 **November 5, iPhone sizing:** E60 (~7 % less, stutters) and E40 (−26 %, inconsistent fps) not usable on the phone; E30 smooth at 10.8 %/h (no A30 baseline). Proposal awaiting Stefan: Balanced 30 cap on every device at Background with the late-swap boost as safety net (TECHNICAL, "iPhone Balanced on efficiency cores").
 
 **November 5, iPad battery thread closed (dev74, 616f66f):** CPU micro-cuts at

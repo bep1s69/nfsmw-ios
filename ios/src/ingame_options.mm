@@ -79,7 +79,7 @@ NSInteger last_tab = 0;                     // the sheet's tab last time, while 
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
 
 NSArray<NSString*>* Keys() {
-  return @[ @"scale", @"metalfx_mode", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
+  return @[ @"scale", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
             @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
             @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back", @"mouse_look_speed", @"mouse_look_invert", @"touch_look", @"touch_look_speed",
             // Extra Options (all live except the Old Bridge barrier, set when the world loads)
@@ -95,7 +95,7 @@ NSArray<NSString*>* Keys() {
 
 // The settings that only the native renderer has (left out without it).
 bool NativeOnlyKey(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"scale", @"metalfx_mode", @"shadow_scale", @"reflection_rate",
+  static NSSet* keys = [NSSet setWithArray:@[ @"scale", @"shadow_scale", @"reflection_rate",
                                               @"reflection_size", @"heat_scale", @"battery_mode" ]];
   return [keys containsObject:key];
 }

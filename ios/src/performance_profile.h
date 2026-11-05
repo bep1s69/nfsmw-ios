@@ -25,9 +25,17 @@ inline Policy Resolve(int mode, int efficiency_cores, int cap) {
   // queue at Background (Balanced 16.3 %/h, smooth); Eco also lowers the
   // normal-priority guest workers (12.5 %/h, a few isolated late frames).
   const bool ecores = efficiency_cores >= 6, low_cap = cap > 0 && cap <= 40;
-  return {eco || (tablet && cap <= 60), !max,
-          !eco && !max && (!tablet || cap > 60), tablet, !max, !max && ecores && low_cap,
-          eco && ecores && low_cap};
+  // dev75 (Stefan, Nov 5): Balanced at the 30 cap on every device = frame
+  // threads and render queue at Background with the original adaptive rules
+  // as a safety net (boost to User Initiated on 2 late swaps of 120 over 1.2x
+  // the budget; no driving boost). iPhone 17 Pro Max E30 10.8 vs A30 14.0 %/h,
+  // smooth; E40/E60 missed frames on its 4 E cores, so 40/60 stay as before.
+  // Adaptive needs main_utility off (AdaptiveEnabled), so the iPads' fixed
+  // Utility at 30 gives way to the net too.
+  const bool balanced30 = !eco && !max && cap > 0 && cap <= 30;
+  return {eco || (tablet && cap <= 60 && !balanced30), !max,
+          !eco && !max && (!tablet || cap > 60 || balanced30), tablet || balanced30, !max,
+          (!max && ecores && low_cap) || balanced30, eco && ecores && low_cap};
 }
 inline unsigned Encode(const Policy& p) {
   return unsigned(p.main_utility) | (unsigned(p.guest_utility)<<1) |
