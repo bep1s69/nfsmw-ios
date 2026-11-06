@@ -21897,3 +21897,19 @@ arm64 UUID 862ECF92-5207-31FA-96A3-63020CF69E93. No source changes, rebuild,
 or fresh-container test. `cmake --list-presets -S ios` found ios. Local
 main is an ancestor of the release branch. No merge, tag, push or GitHub
 release in this session. HANDOFF_CHATGPT.md remains untracked.
+
+## November 6: 0.6.0 published
+
+Stefan explicitly approved the push and publication. `git ls-remote`
+showed main at b7ec126 and no v0.6.0 tag. Both local and remote main
+were ancestors of the prepared commit. Fast-forwarded local main and
+pushed main and v0.6.0 atomically, then `gh release create v0.6.0` with
+the CHANGELOG section, SHA-256, and NFS-Most-Wanted-0.6.0.ipa. All
+commands returned 0. Verified through the GitHub API that the latest
+release is v0.6.0, published and stable, with exactly one asset,
+30,669,422 bytes and digest
+sha256:cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285.
+Remote main and v0.6.0 both point to
+7eb046c61692be3d2969df241bf6464ee7a5aa44.
+Release: https://github.com/bep1s69/nfsmw-ios/releases/tag/v0.6.0.
+No rebuild or device run. Preserved untracked HANDOFF_CHATGPT.md.

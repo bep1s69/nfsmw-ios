@@ -448,6 +448,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, 0.6.0 published:** Stefan authorized publication.
+GitHub main and v0.6.0 point to `7eb046c61692be3d2969df241bf6464ee7a5aa44`.
+The latest stable release contains the verified dev107 IPA under the
+release filename. Next: collect community low-RAM reports and review
+free camera and remaining Extra Options for the next minor release.
+See TECHNICAL for publication verification.
+
 **November 6, 0.6.0 release candidate prepared:** Stefan accepted dev107
 scope. `ios/build/NFS-Most-Wanted-0.6.0.ipa` is the tested dev107 package
 under the release filename, with the same SHA256. README and release notes
