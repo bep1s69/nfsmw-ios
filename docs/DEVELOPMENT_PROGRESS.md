@@ -442,6 +442,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev107 user checks:** Stefan confirmed the in-game Options
+sidebar and My Cars taps are fixed and the car selector is good. Multiplayer
+menus looked good on further inspection. Android compatibility was tested
+and Stefan cites a GitHub performance review confirming iOS 18 works.
+README now lists iOS/iPadOS 18 as the minimum. Next: review the remaining
+0.6 scope (free camera, feasible Extra Options patches and battery work)
+and verify onboarding, settings migration, and the new launcher across
+devices. Dedicated low-RAM work still awaits a 2–3 GB device report.
+
 **November 6, dev107 BUILT: car selector touch and Options sidebar.**
 My Cars neighboring preview taps move focus inside the car scroller.
 Quick Race and multiplayer Change Car accept vertical gestures over

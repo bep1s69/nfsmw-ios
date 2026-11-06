@@ -2,6 +2,9 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **iOS 18 compatibility.** Removed the experimental label after a
+  community performance report confirmed the game runs on iOS 18.
+
 - **Redesigned launcher and in-game options.** Dark menus share the
   same categories, compact summaries and a details button. Use the
   controller to navigate the launcher and in-game options. The launcher

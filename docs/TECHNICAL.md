@@ -21864,3 +21864,14 @@ used with an unconfigured button, existing SDK asm and duplicate -lz.
 cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285,
 arm64 UUID 862ECF92-5207-31FA-96A3-63020CF69E93. Desktop dev106 went
 to Trash, stable 0.5.2 remains. No dev107 device run or visual check.
+
+## November 6: dev107 user confirmation and compatibility checklist
+
+Stefan reported the in-game menu fixed, My Cars fixed, and the car
+selector good. Multiplayer menus looked good on further inspection.
+He confirmed Android compatibility was tested and reported that a GitHub
+performance review confirmed iOS 18 works. The report URL, device, exact
+OS, build for the compatibility checks, and logs were not supplied.
+Recorded these as user-reported results and removed the iOS 18
+experimental wording from README. No source change, new build, or
+independent device run in this session.
