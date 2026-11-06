@@ -21,6 +21,13 @@
         }
       }
     },
+    "pal_eu": {
+      "nombre": "PAL Europe",
+      "pdb": "NfsMWEuropeRelease.pdb",
+      "sha256": ["e2ea2ff11bf84cb30430d824d7bfe699a3acf3e7400d21b9a7c938e3d7a10474"],
+      "idioma": 1,
+      "pais": 35
+    },
     "jpn": {
       "nombre": "Japón",
       "pdb": "NfsMWJapanRelease.pdb",

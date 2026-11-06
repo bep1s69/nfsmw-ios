@@ -54,13 +54,15 @@ import pathlib
 import re
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GENERATED = ROOT / "ios" / "generated" / "default"
 POOL_CPP = ROOT / "ios" / "src" / "game_pool.cpp"
 MARK = "nfsmw-pool"
 
 # Function -> how many index sites it has (USA edition).
-SITES = {
+SITES = {game_edition.usa(fn): n for fn, n in {
     "sub_822418E8": 1, "sub_8226B210": 1, "sub_822A67F8": 1, "sub_822C4698": 1,
     "sub_822CB178": 1, "sub_822CB398": 1, "sub_822CB870": 1, "sub_822CC278": 1,
     "sub_822CC300": 1, "sub_822CC3B8": 1, "sub_822CC410": 1, "sub_822CC4D8": 1,
@@ -69,10 +71,10 @@ SITES = {
     "sub_825669F0": 2, "sub_8256B248": 1, "sub_8256C470": 1, "sub_8256C650": 1,
     "sub_8256C6C0": 1, "sub_8256C788": 1, "sub_8256C8C8": 1, "sub_8256C918": 1,
     "sub_82582D78": 1, "sub_82584688": 1,
-}
-SKIPPED = {"sub_822C9570"}  # replaced in game_pool.cpp
-RESET_FN = "sub_822CBC00"
-RESET_AFTER = "\tif (!cr6.eq) goto loc_822CBC3C;"
+}.items()}
+SKIPPED = {game_edition.usa("sub_822C9570")}  # replaced in game_pool.cpp
+RESET_FN = game_edition.usa("sub_822CBC00")
+RESET_AFTER = game_edition.usa("\tif (!cr6.eq) goto loc_822CBC3C;")
 EXPECTED_SITES = sum(SITES.values())
 
 DECLS = f"""// LOCAL PATCH - iOS ({MARK}): a larger record pool (tools/ios/patch_game_pool.py,

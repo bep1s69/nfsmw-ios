@@ -10,14 +10,24 @@ import pathlib
 import re
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GENERATED = ROOT / "ios" / "generated" / "default"
 MARK = "nfsmw-constant-copies"
 INCLUDE = '#include "../../src/game_constant_copies.h" // ' + MARK + '\n'
 LOCAL = '\tconst bool native_constant_copies = FLAGS_nfsmw_native_constant_copies_storage_(); // ' + MARK + '\n'
+HEAD = game_edition.usa("DEFINE_REX_FUNC(sub_82699100) {")
+# loop label: (pixel?, sha256 of the generated loop in each edition)
 SITES = {
-    "82699210": (False, "c24d5877735a937099f15874ad7ed310cc38e1322c508f62731a0c7f034d0060"),
-    "82699378": (True, "8238e4f2e1a819874f90ef048bdd132b2445f3c56308a85f42aa781d2850d1a8"),
+    game_edition.usa("82699210"): (False, {
+        "usa": "c24d5877735a937099f15874ad7ed310cc38e1322c508f62731a0c7f034d0060",
+        "pal_eu": "1b04a7f002230571e9ff74342516326e3f49fff5a0fc7d3ceece3fb3b25c75a7",
+    }[game_edition.EDITION]),
+    game_edition.usa("82699378"): (True, {
+        "usa": "8238e4f2e1a819874f90ef048bdd132b2445f3c56308a85f42aa781d2850d1a8",
+        "pal_eu": "2d4b4e1295a5da04fa2aba5c5d3aa29942dc0ba556d635a546f9e1de0a105577",
+    }[game_edition.EDITION]),
 }
 
 
@@ -43,7 +53,7 @@ def original_text(text):
 
 
 def transform(text):
-    start = text.index("DEFINE_REX_FUNC(sub_82699100) {")
+    start = text.index(HEAD)
     following = re.search(r"\nDEFINE_REX_FUNC\(", text[start + 1:])
     stop = start + 1 + following.start() if following else len(text)
     function = text[start:stop]
@@ -77,10 +87,9 @@ def main():
     modes.add_argument("--status", action="store_true")
     modes.add_argument("--revert", action="store_true")
     args = ap.parse_args()
-    matches = [p for p in args.dir.glob("*.cpp")
-               if "DEFINE_REX_FUNC(sub_82699100) {" in p.read_text()]
+    matches = [p for p in args.dir.glob("*.cpp") if HEAD in p.read_text()]
     if len(matches) != 1:
-        raise ValueError("expected exactly one USA sub_82699100 definition")
+        raise ValueError(f"expected exactly one {HEAD[16:-3]} definition")
     path = matches[0]
     current = path.read_text()
     original = original_text(current)

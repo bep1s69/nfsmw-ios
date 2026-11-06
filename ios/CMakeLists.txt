@@ -276,7 +276,9 @@ if(NFSMW_WITH_GAME)
     # (src/game_pool.cpp): USA addresses, plus edits to the generated code that
     # tools/ios/generate_code.py makes (tools/ios/patch_game_pool.py). Without
     # them, starting the career freezes with Black Edition on.
-    if(NFSMW_EDITION STREQUAL "usa")
+    # These features are written with USA addresses. PAL Europe builds them
+    # too, from copies translated with tools/ediciones/pal_eu/desde_usa.tsv.
+    if(NFSMW_EDITION STREQUAL "usa" OR NFSMW_EDITION STREQUAL "pal_eu")
         execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_pool.py" --status
             OUTPUT_VARIABLE _pool OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -284,7 +286,7 @@ if(NFSMW_WITH_GAME)
             message(FATAL_ERROR "NFSMW: the generated code lacks the record pool edits "
                 "(${_pool}). Run: python3 tools/ios/patch_game_pool.py")
         endif()
-        target_sources(nfsmw PRIVATE src/game_pool.cpp src/game_save_id.cpp src/multiplayer/game_lan.cpp src/multiplayer/game_lan_roster.cpp src/multiplayer/game_pc_udp.cpp src/multiplayer/game_pc_race.cpp src/multiplayer/game_pc_car.cpp)
+        set(_usa_sources src/game_pool.cpp src/game_save_id.cpp src/multiplayer/game_lan.cpp src/multiplayer/game_lan_roster.cpp src/multiplayer/game_pc_udp.cpp src/multiplayer/game_pc_race.cpp src/multiplayer/game_pc_car.cpp)
         message(STATUS "NFSMW: ${_pool}")
         # Extra Options features (src/game_extra_options.cpp), with their edits
         # to the generated code (tools/ios/patch_game_extra_options.py).
@@ -296,12 +298,9 @@ if(NFSMW_WITH_GAME)
             message(FATAL_ERROR "NFSMW: the generated code lacks the Extra Options edits "
                 "(${_extra}). Run: python3 tools/ios/patch_game_extra_options.py")
         endif()
-        target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
+        list(APPEND _usa_sources src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp
             src/native_metal_probe.mm src/native_renderer.mm)
-# Line tables for the native renderer (no code change): Time Profiler samples
-# from a device trace map to source lines (dsymutil the app's NFSMW).
-set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -gline-tables-only)
         message(STATUS "NFSMW: ${_extra}")
         execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_constant_copies.py"
@@ -325,6 +324,34 @@ set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -g
         endif()
         message(STATUS "NFSMW: ${_transforms}")
         target_sources(nfsmw_recomp PRIVATE src/game_transform_copies.h)
+        set(_renderer "src/native_renderer.mm")
+        if(NFSMW_EDITION STREQUAL "pal_eu")
+            set(_from_usa "${NFSMW_GENERATED}/edicion/src_usa")
+            list(TRANSFORM _usa_sources PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
+            set(_copies "")
+            foreach(_origin IN LISTS _usa_sources)
+                get_filename_component(_name "${_origin}" NAME)
+                list(APPEND _copies "${_from_usa}/${_name}")
+            endforeach()
+            add_custom_command(
+                OUTPUT ${_copies}
+                COMMAND Python3::Interpreter "${NFSMW_REPO}/tools/ediciones/ediciones.py"
+                        fuentes pal_eu --desde usa "${_from_usa}" ${_usa_sources}
+                DEPENDS ${_usa_sources}
+                        "${NFSMW_REPO}/tools/ediciones/ediciones.py"
+                        "${NFSMW_REPO}/tools/ediciones/pal_eu/desde_usa.tsv"
+                COMMENT "NFSMW: USA addresses of the USA features to the 'pal_eu' edition"
+                VERBATIM)
+            # The multiplayer copies include their neighbours by relative path.
+            set_source_files_properties(${_copies} PROPERTIES
+                INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/src/multiplayer")
+            set(_usa_sources ${_copies})
+            set(_renderer "${_from_usa}/native_renderer.mm")
+        endif()
+        target_sources(nfsmw PRIVATE ${_usa_sources})
+        # Line tables for the native renderer (no code change): Time Profiler samples
+        # from a device trace map to source lines (dsymutil the app's NFSMW).
+        set_source_files_properties(${_renderer} PROPERTIES COMPILE_OPTIONS -gline-tables-only)
     else()
         message(WARNING "NFSMW: no larger record pool for this edition; with Black "
             "Edition on (--black_edition), starting the career may freeze")
