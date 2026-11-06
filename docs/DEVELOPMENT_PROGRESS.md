@@ -437,6 +437,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev99 on the iPhone (Stefan): race starts fine, no stutter.**
+Log Debug/6 November 2026/dev99_race_nfsmw.log: warm-up 223 pipelines in
+347 ms, then "pipeline cache let go"; malloc 246 -> 138 MiB at that moment.
+Race footprint ~1390 MiB, peak 1403 (dev94: ~1700, peak 1749), malloc
+~260-300 MiB (dev94 ~580), graphics ~380 unchanged. A race now fits the
+iPhone 11's 2098 MiB limit with ~700 MiB to spare (on this phone's settings).
+
 **November 6, dev99 BUILT: pipeline archive let go after warm-up.** dev98
 with the trace ran fine (Stefan; Debug/6 November 2026/dev98_*). allocs.txt:
 the big startup blocks are Metal loading our binary archive inside
