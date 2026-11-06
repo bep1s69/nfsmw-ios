@@ -2,9 +2,15 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
-- **About 180 MB less memory.** The audio decoder kept a decoder for every
-  one of its 320 sound streams from the start; it now keeps one only while a
-  sound plays (dev97, low-RAM work).
+- **About 150 MB less memory in play.** The pipeline cache, which made races
+  start without stutter, stayed loaded the whole session; it is now let go
+  once the game's pipelines are ready and reopened only for a new one (dev99,
+  low-RAM work).
+
+- **Less memory for sound.** The audio decoder kept a decoder for every one
+  of its 320 sound streams from the start; it now keeps one only while a
+  sound plays: about 180 MB less at startup, about 70 MB less in a race,
+  where ~170 streams play (dev97, low-RAM work).
 
 - **Frees memory when iOS runs short.** When iOS warns that memory is low,
   the renderer drops textures and buffers it has not used for half a second,

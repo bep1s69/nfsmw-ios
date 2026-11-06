@@ -21647,3 +21647,21 @@ re-entry, SIGSEGV at the first allocation of a new thread). It now takes a
 global `std::atomic_flag`; allocations on other threads while one stack is
 being written are skipped.
 
+## November 6: dev99 binary archive released after warm-up (low-RAM)
+
+dev98 allocation trace (iPhone 17 Pro Max): Metal reads our
+`nfsmw_native_pipelines_v2.metalarchive` (142 MiB, 233 pipelines) into the
+heap from `PipelineArchive::Make` (growing blocks up to 56 MiB; 2 x 49.14 and
+55.52 MiB stay). `PipelineArchive::warmed` is set when `PipelineCache::Collect`
+sees the last warm-up pipeline. `PipelineArchive::Report()` (with the periodic
+native log line) then releases `archive` when nothing was made since the last
+line, nothing is dirty and no save runs, and clears `tried`, so the next
+`Make()` (only misses after the warm-up) reopens it, adds the pipeline and the
+next Report saves it in the background; a later idle Report releases it
+again. Made pipelines do not need the archive. Cvar
+`nfsmw_native_release_pipeline_archive` (default true).
+Other dev98 trace findings: `-[NFSTouchView drawNative]` uses
+`CGContextBeginTransparencyLayer`, 14.4 MiB per layer (2 persistent);
+`rex::memory::Memory::Initialize` 13 x 4 MiB. XMA: ~173 streams fed in a
+race keep ~173 x 464 KiB decoders even with dev97.
+

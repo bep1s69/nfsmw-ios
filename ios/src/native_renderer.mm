@@ -395,6 +395,9 @@ namespace texture_util = rex::graphics::texture_util;
 // constant 1 of every shader. Off: the 9 fetches as the game does them.
 REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_gather, true, "GPU",
                     "Native renderer: soft shadows from 4 gathers instead of 9 filtered fetches");
+REXCVAR_DEFINE_BOOL(nfsmw_native_release_pipeline_archive, true, "GPU",
+                    "Native renderer: let the pipeline cache (Metal binary archive, ~150 MiB of memory) go once "
+                    "the known pipelines are made; reopened for a new one");
 REXCVAR_DEFINE_BOOL(nfsmw_native_async_pipelines, true, "GPU",
                     "Native renderer: compile new pipelines in the background, leaving their draws out until ready "
                     "(instead of a hitch while they compile)");
@@ -1508,6 +1511,12 @@ struct PipelineArchive {
   id<MTLBinaryArchive> archive = nil;
   NSURL* url = nil;
   bool tried = false, dirty = false, saving = false;
+  // Low-RAM (November 6, dev99): Metal keeps the whole archive in the heap
+  // (142 MiB file for 233 pipelines; 2 x 49 + 55 MiB blocks in the iPhone's
+  // allocation trace). Once the warm-up has made every known pipeline and
+  // nothing is left to save, the archive is let go; a later miss opens it
+  // again, adds the pipeline, saves, and it is let go once more.
+  bool warmed = false;
   std::mutex mutex;  // the archive's additions and saving, the counts
   // Since the last log line: pipelines made, of them from the archive, time.
   uint32_t made = 0, loaded = 0;
@@ -1525,6 +1534,7 @@ struct PipelineArchive {
     std::lock_guard<std::mutex> lock(mutex);
     if (tried) return;
     tried = true;
+    if (warmed) REXLOG_INFO("[native] pipeline cache: opened again for a new pipeline");
     NSURL* caches = [[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
     // v2: a fresh archive (the first kept missing pipelines it had added and
     // saved, session after session; the misses' log says whether this one does).
@@ -1561,6 +1571,11 @@ struct PipelineArchive {
     const auto start = std::chrono::steady_clock::now();
     id<MTLRenderPipelineState> pso = nil;
     bool hit = false;
+    id<MTLBinaryArchive> archive;  // a strong copy: Report may let the member go meanwhile
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      archive = this->archive;
+    }
     if (archive) {
       desc.binaryArchives = @[ archive ];
       pso = [device newRenderPipelineStateWithDescriptor:desc
@@ -1597,8 +1612,15 @@ struct PipelineArchive {
       REXLOG_INFO("[native] pipelines: {} made ({} from the cache), {:.1f} ms in all, worst {:.1f} ms", made, loaded,
                   ms, worst_ms);
     }
+    const bool idle = made == 0;
     made = loaded = 0;
     ms = worst_ms = 0;
+    if (warmed && idle && archive && !dirty && !saving && REXCVAR_GET(nfsmw_native_release_pipeline_archive)) {
+      archive = nil;
+      tried = false;  // the next miss opens it again
+      REXLOG_INFO("[native] pipeline cache let go until a new pipeline needs it (memory)");
+      return;
+    }
     if (dirty && archive && !saving) {
       // Saved on a background queue, not here on the render queue: a
       // synchronous save stalled the picture for seconds after the menu and
@@ -3707,6 +3729,10 @@ class PipelineCache {
     for (Done& d : done) {
       Finish(d.key, d.pso, d.warm, d.error.c_str());
       if (d.warm && --warm_left_ == 0) {
+        {
+          std::lock_guard<std::mutex> lock(pipeline_archive.mutex);
+          pipeline_archive.warmed = true;
+        }
         REXLOG_INFO("[native] pipelines warmed up: {} in {:.0f} ms (background)", warm_total_,
                     std::chrono::duration<double, std::milli>(FastClock::now() - warm_start_).count());
       }

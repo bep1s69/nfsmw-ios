@@ -437,6 +437,25 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev99 BUILT: pipeline archive let go after warm-up.** dev98
+with the trace ran fine (Stefan; Debug/6 November 2026/dev98_*). allocs.txt:
+the big startup blocks are Metal loading our binary archive inside
+`PipelineArchive::Make` (11, 17, 25, 38, 50, 56 MiB growth; the 2 x 49.14
+and 55.52 MiB persistent blocks), archive file 145376 KiB for 233 pipelines;
+the 14.45 MiB ones are `CGContextBeginTransparencyLayer` in
+`-[NFSTouchView drawNative]` (touch overlay, 2 persistent, ~29 MiB, next);
+4 MiB x 13 and 128 KiB from `Memory::Initialize` (guest tables). dev97 check:
+malloc at XEX load 27 MiB (dev94 212); race peak 1720 MiB (dev94 1749),
+since ~173 XMA streams are fed in a race (`[xma-voices]`), each still with a
+464 KiB decoder (~80 MiB; shrinking FFmpeg's xmaframes context is a later
+option). dev99: cvar `nfsmw_native_release_pipeline_archive` (on): once the
+warm-up finished, at a periodic report with no pipelines made and nothing to
+save, the MTLBinaryArchive is released; a later miss reopens, adds, saves,
+then it is released again. Make() takes a strong copy under the mutex.
+IPA `ios/build/NFSMW-0.6.0-dev99-pipeline-archive-release.ipa` (SHA256 06ccf05f8085224cf95932c7a446b7987a375cafea07f8bd23ff49ca323ea81d).
+To check: `pipeline cache let go` line, malloc drop of ~150 MiB, no new
+stutter at race start.
+
 **November 6, dev98 BUILT: allocation trace crash fixed.** Stefan: dev96/97
 with `--nfsmw_diag_alloc_trace=true` crashed right at Play (boot.txt ends
 after the limit line during SDL init, allocs.txt has only the image list,
