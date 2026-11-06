@@ -21478,3 +21478,24 @@ TimerQueue psynch_cvwait 90,702, 81,144 timed out, median 0.98 ms.
 Also seen, not addressed: UIKit Main Thread ~4,800-5,000 blocking calls/s in
 both builds (mach_msg2_trap ~3,400/s, kevent_qos ~1,500/s).
 Not proven: any battery effect (no Power Profiler run); one lap each.
+
+### November 6: dev89 iPhone Power Profiler A/B — no battery change
+
+Stefan, iPhone, dev89, his usual Extra Args (incl. `--ios_multi_wait=true`),
+brightness 18 % both runs, thermal Nominal both. Trace
+`Debug/6 November 2026/dev89_iphone_power_profile.trace` (run 1 115.4 s,
+run 2 110.6 s), log `dev89_iphone_power_ab_nfsmw.log` (two launches: 02:03:10
+`[xma] ... on` = A `--ios_alertable_wait=false --ios_xma_kick_wake=true`;
+02:05:57 `... off` = B defaults). Method as November 4 (first 10 s dropped,
+duration-weighted SystemPowerLevel; ProcessSubsystemPowerImpact rows for
+LiveContainer, duration-weighted; overlapping row kinds, so compare only
+within this trace). Coreaudio: 56 windows, 0 with gaps.
+| run | drain %/h | CPU impact | GPU | display | instr G/s |
+|---|---:|---:|---:|---:|---:|
+| A old waits | 22.6 | 4.56 | 1.30 | 0.67 | 2.96 |
+| B dev89 waits | 22.5 | 4.59 | 1.41 | 0.67 | 2.92 |
+Measured: no difference beyond noise from ~3,000 fewer blocking waits/s
+(single runs, order A B). Same conclusion as dev56-dev60 on the iPad: wakes
+on these utility/audio threads are not a battery lever. Inference: the
+remaining audio-worker and 1 ms tick wakes (dev90 idea) would not be either;
+not pursued unless Stefan wants them for tidiness.

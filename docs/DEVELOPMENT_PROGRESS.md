@@ -437,6 +437,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev89 Power Profiler A/B: no battery change** (22.6 vs 22.5 %/h,
+CPU impact 4.56 vs 4.59, iPhone, 18 %, Nominal). Wake cuts on non-frame
+threads are not a battery lever (as Nov 4); dev90 wake ideas dropped unless
+Stefan asks. dev89 defaults kept (audio clean). TECHNICAL "dev89 iPhone
+Power Profiler A/B".
+
 **November 6, dev89 measured on the iPhone (System Trace):** −3,015 blocking
 waits/s (−20 %): XMA worker and the two guest sleepers gone as planned; audio
 clean (AirPods). Audio worker unchanged (~1,120/s): its wait is alertable and
