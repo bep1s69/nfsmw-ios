@@ -437,6 +437,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev89 measured on the iPhone (System Trace):** −3,015 blocking
+waits/s (−20 %): XMA worker and the two guest sleepers gone as planned; audio
+clean (AirPods). Audio worker unchanged (~1,120/s): its wait is alertable and
+the alertable multi-wait wrapper still slices at 1 ms; plus a 1 us Sleep in
+XAudioGetVoiceCategoryVolumeChangeMask (187/s). TimerQueue unchanged: ~1,000/s
+is the kernel's 1 ms KeTimeStampBundle tick timer (game timers only ~200/s).
+Next (proposal, awaiting Stefan): alertable waits wake on the callback word
+instead of 1 ms slices; drop the 1 us Sleep; probe a longer tick only if the
+game's use of the tick count allows. TECHNICAL "dev89 iPhone System Trace".
+
 **November 6, dev89 BUILT: wake-up cuts (Stefan approved fixes 1-3 + census).**
 `tools/ios/patch_ios_wake_cuts.py` (SDK, after patch_ios_multi_wait): alertable
 sleeps wait the whole time (`ios_alertable_wait`, true), no XMA worker wake

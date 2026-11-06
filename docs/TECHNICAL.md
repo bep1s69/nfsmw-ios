@@ -21437,3 +21437,44 @@ Test: iPhone, dev88 setup (1x, cap 60) with `--ios_timer_census=true` and
 `--ios_multi_wait=true` as in the dev88 trace; one System Trace for wake
 counts, listen for audio cuts; A/B by setting `--ios_alertable_wait=false
 --ios_xma_kick_wake=true --ios_multi_wait_own=false`.
+
+### November 6: dev89 iPhone System Trace — 3,000 fewer blocking waits/s
+
+Input: Stefan, iPhone, dev89, same setup as dev88 (1x, cap 60, one lap, his
+soak lines, `--ios_multi_wait=true`) plus `--ios_timer_census=true`; AirPods
+connected (speaker not usable at the moment). Trace
+`Debug/6 November 2026/dev89_iphone_system_trace.trace`, log
+`dev89_iphone_system_trace_nfsmw.log`. Stefan: 0 audio weirdness. Log: every
+`[coreaudio]` window 0 gaps; `[xma] worker wake after inline kick decode: off`.
+Method: syscall tables of dev89 and dev88 exported (`xctrace export ...
+table[@schema="syscall"]`, ~1.06 GB each, deleted after), same scratchpad
+script for both: per-thread count of blocking calls (psynch_cvwait,
+ulock_wait2, mach_wait_until, semwait, swtch_pri, kevent, mach_msg) over the
+row span (dev88 69.6 s, dev89 72.9 s), LiveContainer process only.
+| thread | dev88 /s | dev89 /s |
+|---|---:|---:|
+| XMA Decoder | 1,530 | absent (below 92) |
+| 10 ms alertable sleeper (sub_823BA298) | 869 (XThread10407) | 92 (XThread16127, os_sync in AlertableSleep) |
+| 5 ms alertable sleeper (sub_825B3900) | 924 (XThread14B27) | ~181 (inferred XThread16F4F, ulock_wait2) |
+| Audio Worker | 1,123 | 1,124 |
+| TimerQueue | 1,247 | 1,245 |
+| GPU Commands | 757 | 541 |
+| all blocking calls in the process | 15,258 | 12,243 |
+Fixes 1 and 2 worked as intended (−3,015/s, −20 %). Fix 3 had no effect,
+for a reason found in this trace: AudioSystem::WorkerThreadMain's WaitAny is
+alertable, and the alertable WaitMultiple wrapper (threading_posix.cpp ~1507)
+calls the multi-wait with `ComputeAlertableWaitTimeout` = 1 ms slices
+(`kAlertablePollSlice`). Audio Worker ulock_wait2: 68,040, 54,405 returned
+ETIMEDOUT, median 1.13 ms; `[multi-wait]` 930 waits/s, 0 overflowed. Its
+other 187/s are `rex::thread::Sleep(1 us)` in
+XAudioGetVoiceCategoryVolumeChangeMask_entry (xboxkrnl_audio.cpp:35), called
+by the game's audio callback every permit.
+TimerQueue: `[timer-census]` 189-198 SetTimer/s, all one-shot 10.000 ms
+(due -100000, period 0), i.e. the two timer threads at ~100/s each
+(XThread1E81B/1630B psynch_cvwait ~100/s). The other ~1,000/s are the
+kernel's own 1 ms repeating timer that refreshes KeTimeStampBundle's tick
+count (xboxkrnl_module.cpp:195, HighResolutionTimer::CreateRepeating 1 ms):
+TimerQueue psynch_cvwait 90,702, 81,144 timed out, median 0.98 ms.
+Also seen, not addressed: UIKit Main Thread ~4,800-5,000 blocking calls/s in
+both builds (mach_msg2_trap ~3,400/s, kevent_qos ~1,500/s).
+Not proven: any battery effect (no Power Profiler run); one lap each.
