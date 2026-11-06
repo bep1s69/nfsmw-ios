@@ -369,6 +369,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               REXCVAR_GET(ios_mvk_performance) ? "on" : "off");
   nfsmw::memory::Report("log open");
   nfsmw::memory::TraceLimit();
+  nfsmw::memory::StartAllocationTrace((docs / "logs" / "allocs.txt").c_str());
   nfsmw::memory::StartPressureWatch(&nfsmw_native_purge_caches);
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",

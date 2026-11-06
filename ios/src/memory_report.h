@@ -13,6 +13,10 @@ void Report(const char* stage);
 // iPhone 11 under LiveContainer: about 2 GB, too little for a race).
 void TraceLimit();
 
+// With --nfsmw_diag_alloc_trace=true: the call stack of each big heap block
+// (4 MB or more) and a few 464 KB / 128 KB ones, to `path`.
+void StartAllocationTrace(const char* path);
+
 // Calls on_pressure (any thread) each time iOS says memory is short or
 // critical, and records it in boot.txt and the log.
 void StartPressureWatch(void (*on_pressure)());

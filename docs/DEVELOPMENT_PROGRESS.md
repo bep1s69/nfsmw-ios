@@ -437,6 +437,17 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev96 BUILT: allocation-stack diagnostic.** dev95 launches fine
+(Stefan). Allocations statistics (screenshots in Debug/6 November 2026):
+heap 542 MiB; 320 x 464 KiB = 145 MiB, 2 x 49.14 + 55.52 + 2 x 14.45 MiB
+(~180 MiB, startup), 324 x 128 KiB = 40 MiB. Their backtraces are empty
+("Call stack limit reached", timestamp 0): the blocks predate the attach.
+Stefan asked to pick 464/128 KiB blocks made during recording (All
+Allocations). dev96 adds `--nfsmw_diag_alloc_trace=true` (off by default):
+a malloc_logger hook writes image+offset stacks of blocks >= 4 MiB and the
+first 8 of 464/128 KiB to logs/allocs.txt, with image load addresses for
+atos. IPA `ios/build/NFSMW-0.6.0-dev96-alloc-trace.ipa` (SHA256 18693061a9224eaedc5baa606cebe2b6c4b68901dc9f87751d1f7c292ae9907d).
+
 **November 6, dev95 BUILT: low-RAM work, steps 2 and 4 (Stefan approved the
 4-step plan).** Stefan's iPhone trace and log
 (Debug/6 November 2026/dev94_iphone_memory_trace.trace, `..._nfsmw.log`):

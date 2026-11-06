@@ -21625,3 +21625,11 @@ when fewer than 384 MiB are left. In `native_renderer.mm` each sweep
 limit (normally 120 or 600) and the arena is trimmed. In-flight data is kept
 by the existing use-count / completed-submission checks.
 
+dev96: `memory::StartAllocationTrace()` (cvar `nfsmw_diag_alloc_trace`, off)
+sets libmalloc's `malloc_logger` right after log open. The hook (re-entry
+guard, no allocation) takes `backtrace()` + `dladdr()` for allocations of
+4 MiB or more and the first 8 of exactly 464 KiB and 128 KiB, and writes
+`alloc N bytes at P: image+0xoff/symbol ...` lines to logs/allocs.txt, after
+an `image <load address> <path>` list. Symbolicate with `atos -o <binary>
+-l <load address> <address>` against the build's binaries.
+

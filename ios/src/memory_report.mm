@@ -19,11 +19,18 @@
 
 #include "boot_trace.h"
 
+#include <dlfcn.h>
+#include <execinfo.h>
+#include <fcntl.h>
 #include <malloc/malloc.h>
+#include <unistd.h>
+#include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <mach/task_info.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cstring>
 #include <chrono>
 #include <string>
 #include <thread>
@@ -32,6 +39,17 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+
+// Who allocates the big heap blocks (low-RAM work, November 6): Instruments
+// attaches after startup under LiveContainer, so its blocks have no stacks.
+REXCVAR_DEFINE_BOOL(nfsmw_diag_alloc_trace, false, "GPU",
+                    "Diagnostics: write the call stack of every heap block of 4 MB or more, and of the "
+                    "first 8 blocks of 464 KB and 128 KB, to logs/allocs.txt");
+
+// libmalloc calls this (MallocStackLogging's hook) for every allocation.
+typedef void(malloc_logger_t)(uint32_t type, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t result,
+                              uint32_t num_hot_frames_to_skip);
+extern "C" malloc_logger_t* malloc_logger;
 
 namespace nfsmw::memory {
 
@@ -74,6 +92,60 @@ void Report(const char* stage) {
                             vm.limit_bytes_remaining / kMiB, vm.phys_footprint / kMiB));
     rex::FlushLogging();
   }
+}
+
+namespace {
+int alloc_trace_fd = -1;
+std::atomic<int> alloc_trace_464k{0}, alloc_trace_128k{0};
+thread_local bool alloc_trace_busy = false;
+
+// Runs inside malloc: no allocation, only snprintf into the stack, dladdr and
+// write(). Frames as image+offset, for atos against the build's binaries.
+void AllocTraceHook(uint32_t type, uintptr_t, uintptr_t arg2, uintptr_t arg3, uintptr_t result, uint32_t) {
+  constexpr uint32_t kAllocate = 2, kDeallocate = 4;
+  if (!(type & kAllocate) || alloc_trace_busy || alloc_trace_fd < 0) return;
+  const uintptr_t size = (type & kDeallocate) ? arg3 : arg2;  // realloc: new size in arg3
+  bool wanted = size >= (4u << 20);
+  if (!wanted && size == 464u * 1024) wanted = alloc_trace_464k.fetch_add(1) < 8;
+  if (!wanted && size == 128u * 1024) wanted = alloc_trace_128k.fetch_add(1) < 8;
+  if (!wanted) return;
+  alloc_trace_busy = true;
+  void* frames[24];
+  const int n = backtrace(frames, 24);
+  char line[4096];
+  int at = snprintf(line, sizeof(line), "alloc %lu bytes (%.2f MiB) at %p:", (unsigned long)size,
+                    size / 1048576.0, (void*)result);
+  for (int i = 2; i < n && at < int(sizeof(line)) - 160; ++i) {
+    Dl_info info = {};
+    if (dladdr(frames[i], &info) && info.dli_fname) {
+      const char* name = strrchr(info.dli_fname, '/');
+      at += snprintf(line + at, sizeof(line) - at, " %s+0x%lx%s%s", name ? name + 1 : info.dli_fname,
+                     (unsigned long)((uintptr_t)frames[i] - (uintptr_t)info.dli_fbase), info.dli_sname ? "/" : "",
+                     info.dli_sname ? info.dli_sname : "");
+    } else {
+      at += snprintf(line + at, sizeof(line) - at, " %p", frames[i]);
+    }
+  }
+  if (at > int(sizeof(line)) - 2) at = int(sizeof(line)) - 2;
+  line[at++] = '\n';
+  write(alloc_trace_fd, line, at);
+  alloc_trace_busy = false;
+}
+}  // namespace
+
+void StartAllocationTrace(const char* path) {
+  if (!REXCVAR_GET(nfsmw_diag_alloc_trace)) return;
+  alloc_trace_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (alloc_trace_fd < 0) return;
+  // Each image's load address, to match the offsets with the binaries.
+  for (uint32_t i = 0; i < _dyld_image_count(); ++i) {
+    char line[1200];
+    const int at = snprintf(line, sizeof(line), "image %p %s\n", (void*)_dyld_get_image_header(i),
+                            _dyld_get_image_name(i));
+    write(alloc_trace_fd, line, std::min<int>(at, sizeof(line) - 1));
+  }
+  malloc_logger = &AllocTraceHook;
+  REXLOG_INFO("[memory] allocation trace on: logs/allocs.txt");
 }
 
 void TraceLimit() {
