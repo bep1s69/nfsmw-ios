@@ -21591,3 +21591,13 @@ passed as `--resolution=Wx720 --nfsmw_wide_scene_width=W`. Choices: auto and
 scale (native: min of screen/scene on each axis), used by the launcher menu
 and the in-game options rows. IPA `NFSMW-0.6.0-dev93-golf-loops-fit-screen.ipa`,
 SHA256 ad27555db86ab78ec1f153cd8d69161458f7c58c3c79b0819052426bb45884f1.
+
+## November 6: dev94 mono streams out of the starve reset (issue 15)
+
+dev93 log (`dev93_golf_crackles_iphone_nfsmw.log`, Stefan: menu music fine,
+Golf crackles): every 5 s 46-288 resets and 0 looping streams kept; no host
+gaps. `patch_ios_xma_starve_loops.py` renamed `patch_ios_xma_starve_mono.py`;
+cvar `ios_xma_starve_keep_mono` (default true): skip the reset when
+`loop_count > 0 || !is_stereo`. Line: `[xma] starve 5 s: N resets (stereo), M
+mono or looping streams kept`. IPA `NFSMW-0.6.0-dev94-golf-mono.ipa`, SHA256
+561c40422893ae22aec82e331bf601596e6aab47460ef3605d776c15cab34cac.

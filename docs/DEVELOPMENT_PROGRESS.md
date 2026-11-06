@@ -437,6 +437,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev94 BUILT: Golf, second guess.** dev93 test (Stefan): menu
+music fine, Golf still crackles; log `dev93_golf_crackles_iphone_nfsmw.log`:
+`[xma] starve 5 s: 46-288 resets, 0 looping streams kept`, so loop_count is
+not the signal. Reset off is no option (launcher note: music cuts out). The
+patch is now `patch_ios_xma_starve_mono.py` (cvar `ios_xma_starve_keep_mono`):
+mono or looping streams skip the reset, stereo (music) still resets. IPA
+`ios/build/NFSMW-0.6.0-dev94-golf-mono.ipa` (SHA256 561c40422893ae22aec82e331bf601596e6aab47460ef3605d776c15cab34cac).
+
 **November 6, dev93 BUILT: Golf engine cut (#15, D-020) and the Display menu.**
 Stefan's Golf log (Debug/6 November 2026/dev91_golf_engine_cut_iphone_nfsmw.log):
 host output clean, XMA starve resets ~45/s; launcher "Audio stream reset" off

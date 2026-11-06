@@ -2,9 +2,9 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
-- **Golf engine sound no longer cuts out (GitHub #15).** Looping sounds such
+- **Golf engine sound no longer cuts out (GitHub #15).** Mono sounds such
   as engines keep playing when their stream briefly runs dry, instead of
-  dropping a moment of sound about once a second (dev93).
+  dropping a moment of sound about once a second (dev94).
 
 - **Simpler Display menu.** Screen shape is "Fit this screen" (this device's
   own shape) or "16:9 (Xbox 360)". Render resolution choices show the exact
