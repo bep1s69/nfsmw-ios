@@ -448,6 +448,13 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, private backlog:** Stefan requested removing the backlog
+from GitHub and all mentions from README. GitHub main at 5e277fd has
+the cleanup. Keep docs/BACKLOG.md local and ignored. Older GitHub
+commits, refs and release snapshots remain historical exposure.
+Next: confirm scope before any public history rewrite. The 0.6.0
+release remains available.
+
 **November 6, 0.6.0 published:** Stefan authorized publication.
 GitHub main and v0.6.0 point to `7eb046c61692be3d2969df241bf6464ee7a5aa44`.
 The latest stable release contains the verified dev107 IPA under the

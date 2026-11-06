@@ -21913,3 +21913,15 @@ Remote main and v0.6.0 both point to
 7eb046c61692be3d2969df241bf6464ee7a5aa44.
 Release: https://github.com/bep1s69/nfsmw-ios/releases/tag/v0.6.0.
 No rebuild or device run. Preserved untracked HANDOFF_CHATGPT.md.
+
+## November 6: remove the backlog from public main
+
+Stefan requested the removal because the backlog contains personal and
+internal information. Removed README references and untracked the file
+with an ignore rule. Local backlog retained byte-for-byte (SHA256
+b234cfe3d67878b20c3e69e52d6f487362a86d32fefbfc4305e642ce1b9b814e).
+Public cleanup cherry-picked onto main and pushed as 5e277fd. GitHub
+tree lookup returned zero matching paths on main and the remote README
+matched the cleaned copy. The old v0.6.0 snapshot and the tracked remote
+branches frame-pacing-60, release-0.4.1 and touch-overlay-native still
+contain the path. No historical refs rewritten, no app changes or builds.
