@@ -281,11 +281,48 @@ CGSize ScreenPixels() {
 NSString* AutoAspect() {
   const CGSize px = ScreenPixels();
   const double r = px.width / px.height;
-  return r >= 2.0 ? @"wide" : r <= 1.45 ? @"4:3" : @"16:9";
+  // Wider than 16:9: a scene of this screen's own shape (FitSceneWidth).
+  // Narrower: the game's 4:3 mode, the only narrower one it has.
+  return r > 16.0 / 9.0 + 0.02 ? @"wide" : r < 1.6 ? @"4:3" : @"16:9";
+}
+
+// Fit this screen, wider than 16:9: the scene as wide as the screen's shape
+// at 720 high, in steps of 8 (1560 on a 2868x1320 iPhone).
+int FitSceneWidth() {
+  const CGSize px = ScreenPixels();
+  const int w = int(std::lround(720.0 * px.width / px.height / 8.0)) * 8;
+  return std::clamp(w, 1288, 2400);
+}
+
+// The game's scene for a shape ("16:9", "4:3", "wide"), in 1x pixels.
+CGSize SceneSize(NSString* aspect) {
+  if ([aspect isEqualToString:@"wide"]) return CGSizeMake(FitSceneWidth(), 720);
+  if ([aspect isEqualToString:@"4:3"]) return CGSizeMake(960, 720);
+  return CGSizeMake(1280, 720);
 }
 
 NSString* NativeScaleTitle() {
   return [NSString stringWithFormat:@"Native · %.0fp (this screen)", ScreenPixels().height];
+}
+
+NSString* ResolvedAspect(NSDictionary<NSString*, NSString*>* s);
+
+// A render resolution's title with the pixels it draws on this device, in
+// the shape in use: "1x · 1560×720 (Xbox 360)", "Native · 2868×1320".
+NSString* ScaleChoiceTitle(NSString* value, NSDictionary<NSString*, NSString*>* s) {
+  const CGSize scene = SceneSize(ResolvedAspect(s));
+  const CGSize px = ScreenPixels();
+  const bool native = [value isEqualToString:@"native"];
+  const double k = native ? std::min(px.width / scene.width, px.height / scene.height) : value.doubleValue;
+  const long w = std::lround(scene.width * k / 2.0) * 2, h = std::lround(scene.height * k / 2.0) * 2;
+  if (native) return [NSString stringWithFormat:@"Native · %ld×%ld (this screen)", w, h];
+  return [NSString stringWithFormat:@"%@x · %ld×%ld%@", value, w, h,
+                                    [value isEqualToString:@"1"] ? @" (Xbox 360)" : @""];
+}
+
+// A choice's title as shown (the render resolutions depend on the device and shape).
+NSString* ChoiceTitle(NSString* key, const Choice& c, NSDictionary<NSString*, NSString*>* s) {
+  return [key isEqualToString:@"scale"] ? ScaleChoiceTitle(c.value, s) : c.title;
 }
 
 NSString* ScaleSummary() {
@@ -527,13 +564,11 @@ const std::vector<Section>& Sections() {
       {@"Display", nil,
        {
            {@"aspect", Type::kChoice, @"Screen shape",
-            @"The shape of the game's picture. Fit this screen: 19.5:9 on iPhone, 4:3 on iPad, "
-            @"16:9 elsewhere. 16:9 is the Xbox 360's own; on other screens it has black bars. "
-            @"4:3 is the game's own mode for 4:3 TVs, with its own field of view and HUD; on an "
-            @"11\" iPad it fills the screen, stretched by 7%.",
+            @"The shape of the game's picture. Fit this screen: this device's own shape, edge to "
+            @"edge (on a screen narrower than 16:9, such as an iPad, the game's 4:3 mode, the "
+            @"closest it has). 16:9 is the Xbox 360's own; on other screens it has black bars.",
             @"auto",
-            {{@"Fit this screen", @"auto"}, {@"16:9 (Xbox 360)", @"16:9"}, {@"4:3", @"4:3"},
-             {@"19.5:9", @"wide"}}},
+            {{@"Fit this screen", @"auto"}, {@"16:9 (Xbox 360)", @"16:9"}}},
            {@"scale", Type::kChoice, @"Render resolution",
             ScaleSummary(),
             @"1",
@@ -920,8 +955,8 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
     return @"eco";
   }
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
-    if ([v isEqualToString:@"1024x768"] || [v isEqualToString:@"640x480"]) return @"4:3";
-    if ([v isEqualToString:@"1560x720"]) return @"wide";
+    // 0.6.0: only Fit this screen and 16:9; the 4:3 and 19.5:9 choices are Fit.
+    if (![v isEqualToString:@"16:9"]) return @"auto";
   }
   if (v) {
     return v;
@@ -1026,8 +1061,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // Wider than 16:9: the scene is one wide strip, which needs the single pass.
   const bool wide = [aspect isEqualToString:@"wide"];
   if (wide) {
-    a.push_back("--resolution=1560x720");
-    a.push_back("--nfsmw_wide_scene_width=1560");
+    const int width = FitSceneWidth();
+    a.push_back("--resolution=" + std::to_string(width) + "x720");
+    a.push_back("--nfsmw_wide_scene_width=" + std::to_string(width));
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
   a.push_back("--nfsmw_performance_mode=" + str(@"performance_mode"));
@@ -1981,7 +2017,7 @@ NSString* AchievementSummary(const Achievements& a) {
       NSMutableArray<UIMenuElement*>* items = [NSMutableArray array];
       for (const Choice& ch : o.choices) {
         NSString* v = ch.value;
-        UIAction* item = [UIAction actionWithTitle:ch.title
+        UIAction* item = [UIAction actionWithTitle:ChoiceTitle(key, ch, _settings)
                                              image:nil
                                         identifier:nil
                                            handler:^(UIAction*) {
@@ -2266,7 +2302,8 @@ std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {
     const Option* o = FindOption(key);
     if (!o || (o->type != Type::kSwitch && o->type != Type::kChoice)) continue;
     MenuRow r{o->key, o->title, o->summary, o->type == Type::kSwitch, {}};
-    for (const Choice& c : o->choices) r.choices.emplace_back(c.title, c.value);
+    NSDictionary<NSString*, NSString*>* s = LoadSettings(Documents());
+    for (const Choice& c : o->choices) r.choices.emplace_back(ChoiceTitle(o->key, c, s), c.value);
     rows.push_back(std::move(r));
   }
   return rows;
@@ -2274,13 +2311,14 @@ std::vector<MenuRow> Rows(NSArray<NSString*>* keys) {
 
 std::vector<MenuGroup> Groups(NSArray<NSString*>* keys) {
   NSSet* wanted = [NSSet setWithArray:keys];
+  NSDictionary<NSString*, NSString*>* settings = LoadSettings(Documents());
   std::vector<MenuGroup> groups;
   for (const Section& section : Sections()) {
     MenuGroup g{TabTitles()[section.tab], section.title, {}};
     for (const Option& o : section.options) {
       if (![wanted containsObject:o.key] || (o.type != Type::kSwitch && o.type != Type::kChoice)) continue;
       MenuRow r{o.key, o.title, o.summary, o.type == Type::kSwitch, {}};
-      for (const Choice& c : o.choices) r.choices.emplace_back(c.title, c.value);
+      for (const Choice& c : o.choices) r.choices.emplace_back(ChoiceTitle(o.key, c, settings), c.value);
       g.rows.push_back(std::move(r));
     }
     if (!g.rows.empty()) groups.push_back(std::move(g));

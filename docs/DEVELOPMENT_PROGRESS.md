@@ -437,6 +437,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev93 BUILT: Golf engine cut (#15, D-020) and the Display menu.**
+Stefan's Golf log (Debug/6 November 2026/dev91_golf_engine_cut_iphone_nfsmw.log):
+host output clean, XMA starve resets ~45/s; launcher "Audio stream reset" off
+removed the cut (Stefan). New SDK patch `patch_ios_xma_starve_loops.py`
+(cvar `ios_xma_starve_keep_loops`, on): streams with loop_count > 0 skip the
+reset; `[xma] starve 5 s` counts resets vs kept loops. Guess, to test: Golf,
+menu songs, police radio. Fallback: reset off by default. Display: Screen shape
+is now Fit this screen / 16:9 only (old 4:3 and 19.5:9 values become Fit; Fit
+wider than 16:9 uses the screen's own width at 720 in steps of 8, narrower
+stays the game's 4:3 mode); render resolution titles show W×H for this device
+and shape. Duo (dev92) ships in 0.6.0 as experimental (Stefan). IPA
+`ios/build/NFSMW-0.6.0-dev93-golf-loops-fit-screen.ipa` (SHA256 ad27555db86ab78ec1f153cd8d69161458f7c58c3c79b0819052426bb45884f1).
+
 **November 6, dev92 BUILT: iPhone Duo black inner screen (GitHub #14, D-019
 Duo).** The app picked "its" scene by `scene.screen == UIScreen.mainScreen` in
 eight places; on a foldable mainScreen is likely one panel while the app shows

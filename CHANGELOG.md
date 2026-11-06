@@ -2,7 +2,15 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
-- **iPhone Duo inner screen (GitHub #14).** The game looked for its window on
+- **Golf engine sound no longer cuts out (GitHub #15).** Looping sounds such
+  as engines keep playing when their stream briefly runs dry, instead of
+  dropping a moment of sound about once a second (dev93).
+
+- **Simpler Display menu.** Screen shape is "Fit this screen" (this device's
+  own shape) or "16:9 (Xbox 360)". Render resolution choices show the exact
+  pixels they draw on your device, e.g. "Native · 2868×1320" (dev93).
+
+- **iPhone Duo inner screen, experimental (GitHub #14).** The game looked for its window on
   the device's "main" screen, which on a foldable can be the other panel, and
   showed nothing on the inner screen. It now uses the screen its own window is
   on. Not yet confirmed on a Duo (dev92).

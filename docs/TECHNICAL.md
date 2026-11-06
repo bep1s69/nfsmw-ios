@@ -21569,3 +21569,25 @@ and touch-control `scale` still use mainScreen (same values expected on both
 panels). Startup now logs every `UIScreen` (main/app, pixels, scale).
 IPA `NFSMW-0.6.0-dev92-duo-scene.ipa`, SHA256
 eabf57f3d0426519e8d64a622f1aa88424e0dea6594f29f90b59e31dd6d119f0.
+
+## November 6: dev93 Golf engine cut (issue 15) and Display menu
+
+Golf log (iPhone 17 Pro Max, dev91): RemoteIO 938 blocks/5 s, 0 gaps, no
+game-silent blocks while driving; `[xma] ... ran out of input with output
+pending: reset` reached 4096 by 15:03:08 (~45/s). Launcher "Audio stream
+reset" off (`ios_xma_starve_reset=false`): cut gone (Stefan). The reset is
+Xenia Canary's fix for the game's write-offset stall detector (without it a
+dry stream can replay a stale stretch); a 60 ms grace cut menu songs
+(4344e59), so it stays. `tools/ios/patch_ios_xma_starve_loops.py` (in
+prepare_sdk after xma_direct_output): when `data.loop_count > 0` the reset is
+skipped (cvar `ios_xma_starve_keep_loops`, default true); `[xma] starve 5 s: N
+resets, M looping streams kept`. Applied to the build's SDK
+(nfsmw-multiplayer-sdk; CMakeCache NFSMW_SDK).
+
+Launcher: `AutoAspect` wide when r > 16/9 + 0.02, 4:3 when r < 1.6, else 16:9;
+`FitSceneWidth` = 720 x r in steps of 8, clamped 1288-2400 (2868x1320: 1560),
+passed as `--resolution=Wx720 --nfsmw_wide_scene_width=W`. Choices: auto and
+16:9; any other saved value reads as auto. `ScaleChoiceTitle`: W×H = scene x
+scale (native: min of screen/scene on each axis), used by the launcher menu
+and the in-game options rows. IPA `NFSMW-0.6.0-dev93-golf-loops-fit-screen.ipa`,
+SHA256 ad27555db86ab78ec1f153cd8d69161458f7c58c3c79b0819052426bb45884f1.
