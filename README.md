@@ -144,10 +144,6 @@ and when and on which device each was last saved.
 
 ## Building it yourself
 
-To continue development, start with
-[Development progress](docs/DEVELOPMENT_PROGRESS.md): the current checkpoint,
-working rules and build procedure.
-
 Use a separate SDK and build directory for the multiplayer-enabled 0.6.0
 tree. Keep your own USA disc dump outside version control.
 

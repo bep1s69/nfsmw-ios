@@ -52,3 +52,6 @@ __pycache__/
 # --- Agent instructions (local only) -------------------------------------------
 AGENTS.md
 CLAUDE.md
+
+# --- Private development records ----------------------------------------------
+/docs/BACKLOG.md
