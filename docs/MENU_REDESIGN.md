@@ -233,7 +233,12 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
    `InGameKeys()`, `InGameNeedsNative()`, `LiveCvars()`; ingame_options.mm
    has no lists of its own. To show a new setting in game: add `kInGame` and
    its live cvars on the row; nothing else.
-1b. **Remove the old renderer's settings** (section above).
+1b. **Remove the old renderer's settings** — DONE in dev103 (menu rows only):
+   `RetiredValue()` in settings_catalog.mm fixes `native_renderer`,
+   `no_vulkan`, `scaling` and the Emulated renderer section's keys at their
+   old defaults, ignoring older settings.json values; the rows are gone.
+   Still to do separately: the Vulkan/MoltenVK code in the SDK and build, the
+   `one_pass`/`occlusion` check (kept at true, the default, so unchanged).
 2. **Split the catalogue** — DONE in dev102 (November 6).
    `ios/src/settings_catalog.{h,mm}` (namespace `nfsmw::catalog`): option
    types and flags, `Sections()`, value rules, screen shape/resolution titles,
@@ -252,6 +257,19 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
    then.
 7. Device check on iPhone and iPad (touch, controller, keyboard), both menus,
    Battery mode on/off, native and emulated renderer.
+
+## Draft presets (onboarding page 3 and the launcher; for Stefan)
+
+| Preset | Settings |
+|---|---|
+| Longest battery | Battery mode's values: 0.85x, FXAA, half-size shadows, reflections half per frame, 30 fps cap, 30 fps in menus and when warm, 0.75x when hot; profile Eco |
+| Balanced (default) | Today's defaults: 1x, 60 fps cap, full shadows and reflections, profile Balanced |
+| Best looking | Native resolution, MSAA 4x, full shadows and reflections at render resolution, 60 fps (120 on iPad), profile Max |
+| Custom | Shown as soon as any single setting differs from the chosen preset |
+
+Battery mode then becomes the "Longest battery" preset instead of a switch
+that locks rows (rows stay editable; editing one switches to Custom).
+Values to confirm with Stefan and measure (heat/battery) before release.
 
 ## Open questions for Stefan
 

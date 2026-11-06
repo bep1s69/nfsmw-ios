@@ -21721,3 +21721,15 @@ header); 67 new lines (header, includes, declarations). Build
 errors. IPA `NFSMW-0.6.0-dev102-settings-catalog.ipa`, SHA256 246efcbc68f43e0c53d9ac8551d421c2f4b13b857b36e8bf19e0111c3963abfd. Not run
 on a device; arguments unchanged by construction (same code), not by a
 runtime comparison.
+
+## November 6: dev103 old renderer settings removed (menus only)
+
+settings_catalog.mm: removed the `native_renderer`, `no_vulkan` and `scaling`
+rows and the Emulated renderer section (async_submits, one_pass, edram_fsi,
+widen_kb, occlusion, exposure, memexport, pages, mvk_profiling).
+`RetiredValue(key)` (checked first in `Value()`) returns each one's previous
+default, so `Arguments()` for default settings is unchanged by construction;
+saved non-default values are ignored. Build OK, no errors. IPA
+`NFSMW-0.6.0-dev103-no-old-renderer-settings.ipa`, SHA256 4d5b54f88c6bdaf2225b4c981da474eab0ee9a78573360f41eb0b17e073ec23f. Not run on a
+device; no runtime argument comparison made. Vulkan/MoltenVK still built and
+linked (gpu_backend=native keeps it from starting).

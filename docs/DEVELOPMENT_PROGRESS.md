@@ -437,6 +437,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev103 BUILT: old renderer's settings removed from the menus.**
+Stefan's go-ahead. Rows gone: `native_renderer`, `no_vulkan`, `scaling`,
+Emulated renderer section; `RetiredValue()` returns their old defaults (so
+arguments for default settings are unchanged; a settings.json with the native
+renderer off now gets it on). Presets drafted in MENU_REDESIGN.md. IPA
+`ios/build/NFSMW-0.6.0-dev103-no-old-renderer-settings.ipa` (SHA256 4d5b54f88c6bdaf2225b4c981da474eab0ee9a78573360f41eb0b17e073ec23f).
+Not run on a device. Next: Stefan tests dev103 and answers the presets and
+open questions; Vulkan code removal from the SDK is a separate plan.
+
 **November 6, dev102 BUILT: settings catalogue split out of launcher.mm (no
 visible change).** Stefan: do the behind-the-scenes cleanup now. Plan step 2:
 `ios/src/settings_catalog.{h,mm}` holds everything from "The options" to

@@ -466,17 +466,6 @@ const std::vector<Section>& Sections() {
        }, kTabExtras},
       {@"Renderer", nil,
        {
-           {@"native_renderer", Type::kSwitch, @"Native Metal renderer",
-            @"Draws the game with its own shaders translated to Metal, instead of emulating the "
-            @"Xbox 360's GPU: much faster, sharper settings possible (Render resolution). Movies "
-            @"included. Off: the emulated renderer for everything. "
-            @"Needs the native shaders in this build (without them the emulated one is used).",
-            @"true"},
-           {@"no_vulkan", Type::kSwitch, @"No emulated renderer (no Vulkan)",
-            @"With the native Metal renderer on: Vulkan and MoltenVK are not started at all "
-            @"(less memory, faster start). The native renderer draws everything, movies "
-            @"included. Off: Vulkan runs alongside, as before.",
-            @"true", {}, kNativeOnly},
            {@"async_pipelines", Type::kSwitch, @"Compile pipelines in the background",
             @"Native renderer: the first time a new kind of draw appears, it is compiled in the "
             @"background and that object is missing for a few frames, instead of a hitch of up to "
@@ -589,11 +578,6 @@ const std::vector<Section>& Sections() {
            {@"motion_blur", Type::kSwitch, @"Motion blur",
             @"The original game's blur at speed. Off: the picture stays sharp when driving fast.",
             @"true", {}, kInGame, "nfsmw_motion_blur"},
-           {@"scaling", Type::kChoice, @"Scaling to the screen",
-            @"How the game image is taken to the screen size. FSR: sharper upscaling. CAS: "
-            @"sharpening only.",
-            @"bilinear",
-            {{@"Bilinear", @"bilinear"}, {@"AMD FSR 1.0", @"fsr"}, {@"AMD CAS", @"cas"}}, kEmulatedOnly},
        }, kTabGraphics},
       {@"Touch controls", nil,
        {
@@ -687,42 +671,6 @@ const std::vector<Section>& Sections() {
             @"memory. Used automatically when mapping fails (devices with less address space); "
             @"on, it is used always, for testing.",
             @"false"},
-       }, kTabAdvanced},
-      {@"Emulated renderer", @"Only for the emulated (Vulkan) renderer: greyed out while the native Metal renderer "
-       @"draws the game.",
-       {
-           {@"async_submits", Type::kSwitch, @"Asynchronous GPU submission",
-            @"MoltenVK encodes the GPU work on its own thread, so the game does not wait for "
-            @"it. Off made menus and races several fps slower.",
-            @"true", {}, kEmulatedOnly},
-           {@"one_pass", Type::kSwitch, @"Single-pass scene",
-            @"Draws the scene once instead of in three strips: ~30 % fewer draws and about "
-            @"+25-45 % fps in races. Not available with MSAA.",
-            @"true", {}, kEmulatedOnly},
-           {@"edram_fsi", Type::kSwitch, @"EDRAM in the pixel shader (experimental)",
-            @"Another way to emulate the Xbox 360's EDRAM. Ignored if the GPU does not support "
-            @"it.",
-            @"false", {}, kEmulatedOnly},
-           {@"widen_kb", Type::kChoice, @"CPU write invalidation (experimental)",
-            @"How much memory around a CPU write is refreshed for the GPU. Smaller: less copying, "
-            @"more faults on the game's threads. For measuring.",
-            @"256",
-            {{@"256 KB (SDK)", @"256"}, {@"64 KB", @"64"}, {@"16 KB", @"16"}, {@"4 KB", @"4"}}, kEmulatedOnly},
-           {@"occlusion", Type::kSwitch, @"Occlusion queries",
-            @"Sun flares and lights. Makes the game wait for the GPU. Off currently hangs at "
-            @"boot on iOS.",
-            @"true", {}, kEmulatedOnly},
-           {@"exposure", Type::kSwitch, @"Accurate exposure",
-            @"Reads the image back from the GPU every frame. Without it the image looks "
-            @"washed out.",
-            @"true", {}, kEmulatedOnly},
-           {@"memexport", Type::kSwitch, @"Memexport readback",
-            @"Memory coherence for what the shaders write. May cost performance.", @"true", {}, kEmulatedOnly},
-           {@"pages", Type::kSwitch, @"Refresh GPU-written pages",
-            @"Memory coherence. May cost performance.", @"true", {}, kEmulatedOnly},
-           {@"mvk_profiling", Type::kSwitch, @"MoltenVK profiling",
-            @"MoltenVK's own timings, in the log every 300 frames. Only for measuring.",
-            @"false", {}, kEmulatedOnly},
        }, kTabAdvanced},
       {@"Diagnostics", nil,
        {
@@ -853,7 +801,22 @@ NSString* HudDefault(NSString* key) {
   return values[key];
 }
 
+// The old (emulated, Vulkan) renderer's settings, removed from the menus on
+// November 6 (Stefan): the native Metal renderer always draws, and these keep
+// the values they had by default, whatever an older settings.json says.
+// Extra arguments can still change the cvars for tests.
+NSString* RetiredValue(NSString* key) {
+  static NSDictionary<NSString*, NSString*>* values = @{
+    @"native_renderer" : @"true", @"no_vulkan" : @"true", @"scaling" : @"bilinear",
+    @"async_submits" : @"true",   @"one_pass" : @"true",  @"edram_fsi" : @"false",
+    @"widen_kb" : @"256",         @"occlusion" : @"true", @"exposure" : @"true",
+    @"memexport" : @"true",       @"pages" : @"true",     @"mvk_profiling" : @"false",
+  };
+  return values[key];
+}
+
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
+  if (NSString* retired = RetiredValue(key)) return retired;
   if (NSString* game = HudDefault(key); game && ![s[@"hud_custom"] isEqualToString:@"true"]) {
     return game;
   }

@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Old renderer settings removed.** The native Metal renderer always draws
+  the game now; its on/off switch, the "No emulated renderer" switch, the
+  whole Emulated renderer section and "Scaling to the screen" (FSR/CAS) are
+  gone from the launcher. They keep the values they had by default.
 - **Important for 3 GB RAM devices (and older iPhones under LiveContainer):
   much less memory use. Testing on those devices is needed.** A race used to
   peak at about 1.75 GB on an iPhone 17 Pro Max; it now peaks at about
