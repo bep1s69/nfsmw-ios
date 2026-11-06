@@ -6,6 +6,10 @@
   same categories, compact summaries and a details button. Use the
   controller to navigate the launcher and in-game options. The launcher
   title stays fixed above a distinct, compact tab strip.
+- **Car selector touch controls.** Tap a neighboring car in My Cars to
+  move focus. Swipe up or down over the car in Quick Race and multiplayer
+  Change Car. Options sidebar labels stay on one line.
+
 - **First-launch setup and presets.** Choose controls and graphics or keep
   your settings. Longest battery offers 30 fps or 40 fps on supported
   displays, with half-rate or every-frame car reflections. Its settings

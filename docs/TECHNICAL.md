@@ -21828,3 +21828,39 @@ a838e213ec719e30525bd8997fcb638fc16a00113ad71a284be2a2b865f08a16,
 arm64 UUID 6654DD32-E7BC-324B-8361-610AD53DBD6B. Desktop dev105
 moved to Trash and stable 0.5.2 remains. No device or visual validation
 of dev106.
+
+## November 6: dev107 car selector touch and Options sidebar
+
+D-016: dev10 and dev19 iPhone logs show adjacent My Cars taps ignored
+(e.g. dev19 at -245,118), then the focused entry accepted at -138,122.
+Inspected the USA ISO's FRONTEND/FRONTB.LZC locally (JDLZ outer archive
+and nested FNG chunks). MyCarsManager.fng has ARRAY_SCROLL_REGION
+and the logged focus corners. The asset's region is centered at
+0,118 and 589 x 140. Neighbor taps use one tile-width band to either
+side of the live focus, clipped to the region and the frame's height.
+They emit one Left/Right press. Focused taps still accept via the
+existing frame path. This is a geometry inference; device logs have
+not confirmed which slots the new hit bands cover.
+
+Car_Select.fng uses two-axis drags over its existing preview area.
+The USA ISO also has OL_GameRoom_Car_Select.fng. Its preview panel
+object 02C856ED has a 320 x 230 instance centered at -55,67. The
+new drag route uses that live node's bounds. Both preserve the menu
+swipe inversion setting. The archive and asset dumps stayed local.
+
+Stefan's dev106 in-game screenshot
+`/var/folders/wt/6vn91gf93_s19hpqg76ny41c0000gn/T/codex-clipboard-4991bb92-a4ab-44d3-aac1-a94b14227165.png`
+shows Gameplay and Actions wrapping into narrow columns in the rail.
+Shared tabs now use single-line UIButton titles with tail truncation
+and an independently inset active highlight.
+
+`python3 tools/ios/test_menu_touch.py` passed with new neighboring-tap,
+footer, and selector gesture cases. Extra Options patch exit 0 with
+0 files written. `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6
+--target ipa -j 12` exit 0. Warnings: legacy UIButton contentEdgeInsets
+used with an unconfigured button, existing SDK asm and duplicate -lz.
+`git diff --check`, `unzip -tq` and Desktop `cmp` passed.
+`ios/build/NFSMW-0.6.0-dev107-car-selector.ipa`, SHA256
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285,
+arm64 UUID 862ECF92-5207-31FA-96A3-63020CF69E93. Desktop dev106 went
+to Trash, stable 0.5.2 remains. No dev107 device run or visual check.

@@ -1583,6 +1583,25 @@ void CorrectMenuHints(std::vector<Hint>& hints,bool car_select,bool stacked_arro
     if (opposite) h.button=h.y<opposite->y?Up:Down;
   }
 }
+// The My Cars array scrolls sideways. A neighboring preview is a focus
+// change only. The focused frame and the game's Accept hint still confirm.
+int MyCarsTap(const std::vector<MenuNode>& nodes,const std::vector<FocusFrame>& frames,float x,float y) {
+  using namespace nfsmw::menu_touch;
+  for (const auto& region:nodes) {
+    if (region.hash!=Hash("ARRAY_SCROLL_REGION") || !NodeRect(region).Contains(x,y)) continue;
+    for (const auto& frame:frames) {
+      const auto& box=frame.rect;
+      const float width=box.right-box.left;
+      if (width<40 || width>180 || !NodeRect(region).Contains(box.X(),box.Y()) ||
+          y<box.top || y>box.bottom) continue;
+      // Each adjacent preview occupies one tile span beside the live focus.
+      // Keep the hit band inside the scroller and out of the bottom hints.
+      if (x<box.left && x>=box.left-width) return Left;
+      if (x>box.right && x<=box.right+width) return Right;
+    }
+  }
+  return 0;
+}
 int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const std::vector<Hint>& hints,float x,float y) {
   using namespace nfsmw::menu_touch;
   if (name.starts_with("RapSheet")) return MenuRect{-280,-155,280,175}.Contains(x,y)?VerticalDrag:NoDrag;
@@ -1594,7 +1613,13 @@ int WidgetDragAt(std::string_view name,const std::vector<MenuNode>& nodes,const 
         std::abs(up.x-down.x)<24 && down.y>up.y) {
       if (MenuRect{up.x-28,up.y-22,up.x+155,down.y+45}.Contains(x,y)) return VerticalDrag;
     }
-    if (MenuRect{-280,-110,280,180}.Contains(x,y)) return HorizontalDrag;
+    if (MenuRect{-280,-110,280,180}.Contains(x,y))
+      return name=="MyCarsManager.fng"?HorizontalDrag:MenuDrag;
+  }
+  if (name=="OL_GameRoom_Car_Select.fng") {
+    // The lobby's Change Car screen has a separate preview panel.
+    for (const auto& n:nodes) if (n.hash==0x02C856ED && n.type==1 &&
+        std::abs(n.w)>=240 && std::abs(n.h)>=160 && NodeRect(n).Contains(x,y)) return MenuDrag;
   }
   if (name=="Track_Select.fng") {
     for (const auto& lt:hints) for (const auto& rt:hints) if (lt.button==LT && rt.button==RT && rt.x>lt.x) {
@@ -2180,6 +2205,13 @@ extern "C" int nfsmw_menu_hint_at(uint8_t* base,uint32_t engine,float x,float y,
   }
   for (const auto& pkg:packages) for (const auto& frame:pkg.frames) if (frame.rect.Contains(x,y)) {
     REXLOG_INFO("[touch-widget] {} focused entry at {:.0f},{:.0f}: A",pkg.name,x,y);return 1;
+  }
+  for (const auto& pkg:packages) if (pkg.name=="MyCarsManager.fng") {
+    const int move=MyCarsTap(pkg.nodes,pkg.frames,x,y);
+    if (move) {
+      REXLOG_INFO("[touch-widget] My Cars neighboring preview at {:.0f},{:.0f}: {}",x,y,move);
+      return move;
+    }
   }
   const int result=hit?-1:0;
   REXLOG_INFO("[touch-hint] tap {:.0f},{:.0f}: {} ({} candidates)",x,y,hit?"unknown icon":"no icon",hints.size());

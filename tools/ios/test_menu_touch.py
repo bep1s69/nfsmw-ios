@@ -144,7 +144,18 @@ int main() {
  CorrectMenuHints(car,true);
  assert(car[0].button==Up && car[1].button==Down && car[2].button==Left && car[3].button==8 && car[4].button==(1<<10));
  assert(WidgetDragAt("Car_Select.fng",{},car,-193,-170)==VerticalDrag);
- assert(WidgetDragAt("Car_Select.fng",{},car,0,70)==HorizontalDrag);
+ assert(WidgetDragAt("Car_Select.fng",{},car,0,70)==MenuDrag);
+ assert(WidgetDragAt("MyCarsManager.fng",{},car,0,70)==HorizontalDrag);
+ std::vector<MenuNode> garage={{1,0,Hash("ARRAY_SCROLL_REGION"),0,1,0,118,589,140}};
+ std::vector<FocusFrame> car_focus={{1,{-174,81,-82,128}}};
+ assert(MyCarsTap(garage,car_focus,-245,118)==Left);
+ assert(MyCarsTap(garage,car_focus,-35,118)==Right);
+ assert(MyCarsTap(garage,car_focus,-125,106)==0); // focused frame keeps Accept
+ assert(MyCarsTap(garage,car_focus,-245,208)==0); // footer excluded
+ assert(MyCarsTap({},car_focus,-245,118)==0); // no live viewport, no guess
+ std::vector<MenuNode> online={{1,0,0x02C856ED,0,1,-55,67,320,230}};
+ assert(WidgetDragAt("OL_GameRoom_Car_Select.fng",online,{},0,70)==MenuDrag);
+ assert(WidgetDragAt("OL_GameRoom_Car_Select.fng",online,{},260,70)==NoDrag);
  assert(WidgetDragAt("Showcase.fng",{},car,0,70)==CameraDrag);
  assert(WidgetDragAt("Showcase.fng",{},car,0,230)==NoDrag);
  std::vector<MenuNode> panel={{1,0,0,0,1,0,0,300,330}};

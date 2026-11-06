@@ -442,6 +442,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev107 BUILT: car selector touch and Options sidebar.**
+My Cars neighboring preview taps move focus inside the car scroller.
+Quick Race and multiplayer Change Car accept vertical gestures over
+the car preview. The Options sidebar uses single-line button titles
+after Stefan reported severe wrapping in dev106. Host touch tests and
+IPA checks passed. `ios/build/NFSMW-0.6.0-dev107-car-selector.ipa`
+is on iCloud Desktop. Next: verify all three car selectors and the
+Options sidebar on device. No dev107 device run here.
+
 **November 6, dev106 BUILT: clearer, tighter tabs.** Stefan found
 dev105's tabs blended into the surrounding UI and still had too much
 padding. Both menus now have a distinct tab background and divider,
