@@ -173,9 +173,19 @@ def main():
     if not (out / "sources.cmake").is_file():
         fail(f"The codegen finished but there is no {out / 'sources.cmake'}")
 
+    # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
+    # language and country, and whether the hooks need translating),
+    # and the patch scripts below (tools/ios/game_edition.py).
+    with open(GENERATED / "edicion.json", "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"id": info["id"], "nombre": info["nombre"], "tabla": info["tabla"],
+                   "referencia": reference, "idioma": info["idioma"], "pais": info["pais"],
+                   "sha256": info["sha256"]}, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+
     # Black Edition content needs a larger record pool: edits to the generated
-    # code (patch_game_pool.py, ios/src/game_pool.cpp). USA addresses only.
-    if info["tabla"] == "usa":
+    # code (patch_game_pool.py, ios/src/game_pool.cpp). Written with USA
+    # addresses; for PAL Europe the scripts move them (game_edition.py).
+    if info["tabla"] in ("usa", "pal_eu"):
         print("\n== Record pool")
         pool = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
             "patch_game_pool.py")), "--dir", str(out)])
@@ -220,14 +230,6 @@ def main():
             "patch_game_handoff_wait.py")), "--dir", str(out)])
         if handoff.returncode:
             fail("patch_game_handoff_wait.py failed. See its output above.")
-
-    # Which edition this code is for: ios/CMakeLists.txt reads it (the game's
-    # language and country, and whether the hooks need translating).
-    with open(GENERATED / "edicion.json", "w", encoding="utf-8", newline="\n") as fh:
-        json.dump({"id": info["id"], "nombre": info["nombre"], "tabla": info["tabla"],
-                   "referencia": reference, "idioma": info["idioma"], "pais": info["pais"],
-                   "sha256": info["sha256"]}, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
 
     n = sum(1 for _ in out.glob("*.cpp"))
     print(f"\n[ok] {n} .cpp files in {out}, edition {info['nombre']}")

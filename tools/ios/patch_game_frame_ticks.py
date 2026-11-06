@@ -24,10 +24,11 @@ import argparse
 import pathlib
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-frame-ticks"
-FILE = "nfsmw_recomp.89.cpp"
-HEAD = "DEFINE_REX_FUNC(sub_823B0008) {"
+HEAD = game_edition.usa("DEFINE_REX_FUNC(sub_823B0008) {")
 DECL = f'extern "C" double nfsmw_frame_ticks(double ticks, double milliseconds, double rate, double wait, double clamp); // {MARK}\n'
 ANCHOR = "\t// fctiwz f8,f9\n"
 INSERT = (f"\tctx.f9.f64 = nfsmw_frame_ticks(ctx.f9.f64, ctx.f0.f64, ctx.f30.f64, ctx.f10.f64, ctx.f31.f64); "
@@ -35,7 +36,10 @@ INSERT = (f"\tctx.f9.f64 = nfsmw_frame_ticks(ctx.f9.f64, ctx.f0.f64, ctx.f30.f64
 
 
 def apply(gen, revert=False, status=False):
-    path = gen / FILE
+    paths = [p for p in sorted(gen.glob("nfsmw_recomp.*.cpp")) if HEAD in p.read_text()]
+    if len(paths) != 1:
+        sys.exit(f"[ERROR] {HEAD[16:-3]}: found in {len(paths)} generated files")
+    path = paths[0]
     text = path.read_text()
     a = text.index(HEAD)
     b = text.find("\nDEFINE_REX_FUNC(", a + 1)
@@ -51,7 +55,7 @@ def apply(gen, revert=False, status=False):
         text = text.replace(DECL + HEAD, HEAD, 1)
     elif not done:
         if body.count(ANCHOR) != 1:
-            sys.exit(f"[ERROR] {FILE}: fctiwz f8,f9 not found exactly once in sub_823B0008")
+            sys.exit(f"[ERROR] {path.name}: fctiwz f8,f9 not found exactly once in {HEAD[16:-3]}")
         body = body.replace(ANCHOR, INSERT + ANCHOR, 1)
         text = text[:a] + body + text[b:]
         text = text.replace(HEAD, DECL + HEAD, 1)

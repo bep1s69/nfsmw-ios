@@ -8,13 +8,15 @@ existing default-off nfsmw_frame_ticks_log switch.
 import argparse
 import pathlib
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-world-step-trace"
-HEAD = "DEFINE_REX_FUNC(sub_823C6500) {"
+HEAD = game_edition.usa("DEFINE_REX_FUNC(sub_823C6500) {")
 DECL = ('extern "C" void nfsmw_world_step_trace(double, double, double, double, '
         'double, int32_t, uint32_t, uint32_t, uint32_t); // ' + MARK + '\n'
         'extern "C" double nfsmw_world_step_limit(double, double, uint32_t); // ' + MARK + '\n')
-LOCALS = ('\tconst double nfsmw_step_input = ctx.f1.f64; // ' + MARK + '\n'
+LOCALS = game_edition.usa('\tconst double nfsmw_step_input = ctx.f1.f64; // ' + MARK + '\n'
           '\tdouble nfsmw_step_before = -1, nfsmw_step_limit = -1, nfsmw_step_after = -1; // ' + MARK + '\n'
           '\tconst uint32_t nfsmw_step_flag = REX_LOAD_U32(0x828FD868); // ' + MARK + '\n'
           '\tconst uint32_t nfsmw_step_budget = REX_LOAD_U32(0x828FD87C); // ' + MARK + '\n'
@@ -26,7 +28,7 @@ SITES = [
     ('\tctx.f13.f64 = double(float(ctx.f13.f64 * ctx.f12.f64));\n',
      '\tctx.f13.f64 = nfsmw_world_step_limit(ctx.f13.f64, ctx.f12.f64, nfsmw_step_flag); // ' + MARK + '\n'
      '\tnfsmw_step_limit = ctx.f13.f64; // ' + MARK + '\n'),
-    ('loc_823C65D8:\n', '\tnfsmw_step_after = ctx.f0.f64; // ' + MARK + '\n'),
+    (game_edition.usa('loc_823C65D8:\n'), '\tnfsmw_step_after = ctx.f0.f64; // ' + MARK + '\n'),
     ('\tREX_STORE_U32(ctx.r11.u32 + -27040, temp.u32);\n',
      '\tnfsmw_world_step_trace(nfsmw_step_input, nfsmw_step_before, nfsmw_step_limit, '
      'nfsmw_step_after, ctx.f0.f64, ctx.r30.s32, nfsmw_step_flag, nfsmw_step_budget, nfsmw_step_caller); // ' + MARK + '\n'),
