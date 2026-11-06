@@ -8,6 +8,7 @@
 #endif
 
 #include <filesystem>
+#include <set>
 #include <utility>
 #include <string>
 #include <vector>
@@ -55,6 +56,12 @@ struct MenuGroup {
   std::vector<MenuRow> rows;
 };
 std::vector<MenuGroup> Groups(NSArray<NSString*>* keys);
+// The settings also shown while playing (the launcher's kInGame flag), in its
+// order; those of them shown only with the native renderer; and the cvars
+// those settings set that apply at once (the rest wait for the next launch).
+NSArray<NSString*>* InGameKeys();
+bool InGameNeedsNative(NSString* key);
+const std::set<std::string>& LiveCvars();
 // The launcher's Keyboard controls list (both sets), for the in-game options.
 // A hardware key's name as the key lists write it ("1", "Return"...).
 NSString* KeyNameForHID(long usage);

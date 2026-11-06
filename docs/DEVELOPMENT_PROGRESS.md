@@ -437,6 +437,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev101 BUILT: menu settings flags (no visible change).** Stefan
+approved the refactor. Each launcher setting now carries `flags` (kInGame,
+kInGameNative, kNativeOnly, kEmulatedOnly) and `live` cvars; the in-game
+sheet's `Keys()`, `NativeOnlyKey()`, `LiveFlags()` and the launcher's two
+renderer sets are gone (launcher.h: `InGameKeys`, `InGameNeedsNative`,
+`LiveCvars`). Checked by a script against the old lists: 65 in-game keys, 6
+in-game-native, 10 native-only, 10 emulated-only, 70 live cvars, all the same
+(`nfsmw_native_metalfx` dropped: no argument sets it since dev75). IPA
+`ios/build/NFSMW-0.6.0-dev101-menu-flags.ipa` (SHA256 ae4baac45d1486ce72048a14b5c01b2d7203bfc88e5ceb3f4f99cdb67f1941ea).
+To check on device: in-game options show the same rows and tabs; changes
+apply at once or say "next launch" as before. Stefan also asked (November
+6) for much prettier menus, a first-launch onboarding for everyone on the
+new update, and removing irrelevant settings incl. the old renderer's: added
+to MENU_REDESIGN.md (Look and feel, Onboarding, Settings to remove); next
+steps there wait for his answers to its open questions.
+
 **November 6: menu redesign groundwork (docs only).** [MENU_REDESIGN.md](MENU_REDESIGN.md): how the launcher and in-game menus work, problems (four hand-kept lists in ingame_options.mm, launcher.mm doing everything, uneven tabs, Battery mode locking 13 rows, profile wording), proposed shared tabs, shared components, file map, step plan for Codex and the generated settings inventory. No code changed. Next: Stefan picks doc only or doc plus the no-visible-change flags refactor (step 1 of the plan); tab layout, profiles and Battery mode wait for his answers.
 
 **November 6: low-RAM work paused (Stefan).** Changelog now has one entry,

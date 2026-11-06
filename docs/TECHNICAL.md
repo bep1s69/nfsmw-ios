@@ -21684,3 +21684,23 @@ a throwaway script over launcher.mm/ingame_options.mm (scratchpad, not kept)
 into docs/MENU_REDESIGN.md. Not checked: run-time behaviour of any row; the
 "live" column was not re-tested on device. Plan and open questions in
 MENU_REDESIGN.md.
+
+## November 6: dev101 menu settings flags (no visible change)
+
+`Option` (launcher.mm) gained `unsigned flags` (OptionFlag: kInGame,
+kInGameNative, kNativeOnly, kEmulatedOnly) and `const char* live` (cvars
+applied at once in game, comma-separated). Rows rewritten by a one-off
+script from the old lists (in-game `Keys()`, `NativeOnlyKey()`, `LiveFlags()`;
+launcher `EmulatorOnly`/`NativeOnly` sets); cvar-to-row mapping from
+`Arguments()`, HUD cvars on `hud_custom`, `nfsmw_native_fxaa` on
+`antialiasing`. `EmulatorOnly`/`NativeOnly` now read the flags; launcher.h
+exports `InGameKeys()` (table order), `InGameNeedsNative()`, `LiveCvars()`.
+Check: script parsing the new table vs HEAD's lists: in game 65/65,
+in-game-native 6/6, native-only 10/10, emulated-only 10/10, live 70/70, all
+equal; `nfsmw_native_metalfx` left out (not produced by `Arguments()` since
+dev75, so `apply()` never set it). In-game row order unchanged (`Groups()`
+already followed the table). `patch_game_extra_options.py`: already patched;
+`cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+OK (8 s incremental). IPA `NFSMW-0.6.0-dev101-menu-flags.ipa`, SHA256
+ae4baac45d1486ce72048a14b5c01b2d7203bfc88e5ceb3f4f99cdb67f1941ea. Not run on a
+device yet.

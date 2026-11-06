@@ -17,6 +17,10 @@ Propose each visible change to Stefan before building it.
   behaviour overhaul; what each really does is still open (BACKLOG "Audit
   actual effects of Eco/Balanced/Max profiles").
 - Battery mode is to be reworked (planned; details from Stefan still to come).
+- November 6 (Stefan): a main focus is making both menus **much prettier**,
+  with a **first-launch onboarding** (below) shown to everyone the first time
+  they open the new update, and **removing irrelevant settings** altogether,
+  including everything for the old (emulated, Vulkan) renderer.
 - Keep the PC-style graphics preset idea in mind (BACKLOG "Comprehensive
   PC-style graphics menu and quality presets"), but do not build it as part of
   this redesign unless Stefan asks.
@@ -68,7 +72,7 @@ game opened from the gear in menus/pause screens or L3+R3):
 
 ## Problems to fix
 
-1. **Four hand-kept lists in the in-game sheet** duplicate facts that belong
+1. (Fixed in dev101.) **Four hand-kept lists in the in-game sheet** duplicate facts that belong
    to each setting. A new launcher setting does not appear in game unless
    someone remembers `Keys()` and `LiveFlags()`; this is why "mirror 1:1"
    keeps drifting.
@@ -97,13 +101,13 @@ Play tab and anything marked launch-only, and adds Actions.
 | Tab | Launcher contents | In game |
 |---|---|---|
 | Play | ISO, Saves, Achievements, Multiplayer | — |
-| Display | Renderer, Screen shape, Render resolution, Frame rate cap, Show FPS | yes (live rows only; renderer greyed with "next launch") |
+| Display | Screen shape, Render resolution, Frame rate cap, Show FPS | yes |
 | Battery | Battery mode / profile (reworked), 30 fps when warm, 30 fps in menus, 0.75x when hot | yes |
 | Graphics | Anti-aliasing, anisotropic, shadows, reflections, post-processing, motion blur, scaling | yes |
 | HUD & Controls | Custom HUD + Customize HUD, Touch controls + Customize, Keyboard + Customize, mouse/swipe look | yes (Customize rows replace the nav bar buttons) |
 | Gameplay | Today's Extras: Career, Speedbreaker, Police, Quick Race, Weather | yes |
 | Audio | Silent mode, Mix others, Stream reset | yes |
-| Advanced | Performance (ISO in pieces), Emulated renderer, Diagnostics, Extra arguments | no |
+| Advanced (or Developer) | What is left after "Settings to remove": diagnostics, Extra arguments | no |
 | Actions | — | Pursuit, Driving |
 
 Each row: title, value, a one-line summary; the full text in a details
@@ -111,6 +115,65 @@ popover or footer. Status shown on the row, not only after a change: "Set by
 Battery mode", "Native renderer only", "Applies at next launch" (in game).
 
 Exact tab names and what goes where are proposals for Stefan to approve.
+
+## Look and feel
+
+Today both menus are stock grouped `UITableView`s with long grey text. Goal:
+a menu that looks like part of the game. Proposal for Stefan to approve with
+mockups before building:
+- Dark theme always (the game is dark), one accent colour, the game's logo or
+  a blurred screenshot behind the launcher, large Play button.
+- Rows: icon, title, current value on the right, one short line under it;
+  the long explanation in a details sheet (info button).
+- Tabs as a sidebar on iPad / wide iPhone landscape, a tab bar or scrolling
+  chips on narrow screens, instead of a 6-9 segment control.
+- Status as small badges ("Battery mode", "Next launch").
+- The in-game sheet uses the same components, translucent over the game.
+- Controller: visible focus ring, L1/R1 tabs, B back (both menus).
+
+## First-launch onboarding
+
+Shown once to everyone: on a fresh install and on the first launch of the
+update that adds it, including existing players. Kept in settings.json as
+`onboarding_version` (absent = never seen); Stefan can re-open it from the
+launcher ("Set up again"). Existing players keep their settings unless they
+choose otherwise on a page. Proposed pages (each skippable):
+1. Welcome: what the app is, where the ISO goes (shows "found" when it is).
+2. Controls: Touch / Controller / Keyboard and mouse (sets `touch_controls`,
+   `keyboard`, `mouse_look`; touch steering style with a picture).
+3. Look and performance: a few named starting points that set a group of
+   settings at once (for example "Longest battery", "Balanced", "Best
+   looking"), with "Keep my current settings" for existing players. Exact
+   values come from the profile and Battery mode decisions below.
+4. Saves: iCloud sync and import from another device (links to the save
+   manager).
+5. Done: Play.
+Stefan's words "settings based on resets": read here as starting presets
+(page 3); to confirm with him.
+
+## Settings to remove
+
+Stefan (November 6): remove everything for the old renderer. The native Metal
+renderer is the default (`native_renderer` and `no_vulkan` default true).
+Before removing, check and record:
+- the launcher falls back to the emulated renderer when a build has no native
+  shaders (`native_renderer` summary): every IPA ships them, so make the
+  native renderer always on and treat missing shaders as a startup error;
+- `one_pass` also sets `nfsmw_render_sin_mosaico` (a game patch, not only
+  Vulkan) and `occlusion` sets `occlusion_query_enable`: check whether the
+  native path depends on them before fixing their values;
+- MSAA (`gpu_sin_msaa`, `gpu_msaa_muestras`) and `swap_post_effect` are the
+  emulated renderer's; the native one uses `nfsmw_native_force_msaa` /
+  `nfsmw_native_fxaa`.
+Rows to remove from the menus (their current default values keep being passed
+where something still reads them): `native_renderer`, `no_vulkan`, the whole
+Emulated renderer section (`async_submits`, `one_pass`, `edram_fsi`,
+`widen_kb`, `occlusion`, `exposure`, `memexport`, `pages`, `mvk_profiling`),
+`scaling` (FSR/CAS, emulated only). Removing the Vulkan/MoltenVK code from the
+SDK and the build is a separate, larger step (memory and app size gain) and
+needs its own plan. Also review for removal or a Developer switch: Diagnostics
+(`gpu_capture`, `cost_probe`, `motion_debug`, `heat_scale_test`,
+`detailed_log`), `iso_stream`, `audio_starve_reset`, Extra arguments.
 
 ## Shared components (to build first, no visible change)
 
@@ -163,13 +226,18 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
    settings.json with Battery mode on and a few Extras changed (for example
    a small debug log of `ArgumentsFor` at launch). Every refactor step below
    must produce identical arguments and the same in-game row list.
-1. **Flags in the catalogue** (no visible change). Replace the four in-game
-   lists and the two renderer sets with flags; check the 65 in-game keys and
-   the live set are unchanged.
+1. **Flags in the catalogue** — DONE in dev101 (November 6). `Option` has
+   `flags` (`kInGame`, `kInGameNative`, `kNativeOnly`, `kEmulatedOnly`) and
+   `live` (the cvars that apply at once in game, "a,b"). launcher.h exports
+   `InGameKeys()`, `InGameNeedsNative()`, `LiveCvars()`; ingame_options.mm
+   has no lists of its own. To show a new setting in game: add `kInGame` and
+   its live cvars on the row; nothing else.
+1b. **Remove the old renderer's settings** (section above).
 2. **Split the catalogue** out of launcher.mm (no visible change).
 3. **Shared cell builder** used by both screens (no visible change, or only
    identical-looking cells).
-4. **New tab layout** in the launcher, then the same in the in-game sheet;
+4. **Look and feel + new tab layout** (mockups to Stefan first), then the
+   **onboarding** on the same components. New tab layout in the launcher, then the same in the in-game sheet;
    customize rows replace the in-game nav bar buttons; per-row status text;
    short summaries with details. Show Stefan screenshots before building the
    IPA.
@@ -187,10 +255,13 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
 - Battery mode: a switch, a preset next to Balanced/Quality, or a profile.
 - Should Extra arguments and Diagnostics stay visible to everyone, or move
   behind a "Developer" switch?
+- Onboarding: what "settings based on resets" means (starting presets?), and
+  which pages he wants.
+- Look: approve mockups before any build.
 
 ## Settings inventory (generated from launcher.mm, dev100)
 
-Flags: *in game* = in the in-game `Keys()`; *native only* / *emulated only* =
+Flags (now the `flags` field, dev101): *in game* = `kInGame`; *native only* / *emulated only* =
 greyed with the other renderer; *Battery mode* = forced by `BatteryValue`.
 Live vs next launch: see `LiveFlags()` and `waitsForLaunch` in
 ingame_options.mm (by cvar name).

@@ -79,55 +79,6 @@ NSString* const kActionsTab = @"Actions";   // rows that do something now
 NSInteger last_tab = 0;                     // the sheet's tab last time, while the game runs
 std::atomic<bool> wait_release{false};  // closed: until the controller's buttons are up
 
-NSArray<NSString*>* Keys() {
-  return @[ @"scale", @"fps_cap", @"performance_mode", @"antialiasing", @"shadow_scale", @"reflection_rate",
-            @"reflection_size", @"auto_cap", @"menu_cap", @"heat_scale", @"battery_mode", @"postprocessing", @"motion_blur", @"hud_custom",
-            @"touch_steering", @"touch_idle_opacity", @"touch_menu_invert", @"touch_menu_empty_accept", @"touch_menu_two_finger_back", @"mouse_look_speed", @"mouse_look_invert", @"touch_look", @"touch_look_speed",
-            // Extra Options (all live except the Old Bridge barrier, set when the world loads)
-            @"infinite_nos", @"infinite_speedbreaker", @"sb_recharge_time", @"sb_recharge_speed", @"sb_mass",
-            @"no_cops", @"show_non_pursuit_cops", @"heat_override", @"heat_min", @"heat_max", @"speeding_limit",
-            @"excessive_speeding_limit", @"reckless_driving_limit", @"marker_count", @"car_limit",
-            @"impound_strikes", @"impound_strikes_max", @"skip_movies", @"game_speed", @"unlock_all_things",
-            @"skip_career_intro", @"world_animation_speed", @"nos_trail_repeat", @"no_rev_limiter", @"showcase_unlimited", @"laps_min", @"laps_max",
-            @"opponents_min", @"opponents_max", @"random_laps_max", @"random_opponents_max", @"traffic_low",
-            @"traffic_medium", @"traffic_high", @"always_rain", @"rain_amount", @"rain_intensity", @"rain_drop_size",
-            @"rain_crossing", @"rain_fall_speed", @"rain_gravity", @"road_reflection" ];
-}
-
-// The settings that only the native renderer has (left out without it).
-bool NativeOnlyKey(NSString* key) {
-  static NSSet* keys = [NSSet setWithArray:@[ @"scale", @"shadow_scale", @"reflection_rate",
-                                              @"reflection_size", @"heat_scale", @"battery_mode" ]];
-  return [keys containsObject:key];
-}
-
-// The cvars set while playing (the cap: battery::ChooseCap).
-const std::set<std::string>& LiveFlags() {
-  static const std::set<std::string> flags = {
-      "nfsmw_native_resolution_scale", "nfsmw_native_metalfx",  "nfsmw_native_fxaa",
-      "nfsmw_native_shadow_scale",     "nfsmw_native_half_rate_reflections", "nfsmw_native_scale_reflections",
-      "nfsmw_battery_auto_cap",        "nfsmw_menu_cap",        "nfsmw_heat_scale",
-      "nfsmw_sin_posprocesado",        "nfsmw_motion_blur",
-      "nfsmw_hud_scale",               "nfsmw_hud_safe_zone",   "nfsmw_hud_left_x",      "nfsmw_hud_left_y",
-      "nfsmw_hud_right_x",             "nfsmw_hud_right_y",     "nfsmw_hud_race_x",
-      "nfsmw_hud_race_y",              "nfsmw_hud_layout",      "ios_touch_steering",
-      "ios_touch_idle_opacity", "ios_touch_menu_invert", "ios_touch_menu_empty_accept", "ios_touch_menu_two_finger_back", "nfsmw_mouse_look_speed", "nfsmw_mouse_look_invert", "ios_touch_look", "ios_touch_look_speed",
-      // Extra Options: read where the game uses them (game_extra_options.cpp);
-      // the values in the game's data are written again by
-      // nfsmw_extra_options_tunables().
-      "nfsmw_infinite_nos", "nfsmw_infinite_speedbreaker", "nfsmw_sb_recharge_time", "nfsmw_sb_recharge_speed",
-      "nfsmw_sb_mass", "nfsmw_no_cops", "nfsmw_show_non_pursuit_cops", "nfsmw_heat_override", "nfsmw_heat_min",
-      "nfsmw_heat_max", "nfsmw_speeding_limit", "nfsmw_excessive_speeding_limit", "nfsmw_reckless_driving_limit",
-      "nfsmw_marker_count", "nfsmw_purchased_car_limit", "nfsmw_impound_strikes", "nfsmw_impound_strikes_max",
-      "nfsmw_skip_movies", "nfsmw_game_speed", "nfsmw_unlock_all_things", "nfsmw_skip_career_intro",
-      "nfsmw_world_animation_speed", "nfsmw_nos_trail_repeat", "nfsmw_no_rev_limiter", "nfsmw_showcase_unlimited", "nfsmw_laps_min", "nfsmw_laps_max", "nfsmw_opponents_min",
-      "nfsmw_opponents_max", "nfsmw_random_laps_max", "nfsmw_random_opponents_max", "nfsmw_traffic_low",
-      "nfsmw_traffic_medium", "nfsmw_traffic_high", "nfsmw_always_rain", "nfsmw_rain_amount",
-      "nfsmw_rain_intensity", "nfsmw_rain_drop_size", "nfsmw_rain_crossing", "nfsmw_rain_fall_speed",
-      "nfsmw_rain_gravity", "nfsmw_road_reflection"};
-  return flags;
-}
-
 bool LiveCap(NSString* fps) {
   return [fps isEqualToString:@"30"] || [fps isEqualToString:@"40"] ||
          [fps isEqualToString:@"60"] || [fps isEqualToString:@"120"];
@@ -191,8 +142,8 @@ UIWindow* GameWindow() {
     if (!launched) launched = [_settings copy];  // the first opening: nothing changed yet
     _launched = launched;
     const bool native = [nfsmw::launcher::SettingValue(_settings, @"native_renderer") isEqualToString:@"true"];
-    for (auto& g : nfsmw::launcher::Groups(Keys())) {
-      std::erase_if(g.rows, [&](const auto& r) { return !native && NativeOnlyKey(r.key); });
+    for (auto& g : nfsmw::launcher::Groups(nfsmw::launcher::InGameKeys())) {
+      std::erase_if(g.rows, [&](const auto& r) { return !native && nfsmw::launcher::InGameNeedsNative(r.key); });
       if (!g.rows.empty()) _groups.push_back(std::move(g));
     }
     // Actions: not settings (nothing saved), things done to the game now.
@@ -397,7 +348,7 @@ UIWindow* GameWindow() {
   for (const auto& a : then) before.insert(Split(a));
   for (const auto& a : now) {
     const auto [name, value] = Split(a);
-    if (LiveFlags().count(name) || (live_cap && name == "ios_fps_cap") ||
+    if (nfsmw::launcher::LiveCvars().count(name) || (live_cap && name == "ios_fps_cap") ||
         name == "nfsmw_performance_mode" || name == "nfsmw_performance_source") continue;
     if (native && name == "swap_post_effect") continue;  // the emulated renderer's FXAA
     if (before[name] != value) return YES;
@@ -410,7 +361,7 @@ UIWindow* GameWindow() {
   const bool native = [nfsmw::launcher::SettingValue(_settings, @"native_renderer") isEqualToString:@"true"];
   for (const auto& a : nfsmw::launcher::ArgumentsFor(_settings)) {
     const auto [name, value] = Split(a);
-    if (!LiveFlags().count(name) || (!native && name.rfind("nfsmw_native_", 0) == 0)) continue;
+    if (!nfsmw::launcher::LiveCvars().count(name) || (!native && name.rfind("nfsmw_native_", 0) == 0)) continue;
     if (rex::cvar::GetFlagByName(name) == value) continue;
     rex::cvar::SetFlagByName(name, value);
     REXLOG_INFO("[options] {} = {}", name, value);
