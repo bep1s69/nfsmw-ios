@@ -448,6 +448,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, public backlog history rewritten:** Stefan approved removing
+the backlog from public history. All GitHub branch and tag histories are
+clean, and the active local development branch is based on cleaned main
+(e403ff9). The private backlog stays local and ignored. All ten releases
+and assets were preserved. GitHub still served the file through an old
+direct commit SHA after the rewrite. Next: request GitHub Support removal
+of retained objects and cached views, then recheck the old SHA. Avoid
+merging any pre-rewrite local or external branches into cleaned history.
+
 **November 6, private backlog:** Stefan requested removing the backlog
 from GitHub and all mentions from README. GitHub main at 5e277fd has
 the cleanup. Keep docs/BACKLOG.md local and ignored. Older GitHub

@@ -21925,3 +21925,31 @@ tree lookup returned zero matching paths on main and the remote README
 matched the cleaned copy. The old v0.6.0 snapshot and the tracked remote
 branches frame-pacing-60, release-0.4.1 and touch-overlay-native still
 contain the path. No historical refs rewritten, no app changes or builds.
+
+## November 6: rewrite public backlog history
+
+Stefan approved the public history rewrite. Cloned an isolated mirror,
+filtered docs/BACKLOG.md and the two historical README references using
+an index filter, and kept all 807 reachable commits. Verified the
+rewritten path and README history were clean, and each affected tip
+differed only in those paths. Pushed 4 branch and 7 tag updates atomically
+with per-ref leases. All 15 remote branch/tag refs matched the filtered
+mirror. New main e403ff907c4c9f99c413cd72214acdad0500ce50; new v0.6.0
+23e010469181333896043d057ec026645a96d2f2. GitHub API release and asset
+inventory (IDs, names and digests) matched byte-for-byte before/after,
+10 releases and 10 assets. GitHub listed 0 pull requests. Checked both
+public forks by mirror-cloning and querying path history, with 0 matching
+commits in each.
+
+Fetched cleaned refs, updated local main and rebased dev-0.5 onto cleaned
+main. Verified no backlog path in active history. Local ignored copy
+SHA256 remains b234cfe3d67878b20c3e69e52d6f487362a86d32fefbfc4305e642ce1b9b814e.
+Other local branches may still use the old history. Do not merge it back.
+No source changes or builds. Untracked HANDOFF_CHATGPT.md preserved.
+
+Old-SHA API probe after rewriting still returned type=file for the
+backlog on old v0.6.0 commit 7eb046c61692be3d2969df241bf6464ee7a5aa44.
+Next action: request server-side removal of retained objects and cached
+views from GitHub Support for bep1s69/nfsmw-ios. First backlog introduction
+19e7e60a80312f17f443ebd152f761afdea47e1c, zero affected PRs. Verify old-SHA
+access after Support responds. No support request sent in this session.
