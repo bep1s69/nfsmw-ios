@@ -2,27 +2,24 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
-- **Touch controls use less memory.** Their faded look no longer needs a
-  whole-screen scratch picture each time they redraw (about 29 MB on a large
-  iPhone; dev100, low-RAM work).
-
-- **About 150 MB less memory in play.** The pipeline cache, which made races
-  start without stutter, stayed loaded the whole session; it is now let go
-  once the game's pipelines are ready and reopened only for a new one (dev99,
-  low-RAM work).
-
-- **Less memory for sound.** The audio decoder kept a decoder for every one
-  of its 320 sound streams from the start; it now keeps one only while a
-  sound plays: about 180 MB less at startup, about 70 MB less in a race,
-  where ~170 streams play (dev97, low-RAM work).
-
-- **Frees memory when iOS runs short.** When iOS warns that memory is low,
-  the renderer drops textures and buffers it has not used for half a second,
-  and boot.txt records the app's memory limit and any warning, so a crash on
-  a low-RAM device shows its cause (dev95, low-RAM work).
-  For testers: Extra Args `--nfsmw_diag_alloc_trace=true` writes where the
-  largest memory blocks come from to logs/allocs.txt (dev96; crashed at
-  Play until dev98).
+- **Important for 3 GB RAM devices (and older iPhones under LiveContainer):
+  much less memory use. Testing on those devices is needed.** A race used to
+  peak at about 1.75 GB on an iPhone 17 Pro Max; it now peaks at about
+  1.33-1.40 GB. That may be enough for devices where iOS allows the app only
+  2-3 GB (e.g. iPhone 11 under LiveContainer, GitHub #10/#11), but nobody has
+  tried one yet. If the game still closes on such a device, please send
+  `logs/boot.txt`: it now records the app's memory limit and any low-memory
+  warning. What changed (dev95-dev100):
+  - Sound: a decoder only for the sounds playing, not one for each of the
+    320 streams from the start (about 180 MB less at startup, ~70 MB in a
+    race).
+  - The pipeline cache (which keeps race starts smooth) is let go once the
+    game's pipelines are ready and reopened only for a new one (~150 MB).
+  - Touch controls: no whole-screen scratch picture per redraw (~29 MB).
+  - When iOS warns that memory is low, unused textures and buffers are
+    dropped.
+  - For testers: Extra Args `--nfsmw_diag_alloc_trace=true` writes where the
+    largest memory blocks come from to `logs/allocs.txt`.
 
 - **Golf engine sound no longer cuts out (GitHub #15).** Mono sounds such
   as engines keep playing when their stream briefly runs dry, instead of

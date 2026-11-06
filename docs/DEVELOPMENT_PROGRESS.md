@@ -437,6 +437,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6: low-RAM work paused (Stefan).** Changelog now has one entry,
+"Important for 3 GB RAM devices", asking for tests on such devices. Next
+low-RAM steps (later): low-memory mode once a 2-3 GB device report exists,
+~170 MiB graphics outside the renderer's count, XMA decoder context size.
+
 **November 6, dev100 on the iPhone (Stefan): touch controls fine.** Log
 Debug/6 November 2026/dev100_touch_nfsmw.log: peak 1330 MiB. Asked Stefan
 whether to build the low-memory mode now or wait for a 2 GB device report
