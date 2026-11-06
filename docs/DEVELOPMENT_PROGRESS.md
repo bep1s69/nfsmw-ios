@@ -437,12 +437,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev91 BUILT: the unsure CPU switches default on too (Stefan:
+"make the unsure ones on by default and we'll follow up with a test or 2").**
+`nfsmw_native_record_memo`, `nfsmw_native_target_lookup`, `nfsmw_native_pipeline_lookup` and `nfsmw_native_attribute_bulk_compare` now true (attribute lookup was already on). Their host tests are still
+stale (open). IPA `ios/build/NFSMW-0.6.0-dev91-cpu-defaults-all.ipa` (SHA256
+adee074212ee67215804be05af991edeb60253f9b0a485ab0b953032d4e28741). Next: Stefan's test runs; first suspect for any wrong picture or
+crash is this group (turn off one at a time in Extra Args).
+
 **November 6, dev90 BUILT: CPU-reducing switches default on (Stefan: "make all
 changes that reduce cpu usage the default, even if not proven for battery").**
 On by default: `nfsmw_native_skip_unread_resolves`, `nfsmw_native_guest_culling`, `nfsmw_native_color_handoff`, `nfsmw_native_foliage_early_alpha` (now true in native_renderer.mm) and `ios_multi_wait` (now `--ios_multi_wait=true` in GameArguments, ios_main.mm, so the dev89 `ios_multi_wait_own` word is live). Each can still be turned off in Extra Args.
 Stefan can drop `skip_unread_resolves` and `resolve_labels` from his Extra Args.
-Not flipped (asked Stefan, pending): `nfsmw_native_record_memo`, `target_lookup`,
-`pipeline_lookup`, `attribute_bulk_compare` (host tests stale since Nov 3).
+Not flipped in dev90 (flipped in dev91): record_memo and the lookup trio.
 Left off: diagnostics, shadow depth handoff (wrong picture), native D3D draws
 (parked), `ios_cp_wait_wptr` (adds wake-ups). Host tests test_color_handoff and
 test_guest_culling PASS with the new defaults. IPA

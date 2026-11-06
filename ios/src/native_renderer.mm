@@ -138,11 +138,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, true, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, true, "GPU",
                     "Experiment: compare complete attribute front-cache keys in bulk (requires attribute lookup; restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_target_lookup, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_target_lookup, true, "GPU",
                     "Experiment: reuse the last exact target lookup within frame setup and encoding (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_pipeline_lookup, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_pipeline_lookup, true, "GPU",
                     "Experiment: reuse the last successful ready-pipeline lookup on an exact key match (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_gpu_lookup_hash, true, "GPU",
                     "Experiment: mix higher pointer bits into the existing GPU-buffer cache selector (restart required)");
@@ -171,7 +171,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, true, "GPU",
                     "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_record_memo, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_record_memo, true, "GPU",
                     "Experiment: per-frame index fingerprint memo, per-entry vertex memo and last-key "
                     "constant ranges in draw recording (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fast_index_fingerprint, true, "GPU",

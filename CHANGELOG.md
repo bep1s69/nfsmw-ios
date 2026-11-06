@@ -6,7 +6,9 @@
   skipping picture copies nothing reads, honoring the game's face culling,
   handing the scene picture over instead of copying it, cheaper foliage
   alpha tests, and audio waits that sleep instead of checking every 1 ms.
-  No battery gain was proven for them; they only cut work (dev90).
+  dev91 adds four more: cached draw recording and target, pipeline and
+  attribute lookups. No battery gain was proven for them; they only cut
+  work (dev90, dev91).
 
 - **Lighter touch controls on the GPU.** The on-screen controls are now drawn
   only where they are, not over the whole screen every frame: about 0.7 ms

@@ -21397,6 +21397,15 @@ E-core/utility threads with no measurable iPad drain change; dev55's −17 %
 came from P-core frame threads. These threads' QoS on the iPhone run not
 checked here.
 
+### November 6: dev91 remaining CPU switches default on
+
+`nfsmw_native_record_memo`, `nfsmw_native_target_lookup`, `nfsmw_native_pipeline_lookup` and `nfsmw_native_attribute_bulk_compare` flipped to true at Stefan's request, with tests to follow. Evidence:
+record_memo (dev52/53) about 10 % less GPU-commands CPU; the lookup trio
+(IPA22 and later) passed host switch configurations and initial iPad 1.5x/60
+correctness, energy unproven; their host tests fail to extract since Nov 3
+(anchor drift), so no fresh host check. Incremental build-0.6. Not
+device-tested. IPA `ios/build/NFSMW-0.6.0-dev91-cpu-defaults-all.ipa`, SHA256 adee074212ee67215804be05af991edeb60253f9b0a485ab0b953032d4e28741.
+
 ### November 6: dev90 CPU defaults
 
 Stefan's request: every switch that reduces CPU work becomes the default, even
