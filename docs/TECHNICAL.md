@@ -21641,3 +21641,9 @@ opens when `av_context_` is null; `Release()` frees it after
 `ResetDecoderState()`. Work/Release both run under `lock_`. FFmpeg copies the
 non-refcounted packet in `avcodec_send_packet`. Listed in prepare_sdk.py.
 
+dev98: the allocation hook must not touch thread_local storage (Darwin
+allocates a thread's TLV block on first access, inside malloc: endless
+re-entry, SIGSEGV at the first allocation of a new thread). It now takes a
+global `std::atomic_flag`; allocations on other threads while one stack is
+being written are skipped.
+

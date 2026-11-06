@@ -11,7 +11,8 @@
   and boot.txt records the app's memory limit and any warning, so a crash on
   a low-RAM device shows its cause (dev95, low-RAM work).
   For testers: Extra Args `--nfsmw_diag_alloc_trace=true` writes where the
-  largest memory blocks come from to logs/allocs.txt (dev96).
+  largest memory blocks come from to logs/allocs.txt (dev96; crashed at
+  Play until dev98).
 
 - **Golf engine sound no longer cuts out (GitHub #15).** Mono sounds such
   as engines keep playing when their stream briefly runs dry, instead of

@@ -97,24 +97,25 @@ void Report(const char* stage) {
 namespace {
 int alloc_trace_fd = -1;
 std::atomic<int> alloc_trace_464k{0}, alloc_trace_128k{0};
-thread_local bool alloc_trace_busy = false;
+// One stack at a time, all threads: a thread_local here crashed dev96 at Play
+// (the first touch of a thread's TLS allocates, which re-entered the hook).
+std::atomic_flag alloc_trace_busy = ATOMIC_FLAG_INIT;
 
 // Runs inside malloc: no allocation, only snprintf into the stack, dladdr and
 // write(). Frames as image+offset, for atos against the build's binaries.
 void AllocTraceHook(uint32_t type, uintptr_t, uintptr_t arg2, uintptr_t arg3, uintptr_t result, uint32_t) {
   constexpr uint32_t kAllocate = 2, kDeallocate = 4;
-  if (!(type & kAllocate) || alloc_trace_busy || alloc_trace_fd < 0) return;
+  if (!(type & kAllocate) || alloc_trace_fd < 0) return;
   const uintptr_t size = (type & kDeallocate) ? arg3 : arg2;  // realloc: new size in arg3
   bool wanted = size >= (4u << 20);
   if (!wanted && size == 464u * 1024) wanted = alloc_trace_464k.fetch_add(1) < 8;
   if (!wanted && size == 128u * 1024) wanted = alloc_trace_128k.fetch_add(1) < 8;
-  if (!wanted) return;
-  alloc_trace_busy = true;
+  if (!wanted || alloc_trace_busy.test_and_set(std::memory_order_acquire)) return;
   void* frames[24];
   const int n = backtrace(frames, 24);
   char line[4096];
-  int at = snprintf(line, sizeof(line), "alloc %lu bytes (%.2f MiB) at %p:", (unsigned long)size,
-                    size / 1048576.0, (void*)result);
+  int at = snprintf(line, sizeof(line), "alloc %lu bytes (%lu KiB) at %p:", (unsigned long)size,
+                    (unsigned long)(size >> 10), (void*)result);
   for (int i = 2; i < n && at < int(sizeof(line)) - 160; ++i) {
     Dl_info info = {};
     if (dladdr(frames[i], &info) && info.dli_fname) {
@@ -129,7 +130,7 @@ void AllocTraceHook(uint32_t type, uintptr_t, uintptr_t arg2, uintptr_t arg3, ui
   if (at > int(sizeof(line)) - 2) at = int(sizeof(line)) - 2;
   line[at++] = '\n';
   write(alloc_trace_fd, line, at);
-  alloc_trace_busy = false;
+  alloc_trace_busy.clear(std::memory_order_release);
 }
 }  // namespace
 

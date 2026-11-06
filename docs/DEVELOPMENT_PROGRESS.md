@@ -437,6 +437,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev98 BUILT: allocation trace crash fixed.** Stefan: dev96/97
+with `--nfsmw_diag_alloc_trace=true` crashed right at Play (boot.txt ends
+after the limit line during SDL init, allocs.txt has only the image list,
+nfsmw.log empty; Debug/6 November 2026/dev96_alloc_trace_crash_*). Cause,
+reproduced on the Mac (exit 139): the hook's `thread_local` guard; the first
+touch of a thread's TLS allocates and re-enters the hook. dev98 uses one
+global atomic_flag (busy: skip). Same Mac test passes with stacks for malloc,
+calloc, realloc and new. Includes dev97. IPA
+`ios/build/NFSMW-0.6.0-dev98-alloc-trace-fix.ipa` (SHA256 1fcbe643ff891856cbceb2d621a931a67d2665b4d3a2b4a80ed682959be6110c).
+
 **November 6, dev97 BUILT: XMA codec contexts on demand (~180 MiB).** Stefan's
 "All Allocations" backtraces: the 464 KiB blocks are `av_mallocz` in
 librexruntime (FFmpeg codec private data of the 320 XmaContexts, kept for
