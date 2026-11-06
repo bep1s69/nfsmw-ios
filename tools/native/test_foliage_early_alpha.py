@@ -48,7 +48,7 @@ selection = renderer[renderer.index("      const bool alpha_to_coverage ="):
                      renderer.index("      // The shadow caster (ps 4fbaecfb)")]
 selection = selection.replace(
     "static const bool foliage_early_alpha = REXCVAR_GET(nfsmw_native_foliage_early_alpha);", "")
-assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, false,' in renderer
+assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, true,' in renderer
 assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, true,' in renderer
 
 def cpp_predicate(text, variable):

@@ -437,6 +437,19 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev90 BUILT: CPU-reducing switches default on (Stefan: "make all
+changes that reduce cpu usage the default, even if not proven for battery").**
+On by default: `nfsmw_native_skip_unread_resolves`, `nfsmw_native_guest_culling`, `nfsmw_native_color_handoff`, `nfsmw_native_foliage_early_alpha` (now true in native_renderer.mm) and `ios_multi_wait` (now `--ios_multi_wait=true` in GameArguments, ios_main.mm, so the dev89 `ios_multi_wait_own` word is live). Each can still be turned off in Extra Args.
+Stefan can drop `skip_unread_resolves` and `resolve_labels` from his Extra Args.
+Not flipped (asked Stefan, pending): `nfsmw_native_record_memo`, `target_lookup`,
+`pipeline_lookup`, `attribute_bulk_compare` (host tests stale since Nov 3).
+Left off: diagnostics, shadow depth handoff (wrong picture), native D3D draws
+(parked), `ios_cp_wait_wptr` (adds wake-ups). Host tests test_color_handoff and
+test_guest_culling PASS with the new defaults. IPA
+`ios/build/NFSMW-0.6.0-dev90-cpu-defaults.ipa` (SHA256 9e63d66e072e879c344cbf692f90592bcdab6086083dd5c6f85c83478a62df8b). Next: Stefan's
+normal-session run (picture, audio, any "[native] unread resolve ... sampled now").
+TECHNICAL "dev90 CPU defaults".
+
 **November 6, dev89 Power Profiler A/B: no battery change** (22.6 vs 22.5 %/h,
 CPU impact 4.56 vs 4.59, iPhone, 18 %, Nominal). Wake cuts on non-frame
 threads are not a battery lever (as Nov 4); dev90 wake ideas dropped unless

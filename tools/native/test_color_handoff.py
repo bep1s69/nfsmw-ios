@@ -155,7 +155,7 @@ def main():
     pool = source[source.index("std::atomic<uint32_t> gpu_frames_done{0};"):
                   source.index("GpuPool gpu_pool;") + len("GpuPool gpu_pool;")]
     # The OFF path: the setting is read once and gates every handoff change.
-    assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, false,' in source
+    assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, true,' in source
     assert "const bool color_handoff = color_handoff_setting && !dump && lazy_diagnostics" in source
     assert "if (color_handoff) pitch = plan_handoff(" in source
     assert "if (src.handoff_resolve == int32_t(&ev - frame->resolves.data()))" in source

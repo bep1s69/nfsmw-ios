@@ -165,7 +165,7 @@ def main():
                          source.index('      // Constants and shared constants (texture/sampler indices, booleans).')]
     assert 'state.enc = nil;' in source  # production encoder invalidation still exists
     assert source.index('d.guest_primitive = prim;') < source.index('if (index_hit)')
-    assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, false' in source
+    assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, true' in source
     text = HARNESS.replace('@HEADER@', str(ROOT / 'ios/src/native_guest_culling.h'))
     text = text.replace('@COUNTERS@', counters).replace('@ENCODER_STATE@', state).replace('@INTEGRATION@', integration)
     with tempfile.TemporaryDirectory(prefix='nfsmw-guest-culling-') as temp:

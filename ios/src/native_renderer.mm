@@ -128,10 +128,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_deduplicate_cubes, true, "GPU",
                     "Native renderer: assemble each identical reflection cube destination only once");
 REXCVAR_DEFINE_BOOL(nfsmw_native_texture_masks, true, "GPU",
                     "Native renderer: process only shader-referenced texture slots (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, false, "GPU",
-                    "Experiment: honor guest face culling for supported polygon draws (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, false, "GPU",
-                    "Experiment: hand the finished scene color image to its resolve instead of copying it (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, true, "GPU",
+                    "Honor guest face culling for supported polygon draws (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, true, "GPU",
+                    "Hand the finished scene color image to its resolve instead of copying it (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -166,8 +166,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_compact_shared_constants, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_resource_list_cache, true, "GPU",
                     "Incrementally insert new frame resource-list entries; declare the full "
                     "ordered list on every encoder as before (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, false, "GPU",
-                    "Experiment: test shadowed cutout shader alpha before shadow filtering; "
+REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, true, "GPU",
+                    "Test shadowed cutout shader alpha before shadow filtering; "
                     "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
@@ -350,7 +350,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_shadow_depth_handoff, false, "GPU",
                     "Native renderer: a whole-target depth resolve (the shadow maps) hands over the depth texture itself, "
                     "sampled as the copy was (depth in red, 0, 0, 1), instead of copying it to a float texture; the "
                     "target draws on into another from the GPU pool (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_skip_unread_resolves, false, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_skip_unread_resolves, true, "GPU",
                     "Native renderer: large colour resolves (1M pixels and up) to an address no texture has named "
                     "since launch are not copied, except the frame's displayed one (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_resolve_labels, false, "GPU",

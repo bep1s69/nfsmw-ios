@@ -2,6 +2,12 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Less CPU work by default.** Five savings that were opt-in are now on:
+  skipping picture copies nothing reads, honoring the game's face culling,
+  handing the scene picture over instead of copying it, cheaper foliage
+  alpha tests, and audio waits that sleep instead of checking every 1 ms.
+  No battery gain was proven for them; they only cut work (dev90).
+
 - **Lighter touch controls on the GPU.** The on-screen controls are now drawn
   only where they are, not over the whole screen every frame: about 0.7 ms
   less GPU work a frame on an iPhone 17 Pro Max at native resolution (dev77).

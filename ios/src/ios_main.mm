@@ -127,6 +127,9 @@ std::vector<std::string> GameArguments(const fs::path& docs, const fs::path& iso
       "--gpu_sin_msaa=true",
       "--nfsmw_render_sin_mosaico=true",
       "--audio_maxqframes=64",
+      // Multi-object waits sleep until signalled instead of 1 ms polling
+      // (tools/ios/patch_ios_multi_wait.py; default since dev90, CPU cut).
+      "--ios_multi_wait=true",
       // The Xbox 360 language and country of the game's edition (USA).
       "--user_language=" NFSMW_GAME_LANGUAGE,
       "--user_country=" NFSMW_GAME_COUNTRY,

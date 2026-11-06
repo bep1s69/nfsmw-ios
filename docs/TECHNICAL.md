@@ -21397,6 +21397,21 @@ E-core/utility threads with no measurable iPad drain change; dev55's −17 %
 came from P-core frame threads. These threads' QoS on the iPhone run not
 checked here.
 
+### November 6: dev90 CPU defaults
+
+Stefan's request: every switch that reduces CPU work becomes the default, even
+without a proven battery gain. Flipped: `nfsmw_native_skip_unread_resolves`, `nfsmw_native_guest_culling`, `nfsmw_native_color_handoff`, `nfsmw_native_foliage_early_alpha` (now true in native_renderer.mm) and `ios_multi_wait` (now `--ios_multi_wait=true` in GameArguments, ios_main.mm, so the dev89 `ios_multi_wait_own` word is live). Evidence each rests on:
+skip-unread (dev84/88, copy never sampled in 1200 frames, soak in Stefan's Extra
+Args), guest culling + color handoff (visually validated dev42/45, iPad Nov 3-4,
+GPU 8.30 vs 8.35 ms), foliage early alpha (Nov 3, drain noise), multi-wait
+(dev60, audio worker no longer wakes every 1 ms; audio normal). The multi-wait
+default is set as a launch argument rather than in patch_ios_multi_wait.py so
+the already-patched SDK tree needs no re-patch; Extra Args still override it.
+Build: incremental build-0.6 (last built from the parked native-d3d branch;
+Ninja rebuilt the files that differ). Strings check finds the new descriptions
+and `--ios_multi_wait=true` in the binary. Not device-tested yet. IPA
+`ios/build/NFSMW-0.6.0-dev90-cpu-defaults.ipa`, SHA256 9e63d66e072e879c344cbf692f90592bcdab6086083dd5c6f85c83478a62df8b.
+
 ### November 6: dev89 wake-up cuts (fixes 1-3 + timer census)
 
 Stefan approved fixes 1-3 and the timer census from the entry above, and
