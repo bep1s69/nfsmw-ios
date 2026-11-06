@@ -315,6 +315,24 @@ show Custom. Battery mode off keeps saved settings. No automatic retuning on
 upgrade. Use the catalogue as the only source of preset definitions and
 settings metadata. Keep CPU profile behavior pending its existing audit.
 
+## November 6 approval and follow-up
+
+Stefan approved the design and requested inverted menu swipes as the default
+(`touch_menu_invert`; preserve explicitly saved choices) and a 30 or 40 fps
+choice within Longest battery. Offer 40 only where the existing catalogue
+supports it. Both are preset variants and retain the preset name.
+
+Reflection recommendation for the preset: default to Every frame, giving
+30 or 40 updates per second per cube face when the game holds its target.
+Offer Half rate explicitly for extra savings, giving 15 or 20 updates per
+second per face. Show the nominal rate in the picker and explain that it
+follows actual frame rate, including adaptive caps. Avoid a 30 Hz limiter at
+40 fps, which would need uneven skips with the current frame-based renderer.
+During migration, preserve an existing 30/40 cap and propose using Every
+frame for the new default; Half rate remains available as a deliberate choice.
+The current half-rate cvar alternates environment cube faces only. Verify
+rear-view mirror cadence independently before claiming the picker changes it.
+
 ## Open questions for Stefan
 
 - Tab names and grouping above.

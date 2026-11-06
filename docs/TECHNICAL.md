@@ -21742,3 +21742,16 @@ mockup views and documented the preset values and legacy Battery mode
 migration proposal in MENU_REDESIGN. The visualization render wrapper
 completed with exit 0. No app code, build, or on-device test in this session.
 The design and presets await Stefan's approval.
+
+## November 6: design approval and reflection cadence review
+
+Stefan approved step 4, requested inverted menu swipes by default and a
+30/40 fps choice for Longest battery, and reported 15 Hz car reflections
+and rear-view mirror at a 30 fps cap in Battery mode. Source inspection:
+`touch_menu_invert` defaults false today. `FrameRateChoices()` exposes
+40 on displays reporting at least 120 Hz. The renderer's
+`nfsmw_native_half_rate_reflections` skips alternating cube face draws and
+resolves when a kept cube exists. This implies 15/20 updates per face at
+steady 30/40 fps. The inspected code does not establish mirror cadence.
+Recorded Every frame by default and optional Half rate as the proposal.
+No code, build, frame measurement, or device run in this review.

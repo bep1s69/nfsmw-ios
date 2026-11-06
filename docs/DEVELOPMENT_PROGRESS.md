@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 6 (Stefan): approved the step 4 menu and onboarding design.
+  Invert menu swipes by default and give Longest battery a 30/40 fps choice.
+  Keep car reflections at 30 Hz or better by default, with a possible
+  explicit lower-cadence choice. See MENU_REDESIGN for the proposed behavior.
+
 - November 6 (Stefan): skip-unread resolves stays an Extra Args soak trial
   (`--nfsmw_native_skip_unread_resolves=true --nfsmw_native_resolve_labels=true`)
   until made default; remind him of these lines if he forgets.
@@ -437,11 +442,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
-**November 6, step 4 design review:** Stefan requested mockups and preset
-values before implementation. Review proposal in MENU_REDESIGN.md. Next:
-Stefan approves or adjusts the visual direction and preset behavior, then
-implement the menus followed by onboarding. dev103 still awaits device
-testing. The pre-existing untracked HANDOFF_CHATGPT.md remains local.
+**November 6, step 4 approved:** Stefan approved the menus and onboarding
+with inverted menu swipes by default and a 30/40 fps choice for Longest
+battery. The reflection recommendation and mirror verification are in
+MENU_REDESIGN. Next: implement the approved menu design, then onboarding
+and presets. dev103 still awaits device testing. The pre-existing untracked
+HANDOFF_CHATGPT.md remains local.
 
 **November 6, dev103 BUILT: old renderer's settings removed from the menus.**
 Stefan's go-ahead. Rows gone: `native_renderer`, `no_vulkan`, `scaling`,
