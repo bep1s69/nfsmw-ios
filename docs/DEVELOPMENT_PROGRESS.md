@@ -437,6 +437,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev91 on the iPhone: normal (Stefan), all switches active in the
+log, drain 21.6 %/h at 27 % brightness vs dev89 22.5 at 18 %, CPU instructions
+-2 %.** Single run; keep the defaults. TECHNICAL "dev91 iPhone Power Profiler".
+
 **November 6, dev91 BUILT: the unsure CPU switches default on too (Stefan:
 "make the unsure ones on by default and we'll follow up with a test or 2").**
 `nfsmw_native_record_memo`, `nfsmw_native_target_lookup`, `nfsmw_native_pipeline_lookup` and `nfsmw_native_attribute_bulk_compare` now true (attribute lookup was already on). Their host tests are still

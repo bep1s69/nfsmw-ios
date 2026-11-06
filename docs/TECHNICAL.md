@@ -21397,6 +21397,28 @@ E-core/utility threads with no measurable iPad drain change; dev55's −17 %
 came from P-core frame threads. These threads' QoS on the iPhone run not
 checked here.
 
+### November 6: dev91 iPhone Power Profiler + Time Profiler — all CPU defaults on
+
+Stefan, iPhone, dev91 (Balanced, native 1x), "everything looked normal".
+Trace `Debug/6 November 2026/dev91_iphone_power_time_profiles.trace` (109 s),
+log `dev91_iphone.log`. Log: every switch active. Guest culling applied on all
+eligible draws, color handoff 300 of 300 frames (0 passes after a handoff),
+unread resolves skipped 300 (300 shown from the target), no "sampled now"
+line, record memo ~400k fingerprints and ~460k vertex lookups skipped per 5 s,
+multi-wait 0 overflowed, no errors. Power (first 10 s dropped, duration-weighted;
+LiveContainer row kind 0 = CPU/display, kind 2 = GPU; one parser for all three runs,
+so CPU impact is not the scale of the dev89 table above):
+
+| run | drain %/h | brightness | CPU impact | GPU impact | instr G/s |
+|---|---:|---:|---:|---:|---:|
+| dev89 A | 22.6 | 18 % | 13.55 | 3.91 | 8.79 |
+| dev89 B | 22.5 | 18 % | 13.72 | 4.21 | 8.72 |
+| dev91 | 21.6 | 27 % | 13.21 | 3.87 | 8.59 |
+
+About 2-4 % less CPU impact and instructions and 1 %/h less drain at higher
+brightness. A single run of a different session, so a hint, not a proof.
+Time Profiler data not analysed yet.
+
 ### November 6: dev91 remaining CPU switches default on
 
 `nfsmw_native_record_memo`, `nfsmw_native_target_lookup`, `nfsmw_native_pipeline_lookup` and `nfsmw_native_attribute_bulk_compare` flipped to true at Stefan's request, with tests to follow. Evidence:
