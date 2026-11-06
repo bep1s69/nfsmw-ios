@@ -148,8 +148,8 @@ choose otherwise on a page. Proposed pages (each skippable):
 4. Saves: iCloud sync and import from another device (links to the save
    manager).
 5. Done: Play.
-Stefan's words "settings based on resets": read here as starting presets
-(page 3); to confirm with him.
+Stefan confirmed (November 6): he meant "settings based on presets", so
+page 3 is a choice of presets.
 
 ## Settings to remove
 
@@ -260,8 +260,7 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
 - Battery mode: a switch, a preset next to Balanced/Quality, or a profile.
 - Should Extra arguments and Diagnostics stay visible to everyone, or move
   behind a "Developer" switch?
-- Onboarding: what "settings based on resets" means (starting presets?), and
-  which pages he wants.
+- Onboarding: which pages he wants, and the presets' names and values.
 - Look: approve mockups before any build.
 
 ## Settings inventory (generated from launcher.mm, dev100)
