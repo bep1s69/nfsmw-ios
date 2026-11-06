@@ -21785,3 +21785,27 @@ it left Desktop. NFS-Most-Wanted-0.5.2.ipa still on Desktop. Device
 discovery via `xcrun devicectl list devices` reported CoreDeviceService
 initialization timeout. No runtime or device UI validation. Mirror
 cadence and battery-life effects were not measured.
+
+## November 6: dev105 fixed launcher title and compact tabs
+
+Stefan’s iPhone recording
+`~/Desktop/Pasted 2026-11-06 at 4.53.22 PM.mp4` shows dev104’s large
+navigation title dropping over the Battery tab strip when the list is
+pulled. AVFoundation frame extraction initially returned Cannot Decode
+in the sandbox, then yielded four frames outside it. Launcher now opts
+out of UIKit large titles and removes the duplicate scrolling Play
+wordmark. Shared tabs use plain text with an active-only amber tint,
+a 44 pt strip (was 54) and a 136 pt sidebar (was 164). Tab targets
+retain a 44 pt minimum height.
+
+Extra Options patch ran before both builds, already patched, exit 0
+and 0 files written each time. Initial build log
+`/private/tmp/nfsmw-dev105-build.log` reached IPA packaging; the wrapper
+exited 1 after attempting to assign zsh’s read-only status variable.
+Re-ran `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+and packaging and verification returned 0. `git diff --check`,
+`unzip -tq` and Desktop `cmp` passed. IPA
+`ios/build/NFSMW-0.6.0-dev105-compact-tabs.ipa`, SHA256
+3165824dfdb6ee714f5d14124c2c8f7a069eb88a27582a31eaf4fc1111e10268,
+arm64 UUID 74949604-C45A-36FE-9B78-3967DDBD2F51. Desktop dev104 moved
+to Trash and stable 0.5.2 remains. No dev105 device validation.

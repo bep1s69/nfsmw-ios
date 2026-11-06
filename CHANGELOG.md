@@ -4,7 +4,8 @@
 
 - **Redesigned launcher and in-game options.** Dark menus share the
   same categories, compact summaries and a details button. Use the
-  controller to navigate the launcher and in-game options.
+  controller to navigate the launcher and in-game options. The launcher
+  title stays fixed above compact tabs.
 - **First-launch setup and presets.** Choose controls and graphics or keep
   your settings. Longest battery offers 30 fps or 40 fps on supported
   displays, with half-rate or every-frame car reflections. Its settings

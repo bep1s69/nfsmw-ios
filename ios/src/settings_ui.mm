@@ -41,29 +41,35 @@
 
 - (void)installTabs:(NSArray<NSString*>*)titles select:(void (^)(NSInteger))select {
   _tabScroll = [[UIScrollView alloc] init];
-  _tabScroll.backgroundColor = [UIColor colorWithWhite:0.11 alpha:0.97];
+  _tabScroll.backgroundColor = UIColor.clearColor;
   _tabScroll.showsHorizontalScrollIndicator = NO;
   _tabs = [[UIStackView alloc] init];
-  _tabs.spacing = 5;
+  _tabs.spacing = 2;
   _tabs.translatesAutoresizingMaskIntoConstraints = NO;
   [_tabScroll addSubview:_tabs];
   [_layout insertArrangedSubview:_tabScroll atIndex:0];
-  _railWidth = [_tabScroll.widthAnchor constraintEqualToConstant:164];
-  _stripHeight = [_tabScroll.heightAnchor constraintEqualToConstant:54];
+  _railWidth = [_tabScroll.widthAnchor constraintEqualToConstant:136];
+  _stripHeight = [_tabScroll.heightAnchor constraintEqualToConstant:44];
   UILayoutGuide* content = _tabScroll.contentLayoutGuide;
   UILayoutGuide* frame = _tabScroll.frameLayoutGuide;
   [NSLayoutConstraint activateConstraints:@[
     [_tabs.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:8],
     [_tabs.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-8],
-    [_tabs.topAnchor constraintEqualToAnchor:content.topAnchor constant:5],
-    [_tabs.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-5],
+    [_tabs.topAnchor constraintEqualToAnchor:content.topAnchor],
+    [_tabs.bottomAnchor constraintEqualToAnchor:content.bottomAnchor],
   ]];
   _railConstraints = @[_railWidth, [_tabs.widthAnchor constraintEqualToAnchor:frame.widthAnchor constant:-16]];
-  _stripConstraints = @[_stripHeight, [_tabs.heightAnchor constraintEqualToAnchor:frame.heightAnchor constant:-10]];
+  _stripConstraints = @[_stripHeight, [_tabs.heightAnchor constraintEqualToAnchor:frame.heightAnchor]];
   for (NSString* title in titles) {
     NSInteger index = _tabs.arrangedSubviews.count;
-    UIButtonConfiguration* config = UIButtonConfiguration.tintedButtonConfiguration;
+    UIButtonConfiguration* config = UIButtonConfiguration.plainButtonConfiguration;
     config.title = title;
+    config.contentInsets = NSDirectionalEdgeInsetsMake(0, 10, 0, 10);
+    config.titleTextAttributesTransformer = ^NSDictionary* (NSDictionary* attributes) {
+      NSMutableDictionary* compact = [attributes mutableCopy];
+      compact[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+      return compact;
+    };
     UIButton* button = [UIButton buttonWithConfiguration:config primaryAction:
         [UIAction actionWithHandler:^(__kindof UIAction*) { select(index); }]];
     [button.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
@@ -87,17 +93,24 @@
 
 - (void)highlightTab:(NSInteger)index {
   _selectedTab = index;
+  UIButton* active = nil;
   NSInteger i = 0;
   for (UIButton* button in _tabs.arrangedSubviews) {
     const BOOL selected = i++ == index;
     UIButtonConfiguration* config = button.configuration;
-    config.baseForegroundColor = selected ? nfsmw::settings_ui::Accent() : UIColor.labelColor;
+    config.baseForegroundColor = selected ? nfsmw::settings_ui::Accent() : UIColor.secondaryLabelColor;
+    config.background.backgroundColor = selected ? [nfsmw::settings_ui::Accent() colorWithAlphaComponent:0.12]
+                                                 : UIColor.clearColor;
+    config.background.cornerRadius = 7;
+    button.contentHorizontalAlignment = _railWidth.active ? UIControlContentHorizontalAlignmentLeading
+                                                         : UIControlContentHorizontalAlignmentCenter;
     button.configuration = config;
     button.accessibilityTraits = UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
-    if (selected) {
-      [_tabScroll layoutIfNeeded];
-      [_tabScroll scrollRectToVisible:[button convertRect:button.bounds toView:_tabScroll] animated:NO];
-    }
+    if (selected) active = button;
+  }
+  if (active) {
+    [_tabScroll layoutIfNeeded];
+    [_tabScroll scrollRectToVisible:[active convertRect:active.bounds toView:_tabScroll] animated:NO];
   }
 }
 

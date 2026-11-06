@@ -442,6 +442,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev105 BUILT: fixed launcher title and compact tabs.**
+The dev104 iPhone recording shows the large navigation title moving
+over the tabs when pulling down. Launcher now uses a fixed inline
+title, and both menus use a shorter text tab strip or narrower sidebar
+with only the selected tab tinted. IPA
+`ios/build/NFSMW-0.6.0-dev105-compact-tabs.ipa` is on iCloud Desktop.
+Next: verify title and tabs on iPhone and iPad, then continue the dev104
+onboarding and controller device checks. No dev105 device run here.
+
 **November 6, dev104 BUILT: redesigned menus and first-launch setup.**
 `ios/build/NFSMW-0.6.0-dev104-menu-setup.ipa`, also copied to iCloud Desktop.
 Longest battery offers 30/40 fps and half/every-frame car reflections;

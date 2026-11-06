@@ -834,6 +834,7 @@ NSString* AchievementSummary(const Achievements& a) {
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
   self.navigationController.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
   UIButtonConfiguration* play = UIButtonConfiguration.filledButtonConfiguration;
   play.title = @"Play";
@@ -991,18 +992,6 @@ NSString* AchievementSummary(const Achievements& a) {
   _visible.clear();
   for (size_t i = 0; i < Sections().size(); ++i) {
     if (Sections()[i].tab == _tab) _visible.push_back(i);
-  }
-  if (_tab == kTabGame) {
-    UILabel* brand = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 320, 78)];
-    brand.text = @"  N E E D   F O R   S P E E D   /   M O S T   W A N T E D";
-    brand.textColor = nfsmw::settings_ui::Accent();
-    brand.backgroundColor = [UIColor colorWithRed:0.16 green:0.13 blue:0.09 alpha:1];
-    brand.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightBold];
-    brand.adjustsFontSizeToFitWidth = YES;
-    brand.minimumScaleFactor = 0.55;
-    self.tableView.tableHeaderView = brand;
-  } else {
-    self.tableView.tableHeaderView = nil;
   }
   [self.tableView reloadData];
 }
