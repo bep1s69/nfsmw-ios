@@ -437,6 +437,10 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev94 on the iPhone (Stefan): Golf crackle gone, menu music
+fine, no stuck or repeated snippets so far.** Keep `ios_xma_starve_keep_mono`
+on; watch police radio and car sounds in longer play.
+
 **November 6, dev94 BUILT: Golf, second guess.** dev93 test (Stefan): menu
 music fine, Golf still crackles; log `dev93_golf_crackles_iphone_nfsmw.log`:
 `[xma] starve 5 s: 46-288 resets, 0 looping streams kept`, so loop_count is

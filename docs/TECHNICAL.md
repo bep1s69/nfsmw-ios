@@ -21601,3 +21601,6 @@ cvar `ios_xma_starve_keep_mono` (default true): skip the reset when
 `loop_count > 0 || !is_stereo`. Line: `[xma] starve 5 s: N resets (stereo), M
 mono or looping streams kept`. IPA `NFSMW-0.6.0-dev94-golf-mono.ipa`, SHA256
 561c40422893ae22aec82e331bf601596e6aab47460ef3605d776c15cab34cac.
+
+dev94 result (Stefan, iPhone, November 6): Golf crackle gone, menu music fine,
+no stale or repeated sound heard yet.
