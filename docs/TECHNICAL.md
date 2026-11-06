@@ -21545,3 +21545,27 @@ Measured: no difference beyond noise from ~3,000 fewer blocking waits/s
 on these utility/audio threads are not a battery lever. Inference: the
 remaining audio-worker and 1 ms tick wakes (dev90 idea) would not be either;
 not pursued unless Stefan wants them for tidiness.
+
+## November 6: dev92 app scene instead of the main screen (iPhone Duo, issue 14)
+
+Symptom (reporter, iPhone Duo, iOS 27.2, 0.5.2): outer screen fine; inner
+screen black with the intro's sound, also when started on the inner screen.
+The reporter's log covers only an outer-screen session (2730x1260 scene).
+
+Cause (by reading, not confirmed on a device): `EnsurePresentLayer`
+(native_renderer.mm), the launcher window, `GameWindow` (touch controls, in-game
+options), GPU capture and the lifecycle view lookup all took the scene whose
+`screen == UIScreen.mainScreen`. When the app's scene is on a panel that is
+not mainScreen there is no match: no native layer (warning "no window for the
+native renderer's layer"), and `WatchExternalScreens` would treat the app's own
+panel as an external display. SDL itself is unaffected (it uses
+`UIKit_GetActiveWindowScene`).
+
+Change: `ios/src/app_scene.h` (`IsAppScene` = role
+`UIWindowSceneSessionRoleApplication`, `AppScene`, `AppScreen`,
+`IsExternalScreen` = neither main nor the app's). Launcher `ScreenPixels` and
+120 Hz check use `AppScreen()`. Off-main-thread `maximumFramesPerSecond` reads
+and touch-control `scale` still use mainScreen (same values expected on both
+panels). Startup now logs every `UIScreen` (main/app, pixels, scale).
+IPA `NFSMW-0.6.0-dev92-duo-scene.ipa`, SHA256
+eabf57f3d0426519e8d64a622f1aa88424e0dea6594f29f90b59e31dd6d119f0.

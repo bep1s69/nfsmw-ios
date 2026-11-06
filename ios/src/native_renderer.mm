@@ -28,6 +28,7 @@
 // culling, the console's gamma. Resolution scaling and MSAA use
 // the native renderer's target allocation and pipeline settings below.
 
+#include "app_scene.h"
 #import <CoreImage/CoreImage.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <UIKit/UIKit.h>
@@ -9183,14 +9184,14 @@ void WatchExternalScreens(id<MTLDevice> device) {
     // an external display's scene (AirPlay mirroring lists it only there).
     UIScreen* external = nil;
     for (UIScreen* screen in UIScreen.screens) {
-      if (screen != UIScreen.mainScreen) {
+      if (nfsmw::IsExternalScreen(screen)) {
         external = screen;
         break;
       }
     }
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-      if (!external && [scene isKindOfClass:UIWindowScene.class] &&
-          ((UIWindowScene*)scene).screen != UIScreen.mainScreen) {
+      if (!external && [scene isKindOfClass:UIWindowScene.class] && !nfsmw::IsAppScene(scene) &&
+          nfsmw::IsExternalScreen(((UIWindowScene*)scene).screen)) {
         external = ((UIWindowScene*)scene).screen;
       }
     }
@@ -9211,7 +9212,7 @@ void WatchExternalScreens(id<MTLDevice> device) {
   [center addObserverForName:UISceneDidActivateNotification object:nil queue:NSOperationQueue.mainQueue
                   usingBlock:^(NSNotification* note) {
                     UIScene* scene = note.object;
-                    if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)scene).screen != UIScreen.mainScreen) pick();
+                    if ([scene isKindOfClass:UIWindowScene.class] && !nfsmw::IsAppScene(scene)) pick();
                   }];
 }
 
@@ -9226,8 +9227,7 @@ void EnsurePresentLayer() {
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
       // The phone's own scene: an external display's (AirPlay, HDMI) has its
       // own window, made below.
-      if ([scene isKindOfClass:UIWindowScene.class] &&
-          ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
+      if (nfsmw::IsAppScene(scene)) {
         for (UIWindow* w in ((UIWindowScene*)scene).windows) {
           if (w.isKeyWindow || !window) window = w;
         }
@@ -9239,12 +9239,18 @@ void EnsurePresentLayer() {
       UIWindowScene* ws = (UIWindowScene*)scene;
       REXLOG_INFO("[native] scene {:x} ({}, state {}, {}): {} windows", uintptr_t((__bridge void*)ws),
                   ws.session.role.UTF8String, int(ws.activationState),
-                  ws.screen == UIScreen.mainScreen ? "the phone's screen" : "another screen", size_t(ws.windows.count));
+                  nfsmw::IsAppScene(ws) ? (ws.screen == UIScreen.mainScreen ? "the app's, on the main screen" : "the app's, not on the main screen") : "another screen", size_t(ws.windows.count));
       for (UIWindow* w in ws.windows) {
         REXLOG_INFO("[native]   window {:x}{}{} level {} root {}", uintptr_t((__bridge void*)w), w.isKeyWindow ? " key" : "",
                     w.hidden ? " hidden" : "", double(w.windowLevel),
                     w.rootViewController ? NSStringFromClass(w.rootViewController.class).UTF8String : "none");
       }
+    }
+    // Every screen (a foldable can list a panel per screen; issue #14).
+    for (UIScreen* s in UIScreen.screens) {
+      REXLOG_INFO("[native] screen {:x}{}{}: {}x{} pixels, scale {}", uintptr_t((__bridge void*)s),
+                  s == UIScreen.mainScreen ? " main" : "", s == nfsmw::AppScreen() ? " app" : "",
+                  int(s.nativeBounds.size.width), int(s.nativeBounds.size.height), double(s.nativeScale));
     }
     if (!window) {
       REXLOG_WARN("[native] no window for the native renderer's layer");

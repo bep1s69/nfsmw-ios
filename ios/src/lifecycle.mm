@@ -33,6 +33,7 @@
 // window's bounds; SDL's layoutSubviews then sets the drawable size and the
 // swapchain is rebuilt from it.
 
+#include "app_scene.h"
 #import <UIKit/UIKit.h>
 
 #include <rex/logging.h>
@@ -117,7 +118,7 @@ void KeepMetalViewWindowSized() {
     view = nil;
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
       if (![scene isKindOfClass:UIWindowScene.class] ||
-          ((UIWindowScene*)scene).screen != UIScreen.mainScreen) {
+          !nfsmw::IsAppScene(scene)) {
         continue;
       }
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {

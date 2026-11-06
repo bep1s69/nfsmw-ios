@@ -20,6 +20,7 @@
 // Settings live in Documents/settings.json (string values), saved on every
 // change, so they can be read and edited from the Files app too.
 
+#include "app_scene.h"
 #import <UIKit/UIKit.h>
 
 #include <algorithm>
@@ -272,7 +273,7 @@ NSString* KeysForDisplay(NSString* value) {
 
 // The screen in landscape, in pixels (long side, short side).
 CGSize ScreenPixels() {
-  const CGSize n = UIScreen.mainScreen.nativeBounds.size;
+  const CGSize n = nfsmw::AppScreen().nativeBounds.size;
   return CGSizeMake(std::max(n.width, n.height), std::min(n.width, n.height));
 }
 
@@ -299,7 +300,7 @@ NSString* ScaleSummary() {
 
 bool SupportsHighFrameRates() {
   // Screen capability, not its temporary refresh rate under Low Power Mode.
-  return UIScreen.mainScreen.maximumFramesPerSecond >= 120;
+  return nfsmw::AppScreen().maximumFramesPerSecond >= 120;
 }
 
 std::vector<Choice> FrameRateChoices() {
@@ -2172,14 +2173,8 @@ fs::path Run(const fs::path& documents) {
   UINavigationController* nav = [[NFSLauncherNavigation alloc] initWithRootViewController:root];
   nav.navigationBar.prefersLargeTitles = YES;
 
-  UIWindowScene* scene = nil;
-  for (UIScene* s in UIApplication.sharedApplication.connectedScenes) {
-    // The phone's own scene, not an external display's (AirPlay, HDMI).
-    if ([s isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)s).screen == UIScreen.mainScreen) {
-      scene = (UIWindowScene*)s;
-      break;
-    }
-  }
+  // The app's own scene, not an external display's (AirPlay, HDMI).
+  UIWindowScene* scene = nfsmw::AppScene();
   UIWindow* window = scene ? [[UIWindow alloc] initWithWindowScene:scene]
                            : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
   window.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;

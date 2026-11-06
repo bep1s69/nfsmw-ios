@@ -437,6 +437,18 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev92 BUILT: iPhone Duo black inner screen (GitHub #14, D-019
+Duo).** The app picked "its" scene by `scene.screen == UIScreen.mainScreen` in
+eight places; on a foldable mainScreen is likely one panel while the app shows
+on the other, so the game layer was never attached (black, sound plays, even
+when launched on the inner screen). New `ios/src/app_scene.h`: the app's scene
+is the one with the application role; launcher screen size and 120 Hz check
+use that scene's screen; a screen is external only if it is neither main nor
+the app's. Startup log lists every scene and screen. Untested (no Duo); IPA
+`ios/build/NFSMW-0.6.0-dev92-duo-scene.ipa` (SHA256
+eabf57f3d0426519e8d64a622f1aa88424e0dea6594f29f90b59e31dd6d119f0) for the
+reporter. Golf engine stutter (#15) waits for Stefan's Golf logs.
+
 **November 6, dev91 on the iPhone: normal (Stefan), all switches active in the
 log, drain 21.6 %/h at 27 % brightness vs dev89 22.5 at 18 %, CPU instructions
 -2 %.** Single run; keep the defaults. TECHNICAL "dev91 iPhone Power Profiler".

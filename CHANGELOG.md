@@ -2,6 +2,11 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **iPhone Duo inner screen (GitHub #14).** The game looked for its window on
+  the device's "main" screen, which on a foldable can be the other panel, and
+  showed nothing on the inner screen. It now uses the screen its own window is
+  on. Not yet confirmed on a Duo (dev92).
+
 - **Less CPU work by default.** Five savings that were opt-in are now on:
   skipping picture copies nothing reads, honoring the game's face culling,
   handing the scene picture over instead of copying it, cheaper foliage

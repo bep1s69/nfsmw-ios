@@ -39,6 +39,7 @@
 // UIKit and SDL's joystick functions both run on the main thread here (it is
 // SDL's thread on iOS), so no locking is needed.
 
+#include "app_scene.h"
 #import <GameController/GameController.h>
 #import <UIKit/UIKit.h>
 
@@ -1918,7 +1919,7 @@ UIWindow* GameWindow() {
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
     if ([scene isKindOfClass:UIWindowScene.class] &&
-        ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
+        nfsmw::IsAppScene(scene)) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
         if (w.isKeyWindow || !window) {
           window = w;

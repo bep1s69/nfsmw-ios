@@ -10,6 +10,7 @@
 // submitting one frame, including BC uploads and presentation. The emulated
 // renderer retains its timed device capture.
 
+#include "app_scene.h"
 #import <Metal/Metal.h>
 #import <UIKit/UIKit.h>
 
@@ -188,7 +189,7 @@ void InstallButton() {
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
     if ([scene isKindOfClass:UIWindowScene.class] &&
-        ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
+        nfsmw::IsAppScene(scene)) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
         if (w.isKeyWindow || !window) {
           window = w;

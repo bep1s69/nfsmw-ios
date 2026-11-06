@@ -30,6 +30,7 @@
 // sheet: D-pad up/down to choose a row, left/right (or A) to change it, B or
 // L3+R3 to close.
 
+#include "app_scene.h"
 #import <GameController/GameController.h>
 #import <UIKit/UIKit.h>
 
@@ -150,7 +151,7 @@ bool ControllerPressed(GCExtendedGamepad* p) {
 UIWindow* GameWindow() {
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-    if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)scene).screen == UIScreen.mainScreen) {
+    if ([scene isKindOfClass:UIWindowScene.class] && nfsmw::IsAppScene(scene)) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
         if (w.isKeyWindow || !window) window = w;
       }
