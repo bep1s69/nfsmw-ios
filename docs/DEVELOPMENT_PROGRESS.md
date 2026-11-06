@@ -437,6 +437,8 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6: menu redesign groundwork (docs only).** [MENU_REDESIGN.md](MENU_REDESIGN.md): how the launcher and in-game menus work, problems (four hand-kept lists in ingame_options.mm, launcher.mm doing everything, uneven tabs, Battery mode locking 13 rows, profile wording), proposed shared tabs, shared components, file map, step plan for Codex and the generated settings inventory. No code changed. Next: Stefan picks doc only or doc plus the no-visible-change flags refactor (step 1 of the plan); tab layout, profiles and Battery mode wait for his answers.
+
 **November 6: low-RAM work paused (Stefan).** Changelog now has one entry,
 "Important for 3 GB RAM devices", asking for tests on such devices. Next
 low-RAM steps (later): low-memory mode once a 2-3 GB device report exists,
