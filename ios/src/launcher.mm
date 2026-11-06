@@ -33,6 +33,8 @@
 
 #include "launcher.h"
 #include "settings_catalog.h"
+#include "settings_ui.h"
+#import <GameController/GameController.h>
 #include "multiplayer/lan_session.h"
 #include "multiplayer/lan_setup.h"
 #include "multiplayer/servidor_ea.h"
@@ -574,7 +576,234 @@ NSString* AchievementSummary(const Achievements& a) {
 }
 @end
 
-@interface NFSLauncherController : UITableViewController <UITextFieldDelegate>
+@interface NFSSetupController : UIViewController
+- (instancetype)initWithDisc:(BOOL)disc existing:(BOOL)existing presetsOnly:(BOOL)presetsOnly
+                        saves:(UIViewController* (^)(void))saves
+                       finish:(void (^)(NSInteger, NSString*, NSString*, NSInteger, NSString*, BOOL))finish;
+@end
+
+@implementation NFSSetupController {
+  BOOL _disc, _presetsOnly;
+  NSInteger _page, _preset, _input;
+  NSInteger _renderedPage;
+  NSString* _fps;
+  NSString* _reflection;
+  NSString* _steering;
+  UIViewController* (^_saves)(void);
+  void (^_finish)(NSInteger, NSString*, NSString*, NSInteger, NSString*, BOOL);
+  UIStackView* _content;
+  UIScrollView* _scroll;
+}
+
+- (instancetype)initWithDisc:(BOOL)disc existing:(BOOL)existing presetsOnly:(BOOL)presetsOnly
+                        saves:(UIViewController* (^)(void))saves
+                       finish:(void (^)(NSInteger, NSString*, NSString*, NSInteger, NSString*, BOOL))finish {
+  if ((self = [super initWithNibName:nil bundle:nil])) {
+    _disc = disc;
+    _presetsOnly = presetsOnly;
+    _page = presetsOnly ? 2 : 0;
+    _preset = existing || presetsOnly ? -1 : 1;
+    _input = -1;
+    _renderedPage = -1;
+    _fps = @"30";
+    _reflection = @"half";
+    _saves = [saves copy];
+    _finish = [finish copy];
+  }
+  return self;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.title = _presetsOnly ? @"Presets" : @"Setup";
+  self.view.backgroundColor = [UIColor colorWithWhite:0.075 alpha:1];
+  self.view.tintColor = nfsmw::settings_ui::Accent();
+  _scroll = [[UIScrollView alloc] init];
+  _scroll.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:_scroll];
+  _content = [[UIStackView alloc] init];
+  _content.axis = UILayoutConstraintAxisVertical;
+  _content.spacing = 12;
+  _content.translatesAutoresizingMaskIntoConstraints = NO;
+  [_scroll addSubview:_content];
+  UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
+  UILayoutGuide* content = _scroll.contentLayoutGuide;
+  UILayoutGuide* frame = _scroll.frameLayoutGuide;
+  [NSLayoutConstraint activateConstraints:@[
+    [_scroll.topAnchor constraintEqualToAnchor:safe.topAnchor],
+    [_scroll.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+    [_scroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
+    [_scroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
+    [_content.topAnchor constraintEqualToAnchor:content.topAnchor constant:18],
+    [_content.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-18],
+    [_content.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:20],
+    [_content.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-20],
+    [_content.widthAnchor constraintEqualToAnchor:frame.widthAnchor constant:-40],
+  ]];
+  [self renderPage];
+}
+
+- (void)addLabel:(NSString*)text style:(UIFontTextStyle)style color:(UIColor*)color {
+  UILabel* label = [[UILabel alloc] init];
+  label.text = text;
+  label.font = [UIFont preferredFontForTextStyle:style];
+  label.adjustsFontForContentSizeCategory = YES;
+  label.numberOfLines = 0;
+  label.textColor = color;
+  [_content addArrangedSubview:label];
+}
+
+- (void)addButton:(NSString*)title subtitle:(NSString*)subtitle image:(NSString*)image
+         selected:(BOOL)selected action:(void (^)(void))action {
+  UIButtonConfiguration* config = selected ? UIButtonConfiguration.filledButtonConfiguration
+                                           : UIButtonConfiguration.tintedButtonConfiguration;
+  config.title = title;
+  config.subtitle = subtitle;
+  config.titleAlignment = UIButtonConfigurationTitleAlignmentLeading;
+  config.image = image ? [UIImage systemImageNamed:image] : nil;
+  config.imagePadding = 12;
+  config.contentInsets = NSDirectionalEdgeInsetsMake(10, 12, 10, 12);
+  UIButton* button = [UIButton buttonWithConfiguration:config primaryAction:
+      [UIAction actionWithHandler:^(__kindof UIAction*) { action(); }]];
+  if (selected) button.accessibilityTraits |= UIAccessibilityTraitSelected;
+  button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+  [_content addArrangedSubview:button];
+}
+
+- (void)finishAndPlay:(BOOL)play {
+  _finish(_preset, _fps, _reflection, _input, _steering, play);
+}
+
+- (void)next {
+  if (_presetsOnly || _page == 4) [self finishAndPlay:NO];
+  else { ++_page; [self renderPage]; }
+}
+
+- (void)back {
+  if (_presetsOnly) { [self dismissViewControllerAnimated:YES completion:nil]; return; }
+  if (_page > 0) { --_page; [self renderPage]; }
+}
+
+- (void)skip {
+  if (_page == 1) _input = -1;
+  if (_page == 2) _preset = -1;
+  [self next];
+}
+
+- (void)renderPage {
+  for (UIView* view in _content.arrangedSubviews) [view removeFromSuperview];
+  if (_renderedPage != _page) [_scroll setContentOffset:CGPointZero animated:NO];
+  _renderedPage = _page;
+  self.navigationItem.leftBarButtonItem = (_presetsOnly || _page > 0) ?
+      [[UIBarButtonItem alloc] initWithTitle:_presetsOnly ? @"Cancel" : @"Back"
+          style:UIBarButtonItemStylePlain target:self action:@selector(back)] : nil;
+  self.navigationItem.rightBarButtonItem =
+      [[UIBarButtonItem alloc] initWithTitle:_presetsOnly ? @"Apply" : _page == 4 ? @"Finish" : @"Continue"
+          style:UIBarButtonItemStyleDone target:self action:@selector(next)];
+  if (!_presetsOnly) {
+    [self addLabel:[NSString stringWithFormat:@"SETUP  ·  %ld OF 5", (long)_page + 1]
+        style:UIFontTextStyleCaption1 color:nfsmw::settings_ui::Accent()];
+  }
+  NSArray* titles = @[@"Welcome to Most Wanted", @"How do you play?", @"Look and performance",
+                       @"Bring your saves", @"Ready to play"];
+  [self addLabel:titles[_page] style:UIFontTextStyleTitle1 color:UIColor.labelColor];
+  __weak NFSSetupController* weak = self;
+  switch (_page) {
+    case 0:
+      [self addLabel:_disc ? @"Game disc found. You can launch from the Play tab."
+                           : @"In Files, put your USA game ISO in the NFSMW app’s Documents folder."
+          style:UIFontTextStyleBody color:UIColor.secondaryLabelColor];
+      break;
+    case 1: {
+      NSArray* inputs = @[@"Touch", @"Controller", @"Keyboard and mouse"];
+      NSArray* icons = @[@"hand.tap", @"gamecontroller", @"keyboard"];
+      for (NSInteger i = 0; i < NSInteger(inputs.count); ++i) {
+        [self addButton:inputs[i] subtitle:nil image:icons[i] selected:_input == i action:^{
+          NFSSetupController* me = weak;
+          if (me) { me->_input = i; [me renderPage]; }
+        }];
+      }
+      if (_input == 0) {
+        const Option* steering = FindOption(@"touch_steering");
+        [self addLabel:steering->title style:UIFontTextStyleHeadline color:UIColor.labelColor];
+        for (const auto& choice : steering->choices) {
+          NSString* value = choice.value;
+          [self addButton:choice.title subtitle:nil image:@"steeringwheel"
+              selected:[(_steering ?: steering->default_value) isEqualToString:value] action:^{
+                NFSSetupController* me = weak;
+                if (me) { me->_steering = value; [me renderPage]; }
+              }];
+        }
+      }
+      break;
+    }
+    case 2: {
+      NSArray* names = PresetNames();
+      NSArray* summaries = @[@"Lower render resolution, half-rate reflections and Eco CPU profile.",
+                             @"Original render scale and 60 fps.",
+                             @"Native resolution, MSAA 4x and sharper reflections."];
+      NSArray* icons = @[@"battery.100", @"gauge.with.dots.needle.50percent", @"sparkles"];
+      for (NSInteger i = 0; i < NSInteger(names.count); ++i) {
+        [self addButton:names[i] subtitle:summaries[i] image:icons[i] selected:_preset == i action:^{
+          NFSSetupController* me = weak;
+          if (me) { me->_preset = i; [me renderPage]; }
+        }];
+        if (i == 0 && _preset == 0) {
+          [self addLabel:@"Frame rate" style:UIFontTextStyleHeadline color:UIColor.labelColor];
+          for (const auto& choice : FrameRateChoices()) {
+            NSString* rate = choice.value;
+            if (![rate isEqualToString:@"30"] && ![rate isEqualToString:@"40"]) continue;
+            [self addButton:[rate stringByAppendingString:@" fps"] subtitle:nil image:nil
+                selected:[_fps isEqualToString:rate] action:^{
+                  NFSSetupController* me = weak;
+                  if (me) { me->_fps = rate; [me renderPage]; }
+                }];
+          }
+          [self addLabel:@"Car reflections" style:UIFontTextStyleHeadline color:UIColor.labelColor];
+          for (const auto& choice : FindOption(@"reflection_rate")->choices) {
+            NSString* value = choice.value;
+            NSInteger hz = [value isEqualToString:@"half"] ? _fps.integerValue / 2 : _fps.integerValue;
+            NSString* subtitle = [NSString stringWithFormat:@"%ld Hz per reflection face at %@ fps",
+                (long)hz, _fps];
+            [self addButton:choice.title subtitle:subtitle image:nil selected:[_reflection isEqualToString:value]
+                action:^{
+                  NFSSetupController* me = weak;
+                  if (me) { me->_reflection = value; [me renderPage]; }
+                }];
+          }
+        }
+      }
+      [self addButton:@"Keep my current settings" subtitle:nil image:@"checkmark.circle" selected:_preset == -1
+          action:^{
+            NFSSetupController* me = weak;
+            if (me) { me->_preset = -1; [me renderPage]; }
+          }];
+      break;
+    }
+    case 3: {
+      [self addLabel:@"Set up iCloud sync or import a career from another device."
+          style:UIFontTextStyleBody color:UIColor.secondaryLabelColor];
+      [self addButton:@"Open Save Manager" subtitle:nil image:@"externaldrive" selected:NO action:^{
+        NFSSetupController* me = weak;
+        if (me) [me.navigationController pushViewController:me->_saves() animated:YES];
+      }];
+      break;
+    }
+    case 4:
+      [self addLabel:_disc ? @"Your game disc is ready." : @"Add your game disc to enable Play."
+          style:UIFontTextStyleBody color:UIColor.secondaryLabelColor];
+      if (_disc) [self addButton:@"Play" subtitle:nil image:@"play.fill" selected:YES action:^{
+        [weak finishAndPlay:YES];
+      }];
+      break;
+  }
+  if (!_presetsOnly && _page < 4) {
+    [self addButton:@"Skip this page" subtitle:nil image:nil selected:NO action:^{ [weak skip]; }];
+  }
+}
+@end
+
+@interface NFSLauncherController : NFSSettingsController <UITextFieldDelegate>
 - (instancetype)initWithDocuments:(fs::path)docs done:(std::function<void(fs::path)>)done;
 @end
 
@@ -586,6 +815,10 @@ NSString* AchievementSummary(const Achievements& a) {
   NSString* _isoName;  // the chosen one's file name
   NSInteger _tab;      // Tab
   int _savesAttention;  // saves newer in iCloud or changed on both sides
+  NSInteger _focus;
+  NSTimer* _controllerTimer;
+  unsigned _controllerButtons;
+  UIButton* _playButton;
   std::vector<size_t> _visible;  // the Sections() shown on this tab
 }
 
@@ -601,37 +834,28 @@ NSString* AchievementSummary(const Achievements& a) {
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-  self.navigationItem.rightBarButtonItem =
-      [[UIBarButtonItem alloc] initWithTitle:@"Play"
-                                       style:UIBarButtonItemStyleDone
-                                      target:self
-                                      action:@selector(play)];
+  self.navigationController.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+  UIButtonConfiguration* play = UIButtonConfiguration.filledButtonConfiguration;
+  play.title = @"Play";
+  play.image = [UIImage systemImageNamed:@"play.fill"];
+  play.imagePadding = 8;
+  play.baseBackgroundColor = nfsmw::settings_ui::Accent();
+  play.baseForegroundColor = UIColor.blackColor;
+  _playButton = [UIButton buttonWithConfiguration:play primaryAction:nil];
+  [_playButton addTarget:self action:@selector(play) forControlEvents:UIControlEventTouchUpInside];
+  self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:_playButton];
   self.navigationItem.leftBarButtonItem =
       [[UIBarButtonItem alloc] initWithTitle:@"Reset"
                                        style:UIBarButtonItemStylePlain
                                       target:self
                                       action:@selector(confirmReset)];
   self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
-  // The tabs.
-  UISegmentedControl* tabs = [[UISegmentedControl alloc] initWithItems:TabTitles()];
-  _tab = [NSUserDefaults.standardUserDefaults integerForKey:@"nfsmw.launcher.tab"];
+  _tab = [NSUserDefaults.standardUserDefaults integerForKey:@"nfsmw.launcher.tab.v2"];
   if (_tab < 0 || _tab >= kTabCount) _tab = kTabGame;
-  tabs.selectedSegmentIndex = _tab;
-  [tabs addAction:[UIAction actionWithHandler:^(UIAction*) {
-          self->_tab = tabs.selectedSegmentIndex;
-          [NSUserDefaults.standardUserDefaults setInteger:self->_tab forKey:@"nfsmw.launcher.tab"];
-          [self reloadTab];
-        }]
-      forControlEvents:UIControlEventValueChanged];
-  UIView* header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 52)];
-  tabs.translatesAutoresizingMaskIntoConstraints = NO;
-  [header addSubview:tabs];
-  [NSLayoutConstraint activateConstraints:@[
-    [tabs.leadingAnchor constraintEqualToAnchor:header.layoutMarginsGuide.leadingAnchor],
-    [tabs.trailingAnchor constraintEqualToAnchor:header.layoutMarginsGuide.trailingAnchor],
-    [tabs.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-  ]];
-  self.tableView.tableHeaderView = header;
+  _focus = -1;
+  __weak NFSLauncherController* weak = self;
+  [self installTabs:TabTitles() select:^(NSInteger tab) { [weak selectTab:tab]; }];
+  [self highlightTab:_tab];
   // About: version and build, so a report names the exact build.
   UILabel* about = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 320, 56)];
   about.text = AboutText();
@@ -651,6 +875,114 @@ NSString* AchievementSummary(const Achievements& a) {
                                            object:nil];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+  [super viewDidAppear:animated];
+  __weak NFSLauncherController* weak = self;
+  _controllerTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 / 30 repeats:YES
+      block:^(NSTimer*) { [weak pollController]; }];
+  if (!_settings[@"onboarding_version"]) [self openSetup:NO];
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+  [super viewDidDisappear:animated];
+  [_controllerTimer invalidate];
+  _controllerTimer = nil;
+}
+
+- (void)openSetup:(BOOL)presetsOnly {
+  if (self.presentedViewController) return;
+  __weak NFSLauncherController* weak = self;
+  NFSSetupController* setup = [[NFSSetupController alloc]
+      initWithDisc:_isoName != nil existing:_settings.count != 0 presetsOnly:presetsOnly
+      saves:^UIViewController* {
+        NFSLauncherController* me = weak;
+        return me ? nfsmw::saves::MakeSaveManager(me->_docs) : nil;
+      }
+      finish:^(NSInteger preset, NSString* fps, NSString* reflection, NSInteger input,
+               NSString* steering, BOOL play) {
+        NFSLauncherController* me = weak;
+        if (!me) return;
+        ApplyPreset(me->_settings, preset, fps, reflection);
+        ApplyInputSetup(me->_settings, input, steering);
+        if (!presetsOnly) me->_settings[@"onboarding_version"] = @"1";
+        SaveSettings(me->_docs, me->_settings);
+        [me.tableView reloadData];
+        [me dismissViewControllerAnimated:YES completion:^{ if (play) [me play]; }];
+      }];
+  UINavigationController* navigation = [[UINavigationController alloc] initWithRootViewController:setup];
+  navigation.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+  navigation.modalInPresentation = YES;
+  [self presentViewController:navigation animated:YES completion:nil];
+}
+
+- (void)selectTab:(NSInteger)tab {
+  _tab = (tab + kTabCount) % kTabCount;
+  [NSUserDefaults.standardUserDefaults setInteger:_tab forKey:@"nfsmw.launcher.tab.v2"];
+  [self highlightTab:_tab];
+  _focus = -1;
+  [self reloadTab];
+  [self.tableView setContentOffset:CGPointZero animated:NO];
+}
+
+- (void)pollController {
+  GCExtendedGamepad* pad = GCController.current.extendedGamepad;
+  unsigned buttons = (pad.dpad.up.pressed ? 1 : 0) | (pad.dpad.down.pressed ? 2 : 0) |
+      (pad.dpad.left.pressed ? 4 : 0) | (pad.dpad.right.pressed ? 8 : 0) |
+      (pad.buttonA.pressed ? 16 : 0) | (pad.leftShoulder.pressed ? 32 : 0) |
+      (pad.rightShoulder.pressed ? 64 : 0) | (pad.buttonY.pressed ? 128 : 0) |
+      (pad.buttonB.pressed ? 256 : 0) | (pad.buttonX.pressed ? 512 : 0);
+  unsigned pressed = buttons & ~_controllerButtons;
+  _controllerButtons = buttons;
+  if (!pressed) return;
+  if (self.presentedViewController) {
+    if ((pressed & 256) && [self.presentedViewController isKindOfClass:UIAlertController.class]) {
+      [self dismissViewControllerAnimated:YES completion:nil];
+    }
+    return;
+  }
+  if ((pressed & 512) && _isoName) { [self play]; return; }
+  if (pressed & 256) { [self selectTab:kTabGame]; return; }
+  if (pressed & (32 | 64)) { [self selectTab:_tab + (pressed & 32 ? -1 : 1)]; return; }
+  NSInteger count = 0;
+  for (NSInteger section = 0; section < self.tableView.numberOfSections; ++section)
+    count += [self.tableView numberOfRowsInSection:section];
+  if (!count) return;
+  if (_focus < 0) _focus = 0;
+  else if (pressed & (1 | 2)) _focus = (_focus + (pressed & 2 ? 1 : count - 1)) % count;
+  NSIndexPath* path = nil;
+  NSInteger row = _focus;
+  for (NSInteger section = 0; section < self.tableView.numberOfSections; ++section) {
+    NSInteger rows = [self.tableView numberOfRowsInSection:section];
+    if (row < rows) { path = [NSIndexPath indexPathForRow:row inSection:section]; break; }
+    row -= rows;
+  }
+  if (!path) { _focus = -1; return; }
+  if (path.section < [self fixedSections]) {
+    if (pressed & 16) [self tableView:self.tableView didSelectRowAtIndexPath:path];
+  } else {
+    const Option& option = [self sectionAt:path.section].options[size_t(path.row)];
+    NSString* value = Value(_settings, option.key);
+    if (pressed & 128) {
+      nfsmw::settings_ui::Details(self, option.title, option.summary);
+    } else if (pressed & (4 | 8 | 16)) {
+      if (option.type == Type::kSwitch) {
+        [self set:option.key to:[value isEqualToString:@"true"] ? @"false" : @"true"];
+      } else if (option.type == Type::kChoice && !option.choices.empty()) {
+        NSInteger n = NSInteger(option.choices.size());
+        NSInteger i = 0;
+        while (i < n && ![option.choices[size_t(i)].value isEqualToString:value]) ++i;
+        i = i == n ? 0 : (i + (pressed & 4 ? n - 1 : 1)) % n;
+        [self set:option.key to:option.choices[size_t(i)].value];
+      } else if (pressed & 16) {
+        [self tableView:self.tableView didSelectRowAtIndexPath:path];
+      }
+      [self.tableView reloadData];
+    }
+  }
+  [self.tableView selectRowAtIndexPath:path animated:NO scrollPosition:UITableViewScrollPositionNone];
+  [self.tableView scrollToRowAtIndexPath:path atScrollPosition:UITableViewScrollPositionNone animated:NO];
+}
+
 - (void)dealloc {
   [NSNotificationCenter.defaultCenter removeObserver:self];
 }
@@ -659,6 +991,18 @@ NSString* AchievementSummary(const Achievements& a) {
   _visible.clear();
   for (size_t i = 0; i < Sections().size(); ++i) {
     if (Sections()[i].tab == _tab) _visible.push_back(i);
+  }
+  if (_tab == kTabGame) {
+    UILabel* brand = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 320, 78)];
+    brand.text = @"  N E E D   F O R   S P E E D   /   M O S T   W A N T E D";
+    brand.textColor = nfsmw::settings_ui::Accent();
+    brand.backgroundColor = [UIColor colorWithRed:0.16 green:0.13 blue:0.09 alpha:1];
+    brand.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightBold];
+    brand.adjustsFontSizeToFitWidth = YES;
+    brand.minimumScaleFactor = 0.55;
+    self.tableView.tableHeaderView = brand;
+  } else {
+    self.tableView.tableHeaderView = nil;
   }
   [self.tableView reloadData];
 }
@@ -682,7 +1026,8 @@ NSString* AchievementSummary(const Achievements& a) {
       _isoName = name;
     }
   }
-  self.navigationItem.rightBarButtonItem.enabled = _isoName != nil;
+  _playButton.enabled = _isoName != nil;
+  _focus = -1;
   [self.tableView reloadData];
 }
 
@@ -724,7 +1069,9 @@ NSString* AchievementSummary(const Achievements& a) {
                                             style:UIAlertActionStyleDestructive
                                           handler:^(UIAlertAction*) {
                                             NSString* iso = self->_settings[@"iso"];
+                                            NSString* onboarding = self->_settings[@"onboarding_version"];
                                             [self->_settings removeAllObjects];
+                                            if (onboarding) self->_settings[@"onboarding_version"] = onboarding;
                                             if (iso) {
                                               self->_settings[@"iso"] = iso;
                                             }
@@ -782,10 +1129,7 @@ NSString* AchievementSummary(const Achievements& a) {
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
                                                  reuseIdentifier:nil];
-  UIListContentConfiguration* c = UIListContentConfiguration.subtitleCellConfiguration;
-  c.secondaryTextProperties.color = UIColor.secondaryLabelColor;
-  c.secondaryTextProperties.numberOfLines = 0;
-  c.textToSecondaryTextVerticalPadding = 4;
+  UIListContentConfiguration* c = nfsmw::settings_ui::Content(cell, @"opticaldisc");
 
   const NSInteger fixed = [self fixedSections];
   if (fixed && ip.section == 0) {
@@ -822,6 +1166,8 @@ NSString* AchievementSummary(const Achievements& a) {
   }
 
   const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+  c = nfsmw::settings_ui::Content(cell, o.type == Type::kLink ? @"arrow.up.right.square" :
+                                      o.type == Type::kSwitch ? @"switch.2" : @"slider.horizontal.3");
   if ([o.key isEqualToString:@"saves"] && _savesAttention) {
     c.text = o.title;
     c.secondaryText = [NSString stringWithFormat:@"%d save(s) newer in iCloud or changed on two devices: "
@@ -835,15 +1181,12 @@ NSString* AchievementSummary(const Achievements& a) {
   // Greyed out: what only the emulated renderer uses while the native one
   // draws, and the native renderer's own settings while it is off.
   const bool native = On(_settings, @"native_renderer");
-  const bool battery_locked = native && On(_settings, @"battery_mode") && BatteryValue(o.key);
   const bool hud_locked = (HudDefault(o.key) || [o.key isEqualToString:@"hud_editor"]) && !On(_settings, @"hud_custom");
   const bool inactive =
-      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || battery_locked || hud_locked;
+      (native && EmulatorOnly(o.key)) || (!native && NativeOnly(o.key)) || hud_locked;
   c.text = o.title;
-  c.secondaryText = battery_locked ? [@"Set by Battery mode. " stringByAppendingString:o.summary]
-                    : hud_locked   ? [@"Turn on Custom HUD to change. " stringByAppendingString:o.summary]
-                                   : o.summary;
-  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  c.secondaryText = hud_locked ? [@"Turn on Custom HUD to change. " stringByAppendingString:o.summary] : o.summary;
+  cell.selectionStyle = UITableViewCellSelectionStyleDefault;
   NSString* key = o.key;
   NSString* value = Value(_settings, key);
 
@@ -867,8 +1210,7 @@ NSString* AchievementSummary(const Achievements& a) {
       [sw addAction:[UIAction actionWithHandler:^(UIAction*) {
             [self set:key to:sw.on ? @"true" : @"false"];
             // The native renderer greys other settings out (or back in).
-            if ([key isEqualToString:@"native_renderer"] || [key isEqualToString:@"battery_mode"] ||
-                [key isEqualToString:@"hud_custom"]) {
+            if ([key isEqualToString:@"hud_custom"]) {
               [self.tableView reloadData];
             }
           }]
@@ -951,6 +1293,14 @@ NSString* AchievementSummary(const Achievements& a) {
     }
   }
   cell.contentConfiguration = c;
+  if ([key isEqualToString:@"preset"]) {
+    UILabel* preset = [[UILabel alloc] init];
+    preset.text = PresetName(_settings);
+    preset.textColor = nfsmw::settings_ui::Accent();
+    [preset sizeToFit];
+    cell.accessoryView = preset;
+  }
+  nfsmw::settings_ui::RowDetails(cell, self, o.title, o.summary);
   return cell;
 }
 
@@ -973,6 +1323,10 @@ NSString* AchievementSummary(const Achievements& a) {
   }
   if (ip.section >= fixed) {
     const Option& o = [self sectionAt:ip.section].options[size_t(ip.row)];
+    if ([o.key isEqualToString:@"setup_again"] || [o.key isEqualToString:@"preset"]) {
+      [self openSetup:[o.key isEqualToString:@"preset"]];
+      return;
+    }
     if (o.type == Type::kLink && [o.key isEqualToString:@"multiplayer_setup"]) {
       if (!_isoName) {
         UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Choose a game first"
@@ -1176,15 +1530,18 @@ std::vector<MenuGroup> Groups(NSArray<NSString*>* keys) {
   NSSet* wanted = [NSSet setWithArray:keys];
   NSDictionary<NSString*, NSString*>* settings = LoadSettings(Documents());
   std::vector<MenuGroup> groups;
-  for (const Section& section : Sections()) {
-    MenuGroup g{TabTitles()[section.tab], section.title, {}};
-    for (const Option& o : section.options) {
-      if (![wanted containsObject:o.key] || (o.type != Type::kSwitch && o.type != Type::kChoice)) continue;
-      MenuRow r{o.key, o.title, o.summary, o.type == Type::kSwitch, {}};
-      for (const Choice& c : o.choices) r.choices.emplace_back(ChoiceTitle(o.key, c, settings), c.value);
-      g.rows.push_back(std::move(r));
+  for (NSInteger tab = 0; tab < kTabCount; ++tab) {
+    for (const Section& section : Sections()) {
+      if (section.tab != tab) continue;
+      MenuGroup g{TabTitles()[tab], section.title, {}};
+      for (const Option& o : section.options) {
+        if (![wanted containsObject:o.key]) continue;
+        MenuRow r{o.key, o.title, o.summary, o.type == Type::kSwitch, {}, o.type == Type::kLink};
+        for (const Choice& c : o.choices) r.choices.emplace_back(ChoiceTitle(o.key, c, settings), c.value);
+        g.rows.push_back(std::move(r));
+      }
+      if (!g.rows.empty()) groups.push_back(std::move(g));
     }
-    if (!g.rows.empty()) groups.push_back(std::move(g));
   }
   return groups;
 }
@@ -1227,10 +1584,6 @@ void WriteSettings(const fs::path& documents, NSDictionary<NSString*, NSString*>
 }
 
 NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* key) { return Value(settings, key); }
-
-bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
-  return On(settings, @"native_renderer") && On(settings, @"battery_mode") && BatteryValue(key);
-}
 
 bool HudLocked(NSDictionary<NSString*, NSString*>* settings, NSString* key) {
   return HudDefault(key) && !On(settings, @"hud_custom");

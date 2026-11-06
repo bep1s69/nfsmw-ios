@@ -45,6 +45,7 @@ struct MenuRow {
   NSString* summary;
   bool is_switch;
   std::vector<std::pair<NSString*, NSString*>> choices;  // title, value
+  bool is_link = false;
 };
 // The rows for these keys, in this order (unknown keys left out).
 std::vector<MenuRow> Rows(NSArray<NSString*>* keys);
@@ -71,7 +72,6 @@ void WriteSettings(const std::filesystem::path& documents, NSDictionary<NSString
 // A setting's value as the game gets it (Battery mode's when it sets it).
 NSString* SettingValue(NSDictionary<NSString*, NSString*>* settings, NSString* key);
 // Battery mode is on and sets this one.
-bool SetByBatteryMode(NSDictionary<NSString*, NSString*>* settings, NSString* key);
 // A HUD size/position setting while Custom HUD is off (the game's value used).
 bool HudLocked(NSDictionary<NSString*, NSString*>* settings, NSString* key);
 // The game's arguments for these settings (as SettingsArguments).

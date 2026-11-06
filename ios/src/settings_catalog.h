@@ -57,7 +57,7 @@ struct Section {
 };
 
 // The launcher's tabs (a segmented control at the top).
-enum Tab { kTabGame, kTabExtras, kTabGraphics, kTabControls, kTabAudio, kTabAdvanced, kTabCount };
+enum Tab { kTabGame, kTabDisplay, kTabBattery, kTabGraphics, kTabControls, kTabExtras, kTabAudio, kTabAdvanced, kTabCount };
 
 // What the game uses when an option has never been changed: the iOS port's
 // current defaults (ios_main.mm), which are Android's except where noted.
@@ -106,6 +106,12 @@ NSString* SettingsPath(const fs::path& docs);
 NSMutableDictionary<NSString*, NSString*>* LoadSettings(const fs::path& docs);
 void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s);
 NSString* BatteryValue(NSString* key);
+NSArray<NSString*>* PresetNames();
+NSString* PresetName(NSDictionary<NSString*, NSString*>* settings);
+void ApplyPreset(NSMutableDictionary<NSString*, NSString*>* settings, NSInteger preset,
+                 NSString* fps, NSString* reflection);
+void ApplyInputSetup(NSMutableDictionary<NSString*, NSString*>* settings, NSInteger input,
+                     NSString* steering);
 NSString* HudDefault(NSString* key);
 NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key);
 bool On(NSDictionary<NSString*, NSString*>* s, NSString* key);

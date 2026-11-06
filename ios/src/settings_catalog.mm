@@ -21,7 +21,7 @@ namespace nfsmw::catalog {
 
 
 NSArray<NSString*>* TabTitles() {
-  return @[ @"Game", @"Extras", @"Graphics", @"Controls", @"Audio", @"Advanced" ];
+  return @[ @"Play", @"Display", @"Battery", @"Graphics", @"HUD & Controls", @"Gameplay", @"Audio", @"Advanced" ];
 }
 
 // The choices 0, 10, ... 100 (traffic density).
@@ -270,6 +270,9 @@ std::vector<Choice> FrameRateChoices() {
 
 const std::vector<Section>& Sections() {
   static const std::vector<Section> sections = {
+      {@"Setup", nil, {
+           {@"setup_again", Type::kLink, @"Set up again", @"Open first-launch setup.", @""},
+       }, kTabGame},
       {@"Saves", nil,
        {
            {@"saves", Type::kLink, @"Save manager",
@@ -488,9 +491,13 @@ const std::vector<Section>& Sections() {
              {NativeScaleTitle(), @"native"}}, kInGame | kInGameNative, "nfsmw_native_resolution_scale"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. Higher caps make motion smoother when the game "
-            @"can keep up. 40 and 120 are available on 120 Hz displays. With Battery mode: "
-            @"30 or 40 (60 and 120 become 30).",
+            @"can keep up. 40 and 120 are available on 120 Hz displays.",
             @"60", FrameRateChoices(), kInGame},
+           {@"show_fps", Type::kSwitch, @"Show FPS",
+            @"Corner counter: frames per second and milliseconds per frame.", @"false"},
+       }, kTabDisplay},
+      {@"Battery", nil, {
+           {@"preset", Type::kLink, @"Look and performance", @"Choose a starting point for graphics and battery life.", @""},
            {@"auto_cap", Type::kSwitch, @"30 fps when warm or on Low Power",
             @"At the 40 and 60 caps: 30 fps while Low Power Mode is on or the phone is warm, back "
             @"once it is off and cool again.",
@@ -503,13 +510,6 @@ const std::vector<Section>& Sections() {
             @"Native renderer: the render resolution drops to 0.75x while the phone is hot (iOS "
             @"thermal state \"serious\") and goes back to the one chosen once it has cooled down.",
             @"false", {}, kInGame | kInGameNative | kNativeOnly, "nfsmw_heat_scale"},
-           {@"battery_mode", Type::kSwitch, @"Battery mode",
-            @"Native renderer: less work for a cooler phone and longer play. Sets the settings "
-            @"marked \"Set by Battery mode\" (0.85x, FXAA, half-size shadows, car "
-            @"reflections half updated each frame, 30 fps when warm or on Low Power, 30 fps in "
-            @"menus and pause, 0.75x when hot) and keeps the frame rate cap at 30 or 40 (60 and 120 "
-            @"become 30). Each can also be chosen on its own with Battery mode off.",
-            @"false", {}, kInGame | kInGameNative | kNativeOnly},
            {@"performance_mode", Type::kChoice, @"Performance",
             @"Which CPU cores the game's threads ask for. Eco: the efficient ones always (the "
             @"default with Battery mode on), for battery life over smoothness. Balanced: the "
@@ -519,9 +519,7 @@ const std::vector<Section>& Sections() {
             @"own priority in every mode. iOS takes this as a hint, not a fixed choice of cores.",
             @"balanced",
             {{@"Eco", @"eco"}, {@"Balanced", @"balanced"}, {@"Max", @"max"}}, kInGame},
-           {@"show_fps", Type::kSwitch, @"Show FPS",
-            @"Corner counter: frames per second and milliseconds per frame.", @"false"},
-       }, kTabGraphics},
+       }, kTabBattery},
       {@"HUD", @"Also in the options while playing (the gear in pause screens, or L3+R3), where "
                @"they apply at once: the HUD shows them as soon as driving starts again.",
        {
@@ -531,8 +529,8 @@ const std::vector<Section>& Sections() {
            {@"hud_editor", Type::kLink, @"Customize HUD",
             @"Move each part of the HUD by hand, change its size, and set the HUD's overall size and "
             @"safe zone. Race / free roam and pursuit each have a tab.",
-            @""},
-       }, kTabGraphics},
+            @"", {}, kInGame},
+       }, kTabControls},
       {@"Graphics", nil,
        {
            {@"antialiasing", Type::kChoice, @"Anti-aliasing",
@@ -560,9 +558,8 @@ const std::vector<Section>& Sections() {
             @"1",
             {{@"Full", @"1"}, {@"Half", @"0.5"}}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_shadow_scale"},
            {@"reflection_rate", Type::kChoice, @"Car reflections",
-            @"Native renderer: the environment reflected on the cars redrawn whole every frame, "
-            @"or half of it each frame (the other half a frame old). Half: ~1 ms less GPU work "
-            @"a frame in races, hard to notice.",
+            @"Choose how often each car reflection face updates. Half rate gives 15 updates per second "
+            @"at 30 fps or 20 at 40 fps.",
             @"full",
             {{@"Every frame", @"full"}, {@"Half each frame", @"half"}}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_half_rate_reflections"},
            {@"reflection_size", Type::kChoice, @"Reflection and mirror resolution",
@@ -588,7 +585,7 @@ const std::vector<Section>& Sections() {
            {@"touch_layout", Type::kLink, @"Customize touch controls",
             @"Move and resize the on-screen buttons and sticks (both the Pad and the Drive "
             @"layouts), and set their size and opacity.",
-            @""},
+            @"", {}, kInGame},
            {@"touch_steering", Type::kChoice, @"Steering",
             @"Drive layout. Dynamic: a joystick comes up wherever your thumb lands in the bottom-left "
             @"quarter of the screen and fades out when you lift it. Fixed: the steering circle stays "
@@ -611,8 +608,8 @@ const std::vector<Section>& Sections() {
            {@"touch_menu_two_finger_back", Type::kSwitch, @"Two-finger tap to go back",
             @"Tap with two fingers in menus to press Back (B). Independent of tap and swipe anywhere.", @"true", {}, kInGame, "ios_touch_menu_two_finger_back"},
            {@"touch_menu_invert", Type::kSwitch, @"Invert menu swipes",
-            @"Reverse the direction used to navigate menus. Off keeps the current direction. "
-            @"World-map cursor dragging is unchanged.", @"false", {}, kInGame, "ios_touch_menu_invert"},
+            @"Reverse the direction used to navigate menus. "
+            @"World-map cursor dragging is unchanged.", @"true", {}, kInGame, "ios_touch_menu_invert"},
            {@"touch_look", Type::kSwitch, @"Swipe to look around",
             @"Drive layout: swipe on the screen where there is no control to turn the chase camera "
             @"around the car (free look). It swings back behind the car when you let go.",
@@ -647,7 +644,7 @@ const std::vector<Section>& Sections() {
             @"Which key does what. PC-style by default: arrows or WASD to drive, Space handbrake, "
             @"Alt nitrous, Shift and Ctrl to change gear, Return to accept, Backspace to go back, "
             @"Esc to pause.",
-            @""},
+            @"", {}, kInGame},
        }, kTabControls},
       {@"Audio", nil,
        {
@@ -750,6 +747,19 @@ NSMutableDictionary<NSString*, NSString*>* LoadSettings(const fs::path& docs) {
   // Retire temporary stress selections saved by the 0.5.1 test builds.
   if (s[@"scale"] && ![s[@"scale"] isEqualToString:@"native"] &&
       [s[@"scale"] doubleValue] > 2.0) s[@"scale"] = @"1";
+  if ([s[@"battery_mode"] isEqualToString:@"true"]) {
+    // Read all legacy effective values before removing the override.
+    NSMutableDictionary* effective = [NSMutableDictionary dictionary];
+    for (const auto& section : Sections()) {
+      for (const auto& option : section.options) {
+        if (NSString* value = BatteryValue(option.key)) effective[option.key] = value;
+      }
+    }
+    effective[@"fps_cap"] = [s[@"fps_cap"] isEqualToString:@"40"] && SupportsHighFrameRates() ? @"40" : @"30";
+    effective[@"performance_mode"] = s[@"performance_mode"] ?: @"eco";
+    [s addEntriesFromDictionary:effective];
+  }
+  [s removeObjectForKey:@"battery_mode"];
   return s;
 }
 
@@ -762,8 +772,7 @@ void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s) {
 }
 
 
-// Battery mode (native renderer) sets these itself: shown greyed out with
-// its values; the ones chosen stay saved for when it is off again.
+// Longest battery starts with the former Battery mode overrides.
 NSString* BatteryValue(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"scale" : @"0.85",
@@ -772,7 +781,6 @@ NSString* BatteryValue(NSString* key) {
     @"shadow_size" : @"1600",
     @"postprocessing" : @"true",
     @"motion_blur" : @"true",
-    @"scaling" : @"bilinear",
     @"shadow_scale" : @"0.5",
     @"reflection_rate" : @"half",
     @"reflection_size" : @"1x",
@@ -786,6 +794,77 @@ NSString* BatteryValue(NSString* key) {
 // The HUD settings that Custom HUD switches on (0.4.2, Stefan: a master
 // switch, so a player who never touches them gets the game's own HUD), with
 // the game's values used while it is off.
+NSArray<NSString*>* PresetNames() {
+  return @[@"Longest battery", @"Balanced", @"Best looking"];
+}
+
+static NSDictionary<NSString*, NSString*>* QualityOverrides() {
+  return @{@"scale": @"native", @"antialiasing": @"msaa4", @"anisotropic": @"5",
+           @"reflection_size": @"scaled", @"performance_mode": @"max",
+           @"fps_cap": UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad &&
+                        SupportsHighFrameRates() ? @"120" : @"60"};
+}
+
+static bool PresetOption(NSString* key) {
+  return BatteryValue(key) || [key isEqualToString:@"fps_cap"] ||
+         [key isEqualToString:@"performance_mode"];
+}
+
+static NSString* PresetValue(const Option& option, NSInteger preset, NSString* fps, NSString* reflection) {
+  if (preset == 0) {
+    if ([option.key isEqualToString:@"fps_cap"]) return fps;
+    if ([option.key isEqualToString:@"performance_mode"]) return @"eco";
+    if ([option.key isEqualToString:@"reflection_rate"]) return reflection;
+    return BatteryValue(option.key);
+  }
+  if (preset == 2) {
+    NSString* value = QualityOverrides()[option.key];
+    if (value) return value;
+  }
+  return option.default_value;
+}
+
+void ApplyPreset(NSMutableDictionary<NSString*, NSString*>* settings, NSInteger preset,
+                 NSString* fps, NSString* reflection) {
+  if (preset < 0 || preset >= NSInteger(PresetNames().count)) return;
+  fps = SupportsHighFrameRates() && [fps isEqualToString:@"40"] ? @"40" : @"30";
+  reflection = [reflection isEqualToString:@"full"] ? @"full" : @"half";
+  for (const auto& section : Sections()) {
+    for (const auto& option : section.options) {
+      if (PresetOption(option.key)) settings[option.key] = PresetValue(option, preset, fps, reflection);
+    }
+  }
+}
+
+NSString* PresetName(NSDictionary<NSString*, NSString*>* settings) {
+  NSString* fps = Value(settings, @"fps_cap");
+  NSString* reflection = Value(settings, @"reflection_rate");
+  for (NSInteger preset = 0; preset < NSInteger(PresetNames().count); ++preset) {
+    if (preset == 0 && !([fps isEqualToString:@"30"] ||
+                        (SupportsHighFrameRates() && [fps isEqualToString:@"40"]))) continue;
+    bool matches = true;
+    for (const auto& section : Sections()) {
+      for (const auto& option : section.options) {
+        if (PresetOption(option.key) &&
+            ![Value(settings, option.key) isEqualToString:PresetValue(option, preset, fps, reflection)]) {
+          matches = false;
+        }
+      }
+    }
+    if (matches) return PresetNames()[preset];
+  }
+  return @"Custom";
+}
+
+void ApplyInputSetup(NSMutableDictionary<NSString*, NSString*>* settings, NSInteger input,
+                     NSString* steering) {
+  if (input < 0) return;
+  settings[@"touch_controls"] = input == 2 ? @"false" : @"true";
+  settings[@"keyboard"] = input == 2 ? @"true" : @"false";
+  settings[@"mouse_look"] = input == 2 ? @"true" : @"false";
+  if (input == 0 && steering) settings[@"touch_steering"] = steering;
+}
+
 NSString* HudDefault(NSString* key) {
   static NSDictionary<NSString*, NSString*>* values = @{
     @"hud_scale" : @"1.00",
@@ -820,24 +899,10 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
   if (NSString* game = HudDefault(key); game && ![s[@"hud_custom"] isEqualToString:@"true"]) {
     return game;
   }
-  if (NSString* forced = BatteryValue(key);
-      forced && [s[@"battery_mode"] isEqualToString:@"true"] && On(s, @"native_renderer")) {
-    return forced;
-  }
   NSString* v = s[key];
   if ([key isEqualToString:@"fps_cap"] && !SupportsHighFrameRates() &&
       ([v isEqualToString:@"40"] || [v isEqualToString:@"120"])) v = @"60";
   if (!v.length && HudDefault(key)) return HudDefault(key);  // no row of its own (the HUD editor's)
-  // Battery mode keeps the cap at 30 or 40, as chosen (Stefan, Oct 28; it
-  // forced 30 before 0.4.2): 60 and 120 become 30.
-  if ([key isEqualToString:@"fps_cap"] && [s[@"battery_mode"] isEqualToString:@"true"] &&
-      On(s, @"native_renderer") && !([v isEqualToString:@"30"] || [v isEqualToString:@"40"])) {
-    return @"30";
-  }
-  // Performance: Eco by default with Battery mode on; a choice made wins.
-  if (!v && [key isEqualToString:@"performance_mode"] && [s[@"battery_mode"] isEqualToString:@"true"]) {
-    return @"eco";
-  }
   if (v && [key isEqualToString:@"aspect"]) {  // older settings files: the video modes themselves
     // 0.6.0: only Fit this screen and 16:9; the 4:3 and 19.5:9 choices are Fit.
     if (![v isEqualToString:@"16:9"]) return @"auto";
@@ -953,7 +1018,6 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_performance_mode=" + str(@"performance_mode"));
   a.push_back(std::string("--nfsmw_performance_source=") +
               (s[@"performance_mode"].length ? "setting"
-               : [s[@"battery_mode"] isEqualToString:@"true"] ? "battery_mode"
                                                               : "default"));
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));

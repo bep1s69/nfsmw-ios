@@ -21755,3 +21755,33 @@ resolves when a kept cube exists. This implies 15/20 updates per face at
 steady 30/40 fps. The inspected code does not establish mirror cadence.
 Recorded Every frame by default and optional Half rate as the proposal.
 No code, build, frame measurement, or device run in this review.
+
+## November 6: dev104 shared menus, onboarding and editable presets
+
+Shared dark UIKit container, width-adaptive tabs and row styling for both
+menus, with details and controller focus. Catalogue flags expose the three
+editor links in game. Launcher controller supports D-pad, A, LB/RB, Y for
+details, B back to Play, X to play. Setup runs once when onboarding_version
+is absent and can be reopened. Preset values are applied on Finish, with
+existing users defaulting to Keep my current settings. Longest battery
+defaults to 30 fps and Half rate; it also offers 40 fps on supported
+displays and Every frame. Legacy Battery mode is converted to explicit
+effective values, and menu swipes default inverted unless explicitly set.
+
+`python3 tools/ios/patch_game_extra_options.py` ran before both build
+attempts, exit 0 and 0 files written each time. First
+`cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+failed in launcher.mm on a pointer member access and a switch scope.
+Corrected both; rebuild exit 0, with generated SDK asm and duplicate -lz
+warnings. Build logs: /private/tmp/nfsmw-dev104-build.log and
+/private/tmp/nfsmw-dev104-rebuild.log. `git diff --check` and `unzip -tq`
+passed. IPA `ios/build/NFSMW-0.6.0-dev104-menu-setup.ipa`, SHA256
+75820f5d7bc462532febcb723269ceeb98269f72a139e64de73992462f2430c9,
+arm64 UUID 6F431EB0-31D0-38D0-ADFE-9C0C2E33064D.
+
+Desktop copy verified with cmp. `trash` returned 5 (Cocoa error 513);
+moved the exact Desktop dev103 IPA to ~/.Trash with mv -n and verified
+it left Desktop. NFS-Most-Wanted-0.5.2.ipa still on Desktop. Device
+discovery via `xcrun devicectl list devices` reported CoreDeviceService
+initialization timeout. No runtime or device UI validation. Mirror
+cadence and battery-life effects were not measured.

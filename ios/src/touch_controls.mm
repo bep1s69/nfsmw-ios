@@ -82,7 +82,7 @@ REXCVAR_DEFINE_BOOL(ios_touch_menu_empty_accept, false, "Input",
                     "Tap empty space to accept and swipe anywhere; off restricts both to recognised menu widgets");
 REXCVAR_DEFINE_BOOL(ios_touch_menu_two_finger_back, true, "Input",
                     "A short two-finger tap in menus presses Back (B), independently of empty-space gestures");
-REXCVAR_DEFINE_BOOL(ios_touch_menu_invert, false, "Input",
+REXCVAR_DEFINE_BOOL(ios_touch_menu_invert, true, "Input",
                     "Reverse swipe navigation in menus; world-map cursor dragging stays direct");
 REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "

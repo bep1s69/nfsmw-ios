@@ -246,15 +246,14 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
    was 2347) keeps the view controllers and launcher.h's functions.
 3. **Shared cell builder** used by both screens (no visible change, or only
    identical-looking cells).
-4. **Look and feel + new tab layout** (mockups to Stefan first), then the
+4. **Look and feel + new tab layout** — built in dev104, then the
    **onboarding** on the same components. New tab layout in the launcher, then the same in the in-game sheet;
    customize rows replace the in-game nav bar buttons; per-row status text;
    short summaries with details. Show Stefan screenshots before building the
    IPA.
-5. **Controller navigation in the launcher** using the shared helper.
-6. **Profiles and Battery mode**: only after Stefan decides the wording and
-   behaviour (and after the profile audit). Leave the switch working until
-   then.
+5. **Controller navigation in the launcher** — built in dev104.
+6. **Profiles and Battery mode** — Battery mode replaced by an editable
+   preset in dev104. CPU profile behavior still awaits the profile audit.
 7. Device check on iPhone and iPad (touch, controller, keyboard), both menus,
    Battery mode on/off, native and emulated renderer.
 
@@ -322,16 +321,17 @@ Stefan approved the design and requested inverted menu swipes as the default
 choice within Longest battery. Offer 40 only where the existing catalogue
 supports it. Both are preset variants and retain the preset name.
 
-Reflection recommendation for the preset: default to Every frame, giving
-30 or 40 updates per second per cube face when the game holds its target.
-Offer Half rate explicitly for extra savings, giving 15 or 20 updates per
-second per face. Show the nominal rate in the picker and explain that it
-follows actual frame rate, including adaptive caps. Avoid a 30 Hz limiter at
-40 fps, which would need uneven skips with the current frame-based renderer.
-During migration, preserve an existing 30/40 cap and propose using Every
-frame for the new default; Half rate remains available as a deliberate choice.
-The current half-rate cvar alternates environment cube faces only. Verify
-rear-view mirror cadence independently before claiming the picker changes it.
+Final decision: default to Half rate in Longest battery, at 15 or 20 Hz
+per car reflection face when the game holds 30 or 40 fps. Every frame is
+selectable at 30 or 40 Hz, respectively. Both controls appear directly
+below the selected card and either variant retains the preset name.
+Preserve existing Battery mode's effective cap, profile and half-rate
+cadence during migration. The current cvar alternates environment cube
+faces only. Rear-view mirror cadence remains unverified.
+
+dev104 implements the redesign and onboarding. The launcher hero uses
+a typographic treatment and the steering choices use a steering wheel
+icon. Device validation is pending.
 
 ## Open questions for Stefan
 

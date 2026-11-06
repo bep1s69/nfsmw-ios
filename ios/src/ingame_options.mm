@@ -47,6 +47,7 @@
 #include "performance_profile.h"
 #include "ingame_options.h"
 #include "launcher.h"
+#include "settings_ui.h"
 #include "hud_editor.h"
 #include "touch_controls.h"
 
@@ -116,9 +117,11 @@ UIWindow* GameWindow() {
 // ---------------------------------------------------------------------------
 //  The sheet
 // ---------------------------------------------------------------------------
-@interface NFSInGameOptions : UITableViewController <UIAdaptivePresentationControllerDelegate>
+@interface NFSInGameOptions : NFSSettingsController <UIAdaptivePresentationControllerDelegate>
 - (void)controllerUp:(BOOL)up down:(BOOL)down left:(BOOL)left right:(BOOL)right a:(BOOL)a;
 - (void)controllerTab:(NSInteger)step;
+- (void)controllerDetails;
+- (void)controllerBack;
 - (void)close;
 @end
 
@@ -130,7 +133,6 @@ UIWindow* GameWindow() {
   NSArray<NSString*>* _tabs;                         // their tab titles, in order
   NSInteger _tab;                                    // the tab shown
   std::vector<size_t> _visible;                      // _groups on that tab
-  UISegmentedControl* _tabControl;
   NSInteger _focus;  // the controller's row, -1 until it is used
 }
 
@@ -209,39 +211,10 @@ UIWindow* GameWindow() {
       [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                     target:self
                                                     action:@selector(close)];
-  // The HUD editor (the launcher's Customize HUD), while Custom HUD is on.
-  // And the touch controls' editor (Stefan, Oct 29).
-  self.navigationItem.leftBarButtonItems = @[
-    [[UIBarButtonItem alloc] initWithTitle:@"Customize HUD"
-                                     style:UIBarButtonItemStylePlain
-                                    target:self
-                                    action:@selector(customizeHud)],
-    [[UIBarButtonItem alloc] initWithTitle:@"Touch controls"
-                                     style:UIBarButtonItemStylePlain
-                                    target:self
-                                    action:@selector(customizeTouch)],
-    // The keyboard's keys (both sets), applied at once (Stefan, November 2).
-    [[UIBarButtonItem alloc] initWithTitle:@"Keyboard"
-                                     style:UIBarButtonItemStylePlain
-                                    target:self
-                                    action:@selector(customizeKeyboard)]
-  ];
-  _tabControl = [[UISegmentedControl alloc] initWithItems:_tabs];
-  _tabControl.selectedSegmentIndex = _tab;
-  [_tabControl addAction:[UIAction actionWithHandler:^(UIAction*) {
-                  [self showTab:self->_tabControl.selectedSegmentIndex];
-                }]
-        forControlEvents:UIControlEventValueChanged];
-  UIView* header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, 52)];
-  _tabControl.translatesAutoresizingMaskIntoConstraints = NO;
-  [header addSubview:_tabControl];
-  [NSLayoutConstraint activateConstraints:@[
-    [_tabControl.centerXAnchor constraintEqualToAnchor:header.centerXAnchor],
-    [_tabControl.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-    [_tabControl.leadingAnchor constraintGreaterThanOrEqualToAnchor:header.leadingAnchor constant:16]
-  ]];
-  self.tableView.tableHeaderView = header;
-  [self updateHudButton];
+  self.navigationController.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+  __weak NFSInGameOptions* weak = self;
+  [self installTabs:_tabs select:^(NSInteger tab) { [weak showTab:tab]; }];
+  [self highlightTab:_tab];
 }
 
 // Tabs as the launcher's (Extras, Graphics, Controls) plus Actions; groups
@@ -254,7 +227,7 @@ UIWindow* GameWindow() {
   for (size_t i = 0; i < _groups.size(); ++i) {
     if ([_groups[i].tab isEqualToString:_tabs[size_t(_tab)]]) _visible.push_back(i);
   }
-  _tabControl.selectedSegmentIndex = _tab;
+  [self highlightTab:_tab];
   _focus = _focus < 0 ? -1 : 0;
   [self.tableView reloadData];
   [self showFocus];
@@ -279,11 +252,6 @@ UIWindow* GameWindow() {
   NSInteger n = 0;
   for (size_t i : _visible) n += NSInteger(_groups[i].rows.size());
   return n;
-}
-
-- (void)updateHudButton {
-  self.navigationItem.leftBarButtonItem.enabled =
-      [nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"];
 }
 
 - (void)customizeKeyboard {
@@ -327,7 +295,6 @@ UIWindow* GameWindow() {
 - (BOOL)waitsForLaunch:(NSString*)key {
   NSString* now = nfsmw::launcher::SettingValue(_settings, key);
   NSString* then = nfsmw::launcher::SettingValue(_launched, key);
-  if ([now isEqualToString:then]) return NO;
   if ([key isEqualToString:@"fps_cap"]) return !LiveCap(now) || !LiveCap(then);
   if ([key isEqualToString:@"antialiasing"]) {
     const bool native = [nfsmw::launcher::SettingValue(_settings, @"native_renderer") isEqualToString:@"true"];
@@ -336,8 +303,7 @@ UIWindow* GameWindow() {
   return NO;
 }
 
-// Anything set at launch only that differs from then (Battery mode also
-// sets some of those).
+// Anything set at launch only that differs from then.
 - (BOOL)anythingWaits {
   const std::vector<std::string> now = nfsmw::launcher::ArgumentsFor(_settings);
   const std::vector<std::string> then = nfsmw::launcher::ArgumentsFor(_launched);
@@ -398,17 +364,18 @@ UIWindow* GameWindow() {
     return;
   }
   _settings[key] = value;
-  if ([key isEqualToString:@"performance_mode"] || [key isEqualToString:@"battery_mode"]) {
+  if ([key isEqualToString:@"performance_mode"]) {
     nfsmw::performance::Choose(std::string(nfsmw::launcher::SettingValue(_settings, @"performance_mode").UTF8String));
   }
   [self apply];
-  [self updateHudButton];
   [self.tableView reloadData];
   [self showFocus];
 }
 
 - (BOOL)locked:(const nfsmw::launcher::MenuRow&)r {
-  return nfsmw::launcher::SetByBatteryMode(_settings, r.key) || nfsmw::launcher::HudLocked(_settings, r.key);
+  return nfsmw::launcher::HudLocked(_settings, r.key) ||
+      ([r.key isEqualToString:@"hud_editor"] &&
+       ![nfsmw::launcher::SettingValue(_settings, @"hud_custom") isEqualToString:@"true"]);
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
@@ -440,19 +407,20 @@ UIWindow* GameWindow() {
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)ip {
   const nfsmw::launcher::MenuRow& r = [self rowAt:ip];
   UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
-  UIListContentConfiguration* c = UIListContentConfiguration.subtitleCellConfiguration;
-  c.secondaryTextProperties.color = UIColor.secondaryLabelColor;
-  c.secondaryTextProperties.numberOfLines = 0;
+  UIListContentConfiguration* c = nfsmw::settings_ui::Content(cell, r.is_link ? @"arrow.up.right.square" :
+                                      r.is_switch ? @"switch.2" : @"slider.horizontal.3");
   const bool locked = [self locked:r];
   NSString* value = nfsmw::launcher::SettingValue(_settings, r.key);
   c.text = [self waitsForLaunch:r.key] ? [r.title stringByAppendingString:@" · next launch"] : r.title;
-  c.secondaryText = !locked ? r.summary
-                    : nfsmw::launcher::HudLocked(_settings, r.key)
-                        ? [@"Turn on Custom HUD to change. " stringByAppendingString:r.summary]
-                        : [@"Set by Battery mode. " stringByAppendingString:r.summary];
+  c.secondaryText = locked ? [@"Turn on Custom HUD to change. " stringByAppendingString:r.summary] : r.summary;
   cell.contentConfiguration = c;
   cell.contentView.alpha = locked ? 0.45 : 1.0;
   NSString* key = r.key;
+  if (r.is_link) {
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    nfsmw::settings_ui::RowDetails(cell, self, r.title, r.summary);
+    return cell;
+  }
   if ([key isEqualToString:kTeleport]) {
     // A menu of places, by area.
     NSMutableDictionary<NSString*, NSMutableArray<UIMenuElement*>*>* areas = [NSMutableDictionary dictionary];
@@ -531,12 +499,38 @@ UIWindow* GameWindow() {
     button.enabled = !locked;
     cell.accessoryView = button;
   }
+  nfsmw::settings_ui::RowDetails(cell, self, r.title, r.summary);
   cell.selectionStyle = UITableViewCellSelectionStyleDefault;
   return cell;
 }
 
 - (NSIndexPath*)tableView:(UITableView*)tableView willSelectRowAtIndexPath:(NSIndexPath*)ip {
-  return nil;  // touches go to the switch or the menu
+  return [self rowAt:ip].is_link ? ip : nil;
+}
+
+- (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)path {
+  const auto& row = [self rowAt:path];
+  if ([self locked:row]) return;
+  if ([row.key isEqualToString:@"hud_editor"]) [self customizeHud];
+  else if ([row.key isEqualToString:@"touch_layout"]) [self customizeTouch];
+  else if ([row.key isEqualToString:@"keyboard_bindings"]) [self customizeKeyboard];
+}
+
+- (void)controllerBack {
+  if (self.presentedViewController) {
+    [self dismissViewControllerAnimated:YES completion:nil];
+  } else if (self.navigationController.topViewController != self) {
+    [self.navigationController popViewControllerAnimated:YES];
+  } else {
+    [self close];
+  }
+}
+
+- (void)controllerDetails {
+  NSIndexPath* path = [self focusPath];
+  if (!path || self.presentedViewController || self.navigationController.topViewController != self) return;
+  const auto& row = [self rowAt:path];
+  nfsmw::settings_ui::Details(self, row.title, row.summary);
 }
 
 - (void)showFocus {
@@ -548,10 +542,12 @@ UIWindow* GameWindow() {
 
 // One step of the controller (each press once).
 - (void)controllerTab:(NSInteger)step {
-  [self showTab:_tab + step];
+  if (!self.presentedViewController && self.navigationController.topViewController == self)
+    [self showTab:_tab + step];
 }
 
 - (void)controllerUp:(BOOL)up down:(BOOL)down left:(BOOL)left right:(BOOL)right a:(BOOL)a {
+  if (self.presentedViewController || self.navigationController.topViewController != self) return;
   const NSInteger n = [self rowCount];
   if (n == 0) return;
   if (_focus < 0) {
@@ -561,6 +557,10 @@ UIWindow* GameWindow() {
   } else if (left || right || a) {
     const nfsmw::launcher::MenuRow& r = [self rowAt:[self focusPath]];
     if ([self locked:r]) return;
+    if (r.is_link) {
+      if (a) [self tableView:self.tableView didSelectRowAtIndexPath:[self focusPath]];
+      return;
+    }
     if ([r.key isEqualToString:kHeatStep]) {
       if (left || right) [self set:r.key to:left ? @"-1" : @"1"];
       return;
@@ -575,6 +575,7 @@ UIWindow* GameWindow() {
       return;
     }
     const NSInteger count = NSInteger(r.choices.size());
+    if (!count) return;
     NSInteger i = 0;
     while (i < count && ![r.choices[size_t(i)].second isEqualToString:value]) ++i;
     i = i == count ? 0 : (i + (left ? count - 1 : 1)) % count;
@@ -606,7 +607,7 @@ UIWindow* GameWindow() {
   UIButton* _gear;
   __weak NFSInGameOptions* _sheet;
   NSTimer* _timer;
-  BOOL _combo, _up, _down, _left, _right, _a, _b, _l1, _r1;  // last state, for presses
+  BOOL _combo, _up, _down, _left, _right, _a, _b, _l1, _r1, _y;  // last state, for presses
 }
 
 - (instancetype)initInWindow:(UIWindow*)window {
@@ -650,6 +651,7 @@ UIWindow* GameWindow() {
   NFSInGameOptions* sheet = [[NFSInGameOptions alloc] init];
   NFSInGameOptionsNavigation* nav = [[NFSInGameOptionsNavigation alloc] initWithRootViewController:sheet];
   nav.modalPresentationStyle = UIModalPresentationFormSheet;
+  nav.preferredContentSize = CGSizeMake(880, 620);
   nav.presentationController.delegate = sheet;
   sheet_open = true;
   _sheet = sheet;
@@ -677,12 +679,15 @@ UIWindow* GameWindow() {
   const BOOL a = pad.buttonA.pressed, b = pad.buttonB.pressed;
   const BOOL l1 = pad.leftShoulder.pressed, r1 = pad.rightShoulder.pressed;
   if ((b && !_b) || pressed_combo) {
-    [sheet close];
+    [sheet controllerBack];
+  } else if (pad.buttonY.pressed && !_y) {
+    [sheet controllerDetails];
   } else if ((l1 && !_l1) || (r1 && !_r1)) {
     [sheet controllerTab:l1 && !_l1 ? -1 : 1];
   } else if ((up && !_up) || (down && !_down) || (left && !_left) || (right && !_right) || (a && !_a)) {
     [sheet controllerUp:up && !_up down:down && !_down left:left && !_left right:right && !_right a:a && !_a];
   }
+  _y = pad.buttonY.pressed;
   _up = up, _down = down, _left = left, _right = right, _a = a, _b = b, _l1 = l1, _r1 = r1;
 }
 

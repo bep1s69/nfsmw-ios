@@ -165,6 +165,7 @@ add_executable(nfsmw MACOSX_BUNDLE
     src/ios_main.mm
     src/launcher.mm
     src/settings_catalog.mm
+    src/settings_ui.mm
     src/hud_editor.mm
     src/save_manager.mm
     src/save_import.cpp
