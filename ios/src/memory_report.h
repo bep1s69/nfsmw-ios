@@ -9,6 +9,14 @@ namespace nfsmw::memory {
 // compressed).
 void Report(const char* stage);
 
+// One boot.txt line with the app's memory limit and the device's RAM (the
+// iPhone 11 under LiveContainer: about 2 GB, too little for a race).
+void TraceLimit();
+
+// Calls on_pressure (any thread) each time iOS says memory is short or
+// critical, and records it in boot.txt and the log.
+void StartPressureWatch(void (*on_pressure)());
+
 // The device's thermal state ("nominal", "fair", "serious", "critical").
 const char* ThermalState();
 

@@ -17,6 +17,8 @@
 
 #include "memory_report.h"
 
+#include "boot_trace.h"
+
 #include <malloc/malloc.h>
 #include <mach/mach.h>
 #include <mach/task_info.h>
@@ -64,6 +66,50 @@ void Report(const char* stage) {
               device ? device.currentAllocatedSize / kMiB : 0.0, heap.size_in_use / kMiB, vm.internal / kMiB,
               vm.compressed / kMiB, vm.external / kMiB, ThermalState(),
               [NSProcessInfo processInfo].lowPowerModeEnabled ? ", Low Power Mode on" : "");
+  // Close to the limit: iOS ends the app with SIGKILL, which nothing catches,
+  // so say it in boot.txt (written at once) and get the log to the file.
+  constexpr uint64_t kNearLimit = 384ull << 20;
+  if (has_limit && vm.limit_bytes_remaining < kNearLimit) {
+    boot::Trace(fmt::format("memory: {} with {:.0f} MiB left before the limit (footprint {:.0f} MiB)", stage,
+                            vm.limit_bytes_remaining / kMiB, vm.phys_footprint / kMiB));
+    rex::FlushLogging();
+  }
+}
+
+void TraceLimit() {
+  task_vm_info_data_t vm = {};
+  mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+  constexpr double kMiB = 1024.0 * 1024.0;
+  const double ram = [NSProcessInfo processInfo].physicalMemory / kMiB;
+  if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&vm), &count) != KERN_SUCCESS ||
+      count < TASK_VM_INFO_REV4_COUNT) {
+    boot::Trace(fmt::format("memory: limit unknown, device RAM {:.0f} MiB", ram));
+    return;
+  }
+  const double limit = (vm.phys_footprint + vm.limit_bytes_remaining) / kMiB;
+  boot::Trace(fmt::format("memory: limit {:.0f} MiB, device RAM {:.0f} MiB{}", limit, ram,
+                          limit < 3072 ? " (low: a race needs about 1.7-2 GB)" : ""));
+  REXLOG_INFO("[memory] limit {:.0f} MiB, device RAM {:.0f} MiB", limit, ram);
+}
+
+void StartPressureWatch(void (*on_pressure)()) {
+  static dispatch_source_t source = dispatch_source_create(
+      DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL,
+      dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+  if (!source) return;
+  dispatch_source_set_event_handler(source, ^{
+    const unsigned long level = dispatch_source_get_data(source);
+    const bool critical = level & DISPATCH_MEMORYPRESSURE_CRITICAL;
+    const bool warn = level & DISPATCH_MEMORYPRESSURE_WARN;
+    if (!critical && !warn) return;  // back to normal
+    boot::Trace(critical ? "memory: iOS says memory is critical, freeing caches"
+                         : "memory: iOS warns memory is short, freeing caches");
+    REXLOG_WARN("[memory] pressure {}: freeing idle caches", critical ? "critical" : "warning");
+    if (on_pressure) on_pressure();
+    Report(critical ? "memory critical" : "memory warning");
+    rex::FlushLogging();
+  });
+  dispatch_resume(source);
 }
 
 void ReportCpu() {

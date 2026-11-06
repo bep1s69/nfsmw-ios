@@ -2,6 +2,11 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Frees memory when iOS runs short.** When iOS warns that memory is low,
+  the renderer drops textures and buffers it has not used for half a second,
+  and boot.txt records the app's memory limit and any warning, so a crash on
+  a low-RAM device shows its cause (dev95, low-RAM work).
+
 - **Golf engine sound no longer cuts out (GitHub #15).** Mono sounds such
   as engines keep playing when their stream briefly runs dry, instead of
   dropping a moment of sound about once a second (dev94).

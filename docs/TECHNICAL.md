@@ -21604,3 +21604,24 @@ mono or looping streams kept`. IPA `NFSMW-0.6.0-dev94-golf-mono.ipa`, SHA256
 
 dev94 result (Stefan, iPhone, November 6): Golf crackle gone, menu music fine,
 no stale or repeated sound heard yet.
+
+## November 6: dev95 memory pressure and limit in boot.txt (low-RAM step 2 and 4)
+
+Measured (dev94 iPhone, 6144 MiB limit): footprint 672 MiB at the native
+renderer's start, ~1200 in the frontend, race peak 1749. malloc 212 -> ~600
+MiB; graphics ~370 MiB, Metal device ~330; the renderer's own count is ~200
+(retained targets 12 / 74 MiB, resolves 19 / 35, textures ~300 / 60, vertex
+buffers ~15k / 32 MiB arena). The rest is mostly guest memory (512 MiB).
+iPhone 11 under LiveContainer: 2098 MiB limit.
+
+`memory_report.mm`: `TraceLimit()` writes `memory: limit N MiB, device RAM M
+MiB` to boot.txt at log open. `StartPressureWatch()` listens to
+`DISPATCH_SOURCE_TYPE_MEMORYPRESSURE` (warn, critical): boot.txt line, `[memory]
+pressure` warning, `nfsmw_native_purge_caches()`, a `[memory] memory warning`
+report and `rex::FlushLogging()`. `Report()` also writes boot.txt and flushes
+when fewer than 384 MiB are left. In `native_renderer.mm` each sweep
+(`SweepTextureCache`, `SweepAttributeCache`, index `Sweep`, `SweepGpu`) has a
+`PurgeSeen` counter; on a new request it runs at once with a 30-frame idle
+limit (normally 120 or 600) and the arena is trimmed. In-flight data is kept
+by the existing use-count / completed-submission checks.
+

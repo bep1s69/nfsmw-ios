@@ -437,6 +437,22 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev95 BUILT: low-RAM work, steps 2 and 4 (Stefan approved the
+4-step plan).** Stefan's iPhone trace and log
+(Debug/6 November 2026/dev94_iphone_memory_trace.trace, `..._nfsmw.log`):
+race peak 1749 MiB; malloc 212 MiB at XEX load, ~600 in the race; graphics
+~370 MiB vs ~200 in the native renderer's own count (targets 74, resolves 35,
+textures 60, vertex arena 32). The trace has no exportable Allocations table
+(xctrace shows only logs/signposts), so Stefan was asked for Statistics and
+inverted Call Tree screenshots. dev95: memory-pressure watch (dispatch source)
+frees caches idle 30 frames (texture, attribute, index, GPU buffers), boot.txt
+gets the limit + device RAM and a line per warning or when < 384 MiB is left,
+with a log flush. IPA `ios/build/NFSMW-0.6.0-dev95-memory-pressure.ipa`
+(SHA256 516829bd114d45a7e16652c75a1cc48a0e4c134f50164150a02882b0e921517f).
+Caches are small, so expect tens of MiB, not the 2 GB fit. Next: step 1
+low-memory mode (scale cap, smaller caches) once malloc is understood; step 3
+the ~170 MiB of graphics memory outside the native renderer's count.
+
 **November 6, dev94 on the iPhone (Stefan): Golf crackle gone, menu music
 fine, no stuck or repeated snippets so far.** Keep `ios_xma_starve_keep_mono`
 on; watch police radio and car sounds in longer play.

@@ -51,6 +51,7 @@
 #include "performance_profile.h"
 #include "launcher.h"
 #include "memory_report.h"
+#include "native_renderer.h"
 #include "probe.h"
 
 #if NFSMW_WITH_GAME
@@ -367,6 +368,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               REXCVAR_GET(ios_async_submits) ? "asynchronous" : "synchronous",
               REXCVAR_GET(ios_mvk_performance) ? "on" : "off");
   nfsmw::memory::Report("log open");
+  nfsmw::memory::TraceLimit();
+  nfsmw::memory::StartPressureWatch(&nfsmw_native_purge_caches);
   REXLOG_INFO("[battery-group] all five experiments {}; individual overrides replaced; baseline QoS {}",
               REXCVAR_GET(nfsmw_battery_optimizations) ? "on" : "off",
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");

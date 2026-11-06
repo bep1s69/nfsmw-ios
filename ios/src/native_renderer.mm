@@ -429,6 +429,22 @@ REXCVAR_DEFINE_STRING(nfsmw_native_metalfx, "off", "GPU",
 std::atomic<uint32_t> settings_generation{0};
 extern "C" void NativeSettingsChanged() { settings_generation.fetch_add(1, std::memory_order_release); }
 
+// iOS warned that memory is short (memory_report.mm): each cache's next sweep
+// runs at once and drops what has not been used for a short while (30 frames
+// instead of 120-600). Each sweep keeps its own count of the requests seen.
+std::atomic<uint32_t> memory_purge_requests{0};
+extern "C" void nfsmw_native_purge_caches() { memory_purge_requests.fetch_add(1, std::memory_order_relaxed); }
+struct PurgeSeen {
+  uint32_t seen = 0;
+  bool Take() {
+    const uint32_t requests = memory_purge_requests.load(std::memory_order_relaxed);
+    if (requests == seen) return false;
+    seen = requests;
+    return true;
+  }
+};
+constexpr uint64_t kPurgeIdleFrames = 30;
+
 // MetalFX temporal on (any size). Read once per frame by the recording
 // (Frame's motion and jitter follow it), so a change starts on a new frame.
 bool MetalFxTemporal() {
@@ -1708,12 +1724,13 @@ void Arm(uint32_t address, size_t size) {
 }  // namespace write_watch
 
 template <typename Map>
-void Sweep(Map& cache) {
-  if ((frame_counter & 255) != 0) {
+void Sweep(Map& cache, bool purge = false) {
+  if (!purge && (frame_counter & 255) != 0) {
     return;
   }
+  const uint64_t idle_frames = purge ? kPurgeIdleFrames : 600;
   for (auto it = cache.begin(); it != cache.end();) {
-    it = frame_counter - it->second.last_used > 600 ? cache.erase(it) : std::next(it);
+    it = frame_counter - it->second.last_used > idle_frames ? cache.erase(it) : std::next(it);
   }
 }
 
@@ -1732,10 +1749,13 @@ size_t DecodedTextureCacheBytes() {
 }
 
 void SweepTextureCache() {
-  if ((frame_counter & 63) != 0) return;
+  static PurgeSeen purge_seen;
+  const bool purge = purge_seen.Take();
+  if (!purge && (frame_counter & 63) != 0) return;
 
+  const uint64_t idle_frames = purge ? kPurgeIdleFrames : kNativeTextureCacheIdleFrames;
   for (auto it = texture_cache.begin(); it != texture_cache.end();) {
-    const bool idle = frame_counter - it->second.last_used > kNativeTextureCacheIdleFrames;
+    const bool idle = frame_counter - it->second.last_used > idle_frames;
     // Keep data owned by an in-flight frame or the GPU texture cache. The GPU
     // cache has its own byte budget and will release those references first.
     it = idle && (!it->second.value || it->second.value.use_count() == 1)
@@ -1897,8 +1917,10 @@ CacheEntry<FloatArray>& AttributeEntryFor(const AttributeKey& key, VertexDiagnos
 }
 
 void SweepAttributeCache() {
-  if ((frame_counter & 255) == 0) attribute_lookup.Clear();
-  Sweep(attribute_cache);
+  static PurgeSeen purge_seen;
+  const bool purge = purge_seen.Take();
+  if (purge || (frame_counter & 255) == 0) attribute_lookup.Clear();
+  Sweep(attribute_cache, purge);
 }
 
 // A draw's indices as the renderer draws them (read, byte-swapped, offset,
@@ -4694,11 +4716,14 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
 }
 
 void SweepGpu() {
-  if ((gpu_frame & 63) != 0) return;
+  static PurgeSeen purge_seen;
+  const bool purge = purge_seen.Take();
+  if (!purge && (gpu_frame & 63) != 0) return;
 
+  const uint64_t idle_frames = purge ? kPurgeIdleFrames : 600;
   const uint32_t completed = gpu_frames_done.load(std::memory_order_acquire);
   for (auto it = gpu_buffers.begin(); it != gpu_buffers.end();) {
-    if (gpu_frame - it->second.last_used > 600 && it->second.last_submission <= completed) {
+    if (gpu_frame - it->second.last_used > idle_frames && it->second.last_submission <= completed) {
       if (it->second.buffer) buffer_arena.Release(it->second.chunk, it->second.offset, it->second.size);
       GpuBufferSlot& slot = gpu_buffer_slots[GpuBufferSlotIndex(it->first)];
       if (slot.key == it->first) slot = GpuBufferSlot{};  // only this entry's slot
@@ -9679,7 +9704,8 @@ bool NativeSwap() {
   SweepTextureCache();
   SweepAttributeCache();
   const size_t indices_before = index_cache.size();
-  Sweep(index_cache);
+  static PurgeSeen index_purge_seen;
+  Sweep(index_cache, index_purge_seen.Take());
   if (index_cache.size() != indices_before) ++index_cache_epoch;  // erased: the front's pointers too
   const bool present = REXCVAR_GET(nfsmw_native_present);
   if (recording) {

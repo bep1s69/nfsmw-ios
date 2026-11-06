@@ -37,6 +37,9 @@ void nfsmw_native_draw(const NfsmwNativeDraw* draw);
 // A resolve between draws of a recorded frame (the register file after its
 // packets).
 void nfsmw_native_resolve(const uint32_t* regs);
+// iOS is short of memory: the caches drop what was not used in the last 30
+// frames at their next sweep (any thread).
+void nfsmw_native_purge_caches();
 
 // The FPS counter, drawn into the native frame itself (IPA88): a UIKit label
 // over the game's layer delayed the game's frame each time its text changed.
