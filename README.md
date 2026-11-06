@@ -4,13 +4,9 @@
 
 **Requires iOS or iPadOS 18 or later.**
 
-This is not an emulator. The game's PowerPC code is translated ahead of time into
-C++ and compiled for Apple's arm64 chips with the
-[ReXGlue SDK](https://github.com/rexglue/rexglue-sdk). The SDK supplies everything
-around the game's code: the Xbox 360 kernel calls, the file system, audio and
-input. The picture is drawn by the game's own shaders translated to **Metal**
-(the native renderer, on by default); the SDK's emulated Xenos GPU on Vulkan,
-through MoltenVK, is still there as a fallback.
+The Xbox 360 PowerPC code is recompiled ahead of time for Apple arm64 using
+[ReXGlue](https://github.com/rexglue/rexglue-sdk). The port uses a native
+Metal renderer for the game's shaders.
 
 > **You need your own copy of the game.** The app on the
 > [Releases](https://github.com/bep1s69/nfsmw-ios/releases) page contains no game
@@ -18,9 +14,9 @@ through MoltenVK, is still there as a fallback.
 > them from your own ISO of the USA Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-Version **0.5.2** (see [CHANGELOG.md](CHANGELOG.md) for what changed in each
-release). The game is playable start to finish, and we are getting closer to a
-1.0 release.
+**Version 0.6.0** adds LAN racing, redesigned menus with first-launch setup,
+more Extra Options, and lower memory use. See the [changelog](CHANGELOG.md)
+for the full release notes.
 
 ---
 
@@ -29,6 +25,7 @@ release). The game is playable start to finish, and we are getting closer to a
 - [What it does](#what-it-does)
 - [Requirements](#requirements)
 - [Installing and first start](#installing-and-first-start)
+- [LAN multiplayer](#lan-multiplayer)
 - [Saves](#saves)
 - [Building it yourself](#building-it-yourself)
 - [The launcher and in-game options](#the-launcher-and-in-game-options)
@@ -46,33 +43,32 @@ release). The game is playable start to finish, and we are getting closer to a
 - **The whole game**: career, quick races, challenge series, pursuits, free roam,
   saves, achievements. **Black Edition content** is always on: its cars in
   Quick Race and the 70th Challenge Series event.
-- **Native Metal renderer** with a render resolution setting (1x to 2x, or the
-  screen's own), **MetalFX** upscaling or anti-aliasing, FXAA and MSAA.
-- **Frame rate caps of 30, 40, 60 and 120** (40 and 120 use the 120 Hz
-  ProMotion display).
-- **Aspect ratios**: 16:9; the game's own **4:3** mode at 960x720 instead of
-  its 640x480; and **19.5:9** (iPhone) with a wider view and the HUD at the
-  screen edges.
-- **A launcher before the game starts** and **options while playing** (the gear
-  at the top right, or L3+R3): resolution, MetalFX, anti-aliasing, motion blur,
-  post-processing, HUD size and position, battery settings and more, many of
-  them changed without restarting.
+- **Native Metal graphics** with adjustable render resolution, FXAA and MSAA.
+  Choose **Fit this screen** or the original **16:9** framing.
+- **30, 40, 60 and 120 fps caps**. The 40 and 120 fps choices appear on
+  supported 120 Hz displays.
+- **LAN racing** on the same Wi-Fi, including mobile cross-play and
+  experimental cross-play with the original PC game.
+- **Shared launcher and in-game options** with controller navigation,
+  first-launch setup, and editable performance presets.
 - **A save manager**: careers with their cash and bounty, backups, export and
   import (including **Xbox 360 and PC saves**), and **iCloud Drive sync**
   between your devices, achievements included.
 - **Extra Options**, ported from the PC mod: markers after beating a Blacklist
   rival (1-6), cars you can buy (1-25), the Old Bridge road, Quick Race laps,
-  opponents, traffic and weather, skip movies.
+  opponents, traffic and weather, plus in-game Actions such as resetting
+  the car, changing pursuit heat and teleporting in free roam.
 - **Touch controls** made for the phone: menus by swiping and tapping (tap a
   button hint to press it), a dynamic steering joystick, driving buttons that
   appear only when the game uses them, and a drag race layout. Every control
   can be moved and resized, also while playing. They hide themselves when a
   controller connects.
-- **Controllers** (Xbox, PlayStation, MFi) and **keyboards** (customizable).
+- **Controllers** (Xbox, PlayStation, MFi), rebindable menu and driving
+  keys, keyboard button prompts, and mouse or touch camera look.
 - **External displays** (HDMI, AirPlay): the game alone on the big screen, the
   touch controls on the device.
-- **Battery mode** and automatic savings when the device is warm or on Low
-  Power Mode.
+- **Longest battery preset** with a 30 or 40 fps cap and configurable
+  reflection cadence, plus optional thermal and Low Power Mode adjustments.
 - Survives app switching, screenshots and Control Center.
 
 ## Requirements
@@ -107,7 +103,9 @@ developer account needed. Reports from other devices are very welcome (see
 3. Copy your **ISO** into the app's `Documents` folder with the Files app or
    Finder. Inside LiveContainer that is LiveContainer's folder,
    `Data/Application/<the app's folder>/Documents`.
-4. Open the app again: the launcher shows the ISO it found. Press **Play**.
+4. Open the app again and select your disc under **Play**. First-launch
+   setup covers the game disc, controls, performance presets and saves.
+   If you are upgrading, you can keep your settings. Press **Play** when ready.
 
 What the app keeps in its `Documents` folder:
 
@@ -119,6 +117,17 @@ What the app keeps in its `Documents` folder:
 | `achievements/` | The achievement list and icons the launcher shows |
 | `logs/nfsmw.log`, `logs/boot.txt` | The log and the startup trace (Advanced > Logging) |
 | `extra_args.txt` | Optional: extra options, one per line, for testing |
+
+## LAN multiplayer
+
+Put all players on the same local network. On iPhone or iPad, open **Play →
+Host or join a game → Play on this Wi-Fi** and follow the in-game sign-in
+flow to find or create a LAN lobby. Allow Local Network access when prompted.
+**Join by address** is available if discovery misses a host.
+
+Compatible Android builds can join mobile LAN races. Cross-play with the
+original PC game's LAN mode is experimental. PC and Android players
+cannot race together in the same room.
 
 ## Saves
 
@@ -139,52 +148,46 @@ To continue development, start with
 [Development progress](docs/DEVELOPMENT_PROGRESS.md): the current checkpoint,
 working rules and build procedure.
 
-Clone this repository next to where the SDK will go (the SDK is prepared in
-`../rexglue-sdk-ios`, beside the repository):
+Use a separate SDK and build directory for the multiplayer-enabled 0.6.0
+tree. Keep your own USA disc dump outside version control.
 
 ```sh
 git clone https://github.com/bep1s69/nfsmw-ios.git
 cd nfsmw-ios
 
-# 1. The SDK: clones ReXGlue at the pinned version, applies this project's
-#    patches and fetches MoltenVK. Once.
-python3 tools/ios/prepare_sdk.py
-
-# 2. The game's executable, from your ISO, into assets/game_root/default.xex
+python3 tools/ios/prepare_sdk.py --sdk ../nfsmw-multiplayer-sdk
 python3 tools/fase1_extraer.py "/path/to/your/NFSMW-USA.iso" --solo-xex
+python3 tools/ios/generate_code.py --sdk ../nfsmw-multiplayer-sdk
+python3 tools/ios/patch_game_extra_options.py
 
-# 3. The game's code, translated to C++ into ios/generated/ (a few minutes)
-python3 tools/ios/generate_code.py
-
-# 4. The app
-cd ios
-cmake --preset ios
-cmake --build --preset ios --target ipa      # -> ios/build/NFSMW.ipa
+cmake --preset ios -S ios -B "$HOME/Library/Caches/nfsmw-ios/build-0.6" \
+  -DNFSMW_SDK="$PWD/../nfsmw-multiplayer-sdk"
+cmake --build "$HOME/Library/Caches/nfsmw-ios/build-0.6" --target ipa -j 12
+# Output: ios/build/NFSMW.ipa
 ```
 
 The first build takes a while (on an M-series Mac, 20-40 minutes): the whole SDK
 and 133 generated files, each of which can take more than 2 GB of RAM to
 compile. Later builds only recompile what changed. The build folder is
-`~/Library/Caches/nfsmw-ios/build`, outside the repository on purpose (iCloud
+`~/Library/Caches/nfsmw-ios/build-0.6`, outside the repository on purpose (iCloud
 Drive tags files in `~/Documents` with attributes that `codesign` refuses).
 
 Everything the scripts do, and why, is in [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 ## The launcher and in-game options
 
-The launcher has six tabs: **Game**, **Extras**, **Graphics**, **Controls**,
-**Audio** and **Advanced**. Every option has a short explanation on screen, and
-the defaults suit normal play. Settings only the emulated renderer uses are
-greyed out while the native one draws. **Advanced** holds the GPU and
-performance switches for testing, and an **Extra arguments** field for testing
-options; leave them at their defaults unless you are testing something.
+The launcher has **Play**, **Display**, **Battery**, **Graphics**,
+**HUD & Controls**, **Gameplay**, **Audio**, and **Advanced**. Each setting
+shows its current value and a short summary. Open its info button for details.
+You can run first-launch setup again from **Play → Set up again**.
 
-While playing, in a menu or the pause screen, tap the gear at the top right (or
-press L3+R3 on a controller) to change the render resolution, MetalFX, the
-30/60 fps cap, anti-aliasing, motion blur, post-processing, the HUD, the touch
-controls' steering and dimming, and the battery settings; **Customize HUD** and
-**Touch controls** open their editors. Settings that need a restart (40/120 fps, MSAA) are marked
-"next launch".
+While playing, open the gear from a game menu or pause screen, or press
+**L3+R3**. In-game options show the applicable settings and add **Actions**
+for game commands. Changes that need a restart show **Next launch**.
+**HUD & Controls** also opens the HUD, touch layout, and keyboard editors.
+
+The new menus are an improvement for 0.6.0. The visual design is still
+being refined for 1.0.
 
 ## Controls
 
@@ -204,14 +207,15 @@ With a controller, the game's own Xbox 360 controls (control type 1):
 The touch controls change with what you are doing:
 
 - **Menus and pause screens:** no buttons on screen. Swipe to move through
-  the menu, tap anywhere to accept (A), tap with two fingers to go back (B).
-  Tapping one of the game's button hints ("B Back", "Y Delete"...) presses
-  that button. On the world map a swipe moves the cursor, the LT / RT
-  pictures zoom and the arrows change the category. The PAD button at the
+  supported lists and selectors, tap a row or a button hint, and use two
+  fingers to go back (B). **Tap and swipe anywhere** enables the older
+  empty-space gestures. Menu swipes are inverted by default. On the world
+  map a swipe moves the cursor, the LT / RT pictures zoom, and the arrows
+  change the category. The PAD button at the
   top brings the full gamepad back for that menu.
 - **Driving:** steering on the left (a joystick that appears under your
   thumb anywhere in the bottom-left quarter, or a fixed circle, or two
-  buttons: Controls › Steering), gears, gas, brake, nitrous, speedbreaker,
+  buttons: HUD & Controls → Steering), gears, gas, brake, nitrous, speedbreaker,
   handbrake, look back and reset. The D-pad's actions appear as buttons only
   when they do something: the map, SMS and the Blacklist in free roam, a
   button to enter a race, shop or safehouse when you are in its circle, and
@@ -219,13 +223,12 @@ The touch controls change with what you are doing:
 - **Drag races:** lane change, gears, gas, nitrous and brake.
 
 Camera, pause, PAD and HIDE share the top row. The controls dim after a few
-seconds without a touch (Controls › Dim when not touched) and hide themselves
+seconds without a touch (HUD & Controls → Dim when not touched) and hide themselves
 when a controller connects; HIDE hides them by hand.
 
-**Customize touch controls** (Controls tab, or the in-game options while
+**Customize touch controls** (HUD & Controls, or the in-game options while
 playing) moves and resizes every control, with Pad, Drive and Drag tabs, an
-overall size and the opacity. Keyboard keys can be changed in the Controls tab
-too.
+overall size and the opacity. Keyboard keys can be changed under HUD & Controls too.
 
 ## Performance and battery
 
@@ -234,17 +237,18 @@ in nearly all of the game at 1x. The 30 and 40 fps
 caps are smooth and paced to the display. Higher render resolutions and the
 120 fps cap are heavier.
 
-Battery work in 0.3.0 and 0.4.0: Battery mode (30 fps, lower resolution, lighter
-shadows and reflections), 30 fps in menus and pause, 30 fps when warm or on Low
-Power Mode, and lower thread priorities that cut the drain while playing by
-about a quarter on M-series iPads. On iPhones, the game's threads now sleep
-while they wait, so pursuits use less battery and run cooler.
+**Longest battery** defaults to 30 fps, reduced render resolution, and
+half-rate car reflections. On supported displays, you can choose 40 fps
+on the preset card. The card also offers every-frame reflections.
+**Balanced** and **Best looking** provide other starting points, and
+the individual settings remain editable.
 
-### Tested devices
-
-| Device | iOS | Installed with | Version | Settings | fps | Battery per hour |
-|---|---|---|---|---|---|---|
-| iPhone 17 Pro Max | 27 | LiveContainer2 | 0.5.0 (pre-release build, same performance code) | Native renderer, 1x, cap 60, MetalFX / FXAA / MSAA off, Performance: Balanced | ~60 (lowest 5 s window: 56) | ~28 % (15 min of career races, free roam and a chase: 40 % to 33 %) |
+On the iPhone 17 Pro Max, development testing brought peak race memory
+from about **1,749 MiB** to **1,330–1,403 MiB**. Compatibility reports from
+players on 2–3 GB devices are welcome, especially with LiveContainer.
+A community report also confirms the native renderer ran on an
+**iPhone 13 Pro with iOS 18.7.8** in version 0.5.1.
+[Community performance report](https://github.com/bep1s69/nfsmw-ios/discussions/12).
 
 Your own results are welcome: share them in the
 [Performance reports](https://github.com/bep1s69/nfsmw-ios/discussions/12)
@@ -258,30 +262,20 @@ issue template: it asks for what is needed to find out why.
 
 - **USA edition only** for now (the address tables for other editions exist in
   `tools/ediciones/`, but the iOS-specific game patches are written for USA).
-- **60 fps frame pacing** on the iPad is not perfectly even yet; turning off
-  motion blur or post-processing helps.
-- **120 fps cap**: not a stable 120 in heavy parts of races. The **120 Hz
-  simulation** switch (Advanced, off by default) did not remove the judder at
-  60 fps.
-- **HUD and scene size** can be wrong on the iPad in a few places (race finish,
-  some cutscene overlays and pop-ups).
-- **Audio**: small crackles on AirPods, mostly in police radio chatter; the
-  engine sound can occasionally almost disappear.
-- Skipping a movie can turn its last frame red for a moment.
-- **No Xbox Live** (online modes, leaderboards). The game's single-player modes
-  are all there.
+- **120 fps** depends on the device, render resolution, and scene.
+- **iPhone Duo support** is experimental.
+- **Low-memory devices** may still hit iOS memory limits, especially
+  under LiveContainer.
+- Some iPad HUD overlays can be misaligned. Skipping a movie can briefly
+  show a red frame.
+- LAN works over a local network. The original public Xbox Live service
+  and leaderboards are unavailable.
 - English only (the language of the USA edition).
 
 ## Planned
 
-In no particular order, and without promises:
-
-- **0.6.0**: more **Extra Options** and **Widescreen Fix** features, and
-  features from PC mods.
-- Even **60 fps** frame pacing, then a stable **120 fps** and a proper higher
-  **simulation rate** (like the Widescreen Fix's SimRate).
-- More battery savings.
-- Support for more game **editions**.
+Free camera and further Extra Options are planned for a later minor
+release. Menu polish continues toward 1.0.
 
 ## Feedback
 
@@ -300,7 +294,7 @@ Open an [issue](https://github.com/bep1s69/nfsmw-ios/issues) with them.
 [docs/TECHNICAL.md](docs/TECHNICAL.md) describes the port in detail: how the SDK
 is prepared and patched for iOS (every patch, what it changes and why, with the
 measurements behind it), the guest memory on iOS, the app's lifecycle, the
-native Metal renderer, the touch controls, the 4:3 and 19.5:9 modes, the Extra
+native Metal renderer, the touch controls, screen fitting and HUD layout, the Extra
 Options ports, and the Black Edition career fix.
 
 Layout of this repository:

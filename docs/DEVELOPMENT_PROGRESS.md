@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 6 (Stefan): ship 0.6.0 at dev107 scope. Battery and thermal
+  work is done for this release. The RAM reduction is demonstrated on
+  tested hardware. Leave low-RAM compatibility testing to players with
+  those devices. Onboarding is accepted and both menus ship as an interim
+  design ahead of 1.0. Defer free camera and remaining Extra Options.
+
 - November 6 (Stefan): approved the step 4 menu and onboarding design.
   Invert menu swipes by default and give Longest battery a 30/40 fps choice.
   Keep Half rate as the default for Longest battery, with Every frame
@@ -441,6 +447,14 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 6, 0.6.0 release candidate prepared:** Stefan accepted dev107
+scope. `ios/build/NFS-Most-Wanted-0.6.0.ipa` is the tested dev107 package
+under the release filename, with the same SHA256. README and release notes
+reflect 0.6.0. Next: confirm publication, fast-forward main, tag v0.6.0 and
+publish the prepared IPA and notes. No fresh-container smoke test was run
+during packaging. No tag or push yet. Free camera and the other follow-ups
+remain in BACKLOG.
 
 **November 6, dev107 user checks:** Stefan confirmed the in-game Options
 sidebar and My Cars taps are fixed and the car selector is good. Multiplayer

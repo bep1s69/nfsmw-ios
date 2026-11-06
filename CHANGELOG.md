@@ -1,14 +1,18 @@
 # Changelog
 
-## 0.6.0 (in development, branch dev-0.5)
+## 0.6.0
 
+- **LAN multiplayer.** Use **Play on this Wi-Fi** to find or host a local
+  race. Mobile LAN supports compatible Android builds. Cross-play with
+  the original PC game is experimental.
 - **iOS 18 compatibility.** Removed the experimental label after a
   community performance report confirmed the game runs on iOS 18.
 
 - **Redesigned launcher and in-game options.** Dark menus share the
   same categories, compact summaries and a details button. Use the
   controller to navigate the launcher and in-game options. The launcher
-  title stays fixed above a distinct, compact tab strip.
+  title stays fixed above a distinct, compact tab strip. This is an
+  interim design. Both menus still need visual polish before 1.0.
 - **Car selector touch controls.** Tap a neighboring car in My Cars to
   move focus. Swipe up or down over the car in Quick Race and multiplayer
   Change Car. Options sidebar labels stay on one line.
@@ -22,14 +26,10 @@
   the game now; its on/off switch, the "No emulated renderer" switch, the
   whole Emulated renderer section and "Scaling to the screen" (FSR/CAS) are
   gone from the launcher. They keep the values they had by default.
-- **Important for 3 GB RAM devices (and older iPhones under LiveContainer):
-  much less memory use. Testing on those devices is needed.** A race used to
-  peak at about 1.75 GB on an iPhone 17 Pro Max; it now peaks at about
-  1.33-1.40 GB. That may be enough for devices where iOS allows the app only
-  2-3 GB (e.g. iPhone 11 under LiveContainer, GitHub #10/#11), but nobody has
-  tried one yet. If the game still closes on such a device, please send
-  `logs/boot.txt`: it now records the app's memory limit and any low-memory
-  warning. What changed (dev95-dev100):
+- **Lower memory use.** On an iPhone 17 Pro Max, development tests brought
+  peak race memory from 1,749 MiB to 1,330–1,403 MiB. If you use a device with
+  2–3 GB of RAM, please share how 0.6.0 runs. If the game closes, send
+  `logs/boot.txt`, which records the app's memory limit and warnings.
   - Sound: a decoder only for the sounds playing, not one for each of the
     320 streams from the start (about 180 MB less at startup, ~70 MB in a
     race).
@@ -252,10 +252,9 @@
 - **Keys for the Actions.** While driving, 1 resets the car, 2 toggles auto
   drive, 3 and 4 lower and raise the heat; change them under Keyboard
   controls > Actions.
-- **In-game menu with tabs.** Extras, Graphics, Controls and Actions, each
-  grouped as in the launcher; L1/R1 switch tabs on a controller. Actions has
-  Change heat, Auto drive, Reset car (back on its wheels) and Teleport to
-  69 places in the city.
+- **In-game Actions.** Change heat, toggle auto drive, put the car back
+  on its wheels, or teleport to one of 69 places in the city. Use L1/R1
+  to switch options tabs on a controller.
 - **More Extra Options:** no rev limiter, unlock everything, skip the career intro, world
   animation speed and nitrous trail length.
 - **Extra Options in the in-game menu.** Every Extra Option except the Old

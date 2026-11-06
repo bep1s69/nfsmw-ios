@@ -21875,3 +21875,25 @@ OS, build for the compatibility checks, and logs were not supplied.
 Recorded these as user-reported results and removed the iOS 18
 experimental wording from README. No source change, new build, or
 independent device run in this session.
+
+## November 6: 0.6.0 scope accepted and release asset prepared
+
+Stefan accepted dev107 scope, completed battery and thermal work for
+0.6, and accepted onboarding. Community 2–3 GB device compatibility
+reports are a follow-up to the measured iPhone 17 Pro Max RAM reduction.
+Free camera and remaining Extra Options move to a later minor release.
+Both menus ship as an interim design pending 1.0 polish. Updated README,
+CHANGELOG and the checkpoint. Independently checked GitHub Discussions
+#12: iPhone 13 Pro, iOS 18.7.8, LiveContainer, 0.5.1, native renderer.
+That report covers 0.5.1 on that device.
+
+Copied the tested dev107 IPA to `ios/build/NFS-Most-Wanted-0.6.0.ipa`.
+`cmp`, `unzip -tq`, comparison of the archived executable with the
+build-cache executable, and `codesign --verify --deep --strict` on the
+build-cache NFSMW.app all exited 0. Bundle com.bep1s.nfsmwios, version
+0.6.0 (11), minimum iOS 18.0. SHA256
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285,
+arm64 UUID 862ECF92-5207-31FA-96A3-63020CF69E93. No source changes, rebuild,
+or fresh-container test. `cmake --list-presets -S ios` found ios. Local
+main is an ancestor of the release branch. No merge, tag, push or GitHub
+release in this session. HANDOFF_CHATGPT.md remains untracked.
