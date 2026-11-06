@@ -41,10 +41,10 @@
 
 - (void)installTabs:(NSArray<NSString*>*)titles select:(void (^)(NSInteger))select {
   _tabScroll = [[UIScrollView alloc] init];
-  _tabScroll.backgroundColor = UIColor.clearColor;
+  _tabScroll.backgroundColor = [UIColor colorWithRed:0.13 green:0.14 blue:0.16 alpha:1];
   _tabScroll.showsHorizontalScrollIndicator = NO;
   _tabs = [[UIStackView alloc] init];
-  _tabs.spacing = 2;
+  _tabs.spacing = 0;
   _tabs.translatesAutoresizingMaskIntoConstraints = NO;
   [_tabScroll addSubview:_tabs];
   [_layout insertArrangedSubview:_tabScroll atIndex:0];
@@ -53,18 +53,35 @@
   UILayoutGuide* content = _tabScroll.contentLayoutGuide;
   UILayoutGuide* frame = _tabScroll.frameLayoutGuide;
   [NSLayoutConstraint activateConstraints:@[
-    [_tabs.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:8],
-    [_tabs.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-8],
+    [_tabs.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:4],
+    [_tabs.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-4],
     [_tabs.topAnchor constraintEqualToAnchor:content.topAnchor],
     [_tabs.bottomAnchor constraintEqualToAnchor:content.bottomAnchor],
   ]];
-  _railConstraints = @[_railWidth, [_tabs.widthAnchor constraintEqualToAnchor:frame.widthAnchor constant:-16]];
-  _stripConstraints = @[_stripHeight, [_tabs.heightAnchor constraintEqualToAnchor:frame.heightAnchor]];
+  UIView* divider = [[UIView alloc] init];
+  divider.backgroundColor = [UIColor colorWithWhite:0.30 alpha:1];
+  divider.userInteractionEnabled = NO;
+  divider.translatesAutoresizingMaskIntoConstraints = NO;
+  [_tabScroll addSubview:divider];
+  _railConstraints = @[
+    _railWidth, [_tabs.widthAnchor constraintEqualToAnchor:frame.widthAnchor constant:-8],
+    [divider.trailingAnchor constraintEqualToAnchor:frame.trailingAnchor],
+    [divider.topAnchor constraintEqualToAnchor:frame.topAnchor],
+    [divider.bottomAnchor constraintEqualToAnchor:frame.bottomAnchor],
+    [divider.widthAnchor constraintEqualToConstant:1],
+  ];
+  _stripConstraints = @[
+    _stripHeight, [_tabs.heightAnchor constraintEqualToAnchor:frame.heightAnchor],
+    [divider.leadingAnchor constraintEqualToAnchor:frame.leadingAnchor],
+    [divider.trailingAnchor constraintEqualToAnchor:frame.trailingAnchor],
+    [divider.bottomAnchor constraintEqualToAnchor:frame.bottomAnchor],
+    [divider.heightAnchor constraintEqualToConstant:1],
+  ];
   for (NSString* title in titles) {
     NSInteger index = _tabs.arrangedSubviews.count;
     UIButtonConfiguration* config = UIButtonConfiguration.plainButtonConfiguration;
     config.title = title;
-    config.contentInsets = NSDirectionalEdgeInsetsMake(0, 10, 0, 10);
+    config.contentInsets = NSDirectionalEdgeInsetsMake(0, 6, 0, 6);
     config.titleTextAttributesTransformer = ^NSDictionary* (NSDictionary* attributes) {
       NSMutableDictionary* compact = [attributes mutableCopy];
       compact[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
@@ -73,6 +90,7 @@
     UIButton* button = [UIButton buttonWithConfiguration:config primaryAction:
         [UIAction actionWithHandler:^(__kindof UIAction*) { select(index); }]];
     [button.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+    [button.widthAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
     [_tabs addArrangedSubview:button];
   }
   [self highlightTab:_selectedTab];
@@ -98,10 +116,11 @@
   for (UIButton* button in _tabs.arrangedSubviews) {
     const BOOL selected = i++ == index;
     UIButtonConfiguration* config = button.configuration;
-    config.baseForegroundColor = selected ? nfsmw::settings_ui::Accent() : UIColor.secondaryLabelColor;
-    config.background.backgroundColor = selected ? [nfsmw::settings_ui::Accent() colorWithAlphaComponent:0.12]
+    config.baseForegroundColor = selected ? nfsmw::settings_ui::Accent() : UIColor.labelColor;
+    config.background.backgroundColor = selected ? [nfsmw::settings_ui::Accent() colorWithAlphaComponent:0.20]
                                                  : UIColor.clearColor;
-    config.background.cornerRadius = 7;
+    config.background.cornerRadius = 4;
+    config.background.backgroundInsets = NSDirectionalEdgeInsetsMake(8, 1, 8, 1);
     button.contentHorizontalAlignment = _railWidth.active ? UIControlContentHorizontalAlignmentLeading
                                                          : UIControlContentHorizontalAlignmentCenter;
     button.configuration = config;

@@ -442,6 +442,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev106 BUILT: clearer, tighter tabs.** Stefan found
+dev105's tabs blended into the surrounding UI and still had too much
+padding. Both menus now have a distinct tab background and divider,
+tighter spacing and a stronger, shorter active highlight.
+`ios/build/NFSMW-0.6.0-dev106-tab-contrast.ipa` is on iCloud Desktop.
+Next: check the strip and sidebar on iPhone and iPad along with the
+remaining dev104 device checks. No dev106 device run here.
+
 **November 6, dev105 BUILT: fixed launcher title and compact tabs.**
 The dev104 iPhone recording shows the large navigation title moving
 over the tabs when pulling down. Launcher now uses a fixed inline

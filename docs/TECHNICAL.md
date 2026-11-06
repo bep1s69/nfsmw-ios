@@ -21809,3 +21809,22 @@ and packaging and verification returned 0. `git diff --check`,
 3165824dfdb6ee714f5d14124c2c8f7a069eb88a27582a31eaf4fc1111e10268,
 arm64 UUID 74949604-C45A-36FE-9B78-3967DDBD2F51. Desktop dev104 moved
 to Trash and stable 0.5.2 remains. No dev105 device validation.
+
+## November 6: dev106 tab contrast and spacing
+
+Stefan reported that dev105's tabs blended into the UI and still had
+too much text padding. Shared settings UI now gives the strip and rail
+a graphite background and a fixed 1 pt divider. Horizontal label
+insets are 6 pt per side (was 10), outer margins are 4 pt (was 8),
+and the gap between buttons is gone. The active tint has 8 pt vertical
+insets, with touch targets at least 44 × 44 pt.
+
+Extra Options patch already applied, exit 0 with 0 files written.
+`cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit 0, duplicate -lz linker warning. `git diff --check`, `unzip -tq`
+and Desktop `cmp` passed. IPA
+`ios/build/NFSMW-0.6.0-dev106-tab-contrast.ipa`, SHA256
+a838e213ec719e30525bd8997fcb638fc16a00113ad71a284be2a2b865f08a16,
+arm64 UUID 6654DD32-E7BC-324B-8361-610AD53DBD6B. Desktop dev105
+moved to Trash and stable 0.5.2 remains. No device or visual validation
+of dev106.
