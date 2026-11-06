@@ -21704,3 +21704,20 @@ already followed the table). `patch_game_extra_options.py`: already patched;
 OK (8 s incremental). IPA `NFSMW-0.6.0-dev101-menu-flags.ipa`, SHA256
 ae4baac45d1486ce72048a14b5c01b2d7203bfc88e5ceb3f4f99cdb67f1941ea. Not run on a
 device yet.
+
+## November 6: dev102 settings catalogue split (no visible change)
+
+Stefan approved continuing the no-visible-change cleanup. A one-off script
+moved launcher.mm's lines from the "The options" banner to the end of
+`Arguments()` into `ios/src/settings_catalog.mm` (namespace `nfsmw::catalog`);
+the enums/structs (Type, OptionFlag, Choice, Option, Section, Tab, KeyBind)
+and 35 function declarations into `settings_catalog.h`. launcher.mm includes
+it with `using namespace nfsmw::catalog;` inside its anonymous namespace.
+`ios/CMakeLists.txt` lists the new file. Check: multiset of non-empty lines of
+HEAD's launcher.mm vs new launcher.mm + catalogue .mm/.h: no old line missing
+except `KeyBindValue`'s signature (default `menu = false` now only in the
+header); 67 new lines (header, includes, declarations). Build
+`cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`: no
+errors. IPA `NFSMW-0.6.0-dev102-settings-catalog.ipa`, SHA256 246efcbc68f43e0c53d9ac8551d421c2f4b13b857b36e8bf19e0111c3963abfd. Not run
+on a device; arguments unchanged by construction (same code), not by a
+runtime comparison.

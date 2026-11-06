@@ -437,6 +437,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev102 BUILT: settings catalogue split out of launcher.mm (no
+visible change).** Stefan: do the behind-the-scenes cleanup now. Plan step 2:
+`ios/src/settings_catalog.{h,mm}` holds everything from "The options" to
+`Arguments()`; launcher.mm 2347 -> 1241 lines. Every old line is present
+unchanged in the new files (line-multiset check; only the default argument of
+`KeyBindValue` moved to the header). IPA
+`ios/build/NFSMW-0.6.0-dev102-settings-catalog.ipa` (SHA256 246efcbc68f43e0c53d9ac8551d421c2f4b13b857b36e8bf19e0111c3963abfd). Not run on
+a device. Next cleanup (step 3, shared cell builder) or Stefan's open questions.
+
 **November 6, dev101 BUILT: menu settings flags (no visible change).** Stefan
 approved the refactor. Each launcher setting now carries `flags` (kInGame,
 kInGameNative, kNativeOnly, kEmulatedOnly) and `live` cvars; the in-game

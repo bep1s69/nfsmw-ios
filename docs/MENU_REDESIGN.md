@@ -203,7 +203,8 @@ needs its own plan. Also review for removal or a Developer switch: Diagnostics
 
 | File | Role |
 |---|---|
-| `ios/src/launcher.mm` / `.h` | Settings catalogue, value rules, arguments, launcher UI, key binds UI, achievements UI |
+| `ios/src/settings_catalog.mm` / `.h` | Settings catalogue, flags, value rules, arguments, key bind tables (dev102) |
+| `ios/src/launcher.mm` / `.h` | Launcher UI, key binds UI, achievements UI; launcher.h is the in-game sheet's view of the catalogue |
 | `ios/src/ingame_options.mm` / `.h` | In-game sheet, gear, L3+R3, controller navigation, live apply, Actions |
 | `ios/src/hud_editor.mm` | Customize HUD (both screens) |
 | `ios/src/touch_controls.mm` | Touch overlay and its layout editor |
@@ -233,7 +234,11 @@ DEVELOPMENT_PROGRESS (dev-0.5 against the multiplayer SDK, `build-0.6`).
    has no lists of its own. To show a new setting in game: add `kInGame` and
    its live cvars on the row; nothing else.
 1b. **Remove the old renderer's settings** (section above).
-2. **Split the catalogue** out of launcher.mm (no visible change).
+2. **Split the catalogue** — DONE in dev102 (November 6).
+   `ios/src/settings_catalog.{h,mm}` (namespace `nfsmw::catalog`): option
+   types and flags, `Sections()`, value rules, screen shape/resolution titles,
+   key bind tables, settings.json, `Arguments()`. launcher.mm (1241 lines,
+   was 2347) keeps the view controllers and launcher.h's functions.
 3. **Shared cell builder** used by both screens (no visible change, or only
    identical-looking cells).
 4. **Look and feel + new tab layout** (mockups to Stefan first), then the
