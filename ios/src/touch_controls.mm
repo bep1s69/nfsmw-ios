@@ -1584,16 +1584,24 @@ static NSString* SymbolFor(NSString* label) {
   CGContextScaleCTM(context, scale, -scale);
   CGContextClearRect(context, dirty);
   CGContextClipToRect(context, dirty);
-  // The view's opacity, which its layer would have applied.
-  CGContextSetAlpha(context, self.alpha);
-  CGContextBeginTransparencyLayer(context, nullptr);
   UIGraphicsPushContext(context);
   _drawingNative = YES;
   [self drawRect:dirty];
   _drawingNative = NO;
   UIGraphicsPopContext();
-  CGContextEndTransparencyLayer(context);
   CGContextRelease(context);
+  // The view's opacity, which its layer would have applied, over the whole
+  // drawing at once (premultiplied: every channel scaled). This was a
+  // CGContext transparency layer, which allocated a whole-screen buffer per
+  // redraw (14.4 MiB on an iPhone 17 Pro Max, two kept; dev98 trace).
+  const CGFloat alpha = self.alpha;
+  if (alpha < 1) {
+    const uint32_t a = uint32_t(std::lround(std::clamp(alpha, CGFloat(0), CGFloat(1)) * 256));
+    for (int y = py; y < py + ph; ++y) {
+      uint8_t* row = _nativePixels.data() + (size_t(y) * size_t(w) + size_t(px)) * 4;
+      for (int i = 0; i < pw * 4; ++i) row[i] = uint8_t((row[i] * a) >> 8);
+    }
+  }
   nfsmw_native_set_touch_overlay(_nativePixels.data(), w, h, px, py, pw, ph);
 }
 

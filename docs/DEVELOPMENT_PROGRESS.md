@@ -437,6 +437,15 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev100 BUILT: touch overlay without a transparency layer.**
+`-[NFSTouchView drawNative]` applied the view's alpha (idle opacity 0.35)
+with `CGContextSetAlpha` + `CGContextBeginTransparencyLayer`: a whole-screen
+buffer per redraw (14.4 MiB, 2 persistent in the dev94 Allocations stats).
+Now drawn at full alpha, then the dirty rectangle's premultiplied BGRA bytes
+are scaled by alpha (same result as group opacity). IPA
+`ios/build/NFSMW-0.6.0-dev100-touch-overlay-memory.ipa` (SHA256 1987e03dcb1558f7d9d51548755ebbec2e0f31fe63b9cd8fa61c7b7e04280135).
+To check: touch controls look the same faded and pressed; `[memory]` lines.
+
 **November 6, dev99 on the iPhone (Stefan): race starts fine, no stutter.**
 Log Debug/6 November 2026/dev99_race_nfsmw.log: warm-up 223 pipelines in
 347 ms, then "pipeline cache let go"; malloc 246 -> 138 MiB at that moment.

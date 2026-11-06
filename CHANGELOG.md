@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **Touch controls use less memory.** Their faded look no longer needs a
+  whole-screen scratch picture each time they redraw (about 29 MB on a large
+  iPhone; dev100, low-RAM work).
+
 - **About 150 MB less memory in play.** The pipeline cache, which made races
   start without stutter, stayed loaded the whole session; it is now let go
   once the game's pipelines are ready and reopened only for a new one (dev99,

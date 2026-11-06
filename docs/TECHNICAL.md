@@ -21665,3 +21665,9 @@ Other dev98 trace findings: `-[NFSTouchView drawNative]` uses
 `rex::memory::Memory::Initialize` 13 x 4 MiB. XMA: ~173 streams fed in a
 race keep ~173 x 464 KiB decoders even with dev97.
 
+dev100: `drawNative` no longer opens a CGContext transparency layer (its
+backing is the whole bitmap, 2868x1320x4 = 14.4 MiB, cached by CoreGraphics).
+The dirty rectangle is cleared, drawn at full alpha, and each byte of it
+multiplied by round(alpha x 256) >> 8; premultiplied BGRA makes that equal to
+compositing the group at the view's alpha.
+
