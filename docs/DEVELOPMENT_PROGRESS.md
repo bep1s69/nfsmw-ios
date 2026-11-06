@@ -437,6 +437,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev97 BUILT: XMA codec contexts on demand (~180 MiB).** Stefan's
+"All Allocations" backtraces: the 464 KiB blocks are `av_mallocz` in
+librexruntime (FFmpeg codec private data of the 320 XmaContexts, kept for
+life); the 128 KiB ones are `av_buffer_alloc(128 KiB)` per context (inferred
+from count 324 and Setup code; never read, packet data is xma_frame_) plus
+transient native `Record()` vectors and CoreGraphics. New SDK patch
+`patch_ios_xma_lazy_codec.py` (cvar `ios_xma_lazy_codec`, on): no codec or
+packet buffer at Setup, codec made in PrepareDecoder, freed in Release (the
+next user already reopened it via ResetDecoderState, so no extra opens).
+Expected heap -145 MiB (464 KiB) and -40 MiB (128 KiB), less the live
+contexts. Build note: patch scripts need `NFSMW_SDK=~/Developer/GitHub/nfsmw-multiplayer-sdk`.
+IPA `ios/build/NFSMW-0.6.0-dev97-xma-lazy-codec.ipa` (SHA256 219a4a1b02ed2b57e748e8b2e80002cf96d95e8f61aa9bf7c6ce9aa5a6570532). To test:
+audio everywhere (menu music, Golf engine, police radio), `[memory]` lines.
+
 **November 6, dev96 BUILT: allocation-stack diagnostic.** dev95 launches fine
 (Stefan). Allocations statistics (screenshots in Debug/6 November 2026):
 heap 542 MiB; 320 x 464 KiB = 145 MiB, 2 x 49.14 + 55.52 + 2 x 14.45 MiB

@@ -21633,3 +21633,11 @@ guard, no allocation) takes `backtrace()` + `dladdr()` for allocations of
 an `image <load address> <path>` list. Symbolicate with `atos -o <binary>
 -l <load address> <address>` against the build's binaries.
 
+dev97 `patch_ios_xma_lazy_codec.py` (src/audio/xma_context.cpp, cvar
+`ios_xma_lazy_codec` default true): `XmaContext::Setup` no longer calls
+`avcodec_alloc_context3` (its priv_data is the 464 KiB block) nor
+`av_buffer_alloc(128 KiB)` for the packet; `PrepareDecoder` allocates and
+opens when `av_context_` is null; `Release()` frees it after
+`ResetDecoderState()`. Work/Release both run under `lock_`. FFmpeg copies the
+non-refcounted packet in `avcodec_send_packet`. Listed in prepare_sdk.py.
+

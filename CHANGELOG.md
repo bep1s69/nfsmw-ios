@@ -2,6 +2,10 @@
 
 ## 0.6.0 (in development, branch dev-0.5)
 
+- **About 180 MB less memory.** The audio decoder kept a decoder for every
+  one of its 320 sound streams from the start; it now keeps one only while a
+  sound plays (dev97, low-RAM work).
+
 - **Frees memory when iOS runs short.** When iOS warns that memory is low,
   the renderer drops textures and buffers it has not used for half a second,
   and boot.txt records the app's memory limit and any warning, so a crash on
