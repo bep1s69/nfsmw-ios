@@ -17,6 +17,8 @@ import argparse
 import pathlib
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-handoff-wait"
 DECL = (f'extern "C" bool nfsmw_handoff_wait(uint8_t* base, uint32_t waiting_value); // {MARK}\n'
@@ -27,7 +29,7 @@ def sleep_site(lr, value):
     old = f"\tctx.lr = 0x{lr};\n\tsub_8262D790(ctx, base);\n"
     new = (f"\tctx.lr = 0x{lr};\n\tif (!nfsmw_handoff_wait(base, {value})) sub_8262D790(ctx, base);"
            f" // {MARK}\n")
-    return old, new
+    return game_edition.usa(old), game_edition.usa(new)
 
 
 def store_site(store):
@@ -36,7 +38,7 @@ def store_site(store):
 
 
 # function -> edits (anchor, replacement), each anchor exactly once in the function
-SITES = {
+SITES = {game_edition.usa(fn): edits for fn, edits in {
     # main loop: while the word is 1
     "sub_82441DB0": [sleep_site("82441E4C", 1)],
     # render thread: while the word is 0; then stores 0 (r26 = 0)
@@ -44,7 +46,7 @@ SITES = {
                      store_site("REX_STORE_U32(ctx.r27.u32 + -12480, ctx.r26.u32);")],
     # main loop hands the frame over: stores 1 (r4 = 1, r9 = 0x82A30000)
     "sub_82441EF0": [store_site("REX_STORE_U32(ctx.r9.u32 + -12480, ctx.r4.u32);")],
-}
+}.items()}
 
 
 def apply(gen, revert=False, status=False):

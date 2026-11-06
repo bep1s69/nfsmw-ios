@@ -11,7 +11,7 @@ Metal renderer for the game's shaders.
 > **You need your own copy of the game.** The app on the
 > [Releases](https://github.com/bep1s69/nfsmw-ios/releases) page contains no game
 > files: no textures, models, sounds, music, videos or tracks. It reads all of
-> them from your own ISO of the USA Xbox 360 game. This repository contains no
+> them from your own ISO of the Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
 **Version 0.6.0** adds LAN racing, redesigned menus with first-launch setup,
@@ -74,8 +74,10 @@ for the full release notes.
 ## Requirements
 
 **The game**: an ISO of *Need for Speed: Most Wanted* for Xbox 360, **USA
-edition** (title ID `454107D9`), dumped from your own disc. Other editions are
-not supported by the iOS build yet.
+edition** (title ID `454107D9`) or **PAL Europe** (English, `default.xex`
+SHA-256 `e2ea2ff1…`), dumped from your own disc. The IPA on the Releases page is
+built for USA; for PAL Europe, build it yourself from your ISO (below). Other
+editions are not supported by the iOS build yet.
 
 **To play**: an iPhone or iPad on **iOS or iPadOS 18 or later**. Tested on an
 iPad Pro M4 and an iPhone 17 Pro Max; A16 iPhones (iPhone 14 Pro / Pro Max) and
@@ -256,8 +258,10 @@ issue template: it asks for what is needed to find out why.
 
 ## Known issues and limitations
 
-- **USA edition only** for now (the address tables for other editions exist in
-  `tools/ediciones/`, but the iOS-specific game patches are written for USA).
+- **USA and PAL Europe editions only** for now. The iOS-specific game patches
+  are written for USA; PAL Europe builds translate their addresses with
+  `tools/ediciones/pal_eu/desde_usa.tsv`. The address tables for other editions
+  exist in `tools/ediciones/`, but those patches have no table for them yet.
 - **120 fps** depends on the device, render resolution, and scene.
 - **iPhone Duo support** is experimental.
 - **Low-memory devices** may still hit iOS memory limits, especially
@@ -266,7 +270,7 @@ issue template: it asks for what is needed to find out why.
   show a red frame.
 - LAN works over a local network. The original public Xbox Live service
   and leaderboards are unavailable.
-- English only (the language of the USA edition).
+- English only (the language of the USA and PAL Europe editions).
 
 ## Planned
 

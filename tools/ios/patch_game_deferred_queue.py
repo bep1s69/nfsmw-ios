@@ -23,23 +23,25 @@ import argparse
 import pathlib
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-deferred-queue"
 
-PRODUCER = ("nfsmw_recomp.48.cpp", "DEFINE_REX_FUNC(sub_823C8210) {",
+PRODUCER = (game_edition.usa("DEFINE_REX_FUNC(sub_823C8210) {"),
             "\tREX_STORE_U32(ctx.r31.u32 + 20, ctx.r11.u32);\n",
             f"\t__atomic_thread_fence(__ATOMIC_RELEASE); // {MARK}\n")
-CONSUMER_END = ("nfsmw_recomp.100.cpp", "DEFINE_REX_FUNC(sub_823C8290) {",
+CONSUMER_END = (game_edition.usa("DEFINE_REX_FUNC(sub_823C8290) {"),
                 "\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + 20);\n",
                 f"\t__atomic_thread_fence(__ATOMIC_ACQUIRE); // {MARK}\n")
-CONSUMER_CALL = ("nfsmw_recomp.100.cpp", "DEFINE_REX_FUNC(sub_823C8290) {",
+CONSUMER_CALL = (game_edition.usa("DEFINE_REX_FUNC(sub_823C8290) {"),
                  "\t// mtctr r4\n\tctx.ctr.u64 = ctx.r4.u64;\n",
                  f"\tfor (int nfsmw_spin = 0; !ctx.r4.u32 && nfsmw_spin < 200000; ++nfsmw_spin) {{ // {MARK}\n"
                  f"\t\t__builtin_arm_yield(); // {MARK}\n"
                  f"\t\t__atomic_thread_fence(__ATOMIC_ACQUIRE); // {MARK}\n"
                  f"\t\tctx.r4.u64 = REX_LOAD_U32(ctx.r30.u32 + 0); // {MARK}\n"
                  f"\t}} // {MARK}\n")
-# (file, function, anchor, inserted text, after?)
+# (function, anchor, inserted text, after?)
 SITES = [(*PRODUCER, False), (*CONSUMER_END, True), (*CONSUMER_CALL, False)]
 
 
@@ -51,8 +53,12 @@ def function_bounds(text, head):
 
 def apply(gen, revert=False, status=False):
     changed = {}
-    for name, head, anchor, insert, after in SITES:
-        path = gen / name
+    for head, anchor, insert, after in SITES:
+        paths = [p for p in sorted(gen.glob("nfsmw_recomp.*.cpp")) if head in p.read_text()]
+        if len(paths) != 1:
+            sys.exit(f"[ERROR] {head[16:-3]}: found in {len(paths)} generated files")
+        path = paths[0]
+        name = path.name
         text = changed.get(path) or path.read_text()
         a, b = function_bounds(text, head)
         body = text[a:b]
