@@ -482,6 +482,11 @@ from the post target on every frame (300/300), picture normal (Stefan), the
 0.42 ms copy gone. Soak continues with the same two lines. Stefan wants to
 pursue a native Direct3D-to-Metal layer (replacing the game's statically
 linked D3D functions instead of decoding PM4): separate project/plan.
+Done and PARKED the same night (Stefan): local branch `native-d3d` (not
+pushed) holds the plan, N0-N2a and evidence; the device object carries the
+draw state (picture normal) but the saving (~3-5% CPU) is not worth it now.
+The shared SDK has its inert `patch_ios_d3d_marker.py` applied (not listed in
+this branch's prepare_sdk.py). XMA replacement judged not worth it either.
 
 **November 6, dev88 BUILT: half taps removed (no gain); the displayed frame shown from its target.**
 The skip-unread soak never skipped anything: the unread copy is the displayed
