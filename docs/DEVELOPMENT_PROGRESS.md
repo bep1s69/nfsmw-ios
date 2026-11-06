@@ -437,6 +437,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, step 4 design review:** Stefan requested mockups and preset
+values before implementation. Review proposal in MENU_REDESIGN.md. Next:
+Stefan approves or adjusts the visual direction and preset behavior, then
+implement the menus followed by onboarding. dev103 still awaits device
+testing. The pre-existing untracked HANDOFF_CHATGPT.md remains local.
+
 **November 6, dev103 BUILT: old renderer's settings removed from the menus.**
 Stefan's go-ahead. Rows gone: `native_renderer`, `no_vulkan`, `scaling`,
 Emulated renderer section; `RetiredValue()` returns their old defaults (so

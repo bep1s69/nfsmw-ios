@@ -271,6 +271,50 @@ Battery mode then becomes the "Longest battery" preset instead of a switch
 that locks rows (rows stay editable; editing one switches to Custom).
 Values to confirm with Stefan and measure (heat/battery) before release.
 
+## November 6 design review proposal
+
+Dark graphite, warm amber for Play and controller focus, a restrained logo
+or subdued game backdrop on Play, and a dark translucent sheet over the
+paused game. Use a sidebar at regular widths and a horizontally scrollable
+chip strip at compact widths, with the active chip kept in view. Both menus
+use the proposed order and shared catalogue rows. Hide empty in-game tabs,
+derive visibility from flags, and add explicit catalogue metadata for
+existing in-game editor links when moving them into HUD & Controls. Keep
+Advanced launcher-only. Show icon, title, short summary, value and a Details
+action, with a Next launch badge from the existing applicability logic.
+Use the same focus styling and restore focus on return from details. D-pad
+moves, A selects, LB/RB change tabs, Y opens details and B goes back or
+resumes. The iPad Play / iPhone paused / preset page mockups are in
+`~/.codex/visualizations/2026/11/06/01a1b147-a984-77a3-bb0b-88261e1560eb/nfsmw-menu-review.html`.
+
+The five setup pages above remain the proposal. Default to Keep my current
+settings on upgrades and Balanced on new installs. Apply selections on
+Finish, keep skipped pages as-is, and allow setup to be reopened. The
+controller choice can retain the existing automatic touch fallback. Saves
+offers entry points to the existing save manager and import flow.
+
+Preset-owned values for review (all other settings retained):
+
+| Setting | Longest battery | Balanced | Best looking |
+|---|---|---|---|
+| Render scale | 0.85x | 1x | Native |
+| Frame rate cap | 30 | 60 | 60; 120 on supported iPads |
+| AA | FXAA | Off | MSAA 4x |
+| Anisotropic filtering | 4x | 4x | 16x |
+| Shadow quality / draw size | 1600 / Half | 1600 / Full | 1600 / Full |
+| Reflection cadence / resolution | Half each frame / 1x | Every frame / 1x | Every frame / render resolution |
+| Post-processing / motion blur | On / On | On / On | On / On |
+| Warm or Low Power cap / menu cap / hot scale | On / On / On | Off / Off / Off | Off / Off / Off |
+| CPU profile | Eco | Balanced | Max |
+
+Longest battery writes editable values once. Editing a preset-owned value
+shows Custom. For saved Battery mode on, materialize the legacy effective
+values before retiring the switch, including an effective 40 fps cap or an
+explicit CPU profile. Match Longest battery when the values match; otherwise
+show Custom. Battery mode off keeps saved settings. No automatic retuning on
+upgrade. Use the catalogue as the only source of preset definitions and
+settings metadata. Keep CPU profile behavior pending its existing audit.
+
 ## Open questions for Stefan
 
 - Tab names and grouping above.

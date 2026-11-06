@@ -21733,3 +21733,12 @@ saved non-default values are ignored. Build OK, no errors. IPA
 `NFSMW-0.6.0-dev103-no-old-renderer-settings.ipa`, SHA256 4d5b54f88c6bdaf2225b4c981da474eab0ee9a78573360f41eb0b17e073ec23f. Not run on a
 device; no runtime argument comparison made. Vulkan/MoltenVK still built and
 linked (gpu_backend=native keeps it from starting).
+
+## November 6: step 4 menu and onboarding design review
+
+Reviewed dev101–dev103, MENU_REDESIGN and the catalogue defaults,
+BatteryValue, Value and the in-game next-launch condition. Prepared three
+mockup views and documented the preset values and legacy Battery mode
+migration proposal in MENU_REDESIGN. The visualization render wrapper
+completed with exit 0. No app code, build, or on-device test in this session.
+The design and presets await Stefan's approval.
