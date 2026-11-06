@@ -10,10 +10,15 @@
   own shape) or "16:9 (Xbox 360)". Render resolution choices show the exact
   pixels they draw on your device, e.g. "Native · 2868×1320" (dev93).
 
-- **iPhone Duo inner screen, experimental (GitHub #14).** The game looked for its window on
-  the device's "main" screen, which on a foldable can be the other panel, and
-  showed nothing on the inner screen. It now uses the screen its own window is
-  on. Not yet confirmed on a Duo (dev92).
+- **iPhone Duo inner screen, experimental (GitHub #14).** The game looked for
+  its window on the device's "main" screen, which on a foldable can be the
+  other panel, and showed nothing on the inner screen. It now uses the screen
+  its own window is on, and the picture is redrawn to fit when you fold or
+  unfold. Limitations: not tested on a Duo yet; the game's shape is chosen
+  when it starts (from the panel it is started on) and does not change while
+  it runs, so after folding or unfolding the picture keeps that shape with
+  black bars; restart the game to fit the other panel. A screen narrower than
+  16:9 gets the game's 4:3 mode, the closest it has (dev92).
 
 - **Less CPU work by default.** Five savings that were opt-in are now on:
   skipping picture copies nothing reads, honoring the game's face culling,
