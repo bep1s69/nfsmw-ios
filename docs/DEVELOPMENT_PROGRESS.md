@@ -437,6 +437,11 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 6, dev100 on the iPhone (Stefan): touch controls fine.** Log
+Debug/6 November 2026/dev100_touch_nfsmw.log: peak 1330 MiB. Asked Stefan
+whether to build the low-memory mode now or wait for a 2 GB device report
+(Claude leans to waiting: a race may already fit).
+
 **November 6, dev100 BUILT: touch overlay without a transparency layer.**
 `-[NFSTouchView drawNative]` applied the view's alpha (idle opacity 0.35)
 with `CGContextSetAlpha` + `CGContextBeginTransparencyLayer`: a whole-screen
