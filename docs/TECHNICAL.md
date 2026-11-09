@@ -21953,3 +21953,69 @@ Next action: request server-side removal of retained objects and cached
 views from GitHub Support for bep1s69/nfsmw-ios. First backlog introduction
 19e7e60a80312f17f443ebd152f761afdea47e1c, zero affected PRs. Verify old-SHA
 access after Support responds. No support request sent in this session.
+
+
+## November 9: GitHub issue #18 modded PC save race-finish crash investigation
+
+Read issue https://github.com/bep1s69/nfsmw-ios/issues/18 and its comments
+through the GitHub connector: open, zero comments. Reporter says converted
+money-modded PC save crashes when finishing a race, app 0.6.0, certificate
+sideload, default settings, iPhone 18 Pro Max / iOS 27.2 (as entered by the
+reporter, not independently verified). No save or iOS .ips crash report was
+attached. Exact IPA, binary UUID/SHA256 and Extra Args are unavailable.
+No comment posted, no issue mutation, push, build or device reproduction.
+
+Supplied log `/Users/bep1s/Downloads/nfsmw.log` archived byte-for-byte at
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/9 November 2026/issue18_modded_pc_save_nfsmw.log`.
+Copy/hash command exit 0; 4,390,196 bytes, 26,288 lines, SHA256
+`270b6afd337a2959433c3595e476df4d4233bcb9e62da028722feb9f1d028621`.
+Log spans November 7–8 and three visible game-thread groups; initial startup
+is missing. Loaded profile names include SONNY2, Z and DOCHAX; the log does
+not establish which file contains the money edit or the amount of cash.
+
+Python scan of all lines found 4,192 error lines, exclusively 144
+[vigilante] and 4,048 [semaforos] lines. Eight stall alerts, at log lines
+5176, 5921, 7580, 8978, 11678, 16325, 21942 and 24152, each have a later
+recovery warning (5738, 6522, 8107, 10441, 12250, 16894, 22520, 24688).
+These are not recorded crash exceptions. Searches found no unhandled guest
+access violation, SIGSEGV/SIGABRT, EXC_ or jetsam termination report. The
+last line is ordinary audio work at November 8 09:26:16.221. Frame 9301 at
+09:26:15.862 reports 60.0 fps; the last memory sample at 09:26:14.375 is
+1,373 MiB footprint, 1,515 MiB peak, 2,003 MiB headroom and nominal thermal.
+This does not rule out a subsequent unlogged crash or OS termination.
+
+Reviewed `common/src/nfsmw_app.h::VigilanteMain`: its one-second sampling
+hashes only lr/r1/r3 per thread, not instruction progress or completed
+frames. Generated-code inspection maps repeated lr 0x82597538 to the call
+to sub_825A5B20 inside the graphics command-buffer waiting path. Inference:
+recurring frame waits can produce misleading stall alarms; these dumps do
+not establish a deadlock, money overflow or save-converter crash. No
+watchdog or graphics source change made.
+
+Save opens return 00000000. Profile Z save-file creation at November 7
+19:38:20.537 and 19:43:30.328 returns 00000000 and logs its extra pool
+entries, followed by continued rendering/UI. This proves successful file
+creation in those attempts, not full save validity or successful race
+completion. Final DOCHAX session has no save write after its race starts.
+
+Settings discrepancy: [extra-options] logs Unlock all things ON at
+November 7 19:36:45.967 and November 8 09:23:34.293, then OFF at
+November 8 09:25:40.752. Catalogue and cvar default false. Therefore the
+visible runs are not all default settings. No demonstrated causal link.
+
+Reviewed all of `ios/src/save_convert.cpp` and October 27 converter evidence.
+The old race-count endian error and template current-car handle error were
+fixed in IPA106/107; those old failures were explicit access violations.
+Prior money-heavy pc_Speed host conversion (1,000,249,999 cash) and iPad
+racing/saving success are counterevidence to declaring all money edits
+unsupported. They do not validate this unknown save. No amount, invalid
+record or conversion defect can be established from this log alone.
+
+Next: obtain original PC save and app-exported converted save, exact
+race/event and whether failure is before results, on Continue or during
+autosave, plus matching NFSMW .ips (or JetsamEvent if applicable). Compare
+same save/race with Unlock everything off, preserving originals. Inspect
+cash, checksums, persistent Lua/activity records, race records and car
+handles using the actual files before selecting a code fix. D-021 remains
+open in the private ignored backlog. No runtime tests were possible from
+the supplied log alone; read-only scans and source inspection completed.

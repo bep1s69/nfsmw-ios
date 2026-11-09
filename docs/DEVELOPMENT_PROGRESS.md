@@ -448,6 +448,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 9, issue #18 investigated (D-021, no fix yet):** modded PC save
+report reviewed against the supplied November 7–8 log. No recorded crash
+exception; all eight watchdog stall alerts recover. Final race rendering
+is 60 fps with about 2 GiB reported memory headroom. Unlock everything was
+on despite reported defaults, later off; causality unproven. Next: original
+PC save, exported converted save, exact failing race/action and matching
+iOS .ips; compare with Unlock everything off before choosing a fix.
+See TECHNICAL November 9 for archived evidence, hash and limitations.
+No source/build/device test or GitHub comment. Session changes are local
+record updates only, no push/release. Private docs/BACKLOG.md updated but
+intentionally ignored/uncommitted under the November 6 privacy rule;
+pre-existing untracked HANDOFF_CHATGPT.md preserved untouched. The GitHub
+Support purge follow-up below remains separate and outstanding.
+
 **November 6, public backlog history rewritten:** Stefan approved removing
 the backlog from public history. All GitHub branch and tag histories are
 clean, and the active local development branch is based on cleaned main
