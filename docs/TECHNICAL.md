@@ -22212,3 +22212,30 @@ with the least power. No code changes yet; he will provide traces as needed.
 Next proposed (Extra Args only, existing cvars in `ios/src/adaptive_qos.cpp`):
 iPhone pursuit at Balanced 60 with `--ios_adaptive_qos_workers_count=1`,
 then `=2`, then `--ios_adaptive_qos_level=default`, comparing drain and fps.
+
+## November 9: iPhone boost trials (Extra Args, no code change)
+
+Stefan, iPhone 17 Pro Max, same build, 1x, cap 60, Balanced, brightness 27 %,
+same Challenge Series pursuit. Files: `Debug/9 November 2026/Power matrix/
+iPhone boost trials/` (three `.aar`, `extracted/`, `nfsmw.log`). Each launch's
+`[adaptive-qos] boost:` line confirms the setting.
+
+| run | Extra Args | drain %/h | CPU | GPU | instr G/s | fps min/median | off-grid max | hitches |
+|---|---|---:|---:|---:|---:|---|---:|---:|
+| reference (matrix) | none | 38.6 | 30.52 | 4.58 | 10.72 | 59.3 / 60.0 | 20 | 0 |
+| 17:48 | `--ios_adaptive_qos_workers_count=1` | 39.8 | 31.50 | 4.64 | 11.07 | 59.9 / 60.0 | 1 | 0 |
+| 17:51 | `--ios_adaptive_qos_workers_count=2` | 38.1 | 29.42 | 4.70 | 11.62 | 58.8 / 60.0 | 24 | 0 |
+| 17:54 | `--ios_adaptive_qos_level=default` | 34.0 | 24.87 | 4.85 | 10.99 | 60.0 / 60.0 | 1 | 0 |
+| Eco (matrix) | none | 24.1 | 10.70 | 3.80 | 10.47 | 48.9 / 54.7 | 119 | 86 |
+
+Stefan: all three felt very good; the Default run felt best, with the least
+input delay (input latency is a future session's focus).
+
+Measured (single runs): boosting fewer guest threads saves nothing; the cost
+is in the two frame threads (Main XThread, GPU Commands), which every
+variant raises. A Default-class boost holds 60 perfectly at −4.6 %/h (−12 %)
+vs User Initiated. Still ~10 %/h above Eco.
+Next (Extra Args, existing cvars): Default boost combined with
+`--nfsmw_adaptive_qos_original=true` (no constant driving boost, boost only
+after late frames), with `--ios_boost_threads=gpu`, and with
+`--ios_boost_threads=main`.
