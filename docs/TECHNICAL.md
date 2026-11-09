@@ -22077,3 +22077,29 @@ Profiler runs on 0.6.0, same pursuit at steady heat plus one free-roam run,
 per device Balanced 60, Eco 60, Balanced 40, Eco 40, fixed brightness, Low
 Power Mode off, with the game log. Lead: pursuit CPU cost. Wake/polling work
 stays dropped (no drain change November 4 iPad and November 6 iPhone).
+
+## November 9: Eco/Balanced/Max audit (code reading, no change)
+
+Source: `ios/src/performance_profile.h` `Resolve(mode, efficiency_cores, cap)`,
+expanded into launch flags in `ios/src/ios_main.mm` (Extra Args override each
+flag); `nfsmw_adaptive_qos_original` is only read by the adaptive QoS rules
+(`ios/src/adaptive_qos.cpp`). Flags: main/GPU-command Utility, guest Utility,
+adaptive QoS (driving boost to User Initiated), original rules, render queue
+Utility, Background QoS, low-priority guest workers.
+
+| device, cap | Eco | Balanced | Max |
+|---|---|---|---|
+| iPad (6+ E cores), 60 | Utility all, no adaptive | same; `original` on but inert (adaptive off) | all Utility off |
+| iPad, 30/40 | + Background, + low workers | + Background (workers normal) | all off |
+| iPhone (4 E cores), 40/60 | Utility all, no boost | main/GPU adaptive: User Initiated while driving | all off |
+| iPhone, 30 | Utility all, no boost | Background + adaptive safety net | all off |
+
+Measured by reading: on the iPad at the 60 cap Eco and Balanced resolve to the
+same effective policy, which matches the unchanged November 8 log after the
+04:25 switch. Inference: on the iPhone, Balanced's driving boost keeps the
+frame threads at User Initiated (performance cores) for the whole pursuit,
+a plausible part of the 03:24–03:42 heat; Eco removes it but dev75 saw missed
+frames at 40/60 on the iPhone's 4 E cores. Not measured: energy of either in
+a pursuit. Next: the Power Profiler matrix decides whether Eco at 60 on the
+iPad needs a real difference and whether the iPhone boost needs a pursuit
+policy. No source change proposed yet.
