@@ -22019,3 +22019,61 @@ cash, checksums, persistent Lua/activity records, race records and car
 handles using the actual files before selecting a code fix. D-021 remains
 open in the private ignored backlog. No runtime tests were possible from
 the supplied log alone; read-only scans and source inspection completed.
+
+## November 9: 0.6.1 battery pass, November 6–8 session logs reviewed
+
+Request (Stefan): start a better battery pass as the first 0.6.1 item. He
+supplied a ChatGPT strategy (ideas only; archived as
+`Debug/9 November 2026/chatgpt_battery_optimization_strategy.md`) and the
+rotated logs of both devices: `Debug/9 November 2026/iPhone 0.6.0 sessions/`
+(nfsmw.2/.1/.log, November 6 16:11 to November 8 03:55) and
+`Debug/9 November 2026/iPad 0.6.0 sessions/` (nfsmw.3/.2/.1/.log, November 6
+18:45 to November 8 04:44). Both run the November 6 16:49:41 build (dev107
+era). Analysis by log reading only; per-minute medians of the `[native]
+frame` and `[cpu]` lines (script kept in the session scratchpad, not tracked).
+
+iPhone 17 Pro Max, November 8 03:19 launch, native 1x, Balanced (adaptive
+QoS), cap 60, then 40 + 0.85x + half-rate reflections + shadow 0.5 from 03:48:
+
+| segment | GPU ms | recording ms | CPU % of a core | battery | thermal |
+|---|---:|---:|---:|---|---|
+| free roam 03:20–03:21 | 7.3–7.5 | 2.1 | 86–87 | 45 | nominal |
+| pursuit 03:25–03:42 | 11.3–15.0 | 4.4–5.1 | 145–165 | 45→35 | fair from 03:34 |
+| 40 fps 0.85x 03:48–03:55 | 6.7–9.4 | 7.6–11.9 | 117–198 | 35 | nominal |
+
+iPad Pro M4, November 8 04:22 launch, 1.5x, cap 60, Balanced (tablet:
+original behaviour), Eco from 04:25:10. One pursuit 04:22:41–04:43:28
+(PostRace_Pursuit): GPU 9.4–12.7 ms, recording 4.7–6.9 ms, CPU 161–233 %
+of a core, battery 40→30 (5 % steps), thermal nominal throughout. Draws fell
+from 4,049 (04:22) to 2,556 (04:27) while GPU rose from 6.0 to 10.5 ms.
+
+Measured:
+- Fixed-size work slowed by the same factor as the whole frame: the 1600x1600
+  shadow depth copy went 0.35 → 0.70 ms (iPhone, still nominal at 03:30) and
+  0.15 → 0.40 ms (iPad, nominal). Nearly every pass scaled similarly.
+- Both hot/high-drain sessions were long pursuits (18 and 21 minutes).
+- iPad Eco at 04:25 did not change logged CPU or GPU (Balanced on 6+ E-core
+  iPads is the original behaviour).
+- iPhone 40 fps/0.85x did not lower logged CPU %; recording per frame rose.
+- Watchdog (`[vigilante]`) alerts occur only in frontend/loading (iPhone
+  03:19:16, 03:19:32, 03:19:56, 03:42:42; iPad 04:43:45, recovered after 7 s,
+  main thread lr 0x82441BBC = the known sub_82441B60 sleep loop), never while
+  driving.
+
+Inferences (unproven): the GPU millisecond rise is mostly a lower GPU clock
+or shared memory bandwidth, not added rendering work, so log GPU ms are not
+an energy measure. The real added cost in pursuits is CPU (guest game threads
+and GPU Commands nearly double with fewer draws). "% of a core" is inflated
+on lower QoS/E cores, so the profile effect needs Power Profiler. ChatGPT's
+40.7 %/h (iPad, 39→29 in 14.75 min) is a pursuit, not a like-for-like
+comparison with the earlier 24.4 %/h free-roam figure; the October 24 IPA48
+pursuit was ~33 %/h.
+
+Not proven: any regression since dev91; the GPU clock state (no clock data);
+battery rates beyond 5 % steps. No source, build or device test.
+
+Next: code audit of Eco/Balanced/Max (read only), then Stefan's Power
+Profiler runs on 0.6.0, same pursuit at steady heat plus one free-roam run,
+per device Balanced 60, Eco 60, Balanced 40, Eco 40, fixed brightness, Low
+Power Mode off, with the game log. Lead: pursuit CPU cost. Wake/polling work
+stays dropped (no drain change November 4 iPad and November 6 iPhone).

@@ -448,6 +448,16 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 9, 0.6.1 battery pass started (analysis only):** Stefan's
+November 6–8 iPhone and iPad logs are archived under `Debug/9 November 2026/`.
+Both high-drain sessions were long pursuits. GPU ms rose about 2x with fewer
+draws, and fixed-size copies slowed the same way, so log GPU ms are likely
+clock effects rather than an energy measure. Pursuit CPU roughly doubles and
+is the lead. iPad Eco changed nothing visible. Watchdog alerts are
+frontend/loading only. Next: read-only audit of Eco/Balanced/Max, then
+Stefan's Power Profiler matrix on 0.6.0 (pursuit plus free roam). No source
+change approved. See TECHNICAL November 9 (battery pass).
+
 **November 9, issue #18 investigated (D-021, no fix yet):** modded PC save
 report reviewed against the supplied November 7–8 log. No recorded crash
 exception; all eight watchdog stall alerts recover. Final race rendering
