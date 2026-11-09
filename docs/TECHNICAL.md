@@ -22239,3 +22239,32 @@ Next (Extra Args, existing cvars): Default boost combined with
 `--nfsmw_adaptive_qos_original=true` (no constant driving boost, boost only
 after late frames), with `--ios_boost_threads=gpu`, and with
 `--ios_boost_threads=main`.
+
+## November 9: iPhone boost trials, second set
+
+Same setup (iPhone, 1x, cap 60, Balanced, Challenge Series pursuit,
+brightness 27 %). Files: `Debug/9 November 2026/Power matrix/iPhone boost
+trials 2/`. Every run also had `--ios_adaptive_qos_level=default`.
+
+| run | added Extra Arg | drain %/h | CPU | GPU | instr G/s | fps min/median | off-grid max | hitches |
+|---|---|---:|---:|---:|---:|---|---:|---:|
+| 18:05 | `--nfsmw_adaptive_qos_original=true` | 39.9 | 31.77 | 4.46 | 11.12 | 59.0 / 60.0 | 4 | 1 |
+| 18:08 | `--ios_boost_threads=gpu` | 36.9 | 26.36 | 4.80 | 10.97 | 59.9 / 60.0 | 1 | 0 |
+| 18:11 | `--ios_boost_threads=main` | 32.9 | 23.80 | 4.52 | 10.96 | 56.8 / 59.8 | 34 | 3 |
+| earlier 17:54 | (Default only, both threads) | 34.0 | 24.87 | 4.85 | 10.99 | 60.0 / 60.0 | 1 | 0 |
+
+Stefan: all three felt virtually indistinguishable.
+Measured: the late-frame-only rules re-boost within 1–2 s on Utility each time
+(log: "2 late frames of 120, 1 s on Utility", holds 40/80/160 s), so at 60 the
+iPhone cannot stay on Utility and the run was effectively boosted throughout,
+at a higher cost (single run). GPU-only boost is perfect but costs more than
+Default on both. Main-only is cheapest by ~1 %/h (within run-to-run spread of
+~1.5 %/h) with small drops (min 56.8). Default on both frame threads remains
+the best clean result: −12 % vs today's User Initiated.
+
+Inference: QoS choices plateau at ~33–34 %/h for iPhone 60; reaching Eco's
+~24 %/h at 60 needs less frame-thread CPU work per frame, not another QoS
+mix. A cap-holding controller (step frame threads up Utility → Default →
+User Initiated on late frames, step down after a stable period) would by
+these measurements settle at Default on iPhone 60, Utility on iPhone 40 and
+iPad 60, and Utility plus lowered workers on iPad 40.
