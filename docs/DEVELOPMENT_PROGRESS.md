@@ -459,9 +459,12 @@ IPS archived in `Debug/9 November 2026/issue18_reproduction/`. Exact released
 limit error, then exit cleanup hits DbgBreakPoint (SIGTRAP). Save checksums
 all pass; cash 999,955,699 is in signed range. No demonstrated cash overflow,
 autosave failure or low-memory kill. The original unconverted PC file is absent,
-so source-state versus converter causality remains unresolved. Next for D-021:
-compare the original PC save's persistent Lua state; otherwise propose a
-focused Lua-error diagnostic with script context before another device test.
+so source-state versus converter causality remains unresolved. Stefan cannot
+obtain this original PC save and deferred further investigation until he chooses
+to resume (November 9); D-021 is parked. Next on resumption: test other PC saves,
+retaining originals and converted copies, and compare the same race on PC/iOS
+where feasible. A Lua-error/context diagnostic remains a possible later step.
+No scheduled test or new build requested.
 No source/build/device run; do not disturb dev109 battery work below. Local
 record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.

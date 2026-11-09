@@ -22463,3 +22463,17 @@ device attempt. Do not silently reset activity progress, lower cash, skip the
 Lua error or suppress the cleanup breakpoint as a supposed fix. D-021 remains
 open: immediate failure mechanism known, underlying bad script-state origin
 unresolved. No app code/build/test or GitHub comment in this investigation.
+
+
+## November 9: issue #18 investigation deferred by Stefan
+
+Stefan cannot obtain the original PC save and may try other saves tomorrow
+or whenever he next chooses to investigate. Marked D-021 parked; no scheduled
+test, diagnostic build or further investigation requested. Retain the archived
+converted save, IPS and logs. Next on resumption: select other PC saves and
+preserve original and converted copies, compare the same race on PC/iOS where
+feasible, then inspect serialized script state. The Lua loop-limit failure
+mechanism is known; the underlying source/conversion cause remains unresolved.
+No code changes, build or device test in this follow-up. `git diff --check`
+passed. Private BACKLOG stays ignored/uncommitted; existing untracked
+HANDOFF_CHATGPT.md preserved.
