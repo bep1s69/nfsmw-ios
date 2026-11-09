@@ -22167,3 +22167,48 @@ QoS; the Eco 40 gain comes from the low-priority guest workers
 (`ios_background_qos_low_workers`), which Balanced 40 leaves out because of
 the dev66 audio starvation. Not measured: iPhone (Balanced has a driving
 boost there, so Eco should differ at 60), longer sessions.
+
+## November 9: iPhone Power Profiler matrix and new target
+
+Stefan, iPhone 17 Pro Max, build Nov 6 16:49:41, native 1x (1320x2868),
+brightness 27 %, Low Power Mode off, no charging rows. Stefan did a software
+update before this session (he noted heat and drain felt lower than the
+November 8 night session). Files: `Debug/9 November 2026/Power matrix/iPhone/`
+(eight `.aar`, `extracted/`, `nfsmw.log`). Same parser; labels confirmed from
+the log's `[live-profile] request` / `[live-fps] cap` lines (all as intended).
+Log columns: per-5 s on-screen fps, off-grid frames per 300, hitch lines,
+`[cpu]` % of a core (inflated on E cores), median GPU ms.
+
+| run | drain %/h | CPU | GPU | instr G/s | fps min/median | off-grid median/max | hitches | CPU % |
+|---|---:|---:|---:|---:|---|---|---:|---:|
+| race Balanced 60 | 35.4 | 27.23 | 4.23 | 8.52 | 52.4 / 60.0 | 0 / 151 | 1 | 74 |
+| race Eco 60 | 21.3 | 8.97 | 3.76 | 8.35 | 56.0 / 58.5 | 6.5 / 69 | 15 | 178 |
+| race Balanced 40 | 26.1 | 18.94 | 2.65 | 6.16 | 39.6 / 40.0 | 0 / 151 | 2 | 55 |
+| race Eco 40 | 17.4 | 7.13 | 2.65 | 6.42 | 39.2 / 39.7 | 4 / 17 | 62 | 143 |
+| pursuit Balanced 60 | 38.6 | 30.52 | 4.58 | 10.72 | 59.3 / 60.0 | 0 / 20 | 0 | 91 |
+| pursuit Eco 60 | 24.1 | 10.70 | 3.80 | 10.47 | 48.9 / 54.7 | 28 / 119 | 86 | 220 |
+| pursuit Balanced 40 | 28.1 | 21.12 | 3.13 | 8.19 | 39.9 / 40.0 | 0 / 22 | 1 | 76 |
+| pursuit Eco 40 | 17.5 | 6.78 | 2.70 | 6.93 | 38.7 / 39.5 | 11.5 / 28 | 0 | 167 |
+
+(CPU impact here is kind-0 LiveContainer rows; display is ~2.0 in every run,
+so the CPU scale differs from the iPad table; compare within a device only.)
+
+Measured: the same work (instructions within ~3 %) costs 14–15 %/h more at 60
+and 9–11 %/h more at 40 when Balanced's driving boost (User Initiated, all
+guest threads, performance cores) is on. Eco holds 40 nearly (median 39.5–39.7)
+but misses 60 (pursuit median 54.7, 86 hitch lines; Stefan: "60fps eco was
+pretty bad"). In Eco 60 pursuit, GPU Commands and XThread13C1B reach ~51–56 %
+of a core each, Main XThread 41 %. Pursuit costs 2–3 %/h more than the race.
+
+Inference: the boost is far more than needed at both caps; the cap could
+likely be held with a smaller boost (fewer threads, a lower boost QoS, or
+only while frames are late). Previous counter-evidence: IPA49's Default /
+20 s / 3 workers saved no battery on the iPhone (October 24, battery-percent
+method, before dev55's hand-off); not re-tested with Power Profiler.
+
+Decision (Stefan, November 9): abandon the Eco/Balanced/Max performance
+profiles. New target: consistently hit the selected cap (including 120)
+with the least power. No code changes yet; he will provide traces as needed.
+Next proposed (Extra Args only, existing cvars in `ios/src/adaptive_qos.cpp`):
+iPhone pursuit at Balanced 60 with `--ios_adaptive_qos_workers_count=1`,
+then `=2`, then `--ios_adaptive_qos_level=default`, comparing drain and fps.

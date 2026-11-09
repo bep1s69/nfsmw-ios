@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 9 (Stefan): abandon the Eco/Balanced/Max performance profiles
+  (clunky, do not work as expected). New target for battery work: hold the
+  selected FPS cap (30/40/60/120) consistently with the least power, scaling
+  automatically. No code changes until the measurements support a design.
+
 - November 6 (Stefan): ship 0.6.0 at dev107 scope. Battery and thermal
   work is done for this release. The RAM reduction is demonstrated on
   tested hardware. Leave low-RAM compatibility testing to players with
@@ -447,6 +452,13 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 9, power matrix done on both devices:** iPad Eco = Balanced at 60;
+Eco 40 halves drain vs 60. iPhone Balanced's driving boost costs 14–15 %/h
+at 60 for the same work, but Eco misses 60. Stefan dropped the profiles: the
+new target is holding the cap with the least power. Next: Extra Args boost
+trials (workers_count 1/2, level default) on an iPhone pursuit at 60. See
+TECHNICAL November 9 iPhone matrix.
 
 **November 9, 0.6.1 battery pass started (analysis only):** Stefan's
 November 6–8 iPhone and iPad logs are archived under `Debug/9 November 2026/`.
