@@ -453,6 +453,12 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 9, dev109 BUILT: cap controller without probing while driving.**
+dev108 probed down while driving (hitches, no saving on the iPhone). dev109
+holds each device's measured start level while driving and only steps down
+in menus/pause/loading. `ios/build/NFSMW-0.6.1-dev109-cap-no-probing.ipa` on
+iCloud Desktop. Next: iPhone pursuit at 60 and 40 with Power Profiler.
+
 **November 9, dev108 BUILT: cap controller + touch auto-hide.** Replaces
 the profiles (`nfsmw_cap_controller`, default on): frame threads step
 Low/Default/User Initiated only while frames are late. Touch controls hide on

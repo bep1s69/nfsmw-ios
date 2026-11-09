@@ -22342,3 +22342,24 @@ Inference: blind probing down is wrong for the iPhone. Proposed dev109
 (awaiting approval): start each device and cap at its measured level, step
 up on late frames as now, and only step down outside driving (menus, pause,
 loading), where a late frame is invisible.
+
+## November 9: dev109 cap controller without probing while driving (built, untested)
+
+Approved by Stefan after the dev108 iPhone result. `adaptive_qos.cpp`
+controller branch: while driving the frame threads (and raised guest threads
+and render queue) never step down and are held at least at a start level:
+devices with fewer than 6 efficiency cores (iPhones) Default above the 30
+cap, Low at 30; 6+ efficiency-core iPads Low up to 60, Default at 120
+(untested; 120 is a separate topic per Stefan). Up one level on 3 late frames
+of 60 as before. Outside driving (menus, pause, loading) the level steps down
+one at a time after 5 s without a step up, to Low. dev108's doubling holds
+removed. Logs `[cap-controller] on (dev109)`, `driving: no step down`,
+`up to`, `down to (not driving)`. Stefan: the iPad holds 60 on the efficiency
+cores (many earlier runs), so no dev108 iPad runs were taken.
+
+Build: incremental, exit 0; marker string present in the binary. IPA
+`ios/build/NFSMW-0.6.1-dev109-cap-no-probing.ipa`, SHA256
+2e510b6d9b62b87104ff9959b5395d1386d2f3a286c4d651c7687a3525938e82; on iCloud
+Desktop (dev108 moved to Trash). Not device-tested. Expected (unverified):
+iPhone 60 ~34 %/h like the fixed Default trial, no driving hitches; iPhone
+40 at Default unmeasured; iPad unchanged at 60, Eco-like at 40.

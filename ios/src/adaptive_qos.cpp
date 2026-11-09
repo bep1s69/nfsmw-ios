@@ -98,9 +98,9 @@ REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
-                    "dev108 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
+                    "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
-                    "and back down after a stable stretch; false restores the profiles (restart required)");
+                    "stepping down only outside driving (dev109); false restores the profiles (restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -336,8 +336,8 @@ void OnSwap(double interval_ms) {
     REXLOG_INFO("[adaptive-qos] on: main and GPU command threads start at Utility; guest workers and render queue {}",
                 WorkersOn() ? "follow the mode" : "stay at Utility");
     if (Controller())
-      REXLOG_INFO("[cap-controller] on: frame threads start Low ({}); steps up to Default, then User Initiated "
-                  "on 3 late frames of 60, steps down after 20-240 s on time; no driving boost",
+      REXLOG_INFO("[cap-controller] on (dev109): Low is {}; while driving at least the device's start level, "
+                  "up one level on 3 late frames of 60, steps down only outside driving",
                   LowQos(LowRole::Frame) == QOS_CLASS_BACKGROUND ? "Background" : "Utility");
     else
     REXLOG_INFO("[adaptive-qos] boost: {} QoS, holds up to {:.0f} s, {} guest threads{}", Settings().name,
@@ -354,27 +354,37 @@ void OnSwap(double interval_ms) {
   late[at] = is_late;
   at = (at + 1) % window;
   if (Controller()) {
-    // dev108 cap controller: one level up when 3 of the last 60 frames were
-    // late; one level down once the current hold has passed. A step down that
-    // is followed by a step up within 10 s doubles the hold (up to 240 s), so
-    // a device that cannot hold the cap on a lower level probes it rarely
-    // (Nov 9: the iPhone at 60 is late within 1-2 s on Utility). 60 s on the
-    // lower level resets the hold to 20 s. Driving does not force a level.
-    static Clock::time_point stepped_down = now - std::chrono::hours(1);
-    if (m < 2 && late_count >= 3) {
-      const double since_down = std::chrono::duration<double>(now - stepped_down).count();
-      if (since_down < 10.0) hold_s = std::min(hold_s * 2.0, 240.0);
-      else if (since_down > 60.0) hold_s = 20.0;
-      ++m;
-      hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
+    // dev109 cap controller (Stefan, Nov 9: dev108's probing down while
+    // driving hitched and saved nothing on the iPhone). While driving the
+    // frame threads never step down: they stay at least at the level that
+    // held this device and cap in the Nov 9 measurements (iPhone and other
+    // devices with < 6 efficiency cores: Default at caps above 30; 6+
+    // efficiency-core iPads: Low up to 60; Default at 120, untested) and step
+    // up one level on 3 late frames of 60. Outside driving (menus, pause,
+    // loading) a late frame is invisible, so there the level steps down one
+    // at a time after 5 s without a step up, down to Low.
+    const bool drive = driving.load(std::memory_order_relaxed);
+    const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 30 ? 1 : 0);
+    static bool was_driving = false;
+    if (drive != was_driving) {
+      was_driving = drive;
       if (lines++ < 200)
-        REXLOG_INFO("[cap-controller] up to {} ({} late frames of 60, cap {}), next step down in {:.0f} s",
-                    LevelName(m), late_count, cap, hold_s);
-    } else if (m > 0 && now >= hold_until) {
+        REXLOG_INFO("[cap-controller] {} (start level {}, cap {})", drive ? "driving: no step down" : "driving stopped: step down allowed",
+                    LevelName(floor_level), cap);
+    }
+    if (drive && m < floor_level) {
+      m = floor_level;
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
+    } else if (m < 2 && late_count >= 3) {
+      ++m;
+      hold_until = now + std::chrono::seconds(5);
+      if (lines++ < 200)
+        REXLOG_INFO("[cap-controller] up to {} ({} late frames of 60, cap {}, {})", LevelName(m), late_count, cap,
+                    drive ? "driving" : "not driving");
+    } else if (!drive && m > 0 && now >= hold_until) {
       --m;
-      stepped_down = now;
-      hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
-      if (lines++ < 200) REXLOG_INFO("[cap-controller] down to {} (cap {})", LevelName(m), cap);
+      hold_until = now + std::chrono::seconds(5);
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] down to {} (not driving, cap {})", LevelName(m), cap);
     }
     if (m != mode.load(std::memory_order_relaxed)) {
       std::fill(std::begin(late), std::end(late), false);
