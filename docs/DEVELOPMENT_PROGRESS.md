@@ -453,6 +453,14 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 9, dev108 BUILT: cap controller + touch auto-hide.** Replaces
+the profiles (`nfsmw_cap_controller`, default on): frame threads step
+Low/Default/User Initiated only while frames are late. Touch controls hide on
+controller/keyboard input. `ios/build/NFSMW-0.6.1-dev108-cap-controller.ipa`
+on iCloud Desktop. Next: Stefan's Power Profiler pursuits at 60 and 40 on both
+devices. Menu still shows the old profile choice (ignored). TECHNICAL
+November 9 dev108.
+
 **November 9, power matrix done on both devices:** iPad Eco = Balanced at 60;
 Eco 40 halves drain vs 60. iPhone Balanced's driving boost costs 14–15 %/h
 at 60 for the same work, but Eco misses 60. Stefan dropped the profiles: the

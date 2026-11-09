@@ -22268,3 +22268,51 @@ mix. A cap-holding controller (step frame threads up Utility → Default →
 User Initiated on late frames, step down after a stable period) would by
 these measurements settle at Default on iPhone 60, Utility on iPhone 40 and
 iPad 60, and Utility plus lowered workers on iPad 40.
+
+## November 9: dev108 cap controller and touch auto-hide (built, untested)
+
+Approved by Stefan ("yes" to the controller proposal; auto-hide requested
+for the next build).
+
+Cap controller (`nfsmw_cap_controller`, default true; false restores the
+Eco/Balanced/Max profiles for A/B):
+- `performance_profile.h` `Resolve` mode 3: main/GPU fixed Utility off,
+  guest Utility on, adaptive on, original off, render queue Utility on;
+  Background frame threads + low-priority guest workers only on 6+ E-core
+  devices at caps <= 40 (Eco's measured iPad 40 setting).
+- `ios_main.mm`: `--nfsmw_cap_controller` parsed at launch; the profile
+  becomes "auto" and the `[performance]` line says "cap controller".
+- `adaptive_qos.cpp`: profile number 3 whenever the cvar is on (the menu's
+  profile choice is ignored; `Choose` no longer overwrites the mode).
+  `OnSwap` controller branch: levels Low (Utility/Background) -> Default ->
+  User Initiated for both frame threads, guest threads and the render queue.
+  Up one level on 3 late frames of 60 (late = swap > 1.1x budget or encode
+  over budget, < 250 ms); down one level when the hold expires. Hold starts
+  at 20 s, doubles (max 240 s) when a step down is followed by a step up
+  within 10 s, resets to 20 s after 60 s on the lower level. No driving
+  boost. Logs `[cap-controller] on/up to/down to` (first 200 lines).
+  Expected settle points from the November 9 measurements (not verified):
+  iPhone 60 Default, iPhone 40 Low, iPad 60 Low (Utility), iPad 40 Low
+  (Background + low workers). Audio: the coreaudio gap windows seen on the
+  iPad at 40 occurred in Balanced 40 too (no low workers), so no extra audio
+  protection was added beyond the existing rule that raised-priority guest
+  threads keep Utility.
+- Known cost: when a device cannot hold the cap on a lower level, every
+  probe down costs ~3 late frames before it steps back up (rarer as the hold
+  doubles).
+
+Touch auto-hide (`touch_controls.mm`): a 0.1 s main-thread poll, active only
+while a controller or keyboard is connected, hides the overlay when any
+controller button is above 0.3, any stick/D-pad axis above 0.35, or any
+keyboard key is down; logs `[touch] hidden: controller or keyboard input`.
+The next touch shows it again (existing behaviour).
+
+Build: incremental `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6
+--target ipa -j 12`, exit 0. Both log strings present in the app binary.
+IPA `ios/build/NFSMW-0.6.1-dev108-cap-controller.ipa`, SHA256
+e856979bf71e8fe4cbeda1bcd96db401ee559e1cd0209a7cdee7099e5e86ab0e; copied to
+iCloud Desktop (dev107 moved to Trash; release 0.6.0 IPA added there as the
+latest stable). No device test yet. Version string still 0.6.0 in CMake.
+Test plan: iPhone pursuit at 60 and 40, iPad pursuit at 60 and 40, Power
+Profiler each, compare with the November 9 matrix; check `[cap-controller]`
+lines for where each settles and how often it probes.

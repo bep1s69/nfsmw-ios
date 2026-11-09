@@ -215,6 +215,7 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
   // Utility below the 120 cap (dev51 removed it, dev62 restores it after the
   // dev55 hand-off fix made it smooth; performance_profile.h).
   int cap = 60;
+  bool cap_controller = true;  // dev108: see performance_profile.h mode 3
   for (const auto& arg : args) {
     if (OptionName(arg) == "--ios_fps_cap" && arg.find('=') != std::string::npos) cap = std::atoi(arg.c_str() + arg.find('=') + 1);
   }
@@ -223,13 +224,15 @@ void ApplyUtilityQosDefault(std::vector<std::string>& args) {
     const std::string value = arg.substr(arg.find('=') + 1);
     if (OptionName(arg) == "--nfsmw_performance_mode") performance_mode = value == "max" || value == "eco" ? value : "balanced";
     if (OptionName(arg) == "--nfsmw_performance_source") performance_source = value;
+    if (OptionName(arg) == "--nfsmw_cap_controller") cap_controller = value != "false" && value != "0";
   }
-  const bool max = performance_mode == "max", eco = performance_mode == "eco";
-  performance_tablet = !max && !eco && on;  // back in dev62 (see performance_profile.h)
+  if (cap_controller) performance_mode = "auto";
+  const bool max = performance_mode == "max", eco = performance_mode == "eco", automatic = performance_mode == "auto";
+  performance_tablet = !max && !eco && !automatic && on;  // back in dev62 (see performance_profile.h)
   nfsmw::boot::Trace("performance: " + performance_mode + " (" + performance_source + ")" +
                      (performance_tablet ? ", tablet profile: 6+ efficiency cores, original behavior" : ""));
   nfsmw::performance::CaptureOverrides(args, cores);
-  const auto policy = nfsmw::performance::Resolve(eco ? 0 : max ? 2 : 1, cores, cap);
+  const auto policy = nfsmw::performance::Resolve(automatic ? 3 : eco ? 0 : max ? 2 : 1, cores, cap);
   const std::pair<const char*, bool> defaults[] = {
       {"--ios_utility_qos", policy.main_utility},
       {"--ios_utility_qos_guest", policy.guest_utility},
@@ -376,6 +379,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               rex::cvar::Query<bool>("ios_battery_baseline_qos") ? "on" : "off");
   REXLOG_INFO("[performance] {} ({}): {}", performance_mode, performance_source,
               performance_mode == "max"   ? "no Utility QoS for any game or render thread"
+              : performance_mode == "auto" ? "cap controller: frame threads step Low/Default/User Initiated only while frames are late"
               : performance_mode == "eco" ? "every game and render thread at Utility QoS, no boost"
               : performance_tablet        ? "tablet profile: 6+ efficiency cores, original behavior"
                                           : "Utility only outside driving (adaptive QoS), boosted while driving");

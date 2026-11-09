@@ -153,6 +153,22 @@ std::atomic<int> g_touches_so_far{0};
 
 // Keyboard controls (the SDK's mnk_mode, set by the launcher).
 bool KeyboardControlsOn() { return rex::cvar::Query<bool>("mnk_mode"); }
+// dev108 (Stefan, Nov 9): hide the touch controls as soon as a controller or
+// keyboard is actually used, not only when one connects; the next touch on
+// the screen shows them again. Polled 10 times a second on the main thread
+// while a controller or keyboard is connected. Thresholds keep resting stick
+// noise from hiding them.
+bool PhysicalInputActive() {
+  for (GCController* c in GCController.controllers) {
+    GCPhysicalInputProfile* p = c.physicalInputProfile;
+    for (GCControllerButtonInput* b in p.allButtons)
+      if (b.value > 0.3f) return true;
+    for (GCControllerDirectionPad* d in p.allDpads)
+      if (std::fabs(d.xAxis.value) > 0.35f || std::fabs(d.yAxis.value) > 0.35f) return true;
+  }
+  GCKeyboard* k = GCKeyboard.coalescedKeyboard;
+  return k && k.keyboardInput.anyKeyPressed;
+}
 
 Sint16 AxisToS16(float v) { return Sint16(std::clamp(v, -1.0f, 1.0f) * 32767.0f); }
 Sint16 TriggerToS16(float v) { return Sint16(std::clamp(v, 0.0f, 1.0f) * 65535.0f - 32768.0f); }
@@ -412,6 +428,16 @@ static CGFloat TouchOpacity() {
                                         [view syncSteering];
                                         [view syncDim];
                                       }];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                    repeats:YES
+                                      block:^(NSTimer* timer) {
+                                        NFSTouchView* view = weak;
+                                        if (!view) {
+                                          [timer invalidate];
+                                          return;
+                                        }
+                                        [view hideOnPhysicalInput];
+                                      }];
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self
            selector:@selector(controllerConnected:)
@@ -521,6 +547,15 @@ static CGFloat TouchOpacity() {
   }
   self.alpha = _editing ? 1.0 : TouchOpacity() * _dim;
   [self setNeedsDisplay];
+}
+
+- (void)hideOnPhysicalInput {
+  if (!_controlsVisible || _editing) return;
+  if (GCController.controllers.count == 0 && !GCKeyboard.coalescedKeyboard) return;
+  if (!PhysicalInputActive()) return;
+  static int said = 0;
+  if (said++ < 20) REXLOG_INFO("[touch] hidden: controller or keyboard input (a touch shows them again)");
+  [self setControlsVisible:NO];
 }
 
 - (void)controllerConnected:(NSNotification*)note {

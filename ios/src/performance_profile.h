@@ -9,6 +9,15 @@ struct Policy {
   bool main_utility, guest_utility, adaptive, original, render_utility, background, low_workers;
 };
 inline Policy Resolve(int mode, int efficiency_cores, int cap) {
+  // mode 3: cap-holding controller (dev108, Stefan Nov 9: replaces the
+  // Eco/Balanced/Max profiles). Frame threads start low and step Low ->
+  // Default -> User Initiated only while frames are late (adaptive_qos.cpp).
+  // On 6+ efficiency-core iPads at 30/40 the low class is Background with the
+  // low-priority guest workers, as Eco measured (Nov 9: 12.4-13.3 %/h at 40).
+  if (mode == 3) {
+    const bool low = efficiency_cores >= 6 && cap > 0 && cap <= 40;
+    return {false, true, true, false, true, low, low};
+  }
   const bool eco = mode == 0, max = mode == 2;
   // Balanced with 6+ efficiency cores (M-series iPads): main and GPU command
   // threads at Utility below the 120 cap (efficiency cores, no boost). dev51

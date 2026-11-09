@@ -97,13 +97,17 @@ REXCVAR_DEFINE_BOOL(ios_background_qos_workers, false, "Kernel",
 REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
+                    "dev108 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
+                    "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
+                    "and back down after a stable stretch; false restores the profiles (restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
 
 namespace {
 
-std::atomic<int> mode{-1};  // 0 Utility, 1 boosted
+std::atomic<int> mode{-1};  // 0 Utility, 1 boosted (cap controller: 1 Default, 2 User Initiated)
 std::atomic<bool> driving{false};       // game_state.cpp
 std::atomic<int> render_late{0};        // frames the renderer took over the budget to encode
 using Clock = std::chrono::steady_clock;
@@ -143,7 +147,19 @@ bool main_interactive = false, cp_interactive = false;
 std::mutex profile_mutex;
 bool Flag(unsigned flag) { return (policy_flags.load(std::memory_order_acquire) & flag) != 0; }
 bool AdaptiveEnabled() { return Flag(Adaptive) && !Flag(MainUtility); }
-int ProfileNumber(const std::string& name) { return name == "eco" ? 0 : name == "max" ? 2 : 1; }
+int ProfileNumber(const std::string& name) {
+  if (REXCVAR_GET(nfsmw_cap_controller)) return 3;
+  return name == "eco" ? 0 : name == "max" ? 2 : 1;
+}
+bool Controller() { return selected_profile.load(std::memory_order_relaxed) == 3; }
+// The class of boost level m (>= 1).
+qos_class_t BoostQos(int m) {
+  if (Controller()) return m >= 2 ? QOS_CLASS_USER_INITIATED : QOS_CLASS_DEFAULT;
+  return Settings().qos;
+}
+const char* LevelName(int m) {
+  return m <= 0 ? "Low" : m == 1 ? "Default" : "User Initiated";
+}
 void PublishProfile(int cap) {
   const int selected = selected_profile.load(std::memory_order_relaxed);
   const auto p = nfsmw::performance::Resolve(selected, efficiency_cores, cap);
@@ -157,7 +173,7 @@ void PublishProfile(int cap) {
   policy_flags.store(flags, std::memory_order_release);
   const unsigned epoch = profile_epoch.fetch_add(1, std::memory_order_acq_rel)+1;
   REXLOG_INFO("[live-profile] request {} epoch {} cap {}: main-utility {} guest-utility {} adaptive {} original {} render-utility {} background {} low-workers {} overrides {:02X}",
-      selected == 0 ? "eco" : selected == 2 ? "max" : "balanced", epoch, cap,
+      selected == 3 ? "cap-controller" : selected == 0 ? "eco" : selected == 2 ? "max" : "balanced", epoch, cap,
       bool(flags&MainUtility), bool(flags&GuestUtility), bool(flags&Adaptive), bool(flags&Original),
       bool(flags&RenderUtility), bool(flags&Background), bool(flags&LowWorkers), explicit_mask);
 }
@@ -188,7 +204,7 @@ bool BoostRaises(bool main) {
 }
 qos_class_t PrimaryQos(int m, bool main) {
   if ((main && main_interactive) || (!main && cp_interactive)) return QOS_CLASS_USER_INTERACTIVE;
-  if (AdaptiveEnabled()) return m == 1 && BoostRaises(main) ? Settings().qos : LowQos(LowRole::Frame);
+  if (AdaptiveEnabled()) return m >= 1 && BoostRaises(main) ? BoostQos(m) : LowQos(LowRole::Frame);
   return Flag(MainUtility) ? LowQos(LowRole::Frame) : QOS_CLASS_DEFAULT;
 }
 void ApplyQos(qos_class_t qos, int& applied, const char* role) {
@@ -212,10 +228,10 @@ bool WorkersOn() {
 // thread is "Main XThread", which follows the mode itself).
 std::vector<pthread_override_t> overrides;
 
-void RaiseGuestThreads(bool raise) {
+void RaiseGuestThreads(qos_class_t qos) {  // QOS_CLASS_UNSPECIFIED: none raised
   for (pthread_override_t o : overrides) pthread_override_qos_class_end_np(o);
   overrides.clear();
-  if (!raise) return;
+  if (qos == QOS_CLASS_UNSPECIFIED) return;
   thread_act_array_t threads = nullptr;
   mach_msg_type_number_t count = 0;
   if (task_threads(mach_task_self(), &threads, &count) != KERN_SUCCESS) return;
@@ -248,7 +264,7 @@ void RaiseGuestThreads(bool raise) {
   std::sort(guests.begin(), guests.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
   const size_t limit = Settings().workers ? size_t(Settings().workers) : guests.size();
   for (size_t i = 0; i < guests.size() && i < limit; ++i) {
-    if (pthread_override_t o = pthread_override_qos_class_start_np(guests[i].second, Settings().qos, 0)) {
+    if (pthread_override_t o = pthread_override_qos_class_start_np(guests[i].second, qos, 0)) {
       overrides.push_back(o);
     }
   }
@@ -264,8 +280,8 @@ bool Enabled() {
 
 // For the native render queue: submit this frame at the boost's class (0 when not boosted).
 qos_class_t WorkersRaised() {
-  return Enabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1 ? Settings().qos
-                                                                               : QOS_CLASS_UNSPECIFIED;
+  const int m = mode.load(std::memory_order_relaxed);
+  return Enabled() && WorkersOn() && m >= 1 ? BoostQos(m) : QOS_CLASS_UNSPECIFIED;
 }
 
 // From the game's thread when driving starts or stops (game_state.cpp).
@@ -298,7 +314,7 @@ void OnSwap(double interval_ms) {
   const unsigned epoch = profile_epoch.load(std::memory_order_acquire);
   if (epoch != seen_epoch) {
     seen_epoch = epoch;
-    RaiseGuestThreads(false);
+    RaiseGuestThreads(QOS_CLASS_UNSPECIFIED);
     std::fill(std::begin(late), std::end(late), false);
     at = late_count = 0;
     hold_s = 20;
@@ -319,6 +335,11 @@ void OnSwap(double interval_ms) {
     mode.store(0, std::memory_order_relaxed);
     REXLOG_INFO("[adaptive-qos] on: main and GPU command threads start at Utility; guest workers and render queue {}",
                 WorkersOn() ? "follow the mode" : "stay at Utility");
+    if (Controller())
+      REXLOG_INFO("[cap-controller] on: frame threads start Low ({}); steps up to Default, then User Initiated "
+                  "on 3 late frames of 60, steps down after 20-240 s on time; no driving boost",
+                  LowQos(LowRole::Frame) == QOS_CLASS_BACKGROUND ? "Background" : "Utility");
+    else
     REXLOG_INFO("[adaptive-qos] boost: {} QoS, holds up to {:.0f} s, {} guest threads{}", Settings().name,
                 Settings().max_hold_s,
                 Settings().workers ? fmt::format("the {} busiest", Settings().workers) : std::string("all"),
@@ -332,6 +353,38 @@ void OnSwap(double interval_ms) {
   late_count += int(is_late) - int(late[at]);
   late[at] = is_late;
   at = (at + 1) % window;
+  if (Controller()) {
+    // dev108 cap controller: one level up when 3 of the last 60 frames were
+    // late; one level down once the current hold has passed. A step down that
+    // is followed by a step up within 10 s doubles the hold (up to 240 s), so
+    // a device that cannot hold the cap on a lower level probes it rarely
+    // (Nov 9: the iPhone at 60 is late within 1-2 s on Utility). 60 s on the
+    // lower level resets the hold to 20 s. Driving does not force a level.
+    static Clock::time_point stepped_down = now - std::chrono::hours(1);
+    if (m < 2 && late_count >= 3) {
+      const double since_down = std::chrono::duration<double>(now - stepped_down).count();
+      if (since_down < 10.0) hold_s = std::min(hold_s * 2.0, 240.0);
+      else if (since_down > 60.0) hold_s = 20.0;
+      ++m;
+      hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
+      if (lines++ < 200)
+        REXLOG_INFO("[cap-controller] up to {} ({} late frames of 60, cap {}), next step down in {:.0f} s",
+                    LevelName(m), late_count, cap, hold_s);
+    } else if (m > 0 && now >= hold_until) {
+      --m;
+      stepped_down = now;
+      hold_until = now + std::chrono::milliseconds(int64_t(hold_s * 1000));
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] down to {} (cap {})", LevelName(m), cap);
+    }
+    if (m != mode.load(std::memory_order_relaxed)) {
+      std::fill(std::begin(late), std::end(late), false);
+      late_count = 0;
+      mode.store(m, std::memory_order_relaxed);
+      if (WorkersOn()) RaiseGuestThreads(m >= 1 ? BoostQos(m) : QOS_CLASS_UNSPECIFIED);
+    }
+    Apply(m, applied);
+    return;
+  }
   const bool drive = driving.load(std::memory_order_relaxed) && !original;
   static bool was_driving = false;
   if (drive != was_driving) {
@@ -363,7 +416,7 @@ void OnSwap(double interval_ms) {
     late_count = 0;
     mode.store(m, std::memory_order_relaxed);
     if (WorkersOn()) {
-      RaiseGuestThreads(m == 1);
+      RaiseGuestThreads(m == 1 ? BoostQos(m) : QOS_CLASS_UNSPECIFIED);
       if (m == 1 && lines < 60) REXLOG_INFO("[adaptive-qos] {} guest threads and the render queue raised", overrides.size());
     }
   }
@@ -428,8 +481,8 @@ void AdoptGuestQos(int role) {
                     guest ? "guest" : "host", priority, qos == QOS_CLASS_BACKGROUND ? "Background" : "Utility");
       }
     }
-    if (AdaptiveEnabled() && WorkersOn() && Settings().workers == 0 &&
-        mode.load(std::memory_order_relaxed) == 1) qos = Settings().qos;
+    const int m = mode.load(std::memory_order_relaxed);
+    if (AdaptiveEnabled() && WorkersOn() && (Settings().workers == 0 || Controller()) && m >= 1) qos = BoostQos(m);
   }
   ApplyQos(qos, applied, role == 1 ? "guest-main safe point" : role == 3 ? "GPU Commands safe point" : "guest-worker safe point");
 }
@@ -454,12 +507,14 @@ void Choose(const std::string& name) {
   std::lock_guard<std::mutex> lock(profile_mutex);
   const int selected = ProfileNumber(name);
   selected_profile.store(selected);
-  rex::cvar::SetFlagByName("nfsmw_performance_mode", selected == 0 ? "eco" : selected == 2 ? "max" : "balanced");
+  if (selected != 3)
+    rex::cvar::SetFlagByName("nfsmw_performance_mode", selected == 0 ? "eco" : selected == 2 ? "max" : "balanced");
   rex::cvar::SetFlagByName("nfsmw_performance_source", "in_game");
   PublishProfile(rex::cvar::Query<int32_t>("ios_fps_cap"));
 }
 unsigned RenderQos() {
-  if (AdaptiveEnabled() && WorkersOn() && mode.load(std::memory_order_relaxed) == 1) return Settings().qos;
+  const int m = mode.load(std::memory_order_relaxed);
+  if (AdaptiveEnabled() && WorkersOn() && m >= 1) return BoostQos(m);
   return Flag(RenderUtility) ? LowQos(LowRole::Render) : QOS_CLASS_DEFAULT;
 }
 unsigned PipelineQos() {
