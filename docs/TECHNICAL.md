@@ -22363,3 +22363,103 @@ Build: incremental, exit 0; marker string present in the binary. IPA
 Desktop (dev108 moved to Trash). Not device-tested. Expected (unverified):
 iPhone 60 ~34 %/h like the fixed Default trial, no driving hitches; iPhone
 40 at Default unmeasured; iPad unchanged at 60, Eco-like at 40.
+
+
+## November 9: issue #18 reproduced crash report identifies Lua loop-limit error
+
+Stefan supplied `nfsmwios save issue.zip` from the shared pasteboard, containing
+`nfsmw.log`, `NFSMW-2026-11-09-224835.ips`, converted save `2029`, and an
+AppleDouble metadata entry (not extracted). Archived ZIP and the three evidence
+files under `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/9 November 2026/issue18_reproduction/`.
+Archive/extraction exit 0; originals preserved. SHA256 / size:
+
+- ZIP: `c84fd5cd914c239702346d21e7011bc9a19235d2a5ea412a6d8f371ed8b57be1`, 159,276 bytes.
+- Log: `a22e50cb8beed438a165a579e6b53b8927aab4be196342eec48c6181fa6d04bb`, 1,378,042 bytes, 7,984 lines.
+- IPS: `c951990d604c4233eb6f75d3a5e6d58a4f51ac4269c0fdc99e217d1c37fda99d`, 88,801 bytes.
+- 2029: `8ca439f4fb4554c611540a14d6c7ce5792ba7b1e17b8657c2b6b6234944e14c3`, 62,688 bytes.
+
+Crash: November 9 22:48:35.1535 +0400 (timestamp as in IPS), model iPhone19,7,
+iPhone OS 27.2 (24B119), app 0.6.0 (11), certificate-resigned bundle suffix.
+EXC_CRASH / SIGTRAP, termination SIGNAL 5. Triggered thread 20,
+XThread14623. App UUID 862ECF92-5207-31FA-96A3-63020CF69E93 matches the released
+dev107 executable in `ios/build/NFS-Most-Wanted-0.6.0.ipa`; runtime UUID
+97EAEBE7-3179-34B4-87D6-05AD1EBC1A6F. Independently extracted the IPA executable
+to disposable `/private/tmp/issue18-dev107-NFSMW` and ran
+`xcrun dwarfdump --uuid` (exit 0). No rebuild, source change or device run.
+
+Stack begins raise -> rex::debug::Break -> __imp__sub_8215CDA0 +1848
+(app offset 28155808), sub_82506880 +364, sub_826BD690 +796,
+sub_82371D18 +9252 (offset 33324268), sub_8236C180 +700,
+sub_8233DC58 +1060, sub_8232D7D8 +568, then gameplay event dispatch.
+
+**Primary error identified by matching-binary disassembly:**
+`xcrun llvm-objdump --disassemble` at native 0x101FC7CEC (the Lua interpreter
+return address) shows the preceding call through stub 0x1027468E0.
+`llvm-objdump --macho --indirect-symbols` resolves this to sub_8236B4D0.
+The caller constructs guest lr 0x82372920 (base 0x82371D20 +0xC00).
+Generated source confirms the call is the failure branch after conversion of
+the numeric-for limit fails. Its format-string pointer comes from stack +88,
+initialized to 0x82083930. The existing decrypted USA inspection image
+`ios/build/managed40-inspection-image.bin` has the string
+"`for' limit must be a number" at that address. Thus a nonnumeric loop limit
+is established by the crash path, even though the log never prints that text.
+The specific Lua script, source line, variable and actual bad value are not
+present in these artifacts. Do not guess nil versus string versus another type.
+
+The Lua error route sub_8236B4D0 -> sub_8236B3A8 reaches the unprotected-error
+exit path (sub_826BD800 / sub_826BD690). During exit callbacks,
+sub_82506880 drains a list through the guest free routine sub_8215CDA0.
+The matching native free return at 0x101AD9FA0 follows its call to
+sub_8262CE48, which generated code maps to DbgBreakPoint. The breakpoint is
+therefore in cleanup after a Lua failure; it must not be treated as the
+original cash arithmetic fault, a GPU hang, or an OS low-memory kill.
+All inspected native offsets/stubs and generated source agree. The cleanup
+breakpoint itself is additional failure behaviour, not a fix target that
+would restore the failed script by suppressing SIGTRAP.
+
+**Save inspection (Python read-only checks, exit 0):** file is native `MC02`,
+size 0xF4E0, version 0x10D, alias 2029. Cash at 0x4039 is 999,955,699; this
+is within signed 32-bit range. Gameplay MD5, outer MD5, and all three EA
+CRC32 fields match: CRCs at 0x10/0x14/0x18 are DB2F9137/EC8C0DD1/2050E0B2.
+These checks prove integrity, not semantic compatibility. Gameplay header:
+version 8, 3 persistent activities, 8 timers, 30 milestone types, 55 milestone
+records, 39 traps, 0 gates, 512 hiding bits, 164 bin-stat bytes, 0 pending SMS.
+Persistent table sizes are 121, 12 and 1 bytes. Under the converter's current
+bitfield/backtracking interpretation, each table has one maximal complete
+parse (14, 2 and 0 key/value entries respectively). This is not an independent
+proof that every packed identifier or script variable is correct: it uses the
+same assumptions as the converter. No save was edited or repaired.
+
+The archive contains no original `20CM` PC save. Consequently we cannot
+compare pre/post-conversion script state, distinguish an imported source-data
+problem from a converter defect, or safely select a save repair. A valid
+checksum and a legal cash amount do not establish that the source state was
+valid. Cash overflow is not demonstrated by this crash path.
+
+**Log correlation:** final launch starts around 22:45:51.619. Profiles JOHN,
+2029 and Z are enumerated; 2029 opens at 22:46:10.490 and 22:46:13.671, all
+result 00000000. No subsequent [save] create/write is logged before the crash.
+Last log line is ordinary audio at 22:48:33.732, about 1.4 seconds before IPS
+capture; frame 9301 at 22:48:33.306 reports 60 fps, footprint 1,390 MiB,
+1,986 MiB headroom, nominal thermal. This run's visible Extra Options lines
+have no unlock-all ON entry (unlike the previous log); absence is not a full
+settings/Extra Args inventory. Do not attribute the reproduced crash to that
+previous setting without new evidence.
+
+External research: read upstream TableVar/GActivity header definitions at
+https://github.com/dbalatoni13/nfsmw/tree/1f2cdd7996791c81a580b3f7b36b44d4f9f6719c
+via GitHub tree/blob API. The corresponding .cpp blobs are empty (raw fetches
+failed, then blob lookup established zero-length content); they cannot
+resolve packed-identifier semantics. Current sprintstate switch_format.py
+uses the same packed-identifier segmentation assumptions as the local converter,
+so it is not an independent semantic validation. No internet-derived claim is
+needed for the crash identification, which uses the exact released binary.
+
+**Next:** obtain the original unconverted PC save and compare the three
+persistent activity tables and decoded identifiers/values with this converted
+copy. If unavailable, propose a narrow Lua-error diagnostic hook to log the
+formatted Lua error and script context on this exact save/race before another
+device attempt. Do not silently reset activity progress, lower cash, skip the
+Lua error or suppress the cleanup breakpoint as a supposed fix. D-021 remains
+open: immediate failure mechanism known, underlying bad script-state origin
+unresolved. No app code/build/test or GitHub comment in this investigation.

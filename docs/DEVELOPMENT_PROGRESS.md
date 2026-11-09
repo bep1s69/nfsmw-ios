@@ -453,6 +453,20 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 9, issue #18 reproduction (D-021):** new converted save, log and
+IPS archived in `Debug/9 November 2026/issue18_reproduction/`. Exact released
+0.6.0 UUID confirmed. Matching-binary disassembly identifies Lua's numeric-for
+limit error, then exit cleanup hits DbgBreakPoint (SIGTRAP). Save checksums
+all pass; cash 999,955,699 is in signed range. No demonstrated cash overflow,
+autosave failure or low-memory kill. The original unconverted PC file is absent,
+so source-state versus converter causality remains unresolved. Next for D-021:
+compare the original PC save's persistent Lua state; otherwise propose a
+focused Lua-error diagnostic with script context before another device test.
+No source/build/device run; do not disturb dev109 battery work below. Local
+record update only, no push/comment/release. Private BACKLOG updated and
+intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
+See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
+
 **November 9, dev109 BUILT: cap controller without probing while driving.**
 dev108 probed down while driving (hitches, no saving on the iPhone). dev109
 holds each device's measured start level while driving and only steps down
