@@ -22136,3 +22136,34 @@ CPU (2.17 vs 3.55); log: Eco 40 had two coreaudio windows with gaps (38 and
 
 Missing: pursuit at 40 (both profiles) and race at 60. Next: those three
 runs, setting the cap before each.
+
+## November 9: iPad Power Profiler matrix (second set) and summary
+
+Same device, build, 1.5x, brightness 27 %, no charging; files in
+`Debug/9 November 2026/Power matrix/set 2/` (three `.aar`, `extracted/`,
+`nfsmw.log`). Same parser and labelling from the log.
+
+| trace start | content | profile, cap | drain %/h | CPU | GPU | display | instr G/s |
+|---|---|---|---:|---:|---:|---:|---:|
+| 17:05:04 | race | Balanced 60 | 22.8 | 4.50 | 2.78 | 5.34 | 8.37 |
+| 17:07:57 | pursuit | Balanced 40 | 17.8 | 3.53 | 1.94 | 4.98 | 7.49 |
+| 17:10:27 | pursuit | Eco 40 | 13.3 | 2.62 | 1.93 | 4.97 | 7.98 |
+
+Combined with set 1 (measured, single runs):
+- 60 fps: 22.7–24.0 %/h for race and pursuit alike, Eco = Balanced.
+- 40 fps Balanced: 17.5 (race) / 17.8 (pursuit), about −24 % vs 60.
+- 40 fps Eco: 12.4 (race) / 13.3 (pursuit), about −45 % vs 60 and −27 %
+  vs Balanced 40, almost all CPU impact.
+- On the iPad, pursuits cost no more than races at the same setting.
+- App CPU impact (4.5–5.1 at 60) is larger than GPU (2.7–3.1); display ~5.3.
+Log: 40 fps runs show ~90 hitch lines per 2–3 minutes (mostly 30 ms encodes
+over the 25 ms budget, one ~220 ms frame at 17:09), off-grid mostly 0–3 per
+300 with a few windows of 10–18; one coreaudio gap window in set 2 (Balanced
+40), two in set 1 (Eco 40). Stefan: Eco 40 "felt perfectly normal" (not
+watching closely).
+
+Inferences: the iPad's remaining lever at 60 is CPU work per frame, not
+QoS; the Eco 40 gain comes from the low-priority guest workers
+(`ios_background_qos_low_workers`), which Balanced 40 leaves out because of
+the dev66 audio starvation. Not measured: iPhone (Balanced has a driving
+boost there, so Eco should differ at 60), longer sessions.
