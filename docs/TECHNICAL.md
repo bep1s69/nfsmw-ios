@@ -22316,3 +22316,29 @@ latest stable). No device test yet. Version string still 0.6.0 in CMake.
 Test plan: iPhone pursuit at 60 and 40, iPad pursuit at 60 and 40, Power
 Profiler each, compare with the November 9 matrix; check `[cap-controller]`
 lines for where each settles and how often it probes.
+
+## November 9: dev108 iPhone result (negative for the probing design)
+
+Stefan, iPhone, dev108 (build Nov 9 18:19:26), 1x, Challenge Series pursuit,
+brightness 27 %, thermal nominal throughout. Files:
+`Debug/9 November 2026/dev108 iPhone/` (two `.aar`, `extracted/`, `nfsmw.log`).
+
+| run | drain %/h | CPU | GPU | instr G/s | fps min/median | hitches | controller (log) |
+|---|---:|---:|---:|---:|---|---:|---|
+| cap 60 | 39.5 | 31.82 | 4.41 | 10.83 | 57.7 / 60.0 | 2 | Default most of the time; probes down at +20/40/80 s, each back up within 1–4 s |
+| cap 40 | 29.7 | 21.92 | 2.67 | 7.65 | 39.2 / 40.0 | 27 | Default most of the time; probes at +20/40/40 s, back up in 3–14 s |
+
+Stefan: the controller is noticeable through occasional hitches; not
+acceptable as the final product.
+
+Measured: the controller never needed User Initiated, but saved nothing:
+60 cost 39.5 vs 34.0 %/h for the fixed Default trial earlier (same QoS for
+most of the run; difference unexplained, possibly run-to-run or device
+warm-up after an hour of tests, thermal nominal in both); 40 cost 29.7 vs
+Eco 17.5 and Balanced 28.1. Utility on the iPhone is late within seconds at
+both caps, so each probe is a visible hitch.
+
+Inference: blind probing down is wrong for the iPhone. Proposed dev109
+(awaiting approval): start each device and cap at its measured level, step
+up on late frames as now, and only step down outside driving (menus, pause,
+loading), where a late frame is invisible.
