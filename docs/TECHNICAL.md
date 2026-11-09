@@ -22103,3 +22103,36 @@ frames at 40/60 on the iPhone's 4 E cores. Not measured: energy of either in
 a pursuit. Next: the Power Profiler matrix decides whether Eco at 60 on the
 iPad needs a real difference and whether the iPhone boost needs a pursuit
 policy. No source change proposed yet.
+
+## November 9: iPad Power Profiler matrix (first set)
+
+Stefan, iPad Pro M4, on-device Power Profiler, build Nov 6 16:49:41, 1.5x,
+brightness 27 % in every run, Low Power Mode off, no charging rows. Files:
+`Debug/9 November 2026/Power matrix/` (six `PowerProfiler_26-11-09_*.aar`,
+extracted `.atrc` in `extracted/`, game log `nfsmw.log`). Parser: scratchpad
+`pp.py` (xctrace export; first 10 s dropped; SystemPowerLevel and
+LiveContainer ProcessSubsystemPowerImpact duration-weighted; kind 0 =
+CPU/display, kind 2 = GPU; same method as November 6). Labels come from the
+log's `[live-profile] request` and `[live-fps] cap` lines, not from the
+intended order: the cap stayed 60 until 16:53:03, so the third and fourth
+pursuits ran at 60, and the first race at 40.
+
+| trace start | content | profile, cap | drain %/h | CPU | GPU | display | instr G/s |
+|---|---|---|---:|---:|---:|---:|---:|
+| 16:40:59 | pursuit | Balanced 60 | 22.7 | 4.54 | 2.74 | 5.48 | 8.40 |
+| 16:44:37 | pursuit | Eco 60 | 22.8 | 4.60 | 2.80 | 5.37 | 8.55 |
+| 16:47:46 | pursuit | Balanced 60 | 24.0 | 5.12 | 3.06 | 5.50 | 10.58 |
+| 16:50:46 | pursuit | Eco 60 | 23.3 | 4.95 | 2.76 | 5.34 | 9.95 |
+| 16:53:12 | race | Balanced 40 | 17.5 | 3.55 | 1.87 | 4.97 | 7.61 |
+| 16:55:39 | race | Eco 40 | 12.4 | 2.17 | 1.94 | 4.98 | 7.49 |
+
+Measured: Eco equals Balanced at 60 (22.7/22.8 and 24.0/23.3, within the
+~1.3 %/h spread between the two Balanced pursuit runs), as the code audit
+predicted. A 1.5x pursuit at 60 is 22.7–24.0 %/h here, not 40.7 %/h; the
+November 8 estimate came from the 5 % battery display over 15 minutes.
+In the race at 40, Eco drains 5.1 %/h less than Balanced (−29 %), nearly all
+CPU (2.17 vs 3.55); log: Eco 40 had two coreaudio windows with gaps (38 and
+71) of 33 and more hitch lines; Stefan's smoothness verdict not yet given.
+
+Missing: pursuit at 40 (both profiles) and race at 60. Next: those three
+runs, setting the cap before each.
