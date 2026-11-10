@@ -22646,3 +22646,30 @@ Balanced + Default 34.0 vs 37.8: between-session spread on the iPhone is
 ~10 %/h, larger than the effects being tested. Unknown cause (pursuit
 content, device temperature after breaks, other). Method change: A/B only
 within one sitting, alternating ON/OFF/ON/OFF, before any conclusion.
+
+## November 10: dev111 alternating A/B — no saving; changes reverted
+
+Stefan, iPhone, dev111, 1x, cap 60, brightness 26 %, same Challenge Series
+pursuit, four runs back to back (log confirms each: "follows the boost" =
+OFF via `--nfsmw_audio_thread_low=false --nfsmw_native_async_frame_free=false`,
+"stays at Utility" = ON). Files: `Debug/10 November 2026/dev111 iPhone alternating/`.
+
+| start | arm | drain %/h | CPU | GPU | instr G/s |
+|---|---|---:|---:|---:|---:|
+| 16:04:56 | OFF | 29.1 | 19.73 | 4.91 | 10.82 |
+| 16:08:00 | ON | 28.7 | 19.19 | 4.23 | 11.30 |
+| 16:10:58 | OFF | 28.7 | 19.42 | 4.26 | 11.01 |
+| 16:14:14 | ON | 29.3 | 19.13 | 4.86 | 11.18 |
+
+Measured: OFF mean 28.9, ON mean 29.0 %/h; no effect. Within one sitting
+the spread was only 0.6 %/h (Stefan noted the pursuits cannot be made
+identical, yet instructions/s stayed within ±2 %), while the same
+configuration measured 37.8 at 15:23 and ~29 at 16:05 on the same day:
+between-sitting drift (~9 %/h, cause unknown) dominates. Only alternating
+A/B within one sitting is valid; earlier single-run comparisons on the
+iPhone (including Default vs User Initiated) are suspect.
+
+Decision (as promised to Stefan): both dev111 changes reverted in source
+(`adaptive_qos.cpp`, `native_renderer.mm` back to dev110). Next: alternating
+A/B of the controller itself against 0.6.0 Balanced
+(`--nfsmw_cap_controller=false`) on the dev111 IPA (its OFF arm equals dev110).

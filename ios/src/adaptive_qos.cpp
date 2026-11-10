@@ -101,10 +101,6 @@ REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
                     "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
                     "stepping down only outside driving (dev109); false restores the profiles (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_audio_thread_low, true, "Kernel",
-                    "dev111 (Nov 10): with the cap controller the game's audio thread (sub_825E3F40: mixing "
-                    "and XMA decode) stays at Utility instead of following the frame threads' boost "
-                    "(restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -113,10 +109,7 @@ namespace {
 
 std::atomic<int> mode{-1};  // 0 Utility, 1 boosted (cap controller: 1 Default, 2 User Initiated)
 std::atomic<bool> driving{false};       // game_state.cpp
-std::atomic<int> render_late{0};
-// dev111: the game's audio thread (marked when it enters sub_825E3F40).
-std::atomic<uint64_t> audio_thread_id{0};
-thread_local bool is_audio_thread = false;        // frames the renderer took over the budget to encode
+std::atomic<int> render_late{0};        // frames the renderer took over the budget to encode
 using Clock = std::chrono::steady_clock;
 
 struct Boost {
@@ -262,11 +255,6 @@ void RaiseGuestThreads(qos_class_t qos) {  // QOS_CLASS_UNSPECIFIED: none raised
         if (tid == id.thread_id) before = t;
       }
       now_us.push_back({id.thread_id, us});
-      if (Controller() && REXCVAR_GET(nfsmw_audio_thread_low) &&
-          id.thread_id == audio_thread_id.load(std::memory_order_relaxed)) {
-        mach_port_deallocate(mach_task_self(), threads[i]);
-        continue;
-      }
       guests.push_back({us - std::min(us, before), thread});
     }
     mach_port_deallocate(mach_task_self(), threads[i]);
@@ -512,9 +500,7 @@ void AdoptGuestQos(int role) {
       }
     }
     const int m = mode.load(std::memory_order_relaxed);
-    const bool audio_low = is_audio_thread && Controller() && REXCVAR_GET(nfsmw_audio_thread_low);
-    if (!audio_low && AdaptiveEnabled() && WorkersOn() && (Settings().workers == 0 || Controller()) && m >= 1)
-      qos = BoostQos(m);
+    if (AdaptiveEnabled() && WorkersOn() && (Settings().workers == 0 || Controller()) && m >= 1) qos = BoostQos(m);
   }
   ApplyQos(qos, applied, role == 1 ? "guest-main safe point" : role == 3 ? "GPU Commands safe point" : "guest-worker safe point");
 }
@@ -560,19 +546,4 @@ extern "C" void __imp__sub_823C8290(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" REX_FUNC(sub_823C8290) {
   nfsmw::adaptive_qos::OnMainLoop();
   __imp__sub_823C8290(ctx, base);
-}
-
-// dev111: the game's audio thread procedure (mixing and XMA decode, Nov 10
-// iPhone profile: 152 ms/s, 56 % on performance cores under the controller's
-// boost). Marked once, then the original runs for the thread's lifetime.
-extern "C" void __imp__sub_825E3F40(PPCContext& __restrict ctx, uint8_t* base);
-extern "C" REX_FUNC(sub_825E3F40) {
-  uint64_t self = 0;
-  pthread_threadid_np(nullptr, &self);
-  is_audio_thread = true;
-  audio_thread_id.store(self, std::memory_order_relaxed);
-  REXLOG_INFO("[cap-controller] audio thread {:x} {}", self,
-              REXCVAR_GET(nfsmw_audio_thread_low) ? "stays at Utility" : "follows the boost");
-  if (REXCVAR_GET(nfsmw_audio_thread_low) && Controller()) pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
-  __imp__sub_825E3F40(ctx, base);
 }
