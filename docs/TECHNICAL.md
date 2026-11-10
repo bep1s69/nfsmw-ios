@@ -22626,3 +22626,12 @@ Extra Args). The frame-free change has no log line, so whether it was active
 is also unconfirmed. Not proven: which change (if any) caused the lower
 drain; a single run, and iPhone run-to-run spread for the same setting has
 been 34.0–40.2 %/h.
+
+dev111 run 2 (15:58, brightness 26 %, `Debug/10 November 2026/dev111 iPhone
+run 2/`): log `[cap-controller] audio thread 34a686 stays at Utility` (so run
+1 most likely had the off switch in Extra Args; to be confirmed by Stefan).
+Power 30.9 %/h, CPU 21.13, GPU 4.60, instr 12.22 G/s. From driving start:
+fps min/median 51.7/60.0, off-grid max 147, 6 hitch lines, 26 coreaudio
+windows with 0 gaps. Measured: ~7–9 %/h below the dev110-era Default runs
+(37.8–40.2) with no audio gaps; slightly more pacing outliers than dev110's
+runs (min 59.9). Run 1's configuration is unknown, so it is not used.
