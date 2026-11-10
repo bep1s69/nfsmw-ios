@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): power tests must be few. Use one A/B pair in one
+  sitting (within-sitting spread ~0.5 %/h); never compare runs from
+  different sittings.
+
 - November 9 (Stefan): abandon the Eco/Balanced/Max performance profiles
   (clunky, do not work as expected). New target for battery work: hold the
   selected FPS cap (30/40/60/120) consistently with the least power, scaling
@@ -469,6 +473,10 @@ No source/build/device run; do not disturb dev109 battery work below. Local
 record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
+
+**November 10, controller confirmed:** −1.35 %/h (−4.7 %) vs 0.6.0 Balanced
+at iPhone 60, alternating A/B, equally smooth. Next: CPU-work cuts (Record
+attribute lookup, XMA codec reopen), each tested with one A/B pair.
 
 **November 10, dev111 changes reverted (no saving in alternating A/B).**
 Within one sitting the iPhone is repeatable to ~0.6 %/h but drifts ~9 %/h

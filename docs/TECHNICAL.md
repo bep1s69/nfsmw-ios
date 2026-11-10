@@ -22673,3 +22673,26 @@ Decision (as promised to Stefan): both dev111 changes reverted in source
 (`adaptive_qos.cpp`, `native_renderer.mm` back to dev110). Next: alternating
 A/B of the controller itself against 0.6.0 Balanced
 (`--nfsmw_cap_controller=false`) on the dev111 IPA (its OFF arm equals dev110).
+
+## November 10: cap controller vs 0.6.0 Balanced, alternating A/B (iPhone)
+
+Stefan, iPhone, dev111 IPA, 1x, cap 60, brightness 26 %, same pursuit, four
+runs alternating (log `[performance]` line confirms each). Files:
+`Debug/10 November 2026/controller vs Balanced iPhone/`.
+
+| start | arm | drain %/h | CPU | GPU | instr G/s | fps min/median | hitches |
+|---|---|---:|---:|---:|---:|---|---:|
+| 16:21:38 | Balanced (`--nfsmw_cap_controller=false`) | 29.0 | 19.50 | 4.38 | 11.12 | 56.8 / 60 | 0 |
+| 16:25:12 | controller | 27.6 | 17.80 | 4.54 | 10.46 | 56.8 / 60 | 0 |
+| 16:28:20 | Balanced | 28.9 | 19.85 | 4.32 | 11.22 | 56.8 / 60 | 0 |
+| 16:31:18 | controller | 27.6 | 17.84 | 4.11 | 10.64 | 59.9 / 60 | 0 |
+
+Measured: the controller saves 1.35 %/h (−4.7 %) at 60 on the iPhone, both
+pairs identical, equally smooth. (The dev111 audio/frame-free changes, reverted
+in source, were on in the controller arms; the previous A/B showed they make
+no difference.) Small but real; the big gap to the efficiency cores (Eco ~24
+at 60) remains a CPU-work problem.
+
+Stefan (November 10): four runs per test are too many. Method from now on:
+one pair (A then B) in one sitting; the within-sitting spread was 0.4–0.6
+%/h in both four-run sets, so a pair resolves effects of ~1 %/h and more.
