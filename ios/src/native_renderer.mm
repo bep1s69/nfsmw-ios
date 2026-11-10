@@ -133,6 +133,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_guest_culling, true, "GPU",
                     "Honor guest face culling for supported polygon draws (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_color_handoff, true, "GPU",
                     "Hand the finished scene color image to its resolve instead of copying it (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, true, "GPU",
+                    "dev111 (Nov 10): free each recorded frame (its draws' references, fresh arrays and arena) "
+                    "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
+                    "profile: ~44 ms/s of the render queue, mostly on performance cores)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -5010,7 +5014,32 @@ bool NativeRenderUtility() {
   return rex::cvar::Query<bool>("nfsmw_native_render_utility");
 }
 
-void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bool dump) {
+// dev111: a frame's teardown (every draw's shared references, the frame's
+// own decoded arrays and its attribute arena) off the render queue, on a
+// serial Utility queue (efficiency cores). Nothing reads the frame after
+// RenderFrame: the GPU reads only the Metal buffers it was copied into, and
+// every shared object it releases is already released from more than one
+// thread (texture cache on GPU Commands, frames on the render queue). At most
+// 3 frames wait; more are freed inline so memory stays bounded.
+void DisposeFrame(std::unique_ptr<Frame>&& frame) {
+  static std::atomic<int> pending{0};
+  if (!frame) return;
+  if (!REXCVAR_GET(nfsmw_native_async_frame_free) || pending.load(std::memory_order_relaxed) >= 3) {
+    frame.reset();
+    return;
+  }
+  static dispatch_queue_t queue = dispatch_queue_create(
+      "nfsmw.native.free", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
+  pending.fetch_add(1, std::memory_order_relaxed);
+  __block Frame* raw = frame.release();
+  dispatch_async(queue, ^{
+    delete raw;
+    pending.fetch_sub(1, std::memory_order_relaxed);
+  });
+}
+
+// The frame stays owned by the caller (dev111), which frees it after.
+void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, bool dump) {
   const bool timeline = !dump && GpuTimelineEnabled();
   if (timeline) {
     const double now = CACurrentMediaTime();
@@ -9760,7 +9789,9 @@ bool NativeSwap() {
       static dispatch_queue_t queue = dispatch_queue_create("nfsmw.native", DISPATCH_QUEUE_SERIAL);
       __block Frame* raw = frame.release();
       dispatch_block_t render = ^{
-        RenderFrame(std::unique_ptr<Frame>(raw), number, present, dump);
+        std::unique_ptr<Frame> owned(raw);
+        RenderFrame(std::move(owned), number, present, dump);
+        DisposeFrame(std::move(owned));
       };
       // Apply the current policy per block, without replacing/reordering the queue.
       render = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS,

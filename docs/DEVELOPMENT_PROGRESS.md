@@ -470,6 +470,12 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev111 BUILT: audio thread at Utility, frame teardown on a
+Utility queue.** From the dev110 iPhone Time Profiler (TECHNICAL November 10).
+`ios/build/NFSMW-0.6.1-dev111-audio-low-async-free.ipa` on iCloud Desktop.
+Next: iPhone pursuit at 60 with Power Profiler, audio check. Further
+candidates: Record attribute lookup memo, XMA codec reopen.
+
 **November 10, dev110 BUILT; QoS lever exhausted on the iPhone.** dev109 is
 smooth, but a loading-screen boost carried into the drive; dev110 resets
 to the start level when driving starts. Repeat A/B: Default saves only ~1–2

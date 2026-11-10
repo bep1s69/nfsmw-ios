@@ -22578,3 +22578,35 @@ F21AEC52-98B9-3265-B696-195C9F82119C = the traced binary; `atos -l
 Inference: a per-draw attribute memo (skip the hash lookup when the draw's
 fetch constants and vertex range are unchanged from the previous frame) and
 reserved/reused `attributes`/`draws` vectors are the next Record candidates.
+
+## November 10: dev111 audio thread at Utility, frame teardown off the render queue (built, untested)
+
+Approved by Stefan ("yes" to candidates 2 and 3 of the dev110 profile).
+
+1. Audio thread (`adaptive_qos.cpp`, cvar `nfsmw_audio_thread_low`, default
+   true, only with the cap controller): an override of `sub_825E3F40` (the
+   game's audio thread procedure: mixing plus XMA decode, identified from the
+   profile's stack root of XThreadD633) marks the thread, logs
+   `[cap-controller] audio thread <tid> stays at Utility`, sets Utility, then
+   runs the original. `AdoptGuestQos` keeps it at the low class and
+   `RaiseGuestThreads` skips it, so the controller's Default/User Initiated
+   boost no longer reaches it. Profile basis: 152 ms/s, 56 % on performance
+   cores. Risk: audio gaps (Stefan to listen; coreaudio log lines count gaps).
+   Profile side note (not changed): ~9 % of that thread is XMA codec reopen
+   (`PrepareDecoder`/`avcodec_open2`/`ff_mdct_init`), likely the dev97 lazy
+   codec; a later candidate.
+2. Frame teardown (`native_renderer.mm`, cvar `nfsmw_native_async_frame_free`,
+   default true): `RenderFrame` now takes the frame by rvalue reference and
+   the render block calls `DisposeFrame`, which deletes the frame on a serial
+   Utility-QoS queue (at most 3 pending; otherwise inline). Profile basis:
+   Draw destructors + frame reset ~44 ms/s of the render queue (atomic
+   reference drops, frees, the pooled constant-bank mutex), 77 % on
+   performance cores. The frame was already unused after RenderFrame; its
+   lifetime is only extended. Same work, moved to efficiency cores and off the
+   frame's critical path (not "reuse": the reference drops are inherent).
+
+Build: incremental, exit 0; both markers in the binary. IPA
+`ios/build/NFSMW-0.6.1-dev111-audio-low-async-free.ipa`, SHA256 e51e8386c40d340c80540e2b55c4188e329de37be56ce035b6209c76c0e98a1c; on iCloud
+Desktop (dev110 to Trash). Not device-tested. Test: iPhone pursuit at 60,
+27 % brightness, Power Profiler; listen for audio gaps; compare with dev110
+Default runs (37.8–40.2 %/h) and repeat the Time Profiler if useful.
