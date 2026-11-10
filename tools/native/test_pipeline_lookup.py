@@ -223,7 +223,12 @@ def main():
     normalized = normalized.replace('shader specialization or motion entry point unavailable', 'no motion entry point')
     assert normalized[normalized.index(miss):] == old_get[old_get.index(miss):]
     current_baseline = subprocess.check_output(['git', 'show', 'afbb1ba:ios/src/native_renderer.mm'], cwd=ROOT, text=True)
-    assert method(source, 'void Collect()') == method(current_baseline, 'void Collect()')
+    expected_collect = method(current_baseline, 'void Collect()').replace(
+        '''        {
+          std::lock_guard<std::mutex> lock(pipeline_archive.mutex);
+          pipeline_archive.warmed = true;
+        }''', '        pipeline_archive.warmed.store(true, std::memory_order_relaxed);')
+    assert method(source, 'void Collect()') == expected_collect
     assert source.count('pso = pipeline_cache.Get(') == 1
     assert 'async_pipelines, &pipeline_failed,\n                                                       reuse_pipeline_lookup)' in source
     assert 'const bool reuse_pipeline_lookup = PipelineLookupEnabled();' in source

@@ -399,6 +399,11 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
   } else {
     unsetenv("NFSMW_SIGNAL_REPORT");
   }
+  if (rex::cvar::Query<bool>("nfsmw_native_prepare_graphics")) {
+    boot::Trace("game: preparing graphics before SDL/runtime starts");
+    nfsmw::launcher::PrepareGraphics();
+    boot::Trace("game: graphics preparation finished");
+  }
   boot::Trace("game: initializing the SDL context");
 
   rex::ui::SDLWindowedAppContext context;

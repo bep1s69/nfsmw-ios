@@ -24,6 +24,7 @@
 #import <UIKit/UIKit.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <functional>
@@ -32,6 +33,7 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "native_renderer.h"
 #include "settings_catalog.h"
 #include "settings_ui.h"
 #import <GameController/GameController.h>
@@ -1382,6 +1384,65 @@ NSString* AchievementSummary(const Achievements& a) {
 //  The API
 // ---------------------------------------------------------------------------
 namespace nfsmw::launcher {
+
+void PrepareGraphics() {
+  struct State { std::atomic<uint32_t> completed{0},total{0}; std::atomic<bool> done{false}; } state;
+  UIWindowScene* scene=nfsmw::AppScene();
+  UIWindow* previous=scene.keyWindow;
+  UIWindow* window=scene ? [[UIWindow alloc] initWithWindowScene:scene]
+                         : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+  UIViewController* controller=[UIViewController new];
+  controller.view.backgroundColor=UIColor.systemBackgroundColor;
+  UILabel* title=[UILabel new]; title.text=@"Preparing graphics";
+  title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2]; title.textAlignment=NSTextAlignmentCenter;
+  UILabel* detail=[UILabel new]; detail.text=@"Getting ready to play…";
+  detail.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody]; detail.textAlignment=NSTextAlignmentCenter;
+  UILabel* note=[UILabel new]; note.text=@"This may take a moment after an update."; note.numberOfLines=0;
+  note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]; note.textColor=UIColor.secondaryLabelColor;
+  note.textAlignment=NSTextAlignmentCenter;
+  UIActivityIndicatorView* spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+  [spinner startAnimating];
+  UIProgressView* bar=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+  UIStackView* stack=[[UIStackView alloc] initWithArrangedSubviews:@[title,detail,spinner,bar,note]];
+  stack.axis=UILayoutConstraintAxisVertical; stack.spacing=18; stack.translatesAutoresizingMaskIntoConstraints=NO;
+  [controller.view addSubview:stack];
+  [NSLayoutConstraint activateConstraints:@[
+      [stack.centerXAnchor constraintEqualToAnchor:controller.view.safeAreaLayoutGuide.centerXAnchor],
+      [stack.centerYAnchor constraintEqualToAnchor:controller.view.safeAreaLayoutGuide.centerYAnchor],
+      [stack.widthAnchor constraintLessThanOrEqualToConstant:420],
+      [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:controller.view.safeAreaLayoutGuide.leadingAnchor constant:24],
+      [stack.trailingAnchor constraintLessThanOrEqualToAnchor:controller.view.safeAreaLayoutGuide.trailingAnchor constant:-24]]];
+  window.rootViewController=controller; window.windowLevel=UIWindowLevelNormal+2; [window makeKeyAndVisible];
+  auto* status=&state;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0), ^{
+    @autoreleasepool {
+      @try {
+        nfsmw_native_prepare_graphics([](uint32_t n,uint32_t total,void* raw) {
+          auto* s=static_cast<State*>(raw);
+          s->total.store(total,std::memory_order_relaxed);
+          s->completed.store(n,std::memory_order_relaxed);
+        },status);
+      } @catch(NSException* exception) {
+        // The renderer keeps its normal first-use path if preparation fails.
+        NSLog(@"Graphics preparation failed: %@",exception.reason);
+      }
+      status->done.store(true,std::memory_order_release);
+    }
+  });
+  while(!state.done.load(std::memory_order_acquire)) {
+    @autoreleasepool {
+      const uint32_t total=state.total.load(std::memory_order_relaxed);
+      const uint32_t n=state.completed.load(std::memory_order_relaxed);
+      if(total) {
+        detail.text=n<total ? [NSString stringWithFormat:@"%u of %u",n,total] : @"Finishing preparation…";
+        bar.progress=std::min(1.0f,float(n)/total);
+      }
+      [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+  }
+  window.hidden=YES; window.rootViewController=nil;
+  [previous makeKeyAndVisible];
+}
 
 fs::path Documents() {
   NSArray<NSString*>* paths =

@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): dev115 picture/gameplay looked normal except heavy
+  freezes. Prepare graphics pipelines before launching the game rather than
+  interrupting gameplay. This explicitly reopens the archive/warmup work for
+  the observed freezes; preserve caches/data and avoid another battery test
+  until this correctness/performance problem is addressed.
+
 - November 10 (Stefan): approved starting the concrete stage-1 native frame
   ownership/Metal command-reuse implementation. Work stays isolated on
   `codex/native-frame-command-reuse`, default-off trial; preserve current
@@ -476,6 +482,59 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 10, dev116 BUILT — pre-game graphics preparation and archive-lock fix:**
+Stefan reports dev115 looked normal except heavy freezes. Archived supplied
+log as `Debug/10 November 2026/dev115_iphone_command_reuse_on_nfsmw.log`.
+Reuse was genuinely active: eight fully driving300-frame windows (2s guards)
+show58.1% of submitted draws in ICB runs,15.45draws/run,26.7% exact-key hits,
+0budget fallback; all eight FPS summaries60.0. No GPU error;33audio windows
+without gaps. Whole session has2watchdog stalls,6archive save completions,
+process memory up to1900MiB. No CPU/power comparison; not a battery result.
+
+Source/log evidence points to the existing archive save mutex: background
+serialization holds it, while render-side Report/old warm-completion also
+took it. dev116 Report uses try_lock and skips busy reporting; warm-completion
+uses an atomic; Make leases prevent releasing/reopening an archive beneath
+an in-progress add. Existing atomic-save/unfinished-save recovery retained.
+
+New default-ON restart-only `nfsmw_native_prepare_graphics` presents a responsive
+"Preparing graphics" screen after Play and effective arguments, before SDL/
+guest threads. Normal known keys and eligible ICB variants (seeded from normal
+keys even when the ICB list is empty) compile and cache-save completes there.
+Archive memory can then be released before gameplay. Native reuse stays
+default OFF; retain the existing trial args to exercise it. A completely fresh
+install still needs a bundled known-key catalog for broad prewarm coverage:
+optional NativeShaders/pipeline_keys.bin is supported but NOT bundled in this
+IPA. New/unseen state combinations retain first-use discovery/fallback.
+The app exports logs/native_pipeline_keys.bin for future local catalog seeding;
+do not claim every possible pipeline is prepared on an empty installation.
+
+IPA `ios/build/NFSMW-0.6.1-dev116-prelaunch-pipelines.ipa`,30,729,740bytes,
+SHA256 `9afc589e420d7e732dd1f4f5009c8db32d767a0246ef8e5d3bf11c55df408fb3`,
+UUID `A599B106-3668-3377-992D-59AD5B0A8BCF`. ZIP/signature/cache-app equality
+pass;104shader libraries and both SDK dylibs byte-identical to dev115.
+Bundle0.6.0(11), experiment filename0.6.1 as before. Build-0.6 ipa -j12 exit0,
+7existing warning entries. On iCloud Desktop; older Desktop dev115 moved to
+Trash, stable0.6.0 and all ios/build packages preserved.
+
+**Next:** install over dev115 preserving data/settings/Extra Args
+(`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`).
+Check preparation screen then one normal pursuit and send nfsmw.log plus
+logs/native_pipeline_keys.bin if available (portable metadata for first-install
+seeding; no new measurement run needed to generate it). Expected preparation
+log precedes SDL/runtime start, normal/ICB ready counts, then dev116 reuse on.
+No new power recording requested. Device verification of the freeze fix,
+startup UI, CPU benefit and battery benefit remains pending.
+
+Host tests: `python3 tools/native/test_pipeline_preparation.py` (actual archive/
+cache methods with stand-ins, ASan/UBSan: nonblocking Report under held mutex,
+active-Make retention, save drain, cold-ICB seeding, capability variants,
+dedup/malformed metadata, no first-Get recompile, pre-runtime ordering) and
+existing pipeline-lookup differential test pass. Technical details/limits in
+TECHNICAL. No shader rebuild/SDK patch needed; normal isolated IPA command.
+Local work on codex/native-frame-command-reuse, no push/merge/release.
+HANDOFF_CHATGPT.md preserved; private BACKLOG updated and intentionally ignored.
 
 **November 10, dev115 BUILT — first native frame/command-reuse prototype:**
 Branch `codex/native-frame-command-reuse` from afbb1ba. Stefan approved

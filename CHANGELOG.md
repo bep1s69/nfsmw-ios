@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Graphics preparation before gameplay.** Prepare known graphics pipelines
+  on a progress screen before starting the game. Cache reporting no longer
+  waits behind a background pipeline-archive save.
+
 - **Experimental renderer work.** Added an opt-in trial that reuses frame
   storage and Metal draw commands. Off by default; device correctness,
   performance and battery savings are not yet established.

@@ -23381,3 +23381,121 @@ on energy. Host tests/build do not establish visual equivalence, acceptable
 memory behavior, reduced CPU, sustained frame rate/latency or lower battery
 drain. Those are explicitly pending, not implied by this implementation.
 
+
+## November 10, 2026 — dev115 device result and dev116 pre-game pipeline preparation
+
+Stefan reports normal appearance apart from heavy freezes and requests shader
+preparation before gameplay. Original input remains
+`/Users/bep1s/Desktop/Pasted 2026-11-10 at 6.35.34 PM.log`; archived copy:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/dev115_iphone_command_reuse_on_nfsmw.log`.
+820,254 bytes, 5,046 lines, SHA256
+`b03c8efedd58e9694a3598ff6e38bd58d23a39495fa2a52b2afffc959e2af1f8`.
+Log identifies dev115, command reuse ON, repeat diagnostic OFF, 1x/60 cap,
+MetalFX/FXAA off, MSAA0. RAM11695MiB/four efficiency cores are consistent with
+the prior iPhone17 Pro Max; supplied log does not establish OS version.
+
+### Observed device evidence and limits
+
+Driving intervals are 18:33:34.750–18:33:41.714,
+18:33:49.398–18:34:03.611, 18:34:11.882–18:34:36.707,
+18:34:44.693–EOF18:35:11.247. Of19 command reports, eight complete300-frame
+windows lie within driving with2s guards (previous report marks window start).
+Their end times:18:33:57.241,18:34:20.331,25.331,30.332,53.417,58.417,
+18:35:03.418,08.418. Totals:2400frames/GPU contexts/CPU-owned frames,
+5,307,969eligible,2,280,824direct draws,4,409,678ICB draws,285,330runs,
+898,291singles,1,417,098key hits,3,890,871rebuilt,0budget fallback.
+ICB share of submitted draws58.1078%,15.4547draws/run,key hit26.6976%.
+All eight corresponding FPS summaries60.0; this does not exclude isolated
+freezes elsewhere or measure CPU/energy improvement.
+
+Whole log:0GPU errors,33coreaudio windows with0gaps, nominal thermal state,
+max periodic process memory1900MiB. Two5s watchdog stalls occur before driving
+at18:32:41.112 and18:32:54.138. Archive saves complete six times:
+18:32:43.286(174123KiB),18:33:04.085(49387KiB),18:33:24.353(49515KiB),
+18:33:47.256(175429KiB),18:34:10.361(177032KiB),18:34:43.448(177103KiB).
+Archive reopen/release repeats; size oscillation is observed, not proof of
+corruption. The log starts with223normal cached keys and0ICB keys.
+Derived analysis is local `ios/build/battery-audit-20261110/dev115-log-analysis.json`;
+its late12-window totals mix pauses and must not be called steady driving.
+Use the eight guarded windows above.
+
+Inference: background serializeToURL holds the archive mutex for its operation;
+old render-side Report and warm-completion publication acquire the same mutex.
+This is the concrete blocking path already recorded in the persistence backlog,
+now explicitly authorized to address. No blocked-stack trace proves each
+reported freeze was this path or excludes new first-use compilation. No new
+Time/Power capture was supplied; no battery/performance improvement is claimed.
+
+### dev116 implementation
+
+Default-ON restart-only `nfsmw_native_prepare_graphics` runs after effective
+settings/Extra Args/capture environment, before SDL or guest/render threads.
+UIKit launcher displays Preparing graphics with responsive progress; background
+worker loads shader libraries, builds normal known pipelines, then eligible ICB
+capability variants. Cold ICB keys include normal metadata even if its own list
+is empty. Save queue is drained before gameplay, then clean archive memory may
+be released. Command reuse remains default OFF; retain dev115 trial args.
+
+Report now try-locks and skips busy reporting. Warm completion uses an atomic.
+Make has an active lease so Report cannot release/reopen an archive underneath
+an addition. Serialization/add ownership remains protected, existing atomic
+rename and unfinished-save recovery remain. A previously unseen pipeline can
+still compile/add during gameplay; this does not eliminate all possible stalls.
+
+Preparation reads deduplicated validated48-byte metadata records, rejects
+malformed/oversized catalogs (8192records), checks sample support and filters
+ICB-ineligible states. Direct/background fallback remains for new/unavailable
+combinations. Optional bundle NativeShaders/pipeline_keys.bin can seed a fresh
+install, but is NOT included in this IPA: attached text log cannot reconstruct
+the exact223-key catalog. Existing install's cache seeds preparation. Export
+Documents/logs/native_pipeline_keys.bin contains portable known-state metadata
+for later local bundling; ask for it with the next log. Empty installs and
+previously unseen game/settings combinations still discover pipelines first use.
+
+### Validation and package
+
+`python3 tools/native/test_pipeline_preparation.py` exit0, final log
+`ios/build/dev116-preparation-test-final.log`: actual production Archive and
+Cache methods compiled with Foundation/Metal stand-ins under ASan/UBSan.
+PASS archive preparation/locking, cache preparation/locking, pre-game call
+ordering/nonblocking warm-completion publication. Checks include busy Report
+returns<100ms while another thread holds mutex (bounded500ms holder fallback),
+active Make prevents archive release, save drain/marker removal, cold ICB seeding,
+dedup2normal+2ICB variants/correct capability flags/four progress ticks,
+first Get/WarmUp do not recompile, malformed/truncated/invalid-sample catalogs
+ignored, optional bundle seed, effective environment before preparation before
+SDL/runtime. These are host stand-ins, not actual Metal runtime/UI validation.
+
+`python3 tools/native/test_pipeline_lookup.py` exit0, log
+`ios/build/dev116-pipeline-lookup-test.log`:60456checks/config, ASanO1/O3 ON/OFF.
+Fixture comparison to afbb1ba normalizes only the intentional Collect mutex to
+atomic change; actual Get/Finish differential guards retained. No frame-command
+logic changed this turn; no unrelated repeated test matrix. `git diff --check`
+exit0 before commit.
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target NFSMW -j 12`
+exit0 (`ios/build/dev116-prepare-build.log`), then same build directory target
+ipa -j12 exit0 (`ios/build/dev116-prepare-package.log`,7existing warning entries:
+FPSCR/UIKit/duplicate-z). Release arm64/iOS18 deployment, multiplayer SDK as
+checkpoint, no shader rebuild or SDK patch.104/104 shader libraries and both
+SDK dylibs byte-identical to dev115. ZIP CRC passes, codesign --verify --deep
+--strict cache NFSMW.app exit0; packaged executable equals signed cache app.
+
+IPA `ios/build/NFSMW-0.6.1-dev116-prelaunch-pipelines.ipa`,30,729,740bytes,
+SHA256 `9afc589e420d7e732dd1f4f5009c8db32d767a0246ef8e5d3bf11c55df408fb3`.
+Executable UUID `A599B106-3668-3377-992D-59AD5B0A8BCF`, SHA256
+`e21c81531910fe9cbe9624ef753929b0def32bf58eb62eb1669d58856f47b698`.
+Bundle0.6.0(11), development filename0.6.1 as prior trials.
+Copied/hash-verified to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev116-prelaunch-pipelines.ipa`.
+Older Desktop dev115 moved to `/Users/bep1s/.Trash/NFSMW-0.6.1-dev115-native-commands.ipa`.
+Stable Desktop NFS-Most-Wanted-0.6.0.ipa and all ios/build packages preserved.
+No push/merge/release. Private ignored BACKLOG updated; preexisting untracked
+HANDOFF_CHATGPT.md untouched.
+
+Next: install over dev115 preserving data/settings and args
+`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`.
+One ordinary pursuit, observe preparation/freezes/picture/audio, return nfsmw.log
+and logs/native_pipeline_keys.bin. No new power matrix now. Device startup UI,
+freeze correction, sustained pacing, memory, CPU work and battery benefit are
+pending; passing build/host tests do not establish them.

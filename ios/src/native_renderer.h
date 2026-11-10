@@ -8,6 +8,10 @@
 
 extern "C" {
 
+// Before guest/runtime threads start, after effective cvars/environment are set.
+// Worker-thread function; progress must not call UIKit directly.
+void nfsmw_native_prepare_graphics(void (*progress)(uint32_t, uint32_t, void*), void* context);
+
 struct NfsmwNativeDraw {
   const uint32_t* regs;          // the decoded Xenos register file (0x6000 dwords)
   const uint32_t* vs_microcode;  // the bound vertex shader, host byte order

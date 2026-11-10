@@ -49,6 +49,7 @@
 #include <bit>
 #include <dlfcn.h>
 #include <deque>
+#include <functional>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -145,6 +146,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
                     "Native frame ownership and cached Metal indexed commands (restart required; trial)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_prepare_graphics, true, "GPU",
+                    "Prepare known graphics pipelines before the game starts (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -1551,7 +1554,8 @@ struct PipelineArchive {
   // allocation trace). Once the warm-up has made every known pipeline and
   // nothing is left to save, the archive is let go; a later miss opens it
   // again, adds the pipeline, saves, and it is let go once more.
-  bool warmed = false;
+  std::atomic<bool> warmed{false};
+  uint32_t active = 0; // Make leases: never release the archive under an addition
   std::mutex mutex;  // the archive's additions and saving, the counts
   // Since the last log line: pipelines made, of them from the archive, time.
   uint32_t made = 0, loaded = 0;
@@ -1602,6 +1606,11 @@ struct PipelineArchive {
 
   // From the archive if it has it, else compiled (and added to it).
   id<MTLRenderPipelineState> Make(id<MTLDevice> device, MTLRenderPipelineDescriptor* desc, NSError** error) {
+    struct Lease {
+      PipelineArchive& owner;
+      explicit Lease(PipelineArchive& p) : owner(p) { std::lock_guard lock(owner.mutex); ++owner.active; }
+      ~Lease() { std::lock_guard lock(owner.mutex); --owner.active; }
+    } lease(*this);
     Open(device);
     const auto start = std::chrono::steady_clock::now();
     id<MTLRenderPipelineState> pso = nil;
@@ -1642,7 +1651,10 @@ struct PipelineArchive {
 
   // With the periodic log line: the counts, and the archive written if it grew.
   void Report() {
-    std::lock_guard<std::mutex> lock(mutex);
+    // serializeToURL holds this lock for seconds on device. Reporting from
+    // the render queue MUST skip a busy archive, never wait behind its I/O.
+    std::unique_lock<std::mutex> lock(mutex, std::try_to_lock);
+    if (!lock.owns_lock()) return;
     if (made) {
       REXLOG_INFO("[native] pipelines: {} made ({} from the cache), {:.1f} ms in all, worst {:.1f} ms", made, loaded,
                   ms, worst_ms);
@@ -1650,7 +1662,7 @@ struct PipelineArchive {
     const bool idle = made == 0;
     made = loaded = 0;
     ms = worst_ms = 0;
-    if (warmed && idle && archive && !dirty && !saving && REXCVAR_GET(nfsmw_native_release_pipeline_archive)) {
+    if (warmed && idle && !active && archive && !dirty && !saving && REXCVAR_GET(nfsmw_native_release_pipeline_archive)) {
       archive = nil;
       tried = false;  // the next miss opens it again
       REXLOG_INFO("[native] pipeline cache let go until a new pipeline needs it (memory)");
@@ -1665,9 +1677,7 @@ struct PipelineArchive {
       // file shrank, and the same pipelines missed again next session).
       dirty = false;
       saving = true;
-      static dispatch_queue_t queue = dispatch_queue_create(
-          "nfsmw.pipelines.save", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
-      dispatch_async(queue, ^{
+      dispatch_async(SaveQueue(), ^{
         NSURL* tmp = [url URLByAppendingPathExtension:@"new"];
         NSError* error = nil;
         bool ok;
@@ -1690,6 +1700,17 @@ struct PipelineArchive {
         saving = false;
       });
     }
+  }
+  static dispatch_queue_t SaveQueue() {
+    static dispatch_queue_t queue = dispatch_queue_create(
+        "nfsmw.pipelines.save", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
+    return queue;
+  }
+  void FinishPreparation() {
+    // Called by the preparation worker ONLY, before any game/render thread.
+    Report();
+    dispatch_sync(SaveQueue(), ^{});
+    Report(); // release the now-clean archive, preserving low-RAM behavior
   }
 };
 PipelineArchive pipeline_archive;
@@ -3787,6 +3808,68 @@ class PipelineCache {
 
   size_t size() const { return ready_.size(); }
 
+  // Metadata, not a device-specific binary archive. ICB preparation includes
+  // the normal keys so a first trial launch does not discover every variant
+  // in the race. A bundled catalog can also seed a genuinely fresh install.
+  std::vector<PipelineKey> PreparationKeys(bool include_normal) const {
+    std::vector<PipelineKey> result;
+    std::unordered_set<PipelineKey, PipelineKeyHash> seen;
+    auto read = [&](NSURL* url) {
+      if (!url) return;
+      NSData* data = [NSData dataWithContentsOfURL:url];
+      if (!data) return;
+      if (data.length % sizeof(SavedKey) || data.length / sizeof(SavedKey) > 8192) {
+        REXLOG_WARN("[native] pipeline catalog ignored: malformed or oversized {}", url.lastPathComponent.UTF8String);
+        return;
+      }
+      for (size_t i=0; i<data.length/sizeof(SavedKey); ++i) {
+        SavedKey s;
+        std::memcpy(&s, static_cast<const uint8_t*>(data.bytes)+i*sizeof(s), sizeof(s));
+        const PipelineKey k{s.vs,s.ps,s.blend,s.blend1,s.mask,s.format,s.format1,s.alpha_spec,
+            s.sample_count,(s.alpha_to_coverage&1)!=0,s.alpha_to_coverage>>8};
+        if (!k.vs || !k.ps || k.mask>255 || k.format>63 || k.format1>64 || k.motion>3 ||
+            (s.alpha_to_coverage&0xFE) || (k.sample_count!=1 && k.sample_count!=2 &&
+                                         k.sample_count!=4 && k.sample_count!=8)) continue;
+        if (indirect_ && ((k.blend&0x1FFF1FFF)!=0x00010001 || k.format1 || k.mask>15 ||
+                          k.motion || store.internal_keys.count(k.vs))) continue;
+        if (seen.insert(k).second) result.push_back(k);
+      }
+    };
+    read(KeysUrl());
+    if (include_normal) {
+      NSURL* caches = [[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+      read([caches URLByAppendingPathComponent:@"nfsmw_native_pipelines_v2.keys"]);
+    }
+    read([[NSBundle mainBundle] URLForResource:@"pipeline_keys" withExtension:@"bin" subdirectory:@"NativeShaders"]);
+    return result;
+  }
+
+  void Prepare(id<MTLDevice> device, const std::vector<PipelineKey>& keys,
+               const std::function<void()>& tick) {
+    // Exclusive ownership before guest and render threads exist. No async
+    // job may publish into the cache after this method reports completion.
+    warmed_ = true;
+    size_t made=0, unavailable=0;
+    for (const auto& k:keys) {
+      @autoreleasepool {
+        id<MTLFunction> vs=store.Find("vs",k.vs), ps=store.Find("ps",k.ps);
+        MTLRenderPipelineDescriptor* desc = vs && ps ? PipelineDescriptor(k,vs,ps,indirect_) : nil;
+        id<MTLRenderPipelineState> pso=nil;
+        NSError* error=nil;
+        if (desc && [device supportsTextureSampleCount:k.sample_count]) {
+          @try { pso=pipeline_archive.Make(device,desc,&error); }
+          @catch (NSException* e) { REXLOG_WARN("[native] graphics preparation exception: {}",e.reason.UTF8String); }
+        }
+        Finish(k,pso,true,error ? error.localizedDescription.UTF8String : "unavailable during preparation");
+        made += pso!=nil;
+        unavailable += pso==nil;
+        tick();
+      }
+    }
+    REXLOG_INFO("[native] graphics prepared {}: {} ready, {} unavailable (direct fallback retained)",
+                indirect_ ? "ICB" : "normal",made,unavailable);
+  }
+
   // Once per frame (render thread): the background compiles finished since.
   void Collect() {
     std::vector<Done> done;
@@ -3797,10 +3880,7 @@ class PipelineCache {
     for (Done& d : done) {
       Finish(d.key, d.pso, d.warm, d.error.c_str());
       if (d.warm && --warm_left_ == 0) {
-        {
-          std::lock_guard<std::mutex> lock(pipeline_archive.mutex);
-          pipeline_archive.warmed = true;
-        }
+        pipeline_archive.warmed.store(true, std::memory_order_relaxed);
         REXLOG_INFO("[native] pipelines warmed up: {} in {:.0f} ms (background)", warm_total_,
                     std::chrono::duration<double, std::milli>(FastClock::now() - warm_start_).count());
       }
@@ -3812,15 +3892,9 @@ class PipelineCache {
   void WarmUp(id<MTLDevice> device) {
     if (warmed_) return;
     warmed_ = true;
-    NSData* data = [NSData dataWithContentsOfURL:KeysUrl()];
-    const size_t n = data.length / sizeof(SavedKey);
-    const SavedKey* saved = static_cast<const SavedKey*>(data.bytes);
+    const auto keys = PreparationKeys(indirect_);
     warm_start_ = FastClock::now();
-    for (size_t i = 0; i < n; ++i) {
-      const PipelineKey k{saved[i].vs,     saved[i].ps,         saved[i].blend,       saved[i].blend1,
-                          saved[i].mask,   saved[i].format,     saved[i].format1,     saved[i].alpha_spec,
-                          saved[i].sample_count, (saved[i].alpha_to_coverage & 1) != 0,
-                          saved[i].alpha_to_coverage >> 8};
+    for (const PipelineKey& k : keys) {
       id<MTLFunction> vs = store.Find("vs", k.vs), ps = store.Find("ps", k.ps);
       if (!vs || !ps || !known_.insert(k).second) continue;  // shaders no longer in this build
       MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps, indirect_);
@@ -3842,14 +3916,18 @@ class PipelineCache {
     pipeline_archive.Report();
     if (!keys_dirty_) return;
     keys_dirty_ = false;
-    NSMutableData* data = [NSMutableData dataWithCapacity:known_.size() * sizeof(SavedKey)];
-    for (const PipelineKey& k : known_) {
+    WriteCatalog(std::vector<PipelineKey>(known_.begin(),known_.end()), KeysUrl());
+  }
+
+  static void WriteCatalog(const std::vector<PipelineKey>& keys, NSURL* url) {
+    NSMutableData* data = [NSMutableData dataWithCapacity:keys.size() * sizeof(SavedKey)];
+    for (const PipelineKey& k : keys) {
       const SavedKey s{k.vs,      k.ps,         k.blend,        k.blend1,
                        k.mask,    k.format,     k.format1,      k.alpha_spec,
                        k.sample_count, uint32_t(k.alpha_to_coverage) | k.motion << 8};
       [data appendBytes:&s length:sizeof(s)];
     }
-    if (![data writeToURL:KeysUrl() atomically:YES]) {
+    if (![data writeToURL:url atomically:YES]) {
       REXLOG_WARN("[native] pipeline list not saved");
     }
   }
@@ -9783,6 +9861,37 @@ void NativeResolve(const uint32_t* regs);
 // The draw capture (native_draw_census.cpp, on the game thread) hands frames
 // over here unless the command processor does (nfsmw_native_cp).
 extern "C" bool nfsmw_native_cp_mode() { return REXCVAR_GET(nfsmw_native_cp); }
+extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t,void*), void* context) {
+  if (!REXCVAR_GET(nfsmw_native_prepare_graphics) || !REXCVAR_GET(nfsmw_native_present)) return;
+  const auto start=FastClock::now();
+  store.Load();
+  if (!store.device || store.functions.empty()) return;
+  const auto normal=pipeline_cache.PreparationKeys(false);
+  const bool reuse=NativeCommandReuse() && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
+      !REXCVAR_GET(nfsmw_native_early_commit) && [store.device supportsFamily:MTLGPUFamilyApple3];
+  const auto indirect=reuse ? indirect_pipeline_cache.PreparationKeys(true) : std::vector<PipelineKey>{};
+  const uint32_t total=uint32_t(normal.size()+indirect.size());
+  uint32_t completed=0;
+  if(progress) progress(0,total,context);
+  const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
+  REXLOG_INFO("[native] dev116 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  pipeline_cache.Prepare(store.device,normal,tick);
+  if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
+  pipeline_archive.warmed.store(true,std::memory_order_relaxed);
+  pipeline_cache.Report();
+  if(reuse) indirect_pipeline_cache.Report();
+  pipeline_archive.FinishPreparation();
+  // Portable state metadata for an eventual bundled first-install catalog.
+  // No Metal binary archive or game asset is copied into tracked resources.
+  auto catalog=normal;
+  std::unordered_set<PipelineKey,PipelineKeyHash> seen(normal.begin(),normal.end());
+  for(const auto& k:indirect) if(seen.insert(k).second) catalog.push_back(k);
+  NSURL* docs=[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+  PipelineCache::WriteCatalog(catalog,[[docs URLByAppendingPathComponent:@"logs"] URLByAppendingPathComponent:@"native_pipeline_keys.bin"]);
+  REXLOG_INFO("[native] graphics preparation finished before game: {} keys in {:.0f} ms; {}",
+      total,std::chrono::duration<double,std::milli>(FastClock::now()-start).count(),
+      total ? "new unseen combinations still use normal discovery" : "no known catalog; first-use combinations will be discovered");
+}
 extern "C" bool nfsmw_native_swap() { return REXCVAR_GET(nfsmw_native_cp) ? false : NativeSwap(); }
 extern "C" void nfsmw_native_draw(const NfsmwNativeDraw* draw) {
   if (!REXCVAR_GET(nfsmw_native_cp)) NativeDraw(draw);
@@ -10251,7 +10360,7 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev115 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
+    REXLOG_INFO("[native] dev116 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off");
     return true;
   }();

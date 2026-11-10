@@ -30,6 +30,9 @@ std::vector<std::filesystem::path> FindIsos(const std::filesystem::path& documen
 // change. Call on the main thread, before the game's SDL window exists.
 std::filesystem::path Run(const std::filesystem::path& documents);
 
+// Responsive preparation screen between Play and starting the game threads.
+void PrepareGraphics();
+
 // The game's arguments for the saved settings ("--name=value" each). They
 // replace the defaults with the same name; Documents/extra_args.txt comes
 // after them and wins.

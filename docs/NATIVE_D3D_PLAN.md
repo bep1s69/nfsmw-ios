@@ -2,6 +2,13 @@
 
 ## Current decision — November 10, 2026
 
+**dev116 follow-up:** dev115 initially looks normal per Stefan and demonstrably
+executes ICB batches, but heavy freezes accompany archive saves. Pre-game
+pipeline preparation and nonblocking render-side archive reporting are now
+built, awaiting device validation. This is a prerequisite to CPU/energy tests,
+not another claimed battery gain. Current artifact, precise coverage and
+first-install catalog limitations are in DEVELOPMENT_PROGRESS/TECHNICAL.
+
 **Implementation update:** Stefan approved starting stage 1. The dev115
 prototype is built on `codex/native-frame-command-reuse`, default-off
 `nfsmw_native_command_reuse`. CPU frame-owned constant blocks/geometry owners,
