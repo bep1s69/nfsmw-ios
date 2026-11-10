@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): from the next build onward add master game-audio mute,
+  preferably also toggleable from the in-game menu, for listening to personal
+  music without adjusting every original game volume. Continue battery work.
+
 - November 10 (Stefan): dev115 picture/gameplay looked normal except heavy
   freezes. Prepare graphics pipelines before launching the game rather than
   interrupting gameplay. This explicitly reopens the archive/warmup work for
@@ -482,6 +486,58 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 10, dev116 result / dev117 BUILT — master mute and first-install catalog:**
+Supplied dev116 log/catalog archived in Debug/10 November 2026 as
+dev116_iphone_command_reuse_on_nfsmw.log and dev116_native_pipeline_keys.bin.
+All223normal+86ICB pipelines ready,0unavailable; preparation8899ms, including
+archive save completed before SDL/runtime. No later pipeline-made/save reports,
+0watchdog stalls/0GPU errors,35audio windows0gaps. This supports the upfront
+preparation fix, not subjective freeze-free acceptance or energy savings.
+Twenty-three fully driving guarded300-frame windows:66.64%ICB draws,
+15.39draws/run,29.94%exact-key hits,0budget fallback,6900CPU/GPU-owned frames.
+FPS summaries22x60.0,1x59.9,0GPU frames over45ms in those summaries.
+Log ends mid-line; no crash or graceful exit inferred. Exact evidence TECHNICAL.
+
+dev117 adds default-OFF hot `ios_audio_mute`, settings key audio_mute, Audio
+row Mute all game audio in BOTH launcher and in-game gear/controller sheet.
+Atomic final-output silence leaves the ring drain and audio semaphore timing
+running; original game volumes untouched. For personal music also enable Keep
+other music playing BEFORE launch (existing restart-only session option).
+Mute does not disable guest mixing/XMA, and is not a battery optimization.
+
+Catalog supplied:223unique48-byte records,10704bytes. dev117 bundles it locally
+via new CMake FILEPATH `NFSMW_NATIVE_PIPELINE_KEYS` (empty default), so fresh
+installs can prepare the same known normal/ICB combinations before gameplay.
+New combinations/settings still require discovery. Catalog stays ignored/local.
+Build procedure: configure existing isolated build with
+`cmake -S ios -B /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 -DNFSMW_NATIVE_PIPELINE_KEYS="/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/dev116_native_pipeline_keys.bin"`,
+then usual `cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`.
+Clear option to omit seed; packaging removes stale bundled catalog first.
+No shader rebuild/SDK source patch. Host `python3 tools/native/test_audio_mute.py`
+(ASan/UBSan actual render callback drain/wrap/unmute/underrun/permit behavior)
+and `python3 tools/native/test_pipeline_preparation.py` pass; build/signature/
+ZIP/catalog inclusion pass. Device mute/menu/music check remains pending.
+
+IPA ios/build/NFSMW-0.6.1-dev117-mute-pipeline-catalog.ipa,30734521bytes,
+SHA256 `2a13a0b728ce04af1bd9537dcfff2d0ff825f890833fb1a63099643f283804cd`,
+UUID `00CD3ABE-E13C-3307-8B18-01BB6C57D644`, bundle0.6.0(11).
+On iCloud Desktop; older Desktop dev116 in Trash, stable/all ios/build copies
+preserved.104metallibs and GPU SDK dylib match dev116; runtime only build-label
+string section changed (TECHNICAL). Local branch/no push/merge/release.
+
+**Next battery action:** one90–120s iPhone1x/60 pursuit Time Profiler capture,
+Stefan records through Instruments attached to ordinary LiveContainer; retain
+`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`,
+same graphics/controller settings, mute OFF for this CPU investigation to keep
+audio comparable. Send trace path plus nfsmw.log. No Power Profiler pair yet.
+Locate actual costs in Record, frame ownership, command rebuild/encode, driver,
+CP and destruction; ~70% command-key rebuilds mean batching activity alone
+does not establish less CPU. Rendering wall time contains pacing/waits and must
+not be substituted for CPU. Historical dev110 trace is contextual, not a matched
+causal A/B. Use profile findings to select a concrete next renderer change;
+do not advance to PM4 removal or claim battery gains on counters alone.
+Preexisting untracked HANDOFF_CHATGPT.md preserved; BACKLOG private/ignored.
 
 **November 10, dev116 BUILT — pre-game graphics preparation and archive-lock fix:**
 Stefan reports dev115 looked normal except heavy freezes. Archived supplied

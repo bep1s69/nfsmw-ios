@@ -31,11 +31,28 @@ REXCVAR_DEFINE_BOOL(ios_audio_mix_others, false, "Audio",
                     "Keep other apps' music playing alongside the game; takes effect at game launch")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
+REXCVAR_DEFINE_BOOL(ios_audio_mute, false, "Audio",
+                    "Mute all game output without changing the game's volume settings; applies immediately");
+
 namespace rex::audio::ios {
 
 namespace {
 
 constexpr double kSampleRate = 48000.0;
+
+// The real-time callback reads only this atomic, never the cvar registry.
+std::atomic<bool> output_muted{false};
+
+void PrepareMute() {
+  static std::once_flag once;
+  std::call_once(once, [] {
+    output_muted.store(REXCVAR_GET(ios_audio_mute), std::memory_order_relaxed);
+    rex::cvar::RegisterChangeCallback("ios_audio_mute", [](std::string_view, std::string_view) {
+      // The setter has already parsed/validated every supported bool spelling.
+      output_muted.store(REXCVAR_GET(ios_audio_mute), std::memory_order_relaxed);
+    });
+  });
+}
 
 // 5.1 to stereo fold weights (the same as the Android driver).
 constexpr float kCenterGain = 0.7071f;
@@ -78,6 +95,7 @@ dispatch_semaphore_t session_ready = dispatch_semaphore_create(0);
 std::atomic<bool> session_activated{false};
 
 void ActivateSessionOnce() {
+  PrepareMute();
   static std::once_flag once;
   std::call_once(once, [] {
     nfsmw::boot::Trace("audio: activating the session");
@@ -412,9 +430,13 @@ void CoreAudioDriver::Render(float* out, uint32_t frames) {
   // Copy what there is, in one or two pieces depending on the ring's end.
   const size_t pos = r & kMask;
   const size_t first = std::min(n, kCapacity - pos);
-  std::memcpy(out, ring_.get() + pos, first * sizeof(float));
-  if (n > first) {
-    std::memcpy(out + first, ring_.get(), (n - first) * sizeof(float));
+  if (output_muted.load(std::memory_order_relaxed)) {
+    std::memset(out, 0, wanted * sizeof(float));
+  } else {
+    std::memcpy(out, ring_.get() + pos, first * sizeof(float));
+    if (n > first) {
+      std::memcpy(out + first, ring_.get(), (n - first) * sizeof(float));
+    }
   }
   // Whatever is missing, silence.
   if (n < wanted) {

@@ -648,6 +648,10 @@ const std::vector<Section>& Sections() {
        }, kTabControls},
       {@"Audio", nil,
        {
+           {@"audio_mute", Type::kSwitch, @"Mute all game audio",
+            @"Silence music, engines, voices and effects without changing the game's volume settings. "
+            @"Applies immediately. Enable Keep other music playing before launching to listen to another app.",
+            @"false", {}, kInGame, "ios_audio_mute"},
            {@"audio_silent_mode", Type::kSwitch, @"Play sound in silent mode",
             @"Off: the game is quiet when the phone's silent switch is on, like most iOS games. "
             @"On: the game's sound plays anyway.",
@@ -1121,6 +1125,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--red_registro=true");
   }
   a.push_back("--ios_audio_mix_others=" + b(On(s, @"audio_mix_others")));
+  a.push_back("--ios_audio_mute=" + b(On(s, @"audio_mute")));
   a.push_back("--ios_audio_silent_mode=" + b(On(s, @"audio_silent_mode")));
   a.push_back("--nfsmw_native_present=" + b(On(s, @"native_renderer")));
   // No Vulkan at all when the native renderer draws everything

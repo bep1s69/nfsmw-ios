@@ -2,6 +2,15 @@
 
 ## Current decision — November 10, 2026
 
+**dev117 checkpoint:** dev116 device log has all309known pipelines prepared and
+archive save complete before game start, no later pipeline activity, watchdog
+stalls or GPU errors. Guarded driving windows show66.64%ICB coverage/15.39draws
+per run,29.94%key hits,59.9–60FPS summaries. No CPU/energy benefit established.
+Received223-key catalog is bundled locally in dev117 for first-install seeding.
+Next is one enabled Time Profiler pursuit to identify actual Record/ownership/
+rebuild/encoding/destruction work before further changes or power testing.
+Master mute is a separate requested feature, not an energy optimization.
+
 **dev116 follow-up:** dev115 initially looks normal per Stefan and demonstrably
 executes ICB batches, but heavy freezes accompany archive saves. Pre-game
 pipeline preparation and nonblocking render-side archive reporting are now

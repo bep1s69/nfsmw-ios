@@ -23499,3 +23499,125 @@ One ordinary pursuit, observe preparation/freezes/picture/audio, return nfsmw.lo
 and logs/native_pipeline_keys.bin. No new power matrix now. Device startup UI,
 freeze correction, sustained pacing, memory, CPU work and battery benefit are
 pending; passing build/host tests do not establish them.
+
+## November 10, 2026 — dev116 preparation evidence; dev117 master mute and catalog
+
+Stefan supplies nfsmw.log/native_pipeline_keys.bin and requests master mute from
+next build, ideally live in game, while continuing battery work. No explicit
+subjective freeze result accompanies this input. Archived originals under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/`:
+
+- dev116_iphone_command_reuse_on_nfsmw.log:987167bytes,5714lines,SHA256
+  `05a72ec2e111b5475ca0ec9c84ac9ce411ff3024ca9fc90d1a9da99a3d706a46`.
+- dev116_native_pipeline_keys.bin:10704bytes,223unique48-byte records,SHA256
+  `ac186220233372cbafd66d4ab9ad5ae8e17b75bf2a564b34106bcbf2add5ac4d`.
+
+Original attachments remain at
+`/tmp/codex-remote-attachments/01a1c612-f9e7-7833-9812-3f01b1cfdbf4/8F5B93E9-9639-453A-BC8E-B9AF55AFC840/1-nfsmw.log`
+and sibling2-native_pipeline_keys.bin. No proprietary content staged.
+
+### Device evidence and battery decision
+
+Log identifies dev116/reuse ON/repeat OFF,60cap. Preparation starts22:27:58.910,
+223normal ready at22:27:59.218,86ICB ready at22:27:59.841,0unavailable.
+309made/267archive hits,644.2ms aggregate pipeline Make time,worst55.9ms.
+Save177533KiB completes22:28:07.730; preparation finishes22:28:07.731,
+8899ms total. SDL starts22:28:07.773. Thus the long archive save is actually
+outside gameplay this time. Only one pipeline-made report and one archive-save
+completion in whole log; no later new-pipeline/save reports,0watchdog stalls,
+0GPU errors,35coreaudio windows0gaps,thermal nominal. Maximum reported process
+peak1611MiB. Log ends mid-frame-summary22:31:05.699: do not infer crash/clean
+exit or a full final interval from that truncation. Device/OS not newly asserted
+from filenames; same ongoing iPhone trial context, no OS version supplied here.
+
+Driving22:28:47.207–22:29:36.769 and22:29:40.592–EOF22:31:05.699.
+Analysis selects complete300-frame command windows whose previous/end report
+timestamps both lie within driving with2s guards.23windows,6900frames,
+6900GPU contexts/CPU-owned frames. Totals:14805650eligible,6418783direct,
+12821572ICB draws,833101runs,1984078singles,4432361hits,10373289rebuilt,
+0budget fallback.66.63896% of submitted draws use ICB;15.39018draws/run,
+29.93696% exact-key hits. Paired frame summaries22x60.0FPS,1x59.9FPS,
+0GPU frames over45ms in those summaries. Local derived JSON:
+`ios/build/battery-audit-20261110/dev116-log-analysis.json`.
+
+Measured preparation ordering and absence of long watchdogs support the fix;
+they do not prove every subjective hitch resolved. No CPU savings can be
+computed by comparing these different pursuits with earlier logs. Rendering
+wall time varies4.42–16.0ms in selected summaries and includes pacing/waits;
+not CPU utilization. Command-key rebuilds remain70.06% of eligible entries.
+Batch coverage certifies the mechanism runs, not that its costs are lower.
+Next one90–120s Time Profiler on dev117, iPhone1x/60, same settings/controller,
+reuse ON/repeat OFF/mute OFF, Stefan records ordinary LiveContainer himself.
+Inspect Record/geometry/frame ownership, command key/rebuild/encode, driver,
+CP and destruction before selecting further changes. Historical dev110 is
+context, not a matched causal comparison. No Power Profiler A/B requested now.
+
+### Master mute
+
+Default-OFF runtime cvar ios_audio_mute, saved setting audio_mute, shared Audio
+row Mute all game audio with kInGame/live metadata. Both launcher and native
+in-game gear/controller menu obtain the row from existing catalog; existing
+apply path saves settings and sets its cvar immediately. No original game
+volume edits. At session preparation, initialize an atomic from effective cvar
+(after args), register change callback that publishes parsed cvar value. SDK
+ApplyFlagValue invokes callbacks after setter under recursive registry mutex;
+only control path uses cvars. Real-time Render reads atomic, zeros requested
+output instead of copying ring data, STILL advances read index, counts genuine
+underruns and issues normal audio clock permits. Submit/mixing/XMA unchanged.
+No game-audio CPU/battery savings claimed. Existing mixing option independent:
+enable Keep other music playing BEFORE launch to avoid interrupting personal
+music; switching mute live does not change AVAudioSession category. Pause/
+resume retain normal driver path. Device toggle/music/persistence check pending.
+
+`python3 tools/native/test_audio_mute.py` exit0, log
+`ios/build/dev117-audio-mute-test.log`: actual production Render body compiled
+with semaphore/ring stand-ins using clang++ C++20O1 ASan/UBSan. Audible/muted
+split-ring output, mute drains current samples, unmute consumes subsequent
+samples, empty callbacks zero output/count underruns, partial256-frame permits
+and zero-frame callback all pass. No actual AudioUnit/iOS UI acceptance implied.
+
+### Catalog packaging
+
+CMake FILEPATH NFSMW_NATIVE_PIPELINE_KEYS defaults empty; checks existence if
+configured. Packaging removes old bundle seed then optionally copies it after
+shader-directory copy, before signing. Existing build configured with absolute
+archived catalog path; exact command in DEVELOPMENT_PROGRESS. Metadata remains
+ignored/local, not a tracked asset. ZIP contains byte-identical223-key seed at
+Payload/NFSMW.app/NativeShaders/pipeline_keys.bin. Optional seeded preparation
+was tested by existing fixture; now normal keys also available on fresh installs.
+This catalog covers observed states only, not all settings/tracks/vehicles.
+
+`python3 tools/native/test_pipeline_preparation.py` exit0, log
+`ios/build/dev117-preparation-test.log`: production archive/cache nonblocking
+reporting, preparation, catalog merging and call-order checks still pass.
+Configure exit0 (`ios/build/dev117-configure.log`), initial package exit0
+(`ios/build/dev117-package.log`,4warning entries including SDK duplicate libs),
+marker-update package exit0 then final parsed-bool callback adjustment package
+exit0 (`ios/build/dev117-package-final.log`,2warnings:existing FPSCR/duplicate-z).
+All use isolated build-0.6 target ipa -j12, Release/arm64/iOS18/multiplayer SDK.
+No SDK source patch or shader rebuild. No failed build/test attempt this turn.
+`git diff --check` exit0.
+
+### Artifact/delivery
+
+`ios/build/NFSMW-0.6.1-dev117-mute-pipeline-catalog.ipa`,30734521bytes,SHA256
+`2a13a0b728ce04af1bd9537dcfff2d0ff825f890833fb1a63099643f283804cd`.
+Executable UUID00CD3ABE-E13C-3307-8B18-01BB6C57D644,SHA256
+`34bf2308ddebc18c684d04b41b96a4261fa916545ab17334b7b187c46dad78de`.
+Bundle remains0.6.0(11), experimental filename0.6.1 as previous trials.
+ZIPCRC pass; codesign --verify --deep --strict NFSMW.app exit0; packaged
+executable equals signed build app.104/104metallibs and librexgpu-xenos
+byte-identical to dev116. Runtime changed SHA256 to
+`c1e827bdde3e22618922d3c1f2d9c5a93304d618a8180007a39d52fd082aa91f`:
+Mach-O section comparison finds ONLY __TEXT,__cstring differs,same455530bytes;
+all others including __text identical. Build label old
+rexglue-v0.10.0-dev.gafbb1ba-ios-arm64-Release@20261110_1808 becomes
+rexglue-v0.10.0-dev.g3d0a909-ios-arm64-Release@20261110_2234 after CMake
+regeneration; no behavioral SDK code change. Artifact JSON local ios/build.
+
+Copied/hash-verified to iCloud Desktop; superseded Desktop dev116 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.1-dev116-prelaunch-pipelines.ipa`.
+Stable NFS-Most-Wanted-0.6.0.ipa/all ios/build packages preserved.
+Shared checkpoint/plan/private BACKLOG updated, HANDOFF_CHATGPT.md untouched.
+Local commit only; no push/merge/release. Next CPU profile as above, mute/music
+check whenever convenient; no battery improvement established yet.

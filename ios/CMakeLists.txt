@@ -372,6 +372,11 @@ add_dependencies(nfsmw rexgpu-xenos)
 # -----------------------------------------------------------------------------
 set(NFSMW_NATIVE_SHADERS_DIR "" CACHE PATH
     "Native renderer bring-up: folder of .metallib shaders to bundle (local test builds only)")
+set(NFSMW_NATIVE_PIPELINE_KEYS "" CACHE FILEPATH
+    "Optional local known-state pipeline catalog for preparation on fresh installs")
+if(NFSMW_NATIVE_PIPELINE_KEYS AND NOT EXISTS "${NFSMW_NATIVE_PIPELINE_KEYS}")
+    message(FATAL_ERROR "NFSMW_NATIVE_PIPELINE_KEYS does not exist: ${NFSMW_NATIVE_PIPELINE_KEYS}")
+endif()
 set(_app "$<TARGET_BUNDLE_DIR:nfsmw>")
 set(_fw "${_app}/Frameworks")
 add_custom_target(nfsmw_package ALL
@@ -394,6 +399,12 @@ add_custom_target(nfsmw_package ALL
     # builds only (-DNFSMW_NATIVE_SHADERS_DIR=...; empty: none).
     COMMAND ${CMAKE_COMMAND} -E $<IF:$<BOOL:${NFSMW_NATIVE_SHADERS_DIR}>,copy_directory,true>
             ${NFSMW_NATIVE_SHADERS_DIR} "${_app}/NativeShaders"
+    # Metadata remains local/ignored, just like the translated shaders.
+    # Remove a previous seed when the option is cleared in an existing build.
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_app}/NativeShaders"
+    COMMAND ${CMAKE_COMMAND} -E rm -f "${_app}/NativeShaders/pipeline_keys.bin"
+    COMMAND ${CMAKE_COMMAND} -E $<IF:$<BOOL:${NFSMW_NATIVE_PIPELINE_KEYS}>,copy_if_different,true>
+            "${NFSMW_NATIVE_PIPELINE_KEYS}" "${_app}/NativeShaders/pipeline_keys.bin"
     # codesign will not sign files with extended attributes ("resource fork,
     # Finder information, or similar detritus"): the MoltenVK tar and macOS'
     # provenance tagging bring them.

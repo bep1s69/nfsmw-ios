@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Mute all game audio.** Added a master mute switch in the launcher and
+  in-game Audio menu. It applies immediately and preserves the game's volume
+  settings. Use Keep other music playing to listen to another app.
+
 - **Graphics preparation before gameplay.** Prepare known graphics pipelines
   on a progress screen before starting the game. Cache reporting no longer
   waits behind a background pipeline-archive save.

@@ -9874,7 +9874,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev116 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev117 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10360,7 +10360,7 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev116 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
+    REXLOG_INFO("[native] dev117 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off");
     return true;
   }();
