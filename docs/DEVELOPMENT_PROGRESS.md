@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): iPhone at the 40 cap runs on the efficiency cores
+  (Eco-like, almost perfect as measured Nov 9). He does not accept that 60
+  cannot be improved: proposed next is promoting one thread at a time to the
+  performance cores (smallest set that holds 60); native D3D layer remains
+  the large later lever. Awaiting his OK for dev113.
+
 - November 10 (Stefan): power tests must be few. Use one A/B pair in one
   sitting (within-sitting spread ~0.5 %/h); never compare runs from
   different sittings.
