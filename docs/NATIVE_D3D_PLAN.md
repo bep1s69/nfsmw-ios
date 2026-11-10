@@ -2,12 +2,24 @@
 
 ## Current decision — November 10, 2026
 
+**Implementation update:** Stefan approved starting stage 1. The dev115
+prototype is built on `codex/native-frame-command-reuse`, default-off
+`nfsmw_native_command_reuse`. CPU frame-owned constant blocks/geometry owners,
+bounded completion-owned ICB contexts and direct fallback are implemented.
+It retains the existing CP producer, pass logic, shaders and presenter.
+Host sanitizer/regression tests and iOS packaging/signing checks pass; device
+correctness, CPU improvement and energy improvement are still untested.
+See DEVELOPMENT_PROGRESS's dev115 checkpoint and TECHNICAL's implementation
+entry for exact artifact, commands, limits and test history. The broader
+producer replacement and remaining representation/optimization work below
+are future stages, not completed by this prototype.
+
 Stefan approved the source-level feasibility/design pass for a renderer-work
 reduction prototype, then broadened the goal: a longer project is acceptable
 to remove as much Xbox 360 compatibility work as practical while preserving
 current performance and visuals. This reopens the parked native-D3D work for
-design. It does not approve a particular implementation or merge of the old
-branch. No production behavior changes, build or device test in this pass.
+design. He subsequently approved the concrete stage-1 implementation above.
+No merge of the old branch is approved; no device test has happened yet.
 
 Use this existing, AGENTS-indexed plan as the design home. Older version and
 N0–N2a evidence remain available with `git show native-d3d:docs/NATIVE_D3D_PLAN.md`
@@ -210,7 +222,7 @@ buffering/input delay.
 
 ## Order, acceptance, and test burden
 
-Concrete first implementation scope (proposed, not yet applied):
+Concrete first implementation scope (dev115 prototype applied):
 
 - `ios/src/native_renderer.mm`: native frame owners/handles, completion-owned
   command contexts, address slots, eligible-run planner, ICB/direct submission,
@@ -219,10 +231,10 @@ Concrete first implementation scope (proposed, not yet applied):
   context state transitions, with host regression fixtures in `tools/native/`.
   Actual Metal behavior still needs device validation; fake encoders cannot
   establish pixel correctness, driver cost or GPU synchronization.
-- Proposed restart-only `nfsmw_native_command_reuse=false` selects the whole
-  trial; reference behavior remains the default. This flag does not exist yet.
-  No SDK/guest hook/shader rewrite in the first stage. Turn the existing
-  repeated-draw diagnostic default off before packaging a normal test build.
+- Restart-only `nfsmw_native_command_reuse=false` selects the whole
+  trial; reference behavior remains the default.
+  No SDK/guest hook/shader rewrite in the first stage. The existing
+  repeated-draw diagnostic is now default off.
 - Aggregate counts every 300 frames: eligible/submitted/direct draws, run
   lengths, exact command hits/rebuilds, invalidation/fallback reasons,
   context memory/growth and preparation/submission CPU time. No per-draw logs
@@ -230,6 +242,23 @@ Concrete first implementation scope (proposed, not yet applied):
 - Put any bounded native-input capture/replay support in this same trial
   build if needed; avoid another diagnostic-only device/build cycle. Existing
   dev114 logs are statistics, not a replayable native frame capture.
+
+Implemented bounds/details: three CPU storage owners (up to 4,096 full constant
+banks/16MiB each, with existing shared-bank overflow fallback), three GPU
+contexts, 8,192 command slots/context, 256-byte address-record stride,
+five heaps capped at 2MiB each and 96MiB of pinned buffers/context. Pins retain
+existing buffers, not copies; this can extend their lifetime and must be
+checked against memory/thermal results. The budget allows two existing32MiB
+geometry chunks plus argument data. One-command runs use direct draws.
+Unused slots reset and unpin each frame; pressure epochs purge idle contexts
+without touching in-flight work. Slab range coverage is explicit, and a live
+temporal toggle promotes escaping history to shared ownership. Motion,
+repeated-draw diagnostics and CPU snapshots use the reference storage path;
+early commit/GPU capture/temporal output exclude the ICB route. CPU ownership
+may still run when the ICB route falls back. The original Frame draw vector
+and attribute arena are not persistently recycled yet. Captured-input pixel
+replay and Metal-on-device validation remain unfinished; host stand-ins only
+test ownership, operands and control flow.
 
 1. Implement the common frame/ownership boundary and bounded ICB consumer
    behind a default-off switch, with CP input retained. This tests the larger

@@ -44,6 +44,7 @@ static size_t Replay(const std::vector<Case>& cases, bool guest_culling, bool du
   @ENCODER_STATE@
   id<MTLRenderCommandEncoder> enc=(id<MTLRenderCommandEncoder>)fake;
   GuestCullCounters* cull_counts=&counters;
+  auto flush_commands=[] {}; // command ordering is checked by test_native_command_cache.py
   size_t drawn=0;
   for (const auto& c : cases) {
     const auto& d=c.d;
@@ -160,7 +161,7 @@ def main():
     counters = source[source.index('struct GuestCullCounters {'):
                       source.index('std::map<std::string, GuestCullCounters>')]
     state = source[source.index('    struct EncoderState {'):
-                   source.index('    uint32_t last_shared[256];')]
+                   source.index('    } state;', source.index('    struct EncoderState {')) + len('    } state;')]
     integration = source[source.index('      const auto cull = nfsmw::PlanGuestCulling'):
                          source.index('      // Constants and shared constants (texture/sampler indices, booleans).')]
     assert 'state.enc = nil;' in source  # production encoder invalidation still exists

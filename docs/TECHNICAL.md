@@ -23192,3 +23192,192 @@ analysis/design-only change. The first concrete proposed code scope, default-
 off flag name (not yet implemented), counters and build diagnostic requirement
 are listed in the plan; no new build instructions are required yet.
 
+## November 10: dev115 native frame ownership and cached Metal command prototype
+
+Stefan explicitly approved starting implementation. New local branch
+`codex/native-frame-command-reuse` from afbb1ba; no old native-d3d merge.
+Start state: pre-existing untracked HANDOFF_CHATGPT.md only, preserved.
+No SDK source patch, guest hook change, shader rewrite, cap/pacing/graphics
+quality change, push, merge or release. This implements the first prototype,
+not the complete native-D3D producer or a proven battery optimization.
+
+### Production implementation
+
+- New restart-only `nfsmw_native_command_reuse`, default false. Existing
+  `nfsmw_native_repeat_counter` diagnostic changed from true to false before
+  normal trial packaging. Startup identifies dev115 and both effective modes.
+- `native_frame_storage.h`: FrameRef keeps the original shared owner in the
+  reference path, or borrows a stable frame-level owner/raw constant block
+  in the trial. Geometry is pinned once per distinct object/frame; source
+  cache sweeps cannot invalidate a draw. Frame declares its storage first,
+  so draws/last-state handles die before their backing owners.
+- Constant blocks preserve the full ConstantBank layout and existing shader
+  ranges/copy semantics.64banks/block,4,096banks/store,16MiB max bank storage.
+  Three live CPU stores, acquired/released with one pool lock per frame rather
+  than per bank; blocks survive recycling. Existing shared-bank path handles
+  overflow. Explicit initialized-range coverage prevents reusing unfilled
+  registers when shader ranges widen. A live temporal toggle promotes an
+  escaping history bank to independent shared ownership before storing it.
+  Motion/repeat diagnostics/CPU snapshots start on the reference storage path.
+  The Frame draw vector and attribute arena are still constructed per frame;
+  no claim that every CPU allocation is now eliminated.
+- `native_command_key.h` and ObjC++ `native_command_cache.h`: exact field
+  equality on buffer identities/offsets/index operands/primitive/count;
+  resources are pinned until their last cached command resets, protecting
+  object-address reuse. Three GPU contexts,8,192slots/context,256-byte stable
+  buffer8 address records, five persistent heaps(max2MiB each). Buffer pin
+  budget96MiB/context includes existing geometry/arguments, not new copies of
+  geometry. This extends resource lifetimes and can increase retained memory;
+  count/memory limits do not establish acceptable on-device memory behavior.
+- Contexts are reserved during CPU encoding; only completion of the actual
+  submitted command buffer, including error completion, releases them. A CPU
+  abort releases its lease. If no context/capacity is available, use direct
+  drawing without a new wait or extra queued frame. Memory-pressure epochs
+  purge idle GPU/CPU storage; in-flight work retains its owners. Unused command
+  slots reset/unpin at frame end instead of retaining abandoned geometry.
+- Trial eligibility is ordinary cached indexed geometry, opaque blend, no
+  query/second target/internal shader/motion/fresh attributes. Temporal output,
+  GPU capture, snapshots, repeated-draw diagnostic and early commits exclude
+  the ICB path. CPU ownership can still operate when GPU command reuse falls
+  back. Unknown, pending or failed ICB PSOs use the normal draw; no trial-only
+  compile failure drops visible work.
+- ICB PSOs are separate PipelineCache instances, with support flag set during
+  descriptor creation and a distinct `nfsmw_native_pipelines_icb_v1.keys`
+  list. The Metal binary archive sees the actual distinct descriptor. Baseline
+  key format/list remain unchanged. Variant compilation is asynchronous; ready
+  state does not imply the normal PSO was made ICB-compatible retroactively.
+- Commands inherit pipeline/raster/depth state but own their buffer bindings.
+  Batches flush BEFORE PSO/depth/stencil/ref/clip/bias/visibility/viewport/
+  scissor/cull/winding changes, direct work, encoder transitions and resolves.
+  Existing draw_order/sky/stencil/pass/resolve positions remain authoritative.
+  One-command runs are issued directly; runs of2+ execute an ICB range. Both
+  use the same current buffer operands. Direct argument caches are invalidated
+  after batch submission. Explicit resource declarations cover the ICB and
+  indirectly referenced buffers; residency is not treated as ownership.
+- Per300rendered-frame aggregate `[native] command reuse:` reports CPU-store/
+  context coverage, eligibility/direct draws, ICB draws/runs/singles, exact-key
+  hits/rebuilds, budget fallback, constant snapshots/geometry owners and peak
+  pinned/slab bytes. These are activity counters, not CPU savings or energy.
+  Existing whole-frame timing/pacing logs remain available. No per-draw timer
+  or dev114 full comparison is left running for energy measurements.
+
+The96MiB budget was chosen during host/source review because geometry-arena
+chunks are32MiB: a64MiB total budget would reject a second chunk as soon as
+argument storage is included. It is a bound enabling a useful trial, not a
+measured ideal. The broader direct game-to-native producer and PM4 retirement
+are not implemented here. Same-input on-device pixel replay and actual Metal
+validation are also unfinished; no device is driven automatically by Codex.
+
+### Host validation and failures preserved
+
+All logs below are ignored local files under `ios/build/`.
+
+- `python3 tools/native/test_native_frame_commands.py`: final exit0,
+  native-command-owners-test-final.log. Actual ownership helpers with ASan/
+  UBSan: cache eviction, deque growth, copied/moved borrowed handles, block
+  exhaustion/reset, bounded live frames, pressure epochs and concurrent return.
+  Every buffer/offset/index/count/primitive operand participates in equality.
+- `python3 tools/native/test_native_command_cache.py`: final exit0,
+  native-command-cache-test-final.log. Actual cache and batch code with ARC+
+  ASan/UBSan and Foundation/Metal stand-ins: exact cached operands/hits,
+  last-command resource lifetime, run order, direct singles, transactional
+  budget fallback, heap growth invalidation, unused-slot release, creation
+  failure, bounded acquisition, CPU abort, simulated GPU completion and busy
+  purge exclusion. Production source guards check each inherited-state/
+  encoder/resolve flush boundary, completion release and default values.
+  Stand-ins do not execute GPU work or establish pixel/driver correctness.
+- `python3 tools/native/test_draw_arena.py`: exit0,
+  native-command-draw-arena-test-3.log. Extracted actual production types and
+  constant-snapshot lambda:5,000 changing/widening ranges, all retained snapshots
+  immutable,4,096-bank slab exhaustion then shared-bank fallback. Also3,500
+  draws/mode, data equality, vector relocation, shared/Metal ownership,
+  render-thread destruction, alignment, bad_alloc cleanup and independent
+  frames. Attribute allocation counts unchanged:13,121 individual,8 cold
+  pooled,1 with previous-frame hint. These counts are not new app performance.
+- `python3 tools/native/test_pipeline_lookup.py`: exit0,
+  native-command-pipeline-test-3.log.60,456 differential checks/configuration,
+  OFF/ON at ASan/UBSan-O1 and-O3; actual Get/Finish state transitions,
+  collisions/rehash, pending/error/warm races, exact ready keys and ownership.
+- `python3 tools/native/test_guest_culling.py`: exit0,
+  native-command-culling-test-2.log.16,384 primitive/register cases,100,000
+  supported transforms and actual state/counter integration (host only).
+- `python3 tools/native/test_gpu_buffer_lookup.py`: exit0,
+  native-command-gpu-buffer-test-2.log. Selector/counters each OFF/ON with
+  collisions, rehash, completion gates, invalidation, ownership, allocation
+  retries and same-address reuse under the existing extracted cache fixture.
+- `git diff --check`: exit0.
+
+Failed attempts: first iOS compilation exit1 from incorrect ObjC-to-uintptr
+bridge syntax (20 emitted errors including cascaded comparator errors), fixed
+with bridge-to-void then reinterpret_cast. Second compilation exit0. Initial
+command-cache fixture used Ptr, conflicting with MacTypes' typedef; renamed
+FixturePointer, rerun passes. Existing pipeline fixture's8623510 source guard
+was already stale for the newer missing-entry diagnostic and Collect archive
+warmup code: normalize only the diagnostic and new descriptor argument, compare
+Collect against afbb1ba; actual miss/Finish differential checks retained. Its
+stand-in now accepts the indirect descriptor argument. Draw-arena fixture
+includes the new ownership header/globals and actual snapshot lambda. Culling
+fixture initially extracted the newly adjacent flush lambda with EncoderState;
+restrict extraction to the actual struct, and supply a no-op flush in that
+isolated fixture (ordering is separately guarded/tested above). GPU-buffer
+fixture initially could not compile the pre-existing integer slot-count cvar
+and purge helper changes: update its int flag stand-in and purge stand-ins,
+without modifying production GPU-buffer logic. All final reruns above exit0.
+
+### Build, artifact and delivery
+
+Build from the existing isolated configuration:
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`.
+Release/arm64/iOS18 deployment, SDK
+`/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`, shaders
+`/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib` confirmed in CMakeCache.
+Initial failed NFSMW compile log native-command-reuse-build.log; corrected
+compile native-command-reuse-build-2.log exit0; first package
+native-command-reuse-package.log exit0; final package
+native-command-reuse-package-final.log exit0. Final build has10 warning entries
+(four existing FPSCR, five UIKit deprecation, one duplicate-z linker warning).
+Incremental build, not a timed full rebuild.
+
+Artifact `ios/build/NFSMW-0.6.1-dev115-native-commands.ipa`,30,711,508bytes.
+SHA256 `efd7321f35bf1f427f090e2f5f5d344c8224ea980295b187389945be316cbda9`.
+Executable UUID `5E0212D7-CC23-3A5B-9886-819726A5E3FF`;
+executable SHA256 `7a0059174c43fe0c08964623537d57f7d489449c47a618144658117da8eff816`.
+Bundle remains0.6.0(11), consistent with prior development packages; no release
+version publication implied by the0.6.1 trial filename. ZIP CRC test passes;
+`codesign --verify --deep --strict <build-0.6/NFSMW.app>` exit0; packaged
+executable byte-equals signed cache app.104/104 metallibs byte-equal dev114.
+librexgpu-xenos byte-equal dev114. librexruntime differs: SHA256
+`a94de729898b72ddefd1b022c4573faf347159da19174c2426d05c9939caf3bc`
+(old `796760c5d7850237a20fe9bca747a82dd3016dd604d5a8713caefa446ad57c45`).
+
+Investigated rather than claiming both SDK binaries unchanged: CMake regenerated
+its version label and rebuilt debug_overlay.cpp during header-glob configure.
+Mach-O section comparison finds only __TEXT,__cstring differs, same length
+455,530bytes; every other section including __TEXT,__text is byte-identical.
+Unique replaced string: old
+`build: rexglue-v0.10.0-dev.ge8fbeca-ios-arm64-Release@20261106_1648`, new
+`build: rexglue-v0.10.0-dev.gafbb1ba-ios-arm64-Release@20261110_1808`.
+No SDK source patch was made. Old extracted dylib is local at
+`ios/build/battery-audit-20261110/dev114-lib-rexruntime.dylib`.
+
+Copied/hash-verified new IPA to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev115-native-commands.ipa`.
+Moved only older Desktop dev114 to
+`/Users/bep1s/.Trash/NFSMW-0.6.1-dev114-repeat-counter.ipa`; stable
+NFS-Most-Wanted-0.6.0.ipa remains on Desktop, all old ios/build packages kept.
+No push/release. Private BACKLOG updated/ignored; HANDOFF_CHATGPT.md untouched.
+
+### Next and what remains unproven
+
+One initial device correctness run: dev115, retained existing settings/args,
+add exactly `--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`,
+cold restart LiveContainer.
+Use the existing pursuit graphics baseline (MetalFX temporal off), normal
+gameplay and nfsmw.log; note picture/pacing/audio changes. Confirm startup on,
+CPU-owner coverage, actual ICB runs/hits and fallback/budget counts. No new
+power capture or baseline requested now. If correct and meaningfully exercised,
+next evaluate actual device CPU work and pacing before spending one A/B pair
+on energy. Host tests/build do not establish visual equivalence, acceptable
+memory behavior, reduced CPU, sustained frame rate/latency or lower battery
+drain. Those are explicitly pending, not implied by this implementation.
+

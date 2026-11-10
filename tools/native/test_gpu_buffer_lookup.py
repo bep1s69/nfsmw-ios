@@ -28,7 +28,7 @@ HARNESS = r'''
 #include <unordered_map>
 #include <vector>
 bool g_hash_enabled=false,g_stats_enabled=false;
-bool Flag(std::string_view name) { return name=="nfsmw_native_gpu_lookup_hash" ? g_hash_enabled : g_stats_enabled; }
+int Flag(std::string_view name) { if(name=="nfsmw_native_gpu_lookup_slots_log2") return 12; return name=="nfsmw_native_gpu_lookup_hash" ? g_hash_enabled : g_stats_enabled; }
 #define REXCVAR_GET(name) Flag(#name)
 @interface HostBuffer : NSObject {
   std::vector<uint8_t> storage;
@@ -65,6 +65,8 @@ uint32_t gpu_submission_frame=1;
 std::atomic<uint32_t> gpu_frames_done{0};
 uint32_t frame_new_buffers=0;
 uint64_t geometry_upload_arrays=0,geometry_upload_bytes=0;
+struct PurgeSeen { bool Take() { return false; } };
+constexpr uint64_t kPurgeIdleFrames=30;
 @PRODUCTION@
 GpuBuffer* FrontOnly(const void* pointer) {
  struct Pointer { const void* p;const void* get() const {return p;} }values{pointer};

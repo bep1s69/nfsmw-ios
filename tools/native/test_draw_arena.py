@@ -14,6 +14,10 @@ HARNESS = r'''
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include "@HEADER@"
+#include "@FRAME_HEADER@"
+#include <atomic>
+#define REXCVAR_GET(name) false
+std::atomic<unsigned> memory_purge_requests{0};
 #include <cassert>
 #include <cstdio>
 #include <memory>
@@ -29,6 +33,7 @@ struct Texture {};
 struct FetchKey { bool operator==(const FetchKey&) const = default; };
 struct FetchKeyHash { size_t operator()(const FetchKey&) const { return 0; } };
 @ACTUAL_TYPES@
+@CONSTANT_TEST@
 static_assert(std::is_nothrow_move_constructible_v<Draw>);
 static_assert(!std::is_copy_constructible_v<Draw>);
 static_assert(!std::is_move_constructible_v<Frame>);
@@ -168,6 +173,7 @@ static Results FrameChecks(bool pooled, size_t previous_bytes, size_t previous_d
 }
 int main() {
   @autoreleasepool {
+    SnapshotChecks();
     ResourceChecks(false); ResourceChecks(true);
     auto heap=FrameChecks(false,0,0), cold=FrameChecks(true,0,0), warm=FrameChecks(true,cold.hint,3500);
     assert(heap.checksum==cold.checksum && cold.checksum==warm.checksum);
@@ -193,6 +199,33 @@ def main():
                         source.index("// --- Residency")]
     draw_and_frame = source[source.index("struct ConstantBank {"):
                             source.index("std::unique_ptr<Frame> recording;")]
+    begin = source.index("  auto constants = [&]")
+    opening = source.index("{", begin)
+    depth, end = 1, opening + 1
+    while depth:
+        depth += (source[end] == "{") - (source[end] == "}")
+        end += 1
+    actual_constants = source[begin:end + 1]
+    constant_test = r'''static void SnapshotChecks() {
+      Frame frame(true,0,0); frame.native_storage=TakeNativeFrameStorage(); assert(frame.native_storage);
+      bool record_memo=true;
+      @LAMBDA@
+      uint32_t regs[1024]; for(size_t i=0;i<1024;++i) regs[i]=uint32_t(i*13+7);
+      std::vector<nfsmw::FrameRef<const ConstantBank>> held;
+      std::vector<std::pair<uint16_t,uint16_t>> ranges;
+      std::vector<uint32_t> expected;
+      for(uint32_t i=0;i<5000;++i) {
+        uint16_t first=uint16_t((i*17)%200), end=uint16_t(first+1+i%50);
+        regs[first*4]=i+1234;
+        auto snapshot=constants(frame.last_vs_constants,regs,{first,end},frame.last_vs_valid);
+        if(snapshot.Owner()) frame.native_storage->constant_owners.Pin(snapshot);
+        for(size_t r=first*4;r<end*4;++r) assert((*snapshot)[r]==regs[r]);
+        held.push_back(snapshot); ranges.push_back({first,end}); expected.push_back(regs[first*4]);
+      }
+      assert(frame.native_storage->constants.used()==4096); // exercises shared-bank overflow fallback too
+      for(size_t i=0;i<held.size();++i) assert((*held[i])[ranges[i].first*4]==expected[i]);
+      std::puts("PASS production constant snapshot lambda: 5000 changing/widening ranges, immutable snapshots, slab overflow fallback");
+    }'''.replace("@LAMBDA@", actual_constants)
     # Verify the lifetime invariant against the production declaration too.
     frame = draw_and_frame[draw_and_frame.index("struct Frame {"):]
     assert frame.index("nfsmw::DrawArena attribute_arena;") < frame.index("std::vector<Draw> draws;")
@@ -200,7 +233,9 @@ def main():
         temp = pathlib.Path(temp)
         cpp = temp / "test.mm"
         cpp.write_text(HARNESS.replace("@HEADER@", str(ROOT / "ios/src/native_draw_arena.h"))
-                       .replace("@ACTUAL_TYPES@", attributes + draw_and_frame))
+                       .replace("@FRAME_HEADER@", str(ROOT / "ios/src/native_frame_storage.h"))
+                       .replace("@ACTUAL_TYPES@", attributes + draw_and_frame)
+                       .replace("@CONSTANT_TEST@", constant_test))
         exe = temp / "test"
         subprocess.run(["xcrun", "clang++", "-std=c++20", "-O1", "-fobjc-arc", "-fsanitize=address,undefined",
                         "-fno-omit-frame-pointer", "-framework", "Foundation", "-framework", "Metal",

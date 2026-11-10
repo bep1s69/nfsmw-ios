@@ -82,6 +82,9 @@
 #include "native_texture_masks.h"
 #include "native_guest_culling.h"
 #include "native_draw_arena.h"
+#include "native_frame_storage.h"
+#include "native_command_key.h"
+#include "native_command_cache.h"
 #include "native_gpu_timeline.h"
 
 // The SDK's command processor (tools/ios/patch_ios_native_only.py).
@@ -137,9 +140,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "dev114 diagnostic (Nov 10): count driving draws identical to the previous frame's and what "
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
+                    "Native frame ownership and cached Metal indexed commands (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -944,7 +949,7 @@ struct Attribute {
   bool integer;                // uint4 (blend indices) instead of float4
   // 4 per vertex (uint bits when integer); shared with the attribute cache
   // (and the renderer's Metal buffer for it) while the source is unchanged.
-  std::shared_ptr<FloatArray> values;
+  nfsmw::FrameRef<FloatArray> values;
   bool fresh = false;  // decoded this frame: uploaded with the frame, not kept
 };
 
@@ -1156,6 +1161,26 @@ std::shared_ptr<ConstantBank> PooledConstantBank() {
   });
 }
 
+bool NativeCommandReuse() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_command_reuse);
+  return enabled;
+}
+struct NativeFrameStorage {
+  nfsmw::FrameBlocks<ConstantBank> constants;
+  nfsmw::FrameOwners<const ConstantBank> constant_owners;
+  nfsmw::FrameOwners<FloatArray> attributes;
+  nfsmw::FrameOwners<const std::vector<uint32_t>> indices;
+  void Reset() { constants.Reset(); constant_owners.Clear(); attributes.Clear(); indices.Clear(); }
+};
+nfsmw::FrameStoragePool<NativeFrameStorage>& NativeFramePool() {
+  // Process lifetime: a queued Frame can outlive normal static destruction.
+  static auto* pool = new nfsmw::FrameStoragePool<NativeFrameStorage>;
+  return *pool;
+}
+std::shared_ptr<NativeFrameStorage> TakeNativeFrameStorage() {
+  return NativeFramePool().Take(memory_purge_requests.load(std::memory_order_relaxed));
+}
+
 struct Draw {
   explicit Draw(std::pmr::memory_resource* attributes_resource) : attributes(attributes_resource) {}
   Draw(const Draw&) = delete;
@@ -1175,16 +1200,16 @@ struct Draw {
   size_t fresh_attribute_bytes = 0;
   // Rebased to the decoded vertices; shared with the index cache (and the
   // renderer's Metal buffer for them) unless made this frame (indices_fresh).
-  std::shared_ptr<const std::vector<uint32_t>> indices;
+  nfsmw::FrameRef<const std::vector<uint32_t>> indices;
   bool indices_fresh = true;
   size_t index_count() const { return indices ? indices->size() : 0; }
   uint32_t vertex_count = 0;
   // 1024 dwords each; shared with the draw before while unchanged (most are).
-  std::shared_ptr<const ConstantBank> vs_constants, ps_constants;
+  nfsmw::FrameRef<const ConstantBank> vs_constants, ps_constants;
   // Motion vectors: the same draw's vertex shader constants in the frame
   // before (the same shader, vertices and indices, the same how-many-th of
   // those in the frame), or null: not matched, or not a draw that writes depth.
-  std::shared_ptr<const ConstantBank> previous_vs_constants;
+  nfsmw::FrameRef<const ConstantBank> previous_vs_constants;
   // The registers its shaders read of them (FIRST..END-1): compared, uploaded.
   std::pair<uint16_t, uint16_t> vs_range{0, 256}, ps_range{0, 256};
   uint32_t booleans = 0;
@@ -1272,6 +1297,8 @@ struct VertexDiagnostics {
 };
 
 struct Frame {
+  // First to be destroyed last: borrowed draw handles need these owners.
+  std::shared_ptr<NativeFrameStorage> native_storage;
   // Declared first, destroyed last: every draw releases its attribute objects
   // and shared references before the arena's blocks are returned to the heap.
   nfsmw::DrawArena attribute_arena;
@@ -1286,7 +1313,8 @@ struct Frame {
   uint32_t slot_fetch[16][6] = {};
   int slot_texture[16] = {};
   bool slot_valid[16] = {};
-  std::shared_ptr<const ConstantBank> last_vs_constants, last_ps_constants;
+  nfsmw::FrameRef<const ConstantBank> last_vs_constants, last_ps_constants;
+  std::pair<uint16_t,uint16_t> last_vs_valid{0,0}, last_ps_valid{0,0};
   // Motion vectors: the vertex shader constants of each draw writing depth,
   // by its identity (see Record), for the next frame's matching draw.
   std::unordered_map<uint64_t, std::shared_ptr<const ConstantBank>> motion_constants;
@@ -3251,7 +3279,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
                                 values[(d.vertex_count - 1) * 4 + 1], values[(d.vertex_count - 1) * 4 + 2],
                                 values[(d.vertex_count - 1) * 4 + 3]));
       }
-      acached.value = a.values;
+      acached.value = a.values.Owner();
       acached.fingerprint = afp;
       d.attributes.push_back(std::move(a));
     }
@@ -3323,10 +3351,20 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // A new bank holds only those registers too (not zeroed, not all 4 KB
   // copied): a draw whose shader reads others never matches it (their
   // compare differs), so it never reads what was not copied.
-  auto constants = [&](std::shared_ptr<const ConstantBank>& last, const uint32_t* from,
-                       std::pair<uint16_t, uint16_t> range) {
+  auto constants = [&](nfsmw::FrameRef<const ConstantBank>& last, const uint32_t* from,
+                       std::pair<uint16_t, uint16_t> range,
+                       std::pair<uint16_t, uint16_t>& valid) {
     const size_t at = size_t(range.first) * 4, n = size_t(range.second - range.first) * 16;
-    if (!last || (n && std::memcmp(last->data() + at, from + at, n) != 0)) {
+    const bool initialized = !frame.native_storage || (valid.first <= range.first && valid.second >= range.second);
+    if (!last || !initialized || (n && std::memcmp(last->data() + at, from + at, n) != 0)) {
+      valid = range;
+      if (frame.native_storage) {
+        if (auto* bank = frame.native_storage->constants.Next()) {
+          std::memcpy(bank->data() + at, from + at, n);
+          last.BorrowRaw(bank);
+          return last;
+        }
+      }
       std::shared_ptr<ConstantBank> bank = record_memo ? PooledConstantBank()
                                                        : std::shared_ptr<ConstantBank>(new ConstantBank);  // default-initialized: no zeroing
       std::memcpy(bank->data() + at, from + at, n);
@@ -3350,12 +3388,19 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.vs_range = store.ConstantRange(false, d.vs_key);
   d.ps_range = store.ConstantRange(true, d.ps_key);
   }
-  d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range);
-  d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range);
+  d.vs_constants = constants(frame.last_vs_constants, regs + kAluBase, d.vs_range, frame.last_vs_valid);
+  d.ps_constants = constants(frame.last_ps_constants, regs + kAluBase + 1024, d.ps_range, frame.last_ps_valid);
   // Motion vectors: matched with the frame before's draw of the same identity.
   if ((regs[kRbDepthControl] & 6) == 6 && MotionVectorsWanted()) {
     const uint64_t id = MotionMix(geometry, frame.motion_seen[geometry]++);
-    frame.motion_constants[id] = d.vs_constants;
+    // A live temporal toggle may arrive after this CPU frame acquired slab
+    // storage. Promote history to an independent owner before it escapes.
+    if (!d.vs_constants.Owner()) {
+      auto history = std::make_shared<ConstantBank>();
+      std::memcpy(history.get(), d.vs_constants.get(), sizeof(ConstantBank));
+      d.vs_constants = history;
+    }
+    frame.motion_constants[id] = d.vs_constants.Owner();
     auto previous = previous_motion_constants.find(id);
     if (previous != previous_motion_constants.end()) d.previous_vs_constants = previous->second;
   }
@@ -3371,9 +3416,16 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   // drawn last (their shadows came and went with the scenery).
   if ((d.vs_key == 0x2f583d7c8ddf572aull || d.vs_key == 0x88e2dcfd95a47a7bull) &&
       d.ps_key == 0x4fbaecfb8e7c4f40ull && (*d.ps_constants)[4] != 0) {
-    auto copy = std::make_shared<ConstantBank>(*d.ps_constants);
-    (*copy)[4] = 0;  // c1.x = 0.0f
-    d.ps_constants = copy;
+    ConstantBank* local = frame.native_storage ? frame.native_storage->constants.Next() : nullptr;
+    if (local) {
+      std::memcpy(local, d.ps_constants.get(), sizeof(*local));
+      (*local)[4] = 0;
+      d.ps_constants.BorrowRaw(local);
+    } else {
+      auto copy = std::make_shared<ConstantBank>(*d.ps_constants);
+      (*copy)[4] = 0;  // c1.x = 0.0f
+      d.ps_constants = copy;
+    }
   }
   // Booleans: VS 0-15 in bits 0-15, PS 128-143 in bits 16-31.
   d.booleans = (regs[kBoolBase] & 0xFFFF) | ((regs[kBoolBase + 4] & 0xFFFF) << 16);
@@ -3471,6 +3523,13 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
   d.scissor[3] = (br >> 16) & 0x7FFF;
   for (const Attribute& a : d.attributes) {
     if (a.fresh && a.values) d.fresh_attribute_bytes += a.values->size() * 4 + 256;
+  }
+  if (frame.native_storage) {
+    frame.native_storage->indices.Pin(d.indices);
+    for (auto& a : d.attributes) frame.native_storage->attributes.Pin(a.values);
+    // Slab-backed constants need no shared ownership. Pool fallback banks do.
+    if (d.vs_constants.Owner()) frame.native_storage->constant_owners.Pin(d.vs_constants);
+    if (d.ps_constants.Owner()) frame.native_storage->constant_owners.Pin(d.ps_constants);
   }
   frame.draws.push_back(std::move(d));
 }
@@ -3618,11 +3677,12 @@ constexpr MTLPixelFormat kMotionFormat = MTLPixelFormatRG16Float;
 // The descriptor of a key's pipeline (format: the Xenos colour format of
 // target 0; format1: target 1's + 1, 0 without one; mask: RB_COLOR_MASK bits
 // of the targets drawn).
-MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunction> vs, id<MTLFunction> ps) {
+MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunction> vs, id<MTLFunction> ps, bool indirect = false) {
   MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
   // Named in GPU traces (Instruments' shader timeline) and the cache misses' log.
   desc.label = [NSString stringWithFormat:@"ps_%016llx vs_%016llx alpha%u", (unsigned long long)k.ps,
                                           (unsigned long long)k.vs, k.alpha_spec];
+  desc.supportIndirectCommandBuffers = indirect;
   desc.vertexFunction = vs;
   desc.fragmentFunction = k.alpha_spec ? store.PixelVariant(k.ps, k.alpha_spec) : ps;
   if (!desc.fragmentFunction) {
@@ -3693,6 +3753,7 @@ MTLRenderPipelineDescriptor* PipelineDescriptor(const PipelineKey& k, id<MTLFunc
 // lost them.
 class PipelineCache {
  public:
+  explicit PipelineCache(bool indirect = false) : indirect_(indirect) {}
   // The key's pipeline, or nil: failed (*failed), or still compiling.
   id<MTLRenderPipelineState> Get(id<MTLDevice> device, const PipelineKey& k, id<MTLFunction> vs,
                                  id<MTLFunction> ps, bool async, bool* failed, bool reuse_ready_lookup) {
@@ -3701,7 +3762,7 @@ class PipelineCache {
       *failed = true;
       return nil;
     }
-    MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps);
+    MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps, indirect_);
     if (!desc) {
       Finish(k, nil, false, "shader specialization or motion entry point unavailable");
       *failed = true;
@@ -3762,7 +3823,7 @@ class PipelineCache {
                           saved[i].alpha_to_coverage >> 8};
       id<MTLFunction> vs = store.Find("vs", k.vs), ps = store.Find("ps", k.ps);
       if (!vs || !ps || !known_.insert(k).second) continue;  // shaders no longer in this build
-      MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps);
+      MTLRenderPipelineDescriptor* desc = PipelineDescriptor(k, vs, ps, indirect_);
       if (!desc) continue;
       ++warm_total_;
       Start(device, k, desc, true);
@@ -3775,7 +3836,7 @@ class PipelineCache {
   // With the periodic log line: draws left out, and the key list written if it grew.
   void Report() {
     if (draws_waiting_) {
-      REXLOG_INFO("[native] pipelines: {} draws left out while theirs compiled", draws_waiting_);
+      REXLOG_INFO("[native] pipelines: {} {}", draws_waiting_, indirect_ ? "ICB requests used direct fallback while compiling" : "draws left out while theirs compiled");
       draws_waiting_ = 0;
     }
     pipeline_archive.Report();
@@ -3806,9 +3867,9 @@ class PipelineCache {
     std::string error;
   };
 
-  static NSURL* KeysUrl() {
+  NSURL* KeysUrl() const {
     NSURL* caches = [[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
-    return [caches URLByAppendingPathComponent:@"nfsmw_native_pipelines_v2.keys"];
+    return [caches URLByAppendingPathComponent:indirect_ ? @"nfsmw_native_pipelines_icb_v1.keys" : @"nfsmw_native_pipelines_v2.keys"];
   }
 
   // Compiled on a serial queue: the warm-up's at utility priority, the ones a
@@ -3854,11 +3915,13 @@ class PipelineCache {
   std::unordered_set<PipelineKey, PipelineKeyHash> failed_, demanded_, known_;
   std::mutex mutex_;
   std::vector<Done> done_;  // guarded by mutex_
+  bool indirect_ = false;
   bool warmed_ = false, keys_dirty_ = false;
   uint32_t warm_total_ = 0, warm_left_ = 0, draws_waiting_ = 0, failures_logged_ = 0;
   FastClock::time_point warm_start_;
 };
 PipelineCache pipeline_cache;
+PipelineCache indirect_pipeline_cache{true};
 
 struct Target {
   id<MTLTexture> color;
@@ -5140,8 +5203,8 @@ void CountRepeatedDraws(const Frame& frame) {
     }
     s.geometry = g;
     s.geometry_fresh = fresh;
-    s.vs = d.vs_constants;
-    s.ps = d.ps_constants;
+    s.vs = d.vs_constants.Owner();
+    s.ps = d.ps_constants.Owner();
     s.vs_range = d.vs_range;
     s.ps_range = d.ps_range;
     s.booleans = d.booleans;
@@ -5327,6 +5390,21 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     }
     gpu_submission_frame = number;
     SweepGpu();
+    if (NativeCommandReuse())
+      nfsmw::commands::PurgeIdle(memory_purge_requests.load(std::memory_order_relaxed));
+    nfsmw::commands::Lease command_lease;
+    auto* command_context = static_cast<nfsmw::commands::Context*>(nullptr);
+    if (NativeCommandReuse() && !dump && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
+        !REXCVAR_GET(nfsmw_native_early_commit) && !capture.active &&
+        [device supportsFamily:MTLGPUFamilyApple3]) {
+      command_lease.context = nfsmw::commands::Acquire(device, frame->draws.size(),
+          memory_purge_requests.load(std::memory_order_relaxed));
+      command_context = command_lease.context;
+    }
+    nfsmw::commands::Batch command_batch;
+    command_batch.context = command_context;
+    uint64_t command_eligible = 0, command_direct = 0;
+
 
     // Textures and samplers, and the shaders' descriptor heaps (argument
     // buffers of resource IDs): 2D textures by index, index 0 a 1x1 white.
@@ -5423,11 +5501,19 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     [samplers insertObject:SamplerFor(device, true, 2, 2, false) atIndex:0];
     BcFlush();  // the frame's BC decodes run before the frame
 
+    size_t command_heap_index = 0;
     auto heap = [&](NSArray* objects, bool are_samplers) {
       // Room for the textures resolves make while the frame is encoded.
-      id<MTLBuffer> b = pooled_buffer((std::max<NSUInteger>(objects.count, 1) + frame->resolves.size() * 4 +
-                                       frame->textures.size() * 2) * 8,
-                                      MTLResourceStorageModeShared);
+      const size_t bytes = (std::max<NSUInteger>(objects.count, 1) + frame->resolves.size() * 4 +
+                            frame->textures.size() * 2) * 8;
+      // Five persistent heaps: texture, sampler, array, volume, cube.
+      id<MTLBuffer> b = command_context ? command_context->Heap(device, command_heap_index, bytes) : nil;
+      ++command_heap_index;
+      if (!b) {
+        command_context = nullptr;
+        command_batch.context = nullptr;
+        b = pooled_buffer(bytes, MTLResourceStorageModeShared);
+      }
       auto* ids = static_cast<MTLResourceID*>(b.contents);
       for (NSUInteger i = 0; i < objects.count; ++i) {
         ids[i] = are_samplers ? [(id<MTLSamplerState>)objects[i] gpuResourceID]
@@ -5610,6 +5696,14 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         vb_offset[index] = offset;
       }
     } state;
+    auto flush_commands = [&] {
+      if (command_batch.Flush()) {
+        // Inherited PSO/raster/depth state is unchanged. Revalidate direct
+        // buffer arguments after an indirect run or single-draw fallback.
+        state.push_set = false;
+        std::fill(std::begin(state.vb), std::end(state.vb), nil);
+      }
+    };
     uint32_t last_shared[256];
     size_t last_shared_at = 0;
     bool have_last_shared = false;
@@ -6224,6 +6318,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // Pipelines by their state (no strings per draw).
     pipeline_cache.WarmUp(device);
     pipeline_cache.Collect();
+    if (NativeCommandReuse()) {
+      indirect_pipeline_cache.WarmUp(device);
+      indirect_pipeline_cache.Collect();
+    }
     const bool async_pipelines = REXCVAR_GET(nfsmw_native_async_pipelines);
     static std::map<uint32_t, id<MTLDepthStencilState>> depth_states;
     uint32_t drawn = 0, pipeline_failures = 0, screen_space_game_draws = 0;
@@ -6546,6 +6644,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (!frame->resolves[r].depth && !frame->resolves[r].array) last_color_resolve = int32_t(r);
     }
     auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {
+      flush_commands();
       if (!skip_resolve.empty() && skip_resolve[&ev - frame->resolves.data()]) {
         ++resolves_skipped;
         return;
@@ -7245,6 +7344,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                                           !t.used ? " first use" : "", t.clear_color ? " clear-color" : "",
                                           d.depth_control, 2 * std::fabs(d.viewport[2] == 0 ? 0.f : d.viewport[0]),
                                           2 * std::fabs(d.viewport[2]), d.viewport[1], d.viewport[3]));
+        flush_commands();
         [enc endEncoding];
         finish_motion(di);
         if (early_commit && !dump && !capture.active && early_commits < early_commit_max &&
@@ -7515,14 +7615,29 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         pipeline_failures += pipeline_failed;
         continue;  // failed, or compiling in the background (left out until ready)
       }
+      bool reuse_command = command_context && !motion_pass && d.query < 0 && !d.indices_fresh &&
+          d.index_count() && !d.second_target && !store.internal_keys.count(d.vs_key) &&
+          (d.blend_control & 0x1FFF1FFF) == 0x00010001 &&
+          std::none_of(d.attributes.begin(), d.attributes.end(), [](const Attribute& a) { return a.fresh; });
+      if (reuse_command) {
+        ++command_eligible;
+        bool failed = false;
+        id<MTLRenderPipelineState> indirect = indirect_pipeline_cache.Get(device, pk, d.vs, d.ps,
+            true, &failed, reuse_pipeline_lookup);
+        reuse_command = indirect && indirect.supportIndirectCommandBuffers;
+        if (reuse_command) pso = indirect;
+      }
+      if (!reuse_command) flush_commands();
       state.For(enc);
       if (state.pso != pso) {
+        flush_commands();
         [enc setRenderPipelineState:pso];
         state.pso = pso;
       }
       // Depth clamped where the game turns clipping off (as the emulated
       // renderer does with depthClamp); per encoder, so set on each new one.
       if (enc != clip_mode_encoder || d.clip_disable != clip_mode_clamp) {
+        flush_commands();
         [enc setDepthClipMode:d.clip_disable ? MTLDepthClipModeClamp : MTLDepthClipModeClip];
         clip_mode_encoder = enc;
         clip_mode_clamp = d.clip_disable;
@@ -7536,6 +7651,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           bias_constant = bias_slope = 0;
         }
         if (constant != bias_constant || slope != bias_slope) {
+          flush_commands();
           [enc setDepthBias:constant slopeScale:slope clamp:0];
           bias_constant = constant;
           bias_slope = slope;
@@ -7571,6 +7687,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           }
         }
         if (want != visibility_slot) {
+          flush_commands();
           [enc setVisibilityResultMode:want >= 0 ? MTLVisibilityResultModeCounting : MTLVisibilityResultModeDisabled
                                 offset:want >= 0 ? NSUInteger(want) * 8 : 0];
           visibility_slot = want;
@@ -7606,10 +7723,12 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         ds = depth_states[dc | smode << 8] = [device newDepthStencilStateWithDescriptor:dsd];
       }
       if (state.ds != ds) {
+        flush_commands();
         [enc setDepthStencilState:ds];
         state.ds = ds;
       }
       if (smode && state.stencil_ref != stencil_ref_of[di]) {
+        flush_commands();
         [enc setStencilReferenceValue:stencil_ref_of[di]];
         state.stencil_ref = stencil_ref_of[di];
       }
@@ -7647,6 +7766,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             xf[2] *= f;
           }
         }
+        flush_commands();
         [enc setVertexBytes:xf length:sizeof(xf) atIndex:30];
       }
       if (pixels && !internal) {
@@ -7671,6 +7791,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (pixels) {
         vp = {0, 0, double(t.pitch), double(t.height), (d.vte & 32) ? double(d.viewport[5]) : 0.0, 1.0};
         if (!state.viewport_set || std::memcmp(&vp, &state.viewport, sizeof(vp)) != 0) {
+          flush_commands();
           [enc setViewport:vp];
           state.viewport = vp;
           state.viewport_set = true;
@@ -7687,6 +7808,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         continue;
       }
       if (!state.viewport_set || std::memcmp(&vp, &state.viewport, sizeof(vp)) != 0) {
+        flush_commands();
         [enc setViewport:vp];
         state.viewport = vp;
         state.viewport_set = true;
@@ -7702,6 +7824,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       sc.height = std::min<NSUInteger>(std::max<int>(int(d.scissor[3]) - int(sc.y), 1), t.height - sc.y);
       }
       if (!state.scissor_set || std::memcmp(&sc, &state.scissor, sizeof(sc)) != 0) {
+        flush_commands();
         [enc setScissorRect:sc];
         state.scissor = sc;
         state.scissor_set = true;
@@ -7715,7 +7838,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           const MTLCullMode mode = cull.mode == nfsmw::GuestCullMode::Front ? MTLCullModeFront
                                   : cull.mode == nfsmw::GuestCullMode::Back ? MTLCullModeBack
                                                                           : MTLCullModeNone;
+          flush_commands();
           [enc setCullMode:mode];
+          flush_commands();
           [enc setFrontFacingWinding:cull.clockwise ? MTLWindingClockwise : MTLWindingCounterClockwise];
         }
         if (cull.mode == nfsmw::GuestCullMode::Both) {
@@ -8060,12 +8185,29 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       struct {
         uint64_t vs, ps, shared, previous_vs;
       } push = {vs_address, ps_address, data.gpuAddress + shared_at, previous_vs_address};
-      if (!state.push_set || std::memcmp(&push, state.push, sizeof(push)) != 0) {
+      nfsmw::NativeCommandKey command_key;
+      // GPU cache/arena and this frame own every buffer until Store pins it;
+      // nothing sweeps them inside this loop. Avoid ARC work in the OFF arm.
+      __unsafe_unretained id<MTLBuffer> command_buffers[31];
+      if (reuse_command) {
+        command_key = {};
+        std::fill(std::begin(command_buffers), std::end(command_buffers), nil);
+        std::memcpy(static_cast<uint8_t*>(command_context->push.contents) + position * nfsmw::commands::kPushStride,
+                    &push, sizeof(push));
+        id<MTLBuffer> heaps[] = {texture_heap, array_heap, volume_heap, cube_heap, sampler_heap};
+        for (size_t k = 0; k < 5; ++k) command_buffers[k] = heaps[k];
+        command_buffers[8] = command_context->push;
+        command_key.offsets[8] = position * nfsmw::commands::kPushStride;
+      } else if (!state.push_set || std::memcmp(&push, state.push, sizeof(push)) != 0) {
         [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
         [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
         std::memcpy(state.push, &push, sizeof(push));
         state.push_set = true;
       }
+      auto bind_vertex = [&](id<MTLBuffer> buffer, NSUInteger offset, NSUInteger index) {
+        if (reuse_command) { command_buffers[index] = buffer; command_key.offsets[index] = offset; }
+        else state.VertexBuffer(buffer, offset, index);
+      };
 
       // Vertex attributes: the shader's active inputs, in order, in buffers
       // 9 onwards; an input the draw did not provide reads zeros.
@@ -8077,13 +8219,13 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         }
         if (found && found->values && !found->values->empty() && found->fresh) {
           // Changed this frame: with the frame's data, no buffer of its own.
-          state.VertexBuffer(data, put(found->values->data(), found->values->size() * 4, kVertexUpload), 9 + k);
+          bind_vertex(data, put(found->values->data(), found->values->size() * 4, kVertexUpload), 9 + k);
         } else if (found && found->values && !found->values->empty()) {
           size_t vb_offset = 0;
-          id<MTLBuffer> vb = GpuBufferFor(device, found->values, vb_offset);
-          state.VertexBuffer(vb ?: zeros, vb_offset, 9 + k);  // bound: resident without useResource
+          id<MTLBuffer> vb = GpuBufferFor(device, found->values.Owner(), vb_offset);
+          bind_vertex(vb ?: zeros, vb_offset, 9 + k);  // bound: resident without useResource
         } else {
-          state.VertexBuffer(zeros, 0, 9 + k);
+          bind_vertex(zeros, 0, 9 + k);
         }
       }
       if (d.index_count()) {
@@ -8092,20 +8234,44 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         id<MTLBuffer> ib = data;
         if (d.indices_fresh) {
           index_at = put(d.indices->data(), d.index_count() * 4, kIndexUpload);
-        } else if (!(ib = GpuBufferFor(device, d.indices, index_at))) {
+        } else if (!(ib = GpuBufferFor(device, d.indices.Owner(), index_at))) {
           continue;
         }
         if (depth_audit && (d.depth_control & 4)) ++t.depth_generation;
-        [enc drawIndexedPrimitives:d.primitive
-                        indexCount:d.index_count()
-                         indexType:MTLIndexTypeUInt32
-                       indexBuffer:ib
-                 indexBufferOffset:index_at];
+        bool stored = false;
+        if (reuse_command) {
+          for (size_t k=0;k<31;++k) command_key.buffers[k] = reinterpret_cast<uintptr_t>((__bridge void*)command_buffers[k]);
+          command_key.index_buffer = reinterpret_cast<uintptr_t>((__bridge void*)ib);
+          command_key.index_offset = index_at;
+          command_key.count = d.index_count();
+          command_key.primitive = uint32_t(d.primitive);
+          stored = command_context->Store(position, command_key);
+          if (stored) command_batch.Add(position, enc);
+        }
+        if (!stored) {
+          flush_commands();
+          if (reuse_command) {
+            // Budget failure: use the SAME operands on the direct encoder.
+            [enc setVertexBytes:&push length:sizeof(push) atIndex:8];
+            [enc setFragmentBytes:&push length:sizeof(push) atIndex:8];
+            state.push_set = false;
+            for (size_t k=9;k<31;++k) if (command_buffers[k])
+              state.VertexBuffer(command_buffers[k], command_key.offsets[k], k);
+          }
+          [enc drawIndexedPrimitives:d.primitive
+                          indexCount:d.index_count()
+                           indexType:MTLIndexTypeUInt32
+                         indexBuffer:ib
+                   indexBufferOffset:index_at];
+          ++command_direct;
+        }
         foliage_alpha_eligible += foliage_eligible;
         foliage_alpha_selected += foliage_eligible && foliage_early_alpha;
         ++drawn;
       }
     }
+    flush_commands();
+    if (command_context) command_context->FinishFrame();
     // Resolves after the last draw (the frame's last: what is displayed).
     while (next_resolve < frame->resolves.size()) {
       if (!frame->draws.empty()) {
@@ -8962,6 +9128,45 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       }];
       TimelineTime(number, GpuTimeline::CommitIn, CACurrentMediaTime());
     }
+    if (NativeCommandReuse()) {
+      struct Window {
+        uint64_t frames=0, contexts=0, owned=0, eligible=0, direct=0, banks=0, geometry=0;
+        uint64_t hits=0, builds=0, submitted=0, runs=0, singles=0, budget=0;
+        size_t max_pins=0, max_slabs=0;
+      };
+      static Window w;
+      ++w.frames; w.contexts += command_context != nullptr; w.owned += frame->native_storage != nullptr;
+      w.eligible += command_eligible; w.direct += command_direct;
+      if (auto* c = command_context) {
+        w.hits += c->stats.hits; w.builds += c->stats.builds;
+        w.submitted += c->stats.submitted; w.runs += c->stats.runs;
+        w.singles += c->stats.singles; w.budget += c->stats.budget;
+      }
+      size_t pins=0;
+      for (const auto& c : nfsmw::commands::Pool()) pins += c.pin_bytes;
+      w.max_pins = std::max(w.max_pins, pins);
+      if (const auto& storage = frame->native_storage) {
+        w.banks += storage->constants.used();
+        w.geometry += storage->attributes.size() + storage->indices.size();
+        w.max_slabs = std::max(w.max_slabs, storage->constants.bytes());
+      }
+      if (w.frames == 300) {
+        REXLOG_INFO("[native] command reuse: {} frames, {} GPU contexts / {} CPU-owned; eligible {} direct {}; "
+                    "ICB {} draws / {} runs, {} single draws direct; keys {} hits / {} rebuilt; {} budget fallbacks; "
+                    "{} constant snapshots / {} geometry owners; peak pins all contexts {} KiB, "
+                    "one CPU slab store {} KiB (activity, not an energy measurement)",
+                    w.frames,w.contexts,w.owned,w.eligible,w.direct,w.submitted,w.runs,w.singles,
+                    w.hits,w.builds,w.budget,w.banks,w.geometry,w.max_pins/1024,w.max_slabs/1024);
+        w = {};
+      }
+    }
+    if (command_lease.context) {
+      auto* completed_context = command_lease.context;
+      [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
+        completed_context->busy.store(false, std::memory_order_release);
+      }];
+      command_lease.submitted = true;
+    }
     [cb commit];
     if (timeline) TimelineTime(number, GpuTimeline::CommitOut, CACurrentMediaTime());
     capture.Finish();
@@ -9264,6 +9469,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
+        if (NativeCommandReuse()) indirect_pipeline_cache.Report();
         pipeline_cache.Report();
       }
       return;
@@ -10042,6 +10248,16 @@ bool NativeSwap() {
   }
   recording_dumps = dump_due;
   recording = std::make_unique<Frame>(REXCVAR_GET(nfsmw_native_draw_arena), previous_attribute_bytes, previous_draws);
+  if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
+  // Motion history and repeat diagnostics intentionally use the reference owners.
+  static const bool announced_reuse = [] {
+    REXLOG_INFO("[native] dev115 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
+                NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off");
+    return true;
+  }();
+  (void)announced_reuse;
+  if (NativeCommandReuse() && !dump_due && !MotionVectorsWanted() && !RepeatCounterEnabled())
+    recording->native_storage = TakeNativeFrameStorage();
   return true;
 }
 

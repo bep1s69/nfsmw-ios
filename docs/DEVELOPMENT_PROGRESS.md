@@ -24,6 +24,12 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): approved starting the concrete stage-1 native frame
+  ownership/Metal command-reuse implementation. Work stays isolated on
+  `codex/native-frame-command-reuse`, default-off trial; preserve current
+  FPS/pacing/visuals and validate CPU work before another battery pair.
+  No push, merge or release authorized.
+
 - November 10 (Stefan, latest): reduce battery use as far as practical while
   preserving current performance and visuals. A longer project changing more
   of the game toward a native iOS port is acceptable; remove Xbox 360
@@ -470,6 +476,55 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 10, dev115 BUILT — first native frame/command-reuse prototype:**
+Branch `codex/native-frame-command-reuse` from afbb1ba. Stefan approved
+implementation. Opt-in restart-only `nfsmw_native_command_reuse=false`:
+frame-owned constant slabs and once-per-frame geometry owners; three
+completion-owned GPU contexts with exact cached indexed commands and stable
+buffer8 address records/heaps. Adjacent equal-state runs preserve the existing
+pass/resolve/sky order. Single runs, unsupported/dynamic/query/internal/motion
+draws and not-ready/failed ICB pipeline variants use direct drawing. Existing
+CP producer/pacing/shaders/graphics settings stay in use. Repeated-draw
+diagnostic now defaults OFF. This is a prototype, not a measured improvement.
+
+IPA `ios/build/NFSMW-0.6.1-dev115-native-commands.ipa`, SHA256
+`efd7321f35bf1f427f090e2f5f5d344c8224ea980295b187389945be316cbda9`,
+UUID `5E0212D7-CC23-3A5B-9886-819726A5E3FF`. Bundle version remains0.6.0(11)
+as in earlier dev builds; filename denotes the0.6.1 experiment. ZIP CRC,
+strict deep codesign and packaged/cache executable equality pass.104/104
+shaders byte-identical to dev114. One runtime dylib differs only in its build
+label section (all code sections identical); see TECHNICAL. Final incremental
+ipa build exit0,10 existing compiler/link warnings; no SDK source patch.
+
+Copied/hash-verified to iCloud Desktop per standing rule; older dev114 Desktop
+copy moved to Trash, stable0.6.0 preserved. All old IPAs remain in ios/build.
+
+**Next: one initial device correctness run, not a power test.** Install dev115,
+fully restart LiveContainer with existing settings/Extra Args retained and add
+`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`
+(avoid duplicate entries). Keep MetalFX
+temporal off for the ICB path, as in the existing pursuit baseline; do not
+change other graphics settings. Do a normal pursuit and send nfsmw.log,
+noting picture, pacing and sound. Expected startup marker: dev115 reuse on;
+every300frames `[native] command reuse:` gives CPU-owner/context coverage,
+ICB/direct counts, run/single counts, hits/rebuilds and budget/pin/slab limits.
+Some initial direct fallback during ICB PSO compilation is expected; no draw
+is omitted merely because the trial variant is pending. No new baseline or
+Power Profiler capture requested yet. After correctness and real mechanism
+coverage, inspect CPU/pacing before choosing one power pair.
+
+Validation commands added:
+`python3 tools/native/test_native_frame_commands.py` and
+`python3 tools/native/test_native_command_cache.py` (ASan/UBSan; actual helpers,
+fake Metal objects, not GPU/pixel verification). Existing draw-arena fixture
+now also checks the production constant snapshot lambda (5,000 draws, changing
+ranges and slab overflow); pipeline lookup, culling and GPU-buffer regressions
+pass after fixture maintenance. Standard build remains build-0.6 target ipa
+-j12 with the isolated multiplayer SDK. Detailed failures/limits/paths in
+TECHNICAL below; implementation status in NATIVE_D3D_PLAN.
+No device run, measured CPU/battery result, push/merge/release. HANDOFF_CHATGPT.md
+untouched/untracked. Private BACKLOG updated but intentionally ignored/uncommitted.
 
 **November 10, native graphics feasibility/design pass complete:** Stefan
 approved design and broadened the goal to a longer, more native iOS port while

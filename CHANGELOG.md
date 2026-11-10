@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Experimental renderer work.** Added an opt-in trial that reuses frame
+  storage and Metal draw commands. Off by default; device correctness,
+  performance and battery savings are not yet established.
+
 ## 0.6.0
 
 - **LAN multiplayer.** Use **Play on this Wi-Fi** to find or host a local

@@ -58,7 +58,7 @@ ReadyMap pool;
 id<MTLRenderPipelineState> Pso(const PipelineKey& key) {
   auto& p=pool[key];if(!p){FakePSO* x=[FakePSO new];x->token=PipelineKeyHash{}(key);p=x;}return p;
 }
-FixturePipelineDescriptor* PipelineDescriptor(const PipelineKey& key,id<MTLFunction>,id<MTLFunction>) {
+FixturePipelineDescriptor* PipelineDescriptor(const PipelineKey& key,id<MTLFunction>,id<MTLFunction>,bool=false) {
   if(key.motion==0xfefefefe)return nil;
   auto* d=[FixturePipelineDescriptor new];d->key=key;return d;
 }
@@ -72,6 +72,7 @@ struct Archive {
  }
 } pipeline_archive;
 struct State {
+ bool indirect_=false;
  ReadyMap ready_;
  std::unordered_set<PipelineKey,PipelineKeyHash> failed_,demanded_,known_;
  bool keys_dirty_=false;uint32_t failures_logged_=0,draws_waiting_=0;
@@ -217,9 +218,13 @@ def main():
     assert finish == method(baseline, 'void Finish(const PipelineKey& k,')
     # Protect the entire miss path, actual collection and PSO creation policy.
     miss = '    if (failed_.count(k)) {'
-    assert get[get.index(miss):] == old_get[old_get.index(miss):]
-    assert method(source, 'void Collect()') == method(baseline, 'void Collect()')
-    assert source.count('pipeline_cache.Get(') == 1
+    # The new cache instance supplies its PSO capability; OFF miss policy stays identical.
+    normalized = get.replace('PipelineDescriptor(k, vs, ps, indirect_)', 'PipelineDescriptor(k, vs, ps)')
+    normalized = normalized.replace('shader specialization or motion entry point unavailable', 'no motion entry point')
+    assert normalized[normalized.index(miss):] == old_get[old_get.index(miss):]
+    current_baseline = subprocess.check_output(['git', 'show', 'afbb1ba:ios/src/native_renderer.mm'], cwd=ROOT, text=True)
+    assert method(source, 'void Collect()') == method(current_baseline, 'void Collect()')
+    assert source.count('pso = pipeline_cache.Get(') == 1
     assert 'async_pipelines, &pipeline_failed,\n                                                       reuse_pipeline_lookup)' in source
     assert 'const bool reuse_pipeline_lookup = PipelineLookupEnabled();' in source
     key_and_lookup = source[source.index('struct PipelineKey {'):source.index('// Motion vectors (in the viewport')]
