@@ -480,6 +480,14 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev114 BUILT (diagnostic): repeated-draw counter.**
+`ios/build/NFSMW-0.6.1-dev114-repeat-counter.ipa` on iCloud Desktop (dev113
+moved to Trash there; still in ios/build). `nfsmw_native_repeat_counter`
+default on in this build only: turn off before any release. Next: Stefan runs
+one normal pursuit and sends the log; read the `[native] repeat counter:`
+lines and say whether draw replay is worth a post-0.6.1 project. Not for
+power tests. dev113 40-fps pair still pending in its own thread.
+
 **November 10, dev113 BUILT: iPhone 30/40 drive on the efficiency cores.**
 `ios/build/NFSMW-0.6.1-dev113-iphone40-ecores.ipa` on iCloud Desktop. Proposed
 0.6.1 battery scope: cap controller, iPhone 40 on E cores, touch auto-hide.

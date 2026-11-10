@@ -22772,3 +22772,32 @@ SHA256 fc13f91a3fa6c69e0ebfb33b567e5bc2017fa594fde007e6a5361d576be4ff40; on iClo
 `--nfsmw_cap_controller=false` (0.6.0 Balanced) vs B empty.
 Note for Stefan's question: no earlier build counted draws identical to the
 previous frame; the October 22 PM4 census counted packets/draws per frame only.
+
+## November 10: dev114 repeated-draw counter (diagnostic, built, untested)
+
+Stefan approved a diagnostic-only build to size a draw record/replay project
+(Metal indirect command buffers) for 60 fps battery. Basis: dev110 iPhone
+Time Profiler (render queue ~411 ms/s, Record on GPU Commands ~134 ms/s,
+~2,500 draws/frame). `native_renderer.mm` `CountRepeatedDraws`, switch
+`nfsmw_native_repeat_counter` (default **on** in this build; turn off or
+remove before release). Runs at the top of RenderFrame (render queue),
+driving frames only (`battery::InMenu() == 0`). Each draw is matched to the
+previous frame's draw with the same identity (VS/PS keys, primitive and
+guest primitive, vertex and index counts, surface/colour info, n-th
+occurrence), then compared: render state (depth/blend/mask/raster/viewport/
+scissor/bias/alpha/query), textures (same cached Texture object per slot),
+geometry (same cached index/attribute arrays; freshly decoded counts as
+changed), booleans, VS and PS constants (content of the read register range;
+a different range counts as all changed). Previous-frame pointers are
+identity only; previous constant banks are held by shared references. Every
+300 driving frames three `[native] repeat counter:` lines: draws/frame,
+matched %, identical % (and identical at the same position), only-constants
+% split VS/PS/both with VS registers changed per draw; per-part change % of
+matched draws; the six most-changed 4-register buckets (c0-c3 ...) for
+constants-only draws. Not counted: resolves/clears, draw order beyond
+identity, previous_vs_constants (motion vectors). Build exit 0 (19 s
+incremental). IPA `ios/build/NFSMW-0.6.1-dev114-repeat-counter.ipa`, SHA256
+31812a75bbfa7d378f668bd4ee056e416ea179df7c79751b8145e60b9ea03007; on iCloud
+Desktop (dev113 to Trash). The counter adds render-queue CPU, so this build
+is not for power measurement. Test: one normal pursuit, send the log.
+

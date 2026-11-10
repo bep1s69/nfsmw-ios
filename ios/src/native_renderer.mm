@@ -137,6 +137,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, true, "GPU",
+                    "dev114 diagnostic (Nov 10): count driving draws identical to the previous frame's and what "
+                    "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
@@ -5038,6 +5041,192 @@ void DisposeFrame(std::unique_ptr<Frame>&& frame) {
   });
 }
 
+// dev114 diagnostic (Nov 10, Stefan): how many of a frame's draws repeat the
+// previous frame's draw exactly, and what changes in the rest. Sizes a
+// possible record/replay of draws (Metal indirect command buffers) for 60 fps
+// battery. Draws are matched by identity (shaders, primitive, vertex and index
+// counts, render target, the n-th of those in the frame), then compared part
+// by part: shaders/state, textures (same cached texture object), geometry
+// (same cached vertex/index arrays; freshly decoded ones count as changed),
+// VS and PS constants (content of the registers the shaders read). Render
+// queue only, driving frames only, logged every 300 frames. Pointers of the
+// previous frame are identity only (never dereferenced) except the constant
+// banks, which are kept alive by the shared references held here.
+struct RepeatSignature {
+  uint64_t identity;
+  uint64_t state;
+  uint64_t textures;
+  uint64_t geometry;
+  bool geometry_fresh;
+  std::shared_ptr<const ConstantBank> vs, ps;
+  std::pair<uint16_t, uint16_t> vs_range, ps_range;
+  uint32_t booleans;
+};
+inline uint64_t RepeatMix(uint64_t h, uint64_t v) { return (h ^ (v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2))) * 0x100000001B3ull; }
+template <typename T>
+inline uint64_t RepeatMixBytes(uint64_t h, const T& v) {
+  uint64_t bits = 0;
+  static_assert(sizeof(T) <= 8);
+  std::memcpy(&bits, &v, sizeof(T));
+  return RepeatMix(h, bits);
+}
+// Registers (4 dwords each) that differ in the range both read; a different
+// range counts all of the new one.
+uint32_t RepeatConstantsChanged(const RepeatSignature& now, const RepeatSignature& before, bool vs,
+                                uint32_t* buckets) {
+  const auto& a = vs ? now.vs : now.ps;
+  const auto& b = vs ? before.vs : before.ps;
+  const auto range = vs ? now.vs_range : now.ps_range;
+  if (a == b) return 0;
+  if (!a || !b || range != (vs ? before.vs_range : before.ps_range)) {
+    return range.second > range.first ? range.second - range.first : 1;
+  }
+  uint32_t changed = 0;
+  for (uint32_t r = range.first; r < range.second && r < 256; ++r) {
+    if (std::memcmp(a->data() + r * 4, b->data() + r * 4, 16) != 0) {
+      ++changed;
+      if (buckets) ++buckets[r / 4];
+    }
+  }
+  return changed;
+}
+bool RepeatCounterEnabled() {
+  static const bool enabled = REXCVAR_GET(nfsmw_native_repeat_counter);
+  return enabled;
+}
+void CountRepeatedDraws(const Frame& frame) {
+  static std::vector<RepeatSignature> previous, current;
+  static std::unordered_map<uint64_t, uint32_t> previous_index, seen;
+  static uint32_t frames = 0;
+  static uint64_t draws = 0, matched = 0, identical = 0, positional_identical = 0, constants_only = 0,
+                  vs_only = 0, ps_only = 0, vs_and_ps_only = 0, vs_registers = 0;
+  static uint64_t changed_state = 0, changed_textures = 0, changed_geometry = 0, fresh_geometry = 0,
+                  changed_vs = 0, changed_ps = 0, changed_booleans = 0;
+  static uint32_t vs_buckets[64] = {}, ps_buckets[64] = {};
+  current.clear();
+  current.reserve(frame.draws.size());
+  seen.clear();
+  for (const Draw& d : frame.draws) {
+    RepeatSignature s;
+    uint64_t id = RepeatMix(d.vs_key, d.ps_key);
+    id = RepeatMix(id, uint64_t(d.primitive) | (uint64_t(d.guest_primitive) << 8));
+    id = RepeatMix(id, d.vertex_count | (uint64_t(d.index_count()) << 32));
+    id = RepeatMix(id, d.surface_info | (uint64_t(d.color_info) << 32));
+    s.identity = RepeatMix(id, seen[id]++);
+    uint64_t st = 0;
+    for (uint32_t v : {d.depth_info, d.depth_control, d.blend_control, d.color_mask, d.raster_mode,
+                       d.color1_info, d.blend_control1, d.color_control, d.vte,
+                       uint32_t(d.second_target) | (uint32_t(d.clip_disable) << 1) | (uint32_t(d.window_offset_enable) << 2),
+                       uint32_t(d.window_offset_x), uint32_t(d.window_offset_y),
+                       d.scissor[0], d.scissor[1], d.scissor[2], d.scissor[3], uint32_t(d.query + 1)}) {
+      st = RepeatMix(st, v);
+    }
+    for (float f : {d.depth_bias, d.depth_slope, d.alpha_ref, d.viewport[0], d.viewport[1], d.viewport[2],
+                    d.viewport[3], d.viewport[4], d.viewport[5]}) {
+      st = RepeatMixBytes(st, f);
+    }
+    s.state = st;
+    uint64_t tx = 0;
+    for (int t : d.textures) {
+      const void* p = (t >= 0 && size_t(t) < frame.textures.size()) ? frame.textures[t].get() : nullptr;
+      tx = RepeatMixBytes(tx, p);
+    }
+    s.textures = tx;
+    bool fresh = d.indices_fresh;
+    uint64_t g = RepeatMixBytes(0, static_cast<const void*>(d.indices.get()));
+    for (const Attribute& a : d.attributes) {
+      fresh |= a.fresh;
+      g = RepeatMixBytes(RepeatMix(g, a.location), static_cast<const void*>(a.values.get()));
+    }
+    s.geometry = g;
+    s.geometry_fresh = fresh;
+    s.vs = d.vs_constants;
+    s.ps = d.ps_constants;
+    s.vs_range = d.vs_range;
+    s.ps_range = d.ps_range;
+    s.booleans = d.booleans;
+    current.push_back(std::move(s));
+  }
+  if (!previous.empty()) {
+    ++frames;
+    draws += current.size();
+    for (size_t i = 0; i < current.size(); ++i) {
+      const RepeatSignature& s = current[i];
+      auto it = previous_index.find(s.identity);
+      if (it == previous_index.end()) continue;
+      ++matched;
+      const RepeatSignature& p = previous[it->second];
+      const bool state = s.state != p.state;
+      const bool textures = s.textures != p.textures;
+      const bool geometry = s.geometry_fresh || p.geometry_fresh || s.geometry != p.geometry;
+      const bool booleans = s.booleans != p.booleans;
+      const uint32_t vs = RepeatConstantsChanged(s, p, true, nullptr);
+      const uint32_t ps = RepeatConstantsChanged(s, p, false, nullptr);
+      changed_state += state;
+      changed_textures += textures;
+      changed_geometry += geometry;
+      fresh_geometry += s.geometry_fresh;
+      changed_vs += vs != 0;
+      changed_ps += ps != 0;
+      changed_booleans += booleans;
+      const bool fixed = !state && !textures && !geometry && !booleans;
+      if (fixed && !vs && !ps) {
+        ++identical;
+        if (it->second == i) ++positional_identical;
+      } else if (fixed) {
+        ++constants_only;
+        if (vs && !ps) {
+          ++vs_only;
+          vs_registers += vs;
+          RepeatConstantsChanged(s, p, true, vs_buckets);
+        } else if (ps && !vs) {
+          ++ps_only;
+          RepeatConstantsChanged(s, p, false, ps_buckets);
+        } else {
+          ++vs_and_ps_only;
+          RepeatConstantsChanged(s, p, true, vs_buckets);
+          RepeatConstantsChanged(s, p, false, ps_buckets);
+        }
+      }
+    }
+  }
+  previous.swap(current);
+  previous_index.clear();
+  for (size_t i = 0; i < previous.size(); ++i) previous_index.emplace(previous[i].identity, uint32_t(i));
+  if (frames < 300) return;
+  auto top = [](const uint32_t* buckets) {
+    std::string out;
+    int order[64];
+    for (int i = 0; i < 64; ++i) order[i] = i;
+    std::partial_sort(order, order + 6, order + 64,
+                      [&](int a, int b) { return buckets[a] > buckets[b]; });
+    for (int k = 0; k < 6 && buckets[order[k]]; ++k) {
+      if (!out.empty()) out += ' ';
+      out += "c" + std::to_string(order[k] * 4) + "-" + std::to_string(order[k] * 4 + 3) + ":" + std::to_string(buckets[order[k]]);
+    }
+    return out.empty() ? std::string("none") : out;
+  };
+  const double n = double(std::max<uint64_t>(draws, 1));
+  REXLOG_INFO("[native] repeat counter: {} driving frames, {:.0f} draws/frame; matched to last frame {:.1f} %; "
+              "identical {:.1f} % (same position {:.1f} %); only constants differ {:.1f} % "
+              "(VS only {:.1f} %, PS only {:.1f} %, both {:.1f} %; VS-only draws change {:.1f} registers each)",
+              frames, n / frames, 100.0 * matched / n, 100.0 * identical / n, 100.0 * positional_identical / n,
+              100.0 * constants_only / n, 100.0 * vs_only / n, 100.0 * ps_only / n, 100.0 * vs_and_ps_only / n,
+              vs_only ? double(vs_registers) / vs_only : 0.0);
+  REXLOG_INFO("[native] repeat counter: of matched draws changed: state {:.1f} %, textures {:.1f} %, geometry {:.1f} % "
+              "(fresh decode {:.1f} %), VS constants {:.1f} %, PS constants {:.1f} %, booleans {:.1f} %",
+              100.0 * changed_state / std::max<uint64_t>(matched, 1), 100.0 * changed_textures / std::max<uint64_t>(matched, 1),
+              100.0 * changed_geometry / std::max<uint64_t>(matched, 1), 100.0 * fresh_geometry / std::max<uint64_t>(matched, 1),
+              100.0 * changed_vs / std::max<uint64_t>(matched, 1), 100.0 * changed_ps / std::max<uint64_t>(matched, 1),
+              100.0 * changed_booleans / std::max<uint64_t>(matched, 1));
+  REXLOG_INFO("[native] repeat counter: constants-only draws, most changed registers: VS {}; PS {}", top(vs_buckets), top(ps_buckets));
+  frames = 0;
+  draws = matched = identical = positional_identical = constants_only = vs_only = ps_only = vs_and_ps_only = vs_registers = 0;
+  changed_state = changed_textures = changed_geometry = fresh_geometry = changed_vs = changed_ps = changed_booleans = 0;
+  std::fill(std::begin(vs_buckets), std::end(vs_buckets), 0u);
+  std::fill(std::begin(ps_buckets), std::end(ps_buckets), 0u);
+}
+
 // The frame stays owned by the caller (dev111), which frees it after.
 void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, bool dump) {
   const bool timeline = !dump && GpuTimelineEnabled();
@@ -5065,6 +5254,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
   // the game-thread capture diagnostics here so the hot draw path stays local.
   static VertexDiagnostics vertex_diagnostics;
   if (!dump) vertex_diagnostics += frame->vertex_diagnostics;
+  if (!dump && RepeatCounterEnabled() && nfsmw::battery::InMenu() == 0) CountRepeatedDraws(*frame);
   // Entry samples describe the executing worker, not core affinity or QoS
   // throughout the frame. The OS can still promote work to resolve dependencies.
   static uint64_t render_qos_entries[6] = {};
