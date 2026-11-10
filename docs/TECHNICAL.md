@@ -22696,3 +22696,38 @@ at 60) remains a CPU-work problem.
 Stefan (November 10): four runs per test are too many. Method from now on:
 one pair (A then B) in one sitting; the within-sitting spread was 0.4–0.6
 %/h in both four-run sets, so a pair resolves effects of ~1 %/h and more.
+
+## November 10: dev112 CPU cuts (built, untested)
+
+Approved by Stefan ("yes"; he also wants the two dev111 settings kept for a
+later test).
+
+1. Attribute draw-order memo (`native_renderer.mm`, cvar
+   `nfsmw_native_attribute_sequence`, default true): `AttributeEntryFor` first
+   compares the key at the same position in the previous frame's sequence of
+   lookups (sequential vector, at most 65,536 slots) and returns that entry on
+   an exact 40-byte match, else the existing front cache / map path
+   (`AttributeEntryLookup`) and records it. Equivalent result by construction
+   (same key, same map node). Cleared together with the front cache before
+   `Sweep` can erase entries. Log: the attribute lookup line now ends with
+   "draw-order memo on: N of the hits". Basis: ~21 % of Record on the lookup.
+2. XMA codec pool (SDK, new `tools/ios/patch_ios_xma_codec_pool.py`, cvar
+   `ios_xma_codec_pool`, default true): FFmpeg `ff_xmaframes_decoder` gets a
+   flush callback restoring decode_init's state (output history zeroed,
+   packet_loss 1, prev_block_len = frame length, frame_num 0, skip_frame 0);
+   `XmaContext::Release` flushes the codec and keeps it in a process-wide pool
+   by (rate, channels), at most 32 (~15 MiB); `PrepareDecoder` takes a pooled
+   one before `avcodec_open2`. The `[xma-work]` "codec reopens" count should
+   fall. Basis: ~9 % of the audio thread in PrepareDecoder/ff_mdct_init. Risk:
+   audible artefacts at a new sound's start if any decoder state survives.
+   Applied with `NFSMW_SDK=~/Developer/GitHub/nfsmw-multiplayer-sdk`.
+3. dev111 switches restored in source but default false
+   (`nfsmw_audio_thread_low`, `nfsmw_native_async_frame_free`), for a later
+   test on other caps/devices.
+
+Build: incremental, exit 0; markers present (NFSMW: memo log, dev111 strings;
+librexruntime: pool cvar, xmaframes_flush symbol). IPA
+`ios/build/NFSMW-0.6.1-dev112-cpu-cuts.ipa`, SHA256 5329c2fd3eb0cb49baf7d79f387342583e5879103551e28a2280846d202a1376; on iCloud Desktop
+(dev111 to Trash). Test (one pair, one sitting, iPhone pursuit 60, 27 %):
+A `--nfsmw_native_attribute_sequence=false --ios_xma_codec_pool=false`, then
+B empty; listen for sound-start artefacts.

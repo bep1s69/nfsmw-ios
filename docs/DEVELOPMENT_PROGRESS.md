@@ -474,6 +474,11 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev112 BUILT: attribute draw-order memo + XMA codec pool.**
+dev111 switches back in source, default off. `ios/build/NFSMW-0.6.1-dev112-cpu-cuts.ipa`
+on iCloud Desktop. Next: one A/B pair on the iPhone (A = both new switches
+off). SDK patch: tools/ios/patch_ios_xma_codec_pool.py.
+
 **November 10, controller confirmed:** −1.35 %/h (−4.7 %) vs 0.6.0 Balanced
 at iPhone 60, alternating A/B, equally smooth. Next: CPU-work cuts (Record
 attribute lookup, XMA codec reopen), each tested with one A/B pair.
