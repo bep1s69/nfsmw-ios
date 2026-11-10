@@ -2,6 +2,19 @@
 
 ## Current decision — November 10, 2026
 
+**Phone CPU evidence (latest):** received Detailed trace, actually32s of dev116.
+Its1ms time-profile samples support a fully-driving10–30s window. Record10.48%
+app sampled CPU; writer/CP union7.07%; draw destructor0.44%. New command-cache
+named paths4.52%, including per-batch flush/resource processing2.29%; overlaps,
+not an additive or fully removable envelope. Image mappings require documented
+offline inference/callsite validation because LiveContainer's manually loaded
+images are absent from trace metadata. Sensitivity windows support the same
+ranking; no matched savings claim. Next bounded change: incremental resource
+declarations per encoder instead of repeating gather/sort for every ICB run,
+preserving residency/stages/pins/completion/pass order, with differential tests.
+Address this identified prototype cost before expanding the producer rewrite;
+no new recording needed now. Full evidence/checkpoint in TECHNICAL/DEVELOPMENT_PROGRESS.
+
 **dev117 checkpoint:** dev116 device log has all309known pipelines prepared and
 archive save complete before game start, no later pipeline activity, watchdog
 stalls or GPU errors. Guarded driving windows show66.64%ICB coverage/15.39draws

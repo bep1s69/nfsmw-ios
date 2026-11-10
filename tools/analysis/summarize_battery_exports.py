@@ -3,7 +3,8 @@
 
 Power: export SystemPowerLevel, ProcessSubsystemPowerImpact,
 DisplayBrightnessLevel, DeviceChargingState and SystemThermalState together.
-Profile: export time-profile. XML IDs are global across the exported tables.
+Profile: export time-profile; use --process LiveContainer for system-wide traces.
+XML IDs are global across the exported tables.
 The CPU values are sample weights, not exact CPU execution durations.
 """
 import argparse
@@ -61,7 +62,7 @@ def power(path, skip, end=None):
             'thermal_seconds': dict(thermal)}
 
 
-def profile(path, skip, end):
+def profile(path, skip, end, process=None):
     ids, counts = {}, Counter()
     threads, leaf, inclusive = defaultdict(Counter), Counter(), Counter()
     thread_leaf = defaultdict(Counter)
@@ -98,7 +99,9 @@ def profile(path, skip, end):
         def value(n):
             return ids[n.get('ref') or n.get('id')]
         t = float(value(c[0])[0]) / 1e9
-        if t >= skip and (end is None or t <= end) and value(c[4])[0] == 'Running':
+        process_name = value(c[2])[1].split(' (')[0]
+        if (t >= skip and (end is None or t <= end) and value(c[4])[0] == 'Running'
+                and (process is None or process_name == process)):
             weight = float(value(c[5])[0]) / 1e6
             name = value(c[1])[1]
             frames = value(c[6]) if c[6].tag != 'sentinel' else ()
@@ -134,6 +137,10 @@ def profile(path, skip, end):
                     graphics['record_inclusive_ms'] += weight
                 if any('::Draw::~Draw(' in f for f in frames):
                     graphics['draw_destructor_inclusive_ms'] += weight
+                if any('nfsmw::commands::Batch::Flush(' in f for f in frames):
+                    graphics['command_batch_flush_named_path_ms'] += weight
+                if any('nfsmw::commands::' in f for f in frames):
+                    graphics['native_command_named_path_ms'] += weight
                 if frames[0].startswith(('AGX::', '-[AGX')):
                     graphics['agx_leaf_ms'] += weight
         e.clear()
@@ -144,6 +151,7 @@ def profile(path, skip, end):
         merged[role].update(values)
         merged_leaf[role].update(thread_leaf[name])
     return {'file': str(path), 'skip_seconds': skip, 'end_seconds': end,
+            'process_filter': process,
             'totals': dict(counts), 'threads': dict(merged),
             'graphics_footprints_ms': dict(graphics),
             'thread_self_ms': {name: values.most_common(60) for name, values in merged_leaf.items()},
@@ -156,7 +164,8 @@ if __name__ == '__main__':
     p.add_argument('files', nargs='+', type=Path)
     p.add_argument('--skip', type=float, default=10)
     p.add_argument('--end', type=float)
+    p.add_argument('--process', help='Exact process name for CPU samples (e.g. LiveContainer)')
     args = p.parse_args()
     for file in args.files:
-        result = power(file, args.skip, args.end) if args.mode == 'power' else profile(file, args.skip, args.end)
+        result = power(file, args.skip, args.end) if args.mode == 'power' else profile(file, args.skip, args.end, args.process)
         print(json.dumps(result, sort_keys=True))

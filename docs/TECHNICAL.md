@@ -23657,3 +23657,162 @@ work; do not promise all freezes eliminated. Public stable0.6.0 has not been
 updated, and no release/push authorized. This turn changes documentation only;
 no app changes/build/device tests. git diff --check exit0 before local commit.
 Preexisting untracked HANDOFF_CHATGPT.md preserved; private BACKLOG updated.
+
+## November 10, 2026 — AirDropped System Activity CPU profile, dev116
+
+Stefan reports trace AirDropped to Mac/latest Downloads and supplies matching
+nfsmw.log. Found `/Users/bep1s/Downloads/trace_2026-11-10-224624.atrc.tgz`,
+831788780bytes,SHA256
+`502c9d53e0a97a62973f47a100f8d258e8d6fde07404bfedc756b93e3b640ce3`.
+Tar contains exactly one regular file trace_2026-11-10-224624.atrc,
+5014973599bytes. Validated member name/type and extracted explicitly by stream
+into ignored `ios/build/dev116-system-activity-20261110/`, preserving original.
+Archived compressed copy as
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/dev116_system_activity_detailed_224624.atrc.tgz`.
+Matching log copied to sibling dev116_system_activity_detailed_224624_nfsmw.log,
+737695bytes,4388lines,SHA256
+`99a9b228a2ceceb8ad88d230246d157db5a5d2e5df3cd6a1e7667f546e81fd53`.
+Original log attachment:
+`/tmp/codex-remote-attachments/01a1c612-f9e7-7833-9812-3f01b1cfdbf4/21D0F9FC-D7F9-4D4C-8DAB-0E18E1D505AE/1-nfsmw.log`.
+
+### Actual trace coverage and game log
+
+xctrace27.2(27B52), TOC export exit0 after large import (~3minutes),217tables,
+all processes. Device V54AP, RAM12263342080bytes, iOS27.3(24C5037i).
+Actual TOC start2026-11-10T22:46:25.259+02:00,
+end22:46:57.274+02:00,duration32.015214s. Filename seconds are NOT the start
+clock used for alignment. Capture contains time-sample (1000microseconds),
+time-profile, thread-state, GPU/Metal overview tables; Detailed mode is now
+confirmed useful for CPU sampling. This is not a new Power Profiler energy
+measurement. No additional capture requested.
+
+Matching log explicitly identifies dev116/reuse ON/repeat OFF (not dev117),
+1x/60,MetalFX/FXAA off,MSAA0.309prepared pipelines all309fromarchive,30.1ms
+aggregate Make,worst0.8ms;419ms preparation finishes22:45:46.403 before
+SDL22:45:46.407. No new archive save or later pipeline-made report.
+0watchdog stalls/0GPU errors. Driving22:46:31.650–22:47:56.258.
+26audio windows:24zero-gap,43gaps at22:46:26.935,77gaps/25refused permits at
+22:46:31.937. These are loading/transition windows, the second straddles
+start of driving; cannot assign every gap to before the boundary from a5s
+summary. Audio reports after that are gap-free. Capture primary window10–30s
+(22:46:35.259–55.259) excludes that transition, fully within driving.
+Log ends truncated22:47:58.956, not proof of crash/clean shutdown. Mute/menu
+behavior in dev117 remains untested; this capture is valid renderer evidence.
+
+Whole-log fully-driving windows (2s guards, previous command-report timestamp
+as window start)15x300frames:4500CPU-owned/GPU contexts,
+9931469eligible,4205659direct,8347330ICB draws,568007runs,1584139singles,
+2745412hits,7186057rebuilt,0budget fallback.66.49675%ICB share,14.69582draws/run,
+27.64356%key hits.15paired FPS summaries11x60.0,3x59.9,1x59.8,0GPU frames
+>45ms,0screen-gap reports in guarded driving. These whole-log windows are
+NOT all inside the32s trace. Derived log-analysis.json initially included a
+16th FPS summary after an excluded report; removed it, only15paired used.
+
+### Export, process filtering and symbol provenance
+
+`xcrun xctrace export --input <extracted.atrc> --toc --output <audit>/toc.xml`
+and subsequent
+`xcrun xctrace export --input <extracted.atrc> --xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output <audit>/time-profile.xml`
+both exit0 (escalation allows Instruments cache access). Each implicitly imports
+the full5GB atrc, about3minutes, then output31MB XML. Logs toc-export.log and
+profile-export.log in audit directory. Initial readiness probes found no TOC
+while import was active; not an import failure. No agent-driven recording.
+
+Raw export has CPU stacks but no symbols for game/SDKs, and lacks their image
+metadata (manually loaded by LiveContainer). Exact dev116 IPA binary extracted
+read-only to NFSMW-dev116, UUIDA599B106-3668-3377-992D-59AD5B0A8BCF.
+Its runtime UUIDE68A4406-B672-3E6E-8BE3-E92BD67E14DC and GPU SDK
+UUID3F81A545-AEBC-3ACF-A606-B9427F18B778 match the supplied log.
+Main build identified by dev116 markers/build timestamps and multi-callsite
+agreement, not a main-image UUID recorded by this trace.
+
+Explicit load bases INFERRED from stacks and corroborated against exact binary
+call instructions, not supplied by trace metadata:
+NFSMW0x10b4e0000, runtime0x108478000, GPU SDK0x13b540000.
+Tagged non-leaf PCs masked low2bits. Examples validating independent chains:
+main-thread0x10dc1fe27 -> normalized0x10273fe24, SDL_RunApp+108, bl into
+UIApplicationMain stub; runtime0x1084fe65f ->0x8665c, ThreadStartRoutine+432,
+blr x8; GPU0x13b562cb3 ->0x22cb0, WorkerThreadMain+1292, bl ExecutePrimaryBuffer;
+GPU0x13b567f07 ->0x27f04, ExecutePacketType3Draw+1016, blr native callback;
+app0x10b62153b ->0x100141538, CpDraw calls NativeDraw. Sampled Record and
+RenderFrame addresses also resolve coherently. These checks strongly support
+mapping, but retain the inference caveat instead of presenting missing image
+metadata as measured. First llvm-objdump --macho invocation ignored bounds;
+subsequent `llvm-objdump -d --start-address=... --stop-address=...` produced
+bounded callsite evidence. `atos` spot checks agree.
+
+New tools/analysis/symbolize_profile_images.py verifies each local binary UUID,
+parses Mach-O instruction sections and symbol addresses (nm -n -C), names PCs
+only inside those sections with a preceding symbol in that section; strips
+Mach-O's extra C-linkage underscore. It does NOT infer load bases and never
+uses possibly overwritten current-build DWARF objects. Manifest images.json
+stays local. Optional --reference reuses names from old dev110 CPU export ONLY
+for identical binary UUID and identical normalized instruction offset, no
+nearby-PC extrapolation. This restores many system names without substituting
+wrong-OS libraries; unmatched system names remain raw addresses.19477unique
+frame definitions named in final export. Mapping valid for target LiveContainer,
+not other processes that may reuse virtual addresses.
+
+summarize_battery_exports.py now accepts --process LiveContainer with exact
+process-name match, excludes all other apps and retains global XML intern IDs
+(even IDs first defined in excluded rows). Old default remains all processes.
+New named-path footprints distinguish command methods/batch flush, inclusive
+and overlapping; these are not whole-method costs where inlining hides names.
+Run actual result:
+`python3 tools/analysis/summarize_battery_exports.py profile <audit>/time-profile-named.xml --skip 10 --end 30 --process LiveContainer`.
+
+### CPU results and concrete next step
+
+Primary20s window:25110running samples,25110ms statistical weight,
+338ms stackless(1.346%); not exact execution-duration measurements. Native render
+workers8438ms(33.60%), GPU Commands3882ms(15.46%), Main XThread4618ms(18.39%),
+XThreadAD6B4352ms(17.33%), XThread104071916ms(7.63%), Main Thread1316ms(5.24%).
+Names represent process-filtered threads, not deduplicated energy components.
+
+Graphics footprints (% of all selected app sampleweight, overlapping):
+Record2632ms/10.482%; guest D3D writer902ms/3.592%; CP packet outside native
+874ms/3.481%; writer/CP union1776ms/7.073%; draw destructor111ms/0.442%;
+AGX self563ms/2.242%; identifiable native-command paths1136ms/4.524%, of
+which named Batch::Flush paths574ms/2.286%. Do not sum these overlapping
+values or claim the entire render/Record/command envelope removable.
+Top self Record1822ms/7.26%, RenderFrame881ms/3.51%,
+iokit_user_client_trap1171ms/4.66%, __kdebug_trace64 814ms/3.24%.
+Trace-related calls and system traps remain sampled running work; do not simply
+subtract them or assume no profiler perturbation. Sensitivity8–30s:
+27481ms/390stackless,Record10.404%,command4.523%,batch2.271%,writer/CP6.954%;
+12–28s:20159ms/226stackless,Record10.427%,command4.499%,batch2.227%,
+writer/CP7.317%. Ranking is stable within this short capture.
+
+Source follow-up confirms Batch::Flush gathers all31buffer slots/index for
+every draw, then sorts/uniques the repeated common heap/push/geometry resources
+on every run. Render-thread self includes136ms introsort,83ms Batch::Flush,
+129ms Context::Unpin,100ms Store pin-lambda, plus calls attributed elsewhere.
+Those individual self figures do not add to the entire4.52% safely.
+Next bounded prototype improvement: per-encoder incremental resource declarations,
+avoiding repeated gather/sort, while preserving every buffer/ICB resource,
+Read usage/vertex+fragment stages, pass and draw order, direct-single handling,
+strong context pins and completion ownership. Require actual differential
+resource-set tests across encoder changes/repeats/single/direct fallbacks;
+retain a reference switch. Size Store/pin work separately. Address identifiable
+new overhead before expanding direct D3D producer; Record/vertex preparation
+and packet bridge remain larger later targets. No app source changed/build
+created this session and no new recording requested now. This is NOT evidence
+of net CPU reduction/regression versus a different dev110 pursuit, and not a
+battery result or guarantee of energy savings.
+
+### Validation and session state
+
+`python3 tools/analysis/test_profile_process_filter.py` exit0 (analysis-tests.log):
+exact process exclusion (including LiveContainer2), cross-process interned refs,
+stackless weight, time clipping, absent-process empty result, instruction-section
+bounds/tag masking, exact UUID/offset reference matching. Regression against old
+dev1105–120s:1744500samples/174450.00000566643ms/8927.400000014946stackless,
+totals AND graphics footprints unchanged. Initial comparison attempted graphics
+field in older profile-summary.jsonl that lacks it (KeyError); reran using
+profile-design-summary.jsonl, exact agreement. No production code/build tests
+needed for these offline-analysis changes. git diff --check exit0.
+All exports/manifests/binaries/derived JSON stay ignored in
+`ios/build/dev116-system-activity-20261110/`; compressed evidence archived in
+Debug as above. Shared checkpoint/native plan/private ignored BACKLOG updated;
+preexisting untracked HANDOFF_CHATGPT.md preserved. Local commit only, no
+push/merge/release. Next action is the bounded resource-bookkeeping change above.

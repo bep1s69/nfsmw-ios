@@ -492,6 +492,50 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 10, phone CPU trace analyzed — dev116, no further recording needed now:**
+Stefan AirDropped trace_2026-11-10-224624.atrc.tgz to Downloads. Archive/log
+preserved in Debug/10 November 2026 as dev116_system_activity_detailed_224624*
+(TECHNICAL exact hashes/paths). Actual capture32.015214s,
+22:46:25.259–22:46:57.274+02:00, all processes, iOS27.3(24C5037i), V54AP.
+System Activity (Detailed) DOES contain usable1ms CPU samples. Game log is
+dev116 (not dev117): reuse ON/repeat OFF,1x/60,309archive hits,419ms preparation,
+no new pipeline save. dev117 mute remains untested by this evidence.
+
+Primary trace10–30s window lies fully in driving:25110running LiveContainer
+samples/25110ms statistical weight,338ms stackless(1.346%). Actual image
+metadata omits manually loaded game/SDKs; offline symbol naming uses exact
+dev116 IPA symbols with load bases inferred/corroborated at multiple callsites,
+not device-provided image metadata. SDK UUIDs match log. System names restored
+only at exact UUID/instruction-offset matches from existing dev110 export.
+No substituted current binary/DWARF or nearest-PC system naming. Details and
+mapping caveat in TECHNICAL; result is diagnostic, not a matched CPU/power A/B.
+
+Sampled graphics footprints:Record10.48%appCPU, writer/packet union7.07%,
+draw destruction0.44%, identifiable command-cache paths4.52% (includes
+Batch::Flush2.29%; these overlap and do not include all inlined costs).
+8–30s/12–28s sensitivity keeps Record10.40–10.43%, command paths4.50–4.52%,
+batch2.23–2.27%. Source confirms each Batch::Flush gathers repeated buffer
+pointers then sorts/uniques them for every run. This is concrete prototype
+overhead to address before broadening the producer rewrite. Current capture
+does NOT prove overall CPU/energy benefit or regression versus dev110.
+
+**Next implementation:** make command-batch resource residency bookkeeping
+incremental per Metal encoder, preserving every required buffer/ICB declaration,
+Read/stage flags, draw/pass order, strong pins and GPU completion ownership.
+Avoid full gather/sort of duplicate common bindings for every run; keep a
+reference switch/actual production differential tests for resource sets and
+encoder changes. Size remaining Store/pin work separately. Do not claim the
+whole4.52% removable. Record/vertex work and direct D3D producer remain larger
+later stages; no repeated tiny power matrix. No new capture requested until a
+concrete new build exists. No app change/IPA this analysis session.
+
+Offline tools: summarize_battery_exports.py profile now supports exact
+--process LiveContainer (essential for all-process traces); new
+symbolize_profile_images.py uses explicit UUID-checked image manifest and
+optional exact-PC --reference. Tests pass, old dev1101744500sample totals and
+graphics footprints unchanged. All exports/derived files local ignored
+ios/build/dev116-system-activity-20261110. Local commit/no push; HANDOFF preserved.
+
 **November 10, dev116 result / dev117 BUILT — master mute and first-install catalog:**
 Supplied dev116 log/catalog archived in Debug/10 November 2026 as
 dev116_iphone_command_reuse_on_nfsmw.log and dev116_native_pipeline_keys.bin.
