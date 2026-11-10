@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan): approved continuing the larger draw-data/geometry
+  handoff work after dev118 analysis. Preserve current validation/performance;
+  continue isolated local trial, no push/merge/release.
+
 - November 10 (Stefan, latest): currently has no laptop access. Use phone-only
   Performance Trace collection; do not require a tethered Mac/Instruments run.
   Screenshot offers System Activity (Detailed)/(Summary), Power Profiler and
@@ -491,6 +495,56 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 10, dev119 BUILT — first frame geometry-handoff slice:**
+New default-ON restart-only `nfsmw_native_geometry_handoff` within default-OFF
+command reuse. After existing validation, cached vertex/index arrays are
+captured directly into frame owner tables using generation+identity hints.
+FrameRef carries the owner ordinal in its existing raw-pointer word (still
+32bytes); repeated cached draws avoid shared-owner transfers and owner-map
+lookups. Fresh/rectangle values captured explicitly, later geometry Pin loop
+removed in new arm. Constant/history and ALL existing validation unchanged.
+Reference flag false restores dev118 ownership/selection behavior.
+
+Renderer uses two per-frame strong GPU-binding arrays indexed by vertex/index
+owner ordinals. First persistent selection goes through original GpuBufferFor
+(same allocation/upload/stamps); repeats use resolved binding; nil failures
+retry. Fresh data still uses original upload path. SweepGpu remains before
+binding creation, submission ID fixed within frame. No cross-frame binding
+reuse or producer/PM4 change. This is the first structural slice, not the whole
+Record10.4%removed. Per-decoded-cache-entry hint adds24bytes; per-frame GPU
+binding slot16bytes/owner; device memory/performance remains to check.
+
+Host ASan/UBSan pass: new test_geometry_handoff.py (actual handles, 10000borrowed
+captures/1map lookup/no extra shared owners; replacement, deque growth, stale
+hint, pool/placement-new generation, 30000reference differential cases; complete
+Record validation-body allowlist guard vs317ea68, original GpuBufferFor/Sweep
+unchanged). Extended GPU-buffer fixture:10000repeated selections ->1original
+lookup/upload, replacement, roles, nil retry, reference fallback, next-frame
+stamps and strong lifetime; all4selector/stats configurations pass. Frame
+storage, actual Draw/Frame/constant snapshots, command cache and attribute
+lookup tests pass. Fixture failures/corrections preserved in TECHNICAL.
+
+IPA ios/build/NFSMW-0.6.1-dev119-geometry-handoff.ipa,30731764bytes,
+SHA256 `aa976ec4347d5c1af56bb32586fe51440c0a38d0104f27f548a2c233fd586292`,
+UUID `689F21D8-EEF3-39E8-A727-D0D8398D287D`, bundle0.6.0(11).
+Isolated NFSMW then ipa -j12 both exit0,10existing compile/link warnings;
+ZIP/signature/cache-app equality pass.104shader libraries,BOTH SDK dylibs and
+223-key catalog byte-identical dev118. On iCloud Desktop; older Desktop
+dev118 in Trash, stable/all ios/build copies preserved. No release/push/merge.
+
+**Next:** install over existing data/settings/args
+`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`.
+New handoff/residency flags default on in trial; no extra enabling args needed.
+One short phone System Activity (Detailed) capture during already-loaded pursuit
+(~30–40s is enough to obtain the observed~32s traces), ordinary LiveContainer,
+same1x/60graphics/controller/mute OFF, return trace+nfsmw.log and picture/audio/
+pacing observations. Confirm dev119/handoff ON and active-frame/owner-hint/GPU
+reuse counters; inspect Record/refcount/Pin/GPU selection work and memory.
+If incorrect restart with --nfsmw_native_geometry_handoff=false as reference.
+No new power A/B yet, no host-count-to-battery claim. Device CPU/energy/visual
+acceptance pending. Do not skip validation or revive failed dev112 draw-order
+memo; direct D3D remains later stage. HANDOFF preserved; private BACKLOG updated.
 
 **November 10, dev118 device/profile result — local improvement confirmed, no net battery claim:**
 Newest trace actually Downloads/trace_2026-11-10-232127.atrc.tgz, archived with

@@ -15,6 +15,8 @@
   performance and battery savings are not yet established.
   The trial now avoids repeatedly sorting and declaring the same command
   resources within a render encoder.
+  Cached geometry now uses frame-owned handles to reduce repeated ownership
+  transfers and GPU-buffer lookups while preserving existing validation.
 
 ## 0.6.0
 

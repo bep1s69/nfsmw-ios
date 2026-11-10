@@ -24076,3 +24076,133 @@ Shared checkpoint/native plan/private ignored BACKLOG updated. All raw/derived
 exports, imported.trace, binaries/manifests and source-PC reports remain ignored
 in ios/build/dev118-system-activity-20261110. git diff --check exit0 before
 local commit. HANDOFF_CHATGPT.md preserved; no push/merge/release.
+
+## November 10, 2026 — dev119 frame-owned geometry handoff, built
+
+Stefan approves continuing after dev118 result. Read failed dev112 pair before
+implementation: draw-order memo answered only19% of lookups, positions shift;
+no energy benefit shown, both that memo and codec pool reverted. This change
+uses validated payload identity/table generations, not previous draw position,
+and does not bypass any content/layout/watch/fingerprint decision. Concrete
+scope documented in NATIVE_D3D_PLAN before coding. First structural slice of
+larger geometry handoff, not the entire10.4%Record envelope removed.
+
+### CPU owner and GPU binding path
+
+Default-ON restart-only nfsmw_native_geometry_handoff within default-OFF
+nfsmw_native_command_reuse. False retains dev118 owner/selection behavior.
+After existing validation, cached FloatArray/index values go directly into
+FrameOwners::Capture. Optional per-decoded-entry FrameOwnerHint stores unique
+owner-table generation, stable shared-owner address and ordinal. Matching
+same-table/same-payload captures borrow the frame owner without shared refcount
+traffic or owner-map lookup; replacements get distinct slots. Source-cache
+entry/key lookup and validation still happen. New/rectangle values captured
+explicitly, rectangle clone remains independent/mutable during CPU recording.
+New arm removes final geometry Pin traversal; constant/history paths untouched.
+
+FrameRef remains32bytes. Its old raw pointer word now stores raw slab pointer
+OR borrowed-owner ordinal, selected by borrowed-owner pointer presence. No
+per-Attribute/Draw size increase. FrameOwners Clear/construction obtains a
+unique64-bit generation from process-lifetime atomic; hint owner never read
+before generation matches, preventing stale pooled/address-reused owner access.
+Hint24bytes added to CacheEntry<T> (texture hints unused) and IndexEntry.
+Capture counters stored per table, reset with it. Capture may retain values
+from later-skipped draws or replaced rectangle originals until that frame ends;
+not a new cross-frame cache. Device memory behavior remains pending.
+
+On serial RenderFrame queue, after SweepGpu, two frame-local vectors of strong
+GeometryGpuBinding (16bytes each) indexed by attribute/index ordinal. First
+persistent selection calls original GpuBufferFor (same stamps, allocation,
+upload, GPU backing ownership); successful result/offset reused. Nil remains
+uncached/retried. Fresh data keeps original frame-upload path. Fallback refs
+without ordinal and handoff-off path use original helper. SweepGpu body and
+original GpuBufferFor body unchanged; no mid-frame sweep, gpu_frame/submission
+ID fixed across RenderFrame including early commits. Strong bindings expire
+at CPU encoding end; existing encoder/context completion ownership continues.
+No shaders/pass/state/draw order/PM4 producer changes. New300-frame geometry
+handoff summary: active frames, owner hint/map counts, GPU reuse/selection/
+fallback counts, explicitly activity not energy. Startup markers dev119.
+
+### Validation, including fixture failures
+
+`python3 tools/native/test_geometry_handoff.py` exit0,
+ios/build/dev119-geometry-handoff-test.log. Actual production CPU header compiled
+C++20O1 ASan/UBSan. FrameRef32bytes,10000hint captures/1map lookup while owner
+use_count stays2; repeated ref copies borrow without extra owners. Same-entry
+replacement preserves prior draws;10000other owners grow deque; cache eviction
+keeps old values. Distinct role/table generations, null/raw/owned refs, stale
+hint poisoned pointer, reset, placement-new table at SAME address (new epoch),
+and30000reference assignment+Pin vs direct Capture cases all pass. Entire
+production Record body compared to317ea68 with an exact allowlist of ownership
+edits; every other byte including guest validation/decoding/watch/index/remap/
+shader/fingerprint logic unchanged. Original GpuBufferFor and SweepGpu bodies
+also compared exactly; fixed submission stamp and role wiring guards pass.
+
+Extended `python3 tools/native/test_gpu_buffer_lookup.py` exit0 final
+log ios/build/dev119-gpu-handoff-test-final.log, all4hash-selector/stat settings.
+Actual extracted GPU lookup/upload/sweep plus new binding helper compiled
+ObjC++ARC ASan/UBSan with host Metal buffers/arena.10000repeated handle selections
+use1original lookup/upload; replaced value/new ordinal uploads distinct bytes,
+vertex/index ordinal-zero roles independent, nil allocation retries, no-ordinal
+fallback calls original helper, fresh per-frame bindings update GPU stamps.
+Strong binding lifetime survives backing-table clear. These are host fixtures,
+not device CPU/Metal correctness/energy measurements.
+Initial run dev119-gpu-handoff-test.log failed weak==nil assertion: the fixture
+had not drained Objective-C return-value autoreleases, so it did not isolate
+binding ownership. Corrected test with inner autoreleasepool and binding retained
+outside it: after pool drains buffer alive only through binding; clearing it
+expires weak. No production change was needed for that fixture failure.
+
+`python3 tools/native/test_attribute_lookup.py` exit0 final
+log ios/build/dev119-attribute-test-final.log; all4lookup/bulk combinations,
+all key bits/collisions/rehash/live source mutation/sweep ownership and90000
+changing-key accesses pass. Initial fixture compile dev119-attribute-test.log
+failed because old stand-ins lacked existing kPurgeIdleFrames/PurgeSeen and
+returned bool for existing integer slot-count cvar (std::clamp mismatch).
+Maintained stand-ins (14log2 slots, false purge fixture) plus actual header
+include; no production attribute lookup/validation change. Failures retained.
+
+Existing regressions exit0: test_native_frame_commands.py
+(ios/build/dev119-frame-test.log):bounds/epochs/concurrency/all command operands;
+test_draw_arena.py (dev119-draw-arena-test.log):actual Draw/Frame ARC3500draws/
+mode,data equality, moves, destruction, 5000changing/widening constants,
+slab overflow, memory failures/alignment; test_native_command_cache.py
+(dev119-command-cache-test.log):actual operands/last-pin lifetime/budget/growth/
+completion/purge/reference-incremental resource sets/exact draw operations and
+state/resolve guards. git diff --check exit0. No device result yet; host checks
+do not establish lower total CPU, acceptable memory, pixel equivalence or energy.
+
+### Build and delivery
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target NFSMW -j 12`
+exit0 (ios/build/dev119-build.log,10existing FPSCR/UIKit/duplicate-z warnings),
+then target ipa -j12 exit0 (ios/build/dev119-package.log, packaging-only,
+no additional warning entries). Existing isolated Release/arm64/iOS18/
+multiplayer SDK/local223-key seed configuration. No shader rebuild/SDK patch.
+104/104metallibs,BOTH SDK dylibs and10704byte223-key catalog byte-identical
+with dev118. ZIPCRC pass,codesign --verify --deep --strict cache NFSMW.app
+exit0,packaged executable equals signed cache app. No production edit after
+that build/package; subsequent changes documentation/tests only.
+
+IPA ios/build/NFSMW-0.6.1-dev119-geometry-handoff.ipa,30731764bytes,SHA256
+`aa976ec4347d5c1af56bb32586fe51440c0a38d0104f27f548a2c233fd586292`.
+Executable UUID689F21D8-EEF3-39E8-A727-D0D8398D287D,SHA256
+`aa5908c3ae81e84037313f6c4eb51a36fd94bc13df69b5292e8ef6ab46dd03b6`.
+Bundle0.6.0(11), development filename0.6.1 as prior trials. Copied/hash-verified
+onto iCloud Desktop; superseded Desktop dev118 moved to
+/Users/bep1s/.Trash/NFSMW-0.6.1-dev118-command-residency.ipa.
+Stable NFS-Most-Wanted-0.6.0.ipa/all ios/build copies preserved.
+Master mute/upfront graphics preparation and native command residency retained.
+Shared checkpoint/plan/CHANGELOG/private ignored BACKLOG updated; preexisting
+HANDOFF_CHATGPT.md untouched. Local commit only, no push/merge/release.
+
+Next one short phone System Activity (Detailed) capture in already-loaded
+pursuit (~30–40s), ordinary LiveContainer monitored,same1x/60settings/controller/
+mute OFF, args --nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false.
+No extra enabling arg. Send trace+nfsmw.log and subjective picture/pacing/audio
+result; inspect active frames/hint/GPU binding counters, Record/refcount/Pin/
+GPU-selection work and memory before wider work. Handoff=false after restart
+is reference if incorrect, preserving residency/reuse controls. No Power
+Profiler A/B now and no promise all Record or prototype cost removed. This
+establishes a frame geometry handle usable by the later native producer,
+not completion of direct D3D or demonstrated battery savings.

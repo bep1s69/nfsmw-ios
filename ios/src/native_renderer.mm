@@ -148,6 +148,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
                     "Native frame ownership and cached Metal indexed commands (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true, "GPU",
                     "Within command reuse, declare resources incrementally per encoder (restart required; trial)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_geometry_handoff, true, "GPU",
+                    "Within command reuse, hand geometry owners and GPU bindings through frame handles (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_prepare_graphics, true, "GPU",
                     "Prepare known graphics pipelines before the game starts (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
@@ -1170,6 +1172,10 @@ bool NativeCommandReuse() {
   static const bool enabled = REXCVAR_GET(nfsmw_native_command_reuse);
   return enabled;
 }
+bool NativeGeometryHandoff() {
+  static const bool enabled=REXCVAR_GET(nfsmw_native_geometry_handoff);
+  return enabled;
+}
 struct NativeFrameStorage {
   nfsmw::FrameBlocks<ConstantBank> constants;
   nfsmw::FrameOwners<const ConstantBank> constant_owners;
@@ -1740,6 +1746,8 @@ uint64_t Fingerprint(const uint8_t* p, size_t size) {
 template <typename T>
 struct CacheEntry {
   std::shared_ptr<T> value;
+  // Consulted only AFTER the existing value/content validation, for geometry.
+  nfsmw::FrameOwnerHint<T> frame_owner;
   uint64_t fingerprint = 0;
   uint64_t last_used = 0;
   bool watched = false;       // its memory is watched (WriteWatch): valid while clean
@@ -2022,6 +2030,7 @@ struct IndexKeyHash {
 };
 struct IndexEntry {
   std::shared_ptr<const std::vector<uint32_t>> indices;
+  nfsmw::FrameOwnerHint<const std::vector<uint32_t>> frame_owner;
   uint64_t fingerprint = 0, last_used = 0;
   // nfsmw_native_record_memo: fingerprint checked this frame (later draws of
   // the same buffer, e.g. shadow/reflection/cube passes, trust it), and the
@@ -2882,6 +2891,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     ++frame.from_arguments;
   }
   Draw d(frame.attribute_arena.Resource());
+  NativeFrameStorage* geometry_storage=NativeGeometryHandoff() ? frame.native_storage.get() : nullptr;
   d.vs_key = in.vs_key;
   d.ps_key = in.ps_key;
   {  // by key, without building the name (the store is loaded before any recording)
@@ -3001,7 +3011,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     ientry->last_used = frame_counter;
     lo = ientry->lo;
     hi = ientry->hi;
-    d.indices = ientry->indices;
+    d.indices = geometry_storage ? geometry_storage->indices.Capture(ientry->indices,&ientry->frame_owner)
+                                : nfsmw::FrameRef<const std::vector<uint32_t>>(ientry->indices);
     d.indices_fresh = false;
     d.primitive = ientry->primitive;
   } else {
@@ -3117,7 +3128,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       const bool watchable = REXCVAR_GET(nfsmw_native_write_watch) && buffer && !in.up_vertices && !acached.dynamic;
       if (acached.value && acached.watched && write_watch::Clean(buffer + uint32_t(first), range)) {
         ++frame.vertex_diagnostics.watched_cache_hits;
-        a.values = acached.value;  // watched, not written since
+        a.values = geometry_storage ? geometry_storage->attributes.Capture(acached.value,&acached.frame_owner)
+                                    : nfsmw::FrameRef<FloatArray>(acached.value); // watched, not written since
         d.attributes.push_back(std::move(a));
         continue;
       }
@@ -3243,7 +3255,8 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
           acached.last_false_alarm = frame_counter;
         }
         acached.watched = watchable && !acached.dynamic;
-        a.values = acached.value;
+        a.values = geometry_storage ? geometry_storage->attributes.Capture(acached.value,&acached.frame_owner)
+                                    : nfsmw::FrameRef<FloatArray>(acached.value);
         d.attributes.push_back(std::move(a));
         continue;
       }
@@ -3304,6 +3317,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       }
       acached.value = a.values.Owner();
       acached.fingerprint = afp;
+      if (geometry_storage) a.values=geometry_storage->attributes.Capture(acached.value,&acached.frame_owner);
       d.attributes.push_back(std::move(a));
     }
   }
@@ -3330,6 +3344,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       case 8: {  // rectangle list: the fourth corner = v1 + v2 - v0, for every input
         for (Attribute& a : d.attributes) {  // a copy: the cached arrays stay as they were
           a.values = std::make_shared<FloatArray>(*a.values);
+          if (geometry_storage) a.values=geometry_storage->attributes.Capture(a.values.Owner());
           a.fresh = true;
         }
         for (uint32_t i = 0; i + 2 < count; i += 3) {
@@ -3364,6 +3379,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       ientry->hi = hi;
       ientry->primitive = d.primitive;
     }
+    if (geometry_storage) d.indices=geometry_storage->indices.Capture(d.indices.Owner(),ientry ? &ientry->frame_owner : nullptr);
   }
 
   // Constants: c0-255 of each stage (VS at 0x4000, PS at 0x4400).
@@ -3548,8 +3564,10 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     if (a.fresh && a.values) d.fresh_attribute_bytes += a.values->size() * 4 + 256;
   }
   if (frame.native_storage) {
-    frame.native_storage->indices.Pin(d.indices);
-    for (auto& a : d.attributes) frame.native_storage->attributes.Pin(a.values);
+    if (!geometry_storage) {
+      frame.native_storage->indices.Pin(d.indices);
+      for (auto& a : d.attributes) frame.native_storage->attributes.Pin(a.values);
+    }
     // Slab-backed constants need no shared ownership. Pool fallback banks do.
     if (d.vs_constants.Owner()) frame.native_storage->constant_owners.Pin(d.vs_constants);
     if (d.ps_constants.Owner()) frame.native_storage->constant_owners.Pin(d.ps_constants);
@@ -4891,6 +4909,27 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
   return g.buffer;
 }
 
+// One CPU-frame geometry ordinal -> one successful persistent GPU selection.
+// The first call still stamps/allocates/uploads through GpuBufferFor. Sweeps
+// run before encoding, and submission/frame stamps stay fixed throughout it.
+struct GeometryGpuBinding { id<MTLBuffer> buffer=nil; size_t offset=0; };
+struct GeometryGpuStats { uint64_t hits=0,lookups=0,fallbacks=0; };
+template<class T>
+id<MTLBuffer> GpuBufferForGeometry(id<MTLDevice> device,const nfsmw::FrameRef<T>& values,
+    std::vector<GeometryGpuBinding>& bindings,size_t& offset,GeometryGpuStats& stats) {
+  const size_t slot=values.Slot();
+  if (slot<bindings.size()) {
+    auto& binding=bindings[slot];
+    if (binding.buffer) { ++stats.hits; offset=binding.offset; return binding.buffer; }
+    ++stats.lookups;
+    binding.buffer=GpuBufferFor(device,values.Owner(),offset);
+    binding.offset=offset;
+    return binding.buffer; // nil remains a miss: allocation failures retry
+  }
+  ++stats.fallbacks;
+  return GpuBufferFor(device,values.Owner(),offset);
+}
+
 void SweepGpu() {
   static PurgeSeen purge_seen;
   const bool purge = purge_seen.Take();
@@ -5470,6 +5509,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     }
     gpu_submission_frame = number;
     SweepGpu();
+    const auto* geometry_storage=NativeGeometryHandoff() ? frame->native_storage.get() : nullptr;
+    std::vector<GeometryGpuBinding> geometry_attributes(geometry_storage ? geometry_storage->attributes.size() : 0);
+    std::vector<GeometryGpuBinding> geometry_indices(geometry_storage ? geometry_storage->indices.size() : 0);
+    GeometryGpuStats geometry_gpu_stats;
     if (NativeCommandReuse())
       nfsmw::commands::PurgeIdle(memory_purge_requests.load(std::memory_order_relaxed));
     nfsmw::commands::Lease command_lease;
@@ -8304,7 +8347,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           bind_vertex(data, put(found->values->data(), found->values->size() * 4, kVertexUpload), 9 + k);
         } else if (found && found->values && !found->values->empty()) {
           size_t vb_offset = 0;
-          id<MTLBuffer> vb = GpuBufferFor(device, found->values.Owner(), vb_offset);
+          id<MTLBuffer> vb = geometry_storage
+              ? GpuBufferForGeometry(device,found->values,geometry_attributes,vb_offset,geometry_gpu_stats)
+              : GpuBufferFor(device,found->values.Owner(),vb_offset);
           bind_vertex(vb ?: zeros, vb_offset, 9 + k);  // bound: resident without useResource
         } else {
           bind_vertex(zeros, 0, 9 + k);
@@ -8316,7 +8361,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         id<MTLBuffer> ib = data;
         if (d.indices_fresh) {
           index_at = put(d.indices->data(), d.index_count() * 4, kIndexUpload);
-        } else if (!(ib = GpuBufferFor(device, d.indices.Owner(), index_at))) {
+        } else if (!(ib = geometry_storage
+                         ? GpuBufferForGeometry(device,d.indices,geometry_indices,index_at,geometry_gpu_stats)
+                         : GpuBufferFor(device, d.indices.Owner(), index_at))) {
           continue;
         }
         if (depth_audit && (d.depth_control & 4)) ++t.depth_generation;
@@ -9215,6 +9262,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         uint64_t frames=0, contexts=0, owned=0, eligible=0, direct=0, banks=0, geometry=0;
         uint64_t hits=0, builds=0, submitted=0, runs=0, singles=0, budget=0;
         uint64_t resource_calls=0, resource_entries=0;
+        uint64_t geometry_frames=0,owner_hints=0,owner_lookups=0,binding_hits=0,binding_lookups=0,binding_fallbacks=0;
         size_t max_pins=0, max_slabs=0;
       };
       static Window w;
@@ -9222,6 +9270,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       w.eligible += command_eligible; w.direct += command_direct;
       w.resource_calls += command_batch.resource_calls;
       w.resource_entries += command_batch.resource_entries;
+      w.geometry_frames += geometry_storage != nullptr;
+      w.binding_hits += geometry_gpu_stats.hits;
+      w.binding_lookups += geometry_gpu_stats.lookups;
+      w.binding_fallbacks += geometry_gpu_stats.fallbacks;
       if (auto* c = command_context) {
         w.hits += c->stats.hits; w.builds += c->stats.builds;
         w.submitted += c->stats.submitted; w.runs += c->stats.runs;
@@ -9233,6 +9285,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (const auto& storage = frame->native_storage) {
         w.banks += storage->constants.used();
         w.geometry += storage->attributes.size() + storage->indices.size();
+        w.owner_hints += storage->attributes.hint_hits + storage->indices.hint_hits;
+        w.owner_lookups += storage->attributes.lookups + storage->indices.lookups;
         w.max_slabs = std::max(w.max_slabs, storage->constants.bytes());
       }
       if (w.frames == 300) {
@@ -9246,6 +9300,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     "(declarations, not measured CPU or energy savings)",
                     incremental_command_resources ? "incremental" : "reference",
                     w.resource_calls,w.resource_entries,w.frames);
+        REXLOG_INFO("[native] geometry handoff {}: {} active / {} frames; owner hints {} / {} map lookups; "
+                    "GPU bindings {} reuses / {} selections / {} fallbacks (activity, not measured energy)",
+                    NativeGeometryHandoff() ? "on" : "off",w.geometry_frames,w.frames,w.owner_hints,w.owner_lookups,
+                    w.binding_hits,w.binding_lookups,w.binding_fallbacks);
         w = {};
       }
     }
@@ -9885,7 +9943,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev118 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev119 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10371,9 +10429,10 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev118 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {})",
+    REXLOG_INFO("[native] dev119 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
-                REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference");
+                REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
+                NativeGeometryHandoff() ? "on" : "off");
     return true;
   }();
   (void)announced_reuse;

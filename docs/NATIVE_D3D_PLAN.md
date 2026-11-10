@@ -2,6 +2,46 @@
 
 ## Current decision — November 10, 2026
 
+**dev119 BUILT:** first geometry-handle implementation below is packaged.
+Actual helper/reference/validation-body tests and iOS build/signature pass;
+host10000repeats exercise one owner-map/one GPU selection, not device savings.
+Owner hints24bytes per cache entry, per-frame binding slot16bytes, FrameRef
+still32bytes. Existing field/content checks, original GPU upload/sweep and
+constant history retained; nil retries. Source flag false selects reference.
+Next one short phone Detailed pursuit+log, no power matrix. Artifact/full
+test evidence including fixture corrections in DEVELOPMENT_PROGRESS/TECHNICAL.
+
+**dev119 implementation scope (Stefan approved continuing):** replace the
+geometry ownership handoff with frame-owned handles, keeping validation intact.
+After a cached vertex/index value has passed the existing validation, capture
+it directly into the frame owner table. A per-cache-entry hint records owner
+table generation, stable owner address and ordinal; it skips only duplicate
+ownership lookup, never guest-memory checks. Globally unique table generations
+prevent stale hints on pooled storage/address reuse; changed immutable array
+identity gets a separate ordinal. Fresh/rectangle arrays remain mutable only
+during CPU recording and retain their existing fresh upload path. Remove the
+later geometry Pin traversal in the new arm; constant/history ownership stays.
+
+Pass the ordinal in FrameRef's existing raw-pointer storage word (raw slabs
+and borrowed owners are mutually exclusive), keeping FrameRef's footprint.
+On the serial render queue, two frame-local strong binding arrays indexed by
+vertex/index owner ordinal resolve GpuBufferFor once per persistent value.
+First lookup still updates GPU use/submission stamps and performs the exact
+existing allocation/upload; failed allocation is retried rather than cached.
+SweepGpu runs before these arrays exist, never mid-frame; submission number
+is fixed throughout RenderFrame, including early commits. Cached buffers live
+until CPU encoding ends, with normal encoder/context completion ownership
+unchanged. Reference/fallback draws with no ordinal use existing lookup.
+
+Bounded slice: this removes repeated shared-owner transfers, owner-table
+lookups and GPU cache selection across passes; it does not promise removal of
+Record's whole10.4% or bypass AttributeKey/fingerprint/write-watch/layout checks.
+Default-ON restart-only nfsmw_native_geometry_handoff within the default-OFF
+command-reuse trial; false retains dev118 ownership/lookup behavior. Validate
+actual helpers under sanitizers, unchanged Record validation body, cache-value
+replacement, pooled generations, reference behavior, nil retry, upload and
+GPU stamps, plus existing cache/storage fixtures and iOS build before delivery.
+
 **dev118 result (latest):** actual driving logs show97.6%fewer command resource
 API calls than the reference would make for identical command-run counts.
 Targeted Batch CPU sampleweight falls~33–35%; named batch-sort samples vanish.

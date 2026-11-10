@@ -14,6 +14,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 HARNESS = r'''
+#include "native_frame_storage.h"
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -30,11 +31,14 @@ HARNESS = r'''
 #include <vector>
 using FloatArray = std::vector<float>;
 bool g_lookup_enabled,g_bulk_enabled;
-bool Flag(std::string_view name) {
+int Flag(std::string_view name) {
+  if(name=="nfsmw_native_attribute_lookup_sets_log2")return 14;
   if(name=="nfsmw_native_attribute_lookup")return g_lookup_enabled;
   assert(name=="nfsmw_native_attribute_bulk_compare");return g_bulk_enabled;
 }
 #define REXCVAR_GET(name) Flag(#name)
+constexpr uint64_t kPurgeIdleFrames=30;
+struct PurgeSeen { bool Take() { return false; } };
 uint64_t frame_counter = 0;
 struct VertexDiagnostics {
   uint64_t attribute_lookup_hits=0, attribute_lookup_misses=0, attribute_lookup_bypasses=0;
@@ -227,13 +231,13 @@ def main():
         cpp, exe = path / 'test.cpp', path / 'test'
         cpp.write_text(HARNESS.replace('@PRODUCTION@', entries + sweep + lookup))
         subprocess.run(['xcrun', 'clang++', '-std=c++20', '-O1', '-fsanitize=address,undefined',
-                        '-fno-omit-frame-pointer', str(cpp), '-o', str(exe)], check=True)
+                        '-fno-omit-frame-pointer', '-I', str(ROOT / 'ios/src'), str(cpp), '-o', str(exe)], check=True)
         for arm in ['off', 'on']:
             for bulk in ['off', 'on']:
                 print(f'CHECK lookup {arm}, bulk {bulk}', flush=True)
                 subprocess.run([str(exe), arm, bulk], check=True)
         if args.benchmark:
-            subprocess.run(['xcrun', 'clang++', '-std=c++20', '-O3', str(cpp), '-o', str(exe)], check=True)
+            subprocess.run(['xcrun', 'clang++', '-std=c++20', '-O3', '-I', str(ROOT / 'ios/src'), str(cpp), '-o', str(exe)], check=True)
             # Also run correctness in the actual optimized configuration.
             for arm in ['off', 'on']:
                 for bulk in ['off', 'on']:

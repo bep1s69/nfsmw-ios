@@ -1,6 +1,9 @@
 // CPU-side ownership only. Borrowed draw handles never outlive their frame.
 #pragma once
 #include <array>
+#include <atomic>
+#include <cstdint>
+#include <limits>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -8,39 +11,72 @@
 #include <vector>
 
 namespace nfsmw {
+inline constexpr size_t kNoFrameSlot=std::numeric_limits<size_t>::max();
+inline uint64_t NextOwnerGeneration() {
+  static std::atomic<uint64_t> generation{0};
+  return generation.fetch_add(1,std::memory_order_relaxed)+1;
+}
+template<class T> struct FrameOwnerHint {
+  uint64_t generation=0;
+  const std::shared_ptr<T>* owner=nullptr;
+  size_t slot=kNoFrameSlot;
+};
 template<class T> class FrameRef {
  public:
   FrameRef() = default;
   template<class U> FrameRef(const std::shared_ptr<U>& p) : owned_(p) {}
   template<class U> FrameRef& operator=(const std::shared_ptr<U>& p) {
-    owned_ = p; borrowed_ = nullptr; raw_ = nullptr; return *this;
+    owned_ = p; borrowed_ = nullptr; raw_or_slot_ = 0; return *this;
   }
-  T* get() const { return raw_ ? raw_ : Owner().get(); }
+  T* get() const { return borrowed_ ? borrowed_->get() : raw_or_slot_ ? reinterpret_cast<T*>(raw_or_slot_) : owned_.get(); }
   T* operator->() const { return get(); }
   T& operator*() const { return *get(); }
   explicit operator bool() const { return get() != nullptr; }
   const std::shared_ptr<T>& Owner() const { return borrowed_ ? *borrowed_ : owned_; }
-  void Borrow(const std::shared_ptr<T>& owner) { owned_.reset(); raw_ = nullptr; borrowed_ = &owner; }
-  void BorrowRaw(T* p) { owned_.reset(); borrowed_ = nullptr; raw_ = p; }
+  size_t Slot() const { return borrowed_ ? size_t(raw_or_slot_) : kNoFrameSlot; }
+  void Borrow(const std::shared_ptr<T>& owner,size_t slot=kNoFrameSlot) {
+    owned_.reset(); borrowed_ = &owner; raw_or_slot_ = slot;
+  }
+  void BorrowRaw(T* p) { owned_.reset(); borrowed_ = nullptr; raw_or_slot_ = reinterpret_cast<uintptr_t>(p); }
  private:
   std::shared_ptr<T> owned_;
   const std::shared_ptr<T>* borrowed_ = nullptr;
-  T* raw_ = nullptr;
+  // A borrowed owner and a raw slab pointer are mutually exclusive. Reuse
+  // this word for the owner ordinal without growing every Draw/Attribute.
+  uintptr_t raw_or_slot_ = 0;
 };
 
 template<class T> class FrameOwners {
  public:
-  void Pin(FrameRef<T>& ref) {
-    if (!ref) return;
-    auto [it, added] = index_.try_emplace(ref.get(), owners_.size());
-    if (added) owners_.push_back(ref.Owner());
-    ref.Borrow(owners_[it->second]);
+  FrameOwners() = default;
+  FrameOwners(const FrameOwners&) = delete;
+  FrameOwners& operator=(const FrameOwners&) = delete;
+  FrameRef<T> Capture(const std::shared_ptr<T>& owner,FrameOwnerHint<T>* hint=nullptr) {
+    FrameRef<T> ref;
+    if (!owner) return ref;
+    // Never dereference a stale hint until its unique table generation matches.
+    if (hint && hint->generation==generation_ && hint->owner && hint->owner->get()==owner.get()) {
+      ++hint_hits;
+      ref.Borrow(*hint->owner,hint->slot); return ref;
+    }
+    ++lookups;
+    auto [it, added] = index_.try_emplace(owner.get(), owners_.size());
+    if (added) owners_.push_back(owner);
+    const size_t slot=it->second;
+    ref.Borrow(owners_[slot],slot);
+    if (hint) *hint={generation_,&owners_[slot],slot};
+    return ref;
   }
-  void Clear() { owners_.clear(); index_.clear(); }
+  void Pin(FrameRef<T>& ref) {
+    if (ref.Owner()) ref=Capture(ref.Owner());
+  }
+  void Clear() { owners_.clear(); index_.clear(); generation_=NextOwnerGeneration(); hint_hits=lookups=0; }
   size_t size() const { return owners_.size(); }
+  uint64_t hint_hits=0,lookups=0;
  private:
   std::deque<std::shared_ptr<T>> owners_; // references survive insertion
   std::unordered_map<const T*, size_t> index_;
+  uint64_t generation_=NextOwnerGeneration();
 };
 
 template<class T, size_t PerBlock = 64, size_t MaxItems = 4096>

@@ -13,6 +13,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 HARNESS = r'''
+#include "native_frame_storage.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include <algorithm>
@@ -193,10 +194,73 @@ void Benchmark() {
  }
  Reset();
 }
+void GeometryHandoffChecks() {
+ __weak id weak;
+ std::vector<GeometryGpuBinding> retained;
+ @autoreleasepool {
+ Reset();
+ nfsmw::FrameOwners<Values> owners;
+ nfsmw::FrameOwnerHint<Values> hint;
+ auto values=std::make_shared<Values>(32,9.f);
+ auto ref=owners.Capture(values,&hint);
+ std::vector<GeometryGpuBinding> bindings(owners.size());
+ GeometryGpuStats stats;
+ size_t offset=999;
+ auto first=GpuBufferForGeometry(nil,ref,bindings,offset,stats);
+ assert(first && offset==32 && stats.lookups==1 && geometry_upload_arrays==1);
+ assert(gpu_buffers.at(values.get()).last_used==gpu_frame);
+ assert(gpu_buffers.at(values.get()).last_submission==gpu_submission_frame);
+ for(size_t i=0;i<10000;++i) {
+  auto handle=owners.Capture(values,&hint);
+  size_t at=999;
+  assert(GpuBufferForGeometry(nil,handle,bindings,at,stats)==first && at==offset);
+ }
+ assert(stats.hits==10000 && stats.lookups==1 && owners.hint_hits==10000 && owners.lookups==1);
+ assert(geometry_upload_arrays==1 && values.use_count()==3); // cache, frame, GPU backing map only
+ // Allocation failures are not memoized, exactly as the reference helper.
+ auto another=std::make_shared<Values>(16,4.f);
+ ref=owners.Capture(another,&hint);bindings.resize(owners.size());
+ buffer_arena.fail_next=true;
+ assert(!GpuBufferForGeometry(nil,ref,bindings,offset,stats) && offset==0);
+ assert(GpuBufferForGeometry(nil,ref,bindings,offset,stats) && offset==32);
+ assert(stats.lookups==3 && geometry_upload_arrays==2);
+ // Replaced immutable value gets a new ordinal and a distinct uploaded copy.
+ auto replacement=std::make_shared<Values>(16,77.f);
+ auto replaced=owners.Capture(replacement,&hint);bindings.resize(owners.size());
+ assert(replaced.Slot()!=ref.Slot());
+ auto copied=GpuBufferForGeometry(nil,replaced,bindings,offset,stats);
+ assert(copied && std::memcmp(static_cast<uint8_t*>(copied.contents)+offset,replacement->data(),64)==0);
+ // Independent attribute/index roles may both have ordinal zero.
+ nfsmw::FrameOwners<const std::vector<uint32_t>> indices;
+ auto ints=std::make_shared<const std::vector<uint32_t>>(8,19);
+ auto index=indices.Capture(ints);
+ std::vector<GeometryGpuBinding> index_bindings(indices.size());
+ auto ib=GpuBufferForGeometry(nil,index,index_bindings,offset,stats);
+ assert(ib && ib!=first && index.Slot()==0);
+ // No owner ordinal (reference / fallback) always follows the original path.
+ nfsmw::FrameRef<Values> fallback=values;
+ for(int i=0;i<2;++i)assert(GpuBufferForGeometry(nil,fallback,bindings,offset,stats)==first);
+ assert(stats.fallbacks==2);
+ // New frame => fresh binding array => stamp updates even for the same values.
+ ++gpu_frame;++gpu_submission_frame;
+ bindings.clear();bindings.resize(owners.size());
+ auto again=owners.Capture(values);
+ assert(GpuBufferForGeometry(nil,again,bindings,offset,stats)==first);
+ assert(gpu_buffers.at(values.get()).last_used==gpu_frame);
+ assert(gpu_buffers.at(values.get()).last_submission==gpu_submission_frame);
+ // Strong local binding holds the actual buffer if the backing table goes away.
+ weak=first;first=nil;owners.Clear();values.reset();fallback={};
+ Reset();retained=std::move(bindings);
+ }
+ // Drain Objective-C return-value autoreleases before isolating cache ownership.
+ assert(weak!=nil);retained.clear();assert(weak==nil);
+}
 int main(int argc,char** argv) {
  g_hash_enabled=std::string_view(argv[1])=="on";g_stats_enabled=std::string_view(argv[2])=="on";
  @autoreleasepool {
   SelectorChecks();CollisionRehashAndSweep();RetryAndPointerReuse();Reset();
+  GeometryHandoffChecks();Reset();
+  std::printf("PASS frame geometry GPU binding: 10000 repeated selections -> 1 lookup/upload, replacement, nil retry, roles, fallback, next-frame stamps and strong lifetime\n");
   std::printf("PASS actual GPU-buffer lookup/sweep, selector %s, counters %s: collisions, rehash, completion gates, invalidation, ownership, retries, same-address reuse\n",argv[1],argv[2]);
   if(argc>3)Benchmark();
  }
@@ -218,7 +282,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='nfsmw-gpu-lookup-') as temp:
         temp=pathlib.Path(temp);path=temp/'test.mm';path.write_text(source);exe=temp/'test'
         flags=['-O3'] if args.benchmark else ['-O1','-fsanitize=address,undefined','-fno-omit-frame-pointer']
-        subprocess.run(['xcrun','clang++','-std=c++23','-fobjc-arc',*flags,str(path),'-framework','Foundation','-framework','Metal','-o',str(exe)],check=True)
+        subprocess.run(['xcrun','clang++','-std=c++23','-fobjc-arc',*flags,'-I',str(ROOT/'ios/src'),str(path),'-framework','Foundation','-framework','Metal','-o',str(exe)],check=True)
         for mode in ('off','on'):
             for stats in (('on',) if args.benchmark else ('off','on')):
                 subprocess.run([str(exe),mode,stats]+(['benchmark'] if args.benchmark else []),check=True)
