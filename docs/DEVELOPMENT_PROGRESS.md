@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 11 (Stefan): wait until he is back at his Mac for the next dev119
+  check; he offers Time Profiler and Power Profiler. Supersedes requesting
+  another phone Detailed capture now. First inspect Time Profiler+game log;
+  only use one same-sitting power A/B when CPU/correctness supports it.
+
 - November 10 (Stefan): approved continuing the larger draw-data/geometry
   handoff work after dev118 analysis. Preserve current validation/performance;
   continue isolated local trial, no push/merge/release.
@@ -533,7 +538,15 @@ ZIP/signature/cache-app equality pass.104shader libraries,BOTH SDK dylibs and
 223-key catalog byte-identical dev118. On iCloud Desktop; older Desktop
 dev118 in Trash, stable/all ios/build copies preserved. No release/push/merge.
 
-**Next:** install over existing data/settings/args
+**Next (November11 update):** Stefan will wait until back at his Mac and can
+provide Time Profiler and Power Profiler. Do not request another phone capture
+in the meantime. Start with dev119 Time Profiler+nfsmw.log and subjective
+correctness, same existing settings/args below; then assess whether a single
+same-sitting Power Profiler A/B is warranted. Handoff=false vs true in the
+SAME dev119 build isolates this change, with reuse/residency held on; don't
+treat one enabled power trace as savings evidence. Prior phone option below
+remains historical fallback, superseded by his current preference.
+Install over existing data/settings/args
 `--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`.
 New handoff/residency flags default on in trial; no extra enabling args needed.
 One short phone System Activity (Detailed) capture during already-loaded pursuit

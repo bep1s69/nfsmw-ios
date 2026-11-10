@@ -24206,3 +24206,17 @@ is reference if incorrect, preserving residency/reuse controls. No Power
 Profiler A/B now and no promise all Record or prototype cost removed. This
 establishes a frame geometry handle usable by the later native producer,
 not completion of direct D3D or demonstrated battery savings.
+
+## November 11, 2026 — defer dev119 measurement until Mac access
+
+Stefan says he will wait until back at his Mac and can provide both Time
+Profiler and Power Profiler. Current dev119 is built/host-tested, device
+geometry correctness/CPU/energy unverified. Updated checkpoint/private BACKLOG
+so next agent does not request another phone Detailed capture now. First
+Time Profiler+nfsmw.log/current settings and subjective correctness; then
+only a single same-sitting power A/B if CPU evidence warrants it. Same dev119
+with nfsmw_native_geometry_handoff=false/true isolates this change; hold
+command reuse/residency and all graphics/cap/controller/audio settings fixed.
+One enabled power trace alone cannot establish savings. No new test/build/
+trace or app change this turn. Documentation-only git diff --check exit0.
+Preexisting HANDOFF_CHATGPT.md preserved, local commit/no push/release.
