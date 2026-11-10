@@ -24,6 +24,15 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 11 (Stefan): logs/traces must be saved into the dated local Debug
+  folder, not left only in chat attachments/Desktop/Downloads. Archive and
+  hash-verify received evidence before analysis and document its exact path.
+  Use the capture's Europe/Bucharest calendar date; create the new date folder
+  after midnight. Preserve originals and earlier dated archives. November11
+  audit verified all7recent dev115–118 inputs in November10; dev119 midnight
+  trace/log copied and verified into November11. Don't claim those earlier
+  files were missing/lost or silently move their originals.
+
 - November 11 (Stefan): wait until he is back at his Mac for the next dev119
   check; he offers Time Profiler and Power Profiler. Supersedes requesting
   another phone Detailed capture now. First inspect Time Profiler+game log;
@@ -500,6 +509,51 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 11, dev119 Mac Time Profiler analyzed / archive audit completed:**
+Stefan's original trace remains in Debug/10 November 2026 as supplied. A
+payload-verified copy and matching midnight log now live in Debug/11 November
+2026/dev119_iphone_pursuit_time_profile.trace and
+dev119_iphone_pursuit_time_profile_nfsmw.log. Trace296files/163805853bytes;
+log986972bytes. Audit rehashed all338entries from the prior November10 manifest
+(including17power archives/17extractions/11logs), plus7later dev115–118 inputs:
+NONE missing/changed. Earlier captures stay in November10 by date. Exact
+hashes/trace manifest digest/paths in TECHNICAL; no original moved/deleted.
+
+Time Profiler128.779572s,00:25:09.815–00:27:18.595+02:00,iPhone17ProMax,
+iOS27.3(24C5037i),100us high sampling,LiveContainer12052, actual dev119 UUID
+689F21D8-EEF3-39E8-A727-D0D8398D287D in trace. No inferred game image mapping
+needed. Full guarded driving logs6900frames show owner hints59.47%, GPU
+binding reuse62.34%,0binding/budget fallbacks;96.73%fewer command-resource API
+calls vs reference for same run counts. FPS20x60.0/2x59.9/1x59.8;33audio
+windows0gaps,0watchdogs/foreground GPU errors.65background permission warnings
+occur only after scene resign19.622, outside trace/CPU selection. Memory peak
+1638MiB/thermal nominal; not a matched memory saving or subjective acceptance.
+
+Primary8–120s (112s fully driving) vs historical dev110 same-duration high-rate
+selection: app sampleweight170932.0->164920.2ms (-3.52%), but GPU Commands+
+native render queue79126.3->79775.5ms (+0.82%, effectively flat). World/main/
+audio workers also differ, so don't attribute lower whole-app number to renderer.
+Record25466.2->22965.0ms,AGX self5708.2->3799.4ms,Draw destruction4929.3->
+1007.4ms. More complete named draw/frame/storage lifecycle UNION4930.6->3310.3ms:
+some cleanup moved into frame storage, not all eliminated. New command paths
+8133.3ms(4.93%app), owner Capture3670.6ms(2.23%); overlapping/inlined scopes,
+not entirely incremental/removable. No causal net graphics CPU/energy gain
+demonstrated; no same-sitting power A/B justified yet. Compare CPU by rates,
+not these totals against the shorter phone traces.
+
+**Next source decision:** separate frame ownership/geometry handoff from GPU
+ICB command encoding (currently coupled by command_reuse). Proposed bounded
+diagnostic flag gates ONLY ICB pipeline preparation/acquisition/encoding,
+leaves frame pool/geometry handles active, default preserving dev119 behavior.
+This allows owner-only direct Metal vs full trial in the same build/settings.
+It is a proposal, NOT implemented/new IPA or proof ICBs inherently cannot help.
+Use existing direct fallback and actual control/lifetime tests. Don't launch
+another optimization or power matrix on the whole-app -3.52% number. Current
+working build stays dev119/default-off reuse; no new recording requested now.
+Offline analysis helper adds named lifecycle/owner/GPU selection scopes and
+overlap-safe union; tests/totals regression pass. Local docs/tools commit,
+no push/merge/release; HANDOFF preserved, private BACKLOG updated.
 
 **November 10, dev119 BUILT — first frame geometry-handoff slice:**
 New default-ON restart-only `nfsmw_native_geometry_handoff` within default-OFF

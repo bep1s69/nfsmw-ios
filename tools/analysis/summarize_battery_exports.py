@@ -135,12 +135,27 @@ def profile(path, skip, end, process=None):
                     graphics['writer_cp_union_ms'] += weight
                 if any('::Record(' in f for f in frames):
                     graphics['record_inclusive_ms'] += weight
-                if any('::Draw::~Draw(' in f for f in frames):
+                draw_cleanup = any('::Draw::~Draw(' in f for f in frames)
+                if draw_cleanup:
                     graphics['draw_destructor_inclusive_ms'] += weight
                 if any('nfsmw::commands::Batch::Flush(' in f for f in frames):
                     graphics['command_batch_flush_named_path_ms'] += weight
                 if any('nfsmw::commands::' in f for f in frames):
                     graphics['native_command_named_path_ms'] += weight
+                frame_cleanup = any('::Frame::~Frame(' in f for f in frames)
+                storage_lifecycle = any('nfsmw::FrameStoragePool<' in f for f in frames)
+                if frame_cleanup:
+                    graphics['frame_destructor_inclusive_ms'] += weight
+                if storage_lifecycle:
+                    graphics['frame_storage_named_path_ms'] += weight
+                if frame_cleanup or storage_lifecycle:
+                    graphics['frame_cleanup_storage_union_ms'] += weight
+                if draw_cleanup or frame_cleanup or storage_lifecycle:
+                    graphics['draw_frame_storage_lifecycle_union_ms'] += weight
+                if any('nfsmw::FrameOwners<' in f and '::Capture(' in f for f in frames):
+                    graphics['geometry_owner_capture_named_path_ms'] += weight
+                if any('GpuBufferFor<' in f or 'GpuBufferForGeometry<' in f for f in frames):
+                    graphics['geometry_gpu_selection_named_path_ms'] += weight
                 if frames[0].startswith(('AGX::', '-[AGX')):
                     graphics['agx_leaf_ms'] += weight
         e.clear()

@@ -2,6 +2,23 @@
 
 ## Current decision — November 10, 2026
 
+**November11 Mac-profile gate (latest):** dev119's128.8s high-rate capture shows
+mechanism coverage (59.5%owner hints/62.3%GPU binding reuse) and lower Record,
+driver and named cleanup work, but historical dev110 comparison has combined
+graphics-thread CPU effectively flat (+0.82%); lower whole-app3.52%includes
+other workload differences. Draw/frame/storage lifecycle union—not Draw alone—
+falls4930.6->3310.3ms in112s. Current command-cache named paths take4.93%app
+sampleweight. No causal CPU or energy benefit established. Defer power pair.
+
+Next proposed diagnostic: independently select GPU ICB encoding while keeping
+CPU frame ownership/geometry handles active, using existing direct Metal path
+when encoding off. Gate ICB variants/acquisition, not FramePool or geometry.
+Default preserves dev119; no implementation yet. Compare owner-only vs full
+trial before adding more caching or beginning a power matrix. This addresses
+the original plan's attribution requirement; different live pursuits cannot
+prove which component pays. New trace/log archived November11; November10
+archives audited intact (TECHNICAL/DEVELOPMENT_PROGRESS).
+
 **dev119 BUILT:** first geometry-handle implementation below is packaged.
 Actual helper/reference/validation-body tests and iOS build/signature pass;
 host10000repeats exercise one owner-map/one GPU selection, not device savings.

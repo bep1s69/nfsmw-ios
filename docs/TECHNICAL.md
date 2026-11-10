@@ -24220,3 +24220,136 @@ command reuse/residency and all graphics/cap/controller/audio settings fixed.
 One enabled power trace alone cannot establish savings. No new test/build/
 trace or app change this turn. Documentation-only git diff --check exit0.
 Preexisting HANDOFF_CHATGPT.md preserved, local commit/no push/release.
+
+## November 11, 2026 — archive audit and dev119 Mac Time Profiler
+
+Stefan provides original trace path in Debug/10 November2026, reports apparent
+missing archives from last10hours, then supplies Desktop midnight log. Audited
+rather than assuming loss. All338files in prior
+`ios/build/battery-audit-20261110/input-manifest.json` still exist and match
+recorded SHA256;0missing/0changed. Includes17PowerProfiler.aar,17extracted.atrc,
+11logs and original trace data. Rehashed7subsequent inputs against previously
+recorded hashes: dev115 log, dev116 log/catalog/phone tgz+log, dev118 phone
+tgz+log, all correct in November10folder. Results local
+`ios/build/archive-audit-20261111/prior-audit-check.json` and verified-inputs.json.
+Thus earlier captures were archived, not lost. No bulk relocation/deletion of
+November10evidence. Midnight/current-calendar-date folder did not yet exist.
+
+Created `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/`.
+Original supplied trace remains
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/dev119_iphone_pursuit_time_profile.trace`.
+Copied bundle to same basename in November11:296regular files,163805853bytes,
+no symlinks. Source payload manifest before/after copy equals destination
+manifest. Manifest is relative-path -> {bytes,sha256}; canonical UTF8
+json.dumps(sort_keys=True,separators=(',',':')) SHA256
+`4d6edf290b6714fe8df4a871f700fa66b1ccd252e778c151b9bd5751acce2c1a`.
+This is a TREE MANIFEST digest, not a single .trace-file hash. Full manifest:
+ios/build/archive-audit-20261111/dev119-archived-inputs.json.
+
+Copied `/Users/bep1s/Desktop/Pasted 2026-11-11 at 12.29.51 AM.log` to new folder
+as dev119_iphone_pursuit_time_profile_nfsmw.log and byte-verified against original.
+986972bytes,5715lines,SHA256
+`d34a2b71abde69978e29703051db161babd3844635eea09ed35c304889999f7b`.
+All source files kept. Working rule now explicitly records capture-local-date
+archiving/hash verification and path updates across midnight. No standalone
+parallel status/backlog file created; manifests are ignored evidence artifacts.
+
+### Mac capture identity and phase selection
+
+TOC: iPhone17ProMax,12263342080bytes RAM,iOS27.3(24C5037i),Mac Instruments
+27.2(27B52), Time Profiler High100microseconds,user stacks,targetLiveContainer
+pid12052. Capture00:25:09.815–00:27:18.595+02:00,128.779572s,User pressed Stop.
+Trace directly identifies NFSMW UUID689F21D8-EEF3-39E8-A727-D0D8398D287D,
+load0x10b10c000,matching dev119; automatic symbols available. Unlike phone
+traces, no inferred app image bases/nm interpolation required. TOC reports
+run1 even though bundle directory named Trace2.run; use exported run number.
+
+Log:dev119/reuse ON/repeat OFF/residency incremental/geometry handoff ON,
+1x/60,MetalFX/FXAA off,MSAA0.309/309archive pipeline hits,0unavailable,
+31.5ms aggregate Make,worst0.9ms;407ms preparation complete before SDL.
+Driving00:25:12.777–00:27:16.613. CPU8–120s ->00:25:17.815–00:27:09.815,
+112sfully driving, excludes startup/pause/stop/background.
+33coreaudio windows0gaps,0watchdog,0foreground GPU errors.65GPU warnings all
+Insufficient Permission/background execution prohibited, first00:27:20.589,
+after scene resign00:27:19.622 AND after trace stop. Do not count them as
+foreground corruption or hide their presence. No user subjective graphics/
+mute/pacing acceptance supplied. Peak process1638MiB/max periodicfootprint1624,
+thermal nominal; not a matched memory improvement.
+
+Whole-log23guarded300-frame driving windows,6900CPU/GPU-owned frames,
+14308283eligible,5829607direct,12233056ICB draws,808908runs,2075227singles,
+4218393key hits,10089890rebuilt,0budget fallback. Owner hints53474850 /
+36449452map lookups ->59.4665%captures avoid owner map; GPU bindings53463376
+reuses /32294559selections /0fallbacks ->62.3422%persistent selections reused.
+Resource calls94202/537131entries vs2884135reference calls for identical
+run+single counts ->96.7338%fewer command-resource API calls. FPS20x60.0,
+2x59.9,1x59.8,0GPU>45ms reports. Whole-log windows differ from exact CPU window;
+log-analysis.json preserves per-window fields, not an exact input replay.
+
+### Export/reproducibility and historic comparator
+
+Audit dir `ios/build/dev119-time-profile-20261111/`. xctrace export TOC from
+original then CPU time-profile from verified November11copy, both exit0:
+`xcrun xctrace export --input <archived.trace> --xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output <audit>/time-profile.xml`.
+Raw CPU XML484MiB; no trace import/re-record needed for Mac .trace bundles.
+Old dev110 TOC also exported exit0; original in November10, actual capture
+Nov10 15:34:52.610–15:37:01.948,129.338030s,matching prior high-rate baseline.
+Existing verified old XML used rather than unnecessary second CPU export.
+
+Run summarize_battery_exports.py profile <XML> --skip 8 --end 120
+--process LiveContainer on EACH high-rate recording (112s each). Logs and
+primary/extended/final JSON retained. Added named Frame destructor/storage/
+owner Capture/GPU-selection footprints and draw+frame+storage lifecycle UNION
+because Draw destruction alone misstates moved work. Scopes overlap; never
+sum them as disjoint costs. Updated unit fixture checks nested frame+storage
+and draw-only union, process filtering/ID refs/windows/exact symbol matching.
+`python3 tools/analysis/test_profile_process_filter.py` exit0, analysis-tests.log.
+Extended/final reruns confirm totals and ALL pre-existing footprint fields
+exactly equal initial outputs. Additional passes were needed for lifecycle
+attribution; no new device recording or app build/tests this session.
+
+### CPU results — local reductions, no demonstrated net graphics benefit
+
+All figures statistical running-sample weights, not exact CPU durations.
+Both windows112s, same sampling rate, different pursuits/dates/settings context;
+not a same-build randomized causal A/B. Primary results dev110 ->dev119:
+
+- Total170932.0ms/1709320samples ->164920.2ms/1649202samples (-3.5171%).
+  Stackless8745.9->8441.4ms (~5.1%both). Rates1.52618->1.47250core-equivalents.
+- GPU Commands32669.6->29614.9ms; native render queue46456.7->50160.6ms.
+  COMBINED79126.3->79775.5ms (+0.8205%,essentially flat).
+- Other workloads also lower: world34404.2->31064.4ms,main guest30486.3->28646,
+  guest audio17115.9->15938.1. Do not attribute whole-app -3.52%to renderer.
+- Record inclusive25466.2->22965.0ms (227.38->205.04ms/s);
+  AGX leaf5708.2->3799.4ms (50.97->33.92ms/s).
+- Draw destructor4929.3->1007.4ms ALONE misleading: new Frame destructor3007.4ms
+  includes1881.6msnamed frame-storage paths. Non-additive draw/frame/storage
+  UNION4930.6->3310.3ms (44.02->29.56ms/s),lower~32.86%, not the apparent
+  ~79.6%Draw-only reduction. Some ownership cleanup moved into frame store;
+  inlined GPU-binding/local destruction may be outside these named scopes.
+- New command paths8133.3ms/4.932%app, Batch named2428.6ms/1.473%; owner Capture
+ 3670.6ms/2.226%; geometry GPU selection named2266.7ms/1.374%. These overlap
+ Record/render/driver and each other; not all entirely added/removable work.
+- Writer/packet union11379.4->10371.9ms (~6.66->6.29%ofapp CPU),still substantial.
+
+Conclusion: data validates ownership/GPU-handle activity, and local driver/
+Record/cleanup reductions. It does NOT demonstrate net graphics CPU benefit
+or battery savings. Current combined trial ties CPU owners/geometry to GPU
+ICBs; its command path still consumes material CPU. Historical workload
+changes prevent claiming ICBs inherently fail, or a3.52%causal gain. Keep
+reuse default OFF, dev119 working trial. No new Power Profiler capture supplied;
+hold off on requested power pair until attribution supports one.
+
+Next bounded proposal (not implemented): independent GPU command-encoding
+switch, default preserving dev119, gates ICB variant preparation/context
+acquisition/encoding ONLY. CPU frame pool/geometry handoff stay selected by
+reuse/geometry controls; direct Metal already exists as fallback. Allows
+owner-only vs full command-cache mode in same build, rather than changing
+several mechanisms at once. Extend actual control/lifetime tests and log both
+CPU-owned/GPU-context activity. Do not add another caching tweak or launch a
+power matrix on historic whole-app difference. No new device run requested
+until concrete diagnostic build exists. No new app/IPA this session.
+
+Shared checkpoint/native plan/private ignored BACKLOG updated, all private
+artifacts remain in Debug/ignored ios/build. git diff --check exit0 before
+local commit; preexisting HANDOFF_CHATGPT.md preserved. No push/merge/release.

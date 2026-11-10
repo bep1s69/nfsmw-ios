@@ -33,6 +33,21 @@ with tempfile.TemporaryDirectory() as tmp:
     assert list(game['threads']) == ['GPU Commands']
     assert profile(p, 2.5, 3.5, 'LiveContainer')['totals']['samples'] == 1
     assert profile(p, 0, None, 'absent')['totals'] == {}
+    # Frame destructor and shared frame-store recycling can be on ONE stack;
+    # the lifecycle union must count that sample once, not add both weights.
+    cleanup=xml.replace('name="shared_function"', 'name="(anonymous namespace)::Frame::~Frame()"')
+    cleanup=cleanup.replace('</tagged-backtrace>', '<frame id="20" name="nfsmw::FrameStoragePool&lt;Data, 3ul&gt;::Take(unsigned int)"/></tagged-backtrace>', 1)
+    p.write_text(cleanup)
+    lifecycle=profile(p, 0, None, 'LiveContainer')['graphics_footprints_ms']
+    assert lifecycle['frame_destructor_inclusive_ms']==1
+    assert lifecycle['frame_storage_named_path_ms']==1
+    assert lifecycle['frame_cleanup_storage_union_ms']==1
+    assert lifecycle['draw_frame_storage_lifecycle_union_ms']==1
+    p.write_text(xml.replace('name="shared_function"', 'name="(anonymous namespace)::Draw::~Draw()"'))
+    draw_only=profile(p, 0, None, 'LiveContainer')['graphics_footprints_ms']
+    assert draw_only['draw_destructor_inclusive_ms']==1
+    assert draw_only['draw_frame_storage_lifecycle_union_ms']==1
+    assert 'frame_cleanup_storage_union_ms' not in draw_only
     image = dict(base=0x4000, preferred=0x1000, sections=[(0x1100, 0x1200)],
                  starts=[0x1110, 0x1150], symbols=[(0x1110, 'first'), (0x1150, 'second')])
     assert name_pc(0x4113, [image]) == 'first'  # tagged non-leaf PC
@@ -45,3 +60,4 @@ with tempfile.TemporaryDirectory() as tmp:
     assert reference_names(p, {('OTHER', 0x10), ('EXACT', 0x14)}) == {}
 print('PASS exact process filtering, cross-process interned refs, unresolved stacks and time window')
 print('PASS symbol section bounds, tagged PCs and exact reference UUID/offset matching')
+print('PASS frame cleanup/storage scopes overlap without double-counting union weight')
