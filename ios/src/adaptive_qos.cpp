@@ -376,7 +376,13 @@ void OnSwap(double interval_ms) {
     // loading) a late frame is invisible, so there the level steps down one
     // at a time after 5 s without a step up, down to Low.
     const bool drive = driving.load(std::memory_order_relaxed);
-    const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 30 ? 1 : 0);
+    // dev113 (Stefan, Nov 10): iPhones at 30/40 drive on the efficiency cores
+    // (Eco 40 measured Nov 9: 17.4-17.5 vs 26-28 %/h, median 39.5-39.7 fps,
+    // "almost perfect"); only 60 starts at Default.
+    const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    // On Low while driving at 30/40 an isolated late frame is accepted (Eco's
+    // behaviour): step up only when a fifth of the last 60 frames were late.
+    const int up_threshold = (drive && m == 0 && cap <= 40) ? 12 : 3;
     static bool was_driving = false;
     bool started = false;
     if (drive != was_driving) {
@@ -395,7 +401,7 @@ void OnSwap(double interval_ms) {
     } else if (drive && m < floor_level) {
       m = floor_level;
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
-    } else if (m < 2 && late_count >= 3) {
+    } else if (m < 2 && late_count >= up_threshold) {
       ++m;
       hold_until = now + std::chrono::seconds(5);
       if (lines++ < 200)

@@ -480,6 +480,11 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev113 BUILT: iPhone 30/40 drive on the efficiency cores.**
+`ios/build/NFSMW-0.6.1-dev113-iphone40-ecores.ipa` on iCloud Desktop. Proposed
+0.6.1 battery scope: cap controller, iPhone 40 on E cores, touch auto-hide.
+Open: optional repeated-draw counter to size a draw-replay project for 60.
+
 **November 10, dev112 cuts reverted (no saving).** Micro-cuts are below test
 resolution. Open choice for Stefan: iPhone at 40 on efficiency cores (Eco-like,
 ~−9 %/h, rare small dips). Shippable so far: cap controller + touch auto-hide.

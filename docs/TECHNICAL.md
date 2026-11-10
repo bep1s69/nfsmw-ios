@@ -22757,3 +22757,18 @@ resolve (~1 %/h); further micro-cuts are not worth Stefan's test runs. The
 remaining large measured lever is the core type: iPhone at 40 on efficiency
 cores (Eco 40 17.4–17.5 %/h, median 39.5–39.7 fps, Nov 9) vs the controller's
 Default at 40 (26.1 %/h, Nov 10, single run).
+
+## November 10: dev113 iPhone 40 on efficiency cores (built, untested)
+
+Stefan: keep 40 on the efficiency cores. `adaptive_qos.cpp` controller: on
+devices with fewer than 6 efficiency cores the driving start level is Low for
+caps up to 40 (was up to 30); 60 keeps Default. While driving on Low at 30/40
+the step-up threshold is 12 late frames of 60 (Eco-like tolerance of isolated
+late frames; Eco 40 Nov 9 had off-grid medians 4–11.5 per 300); elsewhere 3.
+iPad unchanged. Source also carries the dev111 switches (default off); dev112
+cuts are reverted. Build exit 0. IPA `ios/build/NFSMW-0.6.1-dev113-iphone40-ecores.ipa`,
+SHA256 fc13f91a3fa6c69e0ebfb33b567e5bc2017fa594fde007e6a5361d576be4ff40; on iCloud Desktop (dev112 to Trash). Expected (unverified): iPhone
+40 ≈ Eco 40 (~17.5 %/h, Nov 9 sitting). Test: one pair at 40, A
+`--nfsmw_cap_controller=false` (0.6.0 Balanced) vs B empty.
+Note for Stefan's question: no earlier build counted draws identical to the
+previous frame; the October 22 PM4 census counted packets/draws per frame only.
