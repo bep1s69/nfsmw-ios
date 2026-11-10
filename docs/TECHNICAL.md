@@ -23621,3 +23621,39 @@ Stable NFS-Most-Wanted-0.6.0.ipa/all ios/build packages preserved.
 Shared checkpoint/plan/private BACKLOG updated, HANDOFF_CHATGPT.md untouched.
 Local commit only; no push/merge/release. Next CPU profile as above, mute/music
 check whenever convenient; no battery improvement established yet.
+
+## November 10, 2026 — phone-only profiling constraint and pipeline rollout limits
+
+Stefan asks whether pipeline freezes will stop for other players and reports
+no laptop access. Screenshot attachment
+`/tmp/codex-remote-attachments/01a1c612-f9e7-7833-9812-3f01b1cfdbf4/EF08DA63-78CF-4C22-969F-D8696CC6F829/1-Photo-1.jpg`
+shows Performance Trace enabled, Power Profiler selected, ordinary LiveContainer
+monitored (2/3 off), and available System Activity (Detailed), System Activity
+(Summary), Power Profiler, Lookback Collection; no trace files listed. Screenshot
+says toggling enablement requires restart; no need to toggle current enablement.
+
+Next collection adapts to available tools: recommend one90–120s System Activity
+(Detailed) capture via Control Center during dev117 pursuit, same1x/60 settings,
+reuse ON/repeat OFF/mute OFF. Finish graphics prep/loading first. Stop capture,
+share generated file from Available Trace Files plus nfsmw.log. This is an
+explicitly exploratory choice from visible modes: inspect resulting CPU/thread/
+stack tables before asserting equivalence to Mac Time Profiler. No new power
+comparison or tethered Mac requirement. No trace received or measured this turn.
+
+Browsed Apple primary documentation:
+https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler
+confirms on-device collection through Control Center and sharing resulting
+trace with another developer. It documents Power Profiler, not an exact schema
+or sampling guarantee for System Activity (Detailed); searches did not verify
+that guarantee. Do not represent the selected candidate as confirmed Time
+Profiler coverage. Historical source rules still prohibit agent-driven capture.
+
+Rollout explanation: any build including archive-report locking fix and default
+preparation can help other players, including reuse-OFF ordinary rendering.
+Catalog in dev117 seeds223known normal states plus eligible ICB variants;
+Metal pipelines are prepared on each player's device before gameplay. Unknown
+states/settings can still require first-use discovery, including archive-add
+work; do not promise all freezes eliminated. Public stable0.6.0 has not been
+updated, and no release/push authorized. This turn changes documentation only;
+no app changes/build/device tests. git diff --check exit0 before local commit.
+Preexisting untracked HANDOFF_CHATGPT.md preserved; private BACKLOG updated.

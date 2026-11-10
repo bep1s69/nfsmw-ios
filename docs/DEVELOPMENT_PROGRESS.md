@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan, latest): currently has no laptop access. Use phone-only
+  Performance Trace collection; do not require a tethered Mac/Instruments run.
+  Screenshot offers System Activity (Detailed)/(Summary), Power Profiler and
+  Lookback Collection, ordinary LiveContainer monitored.
+
 - November 10 (Stefan): from the next build onward add master game-audio mute,
   preferably also toggleable from the in-game menu, for listening to personal
   music without adjusting every original game volume. Continue battery work.
@@ -526,11 +531,16 @@ On iCloud Desktop; older Desktop dev116 in Trash, stable/all ios/build copies
 preserved.104metallibs and GPU SDK dylib match dev116; runtime only build-label
 string section changed (TECHNICAL). Local branch/no push/merge/release.
 
-**Next battery action:** one90–120s iPhone1x/60 pursuit Time Profiler capture,
-Stefan records through Instruments attached to ordinary LiveContainer; retain
+**Next battery action (updated: Stefan has no laptop):** try one90–120s
+iPhone1x/60 pursuit via phone Performance Trace, System Activity (Detailed),
+ordinary LiveContainer monitored. Start/stop through Control Center after
+graphics preparation and loading; share generated trace plus nfsmw.log.
+This mode is a candidate for CPU investigation, NOT yet a verified replacement
+for Time Profiler: inspect actual exported tables/stacks first. No Power
+Profiler pair or waiting for Mac access required. Retain
 `--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`,
 same graphics/controller settings, mute OFF for this CPU investigation to keep
-audio comparable. Send trace path plus nfsmw.log. No Power Profiler pair yet.
+audio comparable. No Power Profiler pair yet.
 Locate actual costs in Record, frame ownership, command rebuild/encode, driver,
 CP and destruction; ~70% command-key rebuilds mean batching activity alone
 does not establish less CPU. Rendering wall time contains pacing/waits and must
