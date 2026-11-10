@@ -480,6 +480,13 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev114 result (iPad Pro M4, 60):** 0 % of draws repeat
+exactly; VS constants (c0-c3 first) change in ~97 % of draws, textures in
+~47 %. Only-constants draws ~45 %. Draw replay not worth starting on this
+evidence (TECHNICAL, dev114 result). Open lead: why ~47 % of draws see a
+different texture object each frame. Turn `nfsmw_native_repeat_counter` off
+before the next build.
+
 **November 10, dev114 BUILT (diagnostic): repeated-draw counter.**
 `ios/build/NFSMW-0.6.1-dev114-repeat-counter.ipa` on iCloud Desktop (dev113
 moved to Trash there; still in ios/build). `nfsmw_native_repeat_counter`

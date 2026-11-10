@@ -22801,3 +22801,23 @@ incremental). IPA `ios/build/NFSMW-0.6.1-dev114-repeat-counter.ipa`, SHA256
 Desktop (dev113 to Trash). The counter adds render-queue CPU, so this build
 is not for power measurement. Test: one normal pursuit, send the log.
 
+### dev114 result (Nov 10, iPad Pro M4 per log: 16 GB, 120 Hz screen; cap 60)
+
+Log: `Debug/10 November 2026/dev114_repeat_counter_pursuit.log`, 27 reports
+of 300 driving frames. Measured: 1,900–4,160 draws/frame (mostly 2,500–3,500);
+98–99.7 % matched to the previous frame by identity. Identical draws: 1.8 % in
+the first report, 0.0 % in all others. Only constants differ: 40–51 %, almost
+all VS-only, ~9–13 VS registers per draw; most changed c0-c3 (every such
+draw), then c12-c15/c16-c19 and c20-c27/c40-c43 (inference: the
+world-view-projection matrix and per-object/camera transforms). Of matched
+draws: VS constants change 95–98.5 %, textures 40–54 %, geometry 5.5–11 %
+(fresh decode 4–8 %), PS constants 1–5 %, state 0.1–0.3 %, booleans 0.
+Conclusion: exact replay of whole draws saves nothing (camera matrices change
+every draw every frame). A replay that rewrites only VS constants would cover
+~45 % of draws; the other ~47 % change the texture object per slot, which is
+unverified as a real content change (could be per-frame resolve copies or
+texture-cache re-creation; not split here). Not measured: CPU time per part,
+iPhone. Verdict: not worth starting as a post-0.6.1 project on this evidence;
+the texture-identity churn is the more interesting lead (a possible cache
+cost of its own) and would need a split counter first.
+
