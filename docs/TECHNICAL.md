@@ -23923,3 +23923,156 @@ pair now, no promised removal of whole2.29%batch or4.52%command CPU envelope,
 no net savings claim from different pursuit workloads. Device correctness,
 CPU reduction, memory/pacing and energy acceptance remain pending; inspect
 bounded result before Store/pin/Record/producer changes.
+
+## November 10, 2026 — dev118 phone trace: less batch work, net energy unproved
+
+Stefan supplies log and says new trace Desktop. Desktop contained only IPAs/
+older log; found latest `/Users/bep1s/Downloads/trace_2026-11-10-232127.atrc.tgz`,
+891590064bytes,SHA256
+`21923358028e4110fac9320340446fdcf1b41fa0459e3b8db9d57eea25202e33`.
+Validated tar has one regular member trace_2026-11-10-232127.atrc,
+5360993291bytes; streamed into ignored ios/build/dev118-system-activity-20261110.
+Archive preserved in
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/dev118_system_activity_detailed_232127.atrc.tgz`.
+Matching sibling dev118_system_activity_detailed_232127_nfsmw.log copied from
+`/tmp/codex-remote-attachments/01a1c612-f9e7-7833-9812-3f01b1cfdbf4/5B54BF51-AD85-421F-9812-368E9EE374BD/1-nfsmw.log`.
+Log718668bytes/4249lines,SHA256
+`78a8f4cfc424ba33fd020fa38b481ba6006f3ed78e9d160ce8e3acadc9707ce6`.
+Downloads/attachment originals untouched; no new recording.
+
+### Coverage and functional telemetry
+
+TOC start2026-11-10T23:21:27.967+02:00,end23:22:00.192+02:00,
+32.224895s; all processes, V54AP/12263342080bytes RAM/iOS27.3(24C5037i).
+Do not use rounded filename start for clock alignment. Log explicitly dev118,
+reuse ON/repeat OFF/residency incremental,1x/60,MetalFX/FXAA off,MSAA0.
+Preparation223normal+86ICB ready,0unavailable,309/309archive hits,
+28.1ms aggregate Make,worst0.8ms; finishes23:20:51.580 in374ms before SDL.
+No subsequent pipeline-made/archive-save reports,0GPU errors/0watchdog stalls.
+No explicit subjective picture/mute result supplied; telemetry is not complete
+visual correctness or release acceptance.
+
+Driving starts23:21:25.409; log ends23:22:57.107 scene resigns active/background.
+24audio windows:23zero-gap,one50gap at23:21:29.895 (12800silent frames,
+longest submit gap3013.5ms). Its5s window straddles loading/drive transition;
+not all gaps can be assigned to before driving. Primary and aligned CPU
+windows below are after it. No screen-gap reports in guarded driving; this
+is not proof of zero missed frames (diagnostics can be limited).
+
+Whole-log17complete300-frame driving windows with2s boundary guards:
+5100frames/GPU contexts/CPU owners,11873565eligible,5056749direct,
+9945093ICB draws,637300runs,1928472single-direct batch draws,3309819key hits,
+8563746rebuilt,0budget fallback;66.29248%ICB share.
+FPS summaries13x60.0,one each59.4/59.2/59.8/59.9,0GPU>45ms in those summaries.
+These whole-log windows extend past the actual trace and are not the CPU
+selection. Actual command-residency counters61564useResources calls and
+391350resource entries. Reference always issues one useResources for each
+nonempty batch; same run+single counts imply2565772reference calls for these
+EXACT commands, hence97.600566%fewer command-resource API calls. This is an
+algorithmic/API-count comparison using source invariants, not measured CPU/
+GPU/DRAM traffic or energy savings and not all renderer resource declarations.
+Derived log-analysis.json records windows/totals.
+
+### Import once, export and exact-process symbol analysis
+
+Avoided the previous duplicate implicit imports:
+`xcrun xctrace import --input <audit>/trace_2026-11-10-232127.atrc --output <audit>/imported.trace`
+exit0 (import.log, multi-minute import/save), then
+`xcrun xctrace export --input <audit>/imported.trace --toc --output <audit>/toc.xml`
+and export time-profile using the existing XPath, exit0 (toc-export.log,
+profile-export.log). Export still materializes tables but does not re-import
+raw atrc. Instruments27.2(27B52); read-only analysis, no capture. Intermediate
+readiness probes saw absent/incomplete outputs while work was active; final
+XML parsed successfully. No build/test failure this session.
+
+Exact dev118 IPA executable extracted to NFSMW-dev118, UUID
+1B6B7491-2554-389E-9A51-B67FEB15BE84; runtime UUID
+3181B7F5-7896-3362-A9C7-40678E591028 and GPU SDK UUID
+3F81A545-AEBC-3ACF-A606-B9427F18B778 match log. Trace again omits manually
+loaded game/SDK image metadata: load bases INFERRED/corroborated with multiple
+exact callsites, not read from trace image mapping. Main0x10f2a4000,
+runtime0x10c238000,GPU0x124b54000. Tagged PCs low2bits masked. Checks:
+raw0x1119e49e3 ->0x1027409e0,SDL_RunApp+108,bl UIApplicationMain stub;
+0x10f3e5543 ->0x100141540,CpDraw bl NativeDraw;
+0x10c2be65f ->0x8665c,ThreadStartRoutine+432;
+0x124b76cb3 ->0x22cb0,WorkerThreadMain bl ExecutePrimaryBuffer;
+0x124b7bf07 ->0x27f04,ExecutePacketType3Draw native callback blr.
+Bounded llvm-objdump -d and atos agree. Main build inferred from dev118 marker,
+exact local artifact and callsite consistency, not a recorded main UUID.
+
+Used existing symbolize_profile_images.py with ignored images.json, exact
+UUID-checked binaries and --reference old dev110 XML for ONLY identical
+system-image UUID/instruction-offset matches.19289frame definitions named.
+No nearest-system-PC or other-build object substitution. Existing profile tool
+uses --process LiveContainer (pid11916) and windows below. Original raw exports
+preserved; unchanged analysis tools, no new tests required this session.
+
+### Targeted CPU comparison, including negative/inconclusive net result
+
+Primary10–30s window:23:21:37.967–57.967,fully driving after transition,
+25883running samples/25883ms statistical weight,387ms stackless(1.495%).
+Sample weights are CPU estimates, not exact runtime. Record2702ms/10.439%,
+writer/packet union1839ms/7.105% (guest882,CP957), Batch named paths
+384ms/1.484%, all named command paths1053ms/4.068%, destruction104ms/0.402%,
+AGX self559ms/2.160%. Thread totals:render queue8438ms,GPU Commands4075,
+Main XThread4886,game worker XThreadCA134612,audio guest XThread153072246,
+Main Thread1092; overlaps/caller attribution rules as previous analysis.
+
+Compared dev116 primary20s:Batch574ms ->384ms,33.10%lower named target
+sampleweight; named command paths1136->1053ms. Named batch sorting paths
+156ms ->0 (same exact namespace/template test, command-sort-comparison.json).
+However total app sampleweight25110->25883ms,3.08%HIGHER in this window;
+it would be incorrect to call this a net CPU improvement or hide this result.
+Different route timing/workloads and profiler overhead remain confounders.
+
+Sensitivity dev1188–30s:28642ms/417stackless,Record10.485%,Batch1.512%,
+command4.113%,bridge7.189%;12–28s:20580ms/309stackless,Record10.199%,
+Batch1.487%,command3.980%,bridge7.026%. Same targeted direction as primary.
+Also aligned by time SINCE driving, both8–24s after driving starts:
+dev116trace14.391–30.391s vs dev118trace5.442–21.442s (both after gaps).
+Dev11620325ms vs dev11820282ms TOTAL (essentially unchanged,-0.21%).
+Batch469->305ms,-34.97%; command951->841ms;Record2139->2110ms;
+bridge1448->1484ms;AGX449->447ms. These are live pursuits, not deterministic
+input replays or randomized/matched energy A/B. Alignment reduces one
+confounder; it does not establish causal global savings. Dataset comparison.json
+and per-window JSON retain all selections, not just the favorable one.
+
+Conclusion: evidence supports less repeated resource processing in dev118,
+with target API-count reduction, disappearance of sort samples and consistently
+lower named Batch CPU work. Keep as working trial, command reuse stays default
+OFF. No overall CPU or battery improvement demonstrated. No Power Profiler/
+system-energy measurement supplied; don't start another tiny power matrix.
+No subjective graphical/mute acceptance inferred from this upload.
+
+### Next larger source target, no additional recording requested
+
+Record remains~10.4%inclusive app sampleweight; direct writer/CP envelope~7.1%.
+Source follow-up to avoid another blind microchange: exact dev118 Record self
+PC histogram1922ms, current native_renderer.mm.o timestamp23:15 matches this
+last build and production source unchanged. atos source call-lines cross-checked
+with bounded disassembly:0x1001ab288142ms and neighboring PCs map to attribute
+lookup3115, source-line aggregate309ms;0x1001ad2e891ms maps to local attribute
+owner release3308 (ldaxr/stlxr control-block decrement); frame-pin3552 line
+aggregate175ms, TextureOf3491 aggregate120ms. Sampling skid/inlining/line0
+locations make these call-line attributions, not exact removable code costs.
+Record-source-groups.json retains approximate self-only groups:lookup/validation/
+memo588ms,decode/publication/local destruction281,frame pin/append236,
+index preparation166,vertex fetch/layout72,texture/draw state253,constants/
+state setup40,guards26,headers/unknown256. These sum1922ms SELF, not the
+2702ms inclusive Record envelope. No claim whole10.4%can be removed.
+
+Next design should combine geometry validation and ownership/GPU handoff:
+frame-owned geometry bundle/handle rather than constructing/transferring
+per-attribute owners and performing a second pin traversal, account for later
+GpuBufferFor selection so costs are removed rather than shifted. Preserve
+ALL current guest-byte/write-watch/fingerprint checks, layout/index/endian/
+remap semantics and GPU completion lifetime. Review failed dev112 draw-order
+memo before proposing implementation; do not revive it or weaken validation.
+Direct D3D ordered producer remains the larger architectural follow-up. Size
+concrete combined scope from source before another change/build; no further
+recording requested now. No app changes/new IPA this analysis session.
+
+Shared checkpoint/native plan/private ignored BACKLOG updated. All raw/derived
+exports, imported.trace, binaries/manifests and source-PC reports remain ignored
+in ios/build/dev118-system-activity-20261110. git diff --check exit0 before
+local commit. HANDOFF_CHATGPT.md preserved; no push/merge/release.

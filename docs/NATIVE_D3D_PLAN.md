@@ -2,6 +2,18 @@
 
 ## Current decision — November 10, 2026
 
+**dev118 result (latest):** actual driving logs show97.6%fewer command resource
+API calls than the reference would make for identical command-run counts.
+Targeted Batch CPU sampleweight falls~33–35%; named batch-sort samples vanish.
+Total app CPU essentially unchanged in driving-relative aligned windows; no
+net CPU/energy benefit established by different live pursuits. Keep working
+trial/default-off reuse; no more small batching experiments now. Next larger
+source design: Record's geometry bundle/owner handoff (~10.4%inclusive scope,
+not all removable), including downstream GPU-buffer selection and existing
+validation. Avoid reintroducing failed dev112 draw-order memo. Ordered direct
+D3D producer remains next major architectural stage (~7%packet bridge envelope).
+No further device capture requested until concrete new source work exists.
+
 **dev118 built (latest):** implemented incremental per-encoder command resource
 declarations with flat pointer set/last-binding checks; old gather/sort path
 retained via nfsmw_native_command_residency=false. Default on only within

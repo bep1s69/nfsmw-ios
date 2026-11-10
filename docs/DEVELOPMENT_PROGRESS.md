@@ -492,6 +492,46 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 10, dev118 device/profile result — local improvement confirmed, no net battery claim:**
+Newest trace actually Downloads/trace_2026-11-10-232127.atrc.tgz, archived with
+matching log as Debug/10 November 2026/dev118_system_activity_detailed_232127*.
+32.224895s,23:21:27.967–23:22:00.192+02:00,V54AP/iOS27.3(24C5037i).
+dev118/reuse ON/repeat OFF/residency incremental,1x/60.309pipelines all archive
+hits,374ms preparation,no later save/GPU error/watchdog. One50-gap audio window
+straddles loading/driving transition; steady selected CPU windows exclude it.
+No explicit subjective picture/mute acceptance supplied. Full log17guarded
+300-frame windows FPS13x60.0,59.4/59.2/59.8/59.9,0GPU>45ms reports.
+
+Actual command resource calls61564 vs2565772 the reference would issue for the
+SAME run/single counts across5100frames:97.6006%fewer API calls (not energy).
+Primary CPU10–30s,25883samples/ms weight,387stackless:Batch named384ms/1.484%
+vs dev116574ms/2.286%; ~33.1%less targeted sampled work. Driving-relative8–24s
+alignment:305ms vs469ms,~35.0%less; total app sampleweight20282vs20325ms,
+essentially unchanged. Primary total25883vs25110ms is3.08%higher; do not omit
+that differing-window result. Record remains~10.4%,writer/CP~7.1%. Named batch-sort
+samples156ms->0 in primary windows. Different live pursuits/profiler overhead
+preclude causal net CPU or energy claims. Keep dev118 as trial working build;
+command reuse stays default OFF. No new app change/IPA this analysis session.
+
+**Next source work:** the larger Record draw-data handoff. Exact dev118 PC/line
+follow-up finds attribute lookup/validation, transient attribute owners and a
+second frame-pin traversal remain; don't treat its entire10.4% as removable.
+Design a frame-owned geometry bundle/handle path that avoids repeated ownership/
+lookup work while keeping ALL existing guest-byte/write-watch/fingerprint,
+index/remap/endian, shader-layout and lifetime validation. Include the later
+GpuBufferFor handoff in the design so work is removed rather than moved.
+Read failed dev112 draw-order memo evidence first; this is not permission to
+revive it or weaken validation. Size a concrete combined representation change
+before coding, preserve direct D3D ordered producer plan (~7%bridge envelope)
+as the larger next stage. No further capture/power pair requested now.
+
+Reproducible exports now import large atrc ONCE via xcrun xctrace import into
+ignored <audit>/imported.trace, then export toc/time-profile from that document.
+Avoid repeated multi-minute implicit import for each table. Inputs, image-base
+inference/callsite validation, exact-UUID system symbol matching and commands
+in TECHNICAL. All derived files in ios/build/dev118-system-activity-20261110.
+Local docs commit/no push; HANDOFF preserved, private BACKLOG updated.
+
 **November 10, dev118 BUILT — incremental command resource residency:**
 Continued the approved stage-1 trial after phone CPU analysis. Batch no longer
 gathers/sorts all repeated command resources on every flush: a per-encoder flat
