@@ -22821,3 +22821,234 @@ iPhone. Verdict: not worth starting as a post-0.6.1 project on this evidence;
 the texture-identity churn is the more interesting lead (a possible cache
 cost of its own) and would need a split counter first.
 
+## November 10: independent audit of today's battery evidence (Codex)
+
+Stefan requested investigating everything in today's Debug folder and whether
+meaningful battery savings remain possible. Scope: read-only production-source
+and capture audit, plus a reusable analysis parser; no production changes,
+SDK patch, IPA, device experiment, push or release. At start Git was clean
+except pre-existing untracked HANDOFF_CHATGPT.md. Read checkpoint/backlog and
+recent technical evidence; inspected git log -15 through a2f35f5. Preserve
+the earlier experiments as historical evidence; corrections below supersede
+overbroad interpretations, not the raw measurements.
+
+### Inputs, method, and reproducibility
+
+Root: `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/10 November 2026/`.
+Inventory: 338 non-.DS_Store files, including 17 .aar archives, 11 .log files
+and the dev110 .trace internals. All archives extracted with `aa extract`
+(exit 0); all power tables re-exported with xctrace (17/17 exit 0). Reviewed
+logs across every experiment directory, dev110's standalone log and dev114's
+standalone log. dev112 all.log is cumulative (starts with controller-vs-
+Balanced), not a separate new power run. Avoid counting old sessions twice.
+Raw trace internals are interpreted through xctrace, not individually decoded.
+No input was modified. A per-file byte count/SHA256 manifest and derived
+exports are in ignored `ios/build/battery-audit-20261110/`; essential findings
+are recorded here, so the cache is not the only context.
+
+Power sessions: iPhone 17 Pro Max/V54AP, OS 27.3 (24C5037i), Instruments
+27.2 (27B52), 1x, caps/settings/Extra Args as each earlier dev109–112 entry
+records. No new build identities: retain the IPA hashes and exact arguments
+in those entries. The first dev109 pair has 44% / 33% exported brightness;
+dev109 AB has 27%; the remaining captures 26%. All 17 exports have Nominal
+thermal coverage; no charging intervals surfaced in the selected exports.
+Nominal does not establish identical die temperature, clocks or device state.
+No actual remaining-capacity discharge/endurance measurement was made.
+
+Reusable parser: `tools/analysis/summarize_battery_exports.py`. It resolves
+cross-row/table XML references, clips interval overlap, duration-weights power,
+reports brightness/thermal coverage, and aggregates running CPU sample weights
+with unresolved-stack coverage. Preserve raw impact column/kind names rather
+than assigning undocumented enum semantics or interpreting them as watts.
+The earlier speculation that the CPU lane necessarily includes display power
+is not established by these data. Apple's documented process impact values
+are device-specific; system %/h and process impacts are different quantities.
+
+Reproduce extraction for each .aar into a distinct ignored subdirectory:
+`aa extract -i <original.aar> -d <output-directory>`.
+Export its .atrc using `xcrun xctrace export --input <file.atrc> --xpath
+'/trace-toc/run[@number="1"]/data/table[@schema="SystemPowerLevel" or
+@schema="ProcessSubsystemPowerImpact" or @schema="DisplayBrightnessLevel" or
+@schema="DeviceChargingState" or @schema="SystemThermalState"]' --output
+<power.xml>` (XPath is a single shell argument; join the wrapped lines).
+Run `python3 tools/analysis/summarize_battery_exports.py power <power.xml>`
+for the historical first-10s-drop calculation, or add `--skip 15 --end 110`
+for a common 95s interior window. Outputs: power-summary.jsonl and
+common-window-power-summary.jsonl in the audit cache. Also checked first-15s
+to five seconds before log driving-stop (guarded-power-summary.jsonl);
+that check uses filename seconds, with <1s start-rounding uncertainty.
+
+Time Profiler: `xcrun xctrace export --input <original dev110 .trace>
+--xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]'
+--output <time-profile.xml>`, then
+`python3 tools/analysis/summarize_battery_exports.py profile <time-profile.xml>
+--skip 5 --end 120`. Export and final parser exit 0. The 5–120s interval is
+inside the logged pursuit, excluding startup/stop transitions.
+
+Initial un-escalated xctrace --toc failed exit 134: Instruments could not
+create Library/Caches/com.apple.dt.InstrumentsCLI/path_manager. Approved
+escalated exports succeeded. CPU export emitted repeated debug-map remapping
+warnings; function names/UUID/core/thread information remain usable, but this
+audit does not claim fresh line-level symbol accuracy. Initial parser failed
+on stack sentinel rows (KeyError None); corrected it to retain their CPU
+weight as unresolved. Also corrected render-worker grouping to classify the
+entire thread once RenderFrame is seen, including destructor work outside
+RenderFrame. Final run succeeds on all 1,744,500 selected running samples.
+
+### Independently reproduced system power (% battery energy/hour)
+
+The 10s-trim column reproduces prior rounded results. The common-window
+column is a sensitivity check, not a replacement chosen to favor an arm.
+
+| Directory / start | 10s trim | Common 15–110s |
+|---|---:|---:|
+| dev109 iPhone / 15:11:28 (60, 44%) | 42.46 | 42.95 |
+| dev109 iPhone / 15:13:53 (40, 33%) | 35.20 | 35.42 |
+| dev109 AB / 15:20:29 (controller 60, carried boost) | 40.16 | 40.57 |
+| dev109 AB / 15:23:47 (Default 60) | 37.76 | 38.23 |
+| dev109 AB / 15:26:55 (40) | 26.14 | 27.97 |
+| dev111 / 15:52:20 (OFF) | 27.84 | 28.07 |
+| dev111 run 2 / 15:58:31 (ON) | 30.87 | 31.75 |
+| dev111 alternating / 16:04:56 (OFF) | 29.14 | 30.22 |
+| dev111 alternating / 16:08:00 (ON) | 28.66 | 28.83 |
+| dev111 alternating / 16:10:58 (OFF) | 28.67 | 29.86 |
+| dev111 alternating / 16:14:14 (ON) | 29.34 | 29.10 |
+| controller vs Balanced / 16:21:38 (Balanced) | 28.97 | 30.30 |
+| controller vs Balanced / 16:25:12 (controller) | 27.57 | 28.22 |
+| controller vs Balanced / 16:28:20 (Balanced) | 28.86 | 29.29 |
+| controller vs Balanced / 16:31:18 (controller) | 27.56 | 28.51 |
+| dev112 / 16:45:08 (OFF) | 26.50 | 26.78 |
+| dev112 / 16:48:10 (ON) | 27.61 | 28.23 |
+
+Controller configuration: mean 28.915 -> 27.564 %/h, reduction 1.351
+percentage points/hour, 4.67% relative (not 4.67 battery points/hour).
+Common-window reduction 1.425 points/hour (4.78%); direction survives trimming.
+However common-window pair reductions are 2.078 and 0.772, not identical.
+The controller arms execute fewer instructions: historical trim mean
+10.55 vs 11.16 G/s (~5.5% lower), common window 10.77 vs 11.46 (~6.0% lower).
+Pursuit workload and effective dev111 switch behavior are confounders; this
+is repeatable observed configuration improvement, not a clean isolated
+controller-only causal estimate. Power-window log FPS medians are 60 in all
+60-cap runs; no new claim of identical per-frame latency/smoothness.
+
+dev111 whole-trace alternation has essentially zero mean difference
+(OFF 28.905 vs ON 29.000). Common 15–110s means are OFF 30.039 vs ON 28.965;
+guarded-stop means OFF 29.327 vs ON 28.868. The conclusion is **no robustly
+established gain**, not proof that the code has zero effect. Four short
+pursuits cannot establish a universal 0.5 %/h noise bound or that one pair
+resolves every 1 %/h change. Respect Stefan's one-pair limit: do not request
+more repetitions of these low-yield experiments to settle that question.
+dev112 shows no gain under either window. A single pair also cannot prove
+the isolated changes cause a regression. Its pool's lack of hits is an
+implementation-path failure, not evidence that codec reset reuse cannot help.
+
+### CPU cost envelope, and why the small tests did not settle feasibility
+
+dev110 UUID F21AEC52-98B9-3265-B696-195C9F82119C, iPhone 17 Pro Max,
+OS27.3, controller Default, cap60, pursuit. Selected 115s: 174,450 ms
+running-sample weight = 1.517 core equivalents, 1,744,500 samples at 100us.
+8,927.4 ms (5.12%) lack a stack; included in thread totals, not self attribution.
+
+| Domain | Weighted CPU ms/second | P-core share |
+|---|---:|---:|
+| Native render workers, including caller/teardown | 412.46 | 78.8% |
+| Guest world/game worker XThreadD523 | 305.91 | 89.2% |
+| GPU Commands CPU thread | 289.17 | 75.6% |
+| Main XThread | 271.26 | 65.9% |
+| Guest audio worker XThreadD633 | 150.85 | 55.7% |
+| UIKit Main Thread | 53.25 | 92.7% |
+
+Native render + GPU Commands = 701.63 ms/s, 46.25% of app sampled CPU.
+This is not 46% removable work or a predicted battery saving. Record self is
+15,618.4 ms /174,450 = 8.95% of app samples; sub_82699100 self 4,591.7 ms
+= 2.63%; RenderFrame self 3.63%. Original per-function/thread attribution
+is substantially reproduced. Exclusive/self and inclusive times must not be
+added together (Draw destructor and frame reset overlap). Scheduling work
+onto a Utility queue does not eliminate allocations/reference operations.
+The attribute lookup target (~21% of Record) was ~1.9% of all sampled CPU
+even if fully removed; dev112's 19% memo hit coverage limits its possible
+payoff further. Codec reopens were ~9% of a ~10% audio share, below ~1% of
+app sampled CPU. This explains why these were weak candidates for large
+end-to-end gains; it does not mean all future CPU optimization is exhausted.
+
+QoS is a scheduling hint, not E/P affinity. Prior November9 main-only/GPU-only
+boost trials already exist; do not present repeating those flags as a new
+discovery. Their cross-run power estimates are confounded too. Today's data
+do not establish that 60 on fewer P cores is impossible or that any proposed
+selective boost will save energy. At 40 the substantial Eco result belongs
+to November9, not a newly validated dev113 result: no dev113 power pair exists
+in today's folder. Keep that existing pending check separate.
+
+### dev114: what its counter actually measures
+
+27 reports x300 frames = 8,100 counted driving frames on iPad Pro M4 at
+1.5x/cap60, a different device from the CPU trace. Weighting displayed
+draws/frame gives 99.26% identity matches, 0.0447% exact matches over the
+entire log (first report 1.8%, subsequent reports 0.0%), 44.15% constants-only.
+Displayed rounded percentages limit precision. Per-report texture-wrapper
+change min/median/max 39.6/47.2/53.7%; geometry 5.5/9.0/13.2%; state
+0.1/0.1/0.3%; VS constants 95.2/96.3/98.5%; PS constants 1.0/2.0/22.8%.
+The previous PS 1–5% / geometry 5.5–11% summaries miss late-window maxima.
+
+Source finding: CountRepeatedDraws hashes `frame.textures[t].get()`, the
+address of a CPU `Texture` object. `TextureOf` explicitly constructs a new
+`make_shared<const Texture>` placeholder for current/persistent resolves
+each frame, while RenderFrame separately resolves its guest address to Metal
+resources. Thus pointer change need not be GPU allocation, content change,
+miss, decode or upload. ~47% is not evidence of pathological texture churn.
+This is a proven measurement ambiguity; the fraction explained by placeholders
+is unmeasured, so do not claim it explains every changed pointer either.
+Existing logs show many retained/reused GPU targets and few decoded textures
+in steady windows, consistent with ambiguity rather than proving a cache bug.
+
+Identity also uses nth occurrence within a broad shader/count/target signature,
+not a persistent semantic object ID. Hash equality is not collision-free proof;
+pass/clear/resolve ordering, samplers, effective Metal bindings and upload
+addresses are not comprehensively validated. Consequently these statistics
+neither certify replay safety nor estimate its CPU saving.
+
+Fresh transforms are normal in a moving-camera game. They forbid blindly
+reusing unchanged complete draw data, not reusing command structure with
+updated buffer contents. Apple's CPU-encoded ICB sample explicitly updates a
+per-frame buffer then executes a reusable ICB. Our renderer currently packs
+VS/PS/shared data using per-frame GPU addresses (RenderFrame upload/put path),
+so exploiting this would require stable slots or safe per-frame binding
+updates, resource lifetime/residency protection and exact pass ordering.
+No claim that ICBs can simply be enabled or cover 99% of draws. Diagnostic
+dev114 adds CPU work and is unsuitable for energy comparisons; disable with
+`--nfsmw_native_repeat_counter=false` and default off before normal builds.
+
+### Recommended direction and stopping rules
+
+Less battery is demonstrably possible at lower caps; a modest observed
+configuration improvement already exists at 60. A large additional gain at
+60 with unchanged visuals is plausible, not demonstrated or guaranteed.
+The strongest measured area is the render submission/translation path as
+a whole. Proposed next project (requires source-change approval): bounded
+reusable frame/draw/resource storage plus reusable command submission where
+safe; compare against existing Metal encoding, with fallback for dynamic
+passes. First establish equivalent rendering and a material reduction in
+device CPU work; only then use one same-sitting power pair. An engineering
+gate such as >=10% total app CPU reduction would filter out another chain of
+micro-tests; this is a proposed gate, not a predicted achievable saving.
+Metal ICB/argument binding changes and native D3D bypass are alternative or
+complementary larger projects, not free savings to add together. Native D3D
+has substantial state/query/fence/resolve correctness risks; no rewrite
+justified merely by these thread totals. Do not ask for another broad power
+matrix, resurrect the non-hitting codec pool, or chase pointer churn without
+first distinguishing placeholders from actual resources. No additional
+device recording requested in this audit.
+
+Primary sources checked November10:
+- [Apple Power Profiler](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler):
+  system battery-energy/hour versus process impact; device-model limitation;
+  nominal state does not make all external factors identical.
+- [Apple CPU ICB sample](https://developer.apple.com/documentation/metal/encoding-indirect-command-buffers-on-the-cpu):
+  command reuse alongside updated frame-state buffers.
+
+Validation: 17/17 power exports and both parser modes completed exit0;
+whole-trace values reproduce earlier records within rounding; interior-window
+sensitivity measured rather than assumed. No app build/test is warranted for
+an analysis-only tool/document change. BACKLOG stays private/ignored and is
+updated locally; HANDOFF_CHATGPT.md preserved. Local commit only.
+

@@ -463,6 +463,47 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 10, independent audit of the entire November 10 debug folder:**
+Re-exported all 17 Power Profiler archives and the dev110 Time Profiler;
+reviewed all 11 logs (including dev112's cumulative all.log), inventoried and
+hashed 338 non-.DS_Store files including trace internals. No game/SDK changes,
+IPA, device run, push or release. Reusable read-only parser:
+`tools/analysis/summarize_battery_exports.py`; derived XML/JSON and manifest in
+ignored `ios/build/battery-audit-20261110/`. Full results, reproducible export
+commands and limits are in TECHNICAL's independent audit entry below.
+
+The 60-fps controller configuration shows a modest repeatable observed saving
+(28.92 -> 27.56 %/h, 4.67%, previous 10s trim), but the controller-only causal
+effect is not isolated: dev111 switches differ in effective behavior and
+instruction rates differ. Window selection changes the apparent dev111 result;
+do not call the four short runs proof of zero effect or a universal 0.5 %/h
+resolution. Retain the conservative decision to park dev111/dev112, without
+another power test of those same implementations.
+
+**Correction to dev114 interpretation:** texture identity compares CPU
+`Texture` wrappers, not Metal texture allocations or contents. `TextureOf`
+creates a new wrapper each frame for resolves; ~47% changed pointers do not
+establish a texture-cache defect. Zero identical full draws does not reject
+ICBs with dynamic constant buffers. Actual counter matching also omits pass
+ordering, exact resource bindings and buffer offsets; it cannot certify safe
+replay. Do not start a texture-churn fix or dismiss structural reuse from this
+counter alone. Existing diagnostic default remains ON; use
+`--nfsmw_native_repeat_counter=false` for any power run and turn it off in
+source before the next normal build/release.
+
+**Next meaningful action:** keep dev113's existing 40-fps check separate;
+for materially better 60, propose a bounded renderer submission/storage
+prototype that removes work across Record + Metal encoding rather than
+moving frees or repeating tiny cache/QoS permutations. Existing iPhone profile
+puts ~46.3% of app sampled CPU in command processing + native render workers;
+this is a cost envelope, not recoverable savings. First show a material CPU
+reduction with equivalent rendering, then spend one same-sitting power pair.
+Native D3D remains a larger, higher-risk alternative. No implementation is
+approved by this investigation request. Earlier checkpoint paragraphs below
+are chronological history, superseded where this audit corrects them.
+Pre-existing untracked HANDOFF_CHATGPT.md remains untouched. BACKLOG.md is
+updated locally but remains ignored/uncommitted under the privacy rule.
+
 **November 9, issue #18 reproduction (D-021):** new converted save, log and
 IPS archived in `Debug/9 November 2026/issue18_reproduction/`. Exact released
 0.6.0 UUID confirmed. Matching-binary disassembly identifies Lua's numeric-for
