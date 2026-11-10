@@ -474,6 +474,10 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev112 cuts reverted (no saving).** Micro-cuts are below test
+resolution. Open choice for Stefan: iPhone at 40 on efficiency cores (Eco-like,
+~−9 %/h, rare small dips). Shippable so far: cap controller + touch auto-hide.
+
 **November 10, dev112 BUILT: attribute draw-order memo + XMA codec pool.**
 dev111 switches back in source, default off. `ios/build/NFSMW-0.6.1-dev112-cpu-cuts.ipa`
 on iCloud Desktop. Next: one A/B pair on the iPhone (A = both new switches

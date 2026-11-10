@@ -141,10 +141,6 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
                     "Native renderer: pool CPU attribute lists per frame and reserve draw storage (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_render_utility, true, "GPU",
                     "Experiment: request Utility QoS for the serial Metal encoding queue (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_sequence, true, "GPU",
-                    "dev112 (Nov 10): remember each frame's attribute entries in draw order and check the "
-                    "same position first next frame (sequential, before the 1.5 MB front cache); exact key "
-                    "match only, content validation unchanged (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_lookup, true, "GPU",
                     "Experiment: cache decoded attribute entry lookups without skipping content validation (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_attribute_bulk_compare, true, "GPU",
@@ -1937,43 +1933,7 @@ bool AttributeBulkCompareEnabled() {
   return enabled;
 }
 
-// dev112: the attribute entries of the last frame in the order Record asked
-// for them. Draws repeat in the same order from frame to frame, so position
-// p of this frame usually has the key position p had: one sequential compare
-// instead of a random probe into the 1.5 MB front cache (the iPhone pursuit
-// profile put ~21 % of Record on that lookup). Pointers into attribute_cache
-// are only erased by Sweep, which runs after the same Clear (SweepAttributeCache).
-struct AttributeSequenceSlot {
-  AttributeKey key;
-  CacheEntry<FloatArray>* entry;
-};
-std::vector<AttributeSequenceSlot> attribute_sequence;
-size_t attribute_sequence_at = 0;
-std::atomic<uint64_t> attribute_sequence_hits{0};
-bool AttributeSequenceEnabled() {
-  static const bool enabled = REXCVAR_GET(nfsmw_native_attribute_sequence);
-  return enabled;
-}
-CacheEntry<FloatArray>& AttributeEntryLookup(const AttributeKey& key, VertexDiagnostics& diagnostics);
 CacheEntry<FloatArray>& AttributeEntryFor(const AttributeKey& key, VertexDiagnostics& diagnostics) {
-  if (!AttributeSequenceEnabled()) return AttributeEntryLookup(key, diagnostics);
-  const size_t at = attribute_sequence_at++;
-  if (at < attribute_sequence.size()) {
-    AttributeSequenceSlot& slot = attribute_sequence[at];
-    if (slot.entry && std::memcmp(&slot.key, &key, sizeof(AttributeKey)) == 0) {
-      attribute_sequence_hits.fetch_add(1, std::memory_order_relaxed);
-      ++diagnostics.attribute_lookup_hits;
-      return *slot.entry;
-    }
-  }
-  CacheEntry<FloatArray>& entry = AttributeEntryLookup(key, diagnostics);
-  if (at < 65536) {
-    if (at >= attribute_sequence.size()) attribute_sequence.resize(at + 1, AttributeSequenceSlot{{}, nullptr});
-    attribute_sequence[at] = {key, &entry};
-  }
-  return entry;
-}
-CacheEntry<FloatArray>& AttributeEntryLookup(const AttributeKey& key, VertexDiagnostics& diagnostics) {
   if (AttributeLookupEnabled()) {
     if (AttributeBulkCompareEnabled()) return attribute_lookup.Find<true>(key, diagnostics);
     return attribute_lookup.Find<false>(key, diagnostics);
@@ -1985,11 +1945,7 @@ CacheEntry<FloatArray>& AttributeEntryLookup(const AttributeKey& key, VertexDiag
 void SweepAttributeCache() {
   static PurgeSeen purge_seen;
   const bool purge = purge_seen.Take();
-  attribute_sequence_at = 0;  // dev112: the next frame starts at position 0
-  if (purge || (frame_counter & 255) == 0) {
-    attribute_lookup.Clear();
-    attribute_sequence.clear();  // before Sweep may erase entries it points to
-  }
+  if (purge || (frame_counter & 255) == 0) attribute_lookup.Clear();
   Sweep(attribute_cache, purge);
 }
 
@@ -9087,10 +9043,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
         REXLOG_INFO("[native] attribute lookup: cache {}; {} hits, {} misses, {} bypasses since last summary "
-                    "(content validation unchanged); draw-order memo {}: {} of the hits",
+                    "(content validation unchanged)",
                     AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
-                    vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses,
-                    AttributeSequenceEnabled() ? "on" : "off", attribute_sequence_hits.exchange(0, std::memory_order_relaxed));
+                    vertex_diagnostics.attribute_lookup_misses, vertex_diagnostics.attribute_lookup_bypasses);
         if (log_settings) REXLOG_INFO("[native] attribute key comparison: {}; front cache {}, {} sets (exact identity, restart required)",
                     AttributeBulkCompareEnabled() ? "base + bulk 32 bytes" : "scalar fields",
                     AttributeLookupEnabled() ? "on" : "off", AttributeLookupSetMask() + 1);

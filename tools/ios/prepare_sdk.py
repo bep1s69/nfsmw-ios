@@ -141,7 +141,6 @@ IOS_PATCHES = [
     "patch_ios_xma_direct_output",
     "patch_ios_xma_starve_mono",
     "patch_ios_xma_lazy_codec",
-    "patch_ios_xma_codec_pool",
     "patch_ios_shader_disasm_log",
     "patch_ios_small_shared_memory",
     "patch_ios_native_backend",

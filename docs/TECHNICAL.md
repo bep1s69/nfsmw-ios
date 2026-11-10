@@ -22731,3 +22731,29 @@ librexruntime: pool cvar, xmaframes_flush symbol). IPA
 (dev111 to Trash). Test (one pair, one sitting, iPhone pursuit 60, 27 %):
 A `--nfsmw_native_attribute_sequence=false --ios_xma_codec_pool=false`, then
 B empty; listen for sound-start artefacts.
+
+## November 10: dev112 A/B pair — no saving; both cuts reverted
+
+Stefan, iPhone, dev112, pursuit at 60, 26 %, one pair. Files:
+`Debug/10 November 2026/dev112 iPhone pair/` (logs `nfsmw.1.log` + `nfsmw.log`,
+older sessions included; runs picked by time).
+
+| start | arm | drain %/h | CPU | GPU | instr G/s | memo share of hits | codec reopens/s | fps min | audio gap windows |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 16:45:08 | A: both off | 26.5 | 17.78 | 4.02 | 10.59 | 0 | 53.7 | 59.4 | 0/26 |
+| 16:48:10 | B: both on | 27.6 | 18.52 | 4.42 | 10.79 | 0.19 | 53.9 | 59.8 | 0/26 |
+
+(Run A's LiveContainer display column read 1.00 instead of the usual ~2.0;
+unexplained.) Measured: no saving. The draw-order memo answered only 19 % of
+lookups (positions shift between frames). The codec pool never hit: reopens
+stayed ~54/s, because the game re-initialises contexts in place
+(ResetDecoderState from Init) rather than releasing them, so the pool's
+Release path is not where reopens come from. Both cuts reverted (source,
+SDK patch reverted with `--revert`, script and prepare_sdk entry removed).
+The dev111 switches stay in source, default off.
+
+Inference: single cuts of ~1 % of app CPU are below what one A/B pair can
+resolve (~1 %/h); further micro-cuts are not worth Stefan's test runs. The
+remaining large measured lever is the core type: iPhone at 40 on efficiency
+cores (Eco 40 17.4–17.5 %/h, median 39.5–39.7 fps, Nov 9) vs the controller's
+Default at 40 (26.1 %/h, Nov 10, single run).
