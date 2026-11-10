@@ -22563,3 +22563,18 @@ Inferences / candidates (not yet approved):
    controller raises all guest threads; keeping it at Utility would move
    ~85 ms/s to efficiency cores (audio-gap risk to check).
 4. Touch overlay redraw on the UIKit thread (~15–20 ms/s), small.
+
+Line-level `Record` attribution (same trace; 179,668 leaf samples on GPU
+Commands inside Record; `dsymutil` of build-0.6 NFSMW, UUID
+F21AEC52-98B9-3265-B696-195C9F82119C = the traced binary; `atos -l
+0x10d640000`; top 400 PCs = 154,596 samples):
+- `native_renderer.mm:3057` `AttributeEntryFor` (attribute cache lookup,
+  already the dev64 lookup cache with bulk compare) 17.6 %, plus
+  `__hash_table` 3.4 %: ~21 % of Record, ~28 ms/s.
+- line 0 (inlined, unattributed) 13.7 %.
+- 3409 texture-slot fetch memcmp 4.5 %; 3250 `d.attributes.push_back` 4.3 %;
+  3210 per-vertex decode loop 4.0 %; 3468 `frame.draws.push_back` 3.7 %;
+  2930 3.1 %; 3117 2.8 %.
+Inference: a per-draw attribute memo (skip the hash lookup when the draw's
+fetch constants and vertex range are unchanged from the previous frame) and
+reserved/reused `attributes`/`draws` vectors are the next Record candidates.
