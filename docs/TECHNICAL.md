@@ -22531,3 +22531,35 @@ dev110 (bug fix within the approved controller): driving always starts at
 the device's start level (`[cap-controller] driving: <level> (start level,
 cap N)`). Build exit 0; IPA `ios/build/NFSMW-0.6.1-dev110-cap-drive-reset.ipa`,
 SHA256 59b63f22170ba69ba3af50996bceb9af1d5929bc8b11963470bc3265fda9507a; on iCloud Desktop (dev109 to Trash). Not device-tested.
+
+## November 10: dev110 iPhone Time Profiler, pursuit at 60
+
+Stefan, iPhone, dev110, 1x, cap 60, Challenge Series pursuit, high-frequency
+sampling (100 µs weight). Trace `Debug/10 November 2026/dev110_iphone_pursuit_time_profile.trace`
+(129 s, 1,946,240 running samples), log `dev110_iphone_pursuit_time_profile_nfsmw.log`.
+Log confirms dev110: `driving: Default (start level, cap 60)` at 15:34:51.
+Parser: `xctrace export` of time-profile, scratchpad tp.py/agg2.py (not
+tracked). Core names: "S Core" = performance, "E Core" = efficiency.
+
+App total 1.51 cores (whole trace, mostly driving). Per thread (ms of CPU per
+second, share on performance cores):
+
+| thread | ms/s | on P cores | biggest self costs |
+|---|---:|---:|---|
+| native render queue (unnamed wq threads, RenderFrame) | 411 | 77 % | RenderFrame self 13.4 %, Draw::~Draw 9.8 % incl, Frame unique_ptr reset 10.8 % incl, objc_msgSend 4.4 %, AGX encoder |
+| XThreadD523 (guest game/world thread) | 305 | 88 % | spread over recompiled game code (top self 3.7 %) |
+| GPU Commands | 287 | 74 % | native `Record` self 46.9 % (~134 ms/s), Fingerprint 7.3 %, memcmp 4.1 %, memmove 3.5 %, mach_absolute_time 3.1 % |
+| Main XThread | 268 | 65 % | sub_82699100 self 14.6 % (game D3D shader-constant commit loop), save/restore GPR helpers 6.5 %, OnMainLoop 2.4 % |
+| XThreadD633 (guest audio: WMA/XMA FFmpeg decode) | 152 | 56 % | decode_frame, ff_wma_run_level_decode, imdct |
+| Main Thread (UIKit) | 53 | 93 % | touch overlay CoreGraphics drawing, run loop |
+
+Inferences / candidates (not yet approved):
+1. `Record` on GPU Commands is the largest single function (~9 % of all app
+   CPU); needs line-level attribution (dsymutil + atos on sample PCs) before
+   choosing a cut.
+2. Render queue per-draw object teardown (Draw destructor + frame reset,
+   ~80 ms/s): reuse Draw/Frame storage across frames instead of freeing.
+3. Audio decode thread runs 56 % on performance cores because the
+   controller raises all guest threads; keeping it at Utility would move
+   ~85 ms/s to efficiency cores (audio-gap risk to check).
+4. Touch overlay redraw on the UIKit thread (~15–20 ms/s), small.
