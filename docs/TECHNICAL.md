@@ -22502,3 +22502,32 @@ vs 34.0 for the Balanced + `--ios_adaptive_qos_level=default` trial.
 Next: back-to-back pursuits at 27 %: dev109 at 60, then the same with
 `--nfsmw_cap_controller=false --ios_adaptive_qos_level=default`, then dev109
 at 40.
+
+## November 10: dev109 A/B at 27 % and dev110 driving-start fix
+
+Stefan, iPhone, three back-to-back pursuits at 27 % brightness, thermal
+nominal. Files: `Debug/10 November 2026/dev109 iPhone AB/`.
+
+| run | drain %/h | CPU | GPU | instr G/s | level while driving (log) |
+|---|---:|---:|---:|---:|---|
+| dev109 cap 60 | 40.2 | 32.69 | 4.27 | 10.83 | User Initiated (raised in loading at 15:20:31, kept) |
+| `--nfsmw_cap_controller=false --ios_adaptive_qos_level=default`, 60 | 37.8 | 28.67 | 4.87 | 11.06 | Default |
+| dev109 cap 40 | 26.1 | 18.80 | 2.90 | 7.96 | Default |
+
+Measured: dev109 bug: a level raised by late frames during loading carried
+into the drive (no step down while driving), so the 60 run was effectively
+User Initiated; dev108's 39.5 likely had the same cause. The repeat of the
+Default trial gave 37.8 (November 9: 34.0), so Default at 60 saves only
+~1–2 %/h over User Initiated (38.6–39.5), not 4.6; the 34.0 was at the low
+end of run-to-run spread. Default at 40: 26.1 vs User Initiated 28.1 and
+Eco (Utility) 17.5.
+
+Inference: on the iPhone the QoS lever is nearly binary: anything on the
+performance cores costs ~26 (40) / ~38 (60) %/h, efficiency cores ~17.5 /
+~24 but miss the cap. The remaining large saving needs less frame-thread CPU
+work so the efficiency cores can hold the cap.
+
+dev110 (bug fix within the approved controller): driving always starts at
+the device's start level (`[cap-controller] driving: <level> (start level,
+cap N)`). Build exit 0; IPA `ios/build/NFSMW-0.6.1-dev110-cap-drive-reset.ipa`,
+SHA256 59b63f22170ba69ba3af50996bceb9af1d5929bc8b11963470bc3265fda9507a; on iCloud Desktop (dev109 to Trash). Not device-tested.

@@ -366,13 +366,21 @@ void OnSwap(double interval_ms) {
     const bool drive = driving.load(std::memory_order_relaxed);
     const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 30 ? 1 : 0);
     static bool was_driving = false;
+    bool started = false;
     if (drive != was_driving) {
       was_driving = drive;
+      started = drive;
       if (lines++ < 200)
         REXLOG_INFO("[cap-controller] {} (start level {}, cap {})", drive ? "driving: no step down" : "driving stopped: step down allowed",
                     LevelName(floor_level), cap);
     }
-    if (drive && m < floor_level) {
+    // dev110: driving always starts at the start level. dev109 kept a level
+    // raised by loading-screen late frames (User Initiated) for the whole
+    // drive (Nov 10 iPhone run: 40.2 %/h instead of Default's ~38).
+    if (started && m != floor_level) {
+      m = floor_level;
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
+    } else if (drive && m < floor_level) {
       m = floor_level;
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
     } else if (m < 2 && late_count >= 3) {

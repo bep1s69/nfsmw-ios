@@ -470,6 +470,12 @@ record update only, no push/comment/release. Private BACKLOG updated and
 intentionally ignored/uncommitted; pre-existing HANDOFF_CHATGPT.md untouched.
 See TECHNICAL's issue #18 reproduction entry for exact evidence and limits.
 
+**November 10, dev110 BUILT; QoS lever exhausted on the iPhone.** dev109 is
+smooth, but a loading-screen boost carried into the drive; dev110 resets
+to the start level when driving starts. Repeat A/B: Default saves only ~1–2
+%/h over User Initiated at 60. Next: Time Profiler pursuit at 60 (iPhone) to
+cut frame-thread CPU work so the efficiency cores can hold the cap.
+
 **November 9, dev109 BUILT: cap controller without probing while driving.**
 dev108 probed down while driving (hitches, no saving on the iPhone). dev109
 holds each device's measured start level while driving and only steps down
