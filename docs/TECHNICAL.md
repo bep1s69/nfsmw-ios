@@ -23052,3 +23052,143 @@ sensitivity measured rather than assumed. No app build/test is warranted for
 an analysis-only tool/document change. BACKLOG stays private/ignored and is
 updated locally; HANDOFF_CHATGPT.md preserved. Local commit only.
 
+## November 10: native graphics design and broader iOS-port direction
+
+Stefan approved the source-level renderer feasibility pass, then said a longer
+project changing more of the game toward native iOS and removing Xbox 360
+work is welcome. Preserve performance/quality; no cap/quality reduction is
+the acceptance target. This session completes design, not an implementation
+or new device experiment. At start HEAD8c638c2, pre-existing untracked
+HANDOFF_CHATGPT.md only. No concurrent source changes observed.
+
+Read current records and reviewed native_renderer.mm Draw/Attribute/Frame,
+Record constants/geometry/texture snapshots, PipelineDescriptor/cache,
+RenderFrame sizing/put/buffer-8/address ABI, state transitions, texture heaps,
+GpuPool, completion/retirement, queries and NativeSwap. Also inspected
+native_renderer.h, native_draw_census.cpp and native_draw_arena.h.
+
+Existing plan was absent on current branch but present on local native-d3d.
+`git show native-d3d:docs/NATIVE_D3D_PLAN.md` and the November6 N0–N2a evidence
+from that branch were read (exit0), plus native_d3d_draws.cpp,
+native_d3d_shadow.cpp and marker patch. Old branch tip50885f1. No checkout,
+merge, SDK patch or old-history import. The initial triple-dot diff spanned
+many unrelated historical features; it is not a safe proposed change set.
+Restore the already AGENTS-indexed docs/NATIVE_D3D_PLAN.md as the current
+design home, with provenance and old findings preserved by commit references.
+
+Historical facts, not newly device-validated: N0 bridge union6.69% app samples
+on dev88; N1d normal draws after resolves match the CP's state. N2a test
+98.2–99.0% device-state input, normal picture reported, but full PM4 still
+written. N2a adds a 2,401-dword/9,604-byte snapshot per draw and per-word swaps;
+it proves a state source and does not implement/speed-test packet removal.
+Exceptional UP/inline/predicated tiling/resolve paths and shader bindings still
+matter. N2a's ~98% coverage is not enough to discard all console graphics
+semantics. The old plan's many routine shadow laps should not be repeated.
+
+### Additional attribution from the existing dev110 capture
+
+Extended tools/analysis/summarize_battery_exports.py to emit top60 self
+functions per merged thread/domain and explicit non-additive graphics
+footprints. Call-path group definitions are visible in the script:
+guest D3D writer addresses 825A3EC8,82593A58,82593818,825930E0,82593408,
+8259A308,82592340,82597070,825A28A8,825A2A60; CP ExecutePacket samples exclude
+paths containing Record/CpDraw/NativeDraw/NativeSwap; union counts each
+eligible sample once. Record/destructor groups are inclusive, AGX group is
+exclusive leaf names beginning AGX:: or -[AGX. These are profiling heuristics,
+not exact instruction ownership; unresolved stacks remain in the denominator.
+
+Command (exit0):
+`python3 tools/analysis/summarize_battery_exports.py profile
+ios/build/battery-audit-20261110/time-profile.xml --skip 5 --end 120`
+redirected into ignored
+`ios/build/battery-audit-20261110/profile-design-summary.jsonl`.
+Same trace/device/UUID/settings as independent audit; no new IPA.
+
+| Scope | Sample weight ms | ms/second | App share |
+|---|---:|---:|---:|
+| Guest D3D writer call paths | 5855.6 | 50.92 | 3.357% |
+| CP ExecutePacket outside native callbacks | 5788.5 | 50.33 | 3.318% |
+| Union, counted once | 11644.1 | 101.25 | 6.675% |
+| Record inclusive | 25888.4 | 225.12 | 14.840% |
+| Draw destructor inclusive | 5008.2 | 43.55 | 2.871% |
+| AGX self, all threads | 5816.0 | 50.57 | 3.334% |
+
+Total remains174450ms /115s,1,744,500 running samples. D3D+CP envelope closely
+reproduces the older6.69%; no support for a >10% CPU claim from packet removal
+alone. Native render self55.06ms/s, Draw destructor self21.71, objc_msgSend
+17.57, AGX encodeAndEmitRenderState15.40; these overlap broader rows above.
+Record self135.81ms/s, Fingerprint self20.64 on GPU Commands; Main XThread
+sub_82699100 self39.93. Sum neither inclusive+exclusive nor parent+child.
+Pure ICB reuse leaves much of native preparation and all CP/guest packet
+generation intact; direct D3D leaves Metal encoding intact. The two routes
+address different costs, with overlap in supporting representation work.
+
+### Concrete design findings
+
+1. Current Metal shader ABI already has a32-byte buffer8 address block
+   (VS/PS/shared/prior-VS). A stable completion-owned slot for this block can
+   keep commands valid while the addresses and contents change each frame.
+   Variable-packed constant offsets do not themselves require command rebuilds.
+   No shader rewrite needed for this indirection, subject to actual validation.
+2. ICB own buffer bindings require inheritBuffers=false, including the existing
+   descriptor heaps0–4 and geometry9+. Pipeline support must be requested at
+   PSO creation and distinguished in cache/archive handling. Current default
+   PipelineDescriptor does not set it. Reusing ordinary incompatible PSOs is
+   not a valid implementation. Per-context stable heaps reduce rebinding;
+   generation changes and exact effective buffer/offset keys invalidate reuse.
+3. Current state loop has depth/stencil/reference, clipping, bias, visibility,
+   viewport, scissor and culling changes outside shader address data. Execute
+   only adjacent equal-state runs within existing pass/resolve boundaries for
+   a portable first version. Follow existing draw_order and sky/stencil logic;
+   no global reorder or dev114 hash-only equivalence. Existing counters cannot
+   estimate eligible run length, same-context exact binding reuse or net savings.
+4. Current CPU Frame is destroyed after encoding, GPU resources retire later.
+   Separate those lifetimes. Frame-level resource owners/handles and stable
+   constant blocks can eliminate per-draw reference/control-block churn, but
+   motion-history, cache sweeps and async completion must stay safe. Merely
+   retaining vector capacity or moving deletion queues is not enough.
+5. Native D3D producer must cover resolves, query answers, fences, writebacks,
+   shader binds, swap and exceptional draw paths with ordering. A full register
+   snapshot is too expensive; queuing mutable guest pointers is unsafe.
+   Synchronous Record adds~225ms/s to the game thread and needs critical-path
+   validation; prior ring-blocked time is not guaranteed spare frame budget.
+
+Read installed iPhoneOS27.2 Metal headers and primary Apple API docs/feature
+tables (links in the plan). Initial guessed header MTLIndirectRenderCommand.h
+did not exist (sed exit1); actual protocol lives in MTLIndirectCommandEncoder.h.
+The installed iOS26 API includes per-command raster/depth setters, but feature
+tables restrict that hardware capability to Apple10. Initial portable plan
+uses parent state and equal-state runs, not those new setters, preserving
+iOS18/older-GPU support. xcrun --show-sdk-path exited0 with existing sandbox
+cache/FSEvents warnings; no compiler/build was run. ps diagnostic was denied
+by the sandbox (exit1); parser completion/output then confirmed via its tool
+session (exit0). No need for process escalation or termination.
+
+### Decision and next action
+
+Design verdict: a staged more-native graphics backend is technically plausible;
+large energy gains remain unproven. Recommended implementation sequence:
+shared owned frame/consumer boundary + bounded cached Metal commands using
+the current CP producer; correctness and meaningful CPU/pacing check; one
+same-sitting power pair only if justified; then direct D3D producer to remove
+PM4 and its handshake while retaining the same consumer. Full details and
+fallback/ownership/test gates are in docs/NATIVE_D3D_PLAN.md. The~10% total CPU
+target is a combined-project ambition, not a per-stage promise. Later native
+assets/resource versions, selected hot game routines and audio lifecycle are
+ranked in that plan; no generic rewrite or compressed-audio quality reduction.
+
+No runtime flag/default, production source, SDK patch, build, device run,
+release or push. No battery-saving result claimed. Next is review/approval of
+the concrete implementation scope, not more broad measurement or another
+normal-draw shadow diagnostic. Parser and design record committed locally;
+private BACKLOG updated/ignored, HANDOFF_CHATGPT.md untouched.
+
+Final read-only validation exit0: regenerated profile totals and merged thread
+weights equal the prior audit exactly (1,744,500 samples), per-thread top-self
+weights stay within thread totals, writer+CP union is the sum of its disjoint
+components, and the existing first power export's means are unchanged by the
+parser extension. `git diff --check` exit0. No app tests/build needed for the
+analysis/design-only change. The first concrete proposed code scope, default-
+off flag name (not yet implemented), counters and build diagnostic requirement
+are listed in the plan; no new build instructions are required yet.
+

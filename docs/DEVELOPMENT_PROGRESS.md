@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November 10 (Stefan, latest): reduce battery use as far as practical while
+  preserving current performance and visuals. A longer project changing more
+  of the game toward a native iOS port is acceptable; remove Xbox 360
+  compatibility work where feasible. Approved the renderer source-level
+  design/feasibility pass. Current concrete proposal and staging:
+  docs/NATIVE_D3D_PLAN.md. This supersedes treating native-D3D as permanently
+  parked for lack of interest; no specific implementation approved yet.
+
 - November 10 (Stefan): iPhone at the 40 cap runs on the efficiency cores
   (Eco-like, almost perfect as measured Nov 9). He does not accept that 60
   cannot be improved: proposed next is promoting one thread at a time to the
@@ -462,6 +470,38 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
+
+**November 10, native graphics feasibility/design pass complete:** Stefan
+approved design and broadened the goal to a longer, more native iOS port while
+preserving current performance/visuals. Restored and rewrote the existing
+AGENTS-indexed `docs/NATIVE_D3D_PLAN.md` on the current branch; inspected old
+native-d3d N0–N2a via git show, without merging its pre-cleanup history or
+changing production code. Existing N2a validated device-state input for
+98.2–99.0% of tested normal draws but intentionally retained the full PM4
+stream and added copies; it did not test eliminating that work.
+
+Refined today's existing dev110 profile: D3D writer + CP packet overhead union
+6.675% app CPU; Record inclusive 14.84%; Draw destructor inclusive 2.871%;
+AGX self 3.334%. These are overlapping scopes, not additive savings. A pure
+packet bypass cannot promise the proposed 10% combined-project CPU ambition.
+Extended the read-only parser with per-thread self tables and explicit
+call-path groups. Results cached in
+`ios/build/battery-audit-20261110/profile-design-summary.jsonl` and fully
+recorded in TECHNICAL below. No new capture or device test requested.
+
+**Concrete next implementation proposal:** one owned NativeFrame format,
+completion-owned contexts and bounded cached Metal commands, initially fed by
+the current CP. Stable buffer-8 address records allow fresh constants without
+rebuilding every command; exact keys and adjacent equal-state runs preserve
+order. Ordinary unsupported/dynamic/query/motion/internal draws stay direct.
+Then replace the producer with direct D3D operations, handling resolve/query/
+fence/writeback/swap ordering together. The plan defines ownership, fallback,
+pipeline capability/cache changes, CPU/pacing/energy gates and later native
+asset/audio/game-routine opportunities. Source-specific design is ready for
+review; implementation/build remains next, not yet performed or approved.
+No new runtime flags/default changes, IPA, SDK patch, push or release.
+HANDOFF_CHATGPT.md remains untouched/untracked; private BACKLOG updated and
+intentionally ignored/uncommitted. Older checkpoint entries below retain history.
 
 **November 10, independent audit of the entire November 10 debug folder:**
 Re-exported all 17 Power Profiler archives and the dev110 Time Profiler;

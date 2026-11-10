@@ -64,7 +64,14 @@ def power(path, skip, end=None):
 def profile(path, skip, end):
     ids, counts = {}, Counter()
     threads, leaf, inclusive = defaultdict(Counter), Counter(), Counter()
+    thread_leaf = defaultdict(Counter)
     render_threads = set()
+    graphics = Counter()
+    d3d_addresses = ('825A3EC8', '82593A58', '82593818', '825930E0',
+                     '82593408', '8259A308', '82592340', '82597070',
+                     '825A28A8', '825A2A60')
+    d3d_functions = {prefix + address for prefix in ('sub_', '__imp__sub_')
+                     for address in d3d_addresses}
     root = None
     for event, e in ET.iterparse(path, events=('start', 'end')):
         if event == 'start':
@@ -108,15 +115,38 @@ def profile(path, skip, end):
                 counts['unresolved_stack_ms'] += weight
             if frames:
                 leaf[frames[0]] += weight
+                thread_leaf[name][frames[0]] += weight
                 for f in set(frames):
                     inclusive[f] += weight
+                writer = bool(d3d_functions.intersection(frames))
+                cp_packet = any('CommandProcessor::ExecutePacket(' in f for f in frames)
+                native = any(any(marker in f for marker in
+                                 ('::Record(', '::CpDraw(', '::NativeDraw(', '::NativeSwap('))
+                             for f in frames)
+                cp_overhead = cp_packet and not native
+                if writer:
+                    graphics['guest_d3d_writer_path_ms'] += weight
+                if cp_overhead:
+                    graphics['cp_packet_outside_native_path_ms'] += weight
+                if writer or cp_overhead:
+                    graphics['writer_cp_union_ms'] += weight
+                if any('::Record(' in f for f in frames):
+                    graphics['record_inclusive_ms'] += weight
+                if any('::Draw::~Draw(' in f for f in frames):
+                    graphics['draw_destructor_inclusive_ms'] += weight
+                if frames[0].startswith(('AGX::', '-[AGX')):
+                    graphics['agx_leaf_ms'] += weight
         e.clear()
     merged = defaultdict(Counter)
+    merged_leaf = defaultdict(Counter)
     for name, values in threads.items():
         role = 'native render queue' if name in render_threads else name.split(' (')[0]
         merged[role].update(values)
+        merged_leaf[role].update(thread_leaf[name])
     return {'file': str(path), 'skip_seconds': skip, 'end_seconds': end,
             'totals': dict(counts), 'threads': dict(merged),
+            'graphics_footprints_ms': dict(graphics),
+            'thread_self_ms': {name: values.most_common(60) for name, values in merged_leaf.items()},
             'top_self_ms': leaf.most_common(40), 'top_inclusive_ms': inclusive.most_common(60)}
 
 
