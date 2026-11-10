@@ -22610,3 +22610,19 @@ Build: incremental, exit 0; both markers in the binary. IPA
 Desktop (dev110 to Trash). Not device-tested. Test: iPhone pursuit at 60,
 27 % brightness, Power Profiler; listen for audio gaps; compare with dev110
 Default runs (37.8–40.2 %/h) and repeat the Time Profiler if useful.
+
+## November 10: dev111 iPhone pursuit (one run, audio change apparently inactive)
+
+Stefan, iPhone, dev111, 1x, cap 60, brightness 26 %, Challenge Series
+pursuit. Files: `Debug/10 November 2026/dev111 iPhone/`.
+Power: 27.8 %/h, CPU 19.07, GPU 4.03, instr 11.19 G/s (dev110-era Default
+runs: 37.8–40.2 %/h, CPU 28.7–32.7). Log from driving start (15:52:25):
+fps min/median 54.5/60.0, off-grid max 107, 3 hitch lines, 25 coreaudio
+windows, 0 with gaps. Controller: Default while driving as designed.
+Anomaly: `[cap-controller] audio thread 348b07 follows the boost` — the
+message reads `nfsmw_audio_thread_low` false, although its default is true
+and no override appears in the log; cause not found (asked Stefan for his
+Extra Args). The frame-free change has no log line, so whether it was active
+is also unconfirmed. Not proven: which change (if any) caused the lower
+drain; a single run, and iPhone run-to-run spread for the same setting has
+been 34.0–40.2 %/h.
