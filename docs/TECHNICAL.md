@@ -22635,3 +22635,14 @@ fps min/median 51.7/60.0, off-grid max 147, 6 hitch lines, 26 coreaudio
 windows with 0 gaps. Measured: ~7–9 %/h below the dev110-era Default runs
 (37.8–40.2) with no audio gaps; slightly more pacing outliers than dev110's
 runs (min 59.9). Run 1's configuration is unknown, so it is not used.
+
+Stefan confirmed: dev111 run 1 had both off switches in Extra Args
+(`--nfsmw_audio_thread_low=false --nfsmw_native_async_frame_free=false`),
+i.e. dev110 behaviour; run 2 had none; he noticed no dips in run 2.
+So the only matched pair is OFF 27.8 %/h (15:52) vs ON 30.9 %/h (15:58): no
+saving shown by dev111's two changes. And the same controller-at-Default
+configuration has now measured 27.8 here vs 39.5 (dev108, Nov 9), and
+Balanced + Default 34.0 vs 37.8: between-session spread on the iPhone is
+~10 %/h, larger than the effects being tested. Unknown cause (pursuit
+content, device temperature after breaks, other). Method change: A/B only
+within one sitting, alternating ON/OFF/ON/OFF, before any conclusion.
