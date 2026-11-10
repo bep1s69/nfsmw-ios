@@ -22477,3 +22477,28 @@ mechanism is known; the underlying source/conversion cause remains unresolved.
 No code changes, build or device test in this follow-up. `git diff --check`
 passed. Private BACKLOG stays ignored/uncommitted; existing untracked
 HANDOFF_CHATGPT.md preserved.
+
+## November 10: dev109 iPhone runs (smooth; power not comparable)
+
+Stefan, iPhone, dev109 (log shows `[cap-controller] on (dev109)`; the
+`game: starting` build stamp still says Nov 9 18:19:26 because ios_main.mm
+was not recompiled), 1x, pursuit. Brightness was NOT 27 %: 44 % in the 60
+run, 33–35 % in the 40 run (Stefan forgot). Files:
+`Debug/10 November 2026/dev109 iPhone/`.
+
+| run | drain %/h | CPU | GPU | instr G/s | fps min/median | off-grid max | hitches |
+|---|---:|---:|---:|---:|---|---:|---:|
+| cap 60, brightness 44 % | 42.5 | 35.80 | 4.18 | 10.76 | 59.9 / 60.0 | 1 | 0 |
+| cap 40, brightness 33–35 % | 35.2 | 28.34 | 2.81 | 8.24 | 40.0 / 40.0 | 0 | 0 |
+
+Measured: perfectly paced at both caps; the controller held Default for the
+whole drive (no step-ups while driving), stepped freely in menus. Power:
+not comparable. On the iPhone the LiveContainer kind-0 "CPU" column evidently
+includes display power (its display column is a constant ~2.0 in every
+iPhone run, and Default at 40 here shows more "CPU" than User Initiated at 40
+at 27 % brightness, 21.12), so brightness cannot be subtracted.
+Also unexplained: dev108's 60 run (Default most of the time, 27 %) was 39.5
+vs 34.0 for the Balanced + `--ios_adaptive_qos_level=default` trial.
+Next: back-to-back pursuits at 27 %: dev109 at 60, then the same with
+`--nfsmw_cap_controller=false --ios_adaptive_qos_level=default`, then dev109
+at 40.
