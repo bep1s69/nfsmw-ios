@@ -492,6 +492,51 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+**November 10, dev118 BUILT — incremental command resource residency:**
+Continued the approved stage-1 trial after phone CPU analysis. Batch no longer
+gathers/sorts all repeated command resources on every flush: a per-encoder flat
+pointer set declares only newly encountered ICB/buffers, with per-binding last
+pointer checks skipping common heaps/push storage lookups. A strong last-encoder
+reference prevents allocator address reuse from inheriting declarations. Buffer
+pins/GPU completion leases and draw/state/pass boundaries unchanged. Flat set
+uses geometric contiguous storage, no per-resource heap-node allocation.
+
+New default-ON restart-only `nfsmw_native_command_residency` acts ONLY within
+default-OFF `nfsmw_native_command_reuse`. Set residency=false to restore old
+gather/sort/declaration path without disabling command/frame reuse. Existing
+trial args suffice; no new argument needed. New300-frame command-residency
+summary logs actual useResources calls/resource entries for later verification,
+explicitly not CPU/energy savings. Master mute/preparation/catalog retained.
+
+Host actual-code ASan/UBSan tests pass: reference/incremental resource sets
+match at every draw and bind/execute operations match across changing/nil/
+duplicate bindings, nonadjacent runs, state flushes, singles, encoder A/B/A,
+new buffers and encoder lifetime.100000flat-set operations match std set.
+Synthetic100identical two-command runs:100calls/400entries reference vs1call/
+4entries incremental, identical draws/resources; not a device performance result.
+Existing ownership/operand/pin/budget/completion/purge and frame-storage tests
+pass. Normal build-0.6 ipa -j12 exit0,10existing warnings; ZIP/signature pass.
+
+IPA ios/build/NFSMW-0.6.1-dev118-command-residency.ipa,30736682bytes,
+SHA256 `ff848e19285167f536169496699d458dc4916e82c4123aa10ea4bf9471f94201`,
+UUID `1B6B7491-2554-389E-9A51-B67FEB15BE84`, bundle0.6.0(11).
+104shader libraries, BOTH SDK dylibs and223-key catalog byte-identical dev117.
+On iCloud Desktop; older Desktop dev117 in Trash, stable/all ios/build packages
+preserved. Local branch/no push/merge/release; HANDOFF untouched.
+
+**Next:** install over existing data, retain
+`--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false`.
+One~40s System Activity (Detailed) capture during an already-loaded pursuit,
+ordinary LiveContainer monitored,1x/60/same graphics/controller/mute OFF.
+This one run covers visual/pacing/audio check and targeted CPU follow-up; send
+trace (AirDrop to Mac/Downloads works) plus nfsmw.log. Confirm dev118/incremental
+startup and residency counters, reduced sort/declaration CPU in profile; do not
+infer net CPU/energy benefit from different pursuit workloads or host fixture.
+No battery A/B yet. If incorrect use --nfsmw_native_command_residency=false
+after restart as reference, preserving all other trial controls. Device
+correctness/CPU/memory/energy acceptance remains pending. Do not widen into
+Store/pin/Record/producer rewrites before examining this bounded result.
+
 **November 10, phone CPU trace analyzed — dev116, no further recording needed now:**
 Stefan AirDropped trace_2026-11-10-224624.atrc.tgz to Downloads. Archive/log
 preserved in Debug/10 November 2026 as dev116_system_activity_detailed_224624*

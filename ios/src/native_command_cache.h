@@ -153,6 +153,36 @@ inline Context* Acquire(id<MTLDevice> device,size_t count,unsigned epoch) {
   return nullptr;
 }
 
+// Encoder-local pointer set without per-resource node allocations. Context
+// pins, not this set, own resources. Zero is never a valid resource address.
+class ResourceDeclarations {
+ public:
+  void Clear() { std::fill(slots_.begin(),slots_.end(),0); used_=0; }
+  bool Insert(uintptr_t p) {
+    if (!p) return false;
+    if (slots_.empty()) Grow();
+    size_t at=Find(p);
+    if (slots_[at]==p) return false;
+    if (used_*2>=slots_.size()) { Grow(); at=Find(p); }
+    slots_[at]=p; ++used_; return true;
+  }
+ private:
+  size_t Find(uintptr_t p) const {
+    uintptr_t h=p>>4;
+    h^=h>>17; h*=uintptr_t(0x9E3779B97F4A7C15ull); h^=h>>32;
+    size_t at=h&(slots_.size()-1);
+    while(slots_[at] && slots_[at]!=p) at=(at+1)&(slots_.size()-1);
+    return at;
+  }
+  void Grow() {
+    auto old=std::move(slots_);
+    slots_.assign(old.empty() ? 64 : old.size()*2,0);
+    for(auto p:old) if(p) slots_[Find(p)]=p;
+  }
+  std::vector<uintptr_t> slots_;
+  size_t used_=0;
+};
+
 // The caller flushes BEFORE each inherited-state mutation, resolve or direct
 // draw. Own buffer bindings mean parent buffer updates cannot change this run.
 struct Batch {
@@ -160,18 +190,54 @@ struct Batch {
   id<MTLRenderCommandEncoder> encoder=nil;
   CommandRun run;
   std::vector<__unsafe_unretained id<MTLResource>> resources;
+  bool incremental_resources=true;
+  // Keep the last encoder alive so a later encoder cannot reuse its address
+  // and inherit the old declaration set. Context pins still own all buffers
+  // until GPU completion; this changes no resource ownership.
+  id<MTLRenderCommandEncoder> residency_encoder=nil;
+  ResourceDeclarations declared;
+  std::array<uintptr_t,32> last_resource{};
+  uint64_t resource_calls=0, resource_entries=0;
   bool Flush() {
     if (!run.count) return false;
-    resources.clear(); resources.push_back(context->icb);
-    for(size_t i=run.first;i<run.first+run.count;++i) {
-      const auto& key=context->entries[i].key;
-      for(auto p:key.buffers) if(p) resources.push_back((__bridge id<MTLResource>)(void*)p);
-      resources.push_back((__bridge id<MTLResource>)(void*)key.index_buffer);
+    resources.clear();
+    if (incremental_resources) {
+      if (residency_encoder!=encoder) {
+        residency_encoder=encoder;
+        declared.Clear(); last_resource.fill(0);
+      }
+      auto add=[&](uintptr_t p) {
+        if (declared.Insert(p))
+          resources.push_back((__bridge id<MTLResource>)(void*)p);
+      };
+      add(reinterpret_cast<uintptr_t>((__bridge void*)context->icb));
+      for(size_t i=run.first;i<run.first+run.count;++i) {
+        const auto& key=context->entries[i].key;
+        for(size_t b=0;b<key.buffers.size();++b) {
+          const auto p=key.buffers[b];
+          // Common descriptor heaps/push storage usually stay in the same
+          // slots: skip even the set lookup when the binding is unchanged.
+          if (p!=last_resource[b]) { add(p); last_resource[b]=p; }
+        }
+        if (key.index_buffer!=last_resource[31]) {
+          add(key.index_buffer); last_resource[31]=key.index_buffer;
+        }
+      }
+    } else {
+      resources.push_back(context->icb);
+      for(size_t i=run.first;i<run.first+run.count;++i) {
+        const auto& key=context->entries[i].key;
+        for(auto p:key.buffers) if(p) resources.push_back((__bridge id<MTLResource>)(void*)p);
+        resources.push_back((__bridge id<MTLResource>)(void*)key.index_buffer);
+      }
+      std::sort(resources.begin(),resources.end(),[](id a,id b){return reinterpret_cast<uintptr_t>((__bridge void*)a)<reinterpret_cast<uintptr_t>((__bridge void*)b);});
+      resources.erase(std::unique(resources.begin(),resources.end()),resources.end());
     }
-    std::sort(resources.begin(),resources.end(),[](id a,id b){return reinterpret_cast<uintptr_t>((__bridge void*)a)<reinterpret_cast<uintptr_t>((__bridge void*)b);});
-    resources.erase(std::unique(resources.begin(),resources.end()),resources.end());
-    [encoder useResources:resources.data() count:resources.size() usage:MTLResourceUsageRead
-                   stages:MTLRenderStageVertex|MTLRenderStageFragment];
+    if (!resources.empty()) {
+      [encoder useResources:resources.data() count:resources.size() usage:MTLResourceUsageRead
+                     stages:MTLRenderStageVertex|MTLRenderStageFragment];
+      ++resource_calls; resource_entries+=resources.size();
+    }
     if (run.count == 1) {
       const auto& key=context->entries[run.first].key;
       for(size_t b=0;b<key.buffers.size();++b) if(key.buffers[b]) {

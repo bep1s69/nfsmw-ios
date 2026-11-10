@@ -2,6 +2,15 @@
 
 ## Current decision — November 10, 2026
 
+**dev118 built (latest):** implemented incremental per-encoder command resource
+declarations with flat pointer set/last-binding checks; old gather/sort path
+retained via nfsmw_native_command_residency=false. Default on only within
+default-off command reuse. Identical actual-code resource sets/draw operations
+verified under host sanitizers, iOS package passes; device CPU/energy pending.
+One~40s phone Detailed pursuit + log next, not a power matrix. Ownership,
+pins/completion, shaders and producer unchanged. Current artifact/flags/test
+details in DEVELOPMENT_PROGRESS/TECHNICAL.
+
 **Phone CPU evidence (latest):** received Detailed trace, actually32s of dev116.
 Its1ms time-profile samples support a fully-driving10–30s window. Record10.48%
 app sampled CPU; writer/CP union7.07%; draw destructor0.44%. New command-cache

@@ -13,6 +13,8 @@
 - **Experimental renderer work.** Added an opt-in trial that reuses frame
   storage and Metal draw commands. Off by default; device correctness,
   performance and battery savings are not yet established.
+  The trial now avoids repeatedly sorting and declaring the same command
+  resources within a render encoder.
 
 ## 0.6.0
 

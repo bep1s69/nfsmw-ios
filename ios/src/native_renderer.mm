@@ -146,6 +146,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
                     "Native frame ownership and cached Metal indexed commands (restart required; trial)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true, "GPU",
+                    "Within command reuse, declare resources incrementally per encoder (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_prepare_graphics, true, "GPU",
                     "Prepare known graphics pipelines before the game starts (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
@@ -5481,6 +5483,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     }
     nfsmw::commands::Batch command_batch;
     command_batch.context = command_context;
+    static const bool incremental_command_resources=REXCVAR_GET(nfsmw_native_command_residency);
+    command_batch.incremental_resources=incremental_command_resources;
     uint64_t command_eligible = 0, command_direct = 0;
 
 
@@ -9210,11 +9214,14 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       struct Window {
         uint64_t frames=0, contexts=0, owned=0, eligible=0, direct=0, banks=0, geometry=0;
         uint64_t hits=0, builds=0, submitted=0, runs=0, singles=0, budget=0;
+        uint64_t resource_calls=0, resource_entries=0;
         size_t max_pins=0, max_slabs=0;
       };
       static Window w;
       ++w.frames; w.contexts += command_context != nullptr; w.owned += frame->native_storage != nullptr;
       w.eligible += command_eligible; w.direct += command_direct;
+      w.resource_calls += command_batch.resource_calls;
+      w.resource_entries += command_batch.resource_entries;
       if (auto* c = command_context) {
         w.hits += c->stats.hits; w.builds += c->stats.builds;
         w.submitted += c->stats.submitted; w.runs += c->stats.runs;
@@ -9235,6 +9242,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     "one CPU slab store {} KiB (activity, not an energy measurement)",
                     w.frames,w.contexts,w.owned,w.eligible,w.direct,w.submitted,w.runs,w.singles,
                     w.hits,w.builds,w.budget,w.banks,w.geometry,w.max_pins/1024,w.max_slabs/1024);
+        REXLOG_INFO("[native] command residency {}: {} useResources calls / {} resource entries over {} frames "
+                    "(declarations, not measured CPU or energy savings)",
+                    incremental_command_resources ? "incremental" : "reference",
+                    w.resource_calls,w.resource_entries,w.frames);
         w = {};
       }
     }
@@ -9874,7 +9885,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev117 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev118 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10360,8 +10371,9 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev117 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {})",
-                NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off");
+    REXLOG_INFO("[native] dev118 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {})",
+                NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
+                REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference");
     return true;
   }();
   (void)announced_reuse;

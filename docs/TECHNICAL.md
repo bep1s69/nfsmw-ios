@@ -23816,3 +23816,110 @@ All exports/manifests/binaries/derived JSON stay ignored in
 Debug as above. Shared checkpoint/native plan/private ignored BACKLOG updated;
 preexisting untracked HANDOFF_CHATGPT.md preserved. Local commit only, no
 push/merge/release. Next action is the bounded resource-bookkeeping change above.
+
+## November 10, 2026 — dev118 incremental command resource declarations
+
+Continued stage-1 implementation after Stefan asks what is next. Target is
+identified dev116 Batch::Flush/resource processing, not a general CPU/battery
+claim. Default-ON restart-only nfsmw_native_command_residency affects only the
+default-OFF native command-reuse trial. False restores original gather/sort/
+unique/useResources path; existing reuse-on/repeat-off args remain sufficient.
+No launcher UI for diagnostic reference switch. Startup markers now dev118.
+
+### Production change and invariants
+
+native_command_cache.h Batch has per-encoder ResourceDeclarations flat pointer
+set and32last-binding pointers (31buffer slots+index). Common heaps/push pointers
+skip set lookup when unchanged. Newly encountered resource addresses are appended
+to the existing unsafe-unretained declaration scratch vector; useResources only
+when nonempty, same MTLResourceUsageRead and vertex|fragment stages. ICB itself
+is included. Resource order is immaterial; required set at each draw remains
+identical. Reference path retains sort/unique. Direct singles still bind/draw
+in exactly the same order; indirect ranges unchanged.
+
+ResourceDeclarations uses contiguous geometrically grown power-of-two slots,
+linear probing with mixed pointer hash, max50%occupancy, zero sentinel, cleared
+per encoder. No heap node per resource, no new ARC ownership of buffers. Batch
+strongly retains its last declaration encoder so an ended encoder cannot be
+freed/reallocated at the same address while its seen set survives; changed
+encoder clears both set/last slots. All context pins, transactional Store,
+GPU-completion leases, CPU frame storage, shader/heap contents, pass/resolve/
+state flush boundaries and producer unchanged. Scope is one RenderFrame Batch;
+no cross-frame residency assumption. Existing queue commandBuffer path uses
+normal retained references; buffer ownership remains explicitly in context pins.
+
+RenderFrame selects residency mode once, wires Batch flag, aggregates actual
+Batch useResources call/resource-entry counters into existing300-frame window.
+New independent log line command residency incremental/reference lists those
+counts, explicitly not CPU/energy savings. No per-draw logging/timer added.
+Original command-reuse summary fields remain in place for existing parsers.
+
+### Actual-code tests
+
+`python3 tools/native/test_native_command_cache.py` exit0, initial log
+`ios/build/dev118-command-cache-test.log`, final
+`ios/build/dev118-command-cache-test-final.log` (final rerun after stricter
+single-bind residency assertions and production flag/wiring guards). Actual
+production header built with Objective-C Foundation/Metal stand-ins, clang++
+C++20O1 ARC ASan/UBSan. Encoder captures cumulative declarations at EVERY draw,
+asserts required buffers/ICB present and Read/both-stage flags, compares full
+bind/execute/indexed-draw operation sequence between modes.12rounds/200stored
+keys with skipped nonadjacent slots, changing/nil/duplicate buffers, explicit
+state flushes, singles and encoder switching including A->B->A. Resource sets
+and draw operations match. New buffer after prior flush declared before use.
+Weak encoder test confirms strong last encoder survives Flush and releases on
+replacement (address-reuse protection).100000deterministic flat-set operations
+with growth/repeated keys/clear/collisions agree with std::unordered_set.
+
+Synthetic stable fixture:100identical2-command runs on one encoder, same
+4-resource set and draws. Reference100useResources calls/400entries, incremental
+1call/4entries. This is exact fixture behavior, not representative device CPU,
+Metal-driver timing or energy benefit. Original operands/hits/rebuilds,
+last-pin lifetime, budget fallback, heap growth invalidation, CPU abort/GPU
+completion/purge and production state/encoder/resolve guards still pass.
+`python3 tools/native/test_native_frame_commands.py` exit0,
+`ios/build/dev118-frame-commands-test.log`: ownership/storage bounds/epochs/
+concurrency/every command operand regression pass. No failed tests/builds this
+session. git diff --check exit0. Stand-ins do not validate actual Metal output,
+GPU residency/hazards, device memory growth or frame pacing.
+
+### Build, artifact and delivery
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit0, `ios/build/dev118-package.log`,10existing warnings (FPSCR/UIKit/duplicate-z).
+Existing Release/arm64/iOS18 deployment/multiplayer SDK configuration with local
+NFSMW_NATIVE_PIPELINE_KEYS seed retained, no shader rebuild/SDK patch.104/104
+metallibs, both SDK dylibs and10704byte223-key catalog byte-identical dev117.
+Runtime SHA256 remains
+`c1e827bdde3e22618922d3c1f2d9c5a93304d618a8180007a39d52fd082aa91f`.
+ZIPCRC passes; codesign --verify --deep --strict cache NFSMW.app exit0; packaged
+executable equals signed cache app. No additional packaging after docs-only edits.
+
+`ios/build/NFSMW-0.6.1-dev118-command-residency.ipa`,30736682bytes,SHA256
+`ff848e19285167f536169496699d458dc4916e82c4123aa10ea4bf9471f94201`.
+Executable UUID1B6B7491-2554-389E-9A51-B67FEB15BE84,SHA256
+`6f032814a68938f142c395043df46b1a7ba242a96e7f6084eb2529b3983cee0a`.
+Bundle remains0.6.0(11), experiment filename0.6.1 as prior trials.
+Copied/hash-verified to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev118-command-residency.ipa`.
+Only superseded Desktop dev117 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.1-dev117-mute-pipeline-catalog.ipa`.
+Stable NFS-Most-Wanted-0.6.0.ipa/all ios/build packages preserved.
+Shared checkpoint/plan/CHANGELOG/private ignored BACKLOG updated; preexisting
+untracked HANDOFF_CHATGPT.md untouched. Local commit/no push/merge/release.
+
+### Next and acceptance limits
+
+Install over existing data/settings, retain
+--nfsmw_native_command_reuse=true --nfsmw_native_repeat_counter=false.
+One~40s phone System Activity (Detailed) capture during already-loaded pursuit,
+ordinary LiveContainer monitored, same1x/60graphics/controller, mute OFF. Return
+trace via AirDrop to Mac/Downloads plus nfsmw.log, note visual/pacing/audio
+issues. This single run combines correctness and CPU-path follow-up. Verify
+dev118/incremental startup, actual declaration counts and whether sorting/
+resource-processing sampled work shrinks. If incorrect, residency=false after
+restart restores reference while preserving rest of trial. No new battery
+pair now, no promised removal of whole2.29%batch or4.52%command CPU envelope,
+no net savings claim from different pursuit workloads. Device correctness,
+CPU reduction, memory/pacing and energy acceptance remain pending; inspect
+bounded result before Store/pin/Record/producer changes.
