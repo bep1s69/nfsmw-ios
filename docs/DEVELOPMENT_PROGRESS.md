@@ -510,6 +510,46 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November11 dev121 SAME-build reference analyzed (latest):** new
+dev121_iphone_pursuit_time_profile_2.trace/log archived in November11Debug.
+Both traces directly match final UUID51A45FAA-EFEB-3340-BD44-A120E3D0240E;
+new log confirms owner_index REFERENCE, reuseON/encodingOFF/repeatOFF/geometryON,
+flat capacity0. Trace311files/133811880bytes unchanged after export; Desktop log
+797781bytes archived/hash-verified after temporary pasteboard path expired.
+22guarded300-frame windows6600CPU-owned/ICB0,22x60.0FPS,31audio windows0gaps,
+0watchdogs/foreground GPU errors.194background-permission warnings begin after
+scene resign, partly within trace tail; all outside selected CPU interval.
+
+Use8–110s/102s on BOTH dev121 modes (reference trace only117.13s, background
+at115.254s). Reference->reusable Capture2614.7->2229.6ms (-14.73%), named
+storage1298.0->825.0 (-36.44%), lifecycle union2306.8->2041.4 (-11.51%).
+Capture share2.46->1.98%app, storage1.22->0.73%. Supports keeping allocation
+change, a smaller local effect than the historic dev120 comparison implied.
+Wholeapp106223.7->112772.8ms (+6.17%reusable), combinedgraphics48642.2->
+50863.4 (+4.57%). Reusable pursuit has ~10%more nearby draw/owner-lookup work;
+other workers also differ. Reference CPU remains much lower than midday
+historic dev120: the earlier29%drop is NOT attributable to this index. No
+causal net app CPU win or battery-saving percentage established. Do not compare
+new102s totals directly with old112s, add overlapping scopes, or normalize
+all CPU by drawcount to manufacture a win.
+
+**Next action:** stop this round of profiling; no more user capture/power pair
+requested now. Restore `--nfsmw_native_owner_index=true` and cold restart,
+keeping reuse=true/encoding=false/repeat=false and existing settings for trial.
+Retain dev121 as working build/default-off reuse, not a release acceptance.
+Next SOURCE step: bounded audit/design of compact direct D3D producer in
+NATIVE_D3D_PLAN sectionC (remove guest writer/PM4 decode round trip, not another
+small hash-table tweak). New reference writer/CP union7514.5ms/7.07%app is a
+scope envelope, not fully removable saving. Inventory ordered draw/resolve/
+clear/query/fence/writeback/swap operations, mutable resource snapshot lifetimes
+and safe drained-frame fallback before implementing hooks. Reuse old N1/N2a
+negative evidence; do not bypass validation or queue mutable state by pointer.
+No new native producer implementation/IPA this analysis session; no energy gate
+passed or broader default change. Shared records/private BACKLOG updated,
+HANDOFF preserved untracked, local commit only/no push/merge/release. Earlier
+reference-capture requests below fulfilled; do not repeat them.
+
+
 **November11 dev121 device profile ANALYZED (latest):** final UUID
 51A45FAA-EFEB-3340-BD44-A120E3D0240E directly verified; owner index reusable,
 reuseON/encodingOFF/repeatOFF/geometryON. Trace already in November11Debug;

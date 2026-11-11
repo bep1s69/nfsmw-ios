@@ -2,6 +2,21 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev121 same-build reference result (latest):** reference mode
+verified,6600CPU-owned/ICB0,22x60FPS/no audio gaps/foreground GPU errors. Matched
+102s8–110s reference->reusable: Capture-14.73%, storage-36.44%, lifecycle
+union-11.51%, but wholeapp+6.17%/graphics+4.57% with~10%more nearby draw/lookup
+work in reusable pursuit. Historical29%wholeapp drop also largely present
+with node index, cannot credit it to flat index. Keep bounded allocation
+improvement; no proven net energy gain. Stop profiling round, restore indextrue,
+no power/capture request now. Next source step sectionC compact direct-D3D
+producer feasibility/inventory: ordered exceptional operations, resource
+snapshot lifetime, safe drained-frame fallback and old N1/N2a negatives before
+hook implementation. Writer/CP union7.07%app envelope not promised saving;
+no energy gate/default-on release acceptance implied. Full evidence checkpoint/
+TECHNICAL. Older reference-run requests below fulfilled.
+
+
 **November11 dev121 device result (latest):** reusable-index mode verified,
 7800CPU-owned/0ICBframes,26x60FPS summaries/no audio gaps/foreground GPU errors.
 Capture-44.08%, storage-61.46%, lifecycle union-44.28% vs dev120112s selection;
