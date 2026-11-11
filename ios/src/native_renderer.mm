@@ -29,6 +29,7 @@
 // the native renderer's target allocation and pipeline settings below.
 
 #include "app_scene.h"
+#include "external_display.h"
 #import <CoreImage/CoreImage.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <UIKit/UIKit.h>
@@ -316,29 +317,6 @@ std::atomic<uint32_t> drawable_want_w{0}, drawable_want_h{0};  // 0: the panel's
 }
 @end
 
-// HDMI and AirPlay: a second display (an adapter, or AirPlay chosen as a
-// separate display rather than mirroring) gets the picture alone, full size
-// and letterboxed to its own shape, without the touch controls; the phone
-// keeps showing the game with its controls. Its own layer, sized to that
-// screen's pixels.
-@interface NFSExternalView : UIView
-@property(nonatomic, weak) UIScreen* target;  // the external display
-@end
-@implementation NFSExternalView
-+ (Class)layerClass {
-  return CAMetalLayer.class;
-}
-- (void)layoutSubviews {
-  [super layoutSubviews];
-  CAMetalLayer* layer = (CAMetalLayer*)self.layer;
-  // That display's own pixels (its screen, not the window's, which can be
-  // the phone's for a moment while the window moves).
-  UIScreen* screen = self.target ?: self.window.screen;
-  const CGSize pixels = screen.nativeBounds.size;
-  layer.contentsScale = screen.nativeScale ?: 1.0;
-  layer.drawableSize = CGSizeMake(std::max(pixels.width, pixels.height), std::min(pixels.width, pixels.height));
-}
-@end
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_external_display, true, "GPU",
                     "Native renderer: the picture on an external display (HDMI, AirPlay) by itself, "
@@ -4766,7 +4744,11 @@ CAMetalLayer* present_layer = nil;
 UIView* present_view = nil;
 // The external display's (HDMI, AirPlay), while one is connected.
 CAMetalLayer* external_layer = nil;
-UIWindow* external_window = nil;
+UIView* external_view = nil;
+// The phone shows only the touch controls (and the FPS counter), not the
+// picture, while the picture is on an external display. Set on the main
+// thread, read by the present pass.
+std::atomic<bool> phone_controls_only{false};
 std::atomic<int> external_in_flight{0};
 std::atomic<bool> layer_visible{true};
 
@@ -7917,9 +7899,15 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
         // "native" scale: the displayed image as large as it is shown (it fits
         // the drawable by its height, or by its width when relatively wider).
+        // On an external display (and for the grace after it goes, so that an
+        // app switch does not rebuild the targets twice): the display's
+        // picture pixels (capped, external_display_policy.h), not the phone's.
         if (final_guest_width >= 320 && final_guest_height >= 240) {
-          const float screen_w = float(screen_pixels_w.load() ?: uint32_t(drawable.texture.width));
-          const float screen_h = float(screen_pixels_h.load() ?: uint32_t(drawable.texture.height));
+          const nfsmw::external_display::Pixels ext = nfsmw::external_display::SizingExternal()
+                                                          ? nfsmw::external_display::PicturePixels()
+                                                          : nfsmw::external_display::Pixels{};
+          const float screen_w = float(ext.w ?: screen_pixels_w.load() ?: uint32_t(drawable.texture.width));
+          const float screen_h = float(ext.h ?: screen_pixels_h.load() ?: uint32_t(drawable.texture.height));
           const float want = std::min(screen_w / float(final_guest_width), screen_h / float(final_guest_height));
           const float rounded = std::round(want * 1000.0f) / 1000.0f;
           if (std::fabs(native_screen_scale.load() - rounded) > 0.0005f) {
@@ -8241,11 +8229,16 @@ void RenderFrame(std::unique_ptr<Frame> frame, uint32_t number, bool present, bo
                                              std::min<NSUInteger>(NSUInteger(pw), drawable.texture.width - px),
                                              std::min<NSUInteger>(NSUInteger(ph), drawable.texture.height - py)}];
         }
-        [e setRenderPipelineState:present_pso];
-        [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
-        [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
-        [e setFragmentTexture:shown_texture atIndex:0];
-        [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        // With the picture on an external display the phone shows black under
+        // the touch controls and the FPS counter, which are drawn into this
+        // frame (touch_controls.mm wantsNative): the layer stays visible.
+        if (!phone_controls_only.load(std::memory_order_relaxed)) {
+          [e setRenderPipelineState:present_pso];
+          [e setVertexBytes:fit length:sizeof(fit) atIndex:0];
+          [e setFragmentBytes:crop length:sizeof(crop) atIndex:0];
+          [e setFragmentTexture:shown_texture atIndex:0];
+          [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+        }
         // The touch controls, over the whole drawable (the window's size).
         {
           static id<MTLTexture> touch;
@@ -9182,89 +9175,85 @@ namespace {
 bool recording_dumps = false;  // the frame being recorded also saves PNGs
 
 // The layer, once, on the main thread.
-// On the main thread: the external display's window and layer, or none.
-void AttachExternalScreen(id<MTLDevice> device, UIScreen* screen) {
-  if (external_window) {
-    external_layer = nil;
-    external_window.hidden = YES;
-    external_window = nil;
-    if (present_view) present_view.alpha = 1.0;  // the picture back on the phone
-  }
-  if (!screen || !REXCVAR_GET(nfsmw_native_external_display)) {
+// The phone while the picture is on an external display: the touch controls
+// over black, and a line saying where the game is (all the phone shows when
+// a controller has hidden the controls). Under the touch controls.
+UILabel* external_caption = nil;
+
+void ShowExternalCaption(bool show) {
+  if (!show) {
+    external_caption.hidden = YES;
     return;
   }
-  // An external display's own scene when iOS gives the app one (the way
-  // since iOS 13); else the older way, the window put on that screen.
-  UIWindowScene* external_scene = nil;
-  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-    if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene*)scene).screen == screen) {
-      external_scene = (UIWindowScene*)scene;
-    }
+  UIView* parent = present_view.superview;
+  if (!parent) return;
+  if (!external_caption) {
+    external_caption = [UILabel new];
+    external_caption.text = @"Playing on the external display";
+    external_caption.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
+    external_caption.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    external_caption.textAlignment = NSTextAlignmentCenter;
+    external_caption.userInteractionEnabled = NO;
+    external_caption.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin |
+                                        UIViewAutoresizingFlexibleBottomMargin;
   }
-  UIWindow* window = external_scene ? [[UIWindow alloc] initWithWindowScene:external_scene]
-                                    : [[UIWindow alloc] initWithFrame:screen.bounds];
-  if (!external_scene) window.screen = screen;
-  window.frame = screen.bounds;
-  UIViewController* controller = [UIViewController new];
-  NFSExternalView* view = [[NFSExternalView alloc] initWithFrame:screen.bounds];
-  view.target = screen;
+  if (external_caption.superview != parent) {
+    [external_caption removeFromSuperview];
+    [parent insertSubview:external_caption aboveSubview:present_view];
+  }
+  const CGRect b = parent.bounds;
+  external_caption.frame = CGRectMake(0, std::floor(b.size.height * 0.5 - 12), b.size.width, 24);
+  external_caption.hidden = NO;
+}
+
+// On the main thread: the picture onto an external display's view (its
+// scene's window, external_display.mm), or back to the phone (host nil).
+void AttachExternalDisplay(id<MTLDevice> device, UIView* host) {
+  if (external_view) {
+    external_layer = nil;
+    [external_view removeFromSuperview];
+    external_view = nil;
+    phone_controls_only = false;  // the picture back on the phone
+    ShowExternalCaption(false);
+    REXLOG_INFO("[native] external display: the picture is back on the phone");
+  }
+  if (!host || !REXCVAR_GET(nfsmw_native_external_display)) {
+    return;
+  }
+  NFSExternalPictureView* view = [[NFSExternalPictureView alloc] initWithFrame:host.bounds];
   view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  view.userInteractionEnabled = NO;
   view.backgroundColor = UIColor.blackColor;
   CAMetalLayer* layer = (CAMetalLayer*)view.layer;
   layer.device = device;
   layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
   layer.framebufferOnly = YES;
-  controller.view = view;
-  window.rootViewController = controller;
-  window.hidden = NO;
+  [host addSubview:view];
   [view setNeedsLayout];
   [view layoutIfNeeded];
   external_in_flight = 0;
-  external_window = window;
+  external_view = view;
   external_layer = layer;
-  // The phone as the controller: only the touch controls, over black.
-  if (present_view && REXCVAR_GET(nfsmw_native_external_controls_only)) present_view.alpha = 0.0;
-  REXLOG_INFO("[native] external display: {}x{} pixels, the picture shown there by itself",
+  // The phone as the controller: only the touch controls, over black. Not
+  // by hiding the phone's layer: the controls are drawn into its frames.
+  if (present_view && REXCVAR_GET(nfsmw_native_external_controls_only)) {
+    phone_controls_only = true;
+    ShowExternalCaption(true);
+  }
+  REXLOG_INFO("[native] external display: the picture shown there by itself, {}x{} pixels",
               int(layer.drawableSize.width), int(layer.drawableSize.height));
 }
 
-// The first external screen, now and whenever one connects or goes.
-void WatchExternalScreens(id<MTLDevice> device) {
-  auto pick = [device] {
-    // An external display: a screen besides the phone's, or the screen of
-    // an external display's scene (AirPlay mirroring lists it only there).
-    UIScreen* external = nil;
-    for (UIScreen* screen in UIScreen.screens) {
-      if (nfsmw::IsExternalScreen(screen)) {
-        external = screen;
-        break;
-      }
-    }
-    for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-      if (!external && [scene isKindOfClass:UIWindowScene.class] && !nfsmw::IsAppScene(scene) &&
-          nfsmw::IsExternalScreen(((UIWindowScene*)scene).screen)) {
-        external = ((UIWindowScene*)scene).screen;
-      }
-    }
-    if (external && external_window && ((NFSExternalView*)external_window.rootViewController.view).target == external) {
-      return;  // already there
-    }
-    if (external || external_window) {
-      if (!external) REXLOG_INFO("[native] external display gone");
-      AttachExternalScreen(device, external);
-    }
-  };
-  pick();
-  NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
-  [center addObserverForName:UIScreenDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
-                  usingBlock:^(NSNotification*) { pick(); }];
-  [center addObserverForName:UIScreenDidDisconnectNotification object:nil queue:NSOperationQueue.mainQueue
-                  usingBlock:^(NSNotification*) { pick(); }];
-  [center addObserverForName:UISceneDidActivateNotification object:nil queue:NSOperationQueue.mainQueue
-                  usingBlock:^(NSNotification* note) {
-                    UIScene* scene = note.object;
-                    if ([scene isKindOfClass:UIWindowScene.class] && !nfsmw::IsAppScene(scene)) pick();
-                  }];
+// The display's scene, now and whenever one connects or goes.
+void WatchExternalDisplay(id<MTLDevice> device) {
+  namespace ed = nfsmw::external_display;
+  ed::SetLog([](const std::string& line) { REXLOG_INFO("{}", line); });
+  ed::Start();  // the launcher started it already; a build without one starts here
+  if (!REXCVAR_GET(nfsmw_native_external_display)) {
+    ed::Release();
+    return;
+  }
+  ed::SetPictureHandler([device](UIView* host) { AttachExternalDisplay(device, host); });
 }
 
 void EnsurePresentLayer() {
@@ -9280,6 +9269,7 @@ void EnsurePresentLayer() {
       // own window, made below.
       if (nfsmw::IsAppScene(scene)) {
         for (UIWindow* w in ((UIWindowScene*)scene).windows) {
+          if (nfsmw::IsHelperWindow(w)) continue;
           if (w.isKeyWindow || !window) window = w;
         }
       }
@@ -9336,7 +9326,7 @@ void EnsurePresentLayer() {
     nfsmw::metal_pacer::Attach(layer);
     present_layer = layer;
     present_view = view;
-    WatchExternalScreens(device);
+    WatchExternalDisplay(device);
     REXLOG_INFO("[native] on screen ({} x {} points)", int(view.bounds.size.width),
                 int(view.bounds.size.height));
   });

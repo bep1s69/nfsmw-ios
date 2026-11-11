@@ -1,6 +1,7 @@
 // NFSMW Recompiled - the launcher's settings catalogue (see settings_catalog.h)
 
 #include "app_scene.h"
+#include "external_display.h"
 #import <UIKit/UIKit.h>
 #include <algorithm>
 #include <cctype>
@@ -194,27 +195,33 @@ NSString* KeysForDisplay(NSString* value) {
   return keys.count ? [keys componentsJoinedByString:@" or "] : @"—";
 }
 
-// The screen in landscape, in pixels (long side, short side).
+// The screen the game is shown on, in landscape, in pixels (long side, short
+// side): an external display's while one is connected (its picture's pixels,
+// external_display_policy.h CappedPixels), else this device's. The game's
+// shape is chosen from it at Play, so a game started with a TV attached gets
+// the TV's shape (16:9 for a 16:9 TV, from an iPhone or an unfolded Duo too).
 CGSize ScreenPixels() {
+  nfsmw::external_display::Pixels external;
+  if (nfsmw::external_display::ConnectedPixels(&external)) return CGSizeMake(external.w, external.h);
   const CGSize n = nfsmw::AppScreen().nativeBounds.size;
   return CGSizeMake(std::max(n.width, n.height), std::min(n.width, n.height));
 }
 
-// "auto": the shape closest to the screen's.
+// "auto": the shape closest to the screen's (external_display_policy.h ShapeFor:
+// wider than 16:9, a scene of the screen's own shape; narrower than 1.6, the
+// game's 4:3 mode, the only narrower one it has; for an external display
+// below 1.5, so a 16:10 or 1.57 MacBook gets 16:9 with thin bars).
 NSString* AutoAspect() {
   const CGSize px = ScreenPixels();
-  const double r = px.width / px.height;
-  // Wider than 16:9: a scene of this screen's own shape (FitSceneWidth).
-  // Narrower: the game's 4:3 mode, the only narrower one it has.
-  return r > 16.0 / 9.0 + 0.02 ? @"wide" : r < 1.6 ? @"4:3" : @"16:9";
+  const bool external = nfsmw::external_display::ConnectedPixels(nullptr);
+  return @(nfsmw::external_display::ShapeName(nfsmw::external_display::ShapeFor(px.width, px.height, external)));
 }
 
 // Fit this screen, wider than 16:9: the scene as wide as the screen's shape
 // at 720 high, in steps of 8 (1560 on a 2868x1320 iPhone).
 int FitSceneWidth() {
   const CGSize px = ScreenPixels();
-  const int w = int(std::lround(720.0 * px.width / px.height / 8.0)) * 8;
-  return std::clamp(w, 1288, 2400);
+  return nfsmw::external_display::WideSceneWidth(px.width, px.height);
 }
 
 // The game's scene for a shape ("16:9", "4:3", "wide"), in 1x pixels.
@@ -480,7 +487,8 @@ const std::vector<Section>& Sections() {
            {@"aspect", Type::kChoice, @"Screen shape",
             @"The shape of the game's picture. Fit this screen: this device's own shape, edge to "
             @"edge (on a screen narrower than 16:9, such as an iPad, the game's 4:3 mode, the "
-            @"closest it has). 16:9 is the Xbox 360's own; on other screens it has black bars.",
+            @"closest it has), or an external display's when one is attached at Play. 16:9 is "
+            @"the Xbox 360's own; on other screens it has black bars.",
             @"auto",
             {{@"Fit this screen", @"auto"}, {@"16:9 (Xbox 360)", @"16:9"}}},
            {@"scale", Type::kChoice, @"Render resolution",
@@ -495,6 +503,14 @@ const std::vector<Section>& Sections() {
             @"60", FrameRateChoices(), kInGame},
            {@"show_fps", Type::kSwitch, @"Show FPS",
             @"Corner counter: frames per second and milliseconds per frame.", @"false"},
+           {@"external_resolution", Type::kChoice, @"External display resolution",
+            @"A monitor or TV (USB-C, HDMI adapter, AirPlay) shows the game by itself, in its own "
+            @"shape when it is attached before Play; the phone keeps the controls. This is the most "
+            @"pixels the picture there gets across. 1080p suits most displays: the game draws 720p "
+            @"at 1x, and a 4K picture costs much more battery and can fail over AirPlay.",
+            @"1080p",
+            {{@"1080p", @"1080p"}, {@"1440p", @"1440p"}, {@"The display's own (up to 4K)", @"display"}},
+            kNativeOnly},
        }, kTabDisplay},
       {@"Battery", nil, {
            {@"preset", Type::kLink, @"Look and performance", @"Choose a starting point for graphics and battery life.", @""},
@@ -760,6 +776,8 @@ NSMutableDictionary<NSString*, NSString*>* LoadSettings(const fs::path& docs) {
     [s addEntriesFromDictionary:effective];
   }
   [s removeObjectForKey:@"battery_mode"];
+  nfsmw::external_display::SetMaxWidth(
+      nfsmw::external_display::MaxWidthFor(Value(s, @"external_resolution").UTF8String ?: ""));
   return s;
 }
 
@@ -769,6 +787,8 @@ void SaveSettings(const fs::path& docs, NSDictionary<NSString*, NSString*>* s) {
                  options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys
                    error:nil];
   [data writeToFile:SettingsPath(docs) atomically:YES];
+  nfsmw::external_display::SetMaxWidth(
+      nfsmw::external_display::MaxWidthFor(Value(s, @"external_resolution").UTF8String ?: ""));
 }
 
 
@@ -1091,8 +1111,16 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   }
   a.push_back("--ios_thread_qos=false");  // accepted for older argument files; promotion is retired
   a.push_back("--ios_async_submits=" + b(On(s, @"async_submits")));
-  // The single pass is the game's mode without anti-aliasing: not with MSAA.
-  a.push_back("--nfsmw_render_sin_mosaico=" + b(wide || (On(s, @"one_pass") && !msaa)));
+  // The single pass is the game's mode without anti-aliasing: not with MSAA,
+  // except where the native renderer draws. At 16:9 with MSAA the game draws
+  // its scene in three 1280x256 strips (mode 4, predicated tiling), and the
+  // native renderer draws each pass whole, without the strips' window offsets
+  // (native_renderer.mm, the draws' viewport and the resolves): only the top
+  // strip came out right, then a white band and black (a 16:9 TV, Nov 11).
+  // In one pass the native renderer adds the MSAA itself
+  // (nfsmw_native_force_msaa), as at 19.5:9.
+  const bool native_16_9 = On(s, @"native_renderer") && [aspect isEqualToString:@"16:9"];
+  a.push_back("--nfsmw_render_sin_mosaico=" + b(wide || native_16_9 || (On(s, @"one_pass") && !msaa)));
   a.push_back(std::string("--render_target_path_vulkan=") + (On(s, @"edram_fsi") ? "fsi" : "fbo"));
   a.push_back("--occlusion_query_enable=" + b(On(s, @"occlusion")));
   a.push_back("--ios_invalidation_widen_kb=" + str(@"widen_kb"));

@@ -21,6 +21,7 @@
 // change, so they can be read and edited from the Files app too.
 
 #include "app_scene.h"
+#include "external_display.h"
 #import <UIKit/UIKit.h>
 
 #include <algorithm>
@@ -1423,6 +1424,9 @@ fs::path Run(const fs::path& documents) {
   window.windowLevel = UIWindowLevelNormal + 1;  // over SDL's launch screen
   window.rootViewController = nav;
   [window makeKeyAndVisible];
+  // An external display from now on: a note on it until the game's picture
+  // goes there, and the game's shape from it at Play (external_display.h).
+  nfsmw::external_display::Start();
 
   while (!finished) {
     @autoreleasepool {
