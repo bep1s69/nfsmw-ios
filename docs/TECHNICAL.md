@@ -26350,3 +26350,152 @@ before CPU result selection. No CHANGELOG for analysis-only result.
 Updated shared checkpoint/nativeplan/private ignored BACKLOG and standing
 Desktop deletion rule. Own analyzer/test/docs committed locally; BACKLOG stays
 ignored, preexisting HANDOFF preserved/untracked. No push/merge/release.
+
+## November 11, 2026 — dev124 same-build prepared-geometry OFF reference
+
+### Archive/delete and verified control
+
+Stefan supplied November11Debug/dev124_iphone_pursuit_time_profile_2.trace and
+said the log is on Desktop. Started51b99b5/codex/native-frame-command-reuse,
+tracked clean, only preexisting untracked HANDOFF_CHATGPT.md preserved. Required
+AGENTS/checkpoint/BACKLOG/latest evidence/status/log read. No new OFF subjective
+picture/audio feedback supplied, so objective log checks only for this run.
+
+BEFORE analysis copied /Users/bep1s/Desktop/nfsmw.log and compared bytes/hash:
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev124_iphone_pursuit_time_profile_2_nfsmw.log,
+786545bytes, SHA256846fd1e4722433aa8495d371dde41e6dcd10c8c4d90314aa7d406dc25d97663f.
+THEN deleted ONLY supplied Desktop copy per standing rule, absence verified.
+Trace already dated archive,300files/158218638bytes, sorted relativepath/
+bytes/SHA256 compactJSON tree digest
+33c091bc995761470d12dd57acb46e0fc164c2684c553f42fb90e44c9df6fda2.
+Manifest alongside trace as dev124_iphone_pursuit_time_profile_2_manifest.json
+and ignored ios/build/dev124-reference-time-profile-20261111/archive-manifest.json.
+All hashes unchanged after export; supplied Desktop log remains absent.
+Earlier ON trace/archive preserved; no other file deletion/move or game launch.
+
+TOC: iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2(27B52), LC17057,
+23:25:34.594–23:27:33.124+02:00,118.530081s, High100us/User pressed Stop.
+SAME appUUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE, OFFload0x10fcf8000;
+ONload0x10f8f8000. Same runtimeUUIDE00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660,
+GPUUUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F. Exact dev124 IPA SHA
+1b9f49e45c218204cdabac9037db9d15acc3a0287f5a37994e3606acfac9bbb7.
+PreparedOFF, BOTHbatchingOFF, reuseON/encodingOFF/repeatOFF/indexreusable/
+geometryhandoffON/residencyincremental/vfetchON;1x60,MSAAforced0/FXAAoff/
+MetalFXoff, driving start Default. Effective flags verified, not assumed from
+request. Prepared countersALL0/tablebound0 throughout, so no descriptor table
+allocation or lookup saving in OFF control. Audio/controller state not logged.
+223normal/0ICB known pipeline preparation359ms before game.
+
+### Comparable windows and objective gameplay checks
+
+Reference driving1.722s, pause59.700s/resume63.612s, pause reason not reported.
+ON pause62.623/resume65.659s. Chose COMMON8–50s/42s primary from log timeline
+BEFORE CPU values, leaving both interruptions out. Post74–100s/26s secondary
+also compared, but GPU/workload mismatch below prevents global attribution.
+Complete5s/300frame telemetry windows within primary,7permode2100frames;
+not all CPU samples align exactly to the independently phased counters.
+
+Both primary selectionsALL60FPS/CPU-owned/ICB0,0binding/budget fallbacks.
+OFF full guarded22windows6600frames:20x60/1x59.9/1x56.1FPS,21audio windows
+0gaps,35off-grid frames/6600.56.1summary ends62.911s DURING logged pause,
+not steady gameplay or a G1 stutter comparison. OFF trace0error/watchdog/GPU
+error lines,36thermal entriesnominal, peak1586MiB; no scene resign in supplied
+log. ONpeak1767MiB cannot be compared as a181MiB metadata saving: table bound
+only5016KiB, scene/cache history differ. No memory/battery claim from peaks.
+Pre-trace startup/watchdog history separate from these driving windows.
+
+### Primary42s result: operation reduction, near-neutral CPU
+
+|Metric|PreparedOFF|PreparedON|ON relative to OFF|
+|---|---:|---:|---:|
+|App sampleweight ms|52909.9|52883.8|-0.0493%|
+|GPU Commands ms|9435.1|9522.0|+0.9210%|
+|Native render queue ms|14230.4|13891.8|-2.3794%|
+|Combined graphics ms|23665.5|23413.8|-1.0636%|
+|Record inclusive ms|7031.7|7041.3|+0.1365%|
+|Record self ms|4321.8|4182.9|-3.2139%|
+|Reported direct draws/frame|3264.100|3373.905|+3.3640%|
+|Owner lookups/frame|6294.999|6384.540|+1.4224%|
+|Nearby GPU ms|7.51143|7.50000|-0.1521%|
+
+ON descriptorhits3,191,282/misses1,243,657(cold992,894)/bypasses2,650,198.
+13,490,130lookup sites avoided,54.6951%of equivalent sites; eligiblehit71.96%.
+ONactual AttributeEntryFor calls11,174,113+saved13,490,130=24,664,243equivalent
+sites versus OFFactual23,841,262(+3.4519%estimated workload). Equivalent sites
+are counterfactual SAME-run site accounting, not CPU timing. Lookup density
+roughly comparable to+3.36%draw difference. More work with flat CPU suggests
+possible modest per-draw benefit, not a measured whole-app/battery improvement.
+Approx Record per reported draw-3.1224%, limited by summary phases and different
+mix/geometry/texture work. Not deterministic replay/randomized repeated A/B.
+
+P-core sample sharesON89.1761/OFF88.6156%; stacklessON4.9817/OFF5.4270%.
+Matched device/build/sampling/settings improves attribution, but conditions
+aren't identical. ONMainX10927.8vsOFF10548.4ms, other workers vary a few%;
+not all unchanged cost constant. Small differences lack confidence intervals,
+more unresolved OFF stacks can affect named-scope proportions. No Power
+Profiler result supplied; CPUms not energy. G1 default promotion NOT accepted.
+
+Secondary26s ONapp37607.8/OFF40829.8(-7.8913%), Record5858.3/OFF6479.7,
+but GPU12.2475vs14.3725ms(-14.7852%), placement and resumed scene differ.
+Do NOT credit that broader drop to prepared geometry or combine it with early
+phase into a claimed whole-run gain. Full JSON retains both phases.
+
+### Source-line explanation and next source gate
+
+All Record-self samples from primary,1630unique preferredPCsON/1528OFF,
+4182.9/4321.8ms. Normalize each runtimePC (low2tagbits cleared) by its verified
+load to common MachO0x100000000. Union symbolicated in200PC batches with
+atos -o <exact unpacked dev124 NFSMW> -arch arm64 -l0x100000000 <preferredPCs>.
+Exit0, same current object/source line tables, no rebuild during comparison.
+Record-pc-lines.json and per-mode histograms retained.
+
+Remaining AttributeEntryFor/lazy-node sourcecall-line3246:
+OFF716.9ms -> ON401.2ms,315.7ms lower. New named prepared-cache union340.6ms
+ON vs absentOFF: Find306.9/Admit18.7/Replace15.0ms,~90.1%Find. Direct helper
+setup can inline into Record, so union isn't all new cost. Rough diagnostic
+proxy ON401.2+340.6=741.8 vs OFF716.9ms, scales with~3.45%extra equivalent
+lookup workload. These are source-line/skid+named scopes, NOT exact incremental
+overhead arithmetic or removable savings. Together with flat Record/app totals,
+consistent with matching cost consuming much of avoided lookup work. Do not
+claim proof of zero benefit either; possible modest per-draw effect remains.
+
+Other sourcecall-linesOFF/ON: drawappend3696 297.8/313.6ms,
+TextureOf3628 262.1/276.2, local-lifetime3443 247.0/239.7. Same-line attribution
+is stronger than different builds but still compiler/skid/inline sampling.
+No new safety/content/lifetime defect identified in this reference.
+
+Close device/reference round: keep prepared_geometry=false/BOTHbatchingfalse,
+other owner-only trial controls unchanged. NO more phone/power recordings now.
+Next SOURCE compact matching identity: contiguous unique used fetch pairs and
+hot state/key prefix separate from full descriptions. Current Find reads
+strided per-input metadata and repeated interleaved bindings; concrete lead
+from implementation+90%named matching share, not a measured cache-miss cause.
+Compare both words of every unique used pair, retain full shader/hash/dwords/
+physicalmap/vertexrange identity, bounds, probation/admission, before-erase
+generations and original mutable validation/ownership. Retire duplicated key
+storage rather than enlarge table. Actual reference/every-used-binding mutation
+and host hit/cold/churn cost gates before live build. No compact-key code/newIPA
+this analysis; current G1 plumbing retained/defaultOFF, no battery acceptance.
+
+### Commands, verification and shared record
+
+xcrun xctrace export --input <archived reference.trace> --toc --output
+<audit>/toc.xml; --xpath
+'/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output
+<audit>/time-profile.xml, exit0, escalated Instruments cache access only.
+python3 tools/analysis/summarize_battery_exports.py profile <ON/OFF XML>
+--skip 8 --end 50 --process LiveContainer --register-flush-hooks, exit0;
+secondary --skip 74 --end 100 both, exit0. Hook flag valid because same build
+contains strong outer hook even while batchingOFF. No active batch activity
+inferred from cheap disabled-wrapper samples. Existing analysis fixture exit0,
+analysis-tests.log; analyzer source unchanged this session.
+
+Private analyze-logs.py/record-pcs.py, raw exports, image-identity.txt,
+on/off-log-analysis.json, comparison.json, preferredPC source-line map and
+lookup-cost-proxy.json retained under
+/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev124-reference-time-profile-20261111.
+Post-export manifest confirms all300trace files/log hashes unchanged and
+Desktop source absent. No failed export/test, no new game/build/SDK invocation.
+No CHANGELOG for analysis-only result. Shared checkpoint/native plan/private
+ignored BACKLOG updated. Own shared docs committed locally; HANDOFF preserved
+untracked, BACKLOG deliberately not staged. No push/merge/release.

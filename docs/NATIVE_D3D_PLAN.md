@@ -1,5 +1,13 @@
 # Native graphics path toward an iOS port
 
+**November11 dev124 G1 OFF reference ANALYZED (latest):** SAME build/100us,
+correct controls, common uninterrupted8–50s. ON/OFF whole CPU essentiallyflat;
+lookupcall-line315.7ms lower, new named cache340.6ms, consistent with matching
+cost offsetting much of benefit. No net battery/default acceptance. NO more
+recordings now; next SOURCE compact/dedup contiguous binding identity and hot
+key/state layout, retain all validation/lifetime controls. See G1b proposal;
+no new implementation/build yet. Keep preparedOFF/bothbatchingOFF.
+
 **November11 dev124 G1 device ANALYZED (latest):** normal gameplay accepted,
 full guarded6300CPU-owned/59.8–60FPS/0audio gaps/traceGPU errors; restart/tail
 segmented. ~54%actual attribute lookup calls avoided,71–74%eligible descriptor
@@ -845,3 +853,34 @@ of unique used fetch pairs before full descriptions. Current matcher revisits
 strided per-input metadata, often repeating an interleaved binding. This is
 an inference/next optimization candidate, NOT a new implementation or measured
 saving. Preserve all exact identity checks and original mutable validation.
+
+### G1b. Compact prepared-geometry matching — next source boundary
+
+Same-build OFF reference now supplied/verified. Common42s pre-interruption
+window ON/OFF app52883.8/52909.9ms, Record7041.3/7031.7ms, ONdraws+3.36%,
+nearby GPUequal. ~54.7%lookup calls removed but no clear net CPU/battery win.
+Same binary's sourcecall-line3246 drops716.9->401.2ms while named cache uses
+340.6ms,90%Find. Source-line/skid/inlining bounds mean no exact overhead math,
+but the matching stage is the concrete next cost lead. Close recording round;
+no more uncontrolled captures or power pair before source improvement.
+
+Proposed change within existing defaultOFF trial: a compact contiguous key of
+unique USED fetch pairs plus existing shader/fullhash/dword/map/range identity,
+with hot state/key stored separately from large descriptions. Today Find walks
+strided per-input descriptions and often repeats the same interleaved binding;
+slot generation/key placement can also pull cold payload cache lines. Compare
+each unique selected pair's TWO words exactly once; dedup only repeated indices,
+never ignore distinct inputs or rely on selector hash as identity. Retire
+redundant per-input key storage so cache bound doesn't grow. Metadata belongs
+to current immutable shader/layout identity; no mutable register pointer kept
+for deferred reading. Legacy/invalid/UP/dynamic content rules unchanged.
+
+Retain same bounded capacity, admission/probation behavior, before-erase
+invalidation, generation wrap/physical alias semantics and lazy node acquisition.
+No cached validation result, decoded-array version or GPU/frame lifetime change.
+Test all used binding mutations (including non-first slots), repeated slots,
+unused-word mutations, selector collisions, replaced layouts/fullhash and all
+existing reference/lifetime/sweep cases. Same complete Record/validator guard
+must hold. Benchmark actual matching/preparation vs current G1 and original,
+including hits, cold, churn and small bypass; no logical-call saving treated
+as device CPU/energy result. No G1b code/IPA yet; next checkpoint owns work.

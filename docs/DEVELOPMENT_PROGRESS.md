@@ -519,6 +519,58 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 ## Current checkpoint — November 11, 2026
 
 
+**November11 dev124 G1 SAME-build OFF reference ANALYZED (latest):** exact
+UUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE, preparedOFF/BOTHbatchingOFF and
+other owner-only/vfetch/graphics controls verified, High100us same asON.
+Desktop log archived/byte+SHA verified then deleted per standing rule:
+November11Debug/dev124_iphone_pursuit_time_profile_2_nfsmw.log,786545bytes,
+SHA846fd1e4722433aa8495d371dde41e6dcd10c8c4d90314aa7d406dc25d97663f.
+Trace300files/158218638bytes, tree33c091bc995761470d12dd57acb46e0fc164c2684c553f42fb90e44c9df6fda2,
+unchanged after export. Same app/runtime/GPU UUIDs verified. No app/SDK/build
+or analyzer source change; no new IPA. Additional OFF subjective feedback not
+supplied, log has no capture-time errors/watchdogs/audio gaps.
+
+Reference also pauses59.700–63.612s (reason not reported); common primary
+8–50s chosen BEFORE CPU results to avoid both runs' interruptions. Each primary
+has7full300-frame windows2100CPU-owned/ICB0/ALL60FPS. OFF fullguard6600frames,
+20x60/1x59.9/1x56.1;56.1window ends62.911s DURINGpause, not steady cache
+regression.21audio windows0gaps, thermal nominal/peak1586MiB. No power capture.
+
+Closest comparison yet, but not deterministic replay: ON vsOFF app52883.8 vs
+52909.9ms(-0.049%), Record7041.3 vs7031.7(+0.137%) over42s; graphics-1.06%.
+ON reported draws+3.364%, equivalent lookup sites+3.452%, ownerlookups+1.42%,
+GPU7.500vs7.511ms; Pshare89.18vs88.62%. Approx Record/reported draw-3.12%,
+not precise causal gain (300-frame phases/work mix/stackless differ). Newcache
+removes54.695%lookup calls in common primary, but net whole CPU is essentially
+flat; no battery acceptance/default promotion. Post74–100sON CPU-7.89%, butGPU
+12.25vs14.37ms/different placement, not credited to geometry.
+
+Source evidence same binary: remaining AttributeEntryFor call-line3246
+716.9msOFF ->401.2msON (315.7ms lower); named newcache340.6msON (Find306.9).
+Their rough diagnostic proxy741.8vs716.9ms scales with extra lookup workload,
+consistent with matching cost consuming much of avoided work. Sampling skid/
+inlining makes this a lead, not exact overhead subtraction. Recordself4321.8
+OFF/4182.9ON, preferredPC union symbolicated via exact dev124 binary/objects.
+
+**Next SOURCE action:** close capture/reference round; NO further phone/power
+recordings now. Keep prepared_geometry=false, BOTHbatchingfalse, other owner
+trial controls as before. Implement/design compact contiguous used-binding
+identity and deduplicate repeated interleaved fetch pairs for prepared matching;
+move hot state/key away from full payload/strided records. Preserve EXACT
+identity/full shader hash/map/range checks, all used fetch words, cold/probation/
+sweep generations, original content validation/lifetimes. Retire duplicate key
+storage rather than grow cache. Actual reference differential/host cost gate
+before live build. G1 remains useful plumbing/operation reduction, current net
+CPU/energy gain UNPROVEN. Don't ask for another unmatched pursuit matrix.
+No compact-key implementation/newIPA yet in this analysis session.
+
+Audit ios/build/dev124-reference-time-profile-20261111 incl raw exports,
+logs/source-PCs/comparison/proxy JSON; detailed controls/limits TECHNICAL.
+Shared records/private ignored BACKLOG updated; own docs locally committed.
+Preexisting HANDOFF untracked preserved, no push/merge/release.
+
+
+
 **November11 dev124 G1 device ANALYZED (latest):** Stefan reports everything
 normal, bust/restart in middle and suspects cops caused heavier ending.
 ExactUUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE, preparedON/BOTHbatchingOFF/
