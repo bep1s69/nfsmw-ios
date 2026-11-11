@@ -510,6 +510,40 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 4, 2026 (continued from November 3)
 
+
+**November 11, dev120 encoding control BUILT / next device check:** Stefan
+approved the independent command-encoding diagnostic. Added restart-only
+`nfsmw_native_command_encoding=true` within the default-off command-reuse
+trial. False skips ICB pipeline preparation/collection/report and context
+acquisition, using the existing direct Metal draw loop. CPU frame ownership
+and geometry handoff remain independently selected; no validation/draw-loop
+changes. Default true preserves dev119 behavior. This is attribution tooling,
+not a demonstrated CPU/battery improvement.
+
+Delivered `ios/build/NFSMW-0.6.1-dev120-encoding-control.ipa` and hash-verified
+copy on iCloud Desktop. SHA256
+`ceac412bac47de1f8e820416ff6c789ba8cc3057adda0a8804a39f7b1f2a02f2`,
+UUID `E7740732-C19B-3EE6-9994-3680BB4F9107`. Host control tests cover all eight
+reuse/encoding/geometry combinations and exclusions; geometry, command-cache,
+preparation fixtures pass. Build/signature/ZIP verification pass; details and
+limits below in TECHNICAL.104 metallibs, two SDK dylibs and223-key seed match
+dev119. Older Desktop dev119 moved to Trash; stable IPA/cache copies retained.
+
+**Next action:** install dev120 preserving settings, cold restart LiveContainer
+with Extra Args `--nfsmw_native_command_reuse=true
+--nfsmw_native_command_encoding=false --nfsmw_native_repeat_counter=false`.
+Leave geometry handoff/residency on (defaults), same1x/60/controller/audio mute
+OFF as dev119. Record one roughly2-minute Mac Time Profiler pursuit and game
+log. Expect CPU-owned frames/geometry reuse active, cached command encoding
+off, zero GPU command contexts/ICB draws; normal pipelines still prepared.
+Archive received evidence immediately by capture date, verify correctness and
+compare CPU rates/scopes before requesting power. Set encoding=true and cold
+restart to restore full trial in this same IPA if needed. No device run or
+CPU/energy savings yet. Historical proposals below are superseded by this
+built diagnostic. Preexisting untracked HANDOFF_CHATGPT.md is preserved;
+private ignored BACKLOG updated locally. No push/merge/release.
+
+
 **November 11, dev119 Mac Time Profiler analyzed / archive audit completed:**
 Stefan's original trace remains in Debug/10 November 2026 as supplied. A
 payload-verified copy and matching midnight log now live in Debug/11 November

@@ -10,14 +10,15 @@ other workload differences. Draw/frame/storage lifecycle unionâ€”not Draw aloneâ
 falls4930.6->3310.3ms in112s. Current command-cache named paths take4.93%app
 sampleweight. No causal CPU or energy benefit established. Defer power pair.
 
-Next proposed diagnostic: independently select GPU ICB encoding while keeping
-CPU frame ownership/geometry handles active, using existing direct Metal path
-when encoding off. Gate ICB variants/acquisition, not FramePool or geometry.
-Default preserves dev119; no implementation yet. Compare owner-only vs full
-trial before adding more caching or beginning a power matrix. This addresses
-the original plan's attribution requirement; different live pursuits cannot
-prove which component pays. New trace/log archived November11; November10
-archives audited intact (TECHNICAL/DEVELOPMENT_PROGRESS).
+**dev120 diagnostic BUILT (November11):** independent default-true restart-only
+`nfsmw_native_command_encoding` gates ICB preparation/collection/report and
+context acquisition. With command_reuse=true and encoding=false CPU frame
+ownership/geometry handles stay active with existing direct Metal draws.
+Validation and entire draw loop unchanged. All eight ownership/encoding/geometry
+control combinations and existing lifetime/preparation fixtures pass; signed
+IPA delivered. Next one Mac Time Profiler pursuit+log in owner-only mode,
+1x/60 and otherwise dev119 settings. No power pair until CPU/correctness supports
+it; no device/energy benefit claimed. Exact artifact/commands in checkpoint.
 
 **dev119 BUILT:** first geometry-handle implementation below is packaged.
 Actual helper/reference/validation-body tests and iOS build/signature pass;

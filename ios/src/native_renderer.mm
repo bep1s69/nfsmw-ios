@@ -146,6 +146,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
                     "Native frame ownership and cached Metal indexed commands (restart required; trial)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_command_encoding, true, "GPU",
+                    "Within command reuse, encode cached Metal indirect commands; off keeps frame ownership with direct Metal draws (restart required; control)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true, "GPU",
                     "Within command reuse, declare resources incrementally per encoder (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_geometry_handoff, true, "GPU",
@@ -1171,6 +1173,10 @@ std::shared_ptr<ConstantBank> PooledConstantBank() {
 bool NativeCommandReuse() {
   static const bool enabled = REXCVAR_GET(nfsmw_native_command_reuse);
   return enabled;
+}
+bool NativeCommandEncoding() {
+  static const bool enabled=REXCVAR_GET(nfsmw_native_command_encoding);
+  return NativeCommandReuse() && enabled;
 }
 bool NativeGeometryHandoff() {
   static const bool enabled=REXCVAR_GET(nfsmw_native_geometry_handoff);
@@ -5517,7 +5523,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       nfsmw::commands::PurgeIdle(memory_purge_requests.load(std::memory_order_relaxed));
     nfsmw::commands::Lease command_lease;
     auto* command_context = static_cast<nfsmw::commands::Context*>(nullptr);
-    if (NativeCommandReuse() && !dump && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
+    if (NativeCommandEncoding() && !dump && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
         !REXCVAR_GET(nfsmw_native_early_commit) && !capture.active &&
         [device supportsFamily:MTLGPUFamilyApple3]) {
       command_lease.context = nfsmw::commands::Acquire(device, frame->draws.size(),
@@ -6443,7 +6449,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // Pipelines by their state (no strings per draw).
     pipeline_cache.WarmUp(device);
     pipeline_cache.Collect();
-    if (NativeCommandReuse()) {
+    if (NativeCommandEncoding()) {
       indirect_pipeline_cache.WarmUp(device);
       indirect_pipeline_cache.Collect();
     }
@@ -9616,7 +9622,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         geometry_upload_bytes = geometry_upload_arrays = 0;
         vertex_diagnostics = {};
         stats_since_ms = now;
-        if (NativeCommandReuse()) indirect_pipeline_cache.Report();
+        if (NativeCommandEncoding()) indirect_pipeline_cache.Report();
         pipeline_cache.Report();
       }
       return;
@@ -9936,14 +9942,14 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   store.Load();
   if (!store.device || store.functions.empty()) return;
   const auto normal=pipeline_cache.PreparationKeys(false);
-  const bool reuse=NativeCommandReuse() && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
+  const bool reuse=NativeCommandEncoding() && !MotionVectorsWanted() && !RepeatCounterEnabled() &&
       !REXCVAR_GET(nfsmw_native_early_commit) && [store.device supportsFamily:MTLGPUFamilyApple3];
   const auto indirect=reuse ? indirect_pipeline_cache.PreparationKeys(true) : std::vector<PipelineKey>{};
   const uint32_t total=uint32_t(normal.size()+indirect.size());
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev119 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev120 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10429,10 +10435,10 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev119 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {})",
+    REXLOG_INFO("[native] dev120 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
-                NativeGeometryHandoff() ? "on" : "off");
+                NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off");
     return true;
   }();
   (void)announced_reuse;

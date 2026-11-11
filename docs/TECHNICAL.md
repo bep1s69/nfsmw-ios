@@ -24353,3 +24353,75 @@ until concrete diagnostic build exists. No new app/IPA this session.
 Shared checkpoint/native plan/private ignored BACKLOG updated, all private
 artifacts remain in Debug/ignored ios/build. git diff --check exit0 before
 local commit; preexisting HANDOFF_CHATGPT.md preserved. No push/merge/release.
+
+## November 11, 2026 — dev120 independent command-encoding diagnostic
+
+Stefan approved implementing the diagnostic after dev119's Mac profile showed
+combined graphics CPU effectively flat. Added restart-only
+`nfsmw_native_command_encoding` default true, effective only inside default-off
+`nfsmw_native_command_reuse`. False gates indirect pipeline pre-game preparation,
+runtime WarmUp/Collect/Report and command-context acquisition. The existing
+nil-context direct Metal path performs drawing. CPU frame-pool/Take ownership
+and geometry-handoff selection remain on their original controls. Idle command
+pool purge remains under reuse; it creates no command contexts. No change to
+Record validation, the entire draw loop, resource validation or uploads.
+Startup marker dev120 reports effective cached command encoding. Full/default
+encoding mode preserves dev119 selection; false is an attribution control,
+not an asserted optimization. Geometry/residency defaults unchanged.
+
+Validation on Mac host:
+
+- `python3 tools/native/test_command_encoding_control.py`: PASS, new fixture
+  compiles actual cached helpers and production ownership/context gates under
+  Objective-C++ ARC/ASan/UBSan. Eight separate processes cover all combinations
+  of reuse/encoding/geometry; exclusions cover dump/capture/motion/repeat/early
+  commit/GPU family. Real FrameOwners retains values when encoding off.
+  Acquire/Take/device are fixture stand-ins, not a hardware GPU execution test.
+  Source guards verify normal prep and geometry wiring independent, all ICB
+  prep/collection/report gates, Record and entire draw loop identical to dev119
+  commit7ac511c. Existing fixtures cover resource/lifetime implementation.
+- Geometry handoff, native command cache and pipeline preparation fixtures PASS.
+  Final explicit rerun of all four via ThreadPoolExecutor/subprocess returned
+  `{command_encoding_control:0, geometry_handoff:0,
+  native_command_cache:0, pipeline_preparation:0}`. Logs:
+  `ios/build/dev120-{command_encoding_control,geometry_handoff,
+  native_command_cache,pipeline_preparation}-verified.log`.
+- `cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+  completed packaging/signing NFSMW.ipa, log `ios/build/dev120-package.log`.
+  SDK `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`. Seven warnings:
+  existing fpscr operand-width, five screen API deprecations, duplicate -lz;
+  no compiler errors. `codesign --verify --deep --strict` exit0; ZIP CRC test
+  returns None and packaged executable equals cache app. git diff --check exit0.
+
+Artifact `ios/build/NFSMW-0.6.1-dev120-encoding-control.ipa`,30742527bytes,
+bundle0.6.0(11), SHA256
+`ceac412bac47de1f8e820416ff6c789ba8cc3057adda0a8804a39f7b1f2a02f2`.
+Executable SHA256
+`563e0631a9a4572d10172fd95a371aa858c3efca245156de8fffe0be769c3c73`,
+UUID `E7740732-C19B-3EE6-9994-3680BB4F9107` (dwarfdump exit0).
+104 metallibs and two SDK dylibs byte-identical to dev119; separate comparison
+of NativeShaders/pipeline_keys.bin identical10704bytes/223keys, SHA256
+`ac186220233372cbafd66d4ab9ad5ae8e17b75bf2a564b34106bcbf2add5ac4d`.
+Private metadata `ios/build/dev120-artifact.json` (106 compared assets counts
+metallibs+dylibs; seed compared separately). Hash-verified delivery to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev120-encoding-control.ipa`.
+Moved only Desktop dev119 IPA to `/Users/bep1s/.Trash/`; stable Desktop0.6.0
+and all ios/build copies preserved. No distribution/push/merge/release.
+
+Next user run: keep existing settings1x/60/controller and mute OFF, preserve
+caches, set Extra Args `--nfsmw_native_command_reuse=true
+--nfsmw_native_command_encoding=false --nfsmw_native_repeat_counter=false`.
+Geometry handoff/residency default true. Cold restart LiveContainer after args.
+One roughly2-minute Mac Time Profiler pursuit plus nfsmw.log, no power profile
+needed yet. Expect CPU-owned frame/geometry activity, zero GPU contexts/ICB
+draws, normal preparation but zero ICB preparation. Full trial can be restored
+with encoding=true and cold restart in same build. Archive/hash received trace
+and log by capture date before analysis. Compare CPU rates and attribution;
+different live pursuit workload still limits causal inference. No device run,
+visual acceptance, FPS guarantee, net CPU/energy improvement established by
+host fixtures/build. Do not repeat power matrix before this gate.
+
+Updated checkpoint/native plan/CHANGELOG and matching private ignored BACKLOG.
+Preexisting untracked HANDOFF_CHATGPT.md preserved and excluded from commit;
+BACKLOG remains ignored/private under existing policy. No other preexisting
+tracked changes included. Session changes committed locally together.
