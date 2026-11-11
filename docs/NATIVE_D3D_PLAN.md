@@ -1,5 +1,12 @@
 # Native graphics path toward an iOS port
 
+**November12 dev125 G1b implemented/delivered (current):** compact exact unique used
+fetch pairs, hot probe headers separate,2048descriptions now4632KiB. Full original
+Record/validator/lifetime guards retained; actual dev124+compact differential and
+11regressions pass. Shared-binding host matcher19–32%lower cost; full preparation
+~1–7%better in repeated cases, no device CPU/energy proof. DefaultOFF/bothbatchOFF.
+Next ONEdev125 correctness/TimeProfiler+log, no power matrix; checkpoint exact controls.
+
 **November11 dev124 G1 OFF reference ANALYZED (latest):** SAME build/100us,
 correct controls, common uninterrupted8–50s. ON/OFF whole CPU essentiallyflat;
 lookupcall-line315.7ms lower, new named cache340.6ms, consistent with matching
@@ -883,4 +890,5 @@ unused-word mutations, selector collisions, replaced layouts/fullhash and all
 existing reference/lifetime/sweep cases. Same complete Record/validator guard
 must hold. Benchmark actual matching/preparation vs current G1 and original,
 including hits, cold, churn and small bypass; no logical-call saving treated
-as device CPU/energy result. No G1b code/IPA yet; next checkpoint owns work.
+as device CPU/energy result. November12 implementation now delivered as dev125;
+see current checkpoint and TECHNICAL for exact tests, costs, artifact and next gate.

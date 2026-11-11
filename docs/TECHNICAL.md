@@ -26499,3 +26499,175 @@ Desktop source absent. No failed export/test, no new game/build/SDK invocation.
 No CHANGELOG for analysis-only result. Shared checkpoint/native plan/private
 ignored BACKLOG updated. Own shared docs committed locally; HANDOFF preserved
 untracked, BACKLOG deliberately not staged. No push/merge/release.
+
+## November 12, 2026 — dev125 compact prepared-geometry matcher (G1b)
+
+### Scope and implementation
+
+Stefan approved the next source step after dev124's same-build reference found
+no clear net CPU reduction. Starting HEAD4ec7b08, branch
+codex/native-frame-command-reuse. Initial current-repo status only untracked
+HANDOFF_CHATGPT.md, preserved. Canonical rexglue-sdk-ios already has extensive
+uncommitted iOS/Android source changes; NFSMW-Recompiled-Mobile already has
+modified android/app/src/main/cpp/render_targets.cpp and untracked local files.
+None included or altered by this session. Active SDK remains the existing
+non-Git nfsmw-multiplayer-sdk snapshot; no prepare/reset/patch mutation.
+
+Changes only to prepared metadata storage/matching in native_prepared_geometry.h
+and native_renderer.mm, plus tests/docs. Same defaultOFF restart flag
+nfsmw_native_prepared_geometry; both register transport switches still defaultOFF.
+Cache same1024sets/two ways/2048descriptions with same selector hash, exact scalar
+shader/fullhash/dword/map/range/input-count/anchor identity and repeat-before-fill
+admission. Header keys/generation/ready/replacement state now contiguous separately
+from payloads; invalid generations are checked before descriptions/borrowed nodes.
+Description prefix holds contiguous UNIQUE used fetch-pair indices and BOTH
+snapshot words; dedup by checked slot number in a two-word bitset during fill.
+Find checks every distinct used pair, including non-anchor bindings. No hash-only
+matching, unused register comparison or deferred register pointer. Original
+per-input copies of binding words/index, location/integer/buffer/size removed;
+immutable preparation data and lazy node handle retained. Table sizeof printed
+5016 ->4632KiB (384KiB smaller) without increasing capacity. Generation-before-
+erase, dynamic/content validation, index conversion, Draw and frame ownership
+remain original. Three runtime log markers identify dev125; no new settings.
+
+### Exact production checks and negative attempts
+
+Audit root (ignored local, retained):
+/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev125-compact-matching-20261112/.
+
+python3 tools/native/test_prepared_geometry.py: exit0, final-sanitized.log.
+Actual current helpers/header and actual dev124 helpers/header extracted from
+9140567 compile beside actual original Record preparation from1bbb88b. Baseline
+symbols renamed for coexistence; test captured-output DTO independent of live
+cache storage. Each implementation compared against original for90,000draws
+per ON/OFF process under ASan/UBSan. Same checks also exit0 at-O2 in benchmark
+processes. Full Record normalization guard still permits only prior explicit
+preparation/lookup changes; Fingerprint, IndexFingerprint, ParseVFetch,
+DecodeElement, ResolveVertexFetch, FetchLayoutFor bodies unchanged byte-for-byte
+from1bbb88b. No weakening/updating guard baselines.
+
+New targeted checks change BOTH words of EVERY unique used binding with first
+and non-first slots, repeated interleaved pairs,16unique pairs, slots63/64/95;
+used changes reject the hit, unused slot90 changes preserve the hit. Original
+and dev124 observable preparation output equivalence checked after mutation.
+Existing lazy acquisition, current decoded version/dynamic flag, physical base
+replacement/high aliases, real purge/sweep invalidation, retained old frame
+owners, collision/probation/generation and unsupported draw cases still pass.
+Matching benchmark independently asserts equal dev124/compact hit counts.
+
+Initial separate dev124 --benchmark exit0 (dev124-baseline.log) before edits;
+initial compact sanitizer exit0 (compact-tests.log). First combined-baseline
+fixture failed, Python exit1 after SIGABRT6: mechanical symbol rename also
+renamed the flag string to nfsmw_native_baseline_geometry, rejected by harness
+Flag. Fixed only fixture mapping back to the real existing flag; production
+unaffected. Failed three-way-tests.log retained; three-way-tests-fixed.log exit0.
+Early benchmark logs retained; final reported timings collected after all
+regression jobs completed, before iOS build (uncontended-benchmark.log), avoiding
+concurrent compile timing as final evidence. No production failure encountered.
+
+All11 existing commands exit0, raw command/exit records in regression-0/1/2.log:
+python3 tools/native/test_attribute_lookup.py;
+python3 tools/native/test_geometry_handoff.py;
+python3 tools/native/test_frame_owner_index.py;
+python3 tools/native/test_draw_arena.py;
+python3 tools/native/test_command_encoding_control.py;
+python3 tools/native/test_native_frame_commands.py;
+python3 tools/native/test_native_command_cache.py;
+python3 tools/native/test_pipeline_preparation.py;
+python3 tools/native/test_texture_masks.py;
+python3 tools/native/test_compact_shared_constants.py;
+python3 tools/native/test_upload_sizing.py.
+No regression fixture guard changes required this session. Upload fixture2011
+frames/sizeofDraw416; ARC arena3500draws/mode retained. git diff --check exit0.
+
+### Host cost gate — measurements, not device CPU/energy
+
+python3 tools/native/test_prepared_geometry.py --benchmark, exit0. -O2,7trials
+alternating THREE arms (original, actual dev124, current compact),40,000draw
+preparations per arm/case, median. Original validation/decoding/GPU excluded.
+Full20case matrix in uncontended-benchmark.log and host-costs.json. Selected
+original/dev124/compact ms (input count/mesh identities):
+
+| Inputs / meshes | Original | dev124 | Compact |
+| --- | ---: | ---: | ---: |
+| 4 / 32 | 1.875 | 1.793 | 1.730 |
+| 4 / 512 | 3.658 | 2.354 | 2.315 |
+| 4 / 2048 | 5.192 | 3.347 | 3.265 |
+| 4 / 8192 | 6.425 | 7.101 | 6.893 |
+| 6 / 32 | 2.753 | 2.468 | 2.346 |
+| 6 / 512 | 5.887 | 3.031 | 3.001 |
+| 6 / 2048 | 7.388 | 4.484 | 4.356 |
+| 6 / 8192 | 10.927 | 11.823 | 11.597 |
+| 9 / 32 | 4.453 | 3.396 | 3.174 |
+| 9 / 512 | 9.304 | 4.248 | 4.105 |
+| 9 / 2048 | 12.075 | 6.575 | 6.364 |
+| 9 / 8192 | 17.607 | 19.048 | 18.258 |
+
+Repeated4/6/9-input cases compact~1–7%less preparation time vsdev124. Same
+no-hit8192mesh sequence still loses vs original;1input bypass32meshes0.495 /
+0.635 /0.623ms,3inputs32meshes1.392 /1.546 /1.532ms: eligibility has overhead.
+No new bypass/admission policy used to hide those negative results.
+
+Additional actual matcher/fill-only benchmark alternates dev124/compact,
+7trials/400,000calls,9inputs, shared3bindings versus all9unique. Retarget and
+eligibility included, attribute-node lookup/output construction excluded:
+
+| Bindings / meshes | dev124 ms | Compact ms | Equal hit count |
+| --- | ---: | ---: | ---: |
+| 3 shared / 32 | 9.560 | 7.755 | 399936 |
+| 3 shared / 512 | 13.545 | 9.182 | 398976 |
+| 3 shared / 2048 | 12.408 | 9.435 | 317342 |
+| 9 unique / 32 | 8.676 | 8.583 | 399936 |
+| 9 unique / 512 | 13.223 | 11.501 | 398976 |
+| 9 unique / 2048 | 12.469 | 11.097 | 317342 |
+
+Shared-binding matching/fill cost19–32%lower on this host, unique~1–13%lower.
+This supports a small opt-in device trial; cannot multiply host percentages by
+sampled dev124 Find CPU or claim full Record/phone/battery reductions. Smaller
+cache/read set is a structural fact, not measured phone cache-miss/power data.
+
+### Build, artifact, delivery
+
+NFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk python3
+tools/ios/patch_ios_register_batches.py --status: exit0,3of3blocks applied.
+No patch mutation. Existing isolated build command:
+cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12,
+exit0,21.269seconds (build-result.json/build.log). Narrow escalation for existing
+build cache/SDK outputs.10warnings (4existing SDKasm/5UIKit deprecations/1duplicate
+-lz linker),0errors. No SDK reconfigure/version badge change in this build.
+
+Retained signed IPA:
+/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev125-compact-matching.ipa
+30756555bytes; SHA25688aa7c0c7e70b236d176c337258370654bae468933dfd46074b94be0b5e0e2e5.
+ARM64 executable UUID DA395111-4E8D-3287-9E24-964EF81886F4;
+exeSHA256c2b0056914b95c7f6186ced6534cf227cfa10bf0eff676836b09ed042a53eadd.
+Bundle0.6.0(11), filename trial0.6.1 as prior builds. ZIP CRC pass; codesign
+--verify --deep --strict --verbose=2 <audit>/unpacked/Payload/NFSMW.app exit0.
+All104metallibs+pipeline_keys.bin byte-identical dev124. Both packaged SDK dylibs
+BYTE-identical dev124: runtimeSHA dad5ba64daf003ead215738b8e991fd39b1ac4e8e7e7be8d4ac4582b71f10129,
+GPU cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113.
+No SDK source/code/badge difference to explain. artifact.json retains identities.
+
+Copied the plain IPA to
+/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev125-compact-matching.ipa;
+byte-count+SHA verified. ONLY Desktop dev124 moved to
+/Users/bep1s/.Trash/NFSMW-0.6.1-dev124-prepared-geometry.ipa after verifying it
+matches retained dev124. Stable NFS-Most-Wanted-0.6.0.ipa stayed on Desktop,
+SHA unchanged cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285.
+All ios/build originals retained. delivery.json records exact paths/hashes.
+
+### Next gate and shared record
+
+No device/game launch or power measurement by agent. Next ONE90–120s pursuit
+Time Profiler+nfsmw.log on dev125 with prepared_geometry=true, BOTH register
+flagsfalse, coldrestart and dev124 owner-only/native60/graphics/vfetch controls
+unchanged (checkpoint exact args). First correctness/audio/FPS, then actual
+matching/Record CPU at similar work. No power matrix/default promotion now.
+If device practical net gain absent, stop G1 micro-tuning/repeated unmatched
+captures and use existing source attribution for larger recurring-work target.
+Archive and verify supplied Desktop log before deleting per standing user rule.
+
+Checkpoint, native plan, ignored private backlog and CHANGELOG updated in the
+same local commit as code/test. HANDOFF preserved untracked; ignored BACKLOG
+intentionally not staged. Other repositories' preexisting modifications not
+included. No push/merge/release.

@@ -8,9 +8,11 @@
 namespace nfsmw {
 template<class Key,class Description,size_t Sets=1024> class PreparedGeometryCache {
   static_assert(Sets && !(Sets&(Sets-1)));
-  struct Slot {Key key;Description description;uint64_t generation=0;bool ready=false;};
+  // Probe headers stay together; misses do not touch the large payloads.
+  struct Slot {Key key;uint64_t generation=0;bool ready=false;};
   struct Set {Slot ways[2];unsigned replace=0;};
   std::array<Set,Sets> sets_;
+  std::array<std::array<Description,2>,Sets> descriptions_;
   uint64_t generation_=1;
  public:
   template<class Matches> Description* Find(const Key& key,uint64_t hash,Matches&& matches) {
@@ -18,8 +20,8 @@ template<class Key,class Description,size_t Sets=1024> class PreparedGeometryCac
     for(unsigned i=0;i<2;++i) {
       auto& slot=set.ways[i];
       // Test generation BEFORE reading descriptions containing borrowed nodes.
-      if(slot.generation==generation_ && slot.ready && slot.key==key && matches(slot.description)) {
-        set.replace=i^1;return &slot.description;
+      if(slot.generation==generation_ && slot.ready && slot.key==key && matches(descriptions_[hash&(Sets-1)][i])) {
+        set.replace=i^1;return &descriptions_[hash&(Sets-1)][i];
       }
     }
     return nullptr;
@@ -41,8 +43,9 @@ template<class Key,class Description,size_t Sets=1024> class PreparedGeometryCac
   // initialize every field the matcher/reader uses, including null node handles.
   template<class Fill> Description& Replace(const Key& key,uint64_t hash,Fill&& fill) {
     auto& set=sets_[hash&(Sets-1)];auto& slot=set.ways[set.replace];
-    slot.generation=0;fill(slot.description);slot.key=key;
-    slot.ready=true;slot.generation=generation_;set.replace^=1;return slot.description;
+    auto& description=descriptions_[hash&(Sets-1)][set.replace];
+    slot.generation=0;fill(description);slot.key=key;
+    slot.ready=true;slot.generation=generation_;set.replace^=1;return description;
   }
   void Invalidate() {
     if(generation_==std::numeric_limits<uint64_t>::max()) {

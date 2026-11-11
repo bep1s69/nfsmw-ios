@@ -516,7 +516,56 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 11, 2026
+## Current checkpoint — November 12, 2026
+
+**November12 dev125 G1b IMPLEMENTED, checked and delivered (current):**
+Stefan approved the compact matching step. Prepared geometry remains defaultOFF
+(restart-only `nfsmw_native_prepared_geometry`); BOTH register batching flags
+remain OFF. Same2048 descriptions/probation/generation/hash/identity semantics.
+Probe headers now separate from large descriptions; contiguous unique USED
+fetch pairs compare BOTH words once. Redundant per-input binding/location/size
+fields removed, metadata table5016 ->4632KiB, no validator/decoded data/frame
+ownership changes. Existing full Record normalization and six original helper
+body guards pass unchanged. No SDK/shader/seed modifications.
+
+Actual production compact AND dev124 preparations each checked against original
+for90,000draws/mode ON/OFF under ASan/UBSan and -O2. New checks mutate both words
+of every unique used binding, including non-anchor and slots63/64/95; repeated
+slots deduplicate, unused pairs preserve hits. Existing sweep/lazy node/physical
+map/alias/mutable versions/lifetime/probation/collision/bypass tests retained.
+All11regression commands exit0. Host alternating7trial medians, uncontended
+final run: shared-binding matching/fill19–32%lower than dev124; complete measured
+preparation repeated4/6/9-input cases~1–7%lower than dev124 (matrix TECHNICAL).
+Small bypass and no-hit8192mesh churn still cost more than original in most
+cases. These EXCLUDE validation/GPU and are NOT device CPU/battery acceptance.
+
+Signed retained ios/build/NFSMW-0.6.1-dev125-compact-matching.ipa,30756555bytes,
+SHA25688aa7c0c7e70b236d176c337258370654bae468933dfd46074b94be0b5e0e2e5,
+UUID DA395111-4E8D-3287-9E24-964EF81886F4, bundle0.6.0(11).
+Existing build-0.6 ipa -j12 exit0; ZIPCRC/strict deep codesign pass.104metallibs,
+pipeline seed and BOTH SDK dylibs byte-identical dev124 (no badge rebuild).
+Desktop copy byte/SHA verified; ONLY old Desktopdev124 moved to Trash. Stable
+0.6.0 Desktop SHA unchanged, all retained ios/build IPAs preserved. No game launch.
+Audit ios/build/dev125-compact-matching-20261112 contains raw tests/timings,
+failed initial baseline-fixture attempt, artifact/delivery manifests and build.
+
+**Next:** install dev125 preserving caches/settings; cold restart with
+`--nfsmw_native_prepared_geometry=true --nfsmw_native_register_batches=false
+--nfsmw_native_register_flushes=false`, other dev124 owner-only controls unchanged
+(reuseON/encodingOFF/repeatOFF/ownerindexON/vfetchON,1x60/MSAA0/FXAAoff/MetalFXoff).
+ONE90–120s pursuit Time Profiler+game log can now check correctness/FPS and
+whether the host matching reduction survives on device. Do not request a power
+matrix or promote defaults yet. Compare matching cost/Record at similar work,
+not raw whole CPU between uncontrolled pursuits. If no practical net improvement,
+close G1 tuning rather than ask for repeated unmatched runs; use existing source
+attribution to choose a larger remaining recurring cost. Archive any provided
+Desktop log and verify before deleting it under the standing rule.
+
+Own session changes committed locally; preexisting untracked HANDOFF preserved.
+Private ignored BACKLOG updated but deliberately not staged. Preexisting changes
+in canonical SDK and NFSMW-Recompiled-Mobile preserved/uncommitted, not included.
+No push/merge/release.
+
 
 
 **November11 dev124 G1 SAME-build OFF reference ANALYZED (latest):** exact

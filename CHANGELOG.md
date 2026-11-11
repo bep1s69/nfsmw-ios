@@ -27,6 +27,7 @@
   to share the cost of handing those updates to the renderer.
   An off-by-default geometry trial reuses prepared vertex descriptions across
   repeated draws while keeping the existing buffer-content checks.
+  That trial now checks shared vertex bindings once and uses a smaller cache.
 
 ## 0.6.0
 

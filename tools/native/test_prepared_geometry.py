@@ -41,6 +41,7 @@ def normalize_prepared_record(s):
 
 PREFIX=r'''
 #include "native_prepared_geometry.h"
+#include "baseline_prepared_geometry.h"
 #include "native_frame_storage.h"
 #include "native_renderer.h"
 #include <algorithm>
@@ -81,11 +82,17 @@ namespace xenos {enum class Endian:unsigned{};}
 struct Attribute{unsigned location;bool integer;};
 '''
 TAIL=r'''
+// Captured observable preparation outputs, independent of cache storage layout.
+struct CapturedInput {
+ VFetch fetch;uint32_t location,buffer,size_bytes;bool integer,remapped;int remap[4];
+ const uint8_t* base;AttributeKey key;size_t first,range;uint64_t motion_term;CacheEntry<FloatArray>* entry;
+};
 struct Frame{VertexDiagnostics vertex_diagnostics;};
 struct Draw{uint32_t vertex_count;};
 @REFERENCE_CAPTURE@
 @LIVE_CAPTURE@
-void Equal(const PreparedGeometryInput& a,const PreparedGeometryInput& b){
+@BASELINE_CAPTURE@
+void Equal(const CapturedInput& a,const CapturedInput& b){
  assert(a.fetch.slot==b.fetch.slot && a.fetch.offset==b.fetch.offset && a.fetch.stride==b.fetch.stride);
  assert(a.fetch.format==b.fetch.format && a.fetch.swizzle==b.fetch.swizzle && a.fetch.is_signed==b.fetch.is_signed && a.fetch.integer==b.fetch.integer);
  assert(a.key==b.key && a.entry==b.entry && a.base==b.base && a.location==b.location);
@@ -109,16 +116,18 @@ struct Case {
 Frame frame;
 void Check(Case& c){
  auto* p=PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics);
+ auto* baseline=BaselineGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics);
  if(p)assert(enabled && p->count==c.inputs.size());else if(!enabled)assert(!p);
  for(unsigned i=0;i<c.inputs.size();++i){
   auto live=LiveCapture(p?&p->inputs[i]:nullptr,c.in,c.inputs[i],c.layout.inputs[i].fetch,c.lo,c.count,frame);
   auto old=ReferenceCapture(nullptr,c.in,c.inputs[i],c.layout.inputs[i].fetch,c.lo,c.count,frame);Equal(live,old);
+  Equal(BaselineCapture(baseline?&baseline->inputs[i]:nullptr,c.in,c.inputs[i],c.layout.inputs[i].fetch,c.lo,c.count,frame),old);
  }
 }
 void Differential(){
  Case c;std::mt19937 rng(124);unsigned cases=0;
  for(unsigned n=0;n<30000;++n){
-  if(n%97==0){InvalidatePreparedGeometry();attribute_lookup.Clear();attribute_cache.clear();}
+  if(n%97==0){InvalidatePreparedGeometry();InvalidateBaselineGeometry();attribute_lookup.Clear();attribute_cache.clear();}
   if(n%11==0){++c.in.vs_microcode_hash;auto& f=c.layout.inputs[n%c.inputs.size()].fetch;
    f.stride=1+rng()%64;f.offset=rng()%32;f.format=rng()%64;f.swizzle=rng()%4096;f.integer=rng()%2;f.is_signed=rng()%2;}
   if(n%13==0)c.in.vs_key=rng()%8;
@@ -131,11 +140,11 @@ void Differential(){
   Check(c);Check(c);Check(c);cases+=3;
  }
  if(enabled)assert(frame.vertex_diagnostics.prepared_lookups_saved>0);
- std::printf("PASS %u actual Record preparation comparisons; keys, addresses, endian, remap, ranges, node identity and motion mixing\n",cases);
+ std::printf("PASS %u actual Record preparation comparisons per dev124/compact against original; keys, addresses, endian, remap, ranges, node identity and motion mixing\n",cases);
 }
 void Boundaries(){
  Case c;auto get=[&]{return PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics);};
- InvalidatePreparedGeometry();attribute_lookup.Clear();attribute_cache.clear();
+ InvalidatePreparedGeometry();InvalidateBaselineGeometry();attribute_lookup.Clear();attribute_cache.clear();
  assert(!get());auto* p=get();assert(p && attribute_cache.empty()); // no eager side effects for later inputs
  Check(c);p=get();assert(p && p->inputs[0].entry);
  auto* node=p->inputs[0].entry;node->value=std::make_shared<FloatArray>(8,1.f);
@@ -149,7 +158,8 @@ void Boundaries(){
  get();auto* moved=get();assert(moved && moved->inputs[0].base!=old_base+0x1000);Check(c);physical=old_base;
  // Real sweep must invalidate before deleting all borrowed idle nodes. Old
  // FrameOwners continue retaining earlier versions through eviction.
- frame_counter=1024;purge=true;SweepAttributeCache();assert(attribute_cache.empty());Check(c);
+ // The historical cache shares the fixture map; its production sweep is not installed here.
+ frame_counter=1024;purge=true;InvalidateBaselineGeometry();SweepAttributeCache();assert(attribute_cache.empty());Check(c);
  assert((*before)[0]==1 && (*after)[0]==2);
  // High guest physical aliases must keep the SDK's masked host mapping.
  c.regs[kFetchBase]^=0xA0000000u;Check(c);Check(c);Check(c);
@@ -180,44 +190,94 @@ void Boundaries(){
  Case large(17);assert(!PreparedGeometryFor(large.in,&large.layout,large.inputs,0,128,frame.vertex_diagnostics));
  std::puts("PASS lazy nodes, mutable versions/dynamic flags, physical-base change, real sweep/purge, frame lifetime, collisions, generations and exceptional fallback");
 }
+void BindingMutations(){
+ for(bool unique:{false,true}) {
+  Case c(unique?16:6);
+  const unsigned slots[]={0,1,2,31,32,63,64,65,94,95,7,11,17,23,43,83};
+  if(unique)for(unsigned i=0;i<c.inputs.size();++i){
+   c.layout.inputs[i].fetch.slot=slots[i];c.regs[kFetchBase+2*slots[i]]=0x1000;
+   c.regs[kFetchBase+2*slots[i]+1]=(16384<<2)|2;
+  }
+  InvalidatePreparedGeometry();InvalidateBaselineGeometry();
+  auto get=[&]{return PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics);};
+  Check(c);Check(c);Check(c);auto* p=get();assert(p);
+  assert(p->binding_count==(unique?16:2));
+  for(unsigned i=0;i<p->binding_count;++i)for(unsigned word=0;word<2;++word){
+   const auto index=kFetchBase+p->bindings[i].index+word;
+   auto hits=frame.vertex_diagnostics.prepared_hits;
+   c.regs[index]^=word?4u:4096u;
+   get();assert(frame.vertex_diagnostics.prepared_hits==hits); // every used word rejects, even non-anchor
+   Check(c);Check(c);Check(c);p=get();assert(p);
+  }
+  auto hits=frame.vertex_diagnostics.prepared_hits;
+  c.regs[kFetchBase+2*90]^=4096;assert(get()); // unused pair must not invalidate
+  assert(frame.vertex_diagnostics.prepared_hits==hits+1);
+  Check(c);
+ }
+ std::puts("PASS both words of every unique used binding, duplicates, slots63/64/95, unused binding stability against dev124 and original");
+}
+void MatchingBenchmark(){
+ for(bool unique:{false,true})for(unsigned meshes:{32u,512u,2048u}){
+  Case c(9);if(unique)for(unsigned a=0;a<9;++a){
+   c.layout.inputs[a].fetch.slot=a;c.regs[kFetchBase+2*a]=0x1000;c.regs[kFetchBase+2*a+1]=(16384<<2)|2;
+  }
+  std::vector<double> times[2];uint64_t hits[2]={};
+  for(unsigned trial=0;trial<7;++trial)for(unsigned arm=0;arm<2;++arm){
+   bool compact=(trial+arm)%2;
+   InvalidatePreparedGeometry();InvalidateBaselineGeometry();frame={};
+   auto start=std::chrono::steady_clock::now();
+   for(unsigned i=0;i<400000;++i){
+    c.Retarget(i%meshes);
+    void* p=compact?static_cast<void*>(PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics)):
+                    static_cast<void*>(BaselineGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics));
+    asm volatile(""::"r"(p):"memory");
+   }
+   times[compact].push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count());
+   hits[compact]=frame.vertex_diagnostics.prepared_hits;
+  }
+  for(auto& t:times)std::sort(t.begin(),t.end());assert(hits[0]==hits[1]);
+  std::printf("MATCH 9 inputs/%u %s bindings/%u meshes: dev124 %.3f / compact %.3f ms per400000, hits %llu (host matching/fill only)\n",unique?9:3,unique?"unique":"shared",meshes,times[0][3],times[1][3],hits[0]);
+ }
+}
 void Benchmark(){
  for(unsigned attrs:{1u,3u,4u,6u,9u})for(unsigned meshes:{32u,512u,2048u,8192u}){
-  Case c(attrs);std::vector<double> times[2];uint64_t avoided=0;uint64_t checksum=0;
-  for(unsigned trial=0;trial<7;++trial)for(unsigned arm=0;arm<2;++arm){
-   bool candidate=(trial+arm)%2;InvalidatePreparedGeometry();attribute_lookup.Clear();attribute_cache.clear();
+  Case c(attrs);std::vector<double> times[3];uint64_t avoided=0;uint64_t checksum=0;
+  for(unsigned trial=0;trial<7;++trial)for(unsigned arm=0;arm<3;++arm){
+   unsigned candidate=(trial+arm)%3;InvalidatePreparedGeometry();InvalidateBaselineGeometry();attribute_lookup.Clear();attribute_cache.clear();
    frame={};const unsigned calls=40000;auto start=std::chrono::steady_clock::now();
    for(unsigned i=0;i<calls;++i){
-    c.Retarget(i%meshes);auto* p=candidate?PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics):nullptr;
+    c.Retarget(i%meshes);auto* p=candidate==2?PreparedGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics):nullptr;
+    auto* baseline=candidate==1?BaselineGeometryFor(c.in,&c.layout,c.inputs,c.lo,c.count,frame.vertex_diagnostics):nullptr;
     for(unsigned a=0;a<attrs;++a){
-     auto value=candidate?LiveCapture(p?&p->inputs[a]:nullptr,c.in,c.inputs[a],c.layout.inputs[a].fetch,c.lo,c.count,frame):
+     auto value=candidate==2?LiveCapture(p?&p->inputs[a]:nullptr,c.in,c.inputs[a],c.layout.inputs[a].fetch,c.lo,c.count,frame):
+         candidate==1?BaselineCapture(baseline?&baseline->inputs[a]:nullptr,c.in,c.inputs[a],c.layout.inputs[a].fetch,c.lo,c.count,frame):
                            ReferenceCapture(nullptr,c.in,c.inputs[a],c.layout.inputs[a].fetch,c.lo,c.count,frame);
      checksum+=uintptr_t(value.entry)&255;asm volatile(""::"r"(value.entry):"memory");
     }
    }
    times[candidate].push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count());
-   if(candidate)avoided=frame.vertex_diagnostics.prepared_lookups_saved;
+   if(candidate==2)avoided=frame.vertex_diagnostics.prepared_lookups_saved;
   }
   for(auto& t:times)std::sort(t.begin(),t.end());
-  std::printf("HOST %u inputs/%u meshes: reference %.3f / prepared %.3f ms per40000, avoided %llu of %u lookups, checksum %llu (not device CPU/energy)\n",attrs,meshes,times[0][3],times[1][3],avoided,40000*attrs,checksum);
+  std::printf("HOST %u inputs/%u meshes: reference %.3f / dev124 %.3f / compact %.3f ms per40000, avoided %llu of %u lookups, checksum %llu (not device CPU/energy)\n",attrs,meshes,times[0][3],times[1][3],times[2][3],avoided,40000*attrs,checksum);
  }
 }
 int main(int argc,char**){enabled=argc==1;std::vector<uint8_t> memory(64<<20);physical=memory.data();
- Differential();if(enabled){Boundaries();@BENCHMARK@}else assert(!prepared_geometry);
- delete prepared_geometry;
+ Differential();if(enabled){Boundaries();BindingMutations();@BENCHMARK@}else assert(!prepared_geometry && !baseline_geometry);
+ delete prepared_geometry;delete baseline_geometry;
  std::printf("Table bound %zu KiB, switch %s\n",sizeof(PreparedGeometryTable)/1024,enabled?"on":"off");
 }
 '''
 
-def capture(record,name):
+def capture(record,name,description_type="PreparedGeometryInput"):
     a=record.index('      const uint32_t* fc =');b=record.index('      acached.last_used =',a)
     body=record[a:b]
-    return f'''PreparedGeometryInput {name}(PreparedGeometryInput* description,const NfsmwNativeDraw& in,
+    return f'''CapturedInput {name}({description_type}* description,const NfsmwNativeDraw& in,
         const VertexInput& input,const VFetch& original_fetch,uint32_t lo,uint32_t count,Frame& frame) {{
       const VFetch f=description ? description->fetch : original_fetch;
       Draw d{{count}};uint64_t geometry=123;const uint32_t* regs=in.regs;
 {body}
-      PreparedGeometryInput out{{}};out.fetch=f;out.location=a.location;out.integer=a.integer;
-      out.fc_index=(f.slot/3)*6+(f.slot%3)*2;out.fc[0]=fc[0];out.fc[1]=fc[1];
+      CapturedInput out{{}};out.fetch=f;out.location=a.location;out.integer=a.integer;
       out.buffer=buffer;out.size_bytes=size_bytes;out.remapped=remapped;std::copy_n(remap,4,out.remap);
       out.base=base;out.key=akey;out.first=first;out.range=range;out.motion_term=geometry;out.entry=&acached;return out;
     }}'''
@@ -230,6 +290,8 @@ def main():
     for signature in ['uint64_t Fingerprint(', 'uint64_t IndexFingerprint(', 'bool ParseVFetch(',
                       'bool DecodeElement(', 'bool ResolveVertexFetch(', 'const CachedFetchLayout* FetchLayoutFor(']:
         assert function(source,signature)==function(reference,signature),signature
+    baseline=subprocess.check_output(['git','show','9140567:ios/src/native_renderer.mm'],cwd=ROOT,text=True)
+    baseline_header=subprocess.check_output(['git','show','9140567:ios/src/native_prepared_geometry.h'],cwd=ROOT,text=True).replace('PreparedGeometryCache','BaselineGeometryCache')
     program=PREFIX
     for signature in ['struct VertexInput {','struct VertexDiagnostics {']:
         program+=function(source,signature)+';\n'
@@ -240,12 +302,15 @@ def main():
     program+=source[source.index('struct CachedVertexFetch {'):source.index('// Recording-thread only. Shader objects')]
     program+=function(source,'inline uint64_t MotionMix(')+'\n'
     program+=source[source.index('// A description owns only immutable preparation results.'):source.index('// Draw-reuse census (nfsmw_native_reuse_census')]
-    program+=TAIL.replace('@REFERENCE_CAPTURE@',capture(old,'ReferenceCapture')).replace('@LIVE_CAPTURE@',capture(new,'LiveCapture'))
-    benchmark='--benchmark' in sys.argv;program=program.replace('@BENCHMARK@','Benchmark();' if benchmark else '')
+    baseline_helpers=baseline[baseline.index('// A description owns only immutable preparation results.'):baseline.index('// Draw-reuse census (nfsmw_native_reuse_census')]
+    program+=baseline_helpers.replace('PreparedGeometry','BaselineGeometry').replace('PrepareGeometryInput','PrepareBaselineInput').replace('kPreparedInputs','kBaselineInputs').replace('prepared_geometry','baseline_geometry').replace('nfsmw_native_baseline_geometry','nfsmw_native_prepared_geometry')
+    program+=TAIL.replace('@REFERENCE_CAPTURE@',capture(old,'ReferenceCapture')).replace('@LIVE_CAPTURE@',capture(new,'LiveCapture')).replace('@BASELINE_CAPTURE@',capture(function(baseline,'void Record('),'BaselineCapture','BaselineGeometryInput'))
+    benchmark='--benchmark' in sys.argv;program=program.replace('@BENCHMARK@','Benchmark();MatchingBenchmark();' if benchmark else '')
     with tempfile.TemporaryDirectory(prefix='nfsmw-prepared-geometry-') as tmp:
         path,exe=Path(tmp)/'test.cpp',Path(tmp)/'test';path.write_text(program)
+        (Path(tmp)/'baseline_prepared_geometry.h').write_text(baseline_header)
         options=['-O2'] if benchmark else ['-O1','-g','-fsanitize=address,undefined']
-        subprocess.run(['clang++','-std=c++20',*options,'-I',str(ROOT/'ios/src'),str(path),'-o',str(exe)],check=True)
+        subprocess.run(['clang++','-std=c++20',*options,'-I',str(ROOT/'ios/src'),'-I',tmp,str(path),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True);subprocess.run([str(exe),'off'],check=True)
     print('PASS complete Record guard: only preparation/lookup edits; original validation, decoding, indices, draw state and ownership unchanged')
 

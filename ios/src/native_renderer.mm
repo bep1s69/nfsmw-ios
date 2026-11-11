@@ -2839,8 +2839,7 @@ struct PreparedGeometryKey {
 };
 struct PreparedGeometryInput {
   VFetch fetch;
-  uint32_t location,fc_index,fc[2],buffer,size_bytes;
-  bool integer,remapped;
+  bool remapped;
   int remap[4];
   const uint8_t* base;
   AttributeKey key;
@@ -2849,7 +2848,11 @@ struct PreparedGeometryInput {
   CacheEntry<FloatArray>* entry; // lazily acquired at the original lookup site
 };
 struct PreparedGeometry {
-  uint32_t count;
+  // Contiguous exact snapshots of unique USED fetch pairs. Interleaved inputs
+  // share a pair; neither duplicate checks nor per-input payload reads are needed.
+  struct Binding {uint32_t index,words[2];};
+  uint32_t count,binding_count;
+  Binding bindings[kPreparedInputs];
   PreparedGeometryInput inputs[kPreparedInputs];
 };
 using PreparedGeometryTable=nfsmw::PreparedGeometryCache<PreparedGeometryKey,PreparedGeometry>;
@@ -2862,18 +2865,15 @@ void InvalidatePreparedGeometry() {if(prepared_geometry)prepared_geometry->Inval
 
 void PrepareGeometryInput(PreparedGeometryInput& p,const VertexInput& input,const VFetch& f,
                           const uint32_t* regs,uint32_t lo,uint32_t count) {
-  p.fetch=f;p.location=input.location;p.integer=input.usage==2;
-  p.fc_index=(f.slot/3)*6+(f.slot%3)*2;
-  const auto* fc=regs+kFetchBase+p.fc_index;
-  p.fc[0]=fc[0];p.fc[1]=fc[1];p.buffer=fc[0]&~3u;
-  p.size_bytes=((fc[1]>>2)&0xFFFFFF)*4;
+  p.fetch=f;
+  const auto* fc=regs+kFetchBase+2*f.slot;
   p.remapped=false;for(int i=0;i<4;++i)p.remap[i]=i;
   if(f.swizzle!=input.swizzle)for(int i=0;i<4;++i) {
     const uint32_t file_sel=(input.swizzle>>(3*i))&7,bound_sel=(f.swizzle>>(3*i))&7;
     if(file_sel<4 && bound_sel<6 && file_sel!=bound_sel){p.remap[file_sel]=int(bound_sel);p.remapped=true;}
   }
-  p.base=Physical(p.buffer);
-  p.key={uintptr_t(p.base),f.stride,f.offset,f.format,fc[1]&3,uint32_t(p.integer),lo,count,
+  p.base=Physical(fc[0]&~3u);
+  p.key={uintptr_t(p.base),f.stride,f.offset,f.format,fc[1]&3,uint32_t(input.usage==2),lo,count,
          p.remapped?uint32_t(p.remap[0]|p.remap[1]<<3|p.remap[2]<<6|p.remap[3]<<9):0u};
   p.first=(size_t(lo)*f.stride+f.offset)*4;
   p.range=size_t(count)*f.stride*4+16;
@@ -2905,17 +2905,28 @@ PreparedGeometry* PreparedGeometryFor(const NfsmwNativeDraw& in,const CachedFetc
   if(!prepared_geometry)prepared_geometry=new(std::nothrow) PreparedGeometryTable;
   if(!prepared_geometry){++diagnostics.prepared_bypasses;return nullptr;}
   if(auto* hit=prepared_geometry->Find(key,hash,[&](const PreparedGeometry& p) {
-      for(uint32_t i=0;i<p.count;++i) {
-        const auto& a=p.inputs[i];const auto* fc=in.regs+kFetchBase+a.fc_index;
-        if(a.fc[0]!=fc[0] || a.fc[1]!=fc[1])return false;
+      for(uint32_t i=0;i<p.binding_count;++i) {
+        const auto& a=p.bindings[i];const auto* fc=in.regs+kFetchBase+a.index;
+        if(a.words[0]!=fc[0] || a.words[1]!=fc[1])return false;
       }
       return true;
     })) {++diagnostics.prepared_hits;return hit;}
   ++diagnostics.prepared_misses;
   if(!prepared_geometry->Admit(key,hash)){++diagnostics.prepared_cold;return nullptr;}
   return &prepared_geometry->Replace(key,hash,[&](PreparedGeometry& p) {
-    p.count=uint32_t(inputs.size());
-    for(size_t i=0;i<inputs.size();++i)PrepareGeometryInput(p.inputs[i],inputs[i],layout->inputs[i].fetch,in.regs,lo,count);
+    p.count=uint32_t(inputs.size());p.binding_count=0;
+    uint64_t seen[2]={}; // slots were checked <96 above
+    for(size_t i=0;i<inputs.size();++i) {
+      const auto& fetch=layout->inputs[i].fetch;
+      const uint64_t bit=uint64_t(1)<<(fetch.slot&63);
+      if(!(seen[fetch.slot>>6]&bit)) {
+        seen[fetch.slot>>6]|=bit;
+        auto& binding=p.bindings[p.binding_count++];binding.index=2*fetch.slot;
+        const auto* fc=in.regs+kFetchBase+binding.index;
+        binding.words[0]=fc[0];binding.words[1]=fc[1];
+      }
+      PrepareGeometryInput(p.inputs[i],inputs[i],fetch,in.regs,lo,count);
+    }
   });
 }
 
@@ -9709,7 +9720,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
-        REXLOG_INFO("[native] dev124 prepared geometry {}: {} hits / {} misses ({} cold) / {} bypasses, {} attribute lookups avoided; table bound {} KiB (metadata only, content validation unchanged; not energy savings)",
+        REXLOG_INFO("[native] dev125 prepared geometry {}: {} hits / {} misses ({} cold) / {} bypasses, {} attribute lookups avoided; table bound {} KiB (metadata only, content validation unchanged; not energy savings)",
                     PreparedGeometryEnabled()?"on":"off",vertex_diagnostics.prepared_hits,
                     vertex_diagnostics.prepared_misses,vertex_diagnostics.prepared_cold,vertex_diagnostics.prepared_bypasses,
                     vertex_diagnostics.prepared_lookups_saved,PreparedGeometryEnabled()?sizeof(PreparedGeometryTable)/1024:0);
@@ -10072,7 +10083,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev124 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev125 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10562,7 +10573,7 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev124 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {}; prepared geometry {})",
+    REXLOG_INFO("[native] dev125 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {}; prepared geometry {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
                 NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off",
