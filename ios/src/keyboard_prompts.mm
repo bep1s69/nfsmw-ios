@@ -26,6 +26,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "app_scene.h"
 #include "battery.h"
 #include "keyboard_context.h"
 #include "launcher.h"
@@ -297,8 +298,10 @@ extern "C" void nfsmw_keyboard_install_prompts() {
   if (prompts) return;
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
-    if ([scene isKindOfClass:UIWindowScene.class]) {
+    // The app's own scene: not an external display's (external_display.mm).
+    if (nfsmw::IsAppScene(scene)) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
+        if (nfsmw::IsHelperWindow(w)) continue;
         if (w.isKeyWindow || !window) window = w;
       }
     }

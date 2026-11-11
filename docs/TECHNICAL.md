@@ -21924,3 +21924,67 @@ native renderer adds the MSAA itself (`nfsmw_native_force_msaa`), as it does at
 the game's 256x256 reflection target loses its 4x MSAA, as on the iPhones.
 The log then says `[render] el juego eligio el modo 4: se usa el 2`.
 Verified on an iPhone Duo at 16:9 on its own screen, a 4K monitor and a TV.
+
+## November 11: external displays on iOS 27, in the display's shape
+
+What happened before (by reading and by a Simulator experiment, iOS 27.1):
+the app has no scene manifest, and SDL's app delegate answers every scene
+session with its own scene delegate. On iOS 27 an external display's scene is
+offered only to a registered `UISceneAccessory`, so the app got none and the
+display mirrored the phone, bars and touch controls included;
+`WatchExternalScreens` (native_renderer.mm) never found a screen. On iOS 17-26
+iOS offers the display's session to the app delegate: SDL's delegate took it,
+put its launch window there and called `main()` a second time inside the first
+(the second launcher window of nfsmw_airplay4.log; inferred, no iOS 26 runtime
+here). The external layer, when there was one, had the display's full pixels
+(3840x2160 on a 4K TV) and the game kept the phone's shape.
+
+Now:
+- `ios/src/external_display.mm` receives the display's scene
+  (`NFSExternalDisplaySceneDelegate`, named in Info.plist's scene manifest for
+  iOS 17-26 and in the scene accessory for iOS 27), keeps one window there, and
+  hands its view to the native renderer, which puts its external layer in it
+  (`AttachExternalDisplay`). The phone keeps the touch controls over black with
+  "Playing on the external display" under them.
+- iOS 27's registration lives on a 1-point window of the app's scene (level
+  below normal, never key, not touchable). Measured in the Simulator: a
+  registration on the launcher's view controller, then on the game's, tears
+  the display's scene down and connects it again at Play; one on a hidden
+  window or a view controller in no window gets no scene at all. The window
+  lookups that take "the key window, else the first" skip it
+  (`nfsmw::IsHelperWindow`).
+- `tools/ios/patch_ios_sdl_scene.py`: SDL's delegate answers for the
+  application role only; other roles get `session.configuration` (from
+  Info.plist). A marker method lets the app log when the patch is missing.
+- The picture there is the display's shape at most 1920 across by default
+  (Display > External display resolution: 1080p, 1440p, the display's own).
+  A 4K drawable measured four times the GPU time in the Switch port and came
+  out black over AirPlay.
+- The game's shape (`aspect` Fit this screen) and the "native" render scale
+  are chosen from the display when one is attached at Play: 16:9 for a 16:9
+  TV, a wide scene for an ultrawide, 4:3 for 4:3. The Xbox video mode is fixed
+  at start, so a display attached later shows the started shape letterboxed.
+  The "native" render scale follows the display's capped pixels live, and goes
+  back to the phone's only when the app is active and the display has stayed
+  away 2 s (iOS disconnects the display's scene on every app switch).
+- With the emulated renderer (non-USA builds) or
+  `--nfsmw_native_external_display=false`, `external_display::Release()`
+  leaves the display mirroring the phone as before.
+
+Decisions in `external_display_policy.h`, checked on the Mac by
+`tools/native/test_external_display_policy.py`. `tools/ios/external_display_sim/`
+builds the production module and Info.plist into a Simulator app with a test
+card in place of the game. Not run with the game itself (device-only build).
+
+## November 11: external display fixes from the first real run
+
+- The touch controls and the FPS counter are drawn into the native renderer's
+  phone frame (`touch_controls.mm` `wantsNative`), so hiding the phone's layer
+  with the picture on a display hid them too. The layer now stays visible and
+  the present pass leaves out only the game picture (`phone_controls_only`):
+  the phone shows the controls over black, with the caption under them. (In
+  menus the touch layout has no buttons by design, and a connected controller
+  hides the controls, as before.)
+- A MacBook over AirPlay reported 3381x2160 (1.565:1) and got the 4:3 mode. An
+  external display now goes 4:3 only below 1.5:1; 1.5-1.78 gets 16:9 with thin
+  bars. The device's own screen keeps its 1.6 rule (both Duo panels, iPads).

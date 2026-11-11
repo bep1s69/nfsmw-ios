@@ -65,8 +65,11 @@ for the full release notes.
   controller connects.
 - **Controllers** (Xbox, PlayStation, MFi), rebindable menu and driving
   keys, keyboard button prompts, and mouse or touch camera look.
-- **External displays** (HDMI, AirPlay): the game alone on the big screen, the
-  touch controls on the device.
+- **External displays** (USB-C, HDMI adapter, AirPlay): the game alone on the
+  big screen, in the display's own shape when it is attached before Play
+  (letterboxed when attached later), at up to 1080p by default (Display →
+  External display resolution); the touch controls stay on the device. Plug
+  and unplug at any time.
 - **Longest battery preset** with a 30 or 40 fps cap and configurable
   reflection cadence, plus optional thermal and Low Power Mode adjustments.
 - Survives app switching, screenshots and Control Center.
