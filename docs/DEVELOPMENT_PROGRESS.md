@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+
+- November 11 (Stefan, latest): ALWAYS delete the game log he provides on the
+  Desktop after copying it to the capture-date Debug folder and verifying
+  archived bytes/hash. This is now a standing instruction for supplied Desktop
+  logs, superseding the earlier dev122 per-file-only interpretation. Never
+  delete before successful archival/verification; preserve traces and archives.
+
+
 - November 11 (Stefan): logs/traces must be saved into the dated local Debug
   folder, not left only in chat attachments/Desktop/Downloads. Archive and
   hash-verify received evidence before analysis and document its exact path.
@@ -509,6 +517,61 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
+
+
+**November11 dev124 G1 device ANALYZED (latest):** Stefan reports everything
+normal, bust/restart in middle and suspects cops caused heavier ending.
+ExactUUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE, preparedON/BOTHbatchingOFF/
+reuseON/encodingOFF/repeatOFF/indexreusable/vfetchON verified. Log844052bytes
+archived/hash-verified in November11Debug as
+dev124_iphone_pursuit_time_profile_nfsmw.log, SHA256
+27517b58619ef4400da3987d2131262d236f6b4b7c7d7b7b81845c51de233f56;
+THEN Desktop/nfsmw.log deleted. New standing rule above applies to FUTURE
+provided Desktop logs after successful verified archival. Trace298files/
+149788301bytes unchanged after export, manifest next to trace.116.522662s,
+100us sampling, iPhone17ProMax/iOS27.3. No new app/SDK/IPA change this analysis.
+
+Log pause62.623s/resume65.659s, CPU1s-bin spike63s=2022.2ms weight; late
+peak111s=2030.5ms. Main analysis pre8–55s (47s), post74–100s (26s), restart/
+settle55–74s and tail100–116.522662s separately. GPU rise starts~85s, not
+only last10s; NPC cause remains user inference. No attribution of known
+restart spike to renderer bug. Full guarded6300CPU-owned/ICB0,19x60/1x59.9/
+1x59.8FPS;21audio windows0gaps,0budget/binding fallbacks,4off-grid frames/
+6300(worst16.7ms). Clean selected3600frames ALL60FPS.0trace watchdog/error/
+GPU errors, thermal nominal/peak1767MiB. Pre-trace7s startup watchdog recovered;
+no recurring capture-time freeze, no parked stutter defect reopened.
+
+Concrete operation reduction: pre8–55s15,547,949attribute lookups avoided,
+53.9738%of same-run equivalent sites;71.45%eligible description hits. Post
+54.2756%lookups avoided/73.70%eligible hits. Full guarded40,018,878lookups
+avoided/54.9464%,73.35%eligiblehits. These are calls, NOT CPU/battery savings.
+Named cache paths pre381.8ms=0.6429%app, Find343.9ms=90.07%named cache union.
+Includes useful prep and misses, excludes inlined setup; not exact added cost.
+Same relative47s vs dev122 app+38.29%, graphics+40.98%, Record+47.54%, but
+other guest workers+33–46%, drawcount+4.22%, placement differs; dev122 C0ON,
+so not matched geometry control/no net CPU or energy acceptance. Both use
+100us sampling; stackless~5.06/5.13%, not a gross resolution difference.
+
+**Next:** ONE SAME dev124 reference Time Profiler+log, change ONLY
+`--nfsmw_native_prepared_geometry=false`, COLD restart. Keep BOTHbatchingfalse,
+reuse/indextrue/encodingfalse/repeatfalse/vfetchtrue/1x60/MSAA0/FXAAoff/
+MetalFXoff, same audio/controller, samplingHigh100us, roughly90–120s pursuit.
+No new IPA/power pair. Concrete reason for reference now: useful device reach
+proved, but cache Find itself costs measurable CPU; need net preparation cost
+against SAME binary's original branch before more source work/default changes.
+Compare per-draw/call workload+Record/source-line cache costs as well as whole
+CPU; don't repeatedly re-record if pursuit/placement remains unmatched. If
+reference doesn't support net gain, next source candidate is compact/deduped
+binding identity for Find (90%named cost), not larger table/looser validation.
+DefaultOFF stays. Preserve current matching object/build until this reference.
+
+Analysis tool adds exact prepared-cache method scopes including demangled
+return-type names and non-double-counted union, fixturesPASS. Current pre
+profile's prior totals/threads/ranking weights/scopes rechecked against pre-change
+analyzer (inclusive equal-weight tie ordering can vary by Python hash seed). Audit ios/build/dev124-time-profile-20261111, exact evidence TECHNICAL.
+Shared records/private ignored BACKLOG updated; own analysis/docs locally
+committed. HANDOFF preserved untracked, no push/merge/release.
+
 
 
 **November11 dev124 prepared native geometry IMPLEMENTED/BUILT (latest):**

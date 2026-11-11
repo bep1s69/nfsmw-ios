@@ -89,6 +89,21 @@ with tempfile.TemporaryDirectory() as tmp:
     p.write_text(xml.replace('name="shared_function"','name="sub_825A3EC8"'))
     old=profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
     assert old['register_flush_outer_inclusive_ms']==1 and 'register_batch_named_union_ms' not in old
+    prefix='nfsmw::PreparedGeometryCache<(anonymous namespace)::PreparedGeometryKey, (anonymous namespace)::PreparedGeometry, 1024ul>::'
+    prepared=xml.replace('name="shared_function"',f'name="{escape("(anonymous namespace)::PreparedGeometry* "+prefix+"Find<Lambda>(Key const&, unsigned long long, Lambda&&)")}"')
+    prepared=prepared.replace('</tagged-backtrace>',f'<frame id="20" name="{escape(prefix+"Admit(Key const&, unsigned long long)")}"/></tagged-backtrace>',1)
+    p.write_text(prepared)
+    scopes=profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
+    assert scopes['prepared_geometry_find_named_path_ms']==1
+    assert scopes['prepared_geometry_admit_named_path_ms']==1
+    assert scopes['prepared_geometry_named_union_ms']==1
+    for name in ['(anonymous namespace)::PreparedGeometryFor(Draw const&, Layout const*)',
+                 '(anonymous namespace)::PrepareGeometryInput(Input&, Fetch const&)']:
+        p.write_text(xml.replace('name="shared_function"',f'name="{escape(name)}"'))
+        assert profile(p,0,None,'LiveContainer')['graphics_footprints_ms']['prepared_geometry_named_union_ms']==1
+    for name in ['other::PreparedGeometryCache<Key>::Find()',prefix.replace('1024ul','512ul')+'Find<Lambda>()']:
+        p.write_text(xml.replace('name="shared_function"',f'name="{escape(name)}"'))
+        assert 'prepared_geometry_named_union_ms' not in profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
     image = dict(base=0x4000, preferred=0x1000, sections=[(0x1100, 0x1200)],
                  starts=[0x1110, 0x1150], symbols=[(0x1110, 'first'), (0x1150, 'second')])
     assert name_pc(0x4113, [image]) == 'first'  # tagged non-leaf PC
@@ -104,3 +119,4 @@ print('PASS symbol section bounds, tagged PCs and exact reference UUID/offset ma
 print('PASS frame cleanup/storage scopes overlap without double-counting union weight')
 print('PASS exact register-batch producer/consumer matching, nested helper union and unrelated Consume exclusion')
 print('PASS C1 collector/publish/gate/outer self union and original-work ancestor exclusion')
+print('PASS prepared geometry return-type names, nested union, exact table identity and unrelated-type exclusion')

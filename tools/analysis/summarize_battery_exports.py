@@ -175,6 +175,18 @@ def profile(path, skip, end, process=None, register_flush_hooks=False):
                     graphics['register_batch_producer_helpers_union_ms'] += weight
                 if producer_helpers or batch_consumer or batch_helper:
                     graphics['register_batch_named_union_ms'] += weight
+                # Demangled Find/Replace names include a return type before
+                # the namespace. Match the exact production instantiation.
+                prepared_prefix = 'nfsmw::PreparedGeometryCache<(anonymous namespace)::PreparedGeometryKey, (anonymous namespace)::PreparedGeometry, 1024ul>::'
+                prepared_tails = [f.split(prepared_prefix, 1)[1] for f in frames if prepared_prefix in f]
+                prepared_methods = {method for method in ('Find', 'Replace', 'Admit', 'Invalidate')
+                                    if any(tail.startswith((method + '(', method + '<')) for tail in prepared_tails)}
+                prepared_direct = any(f.startswith(('(anonymous namespace)::PreparedGeometryFor(',
+                                                     '(anonymous namespace)::PrepareGeometryInput(')) for f in frames)
+                if prepared_methods or prepared_direct:
+                    graphics['prepared_geometry_named_union_ms'] += weight
+                for method in prepared_methods:
+                    graphics['prepared_geometry_' + method.lower() + '_named_path_ms'] += weight
                 frame_cleanup = any('::Frame::~Frame(' in f for f in frames)
                 storage_lifecycle = any('nfsmw::FrameStoragePool<' in f for f in frames)
                 if frame_cleanup:

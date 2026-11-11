@@ -1,5 +1,14 @@
 # Native graphics path toward an iOS port
 
+**November11 dev124 G1 device ANALYZED (latest):** normal gameplay accepted,
+full guarded6300CPU-owned/59.8–60FPS/0audio gaps/traceGPU errors; restart/tail
+segmented. ~54%actual attribute lookup calls avoided,71–74%eligible descriptor
+hits. Named newcache0.643%app; Find90.07%named cost, so net gain unproven.
+Next ONE SAME dev124 preparedfalse reference, onlythatflag+coldrestart, both
+batchingfalse/othercontrols same/High sampling. No new code/IPA/power yet.
+Current checkpoint exact controls/reason; if net result weak, compact/dedupe
+Find identity is source candidate, never weaken buffer/lifetime validation.
+
 **November11 dev124 native vertex descriptions BUILT (latest):** approved
 geometry slice, defaultOFF nfsmw_native_prepared_geometry. Metadata/lazy node
 handles only, reference validation/index/data/ownership retained. Host reference
@@ -808,3 +817,31 @@ shader layout and memory mapping are stand-ins, validation preserved by source
 guard rather than full game execution. Host benchmark preparation-only has
 positive repeated4–9input cases and negative cold churn cases. Next device gate
 in checkpoint; no predicted14.6%Record or battery saving.
+
+#### G1 device coverage gate — November 11
+
+Dev124 passes this pursuit's functional gate with user normal-gameplay report.
+Known bust/restart pause at62.623/resume65.659s isolated in55–74s; primary
+8–55s and post74–100s, tail separate. GPU rises~85s, CPUlatepeak111s; don't
+infer NPC-specific cause from a total timing. Cold initial/off-background
+windows excluded from acceptance. All clean selected3600frames60FPS,0audio gaps.
+
+Pre same-run avoided15,547,949of28,806,489equivalent attribute lookup sites
+(53.9738%); real original calls13,258,540. Post54.2756%, full guarded54.9464%.
+Equivalent sites are measured calls+saved-site counters, not an executed OFF
+run or CPU saving. Pre eligiblehits71.45%/all geometrydrawhits44.50%; bypassed
+small/exceptional draws matter. No table size/validation changes proposed.
+
+Prepared named union381.8ms/47s,Find343.9ms (90.07%). Names exclude some
+inlined setup and include useful preparation/miss handling, not exact overhead.
+Whole-app comparison with dev122 is confounded (different C0 flag/pursuit/
+placement, unrelated workers also slower). Therefore next single same-build
+OFF reference is now justified by high reach+measurable matching cost. Keep
+both batchingOFF and change only prepared flag false+coldrestart; no new build
+before matching source-line/profile attribution. Use stable intervals and
+normalize workload as needed; don't repeat uncontrolled captures indefinitely.
+If net benefit is weak/negative, source candidate is a compact contiguous key
+of unique used fetch pairs before full descriptions. Current matcher revisits
+strided per-input metadata, often repeating an interleaved binding. This is
+an inference/next optimization candidate, NOT a new implementation or measured
+saving. Preserve all exact identity checks and original mutable validation.
