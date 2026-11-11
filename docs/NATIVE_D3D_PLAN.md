@@ -2,6 +2,19 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev121 device result (latest):** reusable-index mode verified,
+7800CPU-owned/0ICBframes,26x60FPS summaries/no audio gaps/foreground GPU errors.
+Capture-44.08%, storage-61.46%, lifecycle union-44.28% vs dev120112s selection;
+app share Capture2.50->1.97%/storage1.32->0.72% supports local optimization.
+Wholeapp-28.99% and graphics-32.88% NOT attributable to this bounded change:
+unchanged guest workers also27–31%lower, core placement differs; similar draw
+counts do not establish exact replay or clocks. No energy proof. Keep dev121;
+next one SAME-build owner_index=false reference Time Profiler+log, all other
+args/settings held, nearby same route/conditions. No new IPA/power matrix until
+this isolates local effect from broad run differences. Checkpoint/TECHNICAL
+record evidence hashes, correctness, limitations and exact commands.
+
+
 **November11 dev121 BUILT (latest):** approved reusable frame owner identity
 index replaces per-frame hash nodes with contiguous lookup storage, preserves
 stable deque owners/immediate Clear release, slots/hints/generations and all

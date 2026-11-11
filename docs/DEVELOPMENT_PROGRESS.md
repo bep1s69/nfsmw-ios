@@ -510,6 +510,46 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November11 dev121 device profile ANALYZED (latest):** final UUID
+51A45FAA-EFEB-3340-BD44-A120E3D0240E directly verified; owner index reusable,
+reuseON/encodingOFF/repeatOFF/geometryON. Trace already in November11Debug;
+Desktop/nfsmw.log archived/hash-verified there as
+dev121_iphone_pursuit_time_profile_nfsmw.log (836412bytes).297trace files/
+153597954bytes unchanged after export. Original pasteboard path expired;
+Stefan supplied Desktop copy, now safely archived. Exact hashes/paths TECHNICAL.
+
+26guarded300-frame summaries7800CPU-owned/0GPU-context frames,26x60.0FPS,
+0GPU>45ms,0binding/budget fallbacks;35audio windows0gaps,0watchdogs or
+foreground GPU errors.54background permission warnings only after trace stop/
+scene resign. Peak flat lookup384KiB per CPU frame store (not whole pool),
+peak process1639MiB/thermal nominal; no matched memory saving asserted.
+
+112s8–120s vs dev120: Capture4288.2->2397.9ms (-44.08%), named frame-storage
+2260.8->871.4 (-61.46%), lifecycle union3859.5->2150.7 (-44.28%). Capture
+share of app2.501%->1.969%, storage1.319%->0.716% supports retaining this
+bounded optimization. App171464.2->121763.7ms (-28.99%), combinedgraphics
+81364.5->54610.3 (-32.88%), but unchanged world/main/audio workers also
+~27–31%lower and P-core sample share76.62%->82.32%. Nearby complete log
+windows drawcount/frame-0.56%/ownerlookups+0.57%, similar but not exact replay.
+Broad drop exceeds scope of owner-index change: do NOT credit all29%to it,
+predict29%battery saving, or declare causal net CPU/energy win. Frequency/
+scheduling/other workload effects are possible inferences, not measured clocks.
+
+**Next device action:** keep SAME final dev121 and all settings/args; change
+ONLY `--nfsmw_native_owner_index=false`, cold restart LiveContainer, preserve
+caches. Record one~2-minute Mac Time Profiler pursuit+nfsmw.log with same1x/60,
+controller/audio (muteOFF requested), reuse=true, encoding=false, repeat=false,
+geometry/residency on. This reference within same build checks whether broad
+CPU drop repeats with node index and isolates local Capture/cleanup benefit.
+Prefer nearby same-sitting/same route/conditions; current dev121 true capture
+is comparison anchor. Expect startup owner index reference and zero flat KiB,
+CPU ownership still active/0ICBs. No new IPA/code change or power recording now.
+Restore owner_index=true+cold restart after reference. Archive received files
+by capture date before analysis. Shared records/private BACKLOG updated;
+HANDOFF remains preexisting untracked, preserved. Local commit/no push/release.
+Older next-run/build proposals below are historical.
+
+
 **November 11, dev121 reusable frame-owner index BUILT (latest):** Stefan
 approved the next ownership allocation change. `nfsmw_native_owner_index=true`
 (restart-only, within default-off reuse) selects a contiguous pointer->ordinal
