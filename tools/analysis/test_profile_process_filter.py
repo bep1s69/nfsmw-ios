@@ -48,6 +48,17 @@ with tempfile.TemporaryDirectory() as tmp:
     assert draw_only['draw_destructor_inclusive_ms']==1
     assert draw_only['draw_frame_storage_lifecycle_union_ms']==1
     assert 'frame_cleanup_storage_union_ms' not in draw_only
+    batches=xml.replace('name="shared_function"','name="(anonymous namespace)::Try(PPCContext&amp;, unsigned char*, unsigned int)"')
+    batches=batches.replace('</tagged-backtrace>','<frame id="20" name="nfsmw::register_batch::Pool&lt;2048ul&gt;::Reserve()"/></tagged-backtrace>',1)
+    p.write_text(batches)
+    scope=profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
+    assert scope['register_batch_producer_named_path_ms']==1 and scope['register_batch_named_union_ms']==1
+    assert 'register_batch_consumer_named_path_ms' not in scope
+    p.write_text(xml.replace('name="shared_function"','name="(anonymous namespace)::Consume(unsigned long long, void (*)(void*, unsigned int, unsigned int*, unsigned int), void*)"'))
+    scope=profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
+    assert scope['register_batch_consumer_named_path_ms']==scope['register_batch_named_union_ms']==1
+    p.write_text(xml.replace('name="shared_function"','name="rex::audio::XmaContext::Consume(rex::memory::RingBuffer*)"'))
+    assert 'register_batch_named_union_ms' not in profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
     image = dict(base=0x4000, preferred=0x1000, sections=[(0x1100, 0x1200)],
                  starts=[0x1110, 0x1150], symbols=[(0x1110, 'first'), (0x1150, 'second')])
     assert name_pc(0x4113, [image]) == 'first'  # tagged non-leaf PC
@@ -61,3 +72,4 @@ with tempfile.TemporaryDirectory() as tmp:
 print('PASS exact process filtering, cross-process interned refs, unresolved stacks and time window')
 print('PASS symbol section bounds, tagged PCs and exact reference UUID/offset matching')
 print('PASS frame cleanup/storage scopes overlap without double-counting union weight')
+print('PASS exact register-batch producer/consumer matching, nested helper union and unrelated Consume exclusion')

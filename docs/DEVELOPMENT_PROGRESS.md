@@ -510,6 +510,53 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November11 dev122 C0 device run ANALYZED (latest):** Stefan reports nothing
+looked off. FINAL UUIDBE5997C9-2607-39C4-91AC-3C2AB53739CA verified; register
+batchesON/reuseON/encodingOFF/repeatOFF/indexreusable/geometryON. Trace already
+in November11Debug; timestamp-named Desktop log copied/hash-verified there as
+dev122_iphone_pursuit_time_profile_nfsmw.log,923292bytes. THEN deleted only
+Desktop/Pasted2026-11-11at6.34.37PM.log as explicitly requested.315trace files/
+155734035bytes unchanged after export. Archive/deletion/hash details TECHNICAL.
+
+26guarded300-frame windows7800CPU-owned/ICB0,24x60.0/2x59.9FPS,0binding/budget
+fallbacks;35audio windows0gaps,0watchdogs/foreground GPU or invalid-token errors.
+68GPU background-permission warnings only after stop/scene resign. Peak1613MiB,
+thermal nominal; user normal-picture/gameplay acceptance for THIS run only.
+C0 correctly consumed54149vs54146produced across selected windows (carry/
+concurrent sampling),0capacity fallback, pending<=10/peak18 out of2048slots.
+54,146batches carry32,405,288words,130,112,996original ring bytes replaced by
+1,420,580token bytes (98.91%fewer for HANDLED batches). Only6.94batches/frame,
+0.0698%hook calls/1.4766%reported range-word volume;77,503,266small fallbacks.
+Do NOT call98.91%a whole-stream or energy saving. Correct transport, low reach.
+
+Same102s8–110s vs dev121 reusable control: app112772.8->100709.9ms (-10.70%),
+graphics50863.4->44234.1 (-13.03%), writer/CP8503.8->7757.7 (-8.77%). Other
+main/world/audio workers also lower; P-core share81.88->89.45%, nearby GPUms
+12.964->8.320 and owner lookups differ despite similar drawcount. Not controlled
+causal CPU/battery improvement. New named batch union182.1ms=0.1808%app,
+producer166.6/consumer15.4 (overlaps/inline limits, useful work included, not
+all incremental overhead). No energy claim or power gate passed.
+
+**Next SOURCE action:** close current correctness/coverage gate, no additional
+recording/power matrix now. Keep C0 default OFF; for normal play restore
+`--nfsmw_native_register_batches=false`+cold restart while retaining other trial
+settings (owner_index=true/reuse=true/encoding=false/repeat=false). Preserve
+implemented transport/reference switch. Design higher-coverage compatible
+state-flush aggregation (C1) before new hook changes: identify contiguous
+ordered state windows/barriers in825A3EC8, prove capacity/source snapshots and
+CPU-visible dirty-mask side effects; unknown/segment/foreign operations cannot
+be silently moved or replayed. Never append to an already-published batch or
+lower small-VMX threshold blindly (host negative result stands). Differential
+against actual outer flush/CP order and benchmark aggregate path before live
+build; current C0 is not full native D3D or a measured battery optimization.
+This is SOURCE feasibility/implementation boundary work, no C1 code/newIPA yet.
+
+Analysis tool adds exact C0 producer/consumer/helper union; fixtures PASS,
+control totals/threads/prior scopes exactly unchanged. Shared records/private
+BACKLOG updated; HANDOFF preserved untracked; local commit/no push/release.
+Earlier device-capture requests below fulfilled.
+
+
 **November11 dev122 C0 register batches IMPLEMENTED/BUILT (latest):** Stefan
 approved implementation. New restart-only `nfsmw_native_register_batches=false`
 (default OFF, independent of frame/ICB controls) overrides only two USA emitter

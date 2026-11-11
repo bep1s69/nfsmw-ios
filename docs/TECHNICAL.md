@@ -25336,3 +25336,168 @@ Preexisting untracked HANDOFF_CHATGPT.md preserved/excluded; no other starting
 tracked edits. All own source/test/SDK patch/shared record changes committed
 locally together. SDK prepared source copy remains patched3/3; reproduction
 command in checkpoint. git diff --check exit0 before commit. No push/merge/release.
+
+## November 11, 2026 — dev122 C0 device correctness/coverage/CPU result
+
+Stefan: "nothing was off"; supplies trace path and Desktop log, explicitly asks
+Desktop log deleted AFTER archiving. This accepts observed picture/gameplay for
+this run, not all scenes/devices, master-mute behavior or battery savings.
+
+### Archive, requested deletion and identity
+
+Initial assumed Desktop/nfsmw.log absent (archival assertion exit1, no deletion).
+Read-only Desktop filename search found actual
+`/Users/bep1s/Desktop/Pasted 2026-11-11 at 6.34.37 PM.log`.
+Checked dev122 marker, copied to
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev122_iphone_pursuit_time_profile_nfsmw.log`,
+923292bytes, byte-verified/SHA256
+`49fbedeab8eeb47a80ebe21dc2eb1d5230df885c90ffcdc63a6f501deada916a`.
+THEN unlinked ONLY that Desktop source, verified absent again after analysis.
+Archive retained. Explicit per-file deletion overrides normal preserve-original
+rule for this copy; no standing deletion of other/future source evidence inferred.
+
+Original trace already in same dateDebug folder as
+`dev122_iphone_pursuit_time_profile.trace`,315regular files/155734035bytes.
+Canonical relative-path->{bytes,sha256} sorted compact JSON tree-manifest digest
+`03f2c28fa470ae758f71cae1338902b01151cbcf1ec6c622083461da257f35f5`.
+All315files rehashed after export exactly unchanged. Private audit
+`ios/build/dev122-time-profile-20261111/` contains archived-inputs.json and full
+trace-manifest.json. No original trace moved/edited/deleted.
+
+TOC run1, iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2(27B52), High100us
+running/user CPU sampling, LiveContainer16050. Recording18:31:19.622–
+18:33:38.870+02:00,139.248556s, User pressed Stop. Direct binary metadata
+NFSMW UUID `BE5997C9-2607-39C4-91AC-3C2AB53739CA`, load0x10d070000 matches
+FINAL dev122 IPA SHA256
+`d9c9a643604468357af87f80be8290569a6f7f1bb51324f0dc4dfbe8e4c7ca66`.
+Not an interim same-name build; no inferred symbol mapping.
+
+### Logged controls and correctness
+
+Startup dev122/reuseON/encodingOFF/repeatOFF/owner index reusable/geometryON/
+residency incremental/register batchesON.1x/60, MetalFXoff/FXAAoff/forcedMSAA0.
+Normal223/ICB0keys prepared355ms before game; no new shader set. Audio mute/
+controller state not independently logged, requested matching settings. Battery
+85%, LowPowerMode off, thermal nominal; not system power/charging evidence.
+Driving starts18:31:21.439 (+1.817s), scene resign18:33:40.015 after trace stop.
+Primary CPU8–110s =18:31:27.622–18:33:09.622,102s clean driving, same interval
+as dev121 reusable/index-reference selections. No background tail included.
+
+Guarded log summaries >=5.2s after driving start, before trace end:
+26x300=7800CPU-owned frames,0GPU ICBcontexts/draws/runs/budget fallbacks.
+25386483direct draws, geometry active7800,66154288owner hints/45649196map
+lookups,66142443GPU-binding reuses/40691625selections/0fallbacks.
+FPS24x60.0/2x59.9,0GPU>45ms.35audio windows0gaps,0watchdogs/foreground GPU
+errors or invalid/unavailable batch-token errors.68GPU warnings all background
+permission failures, first18:33:41.012 after trace stop AND scene resign.
+Peak process1613MiB,56memory thermal observations nominal. No matched process
+memory or thermal/energy saving established. User's normal-gameplay report
+and logs support this bounded correctness test; do not generalize beyond it.
+
+### Batch transport works, but admission is sparse
+
+26CP300-swap summaries within guarded phase (not perfectly phase-identical to
+render summaries or exact CPU selection):
+
+- 54146produced/54149consumed,32405288words/54146runs. Difference3is compatible
+  with incoming pending/window exchange timing; no invalid tokens/queue loss
+  reported. All admitted batches one run in this selection.
+- Original130112996ring bytes ->1420580token bytes,98.9082%fewer bytes ONLY
+  for admitted batches. Not whole stream, app traffic, CPU or energy savings.
+- Unsupported7799/small77503266/boundary451/capacity0. Current pending max10,
+  lifetime peak18of2048; fixed pool8992KiB. No capacity problem/queue pressure.
+- 6.9418batches/frame,0.06981%ofcounted hook calls. Small fallback9936.3/frame.
+  Batches~598words on average; the frequent small updates stay original as
+  designed after negative host crossover result.
+- Nearby native-constant telemetry totals2194516920range words (constant+
+  fallback ranges, excluding direct single-register writes), so batch words
+  about1.47665%ofreported range-word volume. Rounded/independent300-swap
+  telemetry is approximate coverage, not exact packet replay. Whole register
+  stream coverage may be smaller because denominator omits individual writes.
+
+This proves publication/consumption/correctness mechanism ran. It does NOT
+prove a useful total saving; high byte compression of a tiny subset is not
+large architectural coverage. Do not lower small-VMX thresholds simply to
+increase counters or erase unsupported paths. No further capture/power matrix
+requested on this low reach alone.
+
+### CPU result and attribution
+
+Sampleweight ms over102s, exact processLiveContainer:
+
+| Scope | dev121 reusable/indextrue, C0absent | dev122 C0on |
+|---|---:|---:|
+| App | 112772.8 | 100709.9 |
+| GPU Commands | 21955.3 | 18205.8 |
+| Native render queues | 28908.1 | 26028.3 |
+| Combined graphics | 50863.4 | 44234.1 |
+| Record inclusive | 16306.0 | 13252.3 |
+| Owner Capture named path | 2229.6 | 1650.8 |
+| Frame-storage named path | 825.0 | 411.0 |
+| Draw/frame/storage lifecycle UNION | 2041.4 | 1181.8 |
+| AGX leaf | 3048.9 | 2852.2 |
+| Guest D3D writer/CP union | 8503.8 | 7757.7 |
+| C0 producer Try inclusive | absent | 166.6 |
+| C0 consumer inclusive | absent | 15.4 |
+| C0 producer/consumer/helpers UNION | absent | 182.1 |
+
+App-10.6966%, combinedgraphics-13.0335%, writer/CP-8.77%. These are observed
+sampleweight differences, NOT causal improvement/energy percentages. Unchanged
+main guest22113.5->20370.5, world21249.6->19959.6, audio10585.7->9982.0also
+lower. P-core share81.88->89.45%; clocks not recorded. Nearby full CPU-contained
+summary windows:20/6000frames control vs19/5700new due summary phase, not proof
+of dropped FPS. Draws/frame3282.894->3274.696 (-0.25%), owner lookups6093.099->
+5751.475 (-5.61%), GPU12.964->8.320ms (-35.82%). Same drawcount does not mean
+same shader/texture/pass/pixel workload. More P-core residence/lighter GPU or
+other conditions are possible inferences, not measured causal explanations.
+C0's small admitted scope cannot be credited with all the broad improvements.
+
+New named batch union182.1ms=0.18082%app; producer/consumer scopes overlap
+helpers/other stage scopes. Includes useful snapshot/range-copy work, not all
+incremental overhead; inlining/wrapper/report samples may be outside these
+names. Don't label it exact total C0 overhead or subtract it from writer stage
+as disjoint savings. Functional transport is cheap in this capture, but net
+CPU and battery benefit still UNPROVEN. No Power Profiler result supplied.
+Dev1221007099samples/4955.1ms stackless (~4.92%), control1127728samples/
+5382.9ms (~4.77%); no gross stack-resolution shift. Mean app98.735%of one core
+vs110.562%; utilization/sampleweight proxy, not energy use.
+
+### Analysis changes, commands and next source gate
+
+Extended existing summarize_battery_exports.py with exact current C0 producer
+Try(PPCContext&,unsigned char*,unsigned int), exact consumer callback signature,
+and nfsmw::register_batch helpers. Union counts once per sample; unrelated
+XMA Consume excluded. Existing test_profile_process_filter.py adds producer+
+nested helper union, exact consumer and unrelated Consume negative tests.
+All fixtures exit0 (analysis-tests.log). Reran control: totals/threads and ALL
+prior graphics scope values exactly identical to previous reusable-8-110.json.
+No reinterpretation of old run's totals or native-command scopes.
+
+Escalated Instruments-cache exports TOC and time-profile exit0:
+`xcrun xctrace export --input <archived.trace> --toc --output <audit>/toc.xml`;
+`--xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]'
+--output <audit>/time-profile.xml`. `python3 tools/analysis/
+summarize_battery_exports.py profile <XML> --skip 8 --end 110
+--process LiveContainer` exit0 for new and old raw XML, profile-8-110.json/
+control-8-110.json. Comparison.json/per-window log-analysis.json retained.
+Trace manifest unchanged after export; verified source Desktop copy absent.
+No app/SDK/default/IPA change or game launch/re-record by agent this session.
+
+Decision: bounded C0 transport correctness/coverage gate complete for this
+pursuit, not release acceptance. Keep implementation defaultOFF; normal play
+can restore `--nfsmw_native_register_batches=false` + cold restart, other trial
+flags unchanged. No new capture/power request. Next source C1 feasibility/
+implementation boundary: combine compatible small state updates within a
+proved state-flush window to amortize per-emitter transport, while preserving
+foreign packet barriers, mutable snapshots, dirty-mask CPU side effects,
+segment/space and before-commit fallback. Do not append to Ready records, move
+writes across unknown observers or replay already-committed effects. Need
+actual outer-flush/CP differential and host aggregate cost gate before wiring
+new hooks. No C1 code/build yet, no promised battery gain. Full native producer/
+CP retirement still later.
+
+Shared checkpoint/native plan and matching ignored private BACKLOG updated.
+No CHANGELOG entry for analysis-only result. Preexisting untracked HANDOFF
+preserved/excluded; no other starting tracked changes. Own analysis-tool/test/
+shared-record changes committed locally; git diff --check exit0 before commit.
+No push/merge/release.

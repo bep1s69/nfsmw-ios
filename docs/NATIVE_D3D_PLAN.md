@@ -2,6 +2,23 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev122 device result (latest):** user reports nothing off; final
+build/batchON verified.7800CPU-owned/ICB0,59.9–60FPS summaries,0audio gaps or
+foreground/invalid-token errors. C0 handles6.94batches/frame,0.0698%hook calls,
+1.4766%reported range words.98.91%ring-byte reduction applies ONLY to admitted
+batches, not whole stream. Peak18/2048slots,0capacity fallback. Named C0 union
+0.1808%app; wholeapp-10.70%/graphics-13.03% vs older102scontrol cannot be credited
+to this small slice (other workers/core/GPU workload differ). No energy proof.
+Keep transport as default-off foundation; close profiling round/no more capture
+now. Next source C1 feasibility: aggregate compatible state updates at proved
+flush boundaries, immutable ownership/publication and original foreign-operation
+order preserved; outer825A3EC8CPU side effects/segment fallbacks must be proved
+before wiring. Don't lower small-VMX gate or mutate published batches to boost
+counts. No C1 code/newIPA yet; full direct producer C remains later. Restore
+register_batches=false+cold restart for normal play while source work continues.
+Details/evidence/deleted Desktop log archive in checkpoint/TECHNICAL.
+
+
 **November11 dev122 C0 IMPLEMENTED/BUILT (latest):** owned dirty-register
 batches wired at proved USA emitter callsites, default-off restart-only
 nfsmw_native_register_batches.2048slots/unique tickets, Ready-before-ring ARM64

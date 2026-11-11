@@ -142,6 +142,15 @@ def profile(path, skip, end, process=None):
                     graphics['command_batch_flush_named_path_ms'] += weight
                 if any('nfsmw::commands::' in f for f in frames):
                     graphics['native_command_named_path_ms'] += weight
+                batch_producer = '(anonymous namespace)::Try(PPCContext&, unsigned char*, unsigned int)' in frames
+                batch_consumer = '(anonymous namespace)::Consume(unsigned long long, void (*)(void*, unsigned int, unsigned int*, unsigned int), void*)' in frames
+                batch_helper = any(f.startswith('nfsmw::register_batch::') for f in frames)
+                if batch_producer:
+                    graphics['register_batch_producer_named_path_ms'] += weight
+                if batch_consumer:
+                    graphics['register_batch_consumer_named_path_ms'] += weight
+                if batch_producer or batch_consumer or batch_helper:
+                    graphics['register_batch_named_union_ms'] += weight
                 frame_cleanup = any('::Frame::~Frame(' in f for f in frames)
                 storage_lifecycle = any('nfsmw::FrameStoragePool<' in f for f in frames)
                 if frame_cleanup:
