@@ -1,5 +1,11 @@
 # Native graphics path toward an iOS port
 
+**November12 G2 feasibility (latest):** actual-type host model now exists, not live
+renderer code. Snapshot timing prevents assuming owner Capture can be skipped.
+Capture-preserving stable6/9 stage12–24%cheaper on host, changing versions10–23%
+worse: generic rollout fails cost gate. Next only bounded stable-only actualRecord
+integration/reference gate, no IPA/phone request; reject if marginal. See checkpoint.
+
 **November12 strategy clarification:** "more native" is a means, not acceptance.
 ARM64/Metal and decoded-data/GPU-buffer caches already exist. G2 must beat whole
 handoff cost; deeper resource-version ownership can retire repeated guest-format
@@ -957,3 +963,30 @@ small input bypass and failure paths. Added version matching can consume savings
 again: reject/park if full host benefit isn't meaningful. No new IPA/device/power
 request until that gate supports it. This is a proposed source boundary, no G2
 implementation, flag or default promotion yet. Current checkpoint is authoritative.
+
+
+#### G2 host feasibility result and mandatory snapshot constraint — November 12
+
+Host-only test tools/native/test_geometry_bundle_feasibility.py extracts real
+renderer types; models original list+owner handoff, optimistic bundle, and a
+conservative bundle retaining all original per-input Capture calls. No Record/
+validation/GPU execution. Mesh IDs and post-validation owner versions are supplied;
+production selector/capacity/admission/failure handling not implemented. This is
+feasibility, not production/full-Record correctness or a battery benchmark.
+
+Source boundary: a later input can see a replaced cache entry/decoded version.
+Collecting raw pointers to CacheEntry.value for later capture could retarget or
+release earlier input versions, and changes partial-failure effects. Thus no
+safe general proof for capturing owners only on bundle miss. Preserve exact
+original capture sites/timing and collect frame-owned version handles instead.
+The optimistic arm is an explicit negative design control, NOT shipping evidence.
+
+Conservative stable6/9input32/512mesh handoff+lookup+teardown12–24%cheaper host;
+changing versions4/6/9 at those sizes10–23%worse. Sixteen-input stress benefits
+do not represent normal known shader widths. General rollout rejected, no IPA.
+Bounded stable-only eligibility/fallback might be viable, but must be tested
+with actual Record failure/validation/capture ordering and candidate collection/
+matching/consumer costs; host model's given-key/free validated-input assumptions
+must not slip into a claimed implementation win. All original mutable validation
+and unsupported paths remain required. Version matching never justifies trusting
+unchanged guest address or enabling historically unsafe write-watch blindly.

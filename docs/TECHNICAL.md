@@ -27033,3 +27033,137 @@ specific APIs/settings. No speculative Game Mode/entitlement changes made.
 Shared checkpoint/native plan/private backlog updated, own three tracked docs
 committed locally. No CHANGELOG for strategy-only review, no code/test/build/new
 IPA. HANDOFF and other repositories preserved; no push/merge/release.
+
+## November 12, 2026 — G2 host feasibility after Stefan “continue”; generic rollout rejected
+
+### Source audit and scope
+
+Continued the power strategy source work after explicit "continue". Starting
+HEADe80a963 (strategy/correction committed before new experiment). No game/SDK/
+shader/configuration changes, no IPA or device request. Only new tracked source
+is HOST-ONLY tools/native/test_geometry_bundle_feasibility.py. It imports existing
+draw-arena harness prefix and extracts actual Attribute/FloatArray/Draw/Frame/
+FrameOwners/DrawArena types; no generated proprietary game data in test.
+
+Read native_draw_census.cpp USA draw hooks, native_renderer.mm caches/Record/
+NativeFrameStorage/active-attribute consumption, native_frame_storage.h,
+read-only SDK xmemory.cpp physical callbacks/shared_memory.cpp hot-page code and
+patch_ios_hot_pages.py history. Normal draw APIs captured, but D3D mostly LTCG
+inlined; no established complete resource create/write version registry found
+in existing hooks. Did not identify/prove every resource mutation/alias/lifetime
+boundary. Thus "only update native resources on actual writes" remains a deeper
+implementation project, not a safe flag change or completed resource audit.
+
+Renderer write_watch=false comment documents stale-data history when writes
+were not reported. Existing SDK hot-page patch has additional historical CPU/
+upload regressions and is defaultOFF; current callback API exists for physical
+aliases, including protection/invalidations. Source history is NOT new proof
+current callbacks necessarily fail, nor permission to trust all writes now.
+No hot-page/watch setting enabled; no SDK file changed or full prepare.
+
+Current Record captures each validated decoded version immediately. A later
+input can revisit/replace the same cache entry (aliasing and concurrent guest
+writes); deferred raw pointer-to-entry.value capture could retarget/release the
+earlier version and alter effects of partial failure. G2 cannot generally remove
+per-input FrameOwners::Capture just because an earlier bundle matched. Need
+preserve original capture timing/version handles unless a stronger proof exists.
+This changes prior optimistic idea of eliminating the handoff's owner calls.
+
+### Host experiment and exact checks
+
+New script explicitly models post-validation handoff ONLY. ORIGINAL arm builds
+actual Attributes/Draw vector/owner captures. OPTIMISTIC arm checks version/layout
+against a frame-owned immutable bundle and captures owners only on bundle miss.
+CAPTURE-PRESERVING arm captures every input into temporary frame handles, then
+matches and reuses lists; immutable bundle records exact owner versions/location/
+integer metadata. Fresh flags are a per-draw16bit mask, not shared Attribute
+state.32location index preserves original LAST matching duplicate location.
+Both candidates append actual Draws; experiment per-draw sidecar is extra and
+included in costs. Frame lifetime owns bundle/owners, deque growth stable.
+
+Model mesh identity is supplied free by mesh ordinal; real G1 selector/bounds/
+probation integration is NOT implemented. Validation/decoding/actual Record/
+Metal execution, early-failure-before-publication and GPU/power not exercised.
+Do NOT call modeled reference actual full Record or translate its percentages
+to CPU/battery gains. Production would collect handles AT original validation
+sites, not defer their acquisition as the given-input model permits. Failed
+inputs never call model Add; that's a limitation, not a tested rollback path.
+Bundle count currently grows per changed version: production admission/capacity/
+allocation failure fallback still required. Not ready for live use.
+
+Commands, all exit0 except optional Python cache check noted below:
+python3 tools/native/test_geometry_bundle_feasibility.py;
+python3 tools/native/test_geometry_bundle_feasibility.py --benchmark.
+macOS clang++/C++20/ARC/Foundation/Metal. Default -O1/ASan+UBSan, benchmark-O2.
+Sanitized original/optimistic/capture-preserving checks10000historical draws x32
+locations: arbitrary same-frame decoded replacements, mutated location/integer,
+duplicate locations, independently changing fresh flags, frame-independent
+lifetime/retention. Explicit same-entry version replacement proves earlier
+FrameOwners handle remains old, later handle new. Both prototypes agree with
+modeled reference. NO claim actual early-failure/Record mutation test executed.
+
+Audit /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/g2-binding-feasibility-20261112/:
+sanitized.log/sanitized-final.log/benchmark.log/benchmark-final.log and retained
+optimistic-model-benchmark.log, then conservative-sanitized.log and
+conservative-benchmark.log/final conservative-costs.json. Initial two-arm model
+passed, but was insufficient for source snapshot timing; revised before any
+production edit/build. No failing renderer/host differential run.
+Optional python3 -m py_compile tried global configured Python cache outside
+writable roots and failed PermissionError (individual commandexit1; containing
+shell's later git diff --check exited0). Safe in-memory compile(read_text, ...,
+'exec') then passes without cache writes. No escalation/permission request needed.
+
+### Cost result — include negative cases; do not ship optimistic numbers
+
+Final30cases,7alternating THREE-arm trials,20000draws per arm/case; allocation,
+list matching/creation, original per-input captures in conservative arm, draw
+append, active-location lookup and teardown all timed. Supplied input versions
+preallocated outside timer; changing cases alternate retained decoded versions
+on each mesh revisit, no data allocator work timed. Per-arm consumption checksum
+must match exactly. Fresh flags varied in correctness test, benchmark starts
+cached/nonfresh; GPU fresh-upload cost not measured. Report original vs realistic
+capture-preserving ms (optimistic raw values retained but not acceptance):
+
+| Inputs / meshes | Stable original | Stable capture-preserving | Changing original | Changing capture-preserving |
+| --- | ---: | ---: | ---: | ---: |
+| 1 / 32 | 1.810 | 1.805 | 1.473 | 1.794 |
+| 1 / 512 | 1.289 | 1.382 | 1.369 | 1.740 |
+| 4 / 32 | 1.769 | 1.624 | 2.025 | 2.489 |
+| 4 / 512 | 1.800 | 1.778 | 2.329 | 2.734 |
+| 6 / 32 | 2.209 | 1.862 | 2.613 | 3.029 |
+| 6 / 512 | 2.288 | 2.010 | 3.150 | 3.451 |
+| 9 / 32 | 2.844 | 2.175 | 3.423 | 3.818 |
+| 9 / 512 | 3.055 | 2.392 | 4.004 | 4.462 |
+
+Stable6/9inputs32/512meshes12.15–23.52%lower stage time; changing4/6/9~9.56–22.91%
+HIGHER at those sizes. Stable4/512only1.22%lower,1input oftenloses.16input stress
+not representative of normal known shader widths: don't base acceptance on
+larger gains there.8192mesh matrix retained to expose lower reuse/churn; e.g
+9stable5.940->5.258ms, changing9.762->10.064ms. Stable hits19968/19488/11808 at
+32/512/8192meshes, changing0hits/20000misses. Current model does not reproduce
+2048-description G1 capacity; given mesh table may overestimate real reuse.
+
+Arena peak example9/32stable16769376original vs24640bundle, changing16769376both.
+These are arena block peaks only, not full footprint (extra bundle/header/
+sidecar/deque allocations excluded from arena counter but INCLUDED in timed
+allocation/teardown). Do not claim corresponding overall RAM/energy reduction.
+
+### Decision and unfinished next action
+
+Generic G2 rollout FAILS complete stage cost gate due changing-data/minimal-input
+regressions. NO game flag/source/IPA/phone/power request. Optimistic owner-call
+elimination is not a safe general implementation; preserve captures. This source
+check prevents taking misleading50%model results to another device trial.
+
+Only consider bounded stable-only admission and original-path fallback next,
+against ACTUAL Record validation/capture/failure order and all consumers. Must
+include collection/identity selection/fallback/cold/churn cost, before-erase and
+frame/GPU lifetimes, freshness and version changes; even stable benefit may be
+small at whole-app scale. If marginal, park before live build. No promise of
+meaningful battery gain from G2 alone. Complete write-version resource ownership
+is separate larger work requiring real source coverage, not solved here.
+
+Shared checkpoint/native plan/private ignored backlog updated. New host tool and
+own tracked docs committed locally; HANDOFF intact/untracked, BACKLOG deliberately
+not staged, other repositories' preexisting changes untouched. No CHANGELOG or
+build procedure mutation: host command documented in checkpoint. No push/release.

@@ -518,6 +518,49 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 G2 source/host feasibility started after Stefan "continue" (latest):**
+Added HOST-ONLY tools/native/test_geometry_bundle_feasibility.py; no game change,
+flag/default/newIPA/device request. Extracts actual Attribute/Draw/Frame/FrameOwners/
+DrawArena types, compares modeled original handoff with optimistic bundle and
+CAPTURE-PRESERVING bundle, including matching/list construction/draw append/
+active-location lookup/teardown. Common validation/decoding, mesh-key selection,
+actual Record/Metal/GPU/power NOT executed. Mesh identities supplied, production
+capacity/admission/failed-input path not implemented. Do NOT treat as production
+integration, full Record test or battery gain.
+
+Source finding: current cache entry can change between validated inputs, including
+same entry/aliased data; earlier input must retain its decoded version and original
+Capture timing/failure effects. Therefore general "capture only on bundle miss"
+is NOT established safe; optimistic arm numbers cannot justify a build. Conservative
+arm retains every input Capture into temporary frame handles; fresh mask stays
+per draw, exact current version/metadata equality, LAST duplicate location wins.
+ASan/UBSan10000historicaldraws x32locations vs BOTH prototypes pass, frame lifetime/
+version/metadata/fresh checks pass; -O2 benchmark30cases7alternating3armtrials pass
+with equal consumption checksums. Stable6/9input32/512meshes capture-preserving
+stage12–24%lower host time; changing4/6/9input cases~10–23%WORSE at those sizes.
+1input also loses (outside currentG1 eligibility);16input stress not representative
+of known game layouts. Full table/negative results TECHNICAL/audit.
+
+**Next SOURCE gate, no new recording:** general G2 rollout FAILS cost gate.
+Only evaluate bounded stable-only admission/fallback against ACTUAL Record's
+validation/capture/failure timing and all consumers before production changes;
+unknown/changing/missing/prepared-ineligible paths reference. Require complete
+candidate cost including collector/selector/fallback and check source-level
+snapshot/lifetime semantics; don't extrapolate optimistic free-input model.
+If real stable-only benefit too small, park rather than ship another micro-trial.
+Resource-version audit found no demonstrated authoritative write coverage; existing
+write_watch=false documented stale-data history is NOT a switch to enable.
+Current SDK callbacks/hot-page patches were READ ONLY; source comment/history is
+not a new device reproduction or proof current callbacks necessarily fail.
+Deep native resource ownership remains separate larger work, not solved by bundle.
+
+Audit ios/build/g2-binding-feasibility-20261112 incl all sanitizer/model/final
+conservative timings+30case JSON. Host command python3 tools/native/
+test_geometry_bundle_feasibility.py [--benchmark], macOS+Xcode Foundation/Metal,
+-O1ASan/UBSan default/-O2benchmark. No build-procedure changes. Own host tool/docs
+committed locally; HANDOFF/private ignored BACKLOG/otherrepochanges preserved.
+No push/merge/release.
+
 **November12 power-strategy review (latest direction):** Stefan asks whether
 changes add up and how to reduce power at unchanged performance. Re-audit finds
 prior answer "not yet demonstrated" was too broad for ALL project history:
