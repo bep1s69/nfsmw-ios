@@ -41,6 +41,10 @@ alignas(16) uint8_t VectorMaskL[]={15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
 static size_t HostOffset(uint32_t at){return size_t(at)+(at>=0xE0000000u?0x1000:0);}
 static uint32_t Load(uint8_t* base,uint32_t at){uint32_t n;std::memcpy(&n,base+HostOffset(at),4);return __builtin_bswap32(n);}
 static void Store(uint8_t* base,uint32_t at,uint32_t n){n=__builtin_bswap32(n);std::memcpy(base+HostOffset(at),&n,4);}
+static uint64_t Load64(uint8_t* base,uint32_t at){return (uint64_t(Load(base,at))<<32)|Load(base,at+4);}
+static void Store64(uint8_t* base,uint32_t at,uint64_t n){Store(base,at,uint32_t(n>>32));Store(base,at+4,uint32_t(n));}
+#define REX_LOAD_U64(at) Load64(base,at)
+#define REX_STORE_U64(at,n) Store64(base,at,n)
 #define REX_LOAD_U32(at) Load(base,at)
 #define REX_STORE_U32(at,n) Store(base,at,n)
 #define REX_RAW_ADDR(at) (base+HostOffset(at))

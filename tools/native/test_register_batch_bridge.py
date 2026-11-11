@@ -43,6 +43,9 @@ program+=r'''
 #define REXLOG_INFO(...)
 #define REX_FUNC(name) void name(PPCContext& ctx,uint8_t* base)
 bool flag_nfsmw_native_register_batches=true;
+bool flag_nfsmw_native_register_flushes=false;
+extern "C" void __imp__sub_825A2968(PPCContext&,uint8_t*);
+extern "C" void __imp__sub_825A3EC8(PPCContext&,uint8_t*);
 std::string flag_gpu_backend="native";
 bool native_mode=true;
 extern "C" bool nfsmw_native_cp_mode(){return native_mode;}
@@ -57,6 +60,12 @@ live='\n'.join(line for line in live.splitlines() if not any(x in line for x in
 program+=live+r'''
 std::atomic<RexNativeRegisterBatch> rex_native_register_batch_hook{&Consume};
 std::atomic<uint32_t> rex_native_draw_marker{0};
+'''
+# Isolated bridge does not invoke these new outer/fetch entries. C1's fixture
+# replaces the stubs with actual generated bodies.
+program+=r'''
+extern "C" void __imp__sub_825A2968(PPCContext&,uint8_t*){}
+extern "C" void __imp__sub_825A3EC8(PPCContext&,uint8_t*){}
 '''
 program+=function(patched['src/graphics/command_processor.cpp'],
     'bool CommandProcessor::ExecutePacketType3_NOP(').replace('CommandProcessor','OracleCP')
@@ -178,11 +187,15 @@ int main(int argc,char**){flag_nfsmw_native_register_batches=argc==1;Bridge(argc
 '''
 benchmark='--benchmark' in sys.argv
 program=program.replace('@BENCHMARK@','if(argc==1)Benchmark();' if benchmark else '')
-with tempfile.TemporaryDirectory(prefix='nfsmw-register-bridge-') as tmp:
-    path,exe=Path(tmp)/'test.cpp',Path(tmp)/'test';path.write_text(program)
-    options=['-O2'] if benchmark else ['-O1','-g','-fsanitize=address,undefined']
-    subprocess.run(['clang++','-std=c++20',*options,
-        '-fno-omit-frame-pointer','-I',str(ROOT/'ios/src'),'-I',str(SDK/'thirdparty/simde'),
-        str(path),'-o',str(exe)],check=True)
-    subprocess.run([str(exe)],check=True)
-    subprocess.run([str(exe),'off'],check=True)
+def main():
+    with tempfile.TemporaryDirectory(prefix='nfsmw-register-bridge-') as tmp:
+        path,exe=Path(tmp)/'test.cpp',Path(tmp)/'test';path.write_text(program)
+        options=['-O2'] if benchmark else ['-O1','-g','-fsanitize=address,undefined']
+        subprocess.run(['clang++','-std=c++20',*options,
+            '-fno-omit-frame-pointer','-I',str(ROOT/'ios/src'),'-I',str(SDK/'thirdparty/simde'),
+            str(path),'-o',str(exe)],check=True)
+        subprocess.run([str(exe)],check=True)
+        subprocess.run([str(exe),'off'],check=True)
+
+if __name__=='__main__':
+    main()

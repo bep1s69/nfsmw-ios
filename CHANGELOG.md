@@ -23,6 +23,8 @@
   repeatedly allocating and freeing ownership-table entries.
   A separate off-by-default trial batches changed graphics registers while
   retaining the existing renderer and ordered game commands.
+  Another trial combines compatible updates within one graphics-state flush
+  to share the cost of handing those updates to the renderer.
 
 ## 0.6.0
 

@@ -510,6 +510,59 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+
+**November11 dev123 C1 compatible register flushes IMPLEMENTED/BUILT (latest):**
+Stefan agreed to continuing the C1 source work. Actual outer825A3EC8 comparison
+and host cost gate preceded live hooks. New restart-only
+`nfsmw_native_register_flushes=false` (default OFF) aggregates only the audited
+register-only suffix, after original vertex/shader helpers. Existing C0
+`nfsmw_native_register_batches=false` remains independent/default OFF. C1 skips
+estimated<128words or<2bank groups; these still use original emitters/C0 when
+enabled. Original outer function retains dirty-mask/CPU sentinel writes. New
+fetch825A2968 hook checks exact825A3FD0/source1152/192words, special8-byte
+alignment. Append to privately owned1024word/32run batches only, preserve
+chronological descending/repeated register order; capacity commits PREFIX then
+tries current call, unknown/slow helpers run with collector suspended. No
+replay/Ready mutation/whole-frame rewrite. TLS/nested/exception restoration;
+unexpected ring-pointer/limit mutation while pending aborts rather than
+silently reorders. Same2048slot pool/ordered SDK consumer, no SDK edits.
+
+Host ASan/UBSan actual outer/emitter/app/CP differential1200cases per mode,
+existing9regression commands PASS; source suffix call inventory guarded.
+Prefix shader/vertex and segment-helper bodies are stand-ins, CP range override
+is real but base WriteRegister effects mocked: hardware/whole-game correctness
+still needs device run. Host seven-trial mixed cases original5.944–13.452ms,
+C1+C0 5.347–11.385ms/10000; versus C0 results MIXED (-0.65%to+9.43% benefit,
+not uniform); sparse admission adds~8ns/flush, so no claim of net device gain.
+Detailed matrix/fixture failures and fixes in TECHNICAL, audit ignored
+`ios/build/dev123-register-flushes-20261111/`. No energy claim.
+
+Signed `ios/build/NFSMW-0.6.1-dev123-register-flushes.ipa`,30752007bytes,
+SHA2561002204fd4d3676be80de55d364c22ac0ef34f2fa08051ec42a9677d1f7ae931,
+ARM64 UUID5CC1ECB2-620D-3859-8718-3FD467D59843, bundle0.6.0(11).
+ZIP CRC/strict deep signature/four strong hooks+originals PASS;104metallibs,
+pipeline seed and BOTH SDK dylibs byte-identical dev122. Desktop IPA copy
+hash-verified; ONLY prior Desktopdev122 moved to Trash; stable0.6.0 and all
+`ios/build` copies preserved. No game launch/phone run by agent.
+
+**Next:** one90–120s pursuit Mac Time Profiler+game log on dev123, cold restart,
+retain dev122 owner-only settings/indextrue/reusetrue/encodingfalse/repeatfalse,
+1x60/MSAA0/FXAAoff/MetalFXoff, same audio/controller conditions. Explicitly set
+`--nfsmw_native_register_batches=true --nfsmw_native_register_flushes=true`.
+First validate image/audio/FPS and new flushes/collected/sparse/capacity/pending
+counters; compare reach against dev1221.4766%range words and profile costs,
+including Collector/Publish/new outer hook (old exact Try-only scopes aren't
+total C1 work). Do not infer energy gain from bytes, moved work or unmatched
+pursuit totals. No power matrix until meaningful CPU/correctness gate. Normal
+play/reference can use BOTH false + cold restart; same-build C0 control keeps
+batchestrue/flushesfalse if later needed, don't request it yet.
+
+Records/private ignored BACKLOG updated, CHANGELOG notes trial; own session
+changes committed locally, no push/merge/release. Preexisting untracked
+HANDOFF_CHATGPT.md preserved/excluded. BACKLOG intentionally remains ignored,
+not force-added; build/test artifacts remain ignored local files.
+
+
 **November11 dev122 C0 device run ANALYZED (latest):** Stefan reports nothing
 looked off. FINAL UUIDBE5997C9-2607-39C4-91AC-3C2AB53739CA verified; register
 batchesON/reuseON/encodingOFF/repeatOFF/indexreusable/geometryON. Trace already

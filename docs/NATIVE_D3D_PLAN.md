@@ -1,5 +1,15 @@
 # Native graphics path toward an iOS port
 
+**November11 dev123 C1 BUILT (latest):** compatible state-flush aggregation
+implemented after actual outer/CP source gate. Separate defaultOFF restart
+`nfsmw_native_register_flushes`; current C0 control retained. Host mixed cases
+faster than original but MIXED vs C0; sparse admission adds cost. No device/
+energy acceptance. Signed UUID5CC1ECB2-620D-3859-8718-3FD467D59843, Desktop.
+Next one pursuit Time Profile+log with batchestrue/flushestrue + cold restart,
+other controls unchanged; check correctness/reach/CPU before power. See C1
+contract below and DEVELOPMENT_PROGRESS current checkpoint. Older statuses
+below are history.
+
 ## Current decision — November 10, 2026
 
 **November11 dev122 device result (latest):** user reports nothing off; final
@@ -626,3 +636,68 @@ No need to rewrite menus, networking or save formats to begin this project.
   [ICB pipeline support](https://developer.apple.com/documentation/metal/mtlrenderpipelinedescriptor/supportindirectcommandbuffers),
   [CPU ICB sample](https://developer.apple.com/documentation/metal/encoding-indirect-command-buffers-on-the-cpu),
   [Metal feature tables](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf).
+
+
+### C1. Compatible updates in one state flush — November 11
+
+Outer825A3EC8 runs vertex825A2B88 and shader825A38F8 BEFORE its first register
+emitter. Its audited suffix has8scalar825A28A8calls,2group16 ALU825A2A60calls,
+and1fetch825A2968call, with CPU dirty-mask/sentinel writes between them and no
+other helper/submit/wait/query/draw. Generated-source inventory is asserted in
+`tools/native/test_register_flushes.py`; don't add a foreign observer inside
+this suffix without a before-call barrier. This relies on the existing device/
+ring producer ownership contract; it introduces no new cross-thread device
+access, lock or reader synchronization. Host fixtures cannot prove all game
+thread behavior or hardware-visible effects. Publication before the outer
+returns ensures following draw/submit/query users see complete state.
+
+The new outer hook executes the ORIGINAL generated function in a thread-local
+collector scope, never substitutes shader/vertex bodies or CPU mask clears.
+Estimate>=128dirty words and>=2bank groups admits a candidate; estimate is only
+a cost gate, exact masks/roles/source bounds are rechecked at every emitter.
+Prefix helpers may change dirty state, so snapshots happen at each actual
+emitter, after those helpers. Each append copies only dirty BE words into a
+Writing slot. No sorting: source order descends4900->2000 and can repeat a
+register; CP virtual range calls preserve the original run sequence.
+
+Fetch mask bits represent6words and only32slots, source=device+1152, base4800,
+return825A3FD0. Its original packet header uses8-byte alignment, distinct from
+ALU VMX16-byte alignment. Virtual original-end follows exact original footprint
+through collected emitters. Token must fit and preserve final mod16. Original
+source skew/size, device/ring nonalias and segment-fast-path checks precede
+skipping each emitter. Device+0 remains at the collected prefix's start until
+its token is written; ring must not alias ANY known device state/source.
+
+1024words/32runs per existing slot; if append cannot fit, publish collected
+PREFIX at its original position, then retry current call once from compressed
+actual pointer. Unknown/slow calls commit prefix BEFORE original current call
+and suspend collection throughout its helpers. Nested outer scopes commit
+parent first; RAII restores TLS even when an inner original throws. Normal
+exception unwinding also publishes the owned prefix, no replay. Ready data is
+immutable; same unique-ticket/2048slot pool and SDK consumer reused unchanged.
+Unexpected ring pointer/limit modification while a prefix is pending aborts:
+this is not a safe after-the-fact fallback opportunity. Unsupported paths must
+be recognized before their effects. Does not retire CP, packet submission,
+Record, query/shader handling or any GPU lifetime mechanism.
+
+Two independent defaultOFF restart flags: batches=C0individual-call route,
+flushes=C1outer route. An active C1 collector supersedes C0 for its calls;
+sparse flushes may use C0 if enabled. Device trial uses bothtrue, dev122-style
+reference can keep batchestrue/flushesfalse; bothfalse is normal play. Activity
+reports include eligible outer flushes, collected emitter calls, sparse bypass,
+combined batch words/runs/bytes and pending. C1 boundary/capacity counters count
+failed preparation attempts (up to2per current call), not discarded commands.
+Single-run C0 counter interpretation must not be copied blindly to C1.
+
+Host actual outer + actual three emitters/app hooks/CP ranges compare1200
+mask/alignment cases permode, finalregisters/runorder/baseWriteRegister call
+order/all11996device bytes except compressed pointer/nonvolatile ABI. Test
+private snapshots, bank/run capacity/no partial append, unknown/segment/pool
+fallbacks, nested scope/exception TLS, native-backend/consumer gates, aliases,
+and high-physical source/ring mapping. Shader/vertex and segment helper bodies
+are stand-ins; base WriteRegister records effects rather than executing the
+hardware-side transforms. Not a GPU/game validation. Host mixed-state cases
+16ALU words through1024words/bank can reduce packet work, but final measured
+cost vsC0 is mixed and sparse path costs~8ns/flush. Do not infer whole-game CPU
+or energy savings. Next device coverage/correctness/profile gate in checkpoint;
+no power request until useful measured work reduction.

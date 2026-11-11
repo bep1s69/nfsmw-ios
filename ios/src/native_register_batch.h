@@ -33,16 +33,39 @@ struct Batch {
   uint32_t run_count=0, word_count=0;
   bool Valid() const {
     if (!run_count || run_count>kRuns || !word_count || word_count>kWords) return false;
-    uint32_t at=0,last=0;
+    uint32_t at=0;
     for (uint32_t i=0;i<run_count;++i) {
       const auto& r=runs[i];
-      if (!r.count || r.reg<last || r.reg>=kRegisters || r.count>kRegisters-r.reg ||
+      // Runs are an ordered operation stream. A later flush bank can have a
+      // lower register address; sorting would change WriteRegister effects.
+      if (!r.count || r.reg>=kRegisters || r.count>kRegisters-r.reg ||
           r.offset!=at || r.count>word_count-at) return false;
-      at+=r.count; last=r.reg+r.count;
+      at+=r.count;
     }
     return at==word_count;
   }
 };
+// Append only to privately owned, unpublished storage. Reject the complete
+// addition before modifying it, including worst-case fragmented-mask capacity.
+inline bool Append(Batch& out,uint64_t mask,uint32_t reg,uint32_t group,
+                   std::span<const uint32_t> source) {
+  if (!mask || (group!=1 && group!=6 && group!=16) || reg>=kRegisters ||
+      out.run_count>kRuns || out.word_count>kWords) return false;
+  const uint32_t needed=(64-std::countr_zero(mask))*group;
+  const uint32_t words=std::popcount(mask)*group;
+  const uint32_t runs=std::popcount(mask & ~(mask>>1));
+  if (needed>source.size() || needed>kRegisters-reg ||
+      words>kWords-out.word_count || runs>kRuns-out.run_count) return false;
+  while(mask) {
+    const uint32_t first=std::countl_zero(mask), count=std::countl_one(mask<<first);
+    out.runs[out.run_count++]={reg+first*group,count*group,out.word_count};
+    std::memcpy(out.words.data()+out.word_count,source.data()+first*group,count*group*4);
+    out.word_count+=count*group;
+    const uint32_t end=first+count;
+    mask=end==64 ? 0 : mask & (UINT64_MAX>>end);
+  }
+  return true;
+}
 // Bounds validated before touching output. Dirty mask is MSB-first; grouped
 // emitter bits represent sixteen words, not one float4.
 inline bool Build(Batch& out,uint64_t mask,uint32_t reg,uint32_t group,

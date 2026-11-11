@@ -25501,3 +25501,217 @@ No CHANGELOG entry for analysis-only result. Preexisting untracked HANDOFF
 preserved/excluded; no other starting tracked changes. Own analysis-tool/test/
 shared-record changes committed locally; git diff --check exit0 before commit.
 No push/merge/release.
+
+
+## November 11, 2026 — dev123 compatible state-flush aggregation (C1)
+
+### Scope and ordered boundary
+
+Stefan agreed to the checkpoint's next source work. Started from1416817 on
+codex/native-frame-command-reuse, clean tracked tree, only preexisting untracked
+HANDOFF_CHATGPT.md (preserved/excluded). Read AGENTS/checkpoint/BACKLOG/latest
+technical evidence. No received log/trace this turn, no deletion of further
+Desktop logs. Previous dev122 archive/deletion remains as recorded above.
+
+Audited actual generated outer825A3EC8 in recomp.85.cpp22008–22332. Original
+vertex825A2B88 and shader825A38F8 run BEFORE eight scalar825A28A8, two
+ALU/group16 825A2A60 and one fetch/group6 825A2968 calls. Suffix has only these
+emitter calls and CPU device dirty-mask/sentinel writes. Known original callers
+submit/use ring AFTER the outer returns;7literal calls found in generated
+source. No foreign draw/query/shader/submit helper inside that suffix. This
+preserves the existing device/ring producer ownership assumption, not a new
+cross-thread device synchronization mechanism. Host tests cannot prove all
+concurrent game/device observations. New generated suffix-call inventory check
+fails if a future helper is introduced; any such observer needs a before-call
+barrier, never a discover-late/replay fallback.
+
+New restart-only nfsmw_native_register_flushes=false (defaultOFF), independent
+of existing C0 nfsmw_native_register_batches=false. USA-only outer strong hook
+executes ORIGINAL outer with TLS Collector, and original helpers still execute
+on device. Scalar/group16 wrappers collect exact known role/source/LR calls;
+new fetch wrapper only825A3FD0/base4800/source=device+1152/192words. Fetch real
+body in recomp.18.cpp22602 uses six words/mask bit, upper32bits at this caller,
+and8-byte header alignment, not VMX16-byte rule. OriginalEnd/FetchEnd track the
+original virtual end across calls; token fits and preserves finalmod16. Sources
+use REX_RAW_ADDR (including high-physical skew), exact bounds/mask extent; ring
+must not alias any of device's known12000bytes or cross the skew discontinuity.
+
+C1 only estimates eligibility>=128dirty words and>=2bank groups at entry;
+shader/vertex prefix can change masks, so every actual emitter revalidates and
+snapshots at its call. Sparse candidates retain original/C0 when enabled. It
+can miss profitable flushes; don't treat estimate as measured scope coverage.
+Active C1 bypasses C0 per-emitter thresholds ONLY within this aggregate scope;
+C0 thresholds unchanged. Batches retain1024words/32runs and existing2048slot
+~8992KiB pool. Append rejects full addition before mutation. Runs are operation
+order, NOT address order: e.g4900->2000, repeated writes preserved. Valid now
+allows descending/repeated ranges; still validates every payload offset/size/
+register bound before consumer effects. Private Writing appends only; immutable
+Ready, same unique tickets/CP range callback/release fence.
+
+If append cannot fit, publish collected PREFIX, then retry CURRENT call once
+using compressed actual pointer. Unsupported/slow original current calls get
+prefix publication BEFORE invocation, collection suspended throughout helpers.
+No committed effects replay, no rollback, no slot overwrite. Nested scopes
+flush parent before inner original prefixes; RAII restores TLS for sparse and
+admitted inner paths/exceptions. Exception unwind publishes collected prefix
+and restores TLS. Unexpected device ring pointer/limit mutation while pending
+aborts: after foreign writes there is no safe insert-before/replay option.
+This invariant is distinct from supported before-call fallback. Original outer
+still performs mask clears at+16/+24/+32/+40/+48 and bool sentinel+11440. No
+shader/query/draw/Record/swap replacement; CP not retired. Same SDK3block
+consumer reused, no SDK source changes this session.
+
+Common Publish helper retains original C0 pending-before-Ready and explicit
+Ready-before-ring release fence. Existing report now dev123, plus eligible
+outer flush count/collected emitter calls/sparse count. C1 boundary/capacity
+counters count failed preparation attempts (up to2/currentcall), not discarded
+commands. Producer/consumer concurrent report phases remain approximate.
+Startup identifies BOTH switches separately; graphics preparation markerdev123.
+
+### Host validation and failed/inconclusive attempts
+
+New tools/native/test_register_flushes.py compiles actual app C1 wrappers/
+Collector/Append/Publish, original outer and all3original emitters, existing
+patched SDK NOP handler/type0/native range override. Fixtures model real
+nonvolatile GPR/LR stack saves (isolated emitter no-op ABI stubs insufficient
+for the outer's r30/r31). Prefix shader/vertex helpers explicitly emit ordered
+foreign NOP markers and modify a source bank BEFORE collection; segment helper
+throws at slow entry. These helpers are stand-ins, not native shader/segment
+implementation validation. Base CP WriteRegister records order/values; it does
+NOT execute all hardware-side MSAA/coherency/gamma/query behavior. Actual
+virtual range override runs with bulk constants bothON/OFF. No GPU execution.
+
+1200mask/alignment cases/mode compare exact CP run sequence/registers/base
+WriteRegister call order, endingmod16, all11996device bytes except compressed
+pointer, originalr1/LR/r30/r31. Final sanitizer results (exit0):
+- C1+C0:1,470,204words/3,675produced batches across1200cases.
+- C1OFF/C0ON:1,273,688words/3,596batches,0C1collected/outerflushes.
+- C1ON/C0OFF:1,470,044words/3,671batches; same differential passes.
+- Each C1ON mode also tests descending/repeated runs, snapshot after source
+  mutation, whole-append rejection at word/run capacity, prefix publication
+  before unknown/slow current call, capacity split/retry, pool exhaustion,
+  nested admitted/sparse exception TLS restoration, backend/missing consumer
+  gates retaining byte-identical original stream, device/ring nonalias,
+  actual outer high-physical source/ring mapping and cross-skew rejection.
+  Pending returns0. Cold modes run as separate processes because flags cache.
+
+Command python3 tools/native/test_register_flushes.py exit0; final output
+`ios/build/dev123-register-flushes-20261111/flush-tests-final.log`. Core tests
+use ASan+UBSan -O1. --benchmark uses -O2/no sanitizers, seven alternating-order
+trials, actual producer+consumer paths plus equal Init and observable register
+writes in each arm. CPU/GPU/ABI stand-ins and host timing limit inference.
+
+Failures/inconclusive attempts retained here to prevent false progress:
+1. Initial outer fixture named Differential clashed with imported isolated
+   fixture: compile failed; renamed FlushDifferential, rerun passed.
+2. Initial live C1 fixture accidentally routed __imp__outer through ORIGINAL
+   emitters directly, reported0C1batches despite equal output. EXCLUDED as C1
+   evidence. Split reference outer (calls original emitters) from actual outer
+   (calls real app wrappers); add positive produced/collected and matching
+   consumer assertions. Final counts above establish route exercised.
+3. First9-regression attempt failed at old bridge compile: no REX_LOAD_U64 in
+   isolated fixture after including live C1 planner. Added Load64/Store64 and
+   macros to shared original-emitter fixture; removed duplicate new-fixture
+   definitions. Failed output regression-tests.log; final rerun9/9exit0 in
+   regression-tests-final.log. No app change for these fixture repairs.
+4. First artifact verifier expected wrong asset basename
+   native_pipeline_keys.bin, assertion failed. Packaged name is
+   NativeShaders/pipeline_keys.bin. Corrected verifier, full validation passed;
+   no artifact change and no failed intermediate IPA delivered.
+5. Bare patch --status without NFSMW_SDK inspected default rexglue-sdk-ios and
+   reported0/3. NOT active build root. Explicit prepared SDK env reports3/3;
+   CMakeCache verifies active nfsmw-multiplayer-sdk. No patch applied/reverted
+   in either actual SDK by these checks; tests use disposable SDK text copies.
+
+Final9regression commands, all exit0: test_register_batches.py (2080actual
+scalar/VMX cases+pool/concurrency), test_register_batch_bridge.py (264tokens,
+1280inputs/mode, aliases/disabled), test_frame_owner_index.py,
+test_geometry_handoff.py, test_command_encoding_control.py,
+test_native_frame_commands.py, test_draw_arena.py,
+test_native_command_cache.py, test_pipeline_preparation.py. Imported bridge
+now has main guard so C1 can reuse source program without executing another
+compile/run; temporary SDK patch round-trip checks still run. No existing
+production snapshot/draw/Record/validation guard removed.
+
+### Host cost result — promising reach, mixed incremental cost
+
+Final production-path benchmark log flush-tests.log. Times ms/10000flushes,
+median7alternating trials. C1 here means BOTH switchesON; C0 arm uses old
+individual-call route only. Mixed has both ALU banks plus fetch/scalar banks.
+Earlier source-only collector prototype (no full production counters/gates)
+showed~20–28%vs original; superseded by real app implementation values below.
+Do not report prototype timing as final or phone result.
+
+| ALU words/bank, mixed | Original | C0 | C1+C0 | Ring bytes original/C0/C1 |
+|---|---:|---:|---:|---|
+|16|5.944|5.316|5.347|724/580/36|
+|64|6.524|6.000|5.806|1108/964/36|
+|128|6.970|6.460|5.851|1620/1476/36|
+|256|7.807|6.788|6.182|2644/484/36|
+|512|9.611|7.242|7.162|4692/484/68|
+|1024|13.452|11.311|11.385|8788/484/132|
+
+| Sparse ALU words/bank,banks | Original | C0 | C1+C0 | Tokens/10000 original/C0/C1 |
+|---|---:|---:|---:|---|
+|0,1|0.091|0.092|0.169|0/0/0|
+|16,1|0.356|0.380|0.462|0/0/0|
+|16,2|0.632|0.674|0.750|0/0/0|
+|64,1|0.539|0.552|0.636|0/0/0|
+|64,2|0.988|1.001|0.903|0/0/10000|
+|256,1|1.203|0.769|0.864|0/10000/10000|
+|256,2|2.310|1.595|1.436|0/20000/10000|
+
+Mixed faster than original, but incremental C0->C1 MIXED: two mixed cases
+slightly slower (~0.6%), others1.1–9.4%faster; sparse rejected cases pay~8ns
+perflush for eligibility/telemetry. Accept host gate only as a bounded live
+correctness/COVERAGE experiment, not net whole-game CPU acceptance. Current
+mode can't promise net gain if most real flushes sparse. No confidence interval,
+actual phone timing, controlled pursuit or energy measure. Larger handled
+logical byte reduction can still lose CPU; don't call bytes battery saving.
+Current glyph/audio/draw/shader/perf validation all remains device-pending.
+
+### Build, identity, delivery and next action
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa
+-j 12` exit0 (existingSDK/cache, escalated for cache writes); build.log retained.
+Two SDK fpscr asm-operand-width warnings (one per compiled unit), five UIKit/
+UIScreen deprecation warnings and existing duplicate-z link warning; no compile/
+link failure. App default settings unchanged; new flagOFF.
+Prepared SDK3/3status exit0 via
+NFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk. No full prepare/
+reset. Local named artifact:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev123-register-flushes.ipa`
+30752007bytes, bundle0.6.0(11), ARM64 UUID5CC1ECB2-620D-3859-8718-3FD467D59843.
+IPA SHA2561002204fd4d3676be80de55d364c22ac0ef34f2fa08051ec42a9677d1f7ae931;
+exe SHA256ce5c30ad2a5e861d2e0542bd128a5f5ed33786f06711ff1ca0b5022e919413ae.
+ZIP CRC valid, codesign --verify --deep --strict --verbose=2 exit0,
+nm verifies all4strong app hook symbols AND original __imp__ symbols.
+104metallibs+pipeline_keys seed byte-identical dev122; both SDK dylibs also
+byte-identical dev122 (C1 app-only), app executable differs as intended.
+Artifact.json/unpacked app retained in audit folder (ignored).
+
+Copied same IPA to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev123-register-flushes.ipa`,
+SHA verified. Moved ONLY Desktopdev122 to
+`/Users/bep1s/.Trash/NFSMW-0.6.1-dev122-register-batches.ipa`, no overwrite.
+Stable DesktopNFS-Most-Wanted-0.6.0.ipa unchanged SHA
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285;
+all ios/build olderIPAs preserved. Delivery.json retained. No device launch
+or gameplay run by agent; shader preparation/master audio mute retained.
+
+Next ONE90–120s pursuit Mac Time Profiler+nfsmw.log, same dev122 controls:
+1x60/MSAAforced0/FXAAoff/MetalFXoff, owner_index=true/reuse=true/
+encoding=false/repeat=false, same audio/controller state. Set
+--nfsmw_native_register_batches=true --nfsmw_native_register_flushes=true,
+COLD restart. First check picture/audio/FPS, eligible/collected/sparse counters,
+perbatch multi-run coverage/words versus dev1221.4766%, pending/capacity errors,
+then CPU named Collector/Publish/new outer+existingTry/CP scopes. Existing
+Try-only analyzer scope is not total C1 cost; add named scopes based on actual
+symbols before interpreting. Do not credit different-pursuit totals as causal.
+No new power matrix/reference recording until clear source/profile reason.
+Bothflagsfalse+coldrestart for normal play; C0 same-build comparison available
+with batchestrue/flushesfalse if later warranted. No promised battery gain.
+
+Checkpoint/nativeplan/private ignored BACKLOG/CHANGELOG updated. BACKLOG
+intentionally not staged; HANDOFF remains preexisting untracked. Own source,
+fixtures and shared tracked docs committed locally, no push/merge/release.
