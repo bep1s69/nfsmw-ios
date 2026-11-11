@@ -1,5 +1,12 @@
 # Native graphics path toward an iOS port
 
+**November12 dev125 G1b device gate (latest):** normal/uninterrupted user report,
+exactnewUUID/flags,6600guardedframes59.9–60FPS/0audio gaps/log errors. Named
+matcher32.74%lower sample weight than firstdev124ON at nearbyGPU/placement,
+wholeCPU-1.69%withdraws-2.47%: local matching win, netCPU/energy unproven.
+Close matcher/capture round; next SOURCE G2 frame-owned vertex-binding bundle
+feasibility/full-handoff host gate below. No more power/matcher captures now.
+
 **November12 additional dev124 ON capture:** exact old UUID/table verified, user
 normal/uninterrupted,6900guardedframes59.6–60FPS/0audio gaps/logged errors.
 ~56.8%attribute lookup calls skipped; named cache still90.4%Find. CPU higher
@@ -898,3 +905,46 @@ must hold. Benchmark actual matching/preparation vs current G1 and original,
 including hits, cold, churn and small bypass; no logical-call saving treated
 as device CPU/energy result. November12 implementation now delivered as dev125;
 see current checkpoint and TECHNICAL for exact tests, costs, artifact and next gate.
+
+
+### G2. Frame-owned completed vertex bindings — next source feasibility boundary
+
+Dev125's compact matcher reduced local cost but now accounts for only0.441%of
+app CPU in8–50s; eliminating that remaining named cost affects only a small
+fraction of app CPU. Inlined matching work may sit outside that named scope. Recordself4.169s/8.02%app is much
+larger. Verified dev125 PC map points to2.218s of self samples in attribute
+preparation/validation/decoding/collection, plus separate0.666s named owner
+Capture,0.302s draw-append call line. These overlap in inclusive views, include
+required useful work, and are NOT a removable-cost sum. Some221ms map to inline
+headers and446.8ms to line0; don't invent exact source attribution for them.
+
+Evaluate reuse of a COMPLETED immutable frame-owned attribute/binding bundle
+for repeated passes over unchanged validated geometry. Today G1 reuses metadata
+and cache-node addresses, but Record still acquires current decoded versions,
+constructs/pushes every Attribute and captures ownership per input per draw.
+A frame may retain one completed list and let several Draws refer to it ONLY
+when their shader input layout and current decoded versions/locations/integer
+semantics match exactly. Bundle lifetime belongs to Frame storage, independent
+of mutable G1 cache eviction, sweep/purge and next-frame preparation. Do not
+point GPU work into table slots or vectors that may be replaced.
+
+All current index/range/content fingerprint/watch/dynamic/UP validation must
+still execute in original order. Validation is not the cacheable result. Changed
+source/version must publish a new bundle; failure cannot eagerly acquire later
+inputs or reuse partially assembled state. Same pointer/address alone is never
+proof. Per-draw fresh/upload decisions differ on first use and must be stored
+separately from immutable attributes or take original fallback. Rectangle
+expansion mutates copied attributes: keep it reference. Exceptional paths,
+allocation failure, empty/minimal inputs, cross-frame version changes, physical
+aliases, in-flight GPU completion and memory-pressure purge all need explicit
+reference/lifetime checks. No full-Draw/state/texture/constant caching implied.
+
+First inspect feasibility against actual original preparation/ownership/output
+semantics; prototype behind existing host extraction with a narrowly explicit
+normalization for the proposed handoff changes, retaining validators unchanged.
+Measure COMPLETE handoff against current dev125, not just bundle lookup/call
+counts; include same-frame repeated passes, changed decoded versions, cold/churn,
+small input bypass and failure paths. Added version matching can consume savings
+again: reject/park if full host benefit isn't meaningful. No new IPA/device/power
+request until that gate supports it. This is a proposed source boundary, no G2
+implementation, flag or default promotion yet. Current checkpoint is authoritative.

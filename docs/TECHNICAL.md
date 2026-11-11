@@ -26795,3 +26795,167 @@ native plan and private ignored BACKLOG updated, no CHANGELOG/code/build. Own
 three tracked docs committed locally; HANDOFF preserved, BACKLOG intentionally
 ignored/uncommitted as before. Other repository preexisting changes untouched.
 No push/merge/release.
+
+## November 12, 2026 — dev125 device matcher gate; close G1 tuning and move to larger handoff work
+
+### Capture identity, archive and user report
+
+User supplied
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev125_iphone_pursuit_time_profile.trace.
+Desktop nfsmw.log initially absent at first ls, then arrived during immediate
+bounded Desktop/iCloud inspection;769425bytes. No missing-log question needed.
+Log timestamp November12; original trace preserved, verified copy archived to
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/12 November 2026/dev125_iphone_pursuit_time_profile.trace.
+Log alongside: dev125_iphone_pursuit_time_profile_nfsmw.log,
+SHA256fee0e2971d470d440cfd73efd42bc40a76e93d3d9e90d89ac20c667be7e95925.
+302files/172440477bytes in EACH trace copy, sorted path/byte/SHA JSON tree digest
+e9512db5a5b7809bdbddd7ea523b1205249a4181709aaea6fdb71d9d01651fff.
+Desktop log deleted ONLY after copy byte/SHA verification under standing rule.
+Reverified both trace copies/log after export; unchanged, Desktop log absent.
+
+Audit retained ignored local:
+/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev125-time-profile-20261112/.
+archive-manifest.json holds all per-file identities (same sorted JSON method as
+thirddev124); post-export-verification.json confirms unchanged originals/archives.
+No trace deletion or rename at supplied November11 path. No new IPA/build.
+
+TOC: iPhone17ProMax/iOS27.3(24C5037i), LiveContainerPID17205,
+TimeProfilerHigh/explicit100000ns sample weights. Capture00:36:17.135 to
+00:38:18.314+02:00,121.179028s, user stopped. Trace binary declarations confirm
+NFSMW DA395111-4E8D-3287-9E24-964EF81886F4 = actual dev125 retained IPA
+NFSMW-0.6.1-dev125-compact-matching.ipa/SHA
+88aa7c0c7e70b236d176c337258370654bae468933dfd46074b94be0b5e0e2e5.
+Runtime E00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660 and GPU F35FCE03-AE0C-3B71-82A1-B365C5438C4F
+unchanged. image-identity.txt retains declarations. Log renderer Nov12 00:14:18,
+dev125/preparedON/table4632KiB; BOTH register flagsOFF, ownershipON/encodingOFF/
+repeatOFF/residencyincremental/geometry handoffON/owner indexreusable. Native60FPS
+verified; prepared hits require cached fetch layout. Complete graphics/ExtraArgs
+inventory not printed, so no independent assertion of every AA/resolution option.
+Stefan explicitly answered normal picture/controls/audio and uninterrupted.
+
+### Correctness and reuse reach
+
+Driving starts00:36:18.964,1.829s AFTER trace start. Guard driving+5s excludes
+initial loading,8s primary skip also safe. Log's scene-resign/coreaudio pause
+00:38:20.749 is2.435s AFTER recording end, no in-capture interruption. Do not
+mistake that footer for a restart. Private analyze-logs.py adapted prior capture
+parser ONLY dev125 marker/input paths;8–110s settled window,8–50s common early
+comparison,50–110s later and110+tail retained. No CPU-selected windows.
+
+Guarded22complete300-frame summaries6600CPU-owned/ICB0frames,21x60.0/1x59.9FPS,
+22audio windows0gaps,3/6600pacing off-grid frames.0logged errors/watchdogs/invalid
+register tokens/GPUerrors in capture AND whole log. Thermal nominal; peak1771MiB.
+User report supplies visual/subjective evidence beyond log checks. No power trace.
+
+Fullguard10515061prepared hits/3644210misses(2882555cold)/8542068bypasses;
+43836897lookup calls avoided/77125021equivalent sites=56.83875%; eligiblehits
+74.26273%, all-draw hits46.31912%. Primary8–110s19windows5700CPU-ownedframes,
+18x60/1x59.9,0audio gaps,3295.698reported draws/frame,5882.365owner lookups/frame,
+nearbyGPU10.9163ms.36295388calls avoided/63805610sites=56.8843%; eligible74.9499%.
+Common8–50s7windows2100CPU-ownedframes,6x60/1x59.9,0audio gaps,
+3290.69095draws/frame,6055.63owner lookups/frame,GPU7.43143ms;
+13508985saved/23952368equivalent sites=56.39937%, eligible74.48940%.
+log-analysis.json/log-summary.txt retain actual rows/counts. Avoided calls and
+memory-table reduction remain structural facts, not full renderer/energy gains.
+
+### CPU comparison and attribution limits
+
+xcrun xctrace export --input <supplied trace> --toc --output <audit>/toc.xml,
+exit0. --input <November12 archived trace> --xpath
+'/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output
+<audit>/time-profile.xml, exit0. Narrow Instruments cache access escalation only.
+python3 tools/analysis/summarize_battery_exports.py profile <audit>/time-profile.xml
+--skip 8 --end 50 --process LiveContainer --register-flush-hooks, exit0;
+same --end 110, exit0. Analyzer source unchanged; actual C1 strong wrapper exists
+while flagsOFF, so hook option correct. No active transport inferred.
+python3 tools/analysis/test_profile_process_filter.py exit0 (six fixture groups).
+No game/source change justifies rerunning11 renderer regressions; not repeated.
+
+8–110s app145414.5ms sample weight/1454145samples, Recordinclusive21440.9ms,
+named newcache691.8ms/0.47574%app, Find609.3/Admit38.9/Replace43.6ms. No direct
+comparison of this whole later window to interrupted originaldev124ON. Third
+ON reference has much higher GPU/different placement; do not credit its larger
+CPU difference to compact matching.
+
+Closest early8–50s comparison against FIRST dev124 ON (both native60/high100us,
+nearbyGPU/core share similar, but still live nondeterministic pursuits):
+
+| Scope | dev125 | dev124 first ON | Difference |
+| --- | ---: | ---: | ---: |
+| App sample weight ms | 51988.2 | 52883.8 | -1.69% |
+| Record inclusive ms | 6918.2 | 7041.3 | -1.75% |
+| Record self ms | 4168.6 | 4182.9 | -0.34% |
+| Named prepared cache ms | 229.1 | 340.6 | -32.74% |
+| Named Find ms | 199.6 | 306.9 | -34.96% |
+| GPU Commands ms | 9304.2 | 9522.0 | |
+| Native render queue ms | 13560.7 | 13891.8 | |
+| Reported draws/frame | 3290.691 | 3373.905 | -2.47% |
+| Nearby reported GPU ms | 7.431 | 7.500 | -0.91% |
+| P-core sample share | 89.47% | 89.18% | |
+
+Prepared eligible probe count-3.33%; approximate Find sample weight per reported
+probe-32.72% (independently phased300-frame counters, not exact cycle/call
+measurement). Saved lookup count+0.14%, similar coverage. This plus actual host
+comparison supports LOCAL matching cost improvement; not causal whole-app gain.
+Remaining named cache0.44068%app in early window; optimizing that alone has small
+remaining scope. Full renderer/CPU/energy acceptance NOTpassed: whole CPU/Record
+reductions smaller than reported draw reduction, Recordself essentially flat.
+OFFdev124 app52909.9/Record7031.7ms also retained in comparison.json; cannot
+isolate overall trial benefit across different live pursuits. No default promotion.
+
+### Exact dev125 Record source evidence and tooling failures
+
+Extracted Record leaf PCs8–50s with private record-pcs.py, runtime load
+0x10bcf8000; strip low2PCbits and convert to preferred0x100000000 base as existing
+symbol fixture verifies. First attempted PC extraction in parallel with profile
+report creation: JSONDecodeError at final total cross-check because report file
+still being written, exit1. Retained record-pcs-initial.log; repeated ONLY after
+pre-8-50.json complete, exit0,1586uniquePCs/4168.6msself, sampletotal cross-check
+51988.2ms passes. Dependency ordering mistake affects private tool, not capture.
+
+atos -o <retained dev125 unpacked NFSMW> -arch arm64 -l0x100000000 <preferredPCs>,
+output1586lines retained record-atos.txt. UUID verified before symbolication;
+current dev125 object line tables still intact, no intervening source/build.
+Initial overly strict assertion required<10ms without native_renderer.mm lines;
+failed because221.0ms correctly resolve to inline STANDARD/SDK HEADERS with line0,
+not missing/wrong binary. Corrected validation: ALL1586symbols resolve Record in
+NFSMW, keep header/no-specific-line weights unassigned. Additional446.8ms resolve
+native_renderer.mm:0, also cannot assign exact statement. record-pc-lines.json,
+record-line-weights.json and record-source-groups.json preserve full mappings.
+No speculative folding of these667.8ms into a target.
+
+Mapped self sample groups:2218.2ms attribute preparation/validation/decode/list
+collection (3179–3455);99.8ms constants/motion (3518–3601);480.4ms texture
+bindings (3602–3648);302.0ms draw append call-line3707. Individual remaining
+AttributeEntryFor caller3257=385.0ms, iteration end3454=248.5ms, DecodeElement
+call/bounds line3413=214.0ms, TextureOf caller3639=262.7ms. These are source PC
+call-line/skid/inlining weights, NOT exact removable helper costs. Required
+validation/decoding included. Separate inclusive ownerCapture665.6ms and GPU
+selection522.6ms cannot simply be added to overlapping Record groups. Record
+self8.02%app is much larger than named matcher0.441%, leading to next boundary.
+
+### Decision — close matcher tuning, next source G2 feasibility
+
+No additional pursuit/power recording requested. G1b meets correctness/local
+matching gate, not whole CPU/battery/default gate; keep independent trials OFF
+for accepted normal-play defaults. No new flag/build/IPA/release this analysis.
+Stop micro-tuning matcher/capacity rather than repeating an unmatched matrix.
+
+Next evaluate frame-owned IMMUTABLE completed vertex-binding bundles across
+repeated passes, reducing repeated Attribute-list construction/version ownership
+handoff after original validation. Mutable buffer/index/watch/fingerprint/dynamic/
+UP/decoded-version checks/failure order must still run. Never treat unchanged
+address/G1 cache hit as validation. New decoded version means new immutable
+bundle; GPU/Frame owns lifetime independently of G1 sweep/slot reuse. Per-draw
+fresh flags, rectangles/exceptional paths and allocation failure need explicit
+reference fallback. Host differential of ACTUAL full handoff/output/lifetimes
+and cost (hit/cold/churn/version changes/minimal inputs) before any new device
+build; reject if added matching cancels savings again. Native plan G2 records
+feasibility boundary, no G2 implementation or projected battery percentage yet.
+This is larger source lead, not a claim all Record CPU can be removed.
+
+Starting HEAD6fffe8c/status only untracked HANDOFF. Checkpoint/native plan/private
+ignored BACKLOG updated and own evidence docs committed locally. HANDOFF intact,
+BACKLOG deliberately not staged. No production/analyzer/SDK/shader/caches/settings
+changed, no CHANGELOG for analysis. Other repos' preexisting changes untouched.
+No push/merge/release.

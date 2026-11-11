@@ -518,6 +518,47 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 dev125 G1b device ANALYZED (latest):** exact UUID
+DA395111-4E8D-3287-9E24-964EF81886F4, preparedON/table4632KiB, BOTH register
+flagsOFF, ownershipON/encodingOFF/repeatOFF/indexreusable confirmed. Stefan
+reports normal picture/controls/audio and uninterrupted recording. iPhone17ProMax/
+iOS27.3, High100us;121.179028s00:36:17.135–00:38:18.314+02. Driving begins
+1.829s into trace;8s skip avoids loading. Background transition2.435s AFTERend.
+Original November11 trace preserved; verified capture-date trace+log archived
+Debug/12 November 2026/dev125_iphone_pursuit_time_profile.trace and matching
+_nfsmw.log. Log769425bytes/SHAfee0e2971d470d440cfd73efd42bc40a76e93d3d9e90d89ac20c667be7e95925,
+302trace files/172440477bytes. Desktop log arrived during initial inspection,
+then archived/verified/deleted per standing rule; post-export inputs unchanged.
+
+6600guardedCPU-owned/ICB0 frames,21summaries60/one59.9FPS,0audio gaps/logged
+errors/watchdogs/GPUerrors, thermal nominal/peak1771MiB.56.84%equivalent
+attribute lookups skipped,74.26%eligible hits. Compact matcher local device
+gate positive: common8–50s namedcache229.1vsdev124firstON340.6ms(-32.74%),
+Find199.6vs306.9(-34.96%), eligible probes-3.33%; approximate per-probe Find
+weight-32.72% (counter phases, not exact cycle cost). NearbyGPU7.431vs7.500ms,
+Pshare89.47vs89.18%. Wholeapp51988.2vs52883.8ms(-1.69%), Record6918.2vs7041.3
+(-1.75%) withdraws-2.47%; Recordself4168.6vs4182.9(-0.34%). Thus LOCAL matcher
+improvement supported, full renderer/CPU/battery acceptance NOTpassed. Do not
+credit big gains against heavier thirddev124 run (differentGPU/placement).
+
+**Next SOURCE boundary:** CLOSE G1/G1b phone capture/matcher tuning round. No
+more ON/OFF pursuit/power matrix now; keep trial/defaultsOFF pending practical
+net acceptance. Evaluate G2 frame-owned immutable vertex-binding bundles so
+repeated validated geometry can reuse completed attribute records/ownership
+handoff across passes, rather than rebuilding every attribute list per draw.
+Keep ALL original mutable buffer/index/dynamic/UP/decoded-version checks and
+failure order; changed versions publish new frame-owned bundle, never reuse
+merely by address/cache hit. Distinguish per-draw fresh flags from shared data;
+rectangles/unsupported/failure paths original. No pointers into erasable cache
+or mutable descriptions may escape to GPU. Source/reference/lifetime and FULL
+handoff hit/cold/churn host cost gate before another IPA/recording; reject if
+bundle matching consumes savings. Native plan G2 is feasibility boundary,
+NOT implementation or claimed saving. Larger source lead: Recordself4.169s
+(8.02%app) vs new named cache0.229s(0.441%app); exact dev125 PC map retained.
+No new G2 code/flag/build/IPA this analysis. Audit ios/build/dev125-time-profile-20261112.
+Own evidence docs committed locally; HANDOFF/private ignored BACKLOG preserved;
+no push/merge/release. Existing dev125 build retained, no default promotion.
+
 **November12 third dev124 ON capture analyzed (latest evidence):** Stefan says
 normal and uninterrupted. Despite filename/location, both trace UUID and log
 confirm OLD dev124 BF5FD4C9-F7F4-3D73-8244-43777D00E9BE/preparedON/table5016KiB,
