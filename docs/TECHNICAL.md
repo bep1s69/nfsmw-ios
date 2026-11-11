@@ -26671,3 +26671,127 @@ Checkpoint, native plan, ignored private backlog and CHANGELOG updated in the
 same local commit as code/test. HANDOFF preserved untracked; ignored BACKLOG
 intentionally not staged. Other repositories' preexisting modifications not
 included. No push/merge/release.
+
+## November 12, 2026 — third dev124 ON capture, not a dev125 test
+
+### Input, identity and archival
+
+Stefan supplied
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev124_iphone_pursuit_time_profile_3.trace.
+Desktop nfsmw.log present,822921bytes. Capture/log timestamps are November12,
+so copied trace to capture-date folder without moving/deleting supplied original:
+/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/12 November 2026/dev124_iphone_pursuit_time_profile_3.trace.
+Archived log alongside as dev124_iphone_pursuit_time_profile_3_nfsmw.log,
+SHA25680724018dff6e91b78fa7d87f30bad894740b989fd48e9c6a8661c994f14403f.
+Verified all300trace files/175996994bytes in both copies, sorted per-file
+path/byte/SHA manifest tree digest
+9e9e24611c647cbce4a423c928749c33d942035207f56029c22b1e7a01b4ffbf.
+Only THEN deleted supplied /Users/bep1s/Desktop/nfsmw.log under standing user
+rule. Reverified both trace copies and archived log after exports; unchanged,
+Desktop source absent. Narrow escalation for dated Debug copy/log deletion.
+
+Audit:
+/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev124-third-time-profile-20261112/.
+archive-manifest.json includes per-file manifests/exact paths/hash method
+(sorted JSON entries with sort_keys); post-export-verification.json records
+unchanged source+archive. No phone recording moved out of earlier date folder.
+
+xctrace TOC: iPhone17ProMax/iOS27.3(24C5037i), LiveContainerPID17162,
+TimeProfilerHigh; exported weight100000ns (100us). Recording
+2026-11-12T00:20:37.887+02:00 to00:22:38.112,120.224704seconds, stopped by user.
+Exported binary records confirm NFSMW UUID BF5FD4C9-F7F4-3D73-8244-43777D00E9BE,
+EXACT dev124, not delivered dev125 DA395111-4E8D-3287-9E24-964EF81886F4.
+Runtime E00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660/GPU F35FCE03-AE0C-3B71-82A1-B365C5438C4F
+match retained dev124. image-identity.txt retains raw image declarations.
+Log renderer built Nov11 22:42:03/dev124, preparedON/table5016KiB; ownershipON,
+repeatOFF/encodingOFF/indexreusable/geometry handoffON/residencyincremental,
+BOTHregisterflagsOFF. Native60FPS verified. Prepared hits imply fetch-layout
+cache enabled (eligibility requires it). Complete Extra Args/resolution/AA
+inventory is not printed in this log; do not claim independent confirmation
+of every setting. Current source remains defaultOFF, no settings changed by agent.
+
+### Correctness, windows and operation reach
+
+Stefan explicitly replied: "Yes, normal and uninterrupted". Log driving starts
+00:20:31.360 before recording, no logged background transition/restart/pause.
+Primary within-run window8–110s selected for settled gameplay before CPU result;
+8–50s additionally matches prior analysis clock intervals, not deterministic
+workload. Private analyze-logs.py adapted from prior audit, changed only window
+end/labels and input/output paths; no invented restart segmentation in this run.
+
+Full guarded trace23complete300-frame windows6900frames,ALLCPU-owned/ICB0,
+FPS21x60.0/1x59.9/1x59.6.59.6summary ends00:20:43.422, early recording;
+59.9ends00:21:08.429, no logged interruption.23audio windows0gaps;2/6900pacing
+off-grid frames.0logged errors/watchdogs/invalid-register-token/GPUerrors in
+capture or whole supplied log. Thermal nominal throughout logged samples,
+peak1665MiB. These log checks do not substitute for visual/user feedback;
+normal picture/controls/audio confirmed by Stefan's reply.
+
+Fullguard prepared hits10908069/misses3824388(cold3012898)/bypasses8685020,
+45489164lookup calls avoided /80111781equivalent sites=56.7821%; eligible hits
+74.0411%, all-draw hits46.5809%. These counts show reuse reach, not energy savings.
+Primary8–110s19windows5700CPU-ownedframes18x60/1x59.9,0audio gaps,
+GPU summary mean13.69ms;37481046calls skipped/65919261equivalent=56.8590%.
+Early8–50s7windows2100frames6x60/1x59.9,0audio gaps,3386.307reported draws/frame,
+6297.39owner lookups/frame, GPU14.275714ms;13449781calls skipped/24415964sites
+55.0860%, eligible hits72.8158%. log-analysis.json retains full rows and totals.
+
+### CPU evidence and limits
+
+Read-only xcrun xctrace export --input <November12 archived trace> --toc
+--output <audit>/toc.xml and --xpath
+'/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output
+<audit>/time-profile.xml, both exit0. Narrow Instruments cache escalation only.
+No export/test failure. Streaming analyzer unchanged:
+python3 tools/analysis/summarize_battery_exports.py profile <audit>/time-profile.xml
+--skip 8 --end 50 --process LiveContainer --register-flush-hooks, exit0;
+same --end 110, exit0. Exact process filtering necessary; hook option valid
+because dev124 contains C1 strong wrapper even when disabled, not active batching.
+python3 tools/analysis/test_profile_process_filter.py exit0, six fixture groups
+including prepared exact-template return-type matching/union/process bounds.
+
+8–110s app sample weight161298.6ms/1612986samples, Recordinclusive25004.4ms.
+New-cache named union1147.0ms (0.71110%app), Find1036.9/Admit65.7/Replace44.4;
+Find90.401%of named union. Inline/preparation costs outside named scope remain
+possible; not exact incremental overhead. Same old matching stage remains lead.
+
+Common8–50s (sample weights ms, not exact wall execution):
+
+| Scope | Third dev124 ON | First dev124 ON | dev124 OFF reference |
+| --- | ---: | ---: | ---: |
+| App | 66279.9 | 52883.8 | 52909.9 |
+| Record inclusive | 10189.9 | 7041.3 | 7031.7 |
+| GPU Commands | 13246.0 | 9522.0 | 9435.1 |
+| Native render queue | 17381.9 | 13891.8 | 14230.4 |
+| Graphics thread sum | 30627.9 | 23413.8 | 23665.5 |
+| Named prepared cache | 464.0 | 340.6 | 0 |
+| Named Find | 420.4 | 306.9 | 0 |
+| P-core sample share | 77.88% | 89.18% | 88.62% |
+| Nearby reported GPU ms | 14.276 | 7.500 | 7.511 |
+
+ThirdON app+25.33%vsfirstON/+25.27%vsOFF; Record+44.72/+44.91%. But code and
+ON flags are identical to firstON, GPU time~90%higher and core placement differs.
+Unchanged MainXThread12696.3vs10927.8, heavy workers6493.1/12484.1vs5118.7/10479.3
+also higher. Draw counts alone do not capture scene/material/gameplay mix.
+This is NOT evidence of a new regression/default acceptance or lower battery;
+especially cannot measure dev125 compact matcher (absent from image). Additional
+unmatched run reinforces need for identity/workload checks, not more repetitions.
+comparison.json/pre-8-50.json/steady-8-110.json retain exact figures. No old-PC
+source attribution attempted against dev125 objects; previous dev124 mappings
+remain retained in earlier audit. No source/build/IPA changes in this analysis.
+
+### Decision and shared record
+
+Next unchanged: install verified Desktop dev125 over current data, coldrestart,
+prepared_geometry=true, register_batches=false, register_flushes=false; retain
+previous native60/owner-only/vfetch/graphics controls. First dev125 TimeProfiler
+plus log after normal90–120s pursuit, verify startup dev125/newUUID/table4632KiB
+before attributing compact-key result. No more dev124 repeats/power matrix now.
+No battery gain established; if practical net benefit absent, close G1 tuning
+and target a larger measured recurring source cost rather than indefinite trials.
+
+Starting HEADc3c9b49/status only HANDOFF untracked. Evidence-only shared checkpoint,
+native plan and private ignored BACKLOG updated, no CHANGELOG/code/build. Own
+three tracked docs committed locally; HANDOFF preserved, BACKLOG intentionally
+ignored/uncommitted as before. Other repository preexisting changes untouched.
+No push/merge/release.

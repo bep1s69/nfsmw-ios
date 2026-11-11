@@ -518,6 +518,34 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 third dev124 ON capture analyzed (latest evidence):** Stefan says
+normal and uninterrupted. Despite filename/location, both trace UUID and log
+confirm OLD dev124 BF5FD4C9-F7F4-3D73-8244-43777D00E9BE/preparedON/table5016KiB,
+not dev125. BOTH register flagsOFF, ownershipON/encodingOFF/repeatOFF/indexreusable.
+Capture00:20:37.887–00:22:38.112+02 (120.224704s), iPhone17ProMax/iOS27.3,
+High100us. Original November11 path preserved; capture-date verified copy and
+log archived to Debug/12 November 2026/dev124_iphone_pursuit_time_profile_3.trace
+and matching _nfsmw.log. Log822921bytes/SHA80724018dff6e91b78fa7d87f30bad894740b989fd48e9c6a8661c994f14403f;
+Desktop source deleted ONLY after verification. Both trace copies/log unchanged
+after export,300trace files/175996994bytes. Details/hash/audit TECHNICAL.
+
+6900guardedCPU-owned/ICB0 frames,21summaries60/one59.9/one59.6FPS,0audio gaps,
+0logged errors/watchdogs/GPUerrors, thermal nominal/peak1665MiB. Fullguard
+56.78%equivalent attribute lookup calls avoided,74.04%eligible hits. CPU8–110s
+named cache1147ms/161298.6ms app (0.711%), Find90.40%of named cache. Common8–50s
+CPU66279.9ms vs priorON52883.8/OFF52909.9, Record10189.9vs7041.3/7031.7;
+but GPU14.276vs7.500/7.511ms and Pshare77.88vs89.18/88.62%, unchanged workers
+also higher. No causal CPU/energy result; do not credit or blame dev125.
+
+**Next unchanged:** dev125 already signed/on Desktop; install it preserving
+settings/caches, preparedtrue/BOTHbatchfalse+coldrestart, prior owner-only controls.
+ONEdev125 correctness/TimeProfiler+log, no more dev124 repetitions/power matrix.
+Use startup dev125 and UUID DA395111-4E8D-3287-9E24-964EF81886F4/table4632KiB
+to verify the NEW matcher. No code/build/newIPA this analysis; no default promotion.
+Audit ios/build/dev124-third-time-profile-20261112. Source delivery below remains
+current. Own evidence docs committed locally, HANDOFF/private ignored BACKLOG
+preserved as before; no push/merge/release.
+
 **November12 dev125 G1b IMPLEMENTED, checked and delivered (current):**
 Stefan approved the compact matching step. Prepared geometry remains defaultOFF
 (restart-only `nfsmw_native_prepared_geometry`); BOTH register batching flags

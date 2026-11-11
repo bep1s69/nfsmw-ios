@@ -1,5 +1,11 @@
 # Native graphics path toward an iOS port
 
+**November12 additional dev124 ON capture:** exact old UUID/table verified, user
+normal/uninterrupted,6900guardedframes59.6–60FPS/0audio gaps/logged errors.
+~56.8%attribute lookup calls skipped; named cache still90.4%Find. CPU higher
+with much higherGPU time/different core placement, not causal acceptance or
+dev125 evidence. Next remains first dev125 device gate; no more dev124 repeats.
+
 **November12 dev125 G1b implemented/delivered (current):** compact exact unique used
 fetch pairs, hot probe headers separate,2048descriptions now4632KiB. Full original
 Record/validator/lifetime guards retained; actual dev124+compact differential and
