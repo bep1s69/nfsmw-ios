@@ -26959,3 +26959,77 @@ ignored BACKLOG updated and own evidence docs committed locally. HANDOFF intact,
 BACKLOG deliberately not staged. No production/analyzer/SDK/shader/caches/settings
 changed, no CHANGELOG for analysis. Other repos' preexisting changes untouched.
 No push/merge/release.
+
+## November 12, 2026 — power strategy review after cumulative-benefit question
+
+Stefan asks whether all changes add up and how to actually reduce power while
+preserving current performance. No new trace input, code, settings or build.
+Read AGENTS/checkpoint/matching backlog/latest evidence, git status/log15.
+Starting HEADc16808a; only preexisting HANDOFF untracked. Existing unrelated
+other-repo changes preserved; private ignored BACKLOG updated/not staged.
+
+Important correction to prior conversational assessment: "no demonstrated
+meaningful cumulative benefit" applies to recent native trials, not all earlier
+power observations. Re-read November10 independent audit at original controller
+configuration records and retained battery-audit-20261110/power-summary.jsonl:
+Balanced29.915 is NOT the observed baseline: actual mean28.915%/h vs controller
+27.564%/h,1.351battery percentage points/hour,4.67%RELATIVE. Common15–110s means
+difference1.425points/hour/4.78%, same direction. All power-window FPS medians60;
+user earlier said equally smooth, not independent latency guarantee. Controller
+arms execute~5.5–6%fewer instructions and effective dev111 switches/pursuit work
+confound isolated causality. Preserve modest observed configuration benefit;
+do not present it as a clean single-feature or recent cumulative native gain.
+No new power calculation/measurement; retained audit values read and checked.
+
+Latest dev1258–50s sample records re-read (no export/reprocessing):
+51988.2ms app; Recordinclusive6918.2ms=13.31%, combined native render+GPU Commands
+22864.9ms=43.98%, guest-writer/CP-outside-native union4185.0ms=8.05%; named G1b
+229.1ms=0.441%. These are sampled CPU envelopes, not physical power shares or
+wholly removable costs; do not add overlapping scopes. More CPU speed can be
+useful but cannot itself prove less system energy at unchanged output. Older
+ProcessSubsystemPowerImpact kind values are not watts/common-unit power shares;
+do not conclude CPU is e.g.80%of device power from those numbers.
+
+Read native plan goal/current backend and source native_renderer.mm declarations/
+NativeDraw/configuration. Already statically recompiled ARM64, native Metal,
+pretranslated shaders; converted FloatArray entries and GPU buffers already
+cached. Don't sell "cache converted vertices" or "switch to native Metal" as new
+work. Ownership/index/handoff options are nested in defaultOFF command_reuse;
+actual dev125 test ownershipON/encodingOFF/preparedON while production defaults
+still opt-in. Enabling every experimental flag is not a justified battery mode.
+
+Refined next source boundary: examine resource creation/update and draw handoff
+as a whole. G2 completed-binding reuse is one bounded candidate, not assured
+meaningful energy progress. Native resource-version ownership may eventually
+retire remaining repeated format handling/copying/validation and packet state
+work ONLY when write coverage and version/lifetime are reliable. Immutable or
+known-version resources first; retain original unknown/dynamic/UP validation.
+Actual reference/full-handoff host cost and correctness gate before new IPA.
+If complete handoff benefit is too small or new matcher consumes it, park that
+candidate rather than another phone loop. Larger engine/API change must remove
+measured work, not just rename Xbox structures or relocate existing work.
+
+Output constraints unchanged: selectedFPS/frame pacing/input latency/audio/
+visuals/simulation. A repeated practical workload and frozen build/configuration
+are prerequisites for judging cumulative benefit; avoid crediting different
+pursuit work or fewer frames. No immediate new recording/power request. Supported
+consolidated candidate later gets ONE same-sitting power A/B per Stefan's prior
+limit, fixed brightness/charging/starting thermal conditions/settings; report
+inconclusive if workload/device variability masks result. No claimed universal
+noise floor. Don't start another4run matrix. GPU shader/pass/bandwidth work is
+an alternative target if actual power/GPU evidence supports it; no assumed new
+redundant pass or reopening parked GPU capture/bugs. Cap-aware scheduling remains
+useful, not a blind efficiency-core/priority toggle.
+
+Primary reference checked via web tools November12:
+https://developer.apple.com/videos/play/meet-with-apple/242/
+Apple "Explore power, performance, and scale for games on iPhone and iPad":
+CPU/GPU timeline/dependency analysis plus iOS Power Profiler's CPU/GPU/display
+impact tracks. This supports separating performance analysis from power
+acceptance, not any projected gain for this game. Search also found official
+Metal game performance/settings documentation; JS-only body not relied on for
+specific APIs/settings. No speculative Game Mode/entitlement changes made.
+
+Shared checkpoint/native plan/private backlog updated, own three tracked docs
+committed locally. No CHANGELOG for strategy-only review, no code/test/build/new
+IPA. HANDOFF and other repositories preserved; no push/merge/release.

@@ -518,6 +518,41 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 power-strategy review (latest direction):** Stefan asks whether
+changes add up and how to reduce power at unchanged performance. Re-audit finds
+prior answer "not yet demonstrated" was too broad for ALL project history:
+November10 alternating controller configuration29%/h ->27.56%/h (~4.67%relative),
+60FPS medians, direction robust to common trimming; pursuit instructions/work
+and effective switches confound isolated controller attribution. This is an
+observed configuration gain, NOT proof of recent native trials or cumulative gain.
+Do not erase that earlier positive evidence or repeat its low-yield tests.
+
+Current dev125 source audit: nativeARM64+Metal already active, converted arrays
+and GPU buffers ALREADY cached. A generic "make native/cache vertices" promise
+is insufficient. Latest42s sample draw preparation13.31%appCPU, graphics threads
+43.98%, writer/CP union8.05% (CPUcost envelopes, NOT energy shares or all removable;
+scopes overlap). G1 named cache only0.441%. Next source work must justify a larger
+class of eliminated work: evaluate completed binding reuse AND resource creation/
+update/version ownership so repeated guest-state preparation/copies/conversion/
+validation can be retired only with reliable write coverage. G2 remains a bounded
+candidate, not automatic next IPA or guaranteed meaningful battery improvement;
+reject if whole handoff savings small or consumed by new matching. Immutable/
+known-version data first; unknown/dynamic writes retain current validation.
+
+Power acceptance: fixed current FPS/pacing/latency/image/gameplay, one frozen
+reference/configuration and most-repeatable practical workload; no adding scope
+percentages or crediting fewer rendered/simulated frames. Use existing captures
+and SOURCE/full-path host gate now, no more matcher/phone/power requests now.
+For a supported consolidated candidate, ONE same-sitting power A/B per existing
+user limit, fixed brightness/charging/thermal/settings and enough frame/audio/
+workload evidence to judge comparability; inconclusive is not a win. CPU time
+selects code targets; CPU/GPU/display power impacts must not be treated as watts
+or divided to infer physical power fractions. If GPU cost dominates, equivalent
+shader/pass/memory-traffic work needs its own identified evidence, not a blind
+quality reduction or reopening parked captures/defects. Scheduling stays
+cap-aware; don't blindly move critical work to efficiency cores. No percentage
+battery promise, new code/flags/build/IPA in this review.
+
 **November12 dev125 G1b device ANALYZED (latest):** exact UUID
 DA395111-4E8D-3287-9E24-964EF81886F4, preparedON/table4632KiB, BOTH register
 flagsOFF, ownershipON/encodingOFF/repeatOFF/indexreusable confirmed. Stefan

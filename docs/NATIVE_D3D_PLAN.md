@@ -1,5 +1,14 @@
 # Native graphics path toward an iOS port
 
+**November12 strategy clarification:** "more native" is a means, not acceptance.
+ARM64/Metal and decoded-data/GPU-buffer caches already exist. G2 must beat whole
+handoff cost; deeper resource-version ownership can retire repeated guest-format
+work only where every relevant write is covered. Do not promise large power gains
+from a small binding cache. Keep unknown/dynamic validation; assess GPU power
+separately. Earlier controller configuration has observed~4.67%relative drain
+improvement at60 (workload/switch confounds); recent trials no cumulative proof.
+Current checkpoint fixes acceptance/one-pair limit and next source priority.
+
 **November12 dev125 G1b device gate (latest):** normal/uninterrupted user report,
 exactnewUUID/flags,6600guardedframes59.9–60FPS/0audio gaps/log errors. Named
 matcher32.74%lower sample weight than firstdev124ON at nearbyGPU/placement,
