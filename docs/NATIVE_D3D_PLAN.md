@@ -2,6 +2,20 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev120 device gate (latest):** owner-only mode verified on real
+device:7800CPU-owned/0ICBframes,59.8–60FPS summaries,0audio gaps/foreground
+GPU errors. Same112s CPU window vs dev119 has native render queue -5.97%,
+GPU Commands+15.47%, combinedgraphics+1.99%, app+3.97%. Command named paths
+8133.3->69.2ms, AGXself3799.4->5143.5ms; Record+15.72% and other gameplay
+workloads higher. Different live pursuits, no causal net CPU/energy conclusion.
+Do not start power matrix or request another capture now. Next source target
+FrameOwners' per-frame node-allocated identity map; reusable flat-index host
+prototype/differential/allocation comparison preserving owner lifetimes,
+ordinals/generations/validation/purge. Capture named4288.2ms/2.50%app is a
+scope bound, not a predicted gain. dev120 remains available, no new IPA or
+runtime-default change in this analysis session. Details in current checkpoint.
+
+
 **November11 Mac-profile gate (latest):** dev119's128.8s high-rate capture shows
 mechanism coverage (59.5%owner hints/62.3%GPU binding reuse) and lower Record,
 driver and named cleanup work, but historical dev110 comparison has combined

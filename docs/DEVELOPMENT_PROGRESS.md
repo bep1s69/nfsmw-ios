@@ -508,7 +508,50 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 4, 2026 (continued from November 3)
+## Current checkpoint — November 11, 2026
+
+
+**November 11, dev120 owner-only Mac profile ANALYZED (latest):** supplied trace
+already in Debug/11 November2026; Desktop12.19.57PM log copied/hash-verified
+there as dev120_iphone_pursuit_time_profile_nfsmw.log before analysis.292trace
+files/178759912bytes unchanged after export; log922461bytes. Exact manifests,
+hashes, commands and selection in TECHNICAL. Trace directly matches dev120
+UUID E7740732-C19B-3EE6-9994-3680BB4F9107, iPhone17ProMax/iOS27.3,
+132.871634s high-rate100us,12:15:36.211–12:17:49.082+02:00.
+
+Control works on device: preparation223normal/0ICBkeys,420ms before game;
+reuse ON/encoding OFF/repeat OFF/geometry ON/incremental residency flag.
+26fully-driving300-frame log windows7800CPU-owned/0GPU-context frames,
+0ICBdraws/runs,58.19%owner hints/61.05%GPU-binding reuse,0fallbacks.
+FPS25x60.0/1x59.8,35audio windows0gaps,0watchdogs/foreground GPU errors.
+87background-permission warnings begin after scene resign and trace stop.
+Peak1809MiB/thermal nominal; different pursuit, no matched memory conclusion.
+Mute/controller state not independently logged; no subjective visual acceptance
+supplied. Other logged graphics controls1x/60/MetalFXoff/FXAAoff/MSAAforced0.
+
+Same8–120s/112s fully-driving selection vs dev119: app sampleweight
+164920.2->171464.2ms (+3.97%); GPU Commands29614.9->34196.5 (+15.47%);
+render queue50160.6->47168.0 (-5.97%); combined79775.5->81364.5 (+1.99%).
+Named command paths8133.3->69.2ms (empty Batch/housekeeping remains),
+AGXself3799.4->5143.5; Record22965.0->26575.3 (+15.72%). Main/world/audio
+work also higher; nearby complete summaries show more draw work. Different
+pursuits, not a controlled causal A/B: do NOT conclude ownership/direct draws
+win, ICBs intrinsically fail, or battery worsened/improved by these percentages.
+Combinedgraphics also+2.83%vs historical dev110. No demonstrated net saving.
+
+**Next source action, no new recording requested:** inspect/replace per-frame
+node allocations in FrameOwners identity index with a reusable flat index,
+keeping owner release at Clear, stable borrowed refs/ordinals, unique generation
+checks, all guest validation and pool purge semantics. Current named Capture
+4288.2ms (2.50%app) and storage/cleanup churn identify a bounded target;
+Capture includes useful work, not wholly removable. Host differential/lifetime,
+collision/growth/address-reuse and allocation-count comparison against current
+unordered_map first; only package if supported, keeping reference comparison.
+Use dev120 owner-only as development control, no default changes/new IPA this
+analysis session. No further power matrix. Private ignored BACKLOG updated;
+preexisting untracked HANDOFF preserved. Shared records committed locally,
+no push/merge/release. Older next-run requests below superseded by this result.
+
 
 
 **November 11, dev120 encoding control BUILT / next device check:** Stefan

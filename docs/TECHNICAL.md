@@ -24425,3 +24425,138 @@ Updated checkpoint/native plan/CHANGELOG and matching private ignored BACKLOG.
 Preexisting untracked HANDOFF_CHATGPT.md preserved and excluded from commit;
 BACKLOG remains ignored/private under existing policy. No other preexisting
 tracked changes included. Session changes committed locally together.
+
+## November 11, 2026 — dev120 owner-only Mac Time Profiler result
+
+### Evidence preservation and identity
+
+Received `/Users/bep1s/Desktop/Pasted 2026-11-11 at 12.19.57 PM.log` and
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev120_iphone_pursuit_time_profile.trace`.
+Trace already in correct capture-date folder; did not move/duplicate it.
+Before substantive analysis copied log to same Debug folder as
+`dev120_iphone_pursuit_time_profile_nfsmw.log`, byte-verified against original:
+922461bytes, SHA256
+`54d0e92e8698799d12d8ea3cf40ee2b5a93b4a47a5b422466796f3cd8029147e`.
+Trace292regular files/178759912bytes, relative-path->{bytes,sha256} canonical
+manifest (json sorted keys, compact separators) SHA256
+`078958d8939033707bdac673132ab3cc109d09ab97aee592abb2f310a100159d`.
+Recomputed manifest after export, exactly unchanged. Full per-file manifest
+`ios/build/dev120-time-profile-20261111/trace-manifest.json`. Originals retained.
+
+TOC run1, targetLiveContainer pid14137, iPhone17ProMax/iOS27.3(24C5037i),
+Instruments27.2(27B52), high-frequency100us CPU samples, running/user stacks.
+Recording12:15:36.211–12:17:49.082+02:00,132.871634s, user pressed Stop.
+Exported binary metadata directly identifies NFSMW
+UUID `E7740732-C19B-3EE6-9994-3680BB4F9107`, load0x10f8e8000, matching
+`ios/build/NFSMW-0.6.1-dev120-encoding-control.ipa` SHA256
+`ceac412bac47de1f8e820416ff6c789ba8cc3057adda0a8804a39f7b1f2a02f2`.
+No inferred offline game-image mapping needed.
+
+### Controls and correctness evidence
+
+Startup dev120 frame reuse ON, repeat OFF, residency incremental, geometry
+handoff ON, cached command encoding OFF. Thus requested reuse=true,
+encoding=false, repeat=false effective controls verified, not assumed from
+requested args. Normal223keys/zero ICBkeys prepared420ms before gameplay;
+normal cached graphics pipelines retained. Logged scale1x, cap60, MetalFXoff,
+FXAAoff, forcedMSAA0. Controller/mute state not independently present in this
+log; previously requested matching controller/muteOFF not silently verified.
+Driving begins12:15:38.050 (trace+1.839s), stops12:17:50.180 after trace ends.
+CPU primary8–120s =12:15:44.211–12:17:36.211,112s fully driving, same selection
+length as dev119/dev110. No startup/menu/background samples included.
+
+Whole-log guarded full-driving summaries (end at least5.2s after driving
+start, before stop; not exact CPU interval):26x300=7800frames. All CPU-owned,
+0GPU command contexts,0ICBdraws/runs/keys/budget fallbacks;23974460 direct
+indexed draws. Geometry active all7800; owner hints61824822/maplookups44427962,
+58.1865%hint hits; GPU-binding reuses61812070/selections39439204,
+61.0482%reuse,0fallbacks. FPS25x60.0,1x59.8,0GPU>45ms in guarded summaries.
+35audio windows0gaps,0watchdogs. No user subjective graphics/mute acceptance.
+Peak1809MiB,56memory thermal observations nominal; not a matched memory result.
+
+87GPU warnings all background permission errors; first12:17:51.817, after
+scene resign12:17:50.909 AND trace end12:17:49.082.0foreground GPU errors.
+Do not hide warnings or misclassify them as gameplay corruption. Derived log
+windows/aggregates/phase data retained in private log-analysis.json.
+
+### CPU result, attribution limits and next source action
+
+Same112s/LiveContainer exact-process selection; weights are statistical CPU
+sample weights, not exact function execution time or power measurements.
+
+| Scope (sampleweight ms) | dev119 full encoding | dev120 owner-only |
+|---|---:|---:|
+| App | 164920.2 | 171464.2 |
+| GPU Commands | 29614.9 | 34196.5 |
+| Native render queues | 50160.6 | 47168.0 |
+| Combined graphics threads | 79775.5 | 81364.5 |
+| Record inclusive | 22965.0 | 26575.3 |
+| Named command paths | 8133.3 | 69.2 |
+| Batch flush named path (overlaps above) | 2428.6 | 67.9 |
+| AGX leaf | 3799.4 | 5143.5 |
+| Owner Capture named path | 3670.6 | 4288.2 |
+| Geometry GPU selection named path | 2266.7 | 1884.8 |
+| Draw/frame/storage lifecycle union | 3310.3 | 3859.5 |
+
+App+3.968%, GPU Commands+15.4706%, render-5.966%, combinedgraphics+1.9918%.
+Native command scopes nearly disappear as intended; residual empty
+Batch::Flush/housekeeping execution does not imply GPU ICB activity. Driver
+work reappears on direct path. Record+15.72%, main guest28646.0->32275.9,
+world worker31064.4->32037.1, audio guest15938.1->16796.1: workloads differ.
+Thread IDs/names differ; world/audio roles identified from their guest stacks,
+not matching suffixes across runs. Nearby complete within-selection log windows
+also carry more indexed-draw work (eligible+direct proxy roughly2954->3210per
+frame,21vs22complete windows), not exact same input replay. Such proxy counts
+can overlap on ICB pipeline failure; do not treat them as exact matched draw
+normalization or multiply CPU by them to claim causal savings.
+
+Dev120 total1714642samples,8516.6ms stackless (~4.97%); dev1191649202samples,
+8441.4ms (~5.12%). No large stack-resolution shift explains away these results.
+Whole-app average sampleweight153.09%of one core vs147.25%; combinedgraphics
+72.65%vs71.23%of one core. These are utilization proxies, not battery estimates.
+Against historical dev110, app+0.3114%, combinedgraphics+2.8286%; still no
+established net win over reference. Captures at different times/different
+pursuits cannot establish ICB failure, owner-only victory, or an energy
+regression/improvement. Removing an8s named scope did not remove8s of app CPU;
+overlapping scopes/alternate paths/workload must be considered.
+
+Decision: no power A/B or another device recording now. Retain all diagnostic
+controls/defaults and dev120 IPA; no new production code/build this session.
+Next source work targets frame owner-index allocation/clear churn, observed in
+Capture (4288.2ms=2.5009%app) and storage recycling, not another ICB cache tweak.
+Actual FrameOwners uses unordered_map::try_emplace per unique owner and clears
+all nodes every frame; pooled storage does not retain those nodes. Prototype
+reusable flat pointer->ordinal index against reference; retain deque reference
+stability, same per-frame dedup/slots, immediate shared-owner release at Clear,
+unique generation before any stale-hint dereference, independent table/pool
+purge lifetimes. Growth/collisions, replacement/address reuse, null owners,
+poisoned hints, rollover/reset, checked-out frames, and actual allocation counts
+need differential/sanitizer evidence before packaging. Capture includes useful
+work and reset includes other cleanup: neither scope is entirely removable,
+and no predicted CPU/battery percentage is asserted. Further native graphics
+work remains a staged project, not accepted from activity counters alone.
+
+### Commands, results and local record
+
+Audit `ios/build/dev120-time-profile-20261111/`. Initial sandboxed
+`xcrun xctrace export --input <trace> --toc --output <audit>/toc.xml` failed:
+Instruments exception permission513 creating Library/Caches/com.apple.dt.
+InstrumentsCLI/path_manager (combined command exit1, no TOC). Retained error
+in tool output; subsequent escalated same export succeeded exit0 and replaced
+local toc-export.log. This was a host sandbox failure, not corrupt trace.
+Escalated CPU export exit0:
+`xcrun xctrace export --input <trace> --xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output <audit>/time-profile.xml`.
+CPU XML512MiB. `python3 tools/analysis/summarize_battery_exports.py profile
+<audit>/time-profile.xml --skip 8 --end 120 --process LiveContainer` exit0,
+profile-final.json; comparison.json also retains dev110/dev119 totals/scopes.
+Existing prior profile-final.json exports reused, not re-exported/modified.
+`python3 tools/analysis/test_profile_process_filter.py` exit0, exact-process/
+IDrefs/timewindow, symbolbounds/exactUUID matches and lifecycle-union tests
+PASS (analysis-tests.log). Auxiliary shell ps denied by sandbox; no need for
+process access, completion monitored using tool session. A globbed log search
+was too broad/truncated; final log analysis used exact markers and timestamps.
+
+Updated shared checkpoint/native plan and ignored private BACKLOG. No source
+changes, new IPA or CHANGELOG entry for this analysis. Preexisting untracked
+HANDOFF_CHATGPT.md retained/excluded; no other starting tracked changes.
+git diff --check exit0 before local commit. No push/merge/release.
