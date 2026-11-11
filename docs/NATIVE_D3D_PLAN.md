@@ -1,5 +1,13 @@
 # Native graphics path toward an iOS port
 
+**November12 bounded G2 gate FAILED — PARKED (current):** host candidate compiled
+against actual complete Record vertex body/ref/OFF/ON, original captures and
+validation preserved. Correctness/allocator/lifetime/failure tests pass. Complete
+72case matrix fails consistent benefit: hot stable2–3%better, other stable/write/
+one-active cases regress, OFF overhead. No game flag/IPA/capture. Earlier isolated
+12–24%model result not acceptance. Next ONEgeometryclass authoritative creation/
+update/retirement+alias source coverage, no more G2 tuning/unsafe write-watch.
+
 **November12 G2 feasibility (latest):** actual-type host model now exists, not live
 renderer code. Snapshot timing prevents assuming owner Capture can be skipped.
 Capture-preserving stable6/9 stage12–24%cheaper on host, changing versions10–23%
@@ -990,3 +998,36 @@ matching/consumer costs; host model's given-key/free validated-input assumptions
 must not slip into a claimed implementation win. All original mutable validation
 and unsupported paths remain required. Version matching never justifies trusting
 unchanged guest address or enabling historically unsafe write-watch blindly.
+
+
+#### Bounded G2 actual-preparation gate — failed and parked, November 12
+
+Implemented host-only tools/native/stable_bindings_candidate.h and
+ test_stable_binding_record.py. Actual entire Record vertex body, fetch parse/
+layout cache/decoder/fingerprints/memo/MotionMix and owner captures are compiled
+against reference/OFF/ON. Inverse source-edit guard allows only reserve/list
+collection/publication changes.6–16known decoded non-dynamic inputs, per-frame
+512bundles/512hints/8probe bounds. Opaque prepared-slot pointer only selects a
+candidate: current per-input captured versions/location/integer/nonfresh state
+must match exactly. Mismatch restores earlier matched prefix and blocks cohort
+for remainder of frame; unknown/dynamic/fresh cases reference. Stale hints checked
+by frame epoch before borrowed state; immutable outputs never refer into G1.
+Allocate deque slot before equal-allocator list swap; bad_alloc retains original
+list. Indexed consumer preserves LAST duplicate location/unknown-index fallback.
+
+3000historicaldraws/arm/memoON+OFF pass ASan/UBSan, actual integer/remap/memory/range/
+layout updates and exact original owner order/stats. Actual late decode bounds
+failure after matched prefix publishes nothing; capacity, epoch, allocation and
+version/fresh/dynamic prefix tests pass.72cost cases (7trials/20000draws/realistic
+3000draw frame resets) include all selector/init/fallback/consumer/teardown costs.
+Current memoON stable6/9 full-active32meshes only2–3%better;512mesh stable and
+one-active/write cases often worse; OFF overhead too. Unindexed list reuse alone
+loses, indexed consumption does not restore a consistent win. No whole CPU/power
+acceptance, no new IPA/capture. G2 PARKED, do not continue micro-tuning this cache.
+
+Candidate header remains outside ios/src glob and has no game includer. Synthetic
+little-endian float32 layouts, index ranges supplied, other index/texture/state/
+Metal/GPU bodies not executed. Source game unchanged. Keep reproducible negative
+result, not another phone trial. Next larger boundary: prove ONEgeometryclass
+create/update/retire/alias coverage before native resource lifetime/version work.
+Keep unknown/dynamic data on reference; no immutability guesses from age/address.

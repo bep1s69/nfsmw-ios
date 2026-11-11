@@ -518,6 +518,49 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 bounded G2 gate COMPLETED, G2 PARKED (latest):** Stefan approved
+stable-only implementation/testing. Added HOST-ONLY tools/native/
+stable_bindings_candidate.h and test_stable_binding_record.py, not game code.
+Bounded512bundles/512hints/8probes per frame,6–16known decoded non-dynamic inputs,
+exact current captured versions/location/integer/nonfresh checks, matching-prefix
+restoration and same-frame cohort block on changes. Original per-input Capture/
+fingerprint/memo/decode/failure statements unchanged. Allocation failure retains
+original list; stale epochs checked before borrowed data. Optional immutable
+location index preserves LAST-match/unknown-location fallback.
+
+Actual complete Record vertex body vs reference/OFF/ON, real fetch parsing/layout
+cache/Fingerprint/DecodeElement/memo/MotionMix, actual Attribute/Draw/FrameOwners/
+arena:3000historical draws/arm/memoON+OFF pass ASan/UBSan, integer/remap/shape/data
+writes, exact owner order/stats, eviction retention. Actual late bounds failure
+after matching prefix in memoOFF publishes no partial draw or hit/build. Header
+capacity/selector reuse/stale frame/fresh/dynamic/prefix/allocation tests pass.
+Inverse source-edit equality guard preserves validation and all3Capture sites.
+Index ranges supplied, little-endian synthetic layouts; no index/texture/state/
+Metal/GPU execution or device-performance proof.
+
+Full72case cost gate includes selection/cache initialization/collection/fallback/
+consumer/teardown,7alternating3armtrials/20000draws with3000draw frame boundaries,
+all-active ANDone-active consumers. Current memoON stable6/allactive/32meshes
+4.356->4.268ms(-2.02%),9 5.574->5.412(-2.91%);512meshes6 5.375->5.643(+4.99%),
+9 7.492->7.620(+1.71%). One-active stable often~2.5–6.6%slower, writes often lose;
+OFF path also small overhead. Unindexed list reuse alone loses. Prior isolated
+12–24%model win DOES NOT survive full gate. REJECT implementation for rollout;
+no more G2 cache/matcher tuning, IPA or phone/power recording. Current game and
+defaults untouched. Audit ios/build/g2-stable-record-20261112 (fixture failures
+retained). Header kept OUT of ios/src/CMake glob, only host fixture includes it.
+Host command python3 tools/native/test_stable_binding_record.py [--benchmark],
+macOS/Xcode, reads existing isolated SDK xenos enum; documented limitations above.
+
+**Next larger SOURCE action:** map authoritative create/update/retire and alias
+coverage for ONE geometry resource class before native resource-version work.
+Existing decoded/GPU caches already work; do not add another heuristic cache or
+trust addresses/age/write_watch. Only proved resource ownership/write coverage
+can retire repeated guest-resource validation/conversion safely; unknown/dynamic
+data keeps reference. No blind whole-engine rewrite or another G2 trial. No new
+user recording needed now; recent native battery reduction remains unproven.
+Own host tool/header/docs committed locally; HANDOFF/private ignored BACKLOG/
+otherrepochanges preserved, no push/merge/release.
+
 **November12 G2 source/host feasibility started after Stefan "continue" (latest):**
 Added HOST-ONLY tools/native/test_geometry_bundle_feasibility.py; no game change,
 flag/default/newIPA/device request. Extracts actual Attribute/Draw/Frame/FrameOwners/

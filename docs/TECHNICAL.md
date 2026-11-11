@@ -27167,3 +27167,168 @@ Shared checkpoint/native plan/private ignored backlog updated. New host tool and
 own tracked docs committed locally; HANDOFF intact/untracked, BACKLOG deliberately
 not staged, other repositories' preexisting changes untouched. No CHANGELOG or
 build procedure mutation: host command documented in checkpoint. No push/release.
+
+## November 12, 2026 — bounded stable G2 against actual vertex preparation: cost gate failed, parked
+
+### Authorized work and implementation boundary
+
+Stefan answered "yes" to implementing/testing the bounded stable path with
+original decoded-version capture and changing-data fallback. Starting HEAD13ac3cf,
+status only preexisting HANDOFF untracked. No app/SDK/shader/settings changes.
+Candidate implemented in tools/native/stable_bindings_candidate.h, exercised by
+new tools/native/test_stable_binding_record.py. Header initially created under
+ios/src during host development, moved OUT before completion; no game includer,
+CMake/build invocation or SDK badge rebuild. Current game/IPA stays dev125.
+
+Frame-owned512bundle/512hint table,8probe selector; key is opaque current prepared
+slot address, never dereferenced/trusted as content identity. Same slot may be
+reused by G1: output input-count and each current captured version/location/
+integer/nonfresh value must still match. Known prepared6–16inputs, all entries
+already decoded/non-dynamic required; unknown/cold/minimal/missing cases original.
+Cache allocated lazily only after eligibility. Cohort mismatch/fresh/dynamic
+input restores earlier matching prefix from immutable frame-owned versions and
+blocks reuse until next frame. Capture was already executed at each original
+site, so later source changes cannot retarget earlier version handles. Early
+return has no Finish/publication/hit. Previous bundles remain immutable.
+
+Deque allocation completes BEFORE equal-allocator swap transfers original list;
+bad_alloc leaves original list intact and disables cohort. Optional index maps
+32locations to LAST matching Attribute; larger/unknown location uses original
+linear search. Same-frame headers only, stale epoch checked before bundle;
+fixed capacity/probe exhaustion returns reference. No resource validation result
+cached, no changed source accepted merely by address. Prototype snapshots/consumer
+views owned by Frame, never into mutable G1 slot. Actual GPU lifetime not executed.
+
+### Real source fixture and what it proves
+
+Reference compiles ACTUAL COMPLETE Record vertex section beginning at
+"// Vertex inputs." through end of attributes, with actual Attribute/FloatArray/
+Draw, Fingerprint, ParseVFetch/ResolveVertexFetch/FetchLayoutFor including map,
+PrepareGeometry/AttributeEntryFor, memo/dynamic/decoded-value path, DecodeElement,
+FrameOwners, DrawArena and MotionMix. Motion hash is consumed, not optimized away.
+Index range/key context supplied; independent fake Frame with production owner/
+container types. Synthetic valid microcode for float32 fetches, integer usage and
+file/bound swizzle-remap case; SDK VertexFormat enum read from existing isolated
+SDK (read-only). Little-endian GpuSwap stand-in asserts0; logging/mapping stubbed.
+Other index/texture/constant/state/Metal/GPU work is not run. Not full-game or
+full-Record performance proof; source index/body untouched in live repository.
+
+Candidate transform changes ONLY list reserve, three emission calls, final
+immutable-list/view publication. Inverse-edit reconstruction MUST equal original
+vertex body; all3 original FrameOwners::Capture sites remain text-identical,
+as do validators/memo/decoder/failure branches. Reference/OFF/ON differential
+compares3000historical draws per arm per memo process, all attribute bit patterns/
+metadata/order/fresh/slot IDs, motion hash, original owner size/lookups/hint hits,
+skipped count and consumer location results. AFTER original cache node erasure,
+old views still readable via frame owners. Runtime tests alternate source bytes,
+layout/full hash/range and original frame stamps; candidate publication counts
+must equal builds+hits, never count failed draws. Integer usage/remap separately
+covered in final checks. MemoON and OFF run as separate processes because real
+memo flags are cached statically. Both ASan/UBSan processes pass.
+
+Targeted memoOFF case warms full9input bundle, uses a LATER source stream whose
+fetch size shrinks (decoded key unchanged), then writes sampled source byte0.
+First6inputs match/capture, actual later DecodeElement bounds branch rejects;
+no partial draw/hit/build published. Original and OFF/ON owner effects identical.
+This tests actual early failure while reuse was active, not merely a bypass.
+Header edges: capacity, >512selector/probe collisions, reused selector with
+changed input count, stale dead-frame poisoned pointer, changed decoded version
+and per-draw freshness after matched prefix, dynamic fallback, duplicate LAST
+location, >31location fallback, deque allocation failure with intact original.
+No rollback by dropping required captures or pinning data late.
+
+Commands: python3 tools/native/test_stable_binding_record.py, exit0, default-O1/
+ASan+UBSan/ARC/Foundation/Metal. Final output final-complete-check.log and earlier
+final-parked-check.log both memo modes pass. python3 ... --benchmark, exit0,
+-O2, final-indexed-benchmark.log (and unindexed baseline real-record-benchmark.log).
+In-memory Python compile check exit0; git diff --check exit0. No11renderer
+regressions repeated because production source unchanged. No new iPhone test.
+
+### Failed fixture attempts, retained to avoid repeating mistakes
+
+Audit root /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/g2-stable-record-20261112/.
+initial.log: compileexit1, missing supplied upstream hi/prim locals; corrected
+fixture context, no production change. sanitized.log: differential SIGABRT6/
+Pythonexit1; reference/candidate started with different leftover source bytes and
+reset old frame stamp could revive static memo. Corrected source bytes per arm
+and strictly increasing, non-reused frame epochs (same low frame phase); passes
+sanitized-fixed-inputs.log. complete-sanitized.log: assertion unnecessarily
+required mismatch counter>0 with real frame memoON. Source memo can intentionally
+hide within-frame writes under existing accepted semantics; retained stronger
+output equivalence and targeted fallback tests instead. complete-sanitized-fixed.log:
+late failure assertion failed because source byte32 is NOT sampled by the real
+32point Fingerprint for that region. Corrected write to guaranteed sampled byte0.
+final-sanitized.log passes both memo modes, including late actual bounds failure.
+These are fixture defects, not game regressions. Early fixture assumed memoOFF;
+final default explicitly enables real memoON and also checks OFF separately.
+
+Original-list-only cost log retained, then indexed consumer result to explain
+why earlier optimistic model helped. No moving acceptance onto favorable cases.
+Later changes only harden correctness/guards/relocate unshipped header and test
+integer/remap/out-of-range/collision edges; timed benchmark path algorithm same.
+A documentation-edit Python quoting SyntaxError occurred before any writes;
+corrected immediately; no code/input/state change from it. No failed IPA build.
+
+### Complete cost gate
+
+72synthetic cases:1/4/6/9inputs,32/512/8192mesh identities, stable/sourcewrites,
+all active inputs and one active input for6/9, memoON/OFF.7alternating THREE-arm
+trials (actual source reference, candidate path disabled, candidate enabled),
+20000draws each, realistic3000draw frame boundaries. Original metadata/G1 selector,
+validation/memo/decoding/captures, bounded hint selector, cache/frame initialization,
+list/lookup/fallback and frame teardown included. Input reset outside timer;
+source generation/hints/memo epochs unique between arms. Shader active width is
+synthetic, not inferred runtime frequency. No averaging across this unweighted
+matrix to invent whole-game gain. costs.json retains72rows/exact differences.
+
+With CURRENT memoON, selected full-active cases, ms/20000:
+
+| Inputs / meshes / source | Reference | Path OFF | Stable ON |
+| --- | ---: | ---: | ---: |
+| 6 / 32 / stable | 4.356 | 4.429 | 4.268 |
+| 6 / 512 / stable | 5.375 | 5.443 | 5.643 |
+| 6 / 32 / writes | 6.766 | 6.912 | 7.013 |
+| 6 / 512 / writes | 6.920 | 7.074 | 7.204 |
+| 9 / 32 / stable | 5.574 | 5.699 | 5.412 |
+| 9 / 512 / stable | 7.492 | 7.576 | 7.620 |
+| 9 / 32 / writes | 8.267 | 8.389 | 8.241 |
+| 9 / 512 / writes | 8.830 | 8.991 | 9.020 |
+
+Hot32stable6/9 only2.02/2.91%better;512stable6/9 is4.99/1.71%worse. One-active
+stable6/9 at32/512 worsens2.54/4.04/6.62/5.96%. OFF also typically small overhead.
+Unindexed list-only selected stable6/9 cases were3.4–6.6%worse in the earlier full-context
+run; adding indexed consumer recovers a small hot-case benefit, not consistent
+win. MemoOFF hot full-active can do~5.7–6.4%better, but that is not current game
+setting and512/one-active/write cases remain mixed. Do not select memoOFF to sell
+this candidate. 8192cohorts show0bundle hits/builds under actual G1/Frame limits,
+unlike earlier free-key model; bypass timing differences are not bundle savings.
+
+Typical hot successes19712hits/224builds across7frames,512mesh~14241hits/3286builds.
+Real selector collisions/capacity included. Source-write cases can retain hits
+under accepted existing memo rules; labels do NOT mean every store decoded.
+Tests demonstrate semantic equivalence, not newly complete memory-write coverage.
+Prior12–24%model gains shrink/disappear when real common work and frame/key/active
+width effects are included. Cannot extrapolate local path to app CPU or energy.
+
+### Decision and next larger source boundary
+
+Bounded G2 implemented/tested but FAILED consistent complete preparation cost gate.
+G2 PARKED. No game integration/new flag/default/IPA/power request; do not tune its
+hash/capacity or ask another device run to rescue a marginal host result. Header
+kept in tools/native, not ios/src glob, so even CMake SDK badge/version rebuild
+is avoided. Existing retained dev125 game/defaults untouched; source diff under
+ios and tools/ios is empty. No claimed new phone regression or battery gain.
+
+Next source action is authoritative create/update/retire/alias coverage for ONE
+geometry resource class, prerequisite to replacing repeated guest-format resource
+work with native version ownership. Current decoded/GPU caches already exist;
+no additional address/age heuristic or write-watch enable. Unknown/dynamic writes
+stay reference until coverage proven. This is larger native-resource engineering,
+not a guaranteed next build or projected battery percentage. Preserve broader
+native D3D plan and earlier controller configuration power evidence. No new user
+capture needed for this rejected path.
+
+Shared checkpoint/native plan/ignored private backlog updated. Own two host files
+and three tracked docs committed locally. HANDOFF preserved untracked, BACKLOG
+intentionally not staged; other repositories untouched. No CHANGELOG for unshipped
+experiment, no push/merge/release. All failed and successful local audits retained.
