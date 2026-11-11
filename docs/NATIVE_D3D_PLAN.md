@@ -2,6 +2,21 @@
 
 ## Current decision — November 10, 2026
 
+**November11 compact-producer source audit COMPLETE (latest):** normal draw
+hooks alone cannot safely retire PM4: current query writer8258E830 is outside
+old8259–825Asearch range; shader/resolve/indirect/wait/writeback/swap operations
+remain ordered stream users. Source-hashed offline inventory tool added,
+no runtime/SDK/generated source changed. New sectionC0 below specifies first
+implementation: owned dirty-register batches from known flush emitter calls,
+consumed by existing CP through ordered private tokens, preserving every other
+operation and Record scheduling. This replaces guest register packet building
+without N2a's full-state snapshots or a new direct game-thread renderer.
+Not full PM4 retirement or a claimed saving; no IPA/test recording this session.
+Next implement host differential builder/ownership/publication tests before
+live hooks; old native-d3d branch stays untouched. Exact sources/commands and
+inventory limits in TECHNICAL/current checkpoint.
+
+
 **November11 dev121 same-build reference result (latest):** reference mode
 verified,6600CPU-owned/ICB0,22x60FPS/no audio gaps/foreground GPU errors. Matched
 102s8–110s reference->reusable: Capture-14.73%, storage-36.44%, lifecycle
@@ -381,6 +396,110 @@ critical path. Existing main-thread averages plus that work do not prove
 consumer scheduling if synchronous work fails, but that design must pay for
 the snapshot it needs. Reject a battery gain obtained by frame misses or added
 buffering/input delay.
+
+### C0. Audited first compact producer slice — November 11
+
+The full direct producer in C is still the destination. Immediate whole-frame
+PM4 removal is not justified by N2a normal-draw state coverage. Unknown
+operations discovered after direct draws/writebacks have executed cannot be
+recovered by simply rerunning the original frame: mutable inputs may have
+changed and guest-visible side effects are not generally reversible.
+
+First implement a smaller producer boundary: replace selected calls to the
+scalar emitter825A28A8 and grouped-constant emitter825A2A60 with owned native
+register-delta batches. Keep original shader loads, draw packets, indirect
+buffers, resolves, query events, waits, writebacks and swap in the SAME stream.
+The CP remains the only Frame/Record producer, and consumes each native batch
+at its token position before handling the next packet. This is a partial
+packet-building bypass, not a retired CP thread or general native D3D renderer.
+October22 P1a fast-runs already batches CP dispatch; C0 must remove guest
+emitter/header/filler work too, not claim that old optimization again.
+
+#### Audited operation ledger
+
+| Operation | Source boundary found | Constraint for C0 and later retirement |
+|---|---|---|
+| Dirty register state | 825A3EC8 calls825A28A8 eight times,825A2A60 twice,825A2968 once,825A2B88/825A38F8; device masks+16/+24/+32/+40/+48 | Intercept only proved emitter callsites/parameters first; other helpers remain original. Scalar bit=1word, grouped bit=16words (four float4), MSB first. Keep writes in original order. |
+| Draw/index/UP/inline | 82593818/82593A58 plus825930E0/82593408/8259A308; additional static candidates | Original writers and CP draw callbacks remain. UP reserves memory filled AFTER return; do not snapshot its data at entry. Predicated tiling uses alternate command storage. |
+| Shaders | 825A38F8; IM_LOAD/IM_LOAD_IMMEDIATE in CP | Device register blocks omit active shader objects. Preserve loads, microcode validation/hash/memo and shader lifetime, not merely program-control registers. |
+| Resolve/clear | 82592340 and825A40E8 restore helper; NativeResolve captures rectangle from fetch0 | Quad state, bin predicates, rectangle bytes and restoration are ordered operations. Do not substitute game shadow for resolve state. Static possible8259A308 call does not override N1c's zero observed nested calls. |
+| Query | 8258E830 emitsEVENT_WRITE_ZPD(5B); native backend override/CpOcclusion | Outside old8259search range. Preserve begin/end sentinel/address-minus0x20 handling, delayed Metal count and exact guest result ABI. Not just VIZ_QUERY(23). |
+| Predicates/indirect | SET_BIN_MASK/SELECT,82596A20 indirect-buffer candidate | Eligibility evaluated in CP against bin state/one-pass adjustments. Do not pre-evaluate on game thread or assume hooked ring is entire stream. |
+| Wait/fence/writeback | e.g.825A52B0(REG_TO_MEM/SHD),825A20A8/825A2188(COND_WRITE), many WAIT_REG_MEM candidates | Preserve masked comparisons, endian addresses, register side effects, counter/event values and current completion semantics. Existing SHD stores can occur on CP rather than waiting for Metal; don't invent new early/late fence semantics. |
+| Swap/pacing | 825987E0 -> kernel VdSwap builds fetch+XE_SWAP; CP swap | Keep IosCapBeforeSwap,NativeSwap,IssueSwap,NfsmwAvisarSwap,counter order. Device swap hook alone does not own all presentation state. |
+| Register side effects | CP WriteRegister, native backend WriteRegistersFromMem | Scratch writes, coherency/gamma, MSAA/one-pass transforms must remain. Use virtual range-write route; raw register-file memcpy is invalid outside eligible constant banks. |
+
+The ACTIVE plugin is NativeCommandProcessor in SDK src/graphics/plugin_main.cpp
+(log confirms native backend/no Vulkan), not VulkanCommandProcessor. Its
+WriteRegistersFromMem override already bulk-copies eligible constant banks;
+all other registers go through base WriteRegister. The Vulkan override is a
+secondary compatibility case; do not add Vulkan bookkeeping to native mode.
+Current prepared SDK retains old NFD3 NOP support, but current app emits none;
+that does not mean N2a is active. Prepared SDK is a source copy, not a Git repo;
+hash exact inputs rather than infer a branch revision.
+
+#### Owned delta and publication contract
+
+- Scope first to USA/known ordinary825A3EC8 emitter callsites and validated
+  base/mask/source bounds; unknown callers/modes/segment situations call the
+  ORIGINAL emitter before anything has been skipped. Do not override every
+  function with a matching literal or rely on N2a's~98%normal-draw coverage.
+- Build ordered `{register,count,payload_offset}` spans and own copies of ONLY
+  dirty big-endian values at the emitter call. No queued device-shadow pointer,
+  no full0x6000register image, no mandatory2401dword snapshot per draw. Two
+  source annotations define masks: scalar one bit -> one word; grouped bit ->
+  sixteen words. Handle zero/all64bits without undefined shifts. A64-bit mask
+  gives at most32separate runs; grouped full mask1024payload words. Capacity
+  and descriptor bounds must be checked before using the batch path.
+- Reserve bounded host storage AND a valid ring-token location first. Publish
+  immutable batch Ready with release semantics BEFORE making its token
+  visible. Consumer validates generation and acquires, calls virtual
+  WriteRegistersFromMem for spans in order, then releases slot/storage. Never
+  recycle via id%4096 over an in-flight record. N2a's post-draw publication
+  produced not-ready fallbacks; C0 cannot ignore such a token because original
+  register packets have been omitted.
+- Failure before token publication leaves original writer's inputs/memory
+  unchanged and runs it once. After publication there is no silent 'skip token
+  and fallback': the immutable record must remain available until consumed.
+  No mid-frame producer switching/replay or assumed rollback of guest writes.
+  Backpressure/pool exhaustion must fall back before commitment, never wait
+  while holding a lock the CP needs to release slots.
+- Ring boundaries are NOT interchangeable: emitters compare against device+4,
+  normal draws check+8; +0is the last word written. Scalar slow helper825A27F0
+  can split a run and call82597070. Grouped emitter aligns VMX payload using
+  type2 fillers. Initially keep boundary/unsupported cases original until a
+  reservation adapter proves segment behavior. Old N2a's+8/64byte marker check
+  is not sufficient proof. Preserve later UP pointers and required alignment.
+- Small writes may be cheaper as original packets than a multiword token plus
+  pool work. Determine threshold by host tests/measurements; don't replace
+  one cheap register write with a larger transport by default.
+- CP order preserves all existing resource reads/snapshots: vertices, indices,
+  textures and resolve rectangles still read by existing Record/Resolve at
+  their packet positions. No cross-thread NativeDraw call or new game-thread
+  Record work, no altered guest fence/query completion, no shader changes.
+- Restart-only default-off proposed switch for this NEW route; existing dev121
+  settings unchanged. SDK changes must have reproducible patch apply/revert/
+  status support and required shared-library rebuild. No switch exists yet.
+
+#### First implementation and acceptance
+
+1. Native dirty-run builder/owned bounded pool and token state machine, host
+   differential against actual generated scalar/grouped emitter output and
+   existing virtual CP range side effects. Include masks, endian values,
+   snapshots modified after capture, source bounds, full/empty capacity,
+   stale tickets, release-before-publication, concurrent completion, segment
+   limits/alignment, unsupported modes and untouched fallback memory. Test
+   exhaustion/failure before commit; no silent missing-state recovery.
+2. Only after this evidence, wire guest emitter hooks + CP private-token patch,
+   caller whitelist/early fallback, immutable ownership and sparse counts.
+   Keep reference route and offline comparison in SAME build. No N2a wholesale
+   branch merge, no resetting caches/shader libraries or new Metal draw path.
+3. Build/sign and one focused device correctness/CPU check with existing
+   consumer/geometry/ICBs held fixed; inspect token consumption, fallback,
+   bytes copied, unchanged state/ordering, memory and pacing. No fresh trace
+   request until concrete live build is ready; no power matrix or projected
+   saving from7%writer/CP envelope. Later full C must still solve the entire
+   operation ledger before retiring PM4/CP synchronization.
 
 ## Order, acceptance, and test burden
 

@@ -24953,3 +24953,168 @@ No game launch/re-record by agent. Shared checkpoint/native plan/ignored private
 BACKLOG updated; no CHANGELOG or source change. Preexisting untracked
 HANDOFF_CHATGPT.md preserved/excluded, no other starting tracked changes.
 git diff --check exit0 before local commit; no push/merge/release.
+
+## November 11, 2026 — compact direct-producer source audit / C0 boundary
+
+Stefan approved starting next source work after same-build dev121 result.
+Completed bounded audit/design, not a live bypass implementation. Read current
+AGENTS/checkpoint/backlog/newest evidence, status/log15; starting tree only
+preexisting untracked HANDOFF_CHATGPT.md. No subagents, old branch checkout,
+merge, SDK/generated game edits, build/IPA or device capture this session.
+
+Read native-d3d tip50885f1 source/plan and N1b/c/d/N2a technical evidence using
+git show. Important negatives retained: N1b nesting explanation withdrawn by
+N1c (0observed nested calls); N1d CP state after resolve established normal
+shadow validity, not full exceptional-operation equivalence. N2a used full
+PM4 plus2401dword/9604byte snapshots and id%4096slots, published AFTER draw
+writer;0–1.1%not-ready fallback occurred. A replacement that omits original
+packets cannot silently ignore an unavailable/overwritten record as N2a could.
+Do not merge N2a as an optimization or claim98%normal state coverage means
+PM4 retirement. Current generated resolve still has a statically possible
+8259A308 call: that does not contradict0observed nesting in prior lap.
+
+### Current source findings
+
+Prepared SDK `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk` is a source
+copy, not a Git repository (git status/log reported fatal-not-a-repository).
+Read exact files/hashes instead of assigning a branch revision. Current app
+registers CpDraw/CpResolve/CpSwap/CpOcclusion in native_renderer.mm; native
+Frame/Record state belongs to CP thread. New callbacks on game thread would
+race that state or require an explicit single-producer handoff, not just a
+new function call. Current prepared SDK retains inert NFD3 marker support;
+app on current branch emits no N2a markers. This leftover is not an active
+native-D3D producer or authorization to reuse its unsafe publication scheme.
+
+Active implementation is NativeCommandProcessor in src/graphics/plugin_main.cpp,
+confirmed by archived dev121 reference log line22 (native backend/no Vulkan).
+Its virtual WriteRegistersFromMem bulk-copies only complete constant/fetch/
+bool-loop banks when count>1; other writes go through base WriteRegister.
+VulkanCommandProcessor is a secondary compatibility route, not current gameplay.
+Base WriteRegister handles one-pass scissor/window adjustments, MSAA cap,
+scratch guest writes, coherency and gamma side effects. A full raw register-file
+copy would bypass these. Use existing virtual range-write route to retain native
+bulk policy and fallback side effects; shader selection comes from IM_LOAD
+objects/microcode rather than the eleven device-shadow blocks alone.
+
+Generated current source:
+
+- 825A3EC8 in nfsmw_recomp.85.cpp:22008 calls scalar825A28A8 eight times,
+  grouped825A2A60 twice,825A2968 once,825A2B88 and825A38F8 once each. This is
+  a source callsite count, not runtime frequency. Dirty masks device+16/+24/
+  +32/+40/+48. Source/bit positions map scalar1word and grouped16words per bit.
+- Scalar825A28A8 in .56.cpp:22470, grouped825A2A60 in .22.cpp:22763. Both
+  read last-written device+0 and compare run space against device+4; scalar
+  slow helper825A27F0 (.47.cpp:22753) can split and call82597070. Grouped
+  writer uses type2 fillers/VMX-aligned payload. Normal draw82593818 (.48.cpp:
+  21910) checks device+8 instead. Thus old+8/64byte marker reservation is not
+  a general emitter reservation proof; +4/+8 need separate contracts.
+- 825A38F8 (.33.cpp:22778) handles shader-related state/load packets; CP
+  IM_LOAD/IM_LOAD_IMMEDIATE select immutable Shader objects with validated
+  microcode/hash/memo. Cannot bypass by register-shadow substitution alone.
+- Query writer8258E830 (.78.cpp:21833/21941 header stores) is OUTSIDE old
+  8259xxxx–825Axxxx inventory range. It emitsEVENT_WRITE_ZPD(5B), not merely
+  VIZ_QUERY(23). Native backend ZPD override reads end sentinels, calls
+  CpOcclusion and writes exact guest result struct; CpOcclusion also handles
+  end-address-minus0x20 and delayed Metal visibility counts.
+- Static candidate82596A20 indirect dispatch,825A52B0 register readback/SHD,
+  825A20A8/825A2188 conditional writes, many WAIT_REG_MEM sites need ordered
+  stream semantics. Source constants alone do not prove live ring destination
+  or observed frequency. Missing MEM_WRITE literal does NOT prove absence.
+- Swap825987E0 calls through kernel path. Kernel VdSwap builds frontbuffer
+  fetch plus XE_SWAP; CP performs IosCapBeforeSwap,NativeSwap,IssueSwap,
+  NfsmwAvisarSwap and counter progression in order. Do not replace only the
+  game swap wrapper and assume pacing/frontbuffer state preserved.
+- WAIT_REG_MEM masked compare/endian/coherency, bin-select/predicate handling,
+  register-to-memory, conditional writes and SHD counter/value writes remain
+  essential. Current CP SHD stores need not wait for Metal completion; future
+  bypass must preserve existing guest-visible timing/resource safety rather
+  than invent a more/less synchronous fence. Draw/Resolve currently snapshot
+  data at their CP positions before later guest progress/writebacks.
+
+### Reproducible read-only inventory tool and limits
+
+Added tools/analysis/audit_d3d_producer.py. It records generated source file
+hashes, indexed sub_ function locations/direct call counts, conservative
+basic-block literal-store candidates, CP switch cases and six SDK input hashes.
+Only DEFINE_REX_FUNC(sub_XXXXXXXX) definitions indexed; imported/handwritten
+writers such as VdSwap inspected separately. Constant propagation from PPC
+annotations covers basic literal formation, forgets values at branches/calls/
+labels/unknown destination writes, ignores stack spills and invalidates update
+address registers/multiple-register loads. It is a locator, NOT a semantic
+proof, disassembler, runtime census or fallback eligibility validator. Dynamic
+headers/loads/joins/VMX/unknown operands are missed; literal-looking payload
+stores can be false positives. Manual destination/ordering verification is
+mandatory; never use candidate list to allow unknown operations to disappear.
+
+Initial intentionally narrow8259–825B scan indexed965functions/210candidates
+but missed known query5B, motivating expanded default8258–825B. Final local
+outputs `ios/build/direct-producer-audit-20261111/`:
+
+- inventory.json:1547functions,221literal-store candidates in59functions,
+  17opcode kinds. Query8258E830 found.
+- all-functions.json:56338sub_functions,265literal-store candidates in93functions,
+  30opcode kinds. Additional5Bcandidate82257D68 requires manual classification;
+  not proof it is a query writer. Both scans see131generated C++files.
+- Canonical generated input manifest SHA256
+  `bf8d7cfdb83a52968356c00298fee0a92f09a611c8676392097fc4c05db886ca`.
+  Same source hashes in both scans; no generated content copied tracked.
+- Base CP switch33distinct PM4 case names. Case count versus candidate opcode
+  count is NOT a coverage percentage; several literal candidates have no
+  established live operation, others constructed dynamically are missed.
+
+SDK source SHA256 (full absolute paths in JSON):
+command_processor.h `eb02162883373a0d2ce5d93bd6c12d9931ff26dc27df473249bec85a186c7cfe`;
+xenos.h `f7dcbf856feaeb0350c9c9aaf5c16a768b4147fc487819cd513e0cc68fc16fd5`;
+base command_processor.cpp `8da78e72299008353ead43a0adde37e7096bffe2d824cc1a3c8e97b3909704dd`;
+plugin_main.cpp `3340f7eba6bd3376b43dd4a8c20189127adcd62021cc818486f60b42113a6589`;
+vulkan/command_processor.cpp `ca8cf6e2e6976fb8e0e39d232241f279cbf43597215a208324ee2f0554b62a6c`;
+xboxkrnl_video.cpp `9b0b0a183bb16973b119ff4a170e8a9def753c16db7c9e5a301b61e490346299`.
+
+Commands final exit0: `python3 tools/analysis/test_d3d_producer_audit.py`;
+`python3 tools/analysis/audit_d3d_producer.py --generated ios/generated/default
+--sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk --output
+ ios/build/direct-producer-audit-20261111/inventory.json`; same with
+--all-functions and all-functions.json. Fixture validates literal decoding,
+branch/call/label joins, unknown writes, spills, update-address invalidation,
+multiple loads, function boundaries, expanded query range/all-functions,
+call counts, input hashes/read-only behavior and missing-input error. Tests
+PASS, tests.log. During development extended update-register/multiple-load
+invalidation before final scan; no fixture failure. Some initial globbed
+shell searches failed with 'no matches found'; corrected to explicit paths.
+Initial PPC_FUNC_IMPL definition search found none; actual macro DEFINE_REX_FUNC.
+These routine search failures are not source/capture corruption.
+
+### Concrete C0 boundary and next work
+
+Existing plan sectionC0 now contains operation ledger, source boundaries,
+owned-delta/publication/fallback contract and acceptance steps. Selected normal
+flush-emitter calls can build owned big-endian dirty spans and replace their
+register headers/payload/fillers with one ordered private token per eligible
+batch. CP consumes spans through virtual range writes BEFORE next packet.
+Keep shader loads, draws/UP/inline, resolves, queries, waits/writebacks, predicates,
+indirect buffers and swaps original; keep Record on CP. Not full PM4/CP
+retirement, not another full-state N2a snapshot, not just already-shipped P1a
+CP fast-run dispatch. This avoids needing whole-frame rollback or moving Record
+onto game critical path for first slice. Small writes may remain cheaper on
+original route; threshold needs measured support, not assumed token efficiency.
+
+Owned immutable record must be Ready/release-published before token visible,
+kept until consumer acquire/consume/release; bounded pool/generations, no modulo
+live overwrite. Reserve both host and ring capacity before skipping writer;
+unsupported/capacity/segment cases fall back ORIGINAL before commitment.
+No silent not-ready fallback after omitting original state. Full direct-frame
+fallback remains unsolved until complete ordered operation coverage/snapshots;
+can't replay a frame after guest-visible effects or input mutation and call it
+safe. Proposed new route default-off/restart-only; NO flag or live bypass yet.
+
+Next implement host dirty-run builder/immutable pool/ticket/fallback differential
+against actual emitters and existing CP side effects, including all masks/endian/
+source mutation/capacity/ABA/publication order/segment alignment/exhaustion, then
+wire proved caller whitelist and reproducible SDK token patch. Detailed gate
+in plan; no fresh user trace until concrete tested live build.7.07%writer/CP
+scope envelope not a saving prediction. No new battery result or power matrix.
+Dev121 remains current, owner_index=true/reuse=true/encoding=false/repeat=false
+for working trial. Current source changes ONLY offline audit tools/shared docs;
+no runtime/generated/SDK/CHANGELOG changes. Updated matching ignored private
+BACKLOG. HANDOFF preserved untracked/excluded; all own tools/docs committed
+locally. git diff --check exit0 before commit; no push/merge/release.

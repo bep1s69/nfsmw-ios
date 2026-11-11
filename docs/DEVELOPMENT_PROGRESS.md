@@ -510,6 +510,50 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November11 compact direct-producer audit COMPLETE (latest):** Stefan approved
+starting source work after same-build index result. Audited old native-d3d
+N1b/c/d/N2a evidence and current generated USA/CP/native backend; no old branch
+checkout/merge. Full normal-draw bypass unsafe/incomplete: shader/query/resolve/
+indirect/writeback/predication/swap remain ordered users; query8258E830 lies
+outside prior8259–825Asearch range. Active SDK plugin is NativeCommandProcessor,
+not Vulkan; current prepared SDK retains inert old marker support only.
+
+Concrete first slice C0 documented in NATIVE_D3D_PLAN: replace selected ordinary
+825A3EC8 calls to scalar825A28A8/grouped825A2A60 with OWNED dirty-register
+batches, consumed in order by existing CP via private token. Keep all other
+packets and existing Record thread/validation/resource reads. No full-state
+N2a copies. Reserve bounded host/ring capacity, publish Ready BEFORE token,
+never overwrite live slots, fallback BEFORE skipping original writer. Emitters
+use device+4 boundary; draws check+8. No post-publication silent fallback or
+whole-frame replay assumption. Small/unknown/boundary cases remain original.
+
+New offline `tools/analysis/audit_d3d_producer.py`, invocation:
+`python3 tools/analysis/audit_d3d_producer.py --generated ios/generated/default
+--sdk /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk --output
+ios/build/direct-producer-audit-20261111/inventory.json`.
+Add --all-functions for whole generated source. Tests:
+`python3 tools/analysis/test_d3d_producer_audit.py` exit0. Hashes131generated
+files; narrowed[82580000,825B0000)1547functions/221literal-store candidates,
+full56338functions/265candidates. Conservative literal candidates are NOT
+runtime coverage or proved ring destinations; no result permits skipping
+unmapped packets. Detailed operation ledger/contract/test gates in planC0;
+source hashes/results/limits in TECHNICAL. No proprietary source copied tracked.
+
+**Next SOURCE action:** implement/test C0 dirty-run builder, immutable bounded
+batch ownership/ticket lifecycle and before-commit fallback against actual
+emitter output/CP side effects, BEFORE wiring live hooks/SDK token handler.
+Default-off restart-only route proposed, not implemented yet. Then wire only
+proved callsites with reproducible SDK patch/tests/build; no new diagnostic
+capture-only lap. Full direct producer/CP retirement remains later, not solved
+by C0. No battery claim from7%writer/CP envelope; no more recordings/power now.
+Dev121 remains current; owner_index=true/reuse=true/encoding=false/repeat=false
+for working trial, no runtime/generated/SDK changes or new IPA this audit.
+Shared records/private BACKLOG updated; HANDOFF preserved untracked. Local
+commit/no push/merge/release. Prepared nfsmw-multiplayer-sdk is not a Git repo;
+exact read-only source hashes recorded instead. Earlier next-audit requests
+below fulfilled.
+
+
 **November11 dev121 SAME-build reference analyzed (latest):** new
 dev121_iphone_pursuit_time_profile_2.trace/log archived in November11Debug.
 Both traces directly match final UUID51A45FAA-EFEB-3340-BD44-A120E3D0240E;
