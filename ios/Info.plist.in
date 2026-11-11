@@ -105,6 +105,29 @@
 
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- An external display (USB-C, HDMI adapter, AirPlay) gets a scene of its
+	     own, the game's picture by itself (src/external_display.mm). iOS 17-26
+	     offer that scene from this entry; SDL's app delegate answers for the
+	     application role only (tools/ios/patch_ios_sdl_scene.py). iOS 27 offers
+	     it only to the scene accessory external_display.mm registers. No entry
+	     for the application role: SDL's delegate keeps configuring that one. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>External display</string>
+					<key>UISceneDelegateClassName</key>
+					<string>NFSExternalDisplaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<!-- iPhone: allow ProMotion's 120 Hz (the 40 and 120 fps caps). iPads allow it already. -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

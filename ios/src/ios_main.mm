@@ -48,6 +48,7 @@
 #include "audio/coreaudio_driver.h"
 #include "battery.h"
 #include "boot_trace.h"
+#include "external_display.h"
 #include "performance_profile.h"
 #include "launcher.h"
 #include "memory_report.h"
@@ -496,6 +497,11 @@ int main(int argc, char* argv[]) {
   } else {
     texts.push_back("--log_file=" + (docs / "logs" / "nfsmw.log").string());
     texts.push_back("--log_level=info");
+  }
+  // An external display shows the game only with the native renderer (it
+  // draws the picture there); otherwise it mirrors the phone, as before.
+  if (!play || std::find(texts.begin(), texts.end(), std::string("--nfsmw_native_present=false")) != texts.end()) {
+    nfsmw::external_display::Release();
   }
   std::vector<char*> args;
   for (auto& t : texts) {
