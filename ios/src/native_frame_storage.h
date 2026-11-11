@@ -1,6 +1,7 @@
 // CPU-side ownership only. Borrowed draw handles never outlive their frame.
 #pragma once
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <limits>
@@ -46,9 +47,53 @@ template<class T> class FrameRef {
   uintptr_t raw_or_slot_ = 0;
 };
 
+// Identity lookup only: keys never own or dereference the payload. Clearing
+// retains the contiguous allocation, not any shared owners from the frame.
+template<class T> class FrameOwnerIndex {
+ public:
+  size_t FindOrInsert(const T* key, size_t ordinal) {
+    if (slots_.empty()) Grow(64);
+    size_t at=Hash(key)&(slots_.size()-1);
+    while (slots_[at].key) {
+      if (slots_[at].key==key) return slots_[at].ordinal;
+      at=(at+1)&(slots_.size()-1);
+    }
+    if (used_>=slots_.size()/2) {
+      Grow(slots_.size()*2);
+      at=Hash(key)&(slots_.size()-1);
+      while (slots_[at].key) at=(at+1)&(slots_.size()-1);
+    }
+    slots_[at]={key,ordinal}; ++used_;
+    return ordinal;
+  }
+  void Clear() { std::fill(slots_.begin(),slots_.end(),Slot{}); used_=0; }
+  size_t bytes() const { return slots_.capacity()*sizeof(Slot); }
+ private:
+  struct Slot { const T* key=nullptr; size_t ordinal=0; };
+  // Mix the whole pointer: decoded arrays have aligned, often adjacent
+  // addresses. The lookup must not cluster on their zero alignment bits.
+  static size_t Hash(const T* key) {
+    uint64_t x=reinterpret_cast<uintptr_t>(key);
+    x^=x>>30; x*=0xbf58476d1ce4e5b9ULL;
+    x^=x>>27; x*=0x94d049bb133111ebULL;
+    return size_t(x^(x>>31));
+  }
+  void Grow(size_t count) {
+    std::vector<Slot> next(count);
+    for (const auto& slot:slots_) if (slot.key) {
+      size_t at=Hash(slot.key)&(count-1);
+      while (next[at].key) at=(at+1)&(count-1);
+      next[at]=slot;
+    }
+    slots_.swap(next);
+  }
+  std::vector<Slot> slots_;
+  size_t used_=0;
+};
+
 template<class T> class FrameOwners {
  public:
-  FrameOwners() = default;
+  explicit FrameOwners(bool reusable_index=false) : reusable_index_(reusable_index) {}
   FrameOwners(const FrameOwners&) = delete;
   FrameOwners& operator=(const FrameOwners&) = delete;
   FrameRef<T> Capture(const std::shared_ptr<T>& owner,FrameOwnerHint<T>* hint=nullptr) {
@@ -60,9 +105,10 @@ template<class T> class FrameOwners {
       ref.Borrow(*hint->owner,hint->slot); return ref;
     }
     ++lookups;
-    auto [it, added] = index_.try_emplace(owner.get(), owners_.size());
-    if (added) owners_.push_back(owner);
-    const size_t slot=it->second;
+    size_t slot;
+    if (reusable_index_) slot=flat_index_.FindOrInsert(owner.get(),owners_.size());
+    else slot=index_.try_emplace(owner.get(),owners_.size()).first->second;
+    if (slot==owners_.size()) owners_.push_back(owner);
     ref.Borrow(owners_[slot],slot);
     if (hint) *hint={generation_,&owners_[slot],slot};
     return ref;
@@ -70,12 +116,19 @@ template<class T> class FrameOwners {
   void Pin(FrameRef<T>& ref) {
     if (ref.Owner()) ref=Capture(ref.Owner());
   }
-  void Clear() { owners_.clear(); index_.clear(); generation_=NextOwnerGeneration(); hint_hits=lookups=0; }
+  void Clear() {
+    owners_.clear();
+    if (reusable_index_) flat_index_.Clear(); else index_.clear();
+    generation_=NextOwnerGeneration(); hint_hits=lookups=0;
+  }
   size_t size() const { return owners_.size(); }
+  size_t flat_index_bytes() const { return flat_index_.bytes(); }
   uint64_t hint_hits=0,lookups=0;
  private:
   std::deque<std::shared_ptr<T>> owners_; // references survive insertion
   std::unordered_map<const T*, size_t> index_;
+  FrameOwnerIndex<T> flat_index_;
+  const bool reusable_index_;
   uint64_t generation_=NextOwnerGeneration();
 };
 

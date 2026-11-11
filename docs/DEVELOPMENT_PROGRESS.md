@@ -510,6 +510,49 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November 11, dev121 reusable frame-owner index BUILT (latest):** Stefan
+approved the next ownership allocation change. `nfsmw_native_owner_index=true`
+(restart-only, within default-off reuse) selects a contiguous pointer->ordinal
+index retained across frame Clear; false restores node-based reference index.
+Deque/shared-owner release, borrowed reference addresses, ordinals, generation
+checks, guest validation and entire draw loop retained. All three owner roles
+use selected index independently of GPU encoding/geometry-handoff switches.
+No GPU command-cache change. Startup logs selector;300-frame geometry summary
+adds peak retained flat lookup KiB for ONE CPU frame store (all3roles, not total
+process/pool footprint). Up to3pooled stores retain capacity until pool purge.
+
+Host ASan/UBSan collision/growth/differential/poisoned-hint/address-reuse/
+release/pool-epoch fixture PASS. Seven existing geometry/control/frame/draw/
+command/GPU/attribute regressions PASS. Focused30warmed4096-owner frames:
+123330->450heap allocations (99.635%fewer),128KiBflat capacity per tested
+owner table. Seven optimized host trials, alternating order: median4.960->
+1.999ms. These are component-only host results, not device CPU/FPS/energy.
+Record/draw-loop source guards unchanged from dev120. iOS/signature/archive
+verification pass; artifact identity/delivery in TECHNICAL below.
+
+Final IPA `ios/build/NFSMW-0.6.1-dev121-owner-index.ipa`,30743730bytes,
+SHA256 `ad5655b0e0bea9b8cfe30126f9da0288893479403aced7f8fb6abac974bc59dc`,
+UUID `51A45FAA-EFEB-3340-BD44-A120E3D0240E`. Final Desktop copy hash-verified;
+only Desktop dev120 moved to Trash, stable0.6.0/ios-build copies preserved.
+107shader/SDK/seed assets identical dev120. Earlier same-name pre-indent build
+superseded before completion (TECHNICAL records both identities).
+
+**Next action:** install Desktop dev121 preserving caches/settings. Keep
+`--nfsmw_native_command_reuse=true --nfsmw_native_command_encoding=false
+--nfsmw_native_repeat_counter=false`; add
+`--nfsmw_native_owner_index=true` (already default). Cold restart LiveContainer.
+Keep1x/60/geometry-handoff/residency defaults, matching controller/mute settings
+(muteOFF requested). One roughly2-minute Mac Time Profiler pursuit+nfsmw.log
+checks CPU ownership capture/cleanup, retained capacity, FPS/audio/correctness.
+No Power Profiler yet. To compare old allocation path in SAME IPA set
+owner_index=false and cold restart; no need reinstall dev120. Analyze first
+optimized run before requesting further captures. Capture scope2.50%app from
+dev120 is not wholly removable; net CPU/battery improvement still unproven.
+Shared records/private ignored BACKLOG updated; HANDOFF remains preexisting
+untracked and preserved. Local commit only, no push/merge/release. Historical
+next-source proposals below superseded by this built trial.
+
+
 
 **November 11, dev120 owner-only Mac profile ANALYZED (latest):** supplied trace
 already in Debug/11 November2026; Desktop12.19.57PM log copied/hash-verified

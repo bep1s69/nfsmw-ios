@@ -24560,3 +24560,128 @@ Updated shared checkpoint/native plan and ignored private BACKLOG. No source
 changes, new IPA or CHANGELOG entry for this analysis. Preexisting untracked
 HANDOFF_CHATGPT.md retained/excluded; no other starting tracked changes.
 git diff --check exit0 before local commit. No push/merge/release.
+
+## November 11, 2026 — dev121 reusable frame-owner identity index
+
+Stefan approved implementation after dev120 analysis identified per-frame
+ownership allocation/cleanup as the next bounded target. No new device data
+received this session. Implemented FrameOwnerIndex in native_frame_storage.h:
+contiguous16-byte {non-null payload pointer,ordinal} slots,64initial slots,
+power-of-two growth and at most half occupancy. Full-pointer mixing avoids
+aligned-address clustering; linear probing compares identities without
+reading payload memory. Growth reinserts only identities/ordinals. Clear fills
+slots empty and retains capacity; no per-entry heap nodes. FrameOwners keeps
+the SAME deque of shared owners, hint generation/identity checks, borrowed
+reference addresses and capture order. It releases shared owners at Clear as
+before; index never owns payloads. FrameRef still32bytes. Repeated captures of
+same identity still use one shared owner and same ordinal. No change to Record,
+validation/fingerprint/watch/remap decisions, GPU buffer lookup/upload/sweep,
+entire Metal draw loop, frame-pool epoch/busy ownership or ICB encoding.
+
+New restart-only `nfsmw_native_owner_index=true` within default-OFF
+command_reuse trial. Explicit FrameOwners constructor chooses reusable/reference
+index once per table; generic default remains reference. NativeFrameStorage
+passes cached NativeOwnerIndex selection to constants/attributes/indices.
+False restores unordered_map path in SAME IPA without changing geometry,
+CPU ownership or command encoding flags. Hint checks precede either lookup.
+No per-draw setting lookup. Capacity survives frame Clear, not destruction/
+pool epoch purge; up to3CPU frame stores can retain high-water capacity.
+This retains lookup memory, not stale geometry owners. Capacity overhead is
+visible: startup logs selection,300-frame geometry summary adds peak combined
+flat-index KiB for ONE CPU frame store, including all3owner roles. Reference
+reports zero FLAT-index capacity, not zero reference-map memory. A 4096-owner
+flat table uses8192slots/128KiB. Device peak depends on actual role sizes;
+not a demonstrated process-memory reduction. High-water slot clearing/growth
+and pointer hashing still cost CPU; device profile must check net effect.
+
+### Actual-code tests and focused host result
+
+New `python3 tools/native/test_frame_owner_index.py` exit0, ASan+UBSan:
+
+- Deliberate400-way initial-bucket collisions across growth to1024slots,
+  repeated lookup/clear/growth and capacity retention. Opaque test identities
+  never dereferenced. Index production entry gets non-null pointers from
+  FrameOwners' existing null-owner guard.
+- 80frames x4000captures differential vs node reference under random payload
+  replacement, duplicate ownership, hints shared with another table, deque
+  growth/borrowed-ref stability, null owners and reset. Identical data/ordinals.
+- Poisoned stale hints, placement-new table reuse at SAME address, exact
+  payload-address reuse after reset with a new shared owner, immediate weak
+  owner expiry at Clear, shared copies surviving source-cache eviction.
+- Two checked-out frame stores/pool limit, epoch purge of idle store while an
+  old checked-out frame remains valid, return/discard and fresh reusable store.
+- Warmed actual allocations via global new counter:30frames each4096unique
+  owners, each captured twice without hints, Clear after each frame. Reference
+  123330heap allocations vs reusable450 (99.635%fewer); remaining deque owner
+  storage allocations intentionally preserved. Flat index131072bytes retained
+  throughout repeated cycles, no further index growth. No claim general render
+  allocations fell99.635% or game CPU dropped by this percentage.
+- Source guards compare full Record and entire draw loop to dev120 commit
+  1f925f3 byte-for-byte, and confirm selector default/all3production role wiring.
+
+Seven existing fixtures also exit0: geometry_handoff,
+command_encoding_control (all8mode combinations/exclusions), native_frame_commands,
+draw_arena (actual ARC Draw/Frame/5000constant snapshots/overflow),
+native_command_cache, gpu_buffer_lookup, attribute_lookup. Parallel host batch
+returned all eight exit0; logs `ios/build/dev121-<fixture>-test.log`.
+New fixture rerun after adding benchmark support also exit0 with same counts.
+No failed fixture this session.
+
+`python3 tools/native/test_frame_owner_index.py --benchmark` exit0: same
+correctness/count checks, optimized -O2 build without sanitizers. Seven trials
+alternating reference/flat order; median4.960ms reference,1.999ms reusable for
+30warmed4096-owner frames (capture+Clear, actual allocation counting active).
+Log `ios/build/dev121-owner-index-benchmark.log`. This synthetic no-hint lookup
+workload is NOT a replay of the phone trace or all Capture work. Host timing
+supports trying this allocation change, not a prediction for device CPU/energy.
+Capture was2.50%app in dev120 and includes useful/hint work not eliminated here.
+No whole-game improvement, FPS/visual/device memory acceptance or battery
+saving established by these host tests.
+
+### Build, final artifact and delivery
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit0, SDK `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk`.
+First log `ios/build/dev121-package.log`, ten warnings (four fpscr operand
+width, five deprecated screen APIs, duplicate -lz), no errors. Final whitespace
+indent correction rebuilt same target exit0, log dev121-package-final.log.
+`codesign --verify --deep --strict <cache>/NFSMW.app` exit0; ZIP CRC test None,
+packaged executable byte-equal to final cache app.104metallibs,2SDKdylibs and
+223-key pipeline_keys.bin (107assets) byte-identical to dev120. No shader seed,
+SDK, mute or graphics-preparation behavior change. git diff --check exit0.
+
+FINAL `ios/build/NFSMW-0.6.1-dev121-owner-index.ipa`,30743730bytes,
+bundle0.6.0(11), SHA256
+`ad5655b0e0bea9b8cfe30126f9da0288893479403aced7f8fb6abac974bc59dc`.
+Executable SHA256
+`ff76c8b4074230e3c62706b6ae66f8d7d124cdfc3dd60531a29670d17804ce11`,
+UUID `51A45FAA-EFEB-3340-BD44-A120E3D0240E`, dwarfdump exit0.
+Private metadata ios/build/dev121-artifact.json. Final copy to
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev121-owner-index.ipa`
+SHA256-verified. Only older Desktop dev120 moved to `/Users/bep1s/.Trash/`;
+stable Desktop0.6.0 and all ios/build development copies retained.
+Initial dev121 build was briefly delivered at same filename BEFORE final
+indentation correction:30743729bytes,SHA256
+`6e8ac49d716b15487f6f66f47bc38e82ab1a1aa28ea9fc62c038aa82f06cc80b`,
+UUID `541CC1F0-2F60-33E1-9A51-8EDC1430F302`. It is superseded by final artifact
+above, replaced/hash-verified on Desktop before completion; do not confuse
+these build identities in a later trace. Source difference whitespace only.
+
+### Next device gate and shared record
+
+Install FINAL dev121 preserving settings/caches, cold restart LiveContainer:
+`--nfsmw_native_command_reuse=true --nfsmw_native_command_encoding=false
+--nfsmw_native_repeat_counter=false --nfsmw_native_owner_index=true`.
+Geometry handoff/residency default true. Same1x/60 and controller/muteOFF as
+requested for dev120 (actual controller/mute setting still needs user matching).
+One roughly2-minute Mac Time Profiler pursuit+nfsmw.log checks correctness,
+FPS/audio, Capture+cleanup CPU and retained lookup capacity. Expected startup
+owner index reusable, zero ICB contexts and active CPU ownership/geometry.
+False owner_index + cold restart gives node reference in same build if needed.
+Analyze first optimized run before additional recordings. No power pair yet.
+Archive/hash any received evidence in capture-date Debug folder immediately.
+
+Checkpoint/native plan/CHANGELOG and matching ignored private BACKLOG updated.
+Preexisting untracked HANDOFF_CHATGPT.md preserved, not included; no other
+preexisting tracked work. All session source/test/shared record committed
+locally together. No push/merge/release.

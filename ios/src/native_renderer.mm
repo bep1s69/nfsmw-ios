@@ -152,6 +152,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true, "GPU",
                     "Within command reuse, declare resources incrementally per encoder (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_geometry_handoff, true, "GPU",
                     "Within command reuse, hand geometry owners and GPU bindings through frame handles (restart required; trial)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_owner_index, true, "GPU",
+                    "Within command reuse, reuse the frame owner identity index; off restores node-based index (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_prepare_graphics, true, "GPU",
                     "Prepare known graphics pipelines before the game starts (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_draw_arena, true, "GPU",
@@ -1182,11 +1184,15 @@ bool NativeGeometryHandoff() {
   static const bool enabled=REXCVAR_GET(nfsmw_native_geometry_handoff);
   return enabled;
 }
+bool NativeOwnerIndex() {
+  static const bool enabled=REXCVAR_GET(nfsmw_native_owner_index);
+  return enabled;
+}
 struct NativeFrameStorage {
   nfsmw::FrameBlocks<ConstantBank> constants;
-  nfsmw::FrameOwners<const ConstantBank> constant_owners;
-  nfsmw::FrameOwners<FloatArray> attributes;
-  nfsmw::FrameOwners<const std::vector<uint32_t>> indices;
+  nfsmw::FrameOwners<const ConstantBank> constant_owners{NativeOwnerIndex()};
+  nfsmw::FrameOwners<FloatArray> attributes{NativeOwnerIndex()};
+  nfsmw::FrameOwners<const std::vector<uint32_t>> indices{NativeOwnerIndex()};
   void Reset() { constants.Reset(); constant_owners.Clear(); attributes.Clear(); indices.Clear(); }
 };
 nfsmw::FrameStoragePool<NativeFrameStorage>& NativeFramePool() {
@@ -9269,7 +9275,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         uint64_t hits=0, builds=0, submitted=0, runs=0, singles=0, budget=0;
         uint64_t resource_calls=0, resource_entries=0;
         uint64_t geometry_frames=0,owner_hints=0,owner_lookups=0,binding_hits=0,binding_lookups=0,binding_fallbacks=0;
-        size_t max_pins=0, max_slabs=0;
+        size_t max_pins=0, max_slabs=0, max_flat_index=0;
       };
       static Window w;
       ++w.frames; w.contexts += command_context != nullptr; w.owned += frame->native_storage != nullptr;
@@ -9294,6 +9300,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         w.owner_hints += storage->attributes.hint_hits + storage->indices.hint_hits;
         w.owner_lookups += storage->attributes.lookups + storage->indices.lookups;
         w.max_slabs = std::max(w.max_slabs, storage->constants.bytes());
+        w.max_flat_index = std::max(w.max_flat_index, storage->constant_owners.flat_index_bytes() +
+            storage->attributes.flat_index_bytes() + storage->indices.flat_index_bytes());
       }
       if (w.frames == 300) {
         REXLOG_INFO("[native] command reuse: {} frames, {} GPU contexts / {} CPU-owned; eligible {} direct {}; "
@@ -9307,9 +9315,11 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     incremental_command_resources ? "incremental" : "reference",
                     w.resource_calls,w.resource_entries,w.frames);
         REXLOG_INFO("[native] geometry handoff {}: {} active / {} frames; owner hints {} / {} map lookups; "
-                    "GPU bindings {} reuses / {} selections / {} fallbacks (activity, not measured energy)",
+                    "GPU bindings {} reuses / {} selections / {} fallbacks; owner index {}, peak flat lookup storage {} KiB "
+                    "(one CPU frame store; activity, not measured energy)",
                     NativeGeometryHandoff() ? "on" : "off",w.geometry_frames,w.frames,w.owner_hints,w.owner_lookups,
-                    w.binding_hits,w.binding_lookups,w.binding_fallbacks);
+                    w.binding_hits,w.binding_lookups,w.binding_fallbacks,
+                    NativeOwnerIndex() ? "reusable" : "reference",w.max_flat_index/1024);
         w = {};
       }
     }
@@ -9949,7 +9959,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev120 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev121 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10435,10 +10445,11 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev120 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {})",
+    REXLOG_INFO("[native] dev121 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
-                NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off");
+                NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off",
+                NativeOwnerIndex() ? "reusable" : "reference");
     return true;
   }();
   (void)announced_reuse;

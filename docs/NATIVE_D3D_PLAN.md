@@ -2,6 +2,18 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev121 BUILT (latest):** approved reusable frame owner identity
+index replaces per-frame hash nodes with contiguous lookup storage, preserves
+stable deque owners/immediate Clear release, slots/hints/generations and all
+validation/draw logic. nfsmw_native_owner_index=true default within opt-in
+reuse; false restart-only reference. Eight host fixtures PASS. Synthetic30x4096
+owner frames123330->450heap allocations,128KiBretained flat lookup capacity;
+optimized host median4.960->1.999ms for this component, not device CPU/energy.
+Signed IPA Desktop; next one Mac Time Profiler+log in dev120 owner-only args
+with index=true, no power matrix. Retained lookup capacity logged per CPU store,
+pool epoch purge releases it. Details/artifact/limits in checkpoint/TECHNICAL.
+
+
 **November11 dev120 device gate (latest):** owner-only mode verified on real
 device:7800CPU-owned/0ICBframes,59.8–60FPS summaries,0audio gaps/foreground
 GPU errors. Same112s CPU window vs dev119 has native render queue -5.97%,

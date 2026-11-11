@@ -19,6 +19,8 @@
   transfers and GPU-buffer lookups while preserving existing validation.
   An independent diagnostic switch can keep frame ownership active while
   using direct Metal draws to measure the cost of cached command encoding.
+  Frame ownership can now reuse its lookup storage across frames to avoid
+  repeatedly allocating and freeing ownership-table entries.
 
 ## 0.6.0
 
