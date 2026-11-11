@@ -1,5 +1,15 @@
 # Native graphics path toward an iOS port
 
+**November11 dev123 C1 device ANALYZED (latest):** normal gameplay accepted,
+5400guardedCPU-owned frames/59.9–60FPS/0audio gaps or traceGPU/token errors.
+C1 reach22.8869%reported range words vsC0~1.48%,10.61runs/batch; useful native
+transport coverage, not proven CPU/battery optimization. Named transport1.37%
+app; whole CPU+56% vs dev122 confounded by workload/core placement/sampling.
+Keep defaultOFF/normal bothflagsfalse+coldrestart. No extra recordings/power
+now. Next SOURCE proposal: reusable prepared native geometry descriptions in
+Record, preserving memory validation/dynamic/UP/cache generation/lifetimes;
+current exactUUIDline attribution detailed TECHNICAL. No new geometry code/IPA.
+
 **November11 dev123 C1 BUILT (latest):** compatible state-flush aggregation
 implemented after actual outer/CP source gate. Separate defaultOFF restart
 `nfsmw_native_register_flushes`; current C0 control retained. Host mixed cases
@@ -701,3 +711,35 @@ hardware-side transforms. Not a GPU/game validation. Host mixed-state cases
 cost vsC0 is mixed and sparse path costs~8ns/flush. Do not infer whole-game CPU
 or energy savings. Next device coverage/correctness/profile gate in checkpoint;
 no power request until useful measured work reduction.
+
+#### C1 device gate and next geometry source proposal
+
+Dev123 capture passes this pursuit's functional/coverage gate, with Stefan's
+normal picture/controls/audio confirmation. Not net CPU/energy acceptance.
+18full guarded windows5400frames;360862079words/1894405batches,22.8869%range
+words (approx independently phased reports),10.61runs/batch,peak1792/2048slots.
+Capacity report mixes append split and slot reserve failures, so cannot infer
+pool exhaustion/lost state. Prefix fallback remains necessary. Do not grow
+pool or lower sparse gates without evidence. Named helpers/consumer cost1.37%
+app is useful snapshot/copy work too, not exact added overhead. Broader CPU
+comparison is confounded; current checkpoint/TECHNICAL retain exact numbers.
+Both flags remain off for normal play, existing C0/C1 controls kept for later.
+
+Read-only source follow-up identifies Record as14.59%app inclusive, with
+9970ms self in82s. Verified UUID+atos/bounded disassembly maps1345ms to
+AttributeEntryFor caller3138,514ms to end-of-attribute local release3334,
+742ms to draw append3587. These call-line/skid weights are not exact functions'
+removable costs. Proposed next source boundary: cache a complete prepared
+native geometry description (shader-derived fetch layout/remaps, index-range
+identity and validated attribute-entry handles), above per-attribute lookups,
+so repeated draws can reuse setup across passes/frames. Existing mutable source
+fingerprint/watch/dynamic checks MUST still execute as required. UP data,
+changed shader/fetch/index formats/ranges, cache sweep/erasure/purge, allocation
+identity and frame/GPU lifetime differences invalidate or fall back BEFORE
+publishing a draw. Generation-checked cache node handles must not survive
+entry erasure. Do not cache a completed mutable Draw/state packet blindly or
+reuse geometry merely because its address matches. No new implementation yet;
+source feasibility and actual reference/differential before live hooks/build.
+GPU13.367ms nearby vs7.564control remains a workload confound; sparse main-pass
+labels don't identify a safe equivalent shader rewrite. No parked GPU capture
+or unrelated defect reopened in this analysis.

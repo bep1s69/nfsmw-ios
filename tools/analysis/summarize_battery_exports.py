@@ -62,7 +62,7 @@ def power(path, skip, end=None):
             'thermal_seconds': dict(thermal)}
 
 
-def profile(path, skip, end, process=None):
+def profile(path, skip, end, process=None, register_flush_hooks=False):
     ids, counts = {}, Counter()
     threads, leaf, inclusive = defaultdict(Counter), Counter(), Counter()
     thread_leaf = defaultdict(Counter)
@@ -145,11 +145,35 @@ def profile(path, skip, end, process=None):
                 batch_producer = '(anonymous namespace)::Try(PPCContext&, unsigned char*, unsigned int)' in frames
                 batch_consumer = '(anonymous namespace)::Consume(unsigned long long, void (*)(void*, unsigned int, unsigned int*, unsigned int), void*)' in frames
                 batch_helper = any(f.startswith('nfsmw::register_batch::') for f in frames)
+                flush_collector = any((f == '(anonymous namespace)::Collector::AddCall(PPCContext&, unsigned int)' or f.startswith('(anonymous namespace)::Collector::AddCall(PPCContext&, unsigned int)::'))
+                                      or f == '(anonymous namespace)::Collector::Flush()' for f in frames)
+                batch_publish = '(anonymous namespace)::Publish(nfsmw::register_batch::Pool<2048ul>::Reservation&, unsigned char*, unsigned int, unsigned int, unsigned int)' in frames
+                flush_gate = '(anonymous namespace)::WorthCollecting(unsigned char*, unsigned int)' in frames
+                flush_outer = 'sub_825A3EC8' in frames
+                # Older builds can resolve the original weak alias to this
+                # same name. Only charge its leaf to C1 when the caller has
+                # verified that this build contains the strong outer hook.
+                flush_outer_self = register_flush_hooks and frames[0] == 'sub_825A3EC8'
+                # The entire outer hook contains original flush/prefix work.
+                # Report it separately; never charge all of it as C1 overhead.
+                if flush_outer:
+                    graphics['register_flush_outer_inclusive_ms'] += weight
+                if flush_outer_self:
+                    graphics['register_flush_outer_self_ms'] += weight
+                if flush_collector:
+                    graphics['register_flush_collector_named_path_ms'] += weight
+                if batch_publish:
+                    graphics['register_batch_publish_named_path_ms'] += weight
+                if flush_gate:
+                    graphics['register_flush_gate_named_path_ms'] += weight
                 if batch_producer:
                     graphics['register_batch_producer_named_path_ms'] += weight
                 if batch_consumer:
                     graphics['register_batch_consumer_named_path_ms'] += weight
-                if batch_producer or batch_consumer or batch_helper:
+                producer_helpers = batch_producer or flush_collector or batch_publish or flush_gate or flush_outer_self
+                if producer_helpers:
+                    graphics['register_batch_producer_helpers_union_ms'] += weight
+                if producer_helpers or batch_consumer or batch_helper:
                     graphics['register_batch_named_union_ms'] += weight
                 frame_cleanup = any('::Frame::~Frame(' in f for f in frames)
                 storage_lifecycle = any('nfsmw::FrameStoragePool<' in f for f in frames)
@@ -176,6 +200,7 @@ def profile(path, skip, end, process=None):
         merged_leaf[role].update(thread_leaf[name])
     return {'file': str(path), 'skip_seconds': skip, 'end_seconds': end,
             'process_filter': process,
+            'register_flush_hooks': register_flush_hooks,
             'totals': dict(counts), 'threads': dict(merged),
             'graphics_footprints_ms': dict(graphics),
             'thread_self_ms': {name: values.most_common(60) for name, values in merged_leaf.items()},
@@ -189,7 +214,9 @@ if __name__ == '__main__':
     p.add_argument('--skip', type=float, default=10)
     p.add_argument('--end', type=float)
     p.add_argument('--process', help='Exact process name for CPU samples (e.g. LiveContainer)')
+    p.add_argument('--register-flush-hooks', action='store_true',
+                   help='Count outer-hook self samples as C1 producer work; only for verified C1 builds')
     args = p.parse_args()
     for file in args.files:
-        result = power(file, args.skip, args.end) if args.mode == 'power' else profile(file, args.skip, args.end, args.process)
+        result = power(file, args.skip, args.end) if args.mode == 'power' else profile(file, args.skip, args.end, args.process, args.register_flush_hooks)
         print(json.dumps(result, sort_keys=True))

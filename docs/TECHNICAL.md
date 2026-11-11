@@ -25715,3 +25715,226 @@ with batchestrue/flushesfalse if later warranted. No promised battery gain.
 Checkpoint/nativeplan/private ignored BACKLOG/CHANGELOG updated. BACKLOG
 intentionally not staged; HANDOFF remains preexisting untracked. Own source,
 fixtures and shared tracked docs committed locally, no push/merge/release.
+
+## November 11, 2026 — dev123 C1 device coverage and CPU analysis
+
+### Inputs archived first; identity and capture controls
+
+Stefan supplied November11Debug/dev123_iphone_pursuit_time_profile.trace and
+Desktop/nfsmw\.log (shell escape resolved to actual nfsmw.log). He then confirmed
+via question reply: picture, controls and audio all felt normal. Later
+"continue" steered ongoing analysis; no new implementation/release requested.
+Started256cab2, codex/native-frame-command-reuse, tracked clean; preexisting
+untracked HANDOFF_CHATGPT.md preserved. Required shared records/status/log read.
+
+BEFORE analysis copied and byte/hash-verified:
+- Source /Users/bep1s/Desktop/nfsmw.log,778303bytes.
+- Archive /Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/11 November 2026/dev123_iphone_pursuit_time_profile_nfsmw.log.
+- SHA2566a8659a66f432c330df6507beea22e2b6b2eaac2dd3f296389c04dbe4f244a18.
+- Desktop original PRESERVED/unchanged. Prior dev122 per-file deletion approval
+  is not a standing delete-future-logs instruction.
+- Trace already in correct dated archive;282files/74854835bytes. Sorted relative
+  path/bytes/SHA256 records serialized JSON(sort_keys,compact separators), tree
+  SHA256a9563485dd0e4d1c0bc25c273021f6ca22f32d72643c5adf446f5868eec1e1e7.
+  Manifest next to trace as dev123_iphone_pursuit_time_profile_manifest.json and
+  in ignored audit ios/build/dev123-time-profile-20261111/archive-manifest.json.
+  Full tree/log hashes unchanged after export, post-export-verification.json.
+  No replacement, move or deletion of supplied trace/original log.
+
+xctrace TOC: iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2(27B52),
+LiveContainer16535,21:43:10.800–21:44:49.485+02:00,98.685518s, User pressed
+Stop. Ordinary1ms/1000us sampling/high-frequencyOFF; dev122 was100us/highON.
+Driving21:43:12.645. Primary CPU interval8–90s=82s, entirely driving; final
+8.685s excluded from comparison. Guarded log stats require complete5s windows
+starting after driving+5s (21:43:17.645), ending before trace stop. Different
+sample rates/interned stack coverage limit small-scope comparisons.
+
+NFSMW imageUUID5CC1ECB2-620D-3859-8718-3FD467D59843, load0x1100f8000,
+exactly signed final dev123 IPA SHA1002204fd4d3676be80de55d364c22ac0ef34f2fa08051ec42a9677d1f7ae931,
+exe SHAce5c30ad2a5e861d2e0542bd128a5f5ed33786f06711ff1ca0b5022e919413ae.
+Renderer build Nov11 19:10:17/dev123. Generic app-start string still old
+Nov10 compile stamp, not evidence of wrong renderer. Both register_batchesON
+and register_flushesON, frame reuseON/encodingOFF/repeatOFF/indexreusable/
+residencyincremental/geometryON.1x,cap60,MSAAforced0,FXAAoff,MetalFXoff.
+Both runs cap-controller driving start Default, no claimed QoS setting change.
+Master-mute/controller state not independently logged; subjective audio normal.
+Known pipeline preparation223normal/0ICB,412ms before game, pipelinecount223
+through pursuit. No shader recompile/freeze attributed to C1 in capture.
+
+### Gameplay and C1 reach
+
+18full guarded300frame windows5400CPU-owned/ICB0,0budget/binding fallback,
+16windows60.0FPS/2windows59.9.17complete audio windows0gaps;2of5400pacing
+frames off16.7ms grid (worst16.7ms). No trace-time watchdog/error/GPU/invalid
+register-token errors. Thermal30nominal entries during trace; peak1669MiB.
+Stefan confirms normal gameplay, not proof for every device/content.
+
+Whole log does contain one PRE-trace5s loading watchdog21:42:58.090,
+466error dump lines, recovered21:42:59.106 BEFORE driving and trace start.
+19vigilante-tag lines include thread dump+recovery, not19distinct stalls.
+Do not call whole log error-free. Similar pre-trace startup dump in dev122;
+no cause assigned/reopened parked stutter defect.54GPU background-permission
+warnings begin21:44:51.012000, after trace stop21:44:49.485 AND scene resign
+21:44:50.057; no foreground GPU error. Source log preserved for exact context.
+
+Guarded C1+C0 counters (concurrent300swap reports; approximate phase):
+-1,894,405produced/1,894,219consumed (carry/sample timing, not lost queue proof).
+-360,862,079words/20,101,103runs=10.6108runs/batch,190.49words/batch.
+-350.816batches/frame vs C0~6.94; now genuinely multiple ordered runs/token.
+-Original handled ring1,600,960,044bytes ->53,650,796token bytes,96.6488%less
+ for HANDLED subset only. Not whole stream/DRAM/CPU/energy saving.
+-Reported native range denominator1,576,719,270words, includes constant+
+ fallback ranges, omits direct single writes; reports independently phased.
+ Approx22.8869%range words handled vs earlier dev122~1.48%, ~15.5x reach.
+-Eligible outer flushes1,857,456/collected emitter calls10,653,427/sparse
+ bypass16,085,335. Most outer calls remain sparse; admission overhead matters.
+-Unsupported5399/small47,116,379/boundary167,352/capacity26,005preparation
+ attempts. C1 capacity includes normal append splits AND failed pool reserves;
+ code retries at most once. Existing combined counter cannot distinguish them,
+ not26,005dropped commands or measured slot exhaustion. Don't grow pool blindly.
+-Pending report max613, lifetimepeak1792of2048slots (~8992KiB), versus C0peak18.
+ Much higher queue/pool activity warrants conservative defaultOFF; native
+ prefix/original fallback preserved, no invalid/stale/missing token errors.
+
+Primary8–90s full-window reports: C1 15CP/15render windows4500frames,
+1,533,727produced/1,533,837consumed,296,741,537words/16,180,330runs,
+22.9192%range-word reach. Dev122 has16CP/nativeconstant windows4800frames,
+15render windows4500frames due independent report end phases at window edge;
+its coverage1.4805%,33333batches/4800=6.9444perCPframe. NEVER divide its CP
+batch sums by4500render frames. New same-scope340.828batches/CPframe.
+Nearby render counters:3149.891->3227.142direct draws/frame(+2.45%),
+5585.003->5923.782owner lookups/frame(+6.07%); GPU7.564->13.367ms(+76.72%).
+Same drawcount does not mean same shader/texture/pass/pixel work.
+
+### CPU sample-weight comparison and attribution limits
+
+Reran dev122 raw export over identical relative8–90s, not the older102s totals.
+All below ms statistical CPU sampleweight, not wall durations, watts or exact
+execution times. Captures are separate live pursuits, not deterministic replay.
+
+| Scope | dev122 C0 | dev123 C1+C0 | Change |
+|---|---:|---:|---:|
+|App|74107.3|115662|+56.07%|
+|GPU Commands|12936.7|22826|+76.44%|
+|Native render queue|19167.6|31036|+61.92%|
+|Combined graphics threads|32104.3|53862|+67.77%|
+|Writer/CP union|5774.1|9397|+62.74%|
+|Record inclusive|9275.6|16873|+81.91%|
+|Geometry owner Capture named|1117.7|2135|+91.02%|
+|Frame storage named|224|698|+211.61%|
+|Draw/frame/storage lifecycle union|711.3|1690|+137.59%|
+|AGX leaf|2122.4|3408|+60.57%|
+
+Unchanged worker CODE also spends more sampletime: MainXThread15055.7->23166
+(+53.87%); world worker14883.7->22454(+50.86%); guest audio7224->10463
+(+44.84%). MainUIKit2504.5->3469(+38.51%). This broad shift cannot all be
+attributed to the small batch implementation. P-core sample share92.94995->
+80.41708%; mainX P-share96.36->70.44%, GPU Commands97.90->80.87%, render
+94.30->86.30%. More E-core residence may increase time for equal work; actual
+clock/instruction/energy data absent, no causal explanation asserted. Both
+start QoS Default, thermal nominal; don't invent setting/thermal change.
+Dev122741073samples/3658.7ms stackless(~4.937%); dev123115662samples/1484ms
+stackless(~1.283%). More resolved stacks can raise inclusive named shares;
+sample rate100us->1000us also differs. Primary mean app0.90375->1.41051core
+ equivalents, not a battery rate. No controlled regression OR saving concluded.
+
+New exact named costs (overlapping paths; useful snapshot/copy work included):
+-Old C0 Try only122.3->106ms; not total producer cost now.
+-C1 Collector668ms, commonPublish86ms, outerhookSELF148ms, named gate0
+ (inlined/not observed as separate frame). Producer helper union922ms.
+-Consume callback11.2->661ms. Namespace helper/producer/consumer union
+ 133.6->1583ms=0.18028->1.36864%app,19.305ms/s new total. Not exact added
+ overhead, not disjoint from writer/CP; includes useful copies previously on
+ original paths. Can't subtract/infer net saving from it.
+-Whole outerhook inclusive4283ms includes original helpers/emitters and CPU
+ dirty-mask work; deliberately NOT counted wholesale as added C1 cost.
+
+Functional reach gate passed for this run; net CPU/battery gate has NOT passed.
+Retain implementation/defaultOFF; no power matrix or another uncontrolled
+pursuit reference requested. Normal play BOTH batch/flushfalse+coldrestart,
+other ownership controls unchanged. Do not advertise increased coverage as a
+battery optimization or claim the entire+56% is caused by C1.
+
+### Existing trace used to locate next source work
+
+Record inclusive16873ms=14.5882%app, self9970ms=8.6200%app, a larger CPU
+scope than batch helpers. Read-only source attribution, no app changes:
+1053unique Record-self PCs weighted9970ms over8–90s. Exact packagedUUID;
+atos -o <dev123 unpacked NFSMW> -arch arm64 -l0x1100f8000 <runtimePCs>,
+PC low2tagbits cleared. All1053 symbolications in200PC batches exit0. Atos
+found matching current object line tables; Record source unchanged since
+build. record-self-pcs.json,record-self-lines.json and record-source-groups.json
+retained, not a new device recording/dSYM/build.
+
+Top source call-lines:3138AttributeEntryFor1345ms;3334end-of-attribute local
+lifetime514ms;3587drawappend742ms;3519TextureOf507ms;3293vertex decode451ms.
+Line0 1144ms plus header/other396ms unresolved-to-renderer line. Bounded
+llvm-objdump -d --start-address/--stop-address (exit0) of top2PCs cross-check:
+0x1102a47f0/preferred0x1001ac7f0 (592ms) is lookup compare/node load path;
+0x1102a69b4/preferred0x1001ae9b4(511ms) is local-owner load before shared
+controlblock ldaxr/stlxr decrement. Not proof all line514ms removable; sampling
+skid/inlining and mixed optimized control flow limit source grouping.
+
+Approx SELF-only groups sum9970ms: vertex layout/cache/validation3586,
+vertex decode/local destruction1834, index lookup/validation632, drawappend/
+ownerpin883, textures/drawstate1054, constants/motion283, index conversion6,
+shader/guards152, inlined/header/line0 1540. Includes required game semantics;
+don't equate inclusive Record14.6% or geometry groups with predicted saving.
+Native GPU-pass logs also retained:16sparse timed frames in primary interval,
+mean13.474ms; main1600x720label91.24ms total/16(~5.70/frame), cube320x256
+37.96(~2.37/frame),1600x1600pair22.30(~1.39/frame). Sparse samples/grouped
+labels, not shader attribution or energy. No safe shader rewrite identified;
+parked native GPU capture not reopened.
+
+Next proposed SOURCE action: reusable prepared native geometry descriptions
+above per-attribute cache lookup. Reuse shader-derived fetch layout/remaps,
+index-range identity and generation-checked cache-entry handles across repeated
+draws; retain exact mutable source fingerprint/watch/dynamic validation, UP
+special handling, frame/GPU ownership. Changed shader/fetch/index/range and
+cache sweep/erasure/purge/identity must invalidate BEFORE publishing a draw.
+No cached complete mutable Draw, no address-only reuse, no skipped validation.
+Audit feasibility/reference differential first, not blind cache growth or a
+full PM4 retirement. No new geometry implementation/IPA this session. This is
+a source proposal targeting measured preparation work, not a promised saving.
+
+### Analysis tool changes and commands
+
+Extended summarize_battery_exports.py with exact C1 Collector AddCall+lambda/
+Flush, exact Pool2048 Publish, WorthCollecting, separate outer inclusive and
+outerself, producer helper union. Transport union counts one weight even when
+collector/publish/pool/outer share a sample. Existing Try-only field preserved.
+The explicit --register-flush-hooks flag (defaultfalse) is REQUIRED to charge
+outerhook self in verified C1 builds: pre-C1 original weak aliases can resolve
+to identical sub_825A3EC8 name. Old outer-name samples aren't automatically new
+transport costs. Original shader work nested under outer counted only in
+outerinclusive, never wholesale as helper. Positive/nested tests plus unrelated
+Collector/Publish/Consume and pre-C1 alias negatives PASS.
+
+Initial private log parser failed on assuming16numeric command-reuse fields;
+actual report15, fixed explicit15-field schema before any metrics accepted.
+First profile draft had unconditional outerself matching; corrected with build
+flag to avoid old weak-alias misclassification, reran final new/control results.
+No production source failure. Earlier draft profile retained but not used as
+final; use profile-final-8-90.json. No trace/tool side effects on game inputs.
+
+Commands observed exit0:
+-xcrun xctrace export --input <trace> --toc --output <audit>/toc.xml.
+-xcrun xctrace export --input <trace> --xpath
+ '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]'
+ --output <audit>/time-profile.xml (escalated Instruments cache access).
+-python3 tools/analysis/test_profile_process_filter.py, final analysis-tests-final.log.
+-python3 tools/analysis/summarize_battery_exports.py profile <new XML>
+ --skip 8 --end 90 --process LiveContainer --register-flush-hooks, final JSON.
+-Same command on dev122 XML WITHOUT flush-hooks for8–90 and8–110 controls.
+ Rerun8–110 totals, threads, EVERY preexisting graphics scope exactly matches
+ previous dev122 profile-8-110.json, no reinterpretation of old results.
+-Private retained analyze-log.py/record-pcs.py and comparison.json/
+ log-analysis.json/control-log-analysis.json; symbolication commands above,
+ source-line/
+ disassembly/GPU-label JSONs in audit folder. No parser logs treated as tests
+ of real GPU/baseCP hardware side effects.
+
+Shared checkpoint/nativeplan/private ignored BACKLOG updated. No CHANGELOG
+entry for analysis-only result, no app/SDK/default/build/IPA change. Own analysis
+tool/fixture/docs committed locally; private BACKLOG deliberately ignored,
+HANDOFF preexisting untracked preserved. No push/merge/release.

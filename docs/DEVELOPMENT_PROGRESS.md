@@ -511,6 +511,61 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 ## Current checkpoint — November 11, 2026
 
 
+**November11 dev123 C1 device ANALYZED (latest):** Stefan confirms picture,
+controls/audio normal. CorrectUUID5CC1ECB2-620D-3859-8718-3FD467D59843 and BOTH
+batch/flush switchesON verified; prior owner-only controls unchanged. Desktop
+nfsmw.log archived/hash-verified as November11Debug/
+dev123_iphone_pursuit_time_profile_nfsmw.log,778303bytes,
+SHA2566a8659a66f432c330df6507beea22e2b6b2eaac2dd3f296389c04dbe4f244a18.
+Desktop original PRESERVED (previous deletion request was per-file dev122).
+Trace282files/74854835bytes unchanged after export; manifest in same Debug
+folder. iPhone17ProMax/iOS27.3;98.685518s,1ms sampling (dev122100us).
+
+18full guarded300-frame windows5400CPU-owned/ICB0,16x60/2x59.9FPS,0binding/
+budget fallback,17audio windows0gaps,2/5400off-grid(worst16.7ms). No trace-time
+watchdog/error/GPU/token errors, thermal nominal/peak1669MiB. One pre-trace
+loading watchdog recovered21:42:59.106;54backgroundGPU warnings only after
+stop+scene resign. User acceptance for this pursuit, not all content/devices.
+C1+C0 handles360862079words/1894405batches,10.61runs/batch,350.82batches/frame;
+22.8869%reported range words vs C0~1.48%, functional reach improvement.
+96.6488%ring byte reduction HANDLED subset only. Pending<=613, lifetimepeak1792/
+2048;26005capacity PREP attempts mix append splits/reservation failure (not
+lost commands; existing counter cannot separate). Do not increase pool blindly.
+
+82s8–90s CPU comparison vs dev122: app74107.3->115662ms(+56.07%), graphics
+32104.3->53862(+67.77%), writer/CP5774.1->9397(+62.74%). Nearby drawcount+2.45%,
+ownerlookups+6.07%, GPU7.564->13.367ms; P-core share92.95->80.42%, unchanged
+main/world/audio work also44–54%higher. Sampling100us->1000us, stackless4.94->
+1.28%. NOT a controlled CPU regression/saving or energy result. Named batch
+union133.6->1583ms(0.1803->1.3686%app); includes useful copies, no exact overhead
+or net saving. Updated analyzer includes Collector/Publish/outerSELF; explicitly
+--register-flush-hooks for verified C1 builds, because older original weak
+outer aliases can share name. Entire outer inclusive4283ms includes original
+work, excluded from helper union. Existing control totals/threads/old scopes
+exactly unchanged on rerun8–110. Fixtures PASS; no app/SDK/IPA changes.
+
+**Next SOURCE proposal:** close C1 correctness/coverage round, retain plumbing
+and defaultOFF; normal play BOTH register_batches=false/register_flushes=false
++coldrestart, other owner-only settings unchanged. No further phone recording/
+power pair now. Audit reusable prepared native geometry descriptions within
+Record above existing per-attribute lookup; preserve exact source validation,
+dynamic/UP handling, cache-sweep generation and frame/GPU ownership. Current
+Record16873ms=14.59%app inclusive,9970ms self (not wholly removable). ExactUUID
+atos of1053selfPCs maps hot lookup3138=1345ms, local destruction3334=514,
+append3587=742; disassembly confirms lookup/load and refcount release sites.
+Source-line groups are approximate/skid/inline, not exact removable costs.
+This is a proposed larger native geometry source step, no new implementation/
+IPA yet. Do not call C1 a measured battery optimization or repeat an uncontrolled
+pursuit matrix. GPU main pass remains substantial; sparse pass timings identify
+no safe shader simplification yet, no GPU-capture investigation reopened.
+
+Evidence/audit `ios/build/dev123-time-profile-20261111/`; exact counts/settings/
+limits in TECHNICAL. Shared tracked records and analysis tool/tests committed
+locally; ignored private BACKLOG updated but not staged. Preexisting untracked
+HANDOFF_CHATGPT.md preserved/excluded. No push/merge/release.
+
+
+
 **November11 dev123 C1 compatible register flushes IMPLEMENTED/BUILT (latest):**
 Stefan agreed to continuing the C1 source work. Actual outer825A3EC8 comparison
 and host cost gate preceded live hooks. New restart-only

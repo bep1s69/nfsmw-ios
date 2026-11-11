@@ -59,6 +59,36 @@ with tempfile.TemporaryDirectory() as tmp:
     assert scope['register_batch_consumer_named_path_ms']==scope['register_batch_named_union_ms']==1
     p.write_text(xml.replace('name="shared_function"','name="rex::audio::XmaContext::Consume(rex::memory::RingBuffer*)"'))
     assert 'register_batch_named_union_ms' not in profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
+    from html import escape
+    for name, key in [
+        ('(anonymous namespace)::Collector::AddCall(PPCContext&, unsigned int)', 'register_flush_collector_named_path_ms'),
+        ("(anonymous namespace)::Collector::AddCall(PPCContext&, unsigned int)::'lambda'()::operator()() const", 'register_flush_collector_named_path_ms'),
+        ('(anonymous namespace)::Collector::Flush()', 'register_flush_collector_named_path_ms'),
+        ('(anonymous namespace)::Publish(nfsmw::register_batch::Pool<2048ul>::Reservation&, unsigned char*, unsigned int, unsigned int, unsigned int)', 'register_batch_publish_named_path_ms'),
+        ('(anonymous namespace)::WorthCollecting(unsigned char*, unsigned int)', 'register_flush_gate_named_path_ms'),
+        ('sub_825A3EC8', 'register_flush_outer_self_ms'),
+    ]:
+        stack=xml.replace('name="shared_function"',f'name="{escape(name)}"')
+        # Ancestor wrapper also contains useful original work; do not add it
+        # again to the producer/transport union for this nested sample.
+        stack=stack.replace('</tagged-backtrace>','<frame id="20" name="sub_825A3EC8"/></tagged-backtrace>',1)
+        p.write_text(stack)
+        scope=profile(p,0,None,'LiveContainer',register_flush_hooks=True)['graphics_footprints_ms']
+        assert scope[key]==scope['register_batch_named_union_ms']==1
+        assert scope['register_batch_producer_helpers_union_ms']==1
+        assert scope['register_flush_outer_inclusive_ms']==1
+    for name in ['other::Collector::Flush()', '(anonymous namespace)::Publish(Audio&)', '__imp__sub_825A3EC8']:
+        p.write_text(xml.replace('name="shared_function"',f'name="{escape(name)}"'))
+        assert 'register_batch_named_union_ms' not in profile(p,0,None,'LiveContainer',register_flush_hooks=True)['graphics_footprints_ms']
+    # Original shader work nested under new wrapper is inclusive outer work,
+    # not a C1 helper. The wrapper is not the leaf in this sample.
+    p.write_text(xml.replace('name="shared_function"','name="original_shader_helper"').replace('</tagged-backtrace>','<frame id="20" name="sub_825A3EC8"/></tagged-backtrace>',1))
+    scope=profile(p,0,None,'LiveContainer',register_flush_hooks=True)['graphics_footprints_ms']
+    assert scope['register_flush_outer_inclusive_ms']==1 and 'register_batch_named_union_ms' not in scope
+    # In a pre-C1 binary this same weak alias can name the original body.
+    p.write_text(xml.replace('name="shared_function"','name="sub_825A3EC8"'))
+    old=profile(p,0,None,'LiveContainer')['graphics_footprints_ms']
+    assert old['register_flush_outer_inclusive_ms']==1 and 'register_batch_named_union_ms' not in old
     image = dict(base=0x4000, preferred=0x1000, sections=[(0x1100, 0x1200)],
                  starts=[0x1110, 0x1150], symbols=[(0x1110, 'first'), (0x1150, 'second')])
     assert name_pc(0x4113, [image]) == 'first'  # tagged non-leaf PC
@@ -73,3 +103,4 @@ print('PASS exact process filtering, cross-process interned refs, unresolved sta
 print('PASS symbol section bounds, tagged PCs and exact reference UUID/offset matching')
 print('PASS frame cleanup/storage scopes overlap without double-counting union weight')
 print('PASS exact register-batch producer/consumer matching, nested helper union and unrelated Consume exclusion')
+print('PASS C1 collector/publish/gate/outer self union and original-work ancestor exclusion')
