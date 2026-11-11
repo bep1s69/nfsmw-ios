@@ -21897,3 +21897,30 @@ arm64 UUID 862ECF92-5207-31FA-96A3-63020CF69E93. No source changes, rebuild,
 or fresh-container test. `cmake --list-presets -S ios` found ios. Local
 main is an ancestor of the release branch. No merge, tag, push or GitHub
 release in this session. HANDOFF_CHATGPT.md remains untracked.
+
+## November 11: 16:9 with MSAA and the native renderer, one pass
+
+Symptom (iPhone Duo, iOS 27.3, Display > Screen shape 16:9 with MSAA): only
+the top ~35% of the 3D scene is right, then a white band, then black; menus,
+text and HUD are fine. The same on a 16:9 external display.
+
+Cause: with MSAA chosen and the shape 16:9, `nfsmw_render_sin_mosaico` was
+off (`settings_catalog.mm`, `wide || (one_pass && !msaa)`), so the game used
+its mode 4: the scene in three 1280x256 strips with MSAA, replayed per strip
+by BeginTiling/EndTiling with a window offset per strip
+(`[render-probe] mode 4: 3 strip(s) 1280x256`). The native renderer draws a
+pass whole and ignores the window offsets by design (the draws' viewport and
+the resolves in `native_renderer.mm`), so every strip drew the top of the
+scene and the resolves for the second and third copied rows that were never
+drawn (`depth audit: rect 0,0 3840x768` and `rect 0,768 3840x624` at 3x;
+256/720 = 35%). It does not show on 19.5:9 iPhones (a wide scene, always one
+pass) or on 4:3 screens (the SD mode, one strip), so it only appears when
+16:9 is chosen or resolved.
+
+Change: with the native renderer, 16:9 also uses the single pass (modes 3-5
+take mode 2's one 1280x736 strip, `common/src/render_targets.cpp`), and the
+native renderer adds the MSAA itself (`nfsmw_native_force_msaa`), as it does at
+19.5:9. Cost: none expected (the scene is drawn once instead of three times);
+the game's 256x256 reflection target loses its 4x MSAA, as on the iPhones.
+The log then says `[render] el juego eligio el modo 4: se usa el 2`.
+Verified on an iPhone Duo at 16:9 on its own screen, a 4K monitor and a TV.

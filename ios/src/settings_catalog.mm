@@ -1091,8 +1091,16 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   }
   a.push_back("--ios_thread_qos=false");  // accepted for older argument files; promotion is retired
   a.push_back("--ios_async_submits=" + b(On(s, @"async_submits")));
-  // The single pass is the game's mode without anti-aliasing: not with MSAA.
-  a.push_back("--nfsmw_render_sin_mosaico=" + b(wide || (On(s, @"one_pass") && !msaa)));
+  // The single pass is the game's mode without anti-aliasing: not with MSAA,
+  // except where the native renderer draws. At 16:9 with MSAA the game draws
+  // its scene in three 1280x256 strips (mode 4, predicated tiling), and the
+  // native renderer draws each pass whole, without the strips' window offsets
+  // (native_renderer.mm, the draws' viewport and the resolves): only the top
+  // strip came out right, then a white band and black (a 16:9 TV, Nov 11).
+  // In one pass the native renderer adds the MSAA itself
+  // (nfsmw_native_force_msaa), as at 19.5:9.
+  const bool native_16_9 = On(s, @"native_renderer") && [aspect isEqualToString:@"16:9"];
+  a.push_back("--nfsmw_render_sin_mosaico=" + b(wide || native_16_9 || (On(s, @"one_pass") && !msaa)));
   a.push_back(std::string("--render_target_path_vulkan=") + (On(s, @"edram_fsi") ? "fsi" : "fbo"));
   a.push_back("--occlusion_query_enable=" + b(On(s, @"occlusion")));
   a.push_back("--ios_invalidation_widen_kb=" + str(@"widen_kb"));
