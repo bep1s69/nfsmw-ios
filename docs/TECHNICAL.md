@@ -25118,3 +25118,221 @@ for working trial. Current source changes ONLY offline audit tools/shared docs;
 no runtime/generated/SDK/CHANGELOG changes. Updated matching ignored private
 BACKLOG. HANDOFF preserved untracked/excluded; all own tools/docs committed
 locally. git diff --check exit0 before commit; no push/merge/release.
+
+## November 11, 2026 — dev122 C0 owned register batches implemented
+
+Stefan explicitly approved implementation. Built live C0 trial after host
+builder/ownership/CP-path checks. New restart-only default-OFF
+`nfsmw_native_register_batches`; independent of frame ownership/geometry/ICBs.
+Only USA target compiles the two strong emitter overrides; original weak
+thunks/__imp__ implementations remain. No PM4 thread retirement or game-thread
+Record. All131original generated C++ files hash-identical to f14e34d audit
+manifest; CMake regenerates only normal translated support copies.
+
+### Production boundary and ownership
+
+native_register_batch.h implements MSB-first dirty-run builder (scalar1word,
+grouped16words/bit), at most32runs/1024owned raw-BEwords. Bounds checked BEFORE
+output mutation, zero mask/unsupported widths/out-of-bank ranges rejected.
+No guest pointer survives capture. OriginalEnd models entire original fast
+path, including scalar run headers and grouped VMX alignment/filler stores.
+If any original slow/segment path needed, native admission fails without writes.
+TokenEnd uses20byte NOP token plus0–3type2fillers to preserve original final
+mod16alignment and never exceed original reserved footprint. Last-written+0,
+capacity+4 semantics retained; no borrowing draw-specific+8 boundary.
+
+Pool2048independent slots, at most8probes/nonblocking reserve then original
+fallback; approximately9MiBprocess-lifetime storage allocated only when needed.
+Unique generation+slot tickets, atomic Writing/Ready/Reading/free state,
+move-only RAII cancellation, old data cannot be published without rebuilding.
+Sequence saturates before wrapping into stale/reserved ticket values. No
+modulo live overwrite, GPU-completion wait or in-flight purge. Consumer
+acquires exact Ready ticket once, validates all spans before writes, invokes
+existing CP virtual range writes then releases slot. Batch storage only needed
+through CPU register copy, not Metal completion. No hot setting/pool reset;
+full cold restart selects route. Reserve failure preserves original writer.
+
+native_register_batches.cpp whitelists10actual return PCs/base/source extents
+from ordinary825A3EC8 calls. Source checker matches whitelist against generated
+callsite LR/register/source-offset annotations. Unknown callers, invalid mask,
+small batches, segment/bounds/alias discontinuity, unavailable hook/backend or
+pool capacity remain original. Renderer must use native CP/native backend;
+legacy game-thread capture and Vulkan mode never emit these tokens. Originals
+called exactly once when disabled or rejected. No new shader/resolve/query/
+writeback/draw/Record/validation behavior; each batch is just ordered state.
+
+Native source copies through REX_RAW_ADDR, including high-physical alias host
+skew. Source/ring spans crossing0xE0000000discontinuity stay original. Token
+stores use original generated REX_STORE macros. Final ARM64 review caught
+base+address raw-pointer shortcut; replaced with actual guest mapping BEFORE
+completion and added sparse4GiBvirtual-reservation host alias regression.
+No4GiBphysical fixture allocation. Current ARM64 PCH offset is0x1000for high
+physical guest aliases, mirrored in fixture; original generated emitters run
+against same mapping. This guards representative alias semantics, not the full
+kernel memory manager or every MMIO condition.
+
+Ready is release-published BEFORE token header/data/device pointer. Explicit
+release fence orders Ready before ordinary guest-ring stores, in addition to
+slot release/acquire; final ARM64 object disassembly shows `dmb ish` at0x714
+before token stores. This avoids relying solely on the ring's guest-side
+publication barrier. No post-publication unavailable-record fallback.
+
+SDK patch_ios_register_batches.py (3blocks) adds runtime-exported atomic
+consumer hook and base CP NOP handler. NFRB magic4E465242/version1/ticket low+high
+in count4NOP headerC0031000, unpredicated as original type0state writes. Handler
+calls app consumer, passing CP-owned virtual WriteRegistersFromMem callback at
+that stream position. Ordinary NOPs retain no-op semantics; old NFD3 support
+untouched. Invalid version/ticket/missing consumer returnsfalse with GPU error,
+never skips omitted state silently. Draws/shaders/resolves/queries/predication/
+indirect/waits/fences/swap remain original; CP stays sole Frame producer.
+
+Patch added to prepare_sdk.py; CMake USA guard requires3of3applied. Applied ONLY
+to prepared `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk` source copy,
+not canonical rexglue-sdk-ios. Reversing exactly3blocks IN MEMORY reproduces
+both before-file SHA256s: no other SDK source changed. Patch roundtrip tests
+operate on temp copies, never revert live SDK. Actual before/after hashes:
+
+| SDK source | Before SHA256 | After SHA256 |
+|---|---|---|
+| graphics/command_processor.cpp | 8da78e72299008353ead43a0adde37e7096bffe2d824cc1a3c8e97b3909704dd | d2f1827c23a4f1e98025f31b100fffa53ff03e0b0c3658093bb79ea08026a25d |
+| ui/vulkan/vulkan_presenter.cpp | 43c030c7649db3df08e805179d311ddeb9a533b80c0ea15f648d20fd633df229 | 7fceb48513a48f648156bf4cee644cecc41afb28955dcb13fdfc7da968370165 |
+
+Actual register side-effect handler/native backend methods unchanged. No
+wholesale SDK preparation or native-d3d branch merge. Source manifests private
+`ios/build/register-batch-sdk-{before,after}.json`.
+
+### Tests, negative results and admission policy
+
+`python3 tools/native/test_register_batches.py` exit0, clang C++20 ASan/UBSan:
+2080scalar/grouped mask/alignment cases run ACTUAL generated USA emitter bodies,
+including real SIMDe VMX copies. Decode their original packets and compare
+exact ordered register values with owned spans, plus exact OriginalEnd.
+Includes full/high/low/alternating/random masks and all4word alignments,
+source mutation after capture, bounds/zero/group rejection, actual slow-helper
+admission. Compiler save/restore/slow-helper entry points are fixture stand-ins;
+restore stand-in models LR, slow helper throws to detect entry. Not execution
+of real guest scheduler/segment manager. New pool tests cover cancellation,
+no stale publication, exhaustion/no wait, ABA/double-consume rejection, sequence
+saturation, return on exception and2producer/1consumer4000record stress.
+
+`python3 tools/native/test_register_batch_bridge.py` exit0, ASan/UBSan actual
+app hooks/Try/consumer + SDK NOP/type0/native range-method source. Across1280
+whitelisted-input cases per enabled/disabled mode, FINAL264tokens consumed;
+other cases original fallback. Same register values and nonconstant
+WriteRegister call sequence as original emitter+CP, constant bulk on/off.
+Base WriteRegister itself is a recording stand-in, not full scratch/gamma/
+coherency simulation; source unchanged outside3patch blocks proves handler
+retained, but hardware effect/ordering correctness still needs device evidence.
+Zero-write early rejection for unknown LR/base/source, bad bounds/native mode,
+slow boundary, pool exhaustion; malformed/stale/missing-hook token rejected
+without register writes. High alias source AND ring case passes, source
+cross-skew range rejected. Disabled path calls original exactly once.
+
+Patch apply/reapply/revert on temp copies passes and restores original text;
+fixture normalizes already-applied source first. Constructor/ABI/frame safety
+checked only to fixture extent, not a real game-thread execution or Metal image
+comparison. Pool concurrent stress uses actual atomics; no TSAN result claimed.
+Initial bridge test failed LR assertion because restore helper stub was no-op;
+fixed fixture to restore saved LR, not production ABI. Preserved
+`ios/build/register-batch-bridge-initial-lr-fixture-failure.log` (SIGABRT).
+No failed final fixture. Logs dev122-register-batches-test.log and
+ dev122-register-bridge-test.log in ios/build.
+
+Seven existing regressions exit0 in parallel host batch: frame_owner_index,
+geometry_handoff,command_encoding_control,native_frame_commands,draw_arena,
+native_command_cache,pipeline_preparation. Each log
+`ios/build/dev122-<fixture>-test.log`. Record and entire draw-loop guards pass.
+
+Focused optimized host crossover test found grouped16/64word token path slower
+BEFORE admission policy: original0.192/0.342ms versus token0.328/0.376ms per
+10000calls in initial run (register-batch-bridge-benchmark.log). Retained those
+negative results. Conservative FINAL gates scalar>=32dirtywords/grouped>=256;
+smaller batches use original BEFORE pool lookup/copy. These counts are deliberate
+small fallbacks, not missing coverage to bypass blindly.
+
+Final `python3 tools/native/test_register_batch_bridge.py --benchmark` exit0,
+-O2/no sanitizers, seven alternating-order trials, compiler memory barrier keeps
+register writes observable in BOTH timed arms. Includes actual emitter/app
+hook/CP path with fixture ABI/memory/writes, not just memcpy. Median ms/10000:
+
+| Group/dirty words | Original | Trial | Selected route |
+|---|---:|---:|---|
+| scalar16 | 0.654 | 0.663 | original fallback |
+| scalar32 | 1.152 | 0.753 | token |
+| grouped16 | 0.199 | 0.216 | original fallback |
+| grouped64 | 0.392 | 0.406 | original fallback |
+| grouped128 | 0.574 | 0.578 | original fallback |
+| grouped256 | 0.962 | 0.672 | token |
+| grouped512 | 1.838 | 1.036 | token |
+
+Final log dev122-register-bridge-benchmark.log. Small fallback still has route
+checking/counter overhead; selected scopes faster in focused host conditions.
+Actual multi-core cache transfer, distribution/admission coverage, complete
+CP work, critical path, FPS and battery UNMEASURED. Do not infer whole-game
+30%gain or any fraction of the prior7%packet-envelope from this table. SDK CVar
+access/guest-memory/backend models and concurrency differ from this host timing.
+No device run, pixel equivalence or energy acceptance established.
+
+### Build and final artifact
+
+First target ipa build failed in edition translator: new private table contains
+already-USA return PCs, which translator tried mapping as reference-edition
+addresses not in directions.tsv. Preserved
+`ios/build/dev122-package-initial-translation-failure.log`,46warnings in SDK/
+link steps, translation ERROR (not compiler error). Fixed CMake to exclude ONLY
+private USA-only native_register_batch.h from cross-edition header translation;
+its cpp compiled only in USA branch. No evasion for other hooks/editions and no
+changes to original generated emitter bodies. Prepared SDK libs had built
+before that failure. Subsequent build exit0,13existing warnings/no errors
+(dev122-package.log); final incremental source build exit0,2warnings/no errors
+(dev122-package-final.log). No new warnings in register-batch source.
+Command `cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`.
+SDK as above; no canonical SDK tree/build switch. CMake enforces patched consumer.
+
+FINAL `ios/build/NFSMW-0.6.1-dev122-register-batches.ipa`,30739379bytes,
+bundle0.6.0(11), SHA256
+`d9c9a643604468357af87f80be8290569a6f7f1bb51324f0dc4dfbe8e4c7ca66`.
+Executable SHA256
+`e366c78554c797461ca03add5fd741664e4bac5576fb6d6e66aaaf9b2de4d400`,
+UUID `BE5997C9-2607-39C4-91AC-3C2AB53739CA`. codesign --verify --deep --strict
+exit0; ZIP CRC test None and packaged executable byte-equal final cache app.
+105shader assets (104metallibs+223key seed) byte-identical dev121. Both SDK
+libraries intentionally changed, runtime exports new hook and GPU imports it;
+nm confirms strong new emitter symbols plus original __imp__ entries.
+Runtime UUID73F56550-0B94-3C51-8885-7716393E77AE/SHA256
+0a96c8b9097087cc565856ba9782a96ec107e72de0253962c1c88622553cd9b7;
+GPU UUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F/SHA256
+cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113.
+Private metadata dev122-artifact.json; final object disassembly
+ dev122-register-batches-disassembly.txt. Final iCloud Desktop IPA copy SHA256
+verified. Only Desktop dev121 moved to Trash; stable0.6.0 and all ios/build
+IPAs preserved. No zip/release/push.
+
+Two SAME-NAME interim IPAs briefly delivered while final review continued,
+then replaced BEFORE completion: pre-fence UUID05A707C9-953D-3660-8996-
+5A35831FB26F/SHAa187bc11cd63497775067461b5ec9b1689888834c1524347e24113502596b04d;
+pre-alias UUIDA9A937A0-3450-3F1D-B491-2CA0DD8B7B58/SHA854a67c4637c6198cf6f2e88c47475cc4193763b8527b07af079a7b705825599.
+Superseded metadata dev122-artifact-pre-publication-fence.json and
+ dev122-artifact-pre-alias-fix.json retained. Accept only final UUID above when
+analyzing next run; don't confuse same filename with same executable.
+
+### Device gate and shared handoff
+
+Install FINAL IPA preserving cache/settings, full cold restart LiveContainer:
+`--nfsmw_native_command_reuse=true --nfsmw_native_command_encoding=false
+--nfsmw_native_repeat_counter=false --nfsmw_native_owner_index=true
+--nfsmw_native_register_batches=true`. Same1x/60/controller/audio(muteOFF
+requested). One90–120s pursuit Mac Time Profiler+nfsmw.log, check visual/pacing/
+audio AND produced/consumed/fallback/bytes/pending/CPU in same run. Startup
+marker dev122/register batchesON; sparse [register-batches] every300swaps.
+Many small fallbacks expected. Counters sampled/exchanged concurrently, so
+individual windows need not have exact produced=consumed; pending bounded,
+no invalid/unavailable token errors, inspect across run. False+cold restart
+restores original emitters in SAME IPA if needed. No new power matrix or
+inferred battery saving. Archive/hash incoming evidence by capture date.
+
+Checkpoint/plan/CHANGELOG and matching ignored private BACKLOG updated.
+Preexisting untracked HANDOFF_CHATGPT.md preserved/excluded; no other starting
+tracked edits. All own source/test/SDK patch/shared record changes committed
+locally together. SDK prepared source copy remains patched3/3; reproduction
+command in checkpoint. git diff --check exit0 before commit. No push/merge/release.

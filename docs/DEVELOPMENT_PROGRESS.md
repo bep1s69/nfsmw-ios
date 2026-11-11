@@ -510,6 +510,65 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 11, 2026
 
+**November11 dev122 C0 register batches IMPLEMENTED/BUILT (latest):** Stefan
+approved implementation. New restart-only `nfsmw_native_register_batches=false`
+(default OFF, independent of frame/ICB controls) overrides only two USA emitter
+entries at10proved ordinary825A3EC8 callsites with matching base/source bounds.
+Owned BE dirty spans, bounded2048-slot pool, unique tickets/Ready/acquire/release,
+explicit ARM64 Ready-before-ring fence. CP private NFRB NOP consumes existing
+virtual range writes in order; shaders/draws/resolves/queries/waits/swap/Record
+stay original. Unsupported/small/slow-segment/alias-boundary/capacity cases
+fall back BEFORE guest mutation. Invalid published token aborts buffer processing
+with error, never silently skips omitted state. Source read uses generated
+REX_RAW_ADDR, including high-physical host skew. Pool ~9MiB, process lifetime,
+no slot overwrite/wait/purge while in flight. No hot switching; cold restart.
+
+Scalar gate>=32dirty words; grouped>=256. Earlier host tests showed token path
+slower for16/64word grouped runs; those now stay original. Host fixtures execute
+actual generated scalar/VMX emitters, app hooks and SDK NOP/type0/native-range
+methods; sanitizer/lifetime/ABA/fallback/alias tests pass (264native tokens consumed in host bridge).
+Seven existing renderer/control/frame/cache/preparation fixtures pass. Actual
+ARM64 object shows dmb ish before token stores. This is functional/host component
+evidence, not device correctness/FPS/battery acceptance. Details, fixture fix
+and build failure preserved in TECHNICAL.
+
+FINAL `ios/build/NFSMW-0.6.1-dev122-register-batches.ipa`,30739379bytes,
+SHA256 `d9c9a643604468357af87f80be8290569a6f7f1bb51324f0dc4dfbe8e4c7ca66`,
+UUID `BE5997C9-2607-39C4-91AC-3C2AB53739CA`. Signature/ZIP/package-exe pass;
+104metallibs+223key seed identical dev121. Both SDK dylibs rebuilt with new
+consumer/export. Final iCloud Desktop copy hash-verified, Desktop dev121 moved
+to Trash only, stable0.6.0/ios-build copies retained. Two earlier same-name
+interim builds superseded before session completion; TECHNICAL records UUIDs.
+
+Build requirement: new `tools/ios/patch_ios_register_batches.py` added to
+prepare_sdk.py; apply/revert/status3blocks tested. Prepared local SDK modified
+ONLY by these blocks (not Git repo), before/after hashes recorded. Command:
+`NFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk python3
+tools/ios/patch_ios_register_batches.py` (then --status must show3of3).
+CMake enforces this for USA. Private USA return-PC helper header excluded from
+reference-edition translator; original generated emitter code unchanged.
+Build isolated build-0.6 target ipa -j12 as before. No canonical SDK tree edits.
+Tests `python3 tools/native/test_register_batches.py` and
+`python3 tools/native/test_register_batch_bridge.py` (optional --benchmark,
+host only). SDK bridge fixture normalizes patch state, roundtrips copies;
+never reverts live SDK. No full SDK prepare/reset or generated-code rewrite.
+
+**Next device gate:** install FINAL dev122 preserving settings/cache. Cold
+restart LiveContainer with reuse=true, encoding=false, repeat=false,
+owner_index=true and NEW `--nfsmw_native_register_batches=true`;1x/60,
+same controller/audio (muteOFF requested). One~90–120s pursuit+Mac Time Profiler
+and nfsmw.log checks visual/pacing/audio, active batches/consumption, fallback,
+bytes/pending and CPU together. Expect dev122/register batchesON and periodic
+[register-batches] lines; many small fallbacks NORMAL. No power matrix. If
+produced0 or CPU/correctness poor, inspect gates before more recording. False
++ cold restart restores original emitters in SAME build. Archive/hash incoming
+evidence by date before analysis. This is partial packet-building bypass,
+not CP retirement/full native producer or demonstrated7%CPU/energy saving.
+Shared records/CHANGELOG/private BACKLOG updated; HANDOFF preserved untracked.
+All own work committed locally; no push/merge/release. Earlier next-source
+audit/implementation proposals below superseded by this trial.
+
+
 **November11 compact direct-producer audit COMPLETE (latest):** Stefan approved
 starting source work after same-build index result. Audited old native-d3d
 N1b/c/d/N2a evidence and current generated USA/CP/native backend; no old branch

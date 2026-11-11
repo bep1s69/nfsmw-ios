@@ -238,6 +238,9 @@ if(NFSMW_WITH_GAME)
         set(_translated "${NFSMW_GENERATED}/edicion/src")
         file(GLOB _headers CONFIGURE_DEPENDS
             "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h" "${NFSMW_REPO}/common/src/*.h")
+        # Private to the USA-only native_register_batches.cpp below. These are
+        # already-USA return PCs, not reference-edition hook addresses to map.
+        list(REMOVE_ITEM _headers "${CMAKE_CURRENT_SOURCE_DIR}/src/native_register_batch.h")
         set(_sources "")
         set(_outputs "")
         foreach(_origin IN LISTS NFSMW_GAME_SOURCES _headers)
@@ -278,6 +281,14 @@ if(NFSMW_WITH_GAME)
     # them, starting the career freezes with Black Edition on.
     if(NFSMW_EDITION STREQUAL "usa")
         execute_process(
+            COMMAND "${CMAKE_COMMAND}" -E env "NFSMW_SDK=${NFSMW_SDK}"
+                "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_ios_register_batches.py" --status
+            RESULT_VARIABLE _register_batches_result
+            OUTPUT_VARIABLE _register_batches_status)
+        if(NOT _register_batches_result EQUAL 0 OR NOT _register_batches_status MATCHES "3 of 3 blocks applied")
+            message(FATAL_ERROR "SDK lacks ordered register-batch consumer. Run NFSMW_SDK=${NFSMW_SDK} python3 tools/ios/patch_ios_register_batches.py")
+        endif()
+        execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_pool.py" --status
             OUTPUT_VARIABLE _pool OUTPUT_STRIP_TRAILING_WHITESPACE)
         if(NOT _pool MATCHES "^\\[pool\\] applied")
@@ -298,7 +309,7 @@ if(NFSMW_WITH_GAME)
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp
-            src/native_metal_probe.mm src/native_renderer.mm)
+            src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp)
 # Line tables for the native renderer (no code change): Time Profiler samples
 # from a device trace map to source lines (dsymutil the app's NFSMW).
 set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -gline-tables-only)

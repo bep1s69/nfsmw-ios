@@ -9959,7 +9959,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev121 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev122 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10067,7 +10067,10 @@ void CpResolve(const uint32_t* regs) {
   if (REXCVAR_GET(nfsmw_native_cp)) NativeResolve(regs);
 }
 
+extern "C" void nfsmw_register_batches_report();
+extern "C" bool nfsmw_register_batches_enabled();
 void CpSwap() {
+  nfsmw_register_batches_report();
   if (REXCVAR_GET(nfsmw_native_cp)) NativeSwap();
 }
 
@@ -10445,11 +10448,11 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev121 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {})",
+    REXLOG_INFO("[native] dev122 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
                 NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off",
-                NativeOwnerIndex() ? "reusable" : "reference");
+                NativeOwnerIndex() ? "reusable" : "reference",nfsmw_register_batches_enabled() ? "on" : "off");
     return true;
   }();
   (void)announced_reuse;

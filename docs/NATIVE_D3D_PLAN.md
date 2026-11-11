@@ -2,6 +2,21 @@
 
 ## Current decision — November 10, 2026
 
+**November11 dev122 C0 IMPLEMENTED/BUILT (latest):** owned dirty-register
+batches wired at proved USA emitter callsites, default-off restart-only
+nfsmw_native_register_batches.2048slots/unique tickets, Ready-before-ring ARM64
+fence, generated guest-address mapping/skew guards; original early fallback.
+SDK ordered NFRB consumer uses existing virtual range writes. Scalar>=32words,
+grouped>=256; small VMX runs retained after negative host timing. Actual-emitter/
+app-hook/SDK-method sanitizer differential, concurrent/ABI/alias/failure tests
+and seven existing regressions pass. Signed IPA Desktop; exact final identity
+BE5997C9-2607-39C4-91AC-3C2AB53739CA in checkpoint. No device CPU/energy proof.
+Next one active pursuit+Time Profiler/log with previous owner-only args plus
+register_batches=true. No power matrix. C0 keeps CP and every other operation;
+full direct producer C remains later. No branch merge/validation/draw-loop or
+shader changes. Build/SDK patch/fixture limitations in TECHNICAL.
+
+
 **November11 compact-producer source audit COMPLETE (latest):** normal draw
 hooks alone cannot safely retire PM4: current query writer8258E830 is outside
 old8259–825Asearch range; shader/resolve/indirect/wait/writeback/swap operations
@@ -405,7 +420,7 @@ operations discovered after direct draws/writebacks have executed cannot be
 recovered by simply rerunning the original frame: mutable inputs may have
 changed and guest-visible side effects are not generally reversible.
 
-First implement a smaller producer boundary: replace selected calls to the
+Implemented in dev122, a smaller producer boundary: replace selected calls to the
 scalar emitter825A28A8 and grouped-constant emitter825A2A60 with owned native
 register-delta batches. Keep original shader loads, draw packets, indirect
 buffers, resolves, query events, waits, writebacks and swap in the SAME stream.
@@ -477,9 +492,11 @@ hash exact inputs rather than infer a branch revision.
   textures and resolve rectangles still read by existing Record/Resolve at
   their packet positions. No cross-thread NativeDraw call or new game-thread
   Record work, no altered guest fence/query completion, no shader changes.
-- Restart-only default-off proposed switch for this NEW route; existing dev121
-  settings unchanged. SDK changes must have reproducible patch apply/revert/
-  status support and required shared-library rebuild. No switch exists yet.
+- Restart-only default-off `nfsmw_native_register_batches` added in dev122;
+  other dev121 settings unchanged. SDK patch apply/revert/status and shared
+  library rebuild are implemented and checked. Scalar>=32/grouped>=256dirty
+  words admitted; smaller batches stay original based on host crossover tests.
+  Device correctness/CPU/energy acceptance remains pending.
 
 #### First implementation and acceptance
 

@@ -168,6 +168,7 @@ IOS_PATCHES = [
     "patch_ios_multi_wait",
     "patch_ios_wake_cuts",
     "patch_ios_load_shader_memo",
+    "patch_ios_register_batches",
     "patch_ios_multiplayer",
 ]
 
