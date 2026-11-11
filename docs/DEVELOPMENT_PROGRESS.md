@@ -511,6 +511,60 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 ## Current checkpoint — November 11, 2026
 
 
+**November11 dev124 prepared native geometry IMPLEMENTED/BUILT (latest):**
+Stefan approved the proposed geometry source step. New restart-only
+`nfsmw_native_prepared_geometry=false` (default OFF) caches vertex-description
+preparation and lazy attribute-cache handles across repeated draws. It does NOT
+cache decoded arrays/validation results/Draws/index conversion or frame/GPU
+ownership. Full shader+microcode hash/dwords, physical-map base, actual vertex
+range and all used fetch pairs match; source validation still original. Two-way
+bounded2048descriptions/5016KiB only when first eligible draw occurs; cold key
+must repeat before preparation, inputs<4/>16 and exceptional/legacy/no-layout
+paths bypass. Sweep/purge invalidates generations BEFORE any cache-node erase.
+All metadata CP-thread-only; render logs read per-Frame counters, not table.
+
+90,000actual preparation comparisons per enabled/disabled process ASan/UBSan
+PASS, node/lifetime/sweep/collision/probation/alias/exceptional cases PASS.
+Complete Record guard allows ONLY explicit preparation edits, validation/
+decoding/index/state/ownership byte-identical.11existing regression commands
+PASS after narrow guards/old FrameRef fixture repairs (failures TECHNICAL).
+Host seven-trial repeated4–9input/512mesh preparation3.760–9.303ms reference vs
+2.470–4.318ms trial depending case (exact matrix TECHNICAL); cold8192mesh cases
+can lose, small-input cases original path plus eligibility cost. NOT full
+Record/phone CPU/energy savings. Existing vfetch cache must beON for eligibility
+(verified ON in prior dev123 settings); do not silently change that default.
+
+Signed `ios/build/NFSMW-0.6.1-dev124-prepared-geometry.ipa`,30756575bytes,
+SHA2561b9f49e45c218204cdabac9037db9d15acc3a0287f5a37994e3606acfac9bbb7,
+ARM64 UUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE,bundle0.6.0(11).
+ZIP/signature PASS,104metallibs+pipeline seed and GPU SDK byte-identical dev123.
+CMake header glob reconfigured SDK build badge: runtime initialized sections
+unchanged except11cstring bytes of version/timestamp, executable __text equal;
+no SDK source edits. RuntimeUUIDE00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660. Desktop
+copy verified; only Desktopdev123 moved to Trash. Stable Desktop IPA was absent
+before delivery; restored exact retained stable copy per standing keep-stable
+rule, SHA unchanged cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285.
+All ios/build copies preserved. No device/game launch by agent.
+
+**Next:** ONE90–120s pursuit Time Profiler+nfsmw.log on dev124, cold restart,
+same owner-only settings/reusetrue/encodingfalse/repeatfalse/indextrue, vfetch
+cachetrue, 1x60/MSAA0/FXAAoff/MetalFXoff, same audio/controller. Explicitly set
+`--nfsmw_native_register_batches=false --nfsmw_native_register_flushes=false
+--nfsmw_native_prepared_geometry=true`. First check image/audio/FPS, prepared
+hits/misses(cold subset)/bypasses/lookups avoided and footprint. Device gain
+unproven. Do NOT attribute a dev123 BOTH-batchingON -> dev124 batchingOFF CPU
+change to prepared geometry. Same dev124 preparedfalse reference available if
+later justified, don't request now. No power pair until meaningful CPU gate.
+
+Audit `ios/build/dev124-prepared-geometry-20261111/`; exact boundaries, failed
+attempts, matrix, artifact/SDK comparison and fixture limits in TECHNICAL.
+Own code/tests/shared docs committed locally, private ignored BACKLOG updated
+not staged; preexisting untracked HANDOFF preserved. Read-only rexglue-sdk-ios
+status showed existing unrelated modified/untracked files; none written/staged/
+committed by this session. Prepared SDK source untouched. No push/merge/release.
+
+
+
 **November11 dev123 C1 device ANALYZED (latest):** Stefan confirms picture,
 controls/audio normal. CorrectUUID5CC1ECB2-620D-3859-8718-3FD467D59843 and BOTH
 batch/flush switchesON verified; prior owner-only controls unchanged. Desktop

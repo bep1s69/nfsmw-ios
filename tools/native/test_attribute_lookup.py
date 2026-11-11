@@ -40,6 +40,7 @@ int Flag(std::string_view name) {
 constexpr uint64_t kPurgeIdleFrames=30;
 struct PurgeSeen { bool Take() { return false; } };
 uint64_t frame_counter = 0;
+void InvalidatePreparedGeometry(){} // isolated attribute-cache fixture
 struct VertexDiagnostics {
   uint64_t attribute_lookup_hits=0, attribute_lookup_misses=0, attribute_lookup_bypasses=0;
 };

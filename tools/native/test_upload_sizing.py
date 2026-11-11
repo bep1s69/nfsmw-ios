@@ -28,6 +28,7 @@ def sizing(source):
 HARNESS = r'''
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "native_frame_storage.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -131,7 +132,7 @@ void Edges() {
   d.indices_fresh=fresh;
   if(indices)d.indices=std::make_shared<const std::vector<uint32_t>>(std::initializer_list<uint32_t>{0,1,2});
   d.attributes.push_back({0,false,array,fresh});
-  d.attributes.push_back({1,false,nullptr,true});
+  d.attributes.push_back({1,false,std::shared_ptr<FloatArray>{},true});
   d.attributes.push_back({2,true,std::make_shared<FloatArray>(),true});
   size_t expected=288+272+1280+256+(previous?288:0)+(fresh?256+(indices?12:0)+68+256:0);
   assert(Check(f)==expected);
@@ -162,8 +163,8 @@ Frame Generate(size_t count,unsigned fresh_percent,bool edges) {
   if(edges) {
    d.vs_range={uint16_t(rng()%258),uint16_t(rng()%258)};
    d.ps_range={uint16_t(rng()%258),uint16_t(rng()%258)};
-   if(rng()%8==0)d.vs_constants.reset();
-   if(rng()%8==0)d.ps_constants.reset();
+   if(rng()%8==0)d.vs_constants=nfsmw::FrameRef<const ConstantBank>{};
+   if(rng()%8==0)d.ps_constants=nfsmw::FrameRef<const ConstantBank>{};
   }
   if(rng()%8)d.indices=indices[rng()%indices.size()];
   d.indices_fresh=rng()%100<fresh_percent;
@@ -221,7 +222,7 @@ def main():
         path.write_text(harness)
         exe = temp / 'test'
         flags = ['-O3'] if args.benchmark else ['-O1', '-fsanitize=address,undefined', '-fno-omit-frame-pointer']
-        subprocess.run(['xcrun', 'clang++', '-std=c++23', '-fobjc-arc', *flags, str(path), '-framework', 'Foundation', '-framework', 'Metal', '-o', str(exe)], check=True)
+        subprocess.run(['xcrun', 'clang++', '-std=c++23', '-fobjc-arc', *flags, '-I', str(ROOT/'ios/src'), str(path), '-framework', 'Foundation', '-framework', 'Metal', '-o', str(exe)], check=True)
         subprocess.run([str(exe)] + (['benchmark'] if args.benchmark else []), check=True)
 
 

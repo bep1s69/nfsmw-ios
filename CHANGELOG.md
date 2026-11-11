@@ -25,6 +25,8 @@
   retaining the existing renderer and ordered game commands.
   Another trial combines compatible updates within one graphics-state flush
   to share the cost of handing those updates to the renderer.
+  An off-by-default geometry trial reuses prepared vertex descriptions across
+  repeated draws while keeping the existing buffer-content checks.
 
 ## 0.6.0
 

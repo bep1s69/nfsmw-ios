@@ -110,7 +110,8 @@ expected = record(baseline)
 for old, new in edits:
     assert expected.count(old)==1, old
     expected=expected.replace(old,new)
-assert record(source)==expected, 'Unexpected validation/decoding/state change in production Record'
+from test_prepared_geometry import normalize_prepared_record
+assert normalize_prepared_record(record(source))==expected, 'Unexpected validation/decoding/state change in production Record'
 def function(s, signature):
     start=s.index(signature);at=s.index('{',start);depth=1;end=at+1
     while depth:

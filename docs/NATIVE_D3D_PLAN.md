@@ -1,5 +1,14 @@
 # Native graphics path toward an iOS port
 
+**November11 dev124 native vertex descriptions BUILT (latest):** approved
+geometry slice, defaultOFF nfsmw_native_prepared_geometry. Metadata/lazy node
+handles only, reference validation/index/data/ownership retained. Host reference
+and lifetime/alias/sweep checks pass, repeated-input preparation cheaper but
+cold churn can lose; no phone/energy acceptance. Signed Desktop
+UUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE. Next one correctness/coverage pursuit
+trace+log with preparedtrue/BOTHbatchingfalse, other owner-only controls same.
+See G1 below; current checkpoint/TECHNICAL authoritative.
+
 **November11 dev123 C1 device ANALYZED (latest):** normal gameplay accepted,
 5400guardedCPU-owned frames/59.9–60FPS/0audio gaps or traceGPU/token errors.
 C1 reach22.8869%reported range words vsC0~1.48%,10.61runs/batch; useful native
@@ -743,3 +752,59 @@ source feasibility and actual reference/differential before live hooks/build.
 GPU13.367ms nearby vs7.564control remains a workload confound; sparse main-pass
 labels don't identify a safe equivalent shader rewrite. No parked GPU capture
 or unrelated defect reopened in this analysis.
+
+### G1. Prepared native vertex descriptions — November 11
+
+First implementation of the approved geometry proposal is deliberately scoped
+to vertex preparation, not cached whole Draws or index buffers. It reuses the
+existing CachedFetchLayout/full microcode identity and retains the exact
+per-draw index validation before selecting an actual lo/count. A new bounded
+2way/1024set table owns metadata and borrows attribute-cache NODE addresses,
+not their mutable decoded values.5016KiB process bound, allocated only on first
+eligible draw, independent defaultOFF restart flag nfsmw_native_prepared_geometry.
+No decoded array, Metal object, frame ref or validation result stored in it.
+
+Exact descriptor key: normalized shader key, FULL microcode hash, dword count,
+physical mapping base, actual vertex lo/count, input count and first binding
+anchor. Hash is selector only. Every participating fetch pair is checked on
+hit (not all texture/fetch registers); metadata in ShaderStore immutable after
+Load. Physical() is SDK physical_membase+(guest&0x1fffffff), so Physical(0)
+identifies mapping replacement. No layout/vector pointer retained through
+fetch-layout cache clearing. All input formats, signed/integer conversion and
+swizzle/mini-fetch resolution still come from original layout/decoding code.
+Same index contents/format producing same vertex range may reuse vertex-only
+metadata safely: index data and primitive conversion are not cached here.
+
+Metadata includes source/range/remap/motion term and lazy CacheEntry handle.
+Node handle is acquired at ORIGINAL Record lookup site, never eagerly for a
+later input the original might not reach after failure. On every draw the
+original watched/fingerprint/dynamic/content checks run, then original decoded
+version publication/FrameOwners capture. Cached node value can change without
+retargeting already-recorded frames; the table doesn't pin decoded versions.
+Record's existing swizzle diagnostics still execute at their original cadence.
+
+A cold identity occupies a probation way and takes reference preparation; only
+its repeated observation fills metadata. Both ways carry probation separately
+so colliding meshes can both promote. Low-input shaders(<4) and>16inputs,
+legacy/no hash/no layout, invalid/out-of-range fetch, UP/inline/fromarguments
+and rectangle paths take reference. No new fallback after validation effects.
+Cache miss can still cost extra; no universal speedup claim. Counters are plain
+CP-thread per-Frame fields, published through existing Frame handoff; render
+thread logs configured table bound, never races on CP table allocation.
+
+SweepAttributeCache invalidates generation BEFORE any Sweep erasure/purge;
+old entry addresses never matched after invalidation. Conservative invalidation
+every256frames also avoids unknown erasure assumptions. Unsigned generation
+wrap clears slot generations before restarting. No GPU consumer ever reads a
+description pointer. No frame/GPU completion or source-validation rule changed.
+
+Actual helper plus BOTH Record preparation sites (current vs1bbb88b) compile
+in host fixture,90k comparisons per enabled/disabled mode, positive saved-lookup
+assertions, node replacement/dynamic/alias/map-change/lifetime/sweep/generation/
+collision/probation checks. Static whole-Record normalization permits only the
+explicit metadata/lookup changes: all remaining content/index/decoder/state/
+ownership code must equal reference. This doesn't execute GPU/draw rendering;
+shader layout and memory mapping are stand-ins, validation preserved by source
+guard rather than full game execution. Host benchmark preparation-only has
+positive repeated4–9input cases and negative cold churn cases. Next device gate
+in checkpoint; no predicted14.6%Record or battery saving.

@@ -97,7 +97,8 @@ with tempfile.TemporaryDirectory(prefix='nfsmw-encoding-control-') as tmp:
 print('PASS actual cached helpers and production ownership/context gates: all 8 modes and dump/capture/motion/repeat/early/family exclusions')
 
 baseline=subprocess.check_output(['git','show','7ac511c:ios/src/native_renderer.mm'],cwd=ROOT,text=True)
-assert function(source,'void Record(Frame& frame, const NfsmwNativeDraw& in)')==function(baseline,'void Record(Frame& frame, const NfsmwNativeDraw& in)')
+from test_prepared_geometry import normalize_prepared_record
+assert normalize_prepared_record(function(source,'void Record(Frame& frame, const NfsmwNativeDraw& in)'))==function(baseline,'void Record(Frame& frame, const NfsmwNativeDraw& in)')
 start='    TargetLookupCache draw_target_lookup;';end='    // Resolves after the last draw'
 assert source[source.index(start):source.index(end)]==baseline[baseline.index(start):baseline.index(end)]
 assert 'if (NativeCommandEncoding()) {\n      indirect_pipeline_cache.WarmUp(device);\n      indirect_pipeline_cache.Collect();' in source

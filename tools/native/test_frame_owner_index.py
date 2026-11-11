@@ -164,7 +164,8 @@ for role in ['constant_owners','attributes','indices']:
 baseline=subprocess.check_output(['git','show','1f925f3:ios/src/native_renderer.mm'],cwd=ROOT,text=True)
 start='void Record(Frame& frame, const NfsmwNativeDraw& in) {'
 end='// --- Drawing a recorded frame with Metal'
-assert source[source.index(start):source.index(end)]==baseline[baseline.index(start):baseline.index(end)]
+from test_prepared_geometry import normalize_prepared_record
+assert normalize_prepared_record(source[source.index(start):source.index(end)])==baseline[baseline.index(start):baseline.index(end)]
 start='    TargetLookupCache draw_target_lookup;';end='    // Resolves after the last draw'
 assert source[source.index(start):source.index(end)]==baseline[baseline.index(start):baseline.index(end)]
 print('PASS collisions/growth/reset, differential ordinals/data, stale hints/address reuse, immediate release/pool epochs, warmed allocations and unchanged Record/draw loop')

@@ -83,6 +83,7 @@
 #include "native_texture_masks.h"
 #include "native_guest_culling.h"
 #include "native_draw_arena.h"
+#include "native_prepared_geometry.h"
 #include "native_frame_storage.h"
 #include "native_command_key.h"
 #include "native_command_cache.h"
@@ -195,6 +196,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, true, "GPU",
                     "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_prepared_geometry, false, "GPU",
+                    "Trial: reuse prepared native vertex descriptions; content validation unchanged (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_record_memo, true, "GPU",
                     "Experiment: per-frame index fingerprint memo, per-entry vertex memo and last-key "
                     "constant ranges in draw recording (restart required)");
@@ -1261,6 +1264,7 @@ struct Draw {
 };
 
 struct VertexDiagnostics {
+  uint64_t prepared_hits=0,prepared_misses=0,prepared_bypasses=0,prepared_lookups_saved=0,prepared_cold=0;
   uint64_t attribute_lookup_hits = 0, attribute_lookup_misses = 0, attribute_lookup_bypasses = 0;
   uint64_t draw_arena_frames = 0, draw_attribute_lists = 0;
   uint64_t draw_attribute_heap_calls = 0, draw_attribute_heap_bytes = 0;
@@ -1284,6 +1288,8 @@ struct VertexDiagnostics {
   uint64_t index_cache_hits = 0, index_cache_misses = 0;
 
   VertexDiagnostics& operator+=(const VertexDiagnostics& other) {
+    prepared_hits += other.prepared_hits;prepared_misses += other.prepared_misses;
+    prepared_cold += other.prepared_cold;prepared_bypasses += other.prepared_bypasses;prepared_lookups_saved += other.prepared_lookups_saved;
     attribute_lookup_hits += other.attribute_lookup_hits;
     attribute_lookup_misses += other.attribute_lookup_misses;
     attribute_lookup_bypasses += other.attribute_lookup_bypasses;
@@ -2016,10 +2022,14 @@ CacheEntry<FloatArray>& AttributeEntryFor(const AttributeKey& key, VertexDiagnos
   return attribute_cache[key];
 }
 
+void InvalidatePreparedGeometry();
 void SweepAttributeCache() {
   static PurgeSeen purge_seen;
   const bool purge = purge_seen.Take();
-  if (purge || (frame_counter & 255) == 0) attribute_lookup.Clear();
+  if (purge || (frame_counter & 255) == 0) {
+    InvalidatePreparedGeometry(); // before Sweep can erase borrowed nodes
+    attribute_lookup.Clear();
+  }
   Sweep(attribute_cache, purge);
 }
 
@@ -2818,6 +2828,97 @@ const CachedFetchLayout* FetchLayoutFor(const NfsmwNativeDraw& in, const std::ve
   return &layout;
 }
 
+// A description owns only immutable preparation results. It never caches
+// validation outcomes or retains a layout/vector/node that a sweep can erase.
+constexpr size_t kPreparedInputs=16;
+struct PreparedGeometryKey {
+  uint64_t shader, microcode;
+  uintptr_t physical_base;
+  uint32_t dwords,lo,count,inputs,anchor;
+  bool operator==(const PreparedGeometryKey&) const = default;
+};
+struct PreparedGeometryInput {
+  VFetch fetch;
+  uint32_t location,fc_index,fc[2],buffer,size_bytes;
+  bool integer,remapped;
+  int remap[4];
+  const uint8_t* base;
+  AttributeKey key;
+  size_t first,range;
+  uint64_t motion_term;
+  CacheEntry<FloatArray>* entry; // lazily acquired at the original lookup site
+};
+struct PreparedGeometry {
+  uint32_t count;
+  PreparedGeometryInput inputs[kPreparedInputs];
+};
+using PreparedGeometryTable=nfsmw::PreparedGeometryCache<PreparedGeometryKey,PreparedGeometry>;
+PreparedGeometryTable* prepared_geometry=nullptr;
+bool PreparedGeometryEnabled() {
+  static const bool enabled=REXCVAR_GET(nfsmw_native_prepared_geometry);
+  return enabled;
+}
+void InvalidatePreparedGeometry() {if(prepared_geometry)prepared_geometry->Invalidate();}
+
+void PrepareGeometryInput(PreparedGeometryInput& p,const VertexInput& input,const VFetch& f,
+                          const uint32_t* regs,uint32_t lo,uint32_t count) {
+  p.fetch=f;p.location=input.location;p.integer=input.usage==2;
+  p.fc_index=(f.slot/3)*6+(f.slot%3)*2;
+  const auto* fc=regs+kFetchBase+p.fc_index;
+  p.fc[0]=fc[0];p.fc[1]=fc[1];p.buffer=fc[0]&~3u;
+  p.size_bytes=((fc[1]>>2)&0xFFFFFF)*4;
+  p.remapped=false;for(int i=0;i<4;++i)p.remap[i]=i;
+  if(f.swizzle!=input.swizzle)for(int i=0;i<4;++i) {
+    const uint32_t file_sel=(input.swizzle>>(3*i))&7,bound_sel=(f.swizzle>>(3*i))&7;
+    if(file_sel<4 && bound_sel<6 && file_sel!=bound_sel){p.remap[file_sel]=int(bound_sel);p.remapped=true;}
+  }
+  p.base=Physical(p.buffer);
+  p.key={uintptr_t(p.base),f.stride,f.offset,f.format,fc[1]&3,uint32_t(p.integer),lo,count,
+         p.remapped?uint32_t(p.remap[0]|p.remap[1]<<3|p.remap[2]<<6|p.remap[3]<<9):0u};
+  p.first=(size_t(lo)*f.stride+f.offset)*4;
+  p.range=size_t(count)*f.stride*4+16;
+  p.motion_term=uint64_t(uintptr_t(p.base)+p.first)^uint64_t(f.stride)<<48;
+  p.entry=nullptr;
+}
+PreparedGeometry* PreparedGeometryFor(const NfsmwNativeDraw& in,const CachedFetchLayout* layout,
+                                     const std::vector<VertexInput>& inputs,uint32_t lo,uint32_t count,
+                                     VertexDiagnostics& diagnostics) {
+  if(!PreparedGeometryEnabled())return nullptr;
+  // Legacy/no-hash, UP/inline/from-args, rectangle and invalid layouts keep the
+  // exact reference path, including diagnostics and special geometry expansion.
+  if(!layout || !in.vs_microcode_hash || in.up_vertices || in.inline_draw || in.from_arguments ||
+      (in.initiator&0x3F)==8 || inputs.size()<4 || inputs.size()>kPreparedInputs ||
+      layout->inputs.size()!=inputs.size()) {++diagnostics.prepared_bypasses;return nullptr;}
+  // Full microcode identity, not only normalized Metal shader identity. Shader
+  // input metadata is immutable after ShaderStore loads; layout cache lifetime
+  // is irrelevant because no pointer to it is retained here.
+  for(const auto& item:layout->inputs)if(!item.valid || item.fetch.slot>=96) {
+    ++diagnostics.prepared_bypasses;return nullptr;
+  }
+  const auto first_slot=layout->inputs[0].fetch.slot;
+  const uint32_t anchor=in.regs[kFetchBase+(first_slot/3)*6+(first_slot%3)*2];
+  const PreparedGeometryKey key{in.vs_key,in.vs_microcode_hash,uintptr_t(Physical(0)),
+                                in.vs_dwords,lo,count,uint32_t(inputs.size()),anchor};
+  // Selection is cheap, equality is exact (all participating bindings below).
+  uint64_t hash=uint64_t(anchor)^in.vs_microcode_hash^(uint64_t(lo)<<32)^count;
+  hash=(hash^(hash>>30))*0xBF58476D1CE4E5B9ull;hash^=hash>>27;
+  if(!prepared_geometry)prepared_geometry=new(std::nothrow) PreparedGeometryTable;
+  if(!prepared_geometry){++diagnostics.prepared_bypasses;return nullptr;}
+  if(auto* hit=prepared_geometry->Find(key,hash,[&](const PreparedGeometry& p) {
+      for(uint32_t i=0;i<p.count;++i) {
+        const auto& a=p.inputs[i];const auto* fc=in.regs+kFetchBase+a.fc_index;
+        if(a.fc[0]!=fc[0] || a.fc[1]!=fc[1])return false;
+      }
+      return true;
+    })) {++diagnostics.prepared_hits;return hit;}
+  ++diagnostics.prepared_misses;
+  if(!prepared_geometry->Admit(key,hash)){++diagnostics.prepared_cold;return nullptr;}
+  return &prepared_geometry->Replace(key,hash,[&](PreparedGeometry& p) {
+    p.count=uint32_t(inputs.size());
+    for(size_t i=0;i<inputs.size();++i)PrepareGeometryInput(p.inputs[i],inputs[i],layout->inputs[i].fetch,in.regs,lo,count);
+  });
+}
+
 // Draw-reuse census (nfsmw_native_reuse_census, Nov 5, counting only): how
 // many draws repeat the previous frame's inputs. Per draw two hashes: "state"
 // (shader keys, draw packet, context registers 0x2000-0x22FF, fetch constants
@@ -3078,11 +3179,15 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
       if (frame.attribute_arena.Enabled()) d.attributes.reserve(inputs_it->second.size());
     }
     const CachedFetchLayout* layout = FetchLayoutFor(in, inputs_it->second, frame.vertex_diagnostics);
+    PreparedGeometry* prepared=PreparedGeometryFor(in,layout,inputs_it->second,lo,d.vertex_count,frame.vertex_diagnostics);
     for (size_t input_index = 0; input_index < inputs_it->second.size(); ++input_index) {
+      auto* description=prepared ? &prepared->inputs[input_index] : nullptr;
       const VertexInput& input = inputs_it->second[input_index];
       VFetch f{};
       bool valid_fetch;
-      if (layout) {
+      if (description) {
+        f=description->fetch;valid_fetch=true;
+      } else if (layout) {
         f = layout->inputs[input_index].fetch;
         valid_fetch = layout->inputs[input_index].valid;
       } else {
@@ -3117,7 +3222,7 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
           REXLOG_INFO("[native] vs {:016x} vfetch {} (usage {}, format {}): swizzle {:03x} in the file, {:03x} bound",
                       in.vs_key, input.address, input.usage, f.format, input.swizzle, f.swizzle);
         }
-        for (int i = 0; i < 4; ++i) {
+        if (!description) for (int i = 0; i < 4; ++i) {
           const uint32_t file_sel = (input.swizzle >> (3 * i)) & 7, bound_sel = (f.swizzle >> (3 * i)) & 7;
           if (file_sel < 4 && bound_sel < 6 && file_sel != bound_sel) {
             remap[file_sel] = int(bound_sel);
@@ -3125,17 +3230,21 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
           }
         }
       }
+      if (description) {std::copy_n(description->remap,4,remap);remapped=description->remapped;}
       // DrawPrimitiveUP: its own vertices, where it reserved them.
-      const uint8_t* base = in.up_vertices ? Mem()->TranslateVirtual<const uint8_t*>(in.up_vertices)
+      const uint8_t* base = description ? description->base : in.up_vertices ? Mem()->TranslateVirtual<const uint8_t*>(in.up_vertices)
                                            : Physical(buffer);
       // Decoded before from the same bytes: the cached array.
       const AttributeKey akey{uintptr_t(base), f.stride, f.offset, f.format, uint32_t(endian), uint32_t(a.integer),
                               lo, d.vertex_count,
                               remapped ? uint32_t(remap[0] | remap[1] << 3 | remap[2] << 6 | remap[3] << 9) : 0u};
-      const size_t first = (size_t(lo) * f.stride + f.offset) * 4;
-      geometry = MotionMix(geometry, uint64_t(uintptr_t(base) + first) ^ uint64_t(f.stride) << 48);
-      const size_t range = size_t(d.vertex_count) * f.stride * 4 + 16;
-      CacheEntry<FloatArray>& acached = AttributeEntryFor(akey, frame.vertex_diagnostics);
+      const size_t first = description ? description->first : (size_t(lo) * f.stride + f.offset) * 4;
+      geometry = MotionMix(geometry, description ? description->motion_term : uint64_t(uintptr_t(base) + first) ^ uint64_t(f.stride) << 48);
+      const size_t range = description ? description->range : size_t(d.vertex_count) * f.stride * 4 + 16;
+      CacheEntry<FloatArray>* entry=description ? description->entry : nullptr;
+      if(entry)++frame.vertex_diagnostics.prepared_lookups_saved;
+      else {entry=&AttributeEntryFor(description ? description->key : akey,frame.vertex_diagnostics);if(description)description->entry=entry;}
+      CacheEntry<FloatArray>& acached=*entry;
       acached.last_used = frame_counter;
       const bool watchable = REXCVAR_GET(nfsmw_native_write_watch) && buffer && !in.up_vertices && !acached.dynamic;
       if (acached.value && acached.watched && write_watch::Clean(buffer + uint32_t(first), range)) {
@@ -9600,6 +9709,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
+        REXLOG_INFO("[native] dev124 prepared geometry {}: {} hits / {} misses ({} cold) / {} bypasses, {} attribute lookups avoided; table bound {} KiB (metadata only, content validation unchanged; not energy savings)",
+                    PreparedGeometryEnabled()?"on":"off",vertex_diagnostics.prepared_hits,
+                    vertex_diagnostics.prepared_misses,vertex_diagnostics.prepared_cold,vertex_diagnostics.prepared_bypasses,
+                    vertex_diagnostics.prepared_lookups_saved,PreparedGeometryEnabled()?sizeof(PreparedGeometryTable)/1024:0);
         REXLOG_INFO("[native] attribute lookup: cache {}; {} hits, {} misses, {} bypasses since last summary "
                     "(content validation unchanged)",
                     AttributeLookupEnabled() ? "on" : "off", vertex_diagnostics.attribute_lookup_hits,
@@ -9959,7 +10072,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev123 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev124 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10449,11 +10562,11 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev123 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {})",
+    REXLOG_INFO("[native] dev124 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {}; prepared geometry {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
                 NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off",
-                NativeOwnerIndex() ? "reusable" : "reference",nfsmw_register_batches_enabled() ? "on" : "off",nfsmw_register_flushes_enabled() ? "on" : "off");
+                NativeOwnerIndex() ? "reusable" : "reference",nfsmw_register_batches_enabled() ? "on" : "off",nfsmw_register_flushes_enabled() ? "on" : "off",PreparedGeometryEnabled()?"on":"off");
     return true;
   }();
   (void)announced_reuse;

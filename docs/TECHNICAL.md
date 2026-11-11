@@ -25938,3 +25938,226 @@ Shared checkpoint/nativeplan/private ignored BACKLOG updated. No CHANGELOG
 entry for analysis-only result, no app/SDK/default/build/IPA change. Own analysis
 tool/fixture/docs committed locally; private BACKLOG deliberately ignored,
 HANDOFF preexisting untracked preserved. No push/merge/release.
+
+## November 11, 2026 — dev124 prepared native vertex descriptions (G1)
+
+### Approved scope and implementation boundary
+
+Stefan approved the proposed reusable-geometry source step ("yes lets do it").
+Started1bbb88b on codex/native-frame-command-reuse, tracked clean, preexisting
+untracked HANDOFF_CHATGPT.md preserved. Required shared records/status/log read.
+No new phone log/trace received this turn; dev123 remains the latest device
+result. Both C0/C1 batching trials stay OFF for next test. No energy acceptance
+or promised14.6%Record reduction inferred from the previous profile.
+
+New restart-only nfsmw_native_prepared_geometry=false, independent/defaultOFF.
+First slice caches native VERTEX DESCRIPTION metadata and lazy attribute-cache
+node handles, not decoded arrays, Draws, index validation/conversion, textures,
+render state, FrameRefs or GPU buffers. Actual original index path still runs
+before it, so current lo/vertex_count are known. Table of1024two-way sets/
+2048records,5016KiB bound, allocated only on first eligible draw. Recording
+thread only; no GPU/frame receives a description pointer. Header
+native_prepared_geometry.h owns metadata, no mutable decoded data ownership.
+
+Key matches normalizedVS key+FULL runtime microcode hash+dwords, physical map
+base (Physical(0)), actual vertexlo/count/input count/first binding anchor.
+Selector hash isn't identity; every participating fetch pair is compared
+exactly on hit. Existing immutable ShaderStore.Load metadata and original
+CachedFetchLayout determine input formats/slot/signed/integer/remap decisions.
+No cached pointer to a layout/vector surviving its map clears. Full shader
+hash handles changed fetch instructions despite equal normalized Metal key.
+SDK TranslatePhysical is physical_membase+(guest&0x1fffffff); physicalbase key
+changes reject stale host addresses. High guest aliases are mapped as before.
+
+Each description has VFetch, remap, source pointer, range, motion term and
+AttributeKey; CacheEntry* acquired LAZILY at original Record lookup site.
+Cache preparation never eagerly inserts later attribute nodes the original
+might not reach after an earlier error. Hit still reads current node value/
+dynamic/watch/fingerprint state; original validation and version publication
+run before frame capture. Already-recorded FrameOwners retain old versions
+when the decoded cache replaces data. Swizzle diagnostics run at original
+cadence even when remap math reused. No index-entry pointer/contents cached;
+index changes yielding same valid vertex range can reuse vertex metadata
+while original index validation/conversion selects the correct indices.
+
+Small inputs<4 or>16, absent layout/hash, UP/inline/fromarguments, rectangles,
+invalid/out-of-bank fetch slots bypass. Existing vfetch cache must beON (it
+wasON in dev123 log); disabled cache yields original preparation. No vfetch
+default silently changed. Bundled vertex_inputs.txt has42keys/max9inputs
+(before handwritten additions);16bound leaves headroom, fallback above it.
+
+Cold identity first takes reference path and occupies a probation way; only
+repeated observation prepares metadata. Both ways admit independently. Prevents
+large description writes for one-off meshes but cold miss lookup cost remains.
+SweepAttributeCache invalidates generations BEFORE any Sweep erasure/purge;
+conservative invalidation every256frames also before possible erase. Rehash
+alone leaves nodes stable. Generation overflow clears slot generations before
+restarting, no stale node revived. Cache miss/fill effects precede validation;
+no rollback/replay or cached validation result. CP-only plain diagnostics are
+copied through original per-Frame handoff; render log prints configured bound,
+not a racy read of CP table-allocation pointer. No hot shared atomic counters.
+
+### Reference, safety and negative-result evidence
+
+New tools/native/test_prepared_geometry.py compiles actual cache/header/
+PrepareGeometryInput/PreparedGeometryFor plus actual Record preparation blocks
+from live source and git1bbb88b. Candidate uses descriptor's VFetch just as
+live Record does; checks all signed/integer/fetch fields and output metadata,
+node identity, ranges/remap/endian/motion mix against original. Memory mapping
+and supplied fetch layouts are stand-ins; no shader/GPU execution. Every actual
+content/index/decoder/state/ownership decision remains BYTE-identical under a
+whole-Record guard allowing only enumerated prep/lookup edits. Additional
+original Fingerprint/IndexFingerprint/ParseVFetch/DecodeElement/
+ResolveVertexFetch/FetchLayoutFor function bodies compare byte-identical.
+This combination verifies metadata substitution and unchanged validators;
+it isn't a complete runtime/Metal test or proof for all game content.
+
+ASan+UBSan -O1,90,000comparisons per enabled/disabled process exit0. Positive
+saved-lookup assertions ensure new route actually exercised. Cases include
+shader/fullhash/length changes, file input metadata with new identity, fetch
+format/stride/offset/signed/integer/swizzle changes, ranges/bindings/endian,
+mutable decoded version/dynamic flag, physical-map replacement/high aliases,
+actual sweep/purge before erase, retained older frames, forced one-set
+collisions, both probation ways, generation invalidation before matcher,
+lazy nodes and all exceptional/small/large/no-layout bypasses. Off process
+asserts table never allocated. Final prepared-tests-release.log; earlier final
+logs and benchmark logs retained in ignored audit.
+
+Legacy tests preserve their old reference guards, normalizing ONLY new audited
+metadata edits via shared normalize_prepared_record. They still compare ALL
+remaining Record/draw-loop/ownership code to their original commits; no blanket
+guard disabled or baseline simply replaced. Standalone attribute-cache fixture
+uses no-op metadata invalidator because it doesn't instantiate that cache;
+new geometry fixture compiles actual invalidator and tests real sweep ordering.
+
+11unique existing regression commands eventually exit0:
+1.test_attribute_lookup.py (all4lookup/bulk combinations, keys/mutation/sweep).
+2.test_geometry_handoff.py (actual FrameRefs/versions/epochs, original GPU code).
+3.test_frame_owner_index.py (identity/ordinals/allocation/reset, guarded body).
+4.test_draw_arena.py (bounds/overflow/allocation/in-flight frames).
+5.test_command_encoding_control.py (all8mode gates, unchanged draw loop).
+6.test_native_frame_commands.py.
+7.test_native_command_cache.py (lifetime/resource order/encoder guards).
+8.test_pipeline_preparation.py.
+9.test_texture_masks.py.
+10.test_compact_shared_constants.py.
+11.test_upload_sizing.py (2011frames, actual current FrameRef Draw layout,
+   both sizing arms/legacy compact budgets/input preservation; sizeofDraw416).
+
+Failed/inconclusive attempts, fixed rather than hidden:
+-Initial new fixture compile lacked local regs and <set> for extracted block;
+ added fixture context/includes, then comparison passed.
+-Early capture fixture used current layout VFetch rather than descriptor fetch
+ at its preamble. Tightened to actual live selection and explicit field checks;
+ final sanitizer and numerical benchmark rerun, used below. Older matrix
+ retained as superseded; not device/energy evidence.
+-First prototype admitted1input shaders: host1input/32meshes0.562->0.895ms/
+ 40000 (slower despite39968lookups avoided), so final min4gate. Don't remove
+ this gate on logical lookup counts alone.
+-One probation identity per set cut512mesh reuse badly (~24%lookups avoided).
+ Changed to probation per way, explicit colliding-two-key promotion test;
+ final512mesh97.44%lookups avoided after two encounters.
+-Old frame-owner/command-encoding fullRecord guards initially rejected the
+ authorized prep change; narrow explicit normalization fixes, rest unchanged.
+ Failed logs regression-tests.log/regression-tests-final.log retained.
+-Broadened upload-sizing fixture was stale since FrameRef: missing include,
+ nullptr aggregate and shared_ptr::reset calls. Fixed fixture type wiring/
+ include path/empty FrameRef assignment, no production type/budget changes.
+ First two compile failures retained, final upload-sizing-final-2.log PASS2011.
+-First package verifier wrongly demanded runtime byte identity. CMake glob
+ regeneration updated SDK badge; investigated loaded sections below instead
+ of waiving an unexplained binary change. No failed intermediate IPA delivered.
+-Optional ps process peek denied by sandbox, not escalated; running fixture
+ completed normally. No dependency on broad process inspection.
+
+### Host cost gate, not phone/battery acceptance
+
+-O2 seven alternating-order trials;40,000draw preparations/case, actual current
+helper and source preparation vs original. Includes cold fill/map initialization,
+observed output barriers; no validation/decoding/GPU work in timed loop. Fixture
+uses synthetic fixed shader layouts/mesh order and no periodic frame sweep.
+No whole Record, frequency/core placement, phone latency or energy conclusion.
+Final prepared-benchmark-complete.log. Representative medians ms/40000:
+
+|Inputs/meshes|Original|Prepared|Avoided lookups/total|
+|---|---:|---:|---|
+|4/512|3.760|2.470|155904/160000|
+|4/2048|5.176|3.279|115192/160000|
+|4/8192|6.767|7.483|0/160000|
+|6/512|6.062|3.172|233856/240000|
+|6/2048|7.619|4.483|172788/240000|
+|6/8192|11.191|12.449|0/240000|
+|9/512|9.303|4.318|350784/360000|
+|9/2048|12.083|6.334|259182/360000|
+|9/8192|16.389|17.303|0/360000|
+
+Repeated512mesh cases34–54%less preparation time, not app CPU. Cold8192mesh
+cases5.6–11.2%slower, so no universal improvement/default promotion. Small1/3
+input cases0lookups avoided, reference path plus eligibility check. Full matrix
+retained, not cherry-picked. Actual phone hit rate/sweep warmup/allocation/
+frame performance still pending; don't grow table blindly or equate Record's
+14.6%inclusive envelope with achievable saving. Correctness+local source gate
+supports an opt-in device test, not release/battery acceptance.
+
+### Build, runtime badge investigation and delivery
+
+cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12
+exit0 (escalated existing cache/SDK output writes), build.log. New header glob
+caused CMake regenerate, USA translation rebuild and SDK overlay badge refresh.
+12compiler/link warning lines:5SDK fpscr width,5UIKit deprecation,2duplicate-lib
+linker warnings;0errors. Existing glslang CMake compatibility/CMP0148 warnings
+also emitted on regeneration. No full SDK prepare/reset/source mutation. Explicit
+NFSMW_SDK=/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk
+python3 tools/ios/patch_ios_register_batches.py --status verifies3/3 consumer.
+
+Signed ios/build/NFSMW-0.6.1-dev124-prepared-geometry.ipa,30756575bytes,
+bundle0.6.0(11), ARM64 UUIDBF5FD4C9-F7F4-3D73-8244-43777D00E9BE.
+IPA SHA2561b9f49e45c218204cdabac9037db9d15acc3a0287f5a37994e3606acfac9bbb7;
+exe SHA25677cb0840d4268ca47c3beb76795262449ccbf4a79d530a9b44e68ddce5d11788.
+ZIP CRC/codesign --verify --deep --strict --verbose=2 exit0.104metallibs+
+NativeShaders/pipeline_keys.bin byte-identical dev123; GPU SDK byte-identical
+SHA cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113,
+UUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F.
+
+Runtime SDK raw SHA changed0a96c8... ->dad5ba64daf003ead215738b8e991fd39b1ac4e8e7e7be8d4ac4582b71f10129,
+UUIDE00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660. Mach-O section comparison:
+__TEXT,__text EXACTLY equal, every other initialized section equal except
+__TEXT,__cstring11bytes: only string removed
+build: rexglue-v0.10.0-dev.gf14e34d-ios-arm64-Release@20261111_1806,
+only string added
+build: rexglue-v0.10.0-dev.g1bbb88b-ios-arm64-Release@20261111_2241.
+No runtime code change inferred/hidden. SDK's non-Git prepared tree resolves
+badge Git metadata from parent project; did not change that unrelated tooling.
+compare-sdk.py/sdk-comparison.json retained. Existing rexglue-sdk-ios checkout
+has many unrelated modified/untracked files (read-only status); none authored,
+staged or committed by this session. Prepared SDK source untouched, only usual
+CMake-generated build metadata/output changed. No dylib manually substituted.
+
+Desktop same IPA copied/hash-verified, ONLY previous Desktopdev123 moved to
+/Users/bep1s/.Trash/NFSMW-0.6.1-dev123-register-flushes.ipa; all ios/build IPAs
+preserved. Stable Desktop0.6.0 was absent BEFORE delivery. Restored verified
+retained ios/build/NFS-Most-Wanted-0.6.0.ipa under standing keep-stable rule,
+SHA cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285, no stable
+content change. No captured logs/traces deleted or moved. Artifact.json/
+delivery.json/unpacked app and tests under ios/build/dev124-prepared-geometry-20261111.
+No phone/game run by agent, no subjective acceptance inferred for new build.
+
+### Next device gate and shared record
+
+ONE90–120s pursuit Time Profiler+nfsmw.log, cold restart, owner-only settings:
+reuse=true/encoding=false/repeat=false/owner_index=true, vfetch_cache=true,
+1x60/MSAAforced0/FXAAoff/MetalFXoff, same audio/controller conditions. Set
+--nfsmw_native_register_batches=false --nfsmw_native_register_flushes=false
+--nfsmw_native_prepared_geometry=true. Check image/audio/FPS/pacing/footprint,
+new prepared hits/misses(cold subset)/bypasses and attribute lookups avoided.
+Counters are activity, not saved CPU; capacity bound not measured live DRAM.
+No power pair yet. DO NOT credit dev123 BOTH-batchingON -> dev124 batchingOFF
+CPU differences to geometry; reference is same dev124 preparedfalse if later
+needed. Existing settings/control/reference paths retained; no further power
+matrix without CPU/correctness reason. Revert preparedfalse+coldrestart for
+reference/normal play until evidence supports promotion.
+
+Working checkpoint/native plan/private ignored BACKLOG/CHANGELOG updated;
+AGENTS shared record uses existing files. Own source/fixtures/records committed
+locally, preexisting HANDOFF untracked preserved, private BACKLOG intentionally
+not staged; no push/merge/release.
