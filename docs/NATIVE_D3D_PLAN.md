@@ -1040,3 +1040,16 @@ Metal/GPU bodies not executed. Source game unchanged. Keep reproducible negative
 result, not another phone trial. Next larger boundary: prove ONEgeometryclass
 create/update/retire/alias coverage before native resource lifetime/version work.
 Keep unknown/dynamic data on reference; no immutability guesses from age/address.
+
+
+#### Consolidated dev125 power comparison — November 12
+
+Same-sitting flag-group A/B now has a positive observed energy signal: estimated
+system drain40.0569->37.1388percentage points/hour (-7.28%relative), alternate
+preselected trims -6.70/-6.87%. Both60FPS medians, no audio gaps, user normal.
+A ownership/preparedOFF versus B ownership/preparedON; ICB/register transportOFF
+both. Keep B working on this phone; no default promotion/new IPA/extra capture.
+This does not establish pristine pre-pass gain, CPU-time reduction, or universal
+percentage. Instructions essentiallyequal; CPU-associated impactlower/GPUimpact
+higher. Pursuit/order/warm-up confounds retained in TECHNICAL. G2 stays parked;
+new architecture must remove measured recurring work with validation preserved.

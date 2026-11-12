@@ -27457,3 +27457,142 @@ Checkpoint/native plan/ignored private backlog updated, own three tracked docs
 committed locally. No CHANGELOG for evidence-only review. HANDOFF preserved,
 BACKLOG intentionally ignored/not staged; all other repositories untouched.
 No tests rerun (no code change), no app/SDK/flags/IPA/push/merge/release.
+
+## November 12, 2026 — consolidated dev125 flag-group Power Profiler A/B
+
+**Result/decision:** positive observed group-level energy signal, retain B as
+working configuration on Stefan's phone. Primary estimated system drain
+40.0568743->37.1388130 battery percentage points/hour: -2.9180613 points/hour,
+**-7.2848% relative**. This supplies energy evidence absent from the preceding
+retrospective. It is one same-sitting comparison of similar live pursuits, not
+proof of universal exact savings, pristine pre-pass improvement or a CPU ceiling.
+No new code/IPA/default promotion; ICB/register trials OFF, G2 remains parked.
+No further recording needed for this result. Phone-only recording is fine for
+convenience, not required/preferred over these usable Mac captures.
+
+### Inputs, archival and identity
+
+Received Desktop Untitled.trace (two runs in ONE package) and combined nfsmw.log.
+Archived under /Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/12 November 2026/:
+
+- dev125_reference_vs_trial_power_180134_180637.trace:183files,27986106bytes,
+  sorted manifest tree SHA256 63e75254f2c592ed646b56954a4a8dbc033c423d270b1d707e6de436dab52afa.
+- dev125_reference_vs_trial_power_nfsmw.log:2317551bytes,
+  SHA256 bae100a2c7e75c4de7bc6717d8f66873dbb7d6b928b381ff5fb9e008ac383869.
+
+Copy verified before Desktop log deletion per standing rule. Final archive
+recheck: all183 per-file sizes/SHA256 match manifest, archived log matches;
+Desktop log absent. Agent did not delete source trace. Final attempt to verify
+source again failed because Desktop Untitled.trace was no longer available;
+archive unchanged, not missing. Do not claim source still exists. Full manifest,
+post-export-verification.json, exports/parsers/results retained in ignored
+repo audit ios/build/dev125-power-pair-20261112/ (not /tmp-only evidence).
+
+Device iPhone17 Pro Max/iOS27.3(24C5037i), Instruments27.2(27B52), Power Profiler.
+TOC run1 A:18:01:34.077–18:04:35.073+02,180.995743s,LiveContainerPID19870;
+run2 B:18:06:37.184–18:09:38.323+02,181.138923s,PID19885.
+Internal package names Trace1.run/Trace4.run are NOT xctrace run numbers1/4.
+Both launch logs dev125/build Nov12 00:14:18,
+runtimeUUID E00FBEDA-A8C8-3CD8-AD6F-8B4CFB0B3660,
+GPUUUID F35FCE03-AE0C-3B71-82A1-B365C5438C4F.
+Retained dev125 IPA SHA256 88aa7c0c7e70b236d176c337258370654bae468933dfd46074b94be0b5e0e2e5,
+mainUUID DA395111-4E8D-3287-9E24-964EF81886F4 from existing build record.
+THIS power trace dyld exports have zero rows: cannot independently verify main
+UUID from this capture. Log markers/time/library UUIDs corroborate dev125.
+
+### Controls and window selection
+
+A Extra Args (B changes ONLY command_reuse and prepared_geometry to true):
+
+```
+--nfsmw_native_command_reuse=false
+--nfsmw_native_command_encoding=false
+--nfsmw_native_repeat_counter=false
+--nfsmw_native_geometry_handoff=true
+--nfsmw_native_owner_index=true
+--nfsmw_native_vfetch_cache=true
+--nfsmw_native_prepared_geometry=false
+--nfsmw_native_register_batches=false
+--nfsmw_native_register_flushes=false
+```
+
+Startup verifies ownership/preparedOFF A andON B; active table B4632KiB.
+EncodingOFF means printed incremental residency setting does not activate ICB
+resource declarations. Battery-group five experimentsON/baselineQoSOFF/auto
+controller both. Energy-baseline log graphics1.000/cap60/MetalFXoff/FXAAoff/MSAA0
+both (50/48lines whole launches). Brightness27% and Nominal thermal state both
+measured throughout. DeviceChargingState table has0rows; unplugged and LPMoff
+are USER REPORTED both. User confirms normal picture/controls/audio and both
+recordings uninterrupted, pursuits as similar as possible.
+
+window-plan.json frozen from TOC/log timeline BEFORE power results: primary
+15–175s (160s), sensitivity10–170s and30–170s. Both recorded pursuit starts near
++2s (A18:01:35.977/B18:06:38.873). A later restart18:04:48 outside trace.
+B also drove at18:06:10.754,~28s before capture/restart: unequal earlier warm-up
+is a real caveat, not concealed by primary trim. B background0.899s after end;
+no background/restart inside analyzed windows. Live scene/material/core/frequency,
+fixed AthenB order and prior warm-up not deterministically controlled.
+
+### Results (duration-clipped means)
+
+| Window seconds | A estimated drain %/h | B estimated drain %/h | Relative B vs A |
+|---|---:|---:|---:|
+| 15–175 primary |40.0569|37.1388|-7.28%|
+| 10–170 sensitivity |40.4727|37.7628|-6.70%|
+| 30–170 sensitivity |39.6001|36.8799|-6.87%|
+
+Primary CPU-associated kind_0_impact_0 31.97674->27.50234(-13.99%);
+GPU-associated kind_2_impact_2 4.26324->4.47590(+4.99%). These raw Instruments
+impact fields are NOT CPU time/usage, watts or physical CPU/GPU power fractions.
+Instruction-rate field10.96305G->10.97073G/s(+0.0700%); alternate trims-0.322%
+and-0.005%. Do not claim measured total CPU-work reduction from this power pair.
+
+Independent native summaries31x300=9300frames EACH in primary: median60 both.
+A28windows60, one58.7/59.9/59.6; B30windows60, one59.9. A31off-grid frames,
+worst12.5ms deviation; B1,worst4.2ms. Not exact dropped-frame counts/input latency.
+Audio A31/B30 phased windows,0gaps both; no logged GPU errors/watchdogs/invalid
+tokens. Native GPU summary11.9697->10.5419ms but GPUimpact HIGHER, so no claim
+GPU energy fell. Peak memory1569/1633MiB, no memory-saving claim.
+
+Workload proxies are mixed: native LAST-frame draw snapshots2882.1/3141.9 mean
+are NOT full-window average draw counts. Equivalent attribute sites92,768,181/
+95,406,009(+2.84%); B avoided55,903,698calls(58.60%). B preparedhits13,432,444,
+misses4,390,775(cold3,490,116),bypasses10,073,949. Independently phased complete
+summary decode proxy155,988,069/175,854,541attribute elements. Do not normalize
+all CPU/energy by one proxy or treat these pursuits as identical workloads.
+A command diagnostics disabled: reported command frames0 is missing coverage,
+NOT zero rendered frames. Independent summaries provide9300frames each.
+
+### Reproduction, checks and limits
+
+xcrun xctrace export --input <archived trace> --toc --output toc.xml; per-run
+power export --xpath '/trace-toc/run[@number="N"]/data/table[@schema="SystemPowerLevel" or @schema="ProcessSubsystemPowerImpact" or @schema="DisplayBrightnessLevel" or @schema="DeviceChargingState" or @schema="device-thermal-state-intervals"]'
+--output runN-power.xml, N=1/2. Exports exit0. Separate dyld exports exit0/empty.
+python3 tools/analysis/summarize_battery_exports.py power run1-power.xml
+run2-power.xml --skip 15 --end 175, then --skip 10 --end 170 and
+--skip 30 --end 170;
+all exit0; corresponding primary-power.jsonl/sensitivity JSONL retained.
+Audit analyze-logs.py parses launches and selects driving near capture start,
+not first B driving; independent native-summary fallback added for disabled A
+command diagnostics. compare.py exit0: independent integer-nanosecond integration
+agrees with analyzer <1e-8 for3windows x2runs. Existing
+python3 tools/analysis/test_profile_process_filter.py exit0, all6PASS lines in
+analysis-tests.log. No app source changes or additional device tests.
+
+Failed inspection attempts retained: debug XML printer assumed every Swift table
+had schema/row children, raised null errors; null-safe inspection corrected it,
+no export/analyzer data affected. Initial post-export whole-source assertion
+failed because original Desktop trace unavailable; diagnostic confirmed archive
+183/183 intact, no changed/extra/missing archived files, log hash intact.
+
+This is the active ownership/index/geometry/prepared GROUP vs flag-disabled group
+inside same executable, not pristine original renderer/unconditional hooks.
+Encouraging roughly7%lower estimated drain supports retaining B on this device;
+one pair does not isolate components, prove universal magnitude or all-project
+cumulative savings. Do not add earlier controller4.67%. No evidence that global
+optimization ceiling reached. Next new work must have concrete recurring cost
+and safe source ownership coverage, not automatic G2/cache continuation.
+
+Tracked checkpoint/native plan updated and locally committed; private ignored
+BACKLOG updated without force-add. Pre-existing untracked HANDOFF_CHATGPT.md
+preserved; no other repo modifications, no app/SDK/build/IPA/push/merge/release.

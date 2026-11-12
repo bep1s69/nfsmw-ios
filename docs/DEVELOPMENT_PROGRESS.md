@@ -518,6 +518,44 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**Latest: consolidated dev125 power A/B analyzed.** Same-sitting iPhone 17 Pro
+Max/iOS 27.3 pair supports keeping B as the working configuration on this phone:
+primary 15–175s estimated system drain A40.0569 vs B37.1388 percentage points/hour,
+**7.28% relatively lower** (2.9181 points/hour). Preselected sensitivity windows
+10–170s and30–170s show6.70% and6.87% lower. Both60FPS medians, no audio gaps;
+user says normal/uninterrupted, unplugged/LPMoff. Brightness27% and thermalNominal
+measured both. Positive group-level ENERGY observation now exists; supersedes
+older absence-of-power-evidence wording below. This is NOT measured CPU time:
+CPU-associated impact14.0%lower, total instruction rate essentiallyequal(+0.07%),
+GPU-associated impact5.0%higher. No global ceiling established.
+
+A command_reuse=false/prepared_geometry=false; B bothtrue. BOTH encodingfalse,
+repeat_counterfalse, geometry_handofftrue, owner_indextrue, vfetch_cachetrue,
+register_batchesfalse/register_flushesfalse; same dev125 markers and graphics
+1x/cap60/MetalFXoff/FXAAoff/MSAA0. This isolates active flag group in same build,
+not unconditional hooks/layout changes or pristine pre-pass renderer. Do not
+add7.28% to earlier controller4.67% or promise this exact gain to all players.
+Nonidentical pursuits/order/core-clock/warm-up remain confounds (B had earlier
+~28s driving before recorded restart); positive direction persists trimmed windows.
+
+**Next:** retain B for ongoing play; no new IPA or repeated phone/Mac capture is
+needed for this result. Phone-only Power Profiler is optional convenience, not
+preferred over these usable Mac recordings. Keep ICB/register trialsOFF and G2
+parked. Further implementation requires a concrete measured recurring-cost
+proposal, not another cache by default; native resource ownership remains a
+candidate requiring source coverage. No compiled-default promotion this session.
+
+Evidence archived in November12 Debug: dev125_reference_vs_trial_power_180134_180637.trace
+and dev125_reference_vs_trial_power_nfsmw.log. Full paths/hashes and caveats in
+TECHNICAL. Audit ios/build/dev125-power-pair-20261112/. Archived183tracefiles and
+log reverified; supplied Desktop log deleted only after archive verification.
+Desktop trace not deleted by agent; unavailable at final recheck (archive intact).
+Analysis-only session, own tracked evidence docs committed locally; private ignored
+BACKLOG updated but not staged, pre-existing untracked HANDOFF preserved.
+No app/SDK/source/flags/IPA/push/merge/release changes.
+
+Earlier retrospective checkpoint retained as historical context:
+
 **November12 retrospective requested by Stefan (latest scope):** step back and
 assess cumulative CPU results/optimization ceiling before more implementation.
 Audit native pass as dev115–125/G2, starting November10; separate preceding
