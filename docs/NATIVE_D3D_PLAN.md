@@ -1092,3 +1092,21 @@ Next bounded host full-loop reference/current/candidate cost+correctness gate fo
 descriptor-run preparation, preserving exact PPC state/memory order/alias fallback.
 No app implementation approved by these scope shares; not a repeat of old two
 copy patches or register transport. Full evidence/limitations in TECHNICAL.
+
+
+#### Descriptor-run host feasibility — November 12
+
+HOST-ONLY tools/native/constant_descriptor_candidate.h collapses the complete
+ordinary contiguous descriptor run826991D8/8269933C, including setup/copy/dirty
+mask/loop, with exact current fallback at first unsupported descriptor. Bounded
+64, safe aliases rejected; completed prefix retained and ctx.r11 marks resume.
+No immutability assumption, dynamic metadata lookups reloaded, vector load/store
+order preserved. Actual original/current/candidate differential5428cases and
+26unchanged refusals ASan/UBSan pass, full PPC/CR/XER/temp/ea/stack/memory checked.
+Post-copy descriptor reload retained/tested. Supported4–64host runs42–56%cheaper hot/39–55%rotating32fixtures vs CURRENT, not
+vs original only. Single unsupported runs20–63%extra scoped cost. Actual game
+coverage/distribution unknown, no CPU/energy acceptance from multiplying scopes.
+Next independent defaultOFF production trial with source guards/rollback, OFF
+admission overhead check and coverage/fallback diagnostics, then one correctness/
+CPU device check under B controls; no power request yet. No game integration, flag
+or IPA this host-only session. Full limits/commands in TECHNICAL/checkpoint.

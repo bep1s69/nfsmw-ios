@@ -27928,3 +27928,151 @@ Checkpoint/native plan/private ignored BACKLOG updated, own tracked docs committ
 locally; HANDOFF left untracked/preserved. No app tests rerun (analysis only), no
 CHANGELOG/build procedure change, no push/merge/release. New derived audit/scripts
 retained in ignored local build directory, essential context/numbers above.
+
+## November 12, 2026 — complete shader constant descriptor-run host candidate
+
+Stefan approved the local complete-loop correctness/cost experiment. Start
+HEAD6d483e8 on codex/native-frame-command-reuse; AGENTS/checkpoint/backlog/latest
+evidence and git status/log15 read, pre-existing untracked HANDOFF preserved.
+This session adds HOST-ONLY tools/native/constant_descriptor_candidate.h and
+ tools/native/test_constant_descriptor_run.py. No app/source generator/SDK,
+compiled flags/defaults, settings, IPA or device change. No CHANGELOG: players
+cannot enable this prototype in the current game. No phone recording requested.
+
+### Candidate and actual-code comparison
+
+Existing two vector-copy fast paths remain unchanged in ios/src/
+game_constant_copies.h. Candidate instead executes the entire contiguous VS/PS
+DESCRIPTOR run: descriptor decode/lookup, memory copy, stack bookkeeping, dirty
+mask/state and descriptor iteration. It does not replace whole82699100 or the
+outer bitmask/run discovery, integer/texture/state emitters, CP or GPU execution.
+Header lives under tools/native, no game includer/build or codegen hook.
+
+Admission: 1–64contiguous16-byte descriptors, nonwrapping ordinary aligned guest
+ranges; current descriptor matches stack cursor; register banks match private
+stack copies; expected r18 high-bit mask; supported initial constants0–255.
+Reject stack/descriptors as destinations, dirty metadata overlapping them,
+unsupported/MMIO/physical/unaligned ranges. Does not assume asset immutability.
+Source/destination vector overlap retains forward load-before-store behavior.
+Bindings are read per descriptor: prior copies/dirty writes may affect later
+lookup selections, covered by differential tests, not hoisted away.
+
+Candidate false return may FOLLOW a completed valid prefix. Context/stack cursor
+then identify the FIRST remaining descriptor and exact prior state, and caller
+resumes the CURRENT generated body there. Never restart the whole run or discard
+already-performed writes. No global/table/cache allocation, epoch or persistent
+resource tracking; only local preparation work changes. Early refusals unchanged.
+
+Source review found the original/current body reloads the descriptor after copy
+before dirty-state calculation. Initial prototype cached that word; fixed BEFORE
+any integration, added post-copy reload and exact dirty shift semantics, including
+indices>255 observed by that later read. Injected test changes index after the
+copy completes (0/255/513/1023). It validates this specific ordered mutation, not
+arbitrary concurrent writers or changes to copy length during existing helper.
+Preserve original reference for all unsupported cases; not a new concurrency or
+unmapped-memory/fault-order guarantee from a synthetic valid-memory fixture.
+
+Harness extracts actual COMPLETE loop from loc826991D8/8269933C through the
+corresponding descriptor-backedge. Full original-body hashes:
+VS965bf79981ceb0b3c67897d2ef412adb61bcf2052666c3287d43480f667125ef,
+PS7a676ee8ea9391e754f6fb8f1990079de1e7e95d7030a7a4b9485add9f7d0a98.
+Uses existing patch_game_constant_copies.original_text/transform to construct
+original and CURRENT arms, leaving real generated files unchanged. Body mismatch
+rejects extraction. Real SDK PPCContext/CR/XER/vector intrinsics; guest memory
+macros match ordinary BE access, physical/MMIO not emulated by small fixture.
+
+Three arms: original full generated run; current full run with existing native
+copies; candidate+current fallback. Compare ENTIRE PPCContext, CR, temp, ea and
+128KiB guest memory, not just final copied floats. Raw random vector bits include
+all float representations without floating conversions. Guarded ranges selected
+by fixture, no device address trace replay/observed run distribution claimed.
+
+### Commands, correctness and attempts
+
+Audit: ios/build/constant-descriptor-gate-20261112/ (ignored local files).
+
+```
+python3 tools/native/test_constant_descriptor_run.py --output ios/build/constant-descriptor-gate-20261112
+python3 tools/native/test_constant_descriptor_run.py --benchmark --output ios/build/constant-descriptor-gate-20261112
+```
+
+First final version command exit0: sanitized-reload.log,
+**PASS5428 three-arm full-loop comparisons,26unchanged rejections, late-prefix
+resumption**. xcrun clang++ -std=c++23 -O1 -DINJECT_STORES
+-fsanitize=address,undefined -fno-omit-frame-pointer (SDK include/SIMDE paths).
+Includes mixed1–4vectors,1/2/4/8/16/32/64descriptors, all indices0–1023, empty/
+65descriptor fallback, forward/back/same vector overlaps, stack/unaligned sources,
+later-table mutation by earlier copy, dirty-word/table alias, descriptor as source,
+late prefix failure and post-copy injected index changes. Full execution fallback
+cases use mapped valid ordinary fixture memory;26raw refusal tests also check
+unsupported physical/wrap/alias without dereferencing those invalid addresses.
+No claim iOS exception handling/MMIO itself tested by these rejections.
+
+Benchmark command exit0: benchmark-reload.log, **PASS5420 non-injected full-loop
+comparisons/26refusals** then64cost cases x7trials x3arms x30000runs (448rows).
+-O2, no sanitizer/store-injection hooks in timed binary. Injected cases compiled
+ONLY in sanitizer mode, so observation hooks do not inflate reference timings.
+Host Apple clang21.0.0(clang-2100.4.1.1), target arm64-apple-darwin27.3.0.
+Host model query sysctl denied by sandbox; no fresh hardware-model claim.
+
+Preserved initial sanitized.log5414/26 then sanitized-final.log5420/26 after
+extra alias/asserted-admission cases; benchmark.log/benchmark-final.log and their
+JSON represent PRE-reload prototype. Do NOT use them for final candidate claims.
+Missing test guessed tools/native/test_game_constant_copies.py corrected to
+ tools/ios/test_game_constant_copies.py; no app test failure from that search.
+No failing production test/build, no actual game bug introduced. Follow-up
+sanitized/benchmark reruns required because post-copy read changed candidate.
+
+### Complete host cost result versus CURRENT, not just original
+
+Each case runs all3arms with rotating trial order, identical starting fixtures,
+compares checksums and retains7raw trials. Timed iterations include candidate
+admission and fallback/current work, destination/dirty updates, exit state and
+common call setup/checksum. No per-iteration deep copy. Hot same-state tests48
+cases cover VS/PS x1/4/16/64descriptors x mixed/four vectors x normal/first refusal/
+later refusal. Additional16normal cases rotate32independent128KiB fixtures;
+4MiBallocated footprint, not guaranteed cache-cold or complete game working set.
+
+Private summarize.py exit0 verifies64x7rows and computes case medians, stored
+host-costs-reload.json/cost-summary.json. Negative values mean cheaper vs current:
+
+| Case group | Cases | Candidate relative change range |
+|---|---:|---:|
+| Supported4–64descriptors, hot |12|-55.91% to-41.86%|
+| Supported4–64,32rotating fixtures |12|-54.43% to-39.32%|
+| Supported1descriptor, hot |4|-33.86% to-5.35%|
+| Supported1,32rotating fixtures |4|-30.91% to-28.49%|
+| First refusal stack-source,1descriptor |4|+20.43% to+27.61%|
+| Unsupported index,1descriptor |4|+31.88% to+62.31%|
+| Refusal after prefix,4–64descriptors |12|-28.46% to-10.62%|
+
+Other first-refusal multi-descriptor cases included in JSON, not silently dropped;
+no arbitrary average or claimed typical weighted mix. All checksum assertions
+pass. Final inputs-reload.json hashes candidate/test/unchanged old helper and
+local generated partition. Earlier inputs.json/cost JSON retained with their
+corresponding older logs. Generated fixture bodies/binaries private, not tracked.
+
+Supported full runs show a consistent host win INCLUDING checks, not an isolated
+copy claim. Short rejected runs regress; real admission/run-length/alias mix is
+UNKNOWN. Synthetic host shares cannot be multiplied by prior930.6ms(1.79%app)
+source-attribution envelope to promise app CPU or battery savings. Essential
+copies/state remain, other82699100/CP/GPU work untouched. No universal savings,
+FPS/pacing/visual/audio/device battery validation from this fixture.
+
+### Decision and next action
+
+Positive HOST feasibility, enough to justify an independent DEFAULT-OFF
+production trial, not default promotion or whole-app/energy acceptance. Next
+integration must retain both exact current fallback sites, source hashes/
+apply-idempotence/rollback, old native-copy control, coverage/completed-prefix/
+refusal diagnostics and check new trial-OFF admission overhead. Then ONE device
+correctness+TimeProfiler/log run under same B flags to measure actual coverage,
+function/preparation CPU and FPS/pacing; no power pair until supported. Do not
+turn this into G2 or resource immutability caching. No game flag/name/patch/IPA
+exists yet; don't tell user to add a nonexistent argument. If real coverage or
+net cost fails, revert/park rather than tune without new evidence.
+
+Own tools/checkpoint/native plan/evidence locally committed. Private ignored
+BACKLOG matching investigation updated without force-add; HANDOFF untracked/
+preserved, no unrelated work included. No app tests/build/IPA this HOST-only
+session; no push/merge/release or Desktop changes.

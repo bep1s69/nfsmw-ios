@@ -518,6 +518,49 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**Latest: full descriptor-run HOST prototype completed after Stefan's approval.**
+New tools/native/constant_descriptor_candidate.h is HOST-ONLY, no game includer;
+new test_constant_descriptor_run.py extracts exact full original and current USA
+826991D8/8269933C runs (setup/copy/dirty-mask/loop), not only short vector copies.
+Bounded64 descriptors, ordinary aligned ranges, exact bank/descriptor checks;
+unknown/alias cases use current path. False may follow a completed prefix:
+resume at ctx.r11, never restart. Preserves full PPC state/stack/memory; metadata
+lookup reloaded each descriptor so prior writes can change later selections.
+
+ASan/UBSan PASS5428 three-arm full-loop comparisons,26unchanged rejections,
+late-prefix resumption; raw widths/indices0–1023,1–64runs,65/emptyfallback,
+copy overlap, stack sources, unaligned sources, mutable lookup/dirty aliases,
+and injected post-copy descriptor changes. Keeps the original later descriptor
+reload before dirty-state calculation (found during source review).
+Final -O2 PASS5420 non-injected checks and64costcases x7rotating-arm trials,30000runs/arm.
+Synthetic supported4–64runs41.86–55.91%cheaper than CURRENT hot,39.32–54.43%cheaper
+with32rotatingfixtures; supported1run5.35–33.86%cheaper hot. Rejected single runs
+add20.43–62.31%scoped overhead; prefix fallback4+ can still win10.62–28.46%.
+Do not average cases or multiply by old1.79%app envelope to claim CPU/energy gain.
+Real eligibility/run-length/mutation distribution still unknown. No recorded
+pursuit replay/full function/CP/GPU or device validation performed.
+
+**Next:** host result justifies production integration as independent default-OFF
+trial with exact source guards/rollback and coverage/fallback diagnostics, then
+ONE correctness+Time Profiler/log device run under unchanged B controls. No power
+pair until practical CPU/correctness supports it. Need check default-OFF admission
+cost when integrating; no new game flag/patch/IPA exists YET. This is a positive
+host feasibility result, not accepted default/ship/energy result. Don't redo G2,
+asset immutability assumptions or existing two-copy patch. Audit ios/build/
+constant-descriptor-gate-20261112/{sanitized-reload.log,benchmark-reload.log,
+host-costs-reload.json,cost-summary.json,inputs-reload.json}; earlier logs preserved.
+
+Reproduce from repo root (requires existing USA codegen and adjacent SDK):
+`python3 tools/native/test_constant_descriptor_run.py --output ios/build/constant-descriptor-gate-20261112`
+then the same command with `--benchmark` for the -O2 cost matrix. Generated
+fixture source/binaries belong in ignored output, not tracked/proprietary code.
+
+This session changes tools/tests/docs only, B/game/SDK/codegen/IPA unchanged.
+Own tracked work locally committed; ignored private BACKLOG updated, pre-existing
+untracked HANDOFF preserved. No CHANGELOG for host-only prototype; no push/merge/
+release. Host test command below/TECHNICAL, no app build procedure change.
+
+
 **Latest: parent asset lifecycle follow-up completed; native packed-mesh fast
 path PARKED.** Generic relocation823B0578 ->823B04B8 calls unload823B0398,
 overlap-safe move82157F38, then reload823B0308 with global delta82A2CC18.
