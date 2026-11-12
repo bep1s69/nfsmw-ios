@@ -1053,3 +1053,22 @@ This does not establish pristine pre-pass gain, CPU-time reduction, or universal
 percentage. Instructions essentiallyequal; CPU-associated impactlower/GPUimpact
 higher. Pursuit/order/warm-up confounds retained in TECHNICAL. G2 stays parked;
 new architecture must remove measured recurring work with validation preserved.
+
+
+#### Packed-mesh source ownership audit — November 12
+
+Concrete first asset family found:8221A5D8 loads a parent object;8243D8D0
+fixes packed mesh data,82691BB0/82691C18 form vertex/index headers which borrow
+raw chunk addresses.82452528 binds via8258D770/8258D868;825A2B88 produces fetch
+constants from resource+12/+16 and stream offset.8221ACE0 ->8243DE48 retires
+embedded headers. Constructor calls alone do not cover already-fixed/relocated
+reloads. Parent asset identity/generation plus aliases/all writes and CP ordering
+need proof; no immutable or world-only classification established. Keep reference
+validation. Full source map/costs and audit paths in TECHNICAL/checkpoint.
+
+All Fingerprint self0.656–0.985%appCPU in existing125 windows includes textures
+and other geometry. It is not the full validation/preparation cost or power
+fraction. Reject new fingerprint-only registry/cache as next implementation.
+Full native asset preparation remains open only if parent load/relocation/
+retire/alias contract and meaningful whole-path reduction can be established.
+No new game code/flag/IPA/capture; B retained, G2 parked.

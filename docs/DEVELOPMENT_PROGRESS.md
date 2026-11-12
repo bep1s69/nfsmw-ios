@@ -518,6 +518,37 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**Latest source continuation: packed-mesh resource boundary audited.** Identified
+asset load8221A5D8 -> mesh fixup8243D8D0 -> vertex/index header82691BB0/82691C18;
+render82452528 -> bind8258D770/8258D868 -> fetch flush825A2B88;
+asset unload8221ACE0 -> mesh retirement8243DE48. This is a packed-mesh candidate,
+NOT proof of static/world-only/immutable classification. Headers borrow raw chunk
+memory, not ownership of immutable native storage. Header constructor hooks alone
+miss already-fixed/reloaded paths; load/relocation/address reuse need generations.
+Direct writes/aliases and generic lock/unlock remain unproved, so current content
+checks cannot safely be removed. Native CP draw interface lacks resource IDs and
+write generations; load/bind/unload notifications alone do not solve that gap.
+
+Cost gate: existing dev125 primary42s all Fingerprint self341.2/51988.2ms=0.6563%
+appCPU; extended102s1431.7/145414.5=0.9846%. This includes textures/all classes,
+not just candidate geometry; no battery percentage inferred, inline/caller cost
+not covered by this self bound. Reject fingerprint-ONLY new registry/cache for now;
+not a verdict against full native asset preparation. Wider attribute-preparation
+self2218.2ms includes validation/decode/collection, not wholly removable.
+Audit ios/build/static-geometry-audit-20261112/audit-summary.json with16hashed
+function extracts and56575-function direct-call index. Details/next gate TECHNICAL.
+
+**Next source action:** resolve ownership/relocation/alias writes at the parent
+asset boundary8221A5D8/8221ACE0 (not another per-draw cache), and attribute this
+class's wider preparation cost from existing evidence before proposing full native
+asset conversion. No proven immutable class or accepted implementation yet. If
+those cannot be established, park this class and choose another measured cost;
+do not build a shadow-only diagnostic IPA or request another phone run by default.
+Run B unchanged, G2 parked. This session source/evidence only, no code/build/test/
+IPA/SDK changes. Local docs commit; ignored private BACKLOG updated, pre-existing
+untracked HANDOFF preserved. No push/merge/release.
+
+
 **Latest: consolidated dev125 power A/B analyzed.** Same-sitting iPhone 17 Pro
 Max/iOS 27.3 pair supports keeping B as the working configuration on this phone:
 primary 15–175s estimated system drain A40.0569 vs B37.1388 percentage points/hour,

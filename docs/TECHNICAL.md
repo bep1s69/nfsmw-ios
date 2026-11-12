@@ -27623,3 +27623,135 @@ implication or a promise of battery savings. Unknown writes retain current check
 Reject if full coverage/material cost absent, no G2 revival or automatic new
 phone matrix. Checkpoint and existing ignored private backlog updated; own tracked
 docs committed locally, HANDOFF untouched, no push/merge/release.
+
+## November 12, 2026 — packed-mesh native resource ownership feasibility
+
+Stefan approved continuing the proposed source investigation. Read AGENTS,
+checkpoint/backlog/latest evidence; git status/log15: HEAD4c5006b, pre-existing
+untracked HANDOFF_CHATGPT.md only, preserved. Source analysis only; no executable,
+flag/default, generated source, SDK or build changed. Run B stays as accepted
+working configuration; earlier power-pair evidence unchanged, G2 stays parked.
+
+### Concrete producer/bind/retire path found
+
+Built a local direct-call/function-offset index over56575 generated functions.
+Ignored audit: ios/build/static-geometry-audit-20261112/function-index.json,
+audit-summary.json,16hashed source-function extracts (and auxiliary examined
+functions). These contain proprietary generated source: do not stage. Index
+recognizes DEFINE_REX_FUNC bodies and literal sub_*(ctx,base) calls only; not
+indirect dispatch, dataflow, semantic type resolution or proof of all callers.
+Functions with no direct callers can still be reached indirectly. Offset search
+also returns unrelated functions; fixed-offset matches alone are not type proof.
+
+Source locations below are current local generated partition/one-based line,
+not stable symbols across regeneration; locate by function name if partitioned.
+
+| Boundary | Generated function/location | Source observation |
+|---|---|---|
+| Parent load |8221A5D8, nfsmw_recomp.8.cpp:5908|Parses parent chunks, calls8243D8D0, then parent reference fixups82219500/82219588; registers parent in game lists|
+| Mesh fixup |8243D8D0, .99.cpp:16046|Fixes metadata in place; stream section creates embedded vertex headers using82691BB0; index section uses82691C18; byte+10 controls already-fixed branches|
+| Index relocation |8243DFA8, .98.cpp:16105|Adjusts index references from root+24 on initial load or adds a global relocation delta in already-fixed branch|
+| Vertex header |82691BB0, .78.cpp:26429|Writes20-byte resource header, type/ref word0x10001, source address OR3 at+12, size/flags at+16. No vertex-data allocation/copy|
+| Index header |82691C18, .63.cpp:27058|Type/ref0x20001, source at+12,size at+16. No index-data allocation/copy|
+| Mesh bind |82452528, .119.cpp:16565|Up to6 stream records,32-byte step, binds embedded header record+68, slot+92/stride+94; index header owner+32. Used by824525C8|
+| Vertex bind |8258D770, .102.cpp:22168|Stores resource and offset into device+12556+8*slot, adjusts old/new references and dirty state|
+| Index bind |8258D868, .22.cpp:22328|Stores resource at device+12532, adjusts old/new references|
+| Fetch materialization |825A2B88, .2.cpp:23055|Reads bound resource+12/+16 and stream offset to produce fetch constants; canonicalizes physical address bits. This is binding state, not notification of data writes|
+| Parent unload |8221ACE0, .16.cpp:5894|Walks parent chunks, calls8243DE48, unregisters parent/list references|
+| Mesh retirement |8243DE48, .102.cpp:15955|Unbinds embedded vertex/index resources then82597AC0 on headers, clears owner fields|
+| Generic lock/update access |82595428/.27.cpp:22684 and82595588/.93.cpp:22373 ->82594D40/.120.cpp:21880|Derives writable source/range from header+12/+16; helper returns address and updates synchronization/lock state|
+| Generic unlock |82594F78, .46.cpp:22037|Lock-count/range/cache-sync work, not an existing native renderer generation notification|
+| Reference-driven retirement |82594A78, .109.cpp:21834|Additional generic resource retirement paths; embedded ownership and allocation ownership differ|
+
+This establishes a PACKED MESH ASSET candidate, not proof of world-only/static/
+immutable content. Parent input is a raw chunk range and header data aliases that
+range. Native draw interface (native_renderer.h NfsmwNativeDraw) carries regs,
+physical index base, optional UP virtual pointer, shader identities; no parent
+resource handle or write epoch. PreparedGeometry key/cached entry and frame owner
+identity only become usable AFTER current content/version validation.
+
+Important gaps, not hypothetically solved by inserting constructor hooks:
+
+- Already-fixed and relocated asset reloads do not follow every initial header
+  initialization branch. Registration must be at a proved completed-parent boundary
+  with relocation/reuse generations, not only82691BB0/82691C18.
+- Headers and writable locks expose raw data pointers. CPU stores/memcpy through
+  an alias can change data without rebinding or reconstructing the header. No
+  complete write/alias coverage established in this audit; no observed actual
+  mutation rate or class-specific draw share inferred from direct-call index.
+- Header reference release/unbinding is not proof all CP readers/queued native
+  frames/GPU uses have finished. Existing validated decoded arrays and frame
+  ownership retain correct lifetimes; source backing identity needs generation,
+  ordering and reuse rules before replacing them.
+- Generic MmAllocatePhysicalMemory[Ex]/MmFreePhysicalMemory describe allocations,
+  not mesh suballocations/writes. Memory physical aliases A/C/E and raw physical
+  host access matter. SDK Memory::AccessViolationCallback explicitly bypasses
+  callbacks for physical_membase access. Native writebacks also use Physical().
+  A page tracker is not automatically an authoritative all-writers resource epoch.
+
+Read SDK src/system/xmemory.cpp callbacks/PhysicalHeap release/protect and
+src/kernel/xboxkrnl/xboxkrnl_memory.cpp allocation/free. Heap release invalidates
+across mappings; this is useful allocator infrastructure, not proof mesh alias
+writes are fully tracked. Existing native_write_watch=false historical stale UI
+warning retained. Read src/graphics/shared_memory.cpp and patch_ios_hot_pages.py:
+ios_hot_pages is CURRENTLY defaultfalse; hot-page conditional does not by itself
+prove the historical stale-write issue occurs under today's controls. Do not
+claim current global write watch tested/fixed/broken from static review; do not
+enable it as a shortcut. No SDK modifications or patch script applications.
+
+### Cost gate against existing verified dev125 profile
+
+Read existing ios/build/dev125-time-profile-20261112/pre-8-50.json and
+steady-8-110.json, original UUID-verified Time Profiler analysis from earlier
+entry. No new capture or re-export. Same device/build/settings as that record,
+NOT the later Power Profiler pair and not new A/B data.
+
+| Selection | All Fingerprint self ms | Total app sample ms | Self share |
+|---|---:|---:|---:|
+|8–50s|341.2|51988.2|0.6563%|
+|8–110s|1431.7|145414.5|0.9846%|
+
+All named Fingerprint samples here on GPU Commands, including textures AND all
+vertex families. This one mesh class is only an unknown subset. This bounds the
+identified named self component, not all validation/caller/inline/cache misses,
+IndexFingerprint or theoretical complete native-asset benefit. Sampling weights
+not cycle counts or battery percentages. No guaranteed1%maximum battery statement.
+
+Existing primary Record source grouping attribute preparation/validation/decode/
+collection self2218.2ms (~4.27%app) is a broad mixed envelope, not wholly removable
+and not this family's measured cost. Persistent decoded arrays already exist;
+GpuBufferFor copies decoded arrays into its arena only when no GPU buffer exists.
+Full native asset conversion must remove meaningful recurring preparation or
+allocation/ownership work, not claim every draw currently uploads the same mesh.
+
+### Outcome and next boundary
+
+**Reject a new fingerprint-only registry/cache as next implementation.** Its safe
+write/lifetime contract is unproved and named isolated target is modest. This
+completes the initial bounded feasibility gate; it neither closes the full native
+asset idea nor proves no headroom. No speculative optimization, shadow-only IPA
+or another phone recording justified by this result.
+
+Next source action is explicit: resolve parent8221A5D8/8221ACE0 ownership and
+relocation/alias write coverage, correlate that class with wider existing CPU
+preparation before proposing full native asset conversion. Required contract:
+completed load registers canonical ranges+generation, every update/alias write
+invalidates before CP observation, relocation/retirement invalidates before reuse,
+queued old versions retained; unknown/dynamic/UP stays reference. If coverage or
+material full-path cost cannot be shown, park this class and choose another
+measured cost rather than tuning G2 or fingerprint caches. No accepted design or
+new implementation claimed. User need not change B or send a trace now.
+
+Commands/checks: rg/sed source and docs reads; Python generated-function/direct
+call index exit0 (56575),16-function extraction/profile bound computation exit0,
+audit-summary includes body hashes and source profile JSON hashes. No app tests
+rerun because no app code changes; no benchmark/device/energy result produced.
+Failed exploratory searches: guessed ../NFSMW-Recompiled-Mobile/src and SDK
+src/rex/system/xmemory.cpp nonexistent; corrected to local ios/generated/default
+and SDK src/system/xmemory.cpp. Unmatched native_draw_capture* glob corrected to
+native_draw_census.cpp. No conclusions drawn from missing paths. Index is not
+an exhaustive write scanner. Existing renderer content checks remain untouched.
+
+Checkpoint/native plan/ignored private BACKLOG updated. Own three tracked docs
+committed locally, HANDOFF remains untracked/preserved; no other repository
+changes by this session, no push/merge/release/CHANGELOG/new flags/build steps.
