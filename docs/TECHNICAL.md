@@ -27596,3 +27596,30 @@ and safe source ownership coverage, not automatic G2/cache continuation.
 Tracked checkpoint/native plan updated and locally committed; private ignored
 BACKLOG updated without force-add. Pre-existing untracked HANDOFF_CHATGPT.md
 preserved; no other repo modifications, no app/SDK/build/IPA/push/merge/release.
+
+
+## November 12, 2026 — other Extra Args and next-step clarification
+
+Read AGENTS/checkpoint/backlog/latest evidence and git status/log15. HEAD at start
+d3d4b85, pre-existing untracked HANDOFF only, preserved. Read native_renderer.mm
+flag definitions, NativeCommandEncoding dependency, RepeatCounterEnabled and
+native_register_batches.cpp definitions (rg/sed exit0). No code/tests/build/device
+changes. command_encoding defaulttrue but only active with command_reusetrue, so
+keep explicitfalse in B. Repeat counter compares/hashes draw signatures for
+diagnostics; not an optimization which skips repeated drawing. Register batches/
+flushes remainfalse: transport reach established, net CPU/energy gain unproven.
+Geometry handoff/owner index/vfetch remaintrue as tested, with no separately
+isolated energy gain from this pair. command residency is an ICB-only choice in
+this path and not an additional active saving with encodingfalse. Existing
+default-on optimizations are already running; no need to list them again or
+enable every experimental flag. B nine-line inventory in preceding entry is the
+recommended reproducible configuration, with no duplicates/conflicting values.
+
+Proposed next bounded work: audit ONE static geometry class's producer creation,
+all writes/updates, aliases and retirement against measured existing dev125 costs,
+then specify exact recurring validation/copy/ownership work safely removable.
+This is a source feasibility investigation, not approved new architecture by
+implication or a promise of battery savings. Unknown writes retain current checks.
+Reject if full coverage/material cost absent, no G2 revival or automatic new
+phone matrix. Checkpoint and existing ignored private backlog updated; own tracked
+docs committed locally, HANDOFF untouched, no push/merge/release.

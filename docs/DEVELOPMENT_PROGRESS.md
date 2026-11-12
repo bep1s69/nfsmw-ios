@@ -538,6 +538,20 @@ add7.28% to earlier controller4.67% or promise this exact gain to all players.
 Nonidentical pursuits/order/core-clock/warm-up remain confounds (B had earlier
 ~28s driving before recorded restart); positive direction persists trimmed windows.
 
+**November12 follow-up flag advice:** keep the complete nine-line B list in
+TECHNICAL (same as A except command_reuse/prepared_geometrytrue). Geometry
+handoff/owner_index/vfetch remaintrue; no separate marginal energy percentage
+established by this pair. Encodingfalse is essential because its compiled default
+is true; repeat counter is diagnostics, not draw skipping; register batches and
+flushes have no demonstrated net gain, remainfalse. Residency only affects ICB
+encoding here, no useful extra toggle while encodingOFF. Existing default-on
+optimizations need no duplicate arguments. No enable-all recommendation.
+Next concrete proposed investigation: one static geometry class create/update/
+retire/alias source audit against existing dev125 CPU costs; identify exactly
+which validation/copy/ownership work could safely disappear before code or build.
+If authoritative write coverage or meaningful removable cost cannot be shown,
+reject that candidate without another phone capture. No guaranteed gain promised.
+
 **Next:** retain B for ongoing play; no new IPA or repeated phone/Mac capture is
 needed for this result. Phone-only Power Profiler is optional convenience, not
 preferred over these usable Mac recordings. Keep ICB/register trialsOFF and G2
