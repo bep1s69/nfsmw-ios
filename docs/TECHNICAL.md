@@ -27755,3 +27755,176 @@ an exhaustive write scanner. Existing renderer content checks remain untouched.
 Checkpoint/native plan/ignored private BACKLOG updated. Own three tracked docs
 committed locally, HANDOFF remains untracked/preserved; no other repository
 changes by this session, no push/merge/release/CHANGELOG/new flags/build steps.
+
+## November 12, 2026 — parent asset relocation closure and larger CPU target
+
+Stefan: "lets do it", continuing parent ownership/update investigation. Read
+AGENTS/checkpoint/backlog/newest evidence, git status/log15. HEAD22b2d99,
+pre-existing untracked HANDOFF only, preserved. No game/SDK/generated source,
+arguments/defaults, build/IPA or device state changed. Source and existing trace
+analysis only; retain B, G2/register/ICB trials remain parked/OFF.
+
+### New concrete relocation and callback evidence
+
+Ignored audit ios/build/asset-lifetime-audit-20261112/ contains inspect.py,
+read_image.py, profile_boundaries.py, constant-pcs.py,23function extracts with
+matching ASM comment extracts, source/input hashes in audit-summary.json,
+image-tables.json and numerical analyses. Generated proprietary bodies/images
+remain ignored; no tracked copy of their contents. Uses prior56575-function
+index, not repeated whole-program parsing; direct index not all-writer proof.
+
+Found actual parent movement mechanisms, not assumed immutability:
+
+- Global relocation delta is0x82A2CC18 (lis -32093, displacement-13288).
+ 823B0578 (.98.cpp:13410) partitions chunk spans and sets delta=destination-source;
+  moves spans forward/backward according to overlap, then resets delta to0.
+  It is called by asset/streaming compaction824BDBF0 (.41.cpp:18109).
+- 823B04B8 (.96.cpp:13319) performs823B0398(source,length) ->82157F38(destination,
+ source,length) ->823B0308(destination,length). First traverses chunks for unload,
+ last traverses for reload.82157F38 handles overlapping moves in safe-sized pieces
+ via826BDBA0. This is a real source mutation route without vertex lock/unlock.
+- 823B0398 (.123.cpp:13403) calls8245F8C8 synchronization then visits unload
+ dispatch823B0280;823B0308 (.120.cpp:13252) visits load dispatch823B01F8.
+ Dispatcher addresses .125.cpp:13574 and .112.cpp:13276 respectively. Lookup
+ 82156140 (.117.cpp:2175) matches chunk type using dynamic handler-node chains;
+ dispatch loads node+12(unload)/+8(load), with26-handler fallback tables.
+- Loaded-image node0x8290818C has next0,type80134000,load8221AEC8,unload8221AF90,
+ then0x80 and8221B038/8221B0C0/8221B200/8221B280/8221B338 values. Do not name
+ adjacent extra fields without proving their schema. Root wrappers walk nested
+ parent chunks to8221A5D8(load)/8221ACE0(unload). Earlier "no direct callers"
+ findings are explained by indirect dispatch, not evidence of dead functions.
+- Additional streamed paths8221B038/8221B0C0 reach the same parent boundaries;
+ 8221B200/B280 deal with chunk byte order and owner metadata,8221B338 releases
+ parent lists. Header-constructor hooks alone miss these distinctions.
+- 824F5938 (.28.cpp:19637) can unload a source asset range, call824F5790
+ (.109.cpp:18795) to move backing memory/update owner pointer, then reload.
+ 824F5C40 also sets/reset relocation delta and records moved ranges822218E0.
+ This is another known lifecycle path; do not infer one compaction hook is all
+ writers or that822218E0 alone orders native CP readers.
+
+Known parent hooks could invalidate a native generation around THESE routes.
+They do not prove there are no other raw pointer writes, mutable producer paths,
+GPU/native writebacks, indirect handlers or physical aliases. Lock helpers expose
+source pointers; allocation lifetime alone cannot supply a content version. No
+immutability inference from observed stability/asset age/raw address accepted.
+Root unload/load ordering alone does not synchronize a new registry with async CP
+reads or retain old native versions until queued draws/GPU completion.
+
+### Independent loaded image check and failed attempts
+
+Read existing private ios/build/managed40-inspection-image.bin, recorded earlier
+as LOADED layout at0x82000000. PE header's0x400000 ImageBase/raw section offsets
+are not its extraction layout. Initial read_image.py using raw PE mapping failed
+ValueError0x828FD358; corrected to recorded loaded layout, verified mflr r12
+0x7D8802A6 at8221AEC8, then read big-endian pointers. Tables828FD358/828FD3C0
+have26targets each; they do NOT themselves contain8221AEC8/AF90 because mesh
+uses typed node. Big-endian pointer search finds wrappers in .pdata and actual
+node fields82908194/82908198; .pdata reference is NOT a callback registration.
+Node next/type/handler offsets match dispatch and lookup source. Static image
+plus observed loader samples corroborate the route; no current-memory registry
+snapshot or exhaustive callback registration coverage claimed. Full image hash
+in audit-summary/image-tables (private image stays ignored).
+
+Initial function guess823B0510 failed KeyError; actual symbol is823B0578.
+Corrected source lookup/extractions exit0;23extracted functions. These failed
+reads changed no input. No unsafe patch/code generation or SDK patch application.
+
+### Existing dev125 profile: active lifecycle, attribution limit
+
+profile_boundaries.py streams time-profile.xml, resolves global interned IDs,
+filters exact LiveContainer Running, target names normalize sub_/__imp__sub_,
+counts each inclusive target once per stack (not sum recursive appearances).
+Primary8–50s and extended8–110s total sample weights independently match existing
+pre-8-50.json/steady-8-110.json <0.01ms. Exit0; totals51988.2/145414.5ms.
+Whole-export selection171458.5ms retained but not comparable clean-window result.
+
+| Inclusive CPU sample weight ms |8–50s|8–110s|
+|---|---:|---:|
+| Parent load8221A5D8 |4.3|11.1|
+| Mesh fixup8243D8D0 |0.9|3.0|
+| Parent unload8221ACE0 |0.5|2.8|
+| Mesh retirement8243DE48 |0.4|1.6|
+| Asset move manager824F5938 |0|9.9|
+| Backing move824F5790 |0|5.3|
+| Mesh render parent824525C8 |8957.0|23447.7|
+| Mesh bind82452528 |454.5|1250.2|
+| Vertex bind8258D770 |156.8|497.7|
+| Index bind8258D868 |180.3|430.8|
+| Fetch materialization825A2B88 |94.2|257.3|
+| Generic lock82594D40 |1.2|3.4|
+| Generic unlock82594F78 |0.5|2.3|
+
+Nested scopes overlap: DO NOT ADD. Lifecycle/move weights on XThread10213,
+render/bind/lock on Main XThread. This proves parent load/unload and generic
+asset movement occur during pursuit, so registration cannot be startup-only.
+It does NOT pair a particular mesh instance with a sampled movement, prove vertex
+mutation occurred, or classify all sampled locks as this mesh family. Zero samples
+in823B0578 are not proof route unused. Main-side mesh parent17.23%app includes
+shader/state/essential game work; it is NOT recoverable geometry-prep CPU.
+
+Async GPU Commands Record has physical fetch addresses but stack/export supplies
+no parent resource ID/write generation or per-draw argument snapshot. Existing
+logs likewise do not map raw source ranges to this loader family. Consequently
+existing evidence cannot assign candidate-class CP decode/copy/owner cost or
+prove meaningful full native asset savings. No proxy multiplication by17.23% or
+all-Record share. Prior all-Fingerprint0.66–0.98%app envelope remains limited as
+previous entry explained, not a physical energy bound.
+
+**Stop decision: packed-mesh native fast path PARKED.** Known lifecycle map useful
+for future native assets, but full all-writer contract and material class cost
+not established. Do not spend another continuation merely re-auditing these same
+parent functions, implement a speculative registry/cache, remove current checks,
+or demand another diagnostic phone build. Reopen only with new reliable coverage
+or class-cost evidence. No claim global native-asset optimization impossible.
+
+### Continued useful work: localize larger shader/state commit cost
+
+Used existing primary/extended profile (same verified dev125 device/OS/settings
+as its earlier entry, not a fresh experiment). Largest guest self leaf82699100
+1701.2/51988.2ms=3.2723%app in primary;4341.9/145414.5=2.9859% extended.
+This engine shader-constant commit routine already has two native copy-loop
+patches from earlier work; do not rediscover/redo them or call it a broad CPU
+emulation layer. Remaining descriptor walks/stack spills/reloads/masks are lead.
+
+Reverified retained executable:
+ios/build/dev125-compact-matching-20261112/unpacked/Payload/NFSMW.app/NFSMW,
+xcrun dwarfdump --uuid exit0 DA395111-4E8D-3287-9E24-964EF81886F4;
+shasum -a256 exit0 c2b0056914b95c7f6186ced6534cf227cfa10bf0eff676836b09ed042a53eadd.
+Matches captured load0x10BCF8000 from image-identity.txt. Private constant-pcs.py
+adapted previous Record-PC collector, target exact __imp__sub_82699100, verifies
+total app weight; exit0,787leafPCs/1701.2selfms. Preferred PCs mask tag bits and
+subtract runtime load/add100000000. xcrun atos -o <retained executable> -arch
+arm64 -l0x100000000 <787preferredPCs> via subprocess list: exit0,787source lines.
+No symbolication against a newly built executable or assumed current cache.
+
+Native_copy entry lines nfsmw_recomp.93.cpp:27363 and27556 have270.2/62.2ms
+source attribution; these include inlined helper/guards/copy and are NOT pure
+call overhead. Exact full source groups exploratory:
+
+- VS descriptor block27333–27435:756.7ms.
+- PS descriptor block27514–27635:173.9ms.
+- Other function self770.6ms. Total1701.2ms, counts conserve.
+- Existing copy entry lines332.4ms are NESTED in descriptor blocks, not additive.
+  Both descriptors together930.6ms(~1.79%app), not wholly removable.
+
+Existing game_constant_copies.h preserves last vector/CR/stack/register state,
+range/MMIO/physical-alias guards and load-before-store overlap behavior. Replacing
+whole descriptor runs might avoid repeated guest-context spill/reload work while
+retaining dirty masks and actual outputs. This is a concrete hypothesis, not
+accepted implementation or measured speedup. Scope includes essential copying
+and existing optimized work; source-attributed samples do not time individual
+instructions, FPCR stalls or predict exact savings.
+
+**Next action:** bounded HOST-only full-loop reference/current/candidate
+correctness and full-cost gate for82699100 descriptor-run preparation. Preserve
+all PPC GPR/vector/CR/XER, stack/memory and dirty-mask results, overlap/order,
+unsupported/MMIO/physical-range fallbacks; include guard/failed-candidate cost.
+Use actual complete original/current code, not isolated arithmetic microbench.
+If gain marginal/inconsistent park; no additional phone capture/default changes/
+IPA until evidence. This avoids another raw-asset lifetime assumption, old
+register-transport trial or G2 micro-cache. No game implementation this session.
+
+Checkpoint/native plan/private ignored BACKLOG updated, own tracked docs committed
+locally; HANDOFF left untracked/preserved. No app tests rerun (analysis only), no
+CHANGELOG/build procedure change, no push/merge/release. New derived audit/scripts
+retained in ignored local build directory, essential context/numbers above.

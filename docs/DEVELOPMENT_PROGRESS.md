@@ -518,6 +518,40 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**Latest: parent asset lifecycle follow-up completed; native packed-mesh fast
+path PARKED.** Generic relocation823B0578 ->823B04B8 calls unload823B0398,
+overlap-safe move82157F38, then reload823B0308 with global delta82A2CC18.
+Typed dispatch823B0280/823B01F8 and loaded-image callback node8290818C identify
+80134000 ->8221AEC8/8221AF90 ->8221A5D8/8221ACE0. Alternate streamed callbacks
+8221B038/8221B0C0 also reach those parent boundaries;824F5938/824F5790 show another
+move/reload route. Load/unload sampled DURING pursuit (11.1/2.8ms in102s), and
+generic asset movement sampled too; not proof this particular mesh moved or was
+mutated. Registration cannot be startup-only. Parent hooks handle known lifecycle,
+but do NOT prove all raw alias writes or attribute this class's async CP cost.
+Do not keep doing another round of the same mesh ownership audit without new
+write-coverage/cost evidence. No native registry/fast path/diagnostic IPA justified.
+
+**Next bounded target, already localized offline:** shader/state constant commit
+82699100 self1701.2/51988.2ms=3.2723%appCPU (extended2.9859%). UUID/SHA reverified;
+787leafPCs symbolicated. Two descriptor loops' source attribution930.6ms=1.7900%
+appCPU, including332.4ms on EXISTING native-copy call lines (nested, not additive).
+They still perform descriptor walks/spills/reloads/dirty masks; not wholly waste.
+Next HOST-only actual full-loop reference/current/candidate differential and
+cost gate for a native descriptor-run path, preserving ordering/alias fallbacks,
+PPC GPR/vector/CR/XER/stack/dirty state. Do not repeat the old two-copy patch or
+revive register transport/G2. Stop if full cost including guards/fallback is not
+consistently useful; no app patch/build or phone recording before evidence.
+Audit ios/build/asset-lifetime-audit-20261112/:23function extracts, image-tables,
+profile-boundaries, constant PC/source groups, scripts and input hashes.
+
+Run B unchanged; no app/SDK/generated-source/flag/build/IPA change this session.
+Source/evidence docs locally committed; ignored private BACKLOG updated,
+pre-existing untracked HANDOFF preserved. No push/merge/release.
+
+Earlier mesh-audit checkpoint below is historical; its pending parent audit is
+now completed/parked rather than the next action.
+
+
 **Latest source continuation: packed-mesh resource boundary audited.** Identified
 asset load8221A5D8 -> mesh fixup8243D8D0 -> vertex/index header82691BB0/82691C18;
 render82452528 -> bind8258D770/8258D868 -> fetch flush825A2B88;

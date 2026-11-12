@@ -1072,3 +1072,23 @@ fraction. Reject new fingerprint-only registry/cache as next implementation.
 Full native asset preparation remains open only if parent load/relocation/
 retire/alias contract and meaningful whole-path reduction can be established.
 No new game code/flag/IPA/capture; B retained, G2 parked.
+
+
+#### Parent lifecycle follow-up and stop decision — November 12
+
+Mapped generic unload/move/reload823B0578/823B04B8, typed handlers823B0280/
+823B01F8, callback node8290818C(80134000 ->8221AEC8/8221AF90) and streamed
+8221B038/8221B0C0 route to parent load/unload8221A5D8/8221ACE0. Known relocation
+can invalidate generations, but all raw alias writes/class-specific asynchronous
+CP preparation cost still unproved. Existing trace samples parent load/unload
+during pursuit; generic moves also present, no proof same mesh moved/was mutated.
+Packed-mesh native fast path PARKED until new coverage/cost evidence, not another
+round of the same audit or a diagnostic-only phone build. Full native asset idea
+remains possible later; reference checks retained, B unchanged.
+
+Larger measured guest CPU leaf82699100 localized against retained dev125 UUID:
+3.27%appself, two descriptor loops1.79%app including existing guarded copy helpers.
+Next bounded host full-loop reference/current/candidate cost+correctness gate for
+descriptor-run preparation, preserving exact PPC state/memory order/alias fallback.
+No app implementation approved by these scope shares; not a repeat of old two
+copy patches or register transport. Full evidence/limitations in TECHNICAL.
