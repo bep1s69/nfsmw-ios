@@ -1,5 +1,14 @@
 # Native graphics path toward an iOS port
 
+**November12 cumulative review (latest user request):** scoped CPU wins exist
+(dev118 Batch, dev121 reusable owner index, dev125 matching), but several optimize
+new trial overhead. No proven cumulative appCPU/energy gain vs pre-pass renderer,
+and no demonstrated global optimization ceiling. G2 parked. Step back to frozen
+baseline/configuration assessment before more source work. ICB-only gains dormant
+in latest owner-only run. Graphics settings confirmed consistently1x60/noAA/MetalFX;
+workload/placement confounds remain. Exact scorecard/current action checkpoint and
+TECHNICAL. No new capture/build/code/default change in this review.
+
 **November12 bounded G2 gate FAILED — PARKED (current):** host candidate compiled
 against actual complete Record vertex body/ref/OFF/ON, original captures and
 validation preserved. Correctness/allocator/lifetime/failure tests pass. Complete

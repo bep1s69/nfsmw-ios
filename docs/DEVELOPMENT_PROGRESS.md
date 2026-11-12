@@ -518,6 +518,54 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 12, 2026
 
+**November12 retrospective requested by Stefan (latest scope):** step back and
+assess cumulative CPU results/optimization ceiling before more implementation.
+Audit native pass as dev115–125/G2, starting November10; separate preceding
+controller/dev111–112 tests. YES genuine LOCAL CPU reductions supported:
+dev118 command Batch~33–35%lower/disappearing sort work; dev121 SAME-build
+Capture2614.7->2229.6ms(-14.73%),storage1298->825(-36.44%),lifecycle UNION
+2306.8->2041.4(-11.51%) over102s despite~10%higher reported nearby draw work;
+dev125 named prepared cache340.6->229.1ms(-32.74%) over42s. These are distinct
+component denominators, NOT cumulative app savings. Much wins reduce machinery
+ADDED earlier in this same pass; cannot claim they beat pre-pass direct renderer.
+
+Net cumulative whole-app CPU/battery benefit remains NOT established. dev119
+historical graphics+0.82%, dev121 samebuild app+6.17%withmore work, dev124 samebuild
+app essentiallyflat, dev125 app-1.69%withdraws-2.47%; not causal net percentages.
+Register transport lacks netCPU proof/currentOFF; G2 failed full hostgate/parked.
+Pipeline warmup/mute are separate UX/features, not proven steady-stateCPU savings.
+Earlier controller CONFIGURATION observed~4.67%relative lower drain/60FPS medians,
+workload/effective-switch confounded; neither erase nor credit to nativepass.
+
+Latest VERIFIED dev125 run uses ownership/geometry/reusableindex/preparedON,
+encodingOFF/registerbatchesOFF/registerflushesOFF; G2 never in game. Therefore
+ICB-only resource-declaration win is dormant in that configuration. Full graphics
+settings WERE logged: energy-baseline lines across9dev120–125logs all1x/60,
+MetalFXoff/FXAAoff/MSAA0. Earlier wording that graphics inventory was not printed
+was too broad; ExtraArgs not fully printed, but these controls confirmed. Remaining
+workload/core-placement/clock confounds are real; no imagined resolution mismatch.
+
+NO evidence of global optimization ceiling. Diminishing returns demonstrated for
+these particular cache/list approaches, not exhaustion of simulation/audio/GPU/
+resource-lifetime algorithms. Already ARM64/Metal; more-native label no guarantee.
+Latest Record13.31%appCPU, graphicsCPU43.98%, main/world/audio~50% (overlap when
+using nested scopes, none wholly removable); CPU shares are not power shares.
+No defensible remaining battery percentage yet. Current result is neither zero
+possible benefit nor demonstrated large headroom. Audit ios/build/
+cumulative-battery-review-20261112/review.json; detailed scorecard TECHNICAL.
+
+**Next on continuation:** establish frozen original/reference vs accepted active
+configuration and compare cumulative effect before another architecture proposal.
+Existing dev125 fallback flags can isolate the active trial group, but do NOT
+remove unconditional layouts/hooks or reproduce pristine pre-pass executable.
+A proper pre-pass comparison needs verified retained original/current artifacts
+and matched settings/work; not adding per-scope percentages or more uncontrolled
+pursuits. No new user recording/build requested during this review, preserve
+one-pair limit if a later justified power check. G2 remains parked; deeper native
+resource work a candidate, not an automatic next rewrite after this step-back.
+Own evidence docs committed locally, HANDOFF/private ignored BACKLOG preserved;
+no code/flags/SDK/IPA/push/merge/release.
+
 **November12 bounded G2 gate COMPLETED, G2 PARKED (latest):** Stefan approved
 stable-only implementation/testing. Added HOST-ONLY tools/native/
 stable_bindings_candidate.h and test_stable_binding_record.py, not game code.

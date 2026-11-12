@@ -27332,3 +27332,128 @@ Shared checkpoint/native plan/ignored private backlog updated. Own two host file
 and three tracked docs committed locally. HANDOFF preserved untracked, BACKLOG
 intentionally not staged; other repositories untouched. No CHANGELOG for unshipped
 experiment, no push/merge/release. All failed and successful local audits retained.
+
+## November 12, 2026 — cumulative CPU retrospective and optimization-ceiling assessment
+
+### Scope and question
+
+Stefan requests stepping back to analyze everything in the latest battery pass:
+which changes actually reduced CPU, and whether battery optimization has reached
+its ceiling. This turn is audit/synthesis, NOT approval to resume resource rewrite
+or G2. Starting HEADcfa3075, git status only preexisting untracked HANDOFF, log15
+read with AGENTS/checkpoint/backlog/latest evidence. No new input/build/source/
+settings/profile export. Read original recorded evidence and saved JSONs; new
+ignored audit ios/build/cumulative-battery-review-20261112/review.json holds
+source paths/SHA256s, extracted same-build comparisons, verified graphics log
+settings and latest flag line. No new parallel status/report document.
+
+Define recent native pass as dev115–125 plus G2, beginning November10 after
+dev114/audit/design phase. Historical dev110 CPU profile anchors original CPU
+costs but is not a deterministic matched original-vs-final run. Earlier controller,
+audio-low/frame-free and attribute/XMA-pool dev111–112 tests are relevant prior
+history, not proof of later native changes. Baseline definition must stay explicit.
+
+### Scorecard — genuine local reductions versus missing cumulative proof
+
+| Work | Observed target result | Net/baseline interpretation |
+| --- | --- | --- |
+| dev115 owned frame/ICB foundation | Mechanisms run/correctness and reuse coverage; later Record/cleanup scopes lower | Adds ownership/command machinery, not demonstrated net CPU win |
+| dev116/117 pre-game pipeline preparation, mute/catalog | Known pipeline preparation moved before gameplay, separate requested audio feature | Hitch/UX improvements, no established steady-state CPU/energy reduction |
+| dev118 incremental ICB resource declarations | Batch574->384ms(-33.10%) in primary20s, sorting156->0; driving-aligned16s469->305(-34.97%), API calls~97%fewer | Strong local CPU-work evidence, makes added ICB route cheaper; aligned app20325->20282ms essentiallyflat, not pre-pass net win |
+| dev119 geometry owner/GPU binding handles | Hint/map and GPU selection reuse; historical lifecycle union4930.6->3310.3ms(-32.86%), Record lower | Historical comparisons confounded; total graphics79126.3->79775.5ms(+0.82%). Do not sell narrower Draw destructor~80%drop; work moved to frame cleanup |
+| dev120 encoding separation | Command named8133.3->69.2ms in equal112s selections while preserving ownership | Switches off earlier prototype overhead; does not prove a win over original direct Metal renderer. Combined graphics+1.99%withdifferent work |
+| dev121 reusable owner identity index | SAMEbinary102s: Capture2614.7->2229.6ms(-14.73%), storage1298.0->825.0(-36.44%), lifecycle UNION2306.8->2041.4(-11.51%); exact host allocation reduction | Best nearby device/local evidence, despite~10%higher nearby draw/lookup work. App106223.7->112772.8(+6.17%)/graphics+4.57%not attributable net gain; earlier raw29%drop also exists with old node index |
+| dev122/123 register batches/flush aggregation | Verified correctness/transport, reach~1.48%->22.89%reported register words; host costs mixed | Fewer packets/bytes is not CPU proof, no established total CPU benefit; both switchesOFF in latest run |
+| dev124 prepared geometry descriptions | ~55%lookup calls skipped, original lookup call-line CPU lower | Samebuild ON/OFF app52883.8/52909.9ms essentiallyflat; named newmatching340.6ms roughly offsets315.7ms lower old call-line. Sampling/inline means not exact overhead subtraction |
+| dev125 compact prepared matcher | Named newcache340.6->229.1ms(-32.74%), Find306.9->199.6(-34.96%); per-probe proxy-32.72% | Real supported local win in added cache. App51988.2vs52883.8(-1.69%), reported draws-2.47%; no proven cumulative net benefit |
+| G2 completed/stable binding reuse | Isolated model12–24%looked useful; bounded actual vertex+consumer gate mixed/negative | Rejected before game integration. No live CPU change or energy claim; parked |
+
+Numbers are statistical CPU sample weights, not exact cycles; within-row scopes
+may overlap. Do not sum percentages or lifecycle/Capture/Record into cumulative
+savings. Several clear wins reduce machinery introduced earlier in THIS pass;
+they are not automatic improvements over its starting renderer. Samebinary121
+and local125 results support actual component efficiency, not proof final gain
+is zero. Conversely raw historical app reductions cannot establish a cumulative
+percentage. Data neither proves all work worthless nor meets primary end-to-end
+CPU/battery objective. Prior responses too sweeping when interpreted as no local
+CPU reductions; correct distinction is local evidence versus absent net proof.
+
+### What was active in the user's latest verified run
+
+Read archived dev125 log (November12) startup + guarded activity, no assumption
+about current unsupplied device state:
+command_reuseON (frame ownership), geometry_handoffON, owner_indexreusable,
+prepared_geometryON, command_encodingOFF, register_batchesOFF/register_flushesOFF,
+repeat counterOFF, residency settingincremental.6600guardedCPU-owned/ICB0frames
+verify actual coverage. G2 never included. Current compiled defaults remain opt-in.
+
+Read source NativeCommandEncoding: requires reuse AND encoding flag. With encoding
+OFF no command context acquired; ICB-only Batch/resource-declaration improvement
+is dormant in latest configuration, despite residency setting still printing
+incremental. Normal shared native resource-list features are separate/older.
+Do not imply every trial contributes concurrently or ask enabling all flags.
+
+One correction to earlier evidence prose: graphics inventory IS printed in
+[native] energy baseline. Read9dev120–125 archived logs (11/12November) and every
+such line: all scale1.000, MetalFXoff, FXAAoff, forcedMSAA0, cap60. Counts35/31/35/
+35/26/31/30/34/31per log retained in review.json with SHA256s. This corrects overly
+broad prior claims graphics settings were not independently printed/confirmed.
+Complete ExtraArgs inventory still not printed. Do not invent resolution/AA
+mismatch as reason to dismiss comparisons. Live pursuit content, reporting phases,
+core placement and unmeasured frequency still confound net attribution.
+
+### Earlier actual power evidence — retain, qualify, do not credit twice
+
+Re-read independent November10 audit and controller/0.6.0Balanced alternating
+records. Controller CONFIGURATION mean28.915->27.564battery percentage points/hour:
+1.351points/hour,4.67%RELATIVE lower drain. Common15–110s direction survives
+(4.78%relative). All power-window FPS medians60, earlier user equally smooth.
+Instructions~5.5–6%lower, workload/effective dev111-switch confounds prevent clean
+controller-only causal estimate. Positive observed configuration signal, not a
+proven current-native cumulative reduction or a promised repeatable percentage.
+Other dev111/dev112 changes have no robust demonstrated energy gain/reverted.
+No claim of universal noise bound; preserve one same-sitting pair limit later.
+
+### Has the ceiling been reached?
+
+NO evidence of a global optimization ceiling. G2 gate and other trials establish
+diminishing/negative returns for those PARTICULAR representations/caches, not
+optimality of the full program/device energy. Latest dev125 early window sampled
+CPU: native render26.08%, GPU Commands17.90%, main game21.28%, world20.19%, guest
+audio8.89%; Record13.31%nested in graphics. Role interpretation checked against
+stack patterns, not thread suffix names alone. Main/world/audio~50%shows other
+substantial domains; not all unoptimized/waste or guaranteed removable. Renderer
+CPU44%includes essential work; Record/main/graphics scopes not additive. CPU
+shares do NOT identify CPU/GPU/display physical power fractions. AGX CPU samples
+are driver CPU, not GPU shader energy. Recent pass did not comprehensively test
+engine algorithms, reliable native resource lifetime/version ownership, or all
+GPU bandwidth/shader/pass opportunities; earlier project GPU work also exists.
+
+Already ARM64/Metal/pretranslated shaders, so no broad interpreter/Vulkan layer
+waiting to disappear. Deeper native resource/producer change has risks and must
+remove measured recurring work, not just change labels. Scope envelopes and
+unexplored code are NOT proof of large remaining savings. No defensible remaining
+battery percentage/ceiling estimate from these traces; can neither assert no room
+nor promise substantial gains from a rewrite. Fixed image/gameplay/FPS/latency
+also retains irreducible work and device/display costs. This is a limit of current
+attribution/strategy evidence, not an observed global hardware lower bound.
+
+### Decision and next action after the step-back
+
+Do not immediately resume another cache/resource rewrite. First freeze original/
+reference and accepted-current configuration, specify what cumulative effect is
+being assessed. Existing dev125 flags can isolate active trial group: reference
+command_reuse=false/prepared=false versus latest owner-only/ preparedON, with ICB
+and register transportOFF both. That answers group's incremental benefit within
+same executable, NOT every unconditional layout/hook change since pre-pass build.
+True pre-pass comparison needs verified retained original/current artifacts and
+matched settings/work, not summing helpers or inventing pristine baseline from
+flags. No new build or recording requested during this audit. If justified later,
+one same-sitting power A/B per existing limit, no expanding pursuit matrix.
+G2 parked; native resource versioning remains a candidate, not automatic next
+implementation while user has asked for retrospective assessment.
+
+Checkpoint/native plan/ignored private backlog updated, own three tracked docs
+committed locally. No CHANGELOG for evidence-only review. HANDOFF preserved,
+BACKLOG intentionally ignored/not staged; all other repositories untouched.
+No tests rerun (no code change), no app/SDK/flags/IPA/push/merge/release.
