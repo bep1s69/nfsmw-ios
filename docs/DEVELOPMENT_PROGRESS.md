@@ -24,6 +24,10 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November14 (Stefan): agrees to prioritize GPU investigation; CPU is acceptable
+  for now. Preserve current performance/visuals, use existing evidence first.
+  This is a priority decision, not proof the CPU has reached its ceiling.
+
 - November14 (Stefan, latest): also DELETE supplied Desktop traces after archival
   and per-file size/SHA256 verification, just like Desktop game logs. This
   supersedes preserving those Desktop trace originals. Never delete before
@@ -526,6 +530,44 @@ sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
+
+**Latest: GPU audit started; current126 pass ranking replaces old41 timing lead.**
+User agrees GPU deserves priority. CPU/source trials remain parked, B retained,
+newdescriptorfalse. Existing OFF/ON logs have16/15periodic GPU profiles in8–85s.
+Means OFF/ON: main d4683.711/2.671ms (~41.86/41.26%incremental attribution),
+cube-face d7c01.542/1.253ms (~17.40/19.35%), shadow d0300.994/0.632ms
+(~11.22/9.76%). Main-scene+reflection/shadow work is first priority. These are
+sparse pass timestamp increments, not shader-only execution, GPU utilization,
+power fractions or causal OFF/ON deltas. Absolute differences confounded; do
+not attribute them to descriptor flag. All colour-copy blits0.342/0.256ms(~4%),
+so handoff extension is secondary, not a replacement main-scene target.
+
+Current log confirms color handoff ON but0copies saved:15summaries/arm, scene
+planner rejects mirror shader8436534c; other candidates fail layout. Source
+mirrors use a separately scaled/shifted viewport, which existing extent proof
+omits. Do NOT remove guard; accepting mirror may still fail layout/extent.
+Dead stores already discarded; shadow-depth handoff remains parked (wrong
+picture), distortion post copy remains required. No safe bandwidth rewrite
+proved by enabled-but-unused handoff census.
+
+Recovered baseline pixel sources2442daf2(car paint) and8436534c(mirror) from
+localISO with existing host translator into ignored audit. Car body1x2D/1x3D/
+1xShadow9/1xcube; mirror1x2Dalpha/1xcube. No duplicate fetch identified. Existing
+shadow gathers/alpha specializations already implemented, broad fast-math stays
+unsafe. Old snapshot tree348/fence330/car170draws is only historical inventory,
+not per-shader cost/current workload. Current profiles identify PASSES, not which
+materials dominate within them; that attribution remains missing.
+
+**Next:** bounded main-scene shader/coverage investigation must address that
+missing material attribution before proposing a rewrite; inspect existing scene
+shader/state artifacts and define the smallest pass-specific diagnostic only if
+needed, with its exact question/overhead. No repeated omission/power matrix or
+blind shader changes. No new capture requested or app/SDK/build/default changed.
+Private audit ios/build/gpu-source-audit-20261114/ has parser/ranking, historical
+inventory, source/artifact hashes and recovered sources; TECHNICAL details limits
+and unsuccessful VS lookup. Own tracked evidence docs committed locally; ignored
+BACKLOG updated, HANDOFF remains pre-existing untracked; no push/merge/release.
+
 
 **Latest follow-up: remaining opportunities reviewed; no new switch/build proposed.**
 After parking descriptor runs, user asks what else is possible. Existing OFF

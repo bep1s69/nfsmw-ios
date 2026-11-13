@@ -28595,3 +28595,122 @@ no global ceiling established either. Preserve B/newdescriptorfalse.
 Checkpoint and matching ignored private BACKLOG updated, own tracked evidence
 notes committed locally. No CHANGELOG needed for review-only work; no push,
 merge/release. HANDOFF remains untracked; private BACKLOG intentionally not staged.
+
+## November 14, 2026 — GPU priority audit: current pass ranking, copy admission and recovered materials
+
+Stefan agrees GPU deserves focus; CPU acceptable for now. This is priority,
+not a measured CPU ceiling. Read AGENTS/checkpoint/matching BACKLOG/latest evidence,
+git status/log15; initial HEAD8f30317, only pre-existing untracked HANDOFF preserved.
+No source/SDK/default/IPA/build/capture changes. B retained/newdescriptorfalse.
+
+Private ignored audit `ios/build/gpu-source-audit-20261114/` retains rank_profiles.py,
+gpu-profile-ranking.json, historical-material-inventory.json, source-manifest.json,
+recover.py/source-index.json and recovered sources/artifact-hashes.json. No game
+content copied to tracked docs. Sources read: native_renderer.mm current pass
+setup/resolve/planning/profile code, shader_common.h, build_shaders.sh and current
+shadow/caster/foliage rewrite scripts. Six source files SHA256 recorded. Existing
+November2/6 shader and structural audits read to avoid repeating known failures.
+
+### Current GPU pass evidence, not historical41 extrapolation
+
+Reused exact archived ON/OFF logs/identities/hashes documented above:
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/dev126_iphone_pursuit_time_profile_off_nfsmw.log`
+and
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/13 November 2026/dev126_iphone_pursuit_time_profile_nfsmw.log`.
+`python3 ios/build/gpu-source-audit-20261114/rank_profiles.py`, exit0.
+Same8–85s windows;16OFF/15ON regular roughly5s-spaced profiles, exclude "slow
+frame" profiles. Counter timestamps give incremental non-overlapping span
+attribution, not per-stage busy time or shader-only cost (renderer9310ff).
+
+Initial parser required exact timestamp equality for header/rows: one group
+block/arm crossed a millisecond and became empty. Corrected BEFORE conclusion:
+associate rows by same emitting thread within100ms until next profile; all31
+blocks nonempty, grouped sums within[-0.01,+0.02]ms of header (rounded rows).
+Separate Python numerical assertions exit0, no claim those rounded sums exact.
+Labels include dimensions; e.g.784/800 reflection sizes kept separate.
+
+| Group | OFF mean attributed ms | ON mean attributed ms | OFF/ON share of summed profile attribution |
+|---|---:|---:|---:|
+|main scene d468,1600x720|3.711|2.671|41.86%/41.26%|
+|cube-face d7c0,320x256 (six passes)|1.542|1.253|17.40%/19.35%|
+|shadow target d030,1600x1600|0.994|0.632|11.22%/9.76%|
+|post d47c,1600x720|0.677|0.495|7.64%/7.65%|
+|two shadow depth copies|0.445|0.291|5.02%/4.49%|
+|all colour-resolve copy blits|0.342|0.256|3.86%/3.95%|
+
+Mean command-buffer GPU spans8.889/6.491ms; attributed increments8.865/6.473ms.
+These are31 sparse sampled frames, not representative-frame distributions or
+sustained GPU load/energy. Different workload/clocks/CPU sampling/warm-up remain;
+DO NOT credit raw OFF/ON GPU differences to descriptor trial, compare as causal
+regression, or convert shares to battery savings. Ranking broadly agrees across
+runs: main first, cube-face/reflection and shadow rendering next. Unlike old41
+~57%fragment evidence, these current percentages include entire pass increments.
+
+### Copy handoff: real non-admission, not permission to weaken guards
+
+15colour-handoff summaries per arm: enabled but zero copies saved. Current OFF
+log has mirror8436534cfafcc0eb as first unsupported draw in scene plans; other
+candidates rejected for layout. Planner near6102 unconditionally rejects mirror.
+Actual drawing near8032–8062 scales mirror viewport by nfsmw_mirror_scale_x/y and
+shifts Y; existing handoff proof near6346 bounds unmodified viewport X only.
+Thus this is a conservative guard with a real missing coordinate proof, not an
+obvious redundant branch to delete. Admitting mirror may still fail independent
+resolve/layout/extent conditions; no eligible saved copy established. All colour
+copy time is only~4%of sampled attribution, an upper context rather than predicted
+handoff gain. Prior large scene-copy claim cannot be carried over from old2xdata.
+
+Target load/store code already uses last-use/read tracking and DontCare dead
+stores (7625–7704). Versioned shadow depth handoff remains parked after wrong
+picture; no newly solved lifetime/order bug. Post distortion shader36dac samples
+displaced coordinates from pre-overlay image while writing back to target, so
+same-pixel fetch/simple in-place alias is still unsafe. No copy trial revived.
+
+### Shader audit and newly recovered sources
+
+Existing historical Nov2 snapshot log (same full path/hash as prior snapshot
+manifest) parsed to inventory target/shader draws: main tree27d82ea0348,
+fence684f330, car2442daf2170, normal-mapped d8bb8797, road af393d29, others.
+These are old draw counts, not pixel coverage, current126 counts or shader cost;
+never rank expensive materials from counts alone.
+
+`python3 ios/build/gpu-source-audit-20261114/recover.py` imports existing container
+extractor and reads local `/Users/bep1s/Downloads/Need for Speed - Most Wanted (USA).iso`.
+Existing host `ios/build/perf-gpu-nov2/xenosrecomp` emits baseline sources using
+current shader_common.h; existing shadow filter/caster rewrites applied. First
+attempt wanted carPS2442,mirrorPS8436 and VSf866:205valid candidates, two pixel
+matches, VS lookup absent; required-all assertion exit1. This does not prove VS
+unavailable elsewhere; runtime input-key/container hashing needs separate mapping.
+Narrowed to actually recovered two pixel keys, rerun exit0,205valid/two matches;
+source-index.json offsets/container/source hashes retained, artifact-hashes.json
+all six private source/container/script files. No Metal compile/live-cache change.
+
+Actual shaderBody sites (exclude common helper definitions):
+- Car paint2442daf2d3a7097a:1tfetch2D,1tfetch3D,1Shadow9,1tfetchCube; shadow block
+  rewritten once. Alpha is dynamic, not an always-one opaque shader.
+- Mirror8436534cfafcc0eb:1tfetch2D alpha,1tfetchCube colour, brightness/desaturation/
+  polynomial colour processing. Not a copy shader or obvious redundant cube fetch.
+
+No duplicate texture read identified in these bodies. Existing road source has
+rain-dependent fetches with prior nonzero rain evidence; do not assume removability.
+Shadow9 already4gathers, generic alpha test is function-constant specialized,
+caster cut-out variant already present. Repeated generated register temporaries
+are not proof compiler leaves dead machine work. Build deliberately uses
+-fno-fast-math/-ffp-contract=off after cross-pass flicker; do not enable broad
+fast-math/fp16 as an output-preserving shortcut. No safe shader rewrite established.
+
+### Decision and missing evidence
+
+Prioritize main-scene GPU shader/coverage work, reflection/shadow rendering next;
+copy-admission repair secondary. Current timestamp logs locate passes but NOT
+which materials dominate main-pass GPU execution. Historical snapshots/source
+operation counts cannot supply that attribution. Next bounded step is resolve
+material/state attribution using existing shader/state artifacts; if missing,
+define the smallest pass-specific diagnostic and its exact question/overhead
+before proposing code/new capture. No repeated broad omission/power matrix,
+quality/cadence/resolution reduction, blind rewrite or another CPU cache round.
+No new recording requested this turn. This audit is useful localization, not a
+promised optimization or measured saving. GPU opportunity not exhausted/proved.
+
+Working rule/checkpoint/matching ignored BACKLOG updated, own tracked evidence
+notes committed locally; BACKLOG intentionally not staged/HANDOFF preserved.
+No push/merge/release or CHANGELOG for investigation-only work.
