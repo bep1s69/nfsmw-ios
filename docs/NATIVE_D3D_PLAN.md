@@ -1137,3 +1137,21 @@ exclude moved work and are NOT savings. Historical125 differentbuild/session/
 live-work/core-clock confounds; no energy/default acceptance. Next ONEsame126
 flagOFF control underB, no new IPA/power/matrix. Park if still mixed. Archives/
 new verified-Desktop-trace deletion rule and full evidence TECHNICAL/checkpoint.
+
+
+#### Dev126 same-build OFF gate and stop decision — November 14
+
+OFF control complete, same retained126 UUIDs/settings. Exported1ms samples
+versus ON100us; weighted aggregate valid with reduced precision/different profiler
+overhead. Complete target+helper union OFF/ON1773.0/1771.3ms8–50s (flat),
+2959.0/3886.2ms8–85s (ONhigher), app+11.53/+43.74%. Live workload, warm-up,
+core placement and profiling confounds prevent causal regression or saving claim.
+No useful net CPU/energy acceptance. Park descriptor-run trial/defaultfalse;
+retain established B and separately qualified group power signal. No repeat for
+High sampling, power pair, new IPA or automatic micro-cache tuning. Correctness
+logs median60FPS/noaudio gaps/Nominal, no error-level lines in recording.
+Full archives verified and Desktop sources deleted under standing rule.
+Next source reassessment must identify larger safely removable work from existing
+evidence before implementation/device tests; G2/packedmesh remain parked. This
+trial's failure to demonstrate gain does not establish a native-port ceiling.
+Exact measurement/control limits and identities TECHNICAL/current checkpoint.

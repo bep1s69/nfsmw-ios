@@ -28431,3 +28431,123 @@ comparison.json; full Debug archives remain intact. No app tests/build repeated
 Working rule/checkpoint/native plan/private ignored BACKLOG updated. Own three
 tracked evidence docs locally committed, BACKLOG not force-added, HANDOFF left
 untracked/preserved. No push/merge/release or CHANGELOG change for analysis.
+
+## November 14, 2026 — Dev126 same-build OFF reference, lower-frequency sampling, trial parked
+
+### Inputs, archival and identity
+
+User supplied Desktop files and reported forgetting High frequency sampling.
+This completes the ONE same126 OFF control requested after ON analysis; it does
+not authorize assuming a new subjective normal/uninterrupted report. No source,
+flag default, SDK, app build, IPA or shader changes this session.
+
+Private audit: `ios/build/dev126-off-time-profile-20261114/`. Inputs were
+`/Users/bep1s/Desktop/Untitled.trace` and `/Users/bep1s/Desktop/nfsmw.log`.
+archive.py copied to capture-date Europe/Bucharest folder, verified every trace
+file's size/SHA256 and log bytes/hash against source, then deleted ONLY those two
+Desktop inputs under standing instruction. Archive originals retained:
+
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/dev126_iphone_pursuit_time_profile_off.trace`:277files,70276382bytes;
+  canonical sorted per-file JSON manifest treeSHA256
+  `3feee7f254ffc07e8bdb072bae4a5f1670a05f16289b3ce668e794eab4d5a8f4`.
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/dev126_iphone_pursuit_time_profile_off_nfsmw.log`:1143826bytes,
+  SHA256`d0e6d19e123338c8d8e175881ca7adb561b0d1e629bd49f3e2e535fd52a178c7`.
+
+archive-manifest.json retains all277entries/source paths/deletion checks.
+Post-export independent reread of every archived file/log passes, Desktop sources
+absent; post-export-verification.json, exit0. Previous ON Nov13 archives preserved.
+
+xctrace TOC/time-profile/thermal exports completed exit0, retained toc.xml,
+time-profile.xml/thermal.xml. Run1 LiveContainerPID907, iPhone17ProMax/iOS27.3
+(24C5037i), Instruments27.2(27B52). OFF recording Nov14
+00:33:54.136–00:35:24.830+02,90.694416s. Thermal interval Nominal entire recording.
+Actual Running sample weights1000000ns=1ms; ON100000ns=100us. OFF lower sampling
+is usable for aggregate weighted comparison, with less precision and different
+profiler overhead. Never compare raw counts or multiply time by another factor.
+
+Captured images match retained dev126 and ON exactly (image-identity.json,
+compare.py assertions): NFSMW UUID079971D1-3C90-31C1-8074-D77D7DC23BCF at
+0x10f108000, runtime96738934-2740-375A-A2EC-587CF040296C at0x10c080000,
+GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F at0x128294000. Artifact remains
+`ios/build/NFSMW-0.6.1-dev126-descriptor-runs.ipa`,30768156bytes/SHA256
+`07053a93bffa1ce07ce40527f6a54fb78c0b9fa96d711c4004c80b77c3ffe83a`;
+no new build or delivery this analysis.
+
+### Controls and log health
+
+New `--nfsmw_native_descriptor_runs=false` confirmed; zero sampled-report lines,
+expected OFF. Existing `nfsmw_native_constant_copies=true` remains ON.
+B unchanged: command_reuse/geometry_handoff/owner_index/vfetch_cache/
+prepared_geometry=true; command_encoding/repeat_counter/register_batches/
+register_flushes=false. Same1x60,MetalFXoff/FXAAoff/forcedMSAA0, auto controller,
+allfiveON/baselineQoSOFF. Do not attribute changes to imagined graphics mismatch.
+
+Earlier drive00:33:20.231 outside trace, then near-start pursuit restart
+00:33:55.803(+1.667s); no later logged restart. Parser uses near-start event,
+NOT the earlier driving line. OFF had earlier driving/warm-up unavailable in ON.
+window-plan.json preserves same previously selected primary8–50s and secondary
+8–85s, not windows selected to improve OFF result. Guard after latest driving+5s:
+4800complete summarizedframes, fifteen60FPS/one59.9FPS groups (median60),16audio
+windows0gaps,1off-grid/4800 worst4.2ms. These are log summaries, not per-frame
+proof of zero hitches. No error-level/GPU error lines within trace. One watchdog
+RECOVERY warning00:33:54.726(+0.590s), before driving/guard, follows watchdog error
+dumps before capture (last00:33:53.716). Preserve distinction: not whole-log clean,
+not a new gameplay watchdog failure caused by trial. No new bug opened.
+
+### Weighted CPU gate
+
+Private target-cpu.py streams same LiveContainer Running filter and global XML
+interning as ON, deduplicates UNION(named82699100 wrapper/body OR ANY descriptor
+helper). Includes missing-parent helper samples in ON, report and sampler cost;
+OFF has0helper/report samples. Do not report root self or parent-only deltas.
+Independent public parser commands:
+
+`python3 tools/analysis/summarize_battery_exports.py profile ios/build/dev126-off-time-profile-20261114/time-profile.xml --skip 8 --end 50 --process LiveContainer --register-flush-hooks`
+
+Same command with `--end 85`; both exit0, saved pre-8-50.json/pre-8-85.json.
+Private target-cpu.py, analyze-logs.py and compare.py exit0; target-cpu.log,
+dev126-off-target-cpu.json/log-analysis.json/comparison.json retained. compare.py
+asserts actual OFF/ON weight intervals, OFF no helpers and independent wholeapp
+totals agree within0.01ms, validates captured UUIDs. Prior ON results reused from
+`ios/build/dev126-time-profile-20261114/`, not reparsed with a narrower scope.
+
+| Same window | OFF target ms | ON target+helpers ms | ON vs OFF | OFF/ON app ms |
+|---|---:|---:|---:|---:|
+|8–50s (42s)|1773.0|1771.3|-0.0959%|41838/46661.5 (+11.529%)|
+|8–85s (77s)|2959.0|3886.2|+31.3349%|73692/105925.2 (+43.740%)|
+
+OFF target1773/2959samples at1ms, ON17713/38862samples at0.1ms; short difference
+1.7ms effectively flat, not a resolved saving. OFF self1530/2559ms; do not compare
+this self scope to ON outlined symbol self as acceptance. Target shares OFF/ON
+4.2378/3.7961% primary and4.0154/3.6688%longer are descriptive only; normalizing
+by app or another worker to manufacture a saving is invalid.
+
+Primary workload proxies ON vs OFF: directdraws/ownedframe+0.161%, reported
+constantwords/frame-1.781%, equivalent lookupsites-0.582%, nearbyGPU+1.637%.
+Longer:+6.275%,+4.346%,+5.133%,+0.716%. Reporting phase/counter scope differ;
+not a deterministic workload replay. MainXThread P-core sample fractions
+OFF/ON96.18/93.98%primary,96.16/89.84%longer; clocks unmeasured. Unknown-stack
+weight OFF/ON91/2501.5ms primary,152/5681.8ms longer. All identifiable helpers
+included, but these remain sampled attribution, not exact cycle accounting.
+Sampling frequency/profiler overhead, earlier OFF warm-up, live pursuit/work and
+core placement confound wholeapp and target differences. No causal31%regression
+or11–44%wholeapp regression established; also no practical net saving established.
+No power profile or energy acceptance from this CPU pair.
+
+### Decision and next action
+
+Apply agreed stop rule: descriptor-run trial PARKED, keep new flagfalse (already
+default); established B/oldcopy remain unchanged. No High-sampling redo merely to
+rescue this marginal trial, no new IPA, power pair or expanding capture matrix.
+Prior B same-sitting ~7.28%estimated drain observation remains separately
+qualified, neither erased nor credited to descriptor runs. Host scoped wins and
+functional reach did not translate into demonstrated device net CPU benefit.
+This is not a global battery/native-port optimization ceiling.
+
+Next before implementation/device tests: reassess larger remaining source costs
+against existing captures, require meaningful safely removable work and a concrete
+full-cost gate; do not automatically revive G2/packed-mesh/micro-cache tuning.
+No further app testing/build needed for evidence-only change. Checkpoint/native
+plan/matching ignored private BACKLOG updated; three tracked evidence docs locally
+committed, BACKLOG not force-added. Pre-existing untracked HANDOFF_CHATGPT.md
+preserved, no other session work left uncommitted; no push/merge/release/CHANGELOG.

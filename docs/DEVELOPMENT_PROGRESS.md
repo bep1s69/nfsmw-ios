@@ -527,6 +527,51 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: same-build dev126 OFF control analyzed; descriptor-run trial PARKED.**
+The user forgot High sampling. Actual Running sample weights are1ms OFF versus
+100us ON; weighted aggregate CPU remains usable, raw sample counts are not a
+comparison. No repeat requested solely to rescue this marginal trial. Same main/
+runtime/GPU UUIDs as ON, new flagOFF/no sampled reports, oldcopyON and B/graphics
+controls unchanged. OFF Nov14 00:33:54.136–00:35:24.830+02,90.694416s,
+iPhone17ProMax/iOS27.3; Nominal throughout. Near-start pursuit restart+1.667s,
+then no logged later restart. Guarded4800fully summarizedframes median60FPS,
+0audio gaps,1off-grid/4800(worst4.2ms). No error-level/GPU errors in trace; one
+watchdog RECOVERY warning+0.590s belongs to pre-capture watchdog dumps, before
+recorded driving/analysis guard. No new user subjective-normal report inferred.
+
+Same preselected8–50/8–85s, helper-inclusive target union (ON includes missing-
+parent helpers): OFF1773.0/2959.0ms versus ON1771.3/3886.2ms (-0.096%/+31.335%).
+Whole-app OFF41838/73692 versus ON46661.5/105925.2ms (+11.529%/+43.740%). Short
+window target effectively flat; longer comparison unsupported as a causal win
+or regression: live-work/core placement, OFF earlier warm-up and10x sampling
+frequency/overhead differ. Do not normalize by app/other workers to manufacture
+a saving. No practical net CPU/energy benefit demonstrated; no power acceptance.
+
+**Decision/next:** keep `--nfsmw_native_descriptor_runs=false` (already default),
+park this trial under the agreed stop rule; no new IPA, redo, power pair or
+expanding capture matrix. Retain established Run B and its separately qualified
+~7.28%group power observation. This does not establish a global optimization
+ceiling. Before any further implementation or device test, reassess larger
+remaining source costs against existing evidence and identify meaningful safely
+removable work; do not automatically reopen G2/packed-mesh/micro-cache rounds.
+No app/source/default/build changes this session.
+
+OFF Desktop Untitled.trace/log archived and verified then deleted, including
+post-export recheck: capture-date Debug/14 November2026/
+dev126_iphone_pursuit_time_profile_off.trace (277files/70276382bytes, treeSHA
+3feee7f254ffc07e8bdb072bae4a5f1670a05f16289b3ce668e794eab4d5a8f4), matching
+_off_nfsmw.log1143826bytes/SHA
+d0e6d19e123338c8d8e175881ca7adb561b0d1e629bd49f3e2e535fd52a178c7.
+Private audit ios/build/dev126-off-time-profile-20261114/ retains complete
+manifests, exports, scripts, weighted results and comparison.json. Full absolute
+archive paths/commands/limitations TECHNICAL. Own three tracked evidence docs
+committed locally; existing matching private ignored BACKLOG updated/not staged.
+Pre-existing untracked HANDOFF_CHATGPT.md preserved; no push/merge/release.
+
+Earlier ON-only checkpoint follows as history; its requested OFF control is now
+complete and its pending next action is superseded above.
+
+
 **Latest: dev126 ON device check analyzed; correctness/coverage PASS, CPU
 benefit INCONCLUSIVE.** User says everything felt fine. Main079971D1/runtime
 96738934/GPUF35FCE03 captured UUIDs match retained126; descriptor flagON, oldcopyON,
