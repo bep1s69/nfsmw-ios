@@ -79,6 +79,7 @@
 #include "metal_display_pacer.h"
 #include "memory_report.h"
 #include "gpu_capture.h"
+#include "native_shader_entries.h"
 #include "native_arena_ranges.h"
 #include "native_texture_masks.h"
 #include "native_guest_culling.h"
@@ -727,7 +728,7 @@ struct ShaderStore {
         REXLOG_WARN("[native] shader library {} not loaded: {}", name.UTF8String,
                     error ? error.localizedDescription.UTF8String : "?");
       }
-      id<MTLFunction> f = [library newFunctionWithName:@"shaderMain" constantValues:constants error:nil];
+      id<MTLFunction> f = NativeShaderFunction(library, name.stringByDeletingPathExtension, false, constants);
       if (f) {
         f.label = name.stringByDeletingPathExtension;  // e.g. ps_<key>, named in GPU traces
         functions[name.stringByDeletingPathExtension.UTF8String] = f;
@@ -897,7 +898,7 @@ struct ShaderStore {
       [values setConstantValue:&spec type:MTLDataTypeUInt atIndex:0];
       const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
       [values setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
-      f = [lib->second newFunctionWithName:@"shaderMain" constantValues:values error:nil];
+      f = NativeShaderFunction(lib->second, @(name), false, values);
       // Instruments attributes shader samples to the specialized function,
       // which does not inherit the base function's material label.
       f.label = [NSString stringWithFormat:@"ps_%016llx alpha%u", (unsigned long long)key, spec];
@@ -923,7 +924,7 @@ struct ShaderStore {
       [values setConstantValue:&spec type:MTLDataTypeUInt atIndex:0];
       const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
       [values setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
-      f = [lib->second newFunctionWithName:@"shaderMainMotion" constantValues:values error:nil];
+      f = NativeShaderFunction(lib->second, @(name), true, values);
       f.label = [NSString stringWithFormat:@"%s_%016llx alpha%u motion", pixel ? "ps" : "vs",
                                           (unsigned long long)key, spec];
     }

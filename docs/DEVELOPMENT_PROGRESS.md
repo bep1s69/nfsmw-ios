@@ -531,6 +531,60 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev128 compiled-entry naming implemented, validated and delivered.**
+Stefan approved implementation. tools/native/name_shader_entries.py mechanically
+renames base/motion entries to nfsmw_STAGE_KEY[/_motion] AFTER existing shader
+rewrites. Identifier substitution exact-reversible, idempotent, rejects malformed
+keys/mixed naming/missing base. No shaderBody/math/interface/constant/spec edits.
+NativeShaderFunction helper selects named entry if present, otherwise legacy
+shaderMain/Motion; a present entry's specialization failure stays failed, never
+silently legacy. Used for load/alpha/motion variants; flags/keys/internal shaders
+unchanged. All101normal libraries regenerated in isolated audit cache,3debug
+libraries retained legacy/byte-identical. All5metadata files unchanged127;104libs/
+109files total. iOS18/exact-math flags retained. Original live shader cache intact.
+
+Checks:4Python naming tests,24loader state combinations/72GPUdispatches on Mac,
+legacy/named/mixed preference+injected failclosed/nil/missingmotion PASS;
+6realPS/VS families x24base/motion/spec/gather=144interface comparisons PASS.
+All101iOS translate+compile/link PASS35.991563375s; appcompile/link PASS17.491s,
+configure/package PASS1.479/7.027s. ZIP/codesign pass, shader names/metadata/oldcache
+hashes checked. Runtime only__TEXT,__cstring build-watermark section changed;
+all other runtime sections including machine code identical127, GPUlib identical.
+NewmainUUID1463E873-BD01-3F0C-B39C-0B64E846597B/runtime
+2BF028C3-7030-3218-AB7E-53C59017F379/GPUF35FCE03 unchanged.
+
+Retained ios/build/NFSMW-0.6.1-dev128-compiled-shader-names.ipa30771377bytes,
+SHAd8c100d97b65462a88191561440c4cd390653bbf07f2c3b6d65af7cc0b26ec5c,
+bundle0.6.0/code11. Verified Desktop copy; Desktop127 moved toTrash after Stefan
+explicitly approved exact128/127 operations following auto-review rejection.
+Stable/repositoryIPAs preserved, no unresolved delivery approval.
+Private audit ios/build/dev128-compiled-shader-names-20261114/ retains source/
+library manifests, original containers/generatedsources, tests/build/verification/
+unpackedapp/delivery. No game-derived contents tracked. Owncode/CHANGELOG/docs
+locally committed, ignored matching BACKLOG updated, HANDOFF preserved untracked.
+
+**Next ONE phone input:** install128 preserving data/caches; allow graphics
+preparation before gameplay, warm drive~1minute. Keep B and descriptorfalse;
+nativeGPUcapture/costprobeOFF/loggingON/DetailedOFF. Same InstrumentsMetalSystem
+Trace with ShaderTimelineENABLED/PerformanceLimiters/defaultstate,7–12s active
+scene/pursuit plusmatchinglog. This is specifically to accept compiled material
+names in driver profiler, not a repeat128power/CPU A/B or claim GPU saving.
+Host interface/source checks do NOT prove device picture/performance or profiler
+names. First verify newUUID/nonzero raw profiler intervals and key-bearing names;
+if valid, map dominant pass programs to material/source/state; if naming still
+absent diagnose rather than ask for identical reruns. No battery benefit claimed.
+
+**Build procedure update:** ordinary live cache remains legacy and loader accepts
+it. Current build-0.6 configured NFSMW_NATIVE_SHADERS_DIR to ABSOLUTE repository
+`ios/build/dev128-compiled-shader-names-20261114/shaders/lib` (keep this ignored
+folder; no /tmpdependency). Named-cache regeneration: normal build_shaders.sh
+now applies name_shader_entries.py; use a new output folder and retain old debug
+libraries/camera_constants and pipeline seed as checked, then explicitly configure
+the shader directory. Do not regenerate the live cache in place or clear device
+caches for naming. Full exact commands/failures/limits TECHNICAL below. No new
+runtime flag/default, no SDK source edits, push/merge/release.
+
+
 **Latest: dev127 trace analyzed; real profiler intervals present, material names
 still missing.** Desktop12.224187s MetalSystemTrace Nov14
 01:20:20.146–01:20:32.370+02, iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2;

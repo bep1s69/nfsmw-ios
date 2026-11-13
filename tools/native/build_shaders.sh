@@ -15,6 +15,7 @@
 #    behind specialization bit 12 (compiled out where c1.x is 0).
 #    tools/native/rewrite_foliage_early_alpha.py: optional early rejection for
 #    the audited shadowed cutout shader (bit 13, off by default in renderer).
+#    name_shader_entries.py: material IDs in compiled base/motion entry names.
 # 4. xcrun metal: one .metallib per shader, named vs_/ps_<microcode hash>,
 #    with exact math (-fno-fast-math -ffp-contract=off): fused multiply-adds
 #    change the last bit between passes and the dark layers on billboards
@@ -61,6 +62,7 @@ for container in "$out"/containers/*.bin; do
   python3 "$repo/tools/native/rewrite_shadow_caster_alpha.py" "$out/msl/$name.hlsl" | grep -v ": 0 shadow" || true
   # Fail closed if the audited target body changed; never ship a silent no-op.
   python3 "$repo/tools/native/rewrite_foliage_early_alpha.py" "$out/msl/$name.hlsl"
+  python3 "$repo/tools/native/name_shader_entries.py" "$out/msl/$name.hlsl"
   cp "$out/msl/$name.hlsl" "$out/air/$name.metal"
   if xcrun -sdk iphoneos metal -w -O2 -std=metal3.1 -D__air__ -fno-fast-math -ffp-contract=off \
        -mios-version-min="$ios_min" -c "$out/air/$name.metal" -o "$out/air/$name.air" &&

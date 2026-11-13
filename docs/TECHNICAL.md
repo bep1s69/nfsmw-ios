@@ -28947,3 +28947,146 @@ cache clearing, native CAPTURE repair, repeated omission or power matrix. No new
 recording requested now. This run localizes GPU execution but proves no battery
 reduction. Checkpoint/matching ignored BACKLOG/CHANGELOG updated, own tracked docs
 committed locally, ignored BACKLOG not staged, HANDOFF preserved untracked.
+
+## November 14, 2026 — Dev128 compiled material entry names: production integration and isolated libraries
+
+Stefan explicitly approves implementing the compiled-entry fix after127profiler
+names remained generic. Session started425ee53; AGENTS/checkpoint/backlog/latest
+TECHNICAL/status/log15 read. Only pre-existing untracked HANDOFF preserved.
+No source changes to shared or isolated SDK, no push/merge/release/default change.
+This is diagnostic infrastructure; no new GPU/CPU/battery saving established.
+
+### Code and compatibility
+
+`tools/native/name_shader_entries.py` maps shaderMain/Motion identifiers to
+nfsmw_STAGE_KEY[/_motion], validates stage/16hex key (optional _dbgN), rejects
+missing base/mixed/incomplete naming. Substitution is exactly reversible against
+ENTIRE input source before writing; idempotent. It changes entry identifiers,
+not shaderBody/interface/buffer bindings/constants/algorithms. build_shaders.sh
+calls after existing shadow/caster/foliage rewrites, before Metal compilation and
+metadata generation. Exact-math flags -fno-fast-math/-ffp-contract=off, Metal3.1/
+iOS18 retained. No lower precision/reduced samples/material effects.
+
+`ios/src/native_shader_entries.h` production helper selects named function when
+listed in library.functionNames, otherwise legacy shaderMain/Motion. A present
+named function that fails specialization returns failure, never hides it with
+legacy fallback. native_renderer.mm uses it at library load, PixelVariant,
+MotionVariant; existing key/caches/flags/internal functions unchanged. Cold
+function creation only, not per-draw extra lookup. Existing runtime diagnostic
+labels retained, compiled names are the new identification mechanism.
+
+### Loader and real interface validation
+
+`python3 tools/native/test_shader_entries.py --output ios/build/dev128-compiled-shader-names-20261114/loader-test`
+Final exit0:4naming unit tests (reversibility/idempotence/stage/debug/boundaries/
+rejections), actual production helper over legacy/named/mixed Metal libraries,
+24base/motion/spec/gather combinations with72compute dispatches checking exact
+constant-dependent output. Named preference, legacy compatibility, nil library,
+missing motion and injected specialization failure staying closed checked.
+
+Initial fixture wrongly assumed empty constant-values necessarily makes Metal
+newFunction nil: Metal returned a non-nil function for that fixture. Its assert
+failed/SIGABRT, not a production loader defect. Replaced that invalid OS assumption
+with a deliberately failing library test object advertising both entries; asserts
+exactly one named request and NO legacy retry. Final fixture passes all gates.
+No game/device crash, production fallback not weakened to make test pass.
+
+Private validate_interfaces.py built12Mac reference/named libraries for6actual
+shader families: tree27d82ea0, cutout684f, caster4fbaec, roadaf393d, car2442,
+VSf866. Baseline inverse entry rename only. Production helper compares function
+stage, stage-input/vertex attributes (names/types/locations/active), constant
+indices/types/required across6specs x2gather x2motion =144paired interfaces, PASS.
+Initial test executable output path "interfaces" collided with existing directory;
+link exit1, runner PermissionError. Changed executable path to interfaces-check;
+compile/run final exit0, interfaces.log.12compiled library outputs retained;
+no repeat shader compilation to resolve path issue. These are interface/source/
+loader proofs, NOT rendered image/iPhone instruction/performance/profiler proof.
+
+### Full isolated shader rebuild and metadata preservation
+
+Audit `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev128-compiled-shader-names-20261114/`.
+
+`python3 tools/native/nfsmw_shader_containers.py --iso '/Users/bep1s/Downloads/Need for Speed - Most Wanted (USA).iso' ios/build/dev128-compiled-shader-names-20261114/shaders/containers`
+exit0:205container occurrences98VS/107PS,101unique normal libraries (42VS/59PS).
+VS uses existing masked-fetch microcode hash, fixing earlier prototype's unmasked
+VS lookup limitation without changing keys. No proprietary content tracked.
+
+`sh tools/native/build_shaders.sh - ios/build/dev128-compiled-shader-names-20261114/shaders`
+exit0/35.991563375s:101translated/101Metal libraries compiled/linked.101source
+idempotence checks pass; inverse-renaming assertions ran in each build invocation.
+Constant metadata101shaders,2full-bank/35meanregs; texture masks101/0fallbacks.
+All3regenerated metadata files EXACT bytes127: vertex_inputs,constant_ranges,
+texture_masks. Copied3legacy debug libraries and camera_constants/pipeline_keys
+unchanged from retained127 into isolated lib;109files/104metallibs total. Names
+match oldlibrary filename inventory, all contain iOS18target, all101normal binary
+function metadata contain expected material name. Three debug libraries intentionally
+remain legacy; loader path covered. No live shader-cache overwrite or deletion.
+
+Original livecache `/Users/bep1s/Library/Caches/nfsmw-ios/shaders/lib` all-file SHA
+manifest captured and rechecked unchanged after packaging. Private generatedsources,
+reference/named Mac libs, named iOS libs, manifests remain in audit for reproduction.
+No /tmp-only essential context. No claim renamed101library bytes equal old127;
+all101intentionally changed. Math/source rename proof is relative to regenerated
+source, not proof old compiled machine code matches new code instruction-for-
+instruction; metadata/flags/interfaces are preserved, device visual check pending.
+
+### App compilation, package and artifact identity
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target nfsmw -j 12`
+exit0/17.491221375s, app-compile.log/result. Configured existing isolated build:
+`cmake -S ios -B /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 -DNFSMW_NATIVE_SHADERS_DIR=/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/dev128-compiled-shader-names-20261114/shaders/lib`
+exit0/1.478684167s. SDK remains nfsmw-multiplayer-sdk. Then
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit0/7.027355708s, package-build.log/result. Current build cache now references
+isolated named library path; do not delete it or silently restore legacy cache
+when reproducing128 diagnostics. Normal build_shaders.sh now reproducibly emits
+named entries; legacy libraries remain accepted if a different cache is chosen.
+
+Retained `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev128-compiled-shader-names.ipa`:
+30771377bytes, SHA256`d8c100d97b65462a88191561440c4cd390653bbf07f2c3b6d65af7cc0b26ec5c`.
+Bundle0.6.0/code11 as current development naming convention. MainUUID
+1463E873-BD01-3F0C-B39C-0B64E846597B, exeSHA
+ed166a7d11806c3e25dba04a235129c32648366956f7906891a8c4516cd67241.
+RuntimeUUID2BF028C3-7030-3218-AB7E-53C59017F379/SHA
+7971becf8aad2c4acb8d54d219aa760210fe5952a1e0e0575086078a85f77dcc.
+Mach-O section comparison127->128 excludes zerofill: ONLY runtime__TEXT,__cstring
+build watermark differs, all other file-backed sections/machinecode identical.
+GPUUUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F/SHA
+cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113 byte-identical.
+No claim runtime entire binary unchanged; UUID/signature changed too.
+
+verify_artifact.py final exit0:ZIPtestzip, codesign --verify --deep --strict,
+109file inventory, exactly101normal library byte changes,3debug+5metadata exact,
+GPUlibrary bytes/runtime sections and old livecache preservation. artifact.json,
+shader-preservation.json/runtime-section-comparison.json/source-manifest.json/
+named-library-manifest.json and unpacked signed app retained.
+
+### Delivery and ONE targeted device acceptance
+
+Initial auto-review rejected copying new proprietary128 to iCloud/trashing127,
+stating prior specific approval covered127/126 only; command did NOT execute.
+Reported rejection and exact actions. Stefan explicitly replied "Yes, copy dev128
+and trash Desktop dev127". Same exact operations retried and succeeded exit0.
+New IPA verified at `/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev128-compiled-shader-names.ipa`.
+Only Desktop127 moved to `/Users/bep1s/.Trash/NFSMW-0.6.1-dev127-gpu-shader-labels.ipa`,
+old SHAcbb1e7db52838b8918867c746d2b94fbc9e52c572230b86f3e20ba644e6fbb9a verified.
+StableDesktopNFS-Most-Wanted-0.6.0.ipa unchangedSHA
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285;
+all repository old IPAs retained. delivery.json, no unresolved approval. No new
+suppliedDesktop trace/log this session, no evidence deletion necessary.
+
+Next install128 preserving game data/caches, let graphics preparation finish,
+warm normal drive~1minute. Keep B plus --nfsmw_native_descriptor_runs=false,
+same1x60/AAoff/MetalFXoff/auto, GPUcapture/costprobeOFF/loggingON/DetailedOFF.
+ONE7–12s InstrumentsMetalSystemTrace/ShaderTimelineENABLED/PerformanceLimiters/
+defaultinducedstate + matchinglog. Specifically accepts material IDs in driver
+profiler and ordinary picture/controls/audio; host success not a guarantee that
+Instruments exposes names. First verify UUID, raw intervals/non-generic translated
+names, then map dominant main-pass shader samples to source/state; if still absent,
+diagnose rather than identical repeat. No power/CPU A/B/omission matrix/native
+CAPTURE or battery reduction claim. Startup known-state preparation remains
+active; do not clear caches for naming, first-load compilation behavior untested.
+
+Owncode/tests/CHANGELOG/checkpoint/evidence committed locally; matching ignored
+BACKLOG updated/not staged. Pre-existing HANDOFF preserved untracked. No push,
+merge/release, shader quality reduction or default promotion.

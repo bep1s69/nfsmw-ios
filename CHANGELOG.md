@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- **GPU profiling labels.** Specialized shader functions now carry material
-  labels for diagnostics.
+- **GPU profiling labels.** Translated shaders now use material-specific
+  compiled entry names for GPU diagnostics. Existing shader libraries remain
+  compatible.
 
 - **Mute all game audio.** Added a master mute switch in the launcher and
   in-game Audio menu. It applies immediately and preserves the game's volume
