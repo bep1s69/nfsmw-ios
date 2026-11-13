@@ -527,6 +527,36 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest follow-up: remaining opportunities reviewed; no new switch/build proposed.**
+After parking descriptor runs, user asks what else is possible. Existing OFF
+8–85s report has Record5287ms self/8940ms named-inclusive union of73692ms app
+(~7.17%/~12.13%); writer/CP union5518ms(~7.49%). These overlap and are CPU
+attribution envelopes, NOT removable cost, additive savings or power fractions.
+G2/packed-mesh remain parked; another matcher/fingerprint cache is not the next
+step. Source confirms constants already compare/copy shader-used ranges and
+upload once per consecutive distinct set. Guest culling alreadytrue in source
+and current log; old D-018 defaultfalse backlog text is historical, not a new
+switch to enable. Current full-target scissor has documented untiled semantics;
+do not enable dormant guest-tile scissors as an optimization.
+
+**Next recommended bounded investigation:** GPU shader/main-scene and render-
+target memory-traffic source audit using existing captures/private shader sources
+and current pass graph. Identify a specific output-preserving redundant operation
+or intermediate traffic before proposing implementation or another device capture.
+Historical dev41 dominant fragment encoder~6.3ms/~57%active GPU is only a lead,
+not a measurement of current126 pass mix. Audit shader liveness/repeated fetches
+and target producer/consumer/load/store lifetimes; no generic prepass/reordering,
+precision/quality reduction or presumed dry-road removable work. If existing
+artifacts cannot attribute a target, say so before requesting a narrowly justified
+capture. CPU Record full-body decomposition is a secondary source lead, excluding
+parked lifetime/cache proposals; no proven safe rewrite ready. Timer/wake cuts
+already have negative power evidence; XMA replacement remains high effort with
+unproven return. No new test requested/code/default/IPA changed. Established B
+retained, descriptorfalse. TECHNICAL records evidence and limits. Own tracked
+notes committed locally; ignored BACKLOG updated, pre-existing untracked HANDOFF
+preserved, no push/merge/release.
+
+
 **Latest: same-build dev126 OFF control analyzed; descriptor-run trial PARKED.**
 The user forgot High sampling. Actual Running sample weights are1ms OFF versus
 100us ON; weighted aggregate CPU remains usable, raw sample counts are not a

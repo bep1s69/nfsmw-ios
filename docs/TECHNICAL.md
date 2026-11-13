@@ -28551,3 +28551,47 @@ No further app testing/build needed for evidence-only change. Checkpoint/native
 plan/matching ignored private BACKLOG updated; three tracked evidence docs locally
 committed, BACKLOG not force-added. Pre-existing untracked HANDOFF_CHATGPT.md
 preserved, no other session work left uncommitted; no push/merge/release/CHANGELOG.
+
+
+## November 14, 2026 — Remaining battery opportunities after descriptor stop
+
+User asks whether anything else can be done. Read current AGENTS/checkpoint,
+matching backlog/latest evidence, git status/log15. HEAD initiallyb7b4d78;
+pre-existing untracked HANDOFF_CHATGPT.md preserved. Read-only reassessment, no
+new appsource/SDK/build/default/IPA/tests or device capture requested.
+
+Inspected retained dev126 OFF pre-8-85.json, source native_renderer.mm and SDK
+src/core/timer_queue.cpp; rg/sed/Python reads exit0. Existing77s window app73692ms:
+Recordself5287ms(7.1745%), named-inclusive union8940ms(12.1316%); writer+CP
+union5518ms(7.4879%). These overlap; no sum, no claim all cost removable or any
+energy fraction. Record remains substantial but prior G2/capture/fingerprint
+lifetime failures remain constraints; another cache is not a fresh large target.
+Constants already compare/copy used shader ranges and reuse consecutive uploads
+(source constants lambda near3520/upload near8115). TimerQueue already blocks
+instead of spins; existing dev89 iPhone power result22.6vs22.5%/h provides no
+measurable wake-cut energy signal. Do not restart that experiment on sample
+counts alone. Native XMA replacement remains large unproved project.
+
+Current source nfsmw_native_guest_culling defaults true and archived Nov14 OFF
+log explicitly says guest culling on. Prior defaultfalse D-018 backlog lines are
+historical, not a new optimization switch. Earlier dev90 also enabled skip unread
+resolves/color handoff/early-alpha. Full-target scissors have explicit console
+untiled reconstruction rationale near8001; dormant else is not a safe toggle.
+Historical dev41 usable Metal trace dominant fragment encoder6.293/6.364ms,
+~57%active GPU remains a lead only; not current126 pass mix or guaranteed savings.
+
+Recommendation: next bounded SOURCE audit should examine GPU shader work and
+render-target traffic using existing shader sources/captures plus current pass
+graph. Require an identifiable output-preserving redundant computation/fetch or
+intermediate load/store/copy with proved consumer/lifetime semantics before
+implementation. No generic prepass/reorder, reduced precision/graphics, guessed
+scissor fix, or assumed dry-road simplification. If existing data cannot attribute
+a target, explicitly state that limit before proposing a specific additional
+capture; none requested now. Secondary CPU direction is full Record-body cost
+decomposition, not reopening G2/packed-mesh or claiming native naming itself saves
+power. No ready safe change or new savings percentage established by this review;
+no global ceiling established either. Preserve B/newdescriptorfalse.
+
+Checkpoint and matching ignored private BACKLOG updated, own tracked evidence
+notes committed locally. No CHANGELOG needed for review-only work; no push,
+merge/release. HANDOFF remains untracked; private BACKLOG intentionally not staged.
