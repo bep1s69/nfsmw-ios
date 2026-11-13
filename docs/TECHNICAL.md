@@ -28714,3 +28714,112 @@ promised optimization or measured saving. GPU opportunity not exhausted/proved.
 Working rule/checkpoint/matching ignored BACKLOG updated, own tracked evidence
 notes committed locally; BACKLOG intentionally not staged/HANDOFF preserved.
 No push/merge/release or CHANGELOG for investigation-only work.
+
+## November 14, 2026 — Material-attribution gate and dev127 shader-label diagnostic
+
+Stefan approves continuing main-scene attribution work. Read AGENTS/current
+checkpoint/backlog/latest evidence, git status/log15; initial1a94ede, only
+pre-existing untracked HANDOFF preserved. Existing tree opaque/edge passes are
+complementary; prior texture PNGs omit alpha, source counts not shaded coverage.
+No newly safe scene shader rewrite demonstrated. Do not repeat omission probe
+(which skips every selected shader draw across passes) as per-material timing.
+
+### Actual exported evidence and the diagnostic omission
+
+Private `ios/build/gpu-material-attribution-20261114/`. Used existing archived
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/dev41_iphone_early_foliage_ab.trace`.
+Two xctrace export commands, input above, XPath
+`/trace-toc/run[@number="1"]/data/table[@schema="metal-shader-profiler-shader-list"]`
+and
+`/trace-toc/run[@number="1"]/data/table[@schema="gpu-shader-profiler-sample" or @schema="metal-shader-profiler-intervals"]`;
+outputs shader-list.xml/shader-samples.xml in audit, both export exit0.
+Compiled shader-list3365rows (metadata, NOT executed samples). Profiler samples0;
+interval result empty node0rows. Settings Shader Timeline Disabled. Initial
+row verifier assumed each node has schema and hit AttributeError on empty node;
+corrected None handling, final export-validation.json/zero-sample assertion exit0.
+Thus prior assertion "no existing material timings" upheld, NOT "no shader data".
+
+Source labels base functions near732, but PixelVariant/MotionVariant near883/913
+created specialized MTLFunctions without labels. Export labels include generic
+shaderMain/Motion names rather than material names; lack of labels is an actual
+source omission, not proof every generic entry can be recovered by renaming.
+Added only function.label assignments: ps_KEY alphaSPEC, stage_KEY alphaSPEC
+motion. Objective-C message to nil harmless on compilation failure; existing
+failure/fallback/variant/cache logic unchanged. No new flag/default/key change,
+shader compilation/pipeline logic/geometry/order/target edits. Pipeline labels
+already contain PS/VS keys; function labels help sampled shader attribution.
+On-device Instruments reflection of labels remains untested, not guaranteed.
+No unnecessary tests mirroring these formatting assignments; iOS compilation,
+package verification and byte-preservation gates are validation for this change.
+
+Apple primary reference reviewed:
+https://developer.apple.com/jp/videos/play/wwdc2020/10603/ (Shader Timeline samples
+which shaders run within encoders; Performance Limiters setup),
+https://developer.apple.com/metal/tools/ (Metal System Trace workflow).
+These support the measurement approach, not local capture success or savings.
+Native in-game GPU capture remains PARKED per BACKLOG (freeze/crash); do not make
+repairing that button a prerequisite. Earlier commentary about checking capture
+labels did not authorize or perform native capture. Existing source supports
+Instruments without ios_gpu_capture. Old long ShaderTimeline-enabled race traces
+had empty data; cause not proved. New short enabled recording is a bounded
+measurement attempt with explicit acceptance gate, not an asserted fix.
+
+### Build and artifact
+
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+via Python timed subprocess, exit0/21.022301459s, build.log/build-result.json.
+No shared SDK edits or regeneration. Copied generated NFSMW.ipa to retained
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev127-gpu-shader-labels.ipa`:
+30768958bytes,SHA256
+`cbb1e7db52838b8918867c746d2b94fbc9e52c572230b86f3e20ba644e6fbb9a`.
+Bundle0.6.0/code11 (development filename convention unchanged). New main
+UUID`F0B0327E-ED8D-3D4E-A57D-2FB3A950A603`, executableSHA256
+`feef750dc05cdf532d61ef7ba73be27db2cdcb7585ed1336e830aa5eea10800e`.
+RuntimeUUID96738934-2740-375A-A2EC-587CF040296C/SHA
+07a76149f8b5a1ef9eb1d0738c69d225670e0688d91b3f4702476e9e0e4f91ee;
+GPUUUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F/SHA
+cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113.
+Both libraries byte-identical126 by ZIP-entry assertions.109NativeShadersfiles/
+104metallibs all exact SHA matches126 (manifest before build). testzip passes,
+extracted codesign --verify --deep --strict exit0, retained unpacked app and
+artifact.json/codesign-verify.log. No device rendering/performance test claimed.
+Labels are diagnostic preparation, not a battery optimization. CHANGELOG updated.
+
+### Desktop delivery and authorization
+
+First escalation to copy127 to iCloud Desktop/move126 to Trash rejected by
+automatic approval review: proprietary-file transfer/deletion lacked trusted
+specific authorization. Process did NOT run. Reported this and requested exact
+approval; user replied "Yes, copy dev127 and trash Desktop dev126". Only then
+retried exact operations, succeeded exit0; no unresolved approval or bypass.
+Verified new SHA at
+`/Users/bep1s/Library/Mobile Documents/com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev127-gpu-shader-labels.ipa`.
+Only older Desktop126 moved to
+`/Users/bep1s/.Trash/NFSMW-0.6.1-dev126-descriptor-runs.ipa`, SHA07053a93...
+verified before/after. Stable DesktopNFS-Most-Wanted-0.6.0.ipa unchangedSHA
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285.
+Repository old IPAs preserved, delivery.json retained. No new supplied Desktop
+trace/log this turn, so no evidence deletion/archive operation required.
+
+### ONE next recording and acceptance
+
+Install127 preserving data/caches, cold restart. Keep complete B and
+--nfsmw_native_descriptor_runs=false; no other experimental changes. Launcher
+GPU frame capture OFF, GPU cost per shader OFF, normal loggingON/DetailedOFF.
+In Mac Instruments Metal System Trace target iPhoneLiveContainer; Recording
+Options/Metal Application GPU Counter Set Performance Limiters, Shader Timeline
+ENABLED, induced GPU state Default. Warm ordinary gameplay about1minute, record
+ONLY7s active scene/pursuit, save trace and matchinglog to Desktop. No Time
+Profiler/High CPU-sampling requirement, new power A/B, changed graphics or broad
+probe. One trace tests actual missing per-shader sampling, not flags CPU benefit.
+
+First inspect settings, nonzero shader execution samples and labelled main-pass
+fragments/newUUID. If empty, diagnose THIS file before any automatic repeat;
+short earlier success does not guarantee Shader Timeline capture works here.
+If valid, rank material samples within main scene separately from reflections/
+shadows, inspect limiter samples/source/state, then propose specific equivalent
+work reduction. Sampled approximate GPU times remain distinct from exact isolated
+shader/draw cost or energy. Capture overhead not gameplay power evidence.
+Checkpoint/matching ignored BACKLOG updated. Own code/CHANGELOG/shared evidence
+committed locally, BACKLOG not force-added, HANDOFF preserved untracked. No push,
+merge/release or default promotion; descriptor/G2/packed-mesh remain parked.

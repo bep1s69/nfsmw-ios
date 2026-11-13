@@ -898,6 +898,9 @@ struct ShaderStore {
       const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
       [values setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
       f = [lib->second newFunctionWithName:@"shaderMain" constantValues:values error:nil];
+      // Instruments attributes shader samples to the specialized function,
+      // which does not inherit the base function's material label.
+      f.label = [NSString stringWithFormat:@"ps_%016llx alpha%u", (unsigned long long)key, spec];
     }
     ps_variants[{key, spec}] = f;
     return f;
@@ -921,6 +924,8 @@ struct ShaderStore {
       const bool shadow_gather = REXCVAR_GET(nfsmw_native_shadow_gather);
       [values setConstantValue:&shadow_gather type:MTLDataTypeBool atIndex:1];
       f = [lib->second newFunctionWithName:@"shaderMainMotion" constantValues:values error:nil];
+      f.label = [NSString stringWithFormat:@"%s_%016llx alpha%u motion", pixel ? "ps" : "vs",
+                                          (unsigned long long)key, spec];
     }
     motion_variants[{key ^ (pixel ? 1ull : 0ull) << 63, spec}] = f;
     return f;

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **GPU profiling labels.** Specialized shaders retain material names so GPU
+  recordings can identify their cost.
+
 - **Mute all game audio.** Added a master mute switch in the launcher and
   in-game Audio menu. It applies immediately and preserves the game's volume
   settings. Use Keep other music playing to listen to another app.

@@ -531,6 +531,49 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev127 GPU shader labels built, verified and delivered.** Main-scene
+material attribution remains the gate. Existing41 trace shader-list export has
+3365compiled metadata rows but0shader-profiler samples/0interval rows (Shader
+Timeline disabled); material identities are not timings. Current base functions
+are named, but PixelVariant/MotionVariant dropped labels, yielding generic
+shaderMain/shaderMainMotion entries. Renderer now labels specialized functions
+ps_KEY alphaSPEC / ps_or_vs_KEY alphaSPEC motion; no shader logic, variant key,
+render order/target/args/default changes. Runtime/GPU and all109shaderfiles/
+104metallibs byte-identical126. No battery improvement claimed from labels.
+
+Built with documented build-0.6 ipa -j12: exit0/21.022301459s; ZIP/codesign checks
+pass. Retained ios/build/NFSMW-0.6.1-dev127-gpu-shader-labels.ipa30768958bytes,
+SHAcbb1e7db52838b8918867c746d2b94fbc9e52c572230b86f3e20ba644e6fbb9a,
+mainUUIDF0B0327E-ED8D-3D4E-A57D-2FB3A950A603. Bundle0.6.0/code11 unchanged;
+runtime96738934/GPUF35FCE03 unchanged. Private audit
+`ios/build/gpu-material-attribution-20261114/` retains exports/build/artifact/
+signing/delivery checks. Desktop127 copy SHAverified; Desktop126 moved to Trash,
+stable unchanged. Initial auto-review rejected transfer/trash; no action ran.
+User then explicitly approved exact actions, retry succeeded. No approval pending.
+
+**Next ONE targeted input:** install127 preserving game data/caches, retain B+
+`--nfsmw_native_descriptor_runs=false`. Native GPU frame capture and GPU cost per
+shader OFF, normal loggingON/Detailed logOFF. In Mac Instruments choose Metal
+System Trace targeting iPhone LiveContainer; Recording Options/Metal Application:
+GPU Counter Set Performance Limiters, Shader Timeline ENABLED, default induced
+GPU state. Warm drive about1minute, record only7s ordinary active scene/pursuit;
+save trace+matchinglog to Desktop. Not another TimeProfiler/power A/B. High CPU
+sampling irrelevant. Shader Timeline supplies sampled material execution, not
+exact isolated draw cost. Existing long enabled traces were unusable; short
+recording success here is NOT guaranteed. First inspect rows/settings/newUUID;
+if empty, stop and diagnose that file, no automatic repeat matrix. If valid,
+map main-pass fragment samples to shader/state/source before optimization.
+
+Native in-game CAPTURE remains parked (known freeze/crash), not prerequisite.
+Do not substitute it for Instruments or revive broad draw-omission cost probe,
+which alters output across passes. Current31sample pass ranking remains context;
+old complementary tree passes, rain-dependent road inputs and failed depth
+handoff remain constraints. Source labels compile/package verified only; actual
+on-device Instruments naming/recording acceptance pending. Own code/CHANGELOG/
+shared docs committed locally; matching ignored BACKLOG updated/not staged,
+HANDOFF pre-existing untracked preserved; no push/merge/release.
+
+
 **Latest: GPU audit started; current126 pass ranking replaces old41 timing lead.**
 User agrees GPU deserves priority. CPU/source trials remain parked, B retained,
 newdescriptorfalse. Existing OFF/ON logs have16/15periodic GPU profiles in8–85s.
