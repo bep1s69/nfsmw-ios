@@ -14,6 +14,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/ios'))
 import patch_game_constant_copies as patch
+import patch_game_constant_descriptors as descriptors
 
 SITES = {
     '826991D8': ('Vertex', '965bf79981ceb0b3c67897d2ef412adb61bcf2052666c3287d43480f667125ef'),
@@ -284,7 +285,7 @@ def main():
     matches = [p for p in patch.GENERATED.glob('*.cpp')
                if 'DEFINE_REX_FUNC(sub_82699100) {' in p.read_text()]
     assert len(matches) == 1
-    original = patch.original_text(matches[0].read_text())
+    original = patch.original_text(descriptors.original_text(matches[0].read_text()))
     current = patch.transform(original)
     references = []
     for label, (name, digest) in SITES.items():

@@ -1110,3 +1110,17 @@ Next independent defaultOFF production trial with source guards/rollback, OFF
 admission overhead check and coverage/fallback diagnostics, then one correctness/
 CPU device check under B controls; no power request yet. No game integration, flag
 or IPA this host-only session. Full limits/commands in TECHNICAL/checkpoint.
+
+
+#### Dev126 production descriptor trial — November 13
+
+Production core game_constant_descriptors.h/.cpp, defaultOFF restart flag
+nfsmw_native_descriptor_runs. Atomic sampled WHOLE-invocation admission~1/1024;
+local coverage only on samples, merge/report~5s. Exact guarded full-run patch
+coexists with oldcopy patch; refusal resumes current suffix WITHOUT retrying new
+admission on every old backedge. Default OFF bypasses core/sampler.5428 installed
+five-arm state cases and patch atomicity/rollback/coexistence checks pass. Installed
+host timing supports multi runs but short/refused cases mixed; no app/battery win
+claimed. Signed dev126 delivered, source/artifact/cache correction in checkpoint.
+Next ONE device correctness/CPU+log underB/newflagtrue, no power yet. Old false
+flag is direct rollback. G2/packed-mesh route remain parked.

@@ -9720,7 +9720,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     REXCVAR_GET(nfsmw_native_vfetch_cache) ? "on" : "off",
                     vertex_diagnostics.fetch_layout_hits, vertex_diagnostics.fetch_layout_misses,
                     vertex_diagnostics.fetch_layout_bypasses);
-        REXLOG_INFO("[native] dev125 prepared geometry {}: {} hits / {} misses ({} cold) / {} bypasses, {} attribute lookups avoided; table bound {} KiB (metadata only, content validation unchanged; not energy savings)",
+        REXLOG_INFO("[native] dev126 prepared geometry {}: {} hits / {} misses ({} cold) / {} bypasses, {} attribute lookups avoided; table bound {} KiB (metadata only, content validation unchanged; not energy savings)",
                     PreparedGeometryEnabled()?"on":"off",vertex_diagnostics.prepared_hits,
                     vertex_diagnostics.prepared_misses,vertex_diagnostics.prepared_cold,vertex_diagnostics.prepared_bypasses,
                     vertex_diagnostics.prepared_lookups_saved,PreparedGeometryEnabled()?sizeof(PreparedGeometryTable)/1024:0);
@@ -10083,7 +10083,7 @@ extern "C" void nfsmw_native_prepare_graphics(void (*progress)(uint32_t,uint32_t
   uint32_t completed=0;
   if(progress) progress(0,total,context);
   const auto tick=[&] { if(progress) progress(++completed,total,context); else ++completed; };
-  REXLOG_INFO("[native] dev125 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
+  REXLOG_INFO("[native] dev126 graphics preparation before game: {} normal / {} ICB keys",normal.size(),indirect.size());
   pipeline_cache.Prepare(store.device,normal,tick);
   if(reuse) indirect_pipeline_cache.Prepare(store.device,indirect,tick);
   pipeline_archive.warmed.store(true,std::memory_order_relaxed);
@@ -10573,7 +10573,7 @@ bool NativeSwap() {
   if (NativeCommandReuse()) NativeFramePool().Purge(memory_purge_requests.load(std::memory_order_relaxed));
   // Motion history and repeat diagnostics intentionally use the reference owners.
   static const bool announced_reuse = [] {
-    REXLOG_INFO("[native] dev125 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {}; prepared geometry {})",
+    REXLOG_INFO("[native] dev126 frame ownership/command reuse {} (restart required, reference fallback; repeat counter {}; command residency {}; geometry handoff {}; cached command encoding {}; owner index {}; register batches {}; register flushes {}; prepared geometry {})",
                 NativeCommandReuse() ? "on" : "off", RepeatCounterEnabled() ? "on" : "off",
                 REXCVAR_GET(nfsmw_native_command_residency) ? "incremental" : "reference",
                 NativeGeometryHandoff() ? "on" : "off",NativeCommandEncoding() ? "on" : "off",

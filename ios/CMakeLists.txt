@@ -309,7 +309,7 @@ if(NFSMW_WITH_GAME)
         endif()
         target_sources(nfsmw PRIVATE src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp
-            src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp)
+            src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp src/game_constant_descriptors.cpp)
 # Line tables for the native renderer (no code change): Time Profiler samples
 # from a device trace map to source lines (dsymutil the app's NFSMW).
 set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -gline-tables-only)
@@ -325,6 +325,15 @@ set_source_files_properties(src/native_renderer.mm PROPERTIES COMPILE_OPTIONS -g
         endif()
         message(STATUS "NFSMW: ${_copies}")
         target_sources(nfsmw_recomp PRIVATE src/game_constant_copies.h)
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_constant_descriptors.py" --status
+            RESULT_VARIABLE _descriptors_result
+            OUTPUT_VARIABLE _descriptors OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT _descriptors_result EQUAL 0 OR NOT _descriptors MATCHES "^\\[descriptor-runs\\] applied")
+            message(FATAL_ERROR "NFSMW: generated code lacks descriptor-run trial. Run: python3 tools/ios/patch_game_constant_descriptors.py")
+        endif()
+        target_sources(nfsmw_recomp PRIVATE src/game_constant_descriptors.h)
+        message(STATUS "NFSMW: ${_descriptors}")
         execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_transform_copies.py"
                     --status

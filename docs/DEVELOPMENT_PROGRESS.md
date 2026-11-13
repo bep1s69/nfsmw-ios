@@ -475,10 +475,14 @@ The Android reference repository is the sibling `NFSMW-Recompiled-Mobile`.
 Build from the main repository's `ios` directory:
 
 ```sh
-cmake --build --preset ios --target ipa -j 12
+cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12
 ```
 
-The actual build directory is `/Users/bep1s/Library/Caches/nfsmw-ios/build`;
+Current branch uses `/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk` and
+`build-0.6`, as did dev125. The ordinary preset/cache `build` is stale for this
+branch: November13 regeneration correctly rejected its shared SDK. Do not bypass
+that guard or patch the shared SDK. The historically documented build directory
+was `/Users/bep1s/Library/Caches/nfsmw-ios/build`;
 compiled shaders are in the sibling cache `shaders` directory. The build dir
 must be configured with `-DNFSMW_NATIVE_SHADERS_DIR=$HOME/Library/Caches/nfsmw-ios/shaders/lib`;
 if that cache entry is empty the IPA has no `NativeShaders` and every game draw
@@ -516,7 +520,69 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 12, 2026
+## Current checkpoint — November 13, 2026
+
+**Latest: dev126 descriptor-run trial implemented, checked, signed, delivered.**
+Stefan approved device trial. New restart-only defaultfalse
+`nfsmw_native_descriptor_runs`; separate from battery group/old copy flag.
+Production core ios/src/game_constant_descriptors.h/.cpp, exact two full-run
+patch tools/ios/patch_game_constant_descriptors.py after oldcopy patch. Core
+unchanged from host prototype; old tools header now compatibility include.
+Refused run's backedge bypasses admission for ALL remaining fallback descriptors;
+completed prefix resumes at correct cursor. OFF bypasses sampler and core.
+About1/1024 WHOLE guest invocations sampled (atomic sequence+mixed selector);
+local counts initialized only on samples, merge/report about5s only when sampled.
+Coverage is sampled; fallback count based on entry span, not per-fallback-loop
+instrumentation. Startup logs new flag/dev126; no default promotion.
+
+PASS5428 five-arm original/current/core/installedOFF/installedON full-state cases
+ASan/UBSan,26unchanged core rejections; sampled counters/one-admission suffix,
+old patch coexistence/apply/idempotence/status/revert/failure atomicity checked.
+Installed -O2 5420non-injected cases plus64casesx7 cost matrix. ON multi4–64runs
+~38–55%cheaper hot/~39–54%rotating32fixtures INCLUDING sampling/admission, but
+supported singles -29.77%to+10.72% and first-refused singles+14.86%to+65.84%.
+OFF case-median deltas -15.946..+18.675ns/run (single -2.172..+3.839), no exact
+zero-overhead or whole-app/device power claim. Host Report is stubbed; actual
+mutex/clock/log only validated by iOS compile/link. Need real coverage/CPU check.
+
+Build incremental exit0,25.844338s, isolated build-0.6/SDK, -j12; ZIP CRC/deep
+strict codesign pass.104metallibs/all109NativeShaders files incl seed identical
+125. GPU library byte-identical. Runtime rebuilt due UI build watermark only:
+12cstring bytes differ, ALL other file-backed sections/machine code identical;
+UUID/signature changed. No SDK source edits; canonical SDK/reference status
+unchanged. Keep new runtimeUUID for next symbolication, not dev125's.
+
+Retained ios/build/NFSMW-0.6.1-dev126-descriptor-runs.ipa,30768156bytes,
+SHA25607053a93bffa1ce07ce40527f6a54fb78c0b9fa96d711c4004c80b77c3ffe83a,
+mainUUID079971D1-3C90-31C1-8074-D77D7DC23BCF,
+runtime96738934-2740-375A-A2EC-587CF040296C,GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F.
+Verified same IPA on iCloud Desktop; older dev125 Desktop IPA moved to Trash,
+stable0.6.0 hash unchanged; retained ios/build IPAs preserved.
+Audit ios/build/dev126-descriptor-runs-20261113/ contains tests, cost JSON, build
+attempts, extracted signed app, artifact/delivery/source verification and runtime
+section comparison. Stale shared-cache build failure preserved, not hidden.
+
+**Next:** install dev126 preserving game data/caches, cold force-quit/restart
+LiveContainer with the SAME complete B controls plus
+`--nfsmw_native_descriptor_runs=true`. One uninterrupted90–120s same-style pursuit,
+TimeProfiler+nfsmw.log, report picture/controls/audio/pacing. Keep60/1x/noAA/
+MetalFXoff/auto and other controls unchanged. No new power pair yet. Check startup
+flagON/dev126/UUID, sampled native/fallback coverage, full82699100 CPU including
+sampling/report overhead and adjacent unchanged workers/FPS. Rollback is the one
+new flagfalse; existingB remains reference. Do not imply device benefit from host.
+
+Reproduction after USA codegen: oldcopy patch first, then
+`python3 tools/ios/patch_game_constant_descriptors.py` (--status/--revert supported;
+revert new before reverting old). generate_code.py applies this order, CMake
+refuses missing/changed edits. New production check:
+`python3 tools/ios/test_game_constant_descriptors.py --output ios/build/dev126-descriptor-runs-20261113`
+with --benchmark for installed CURRENT/OFF/ON cost test. Base host gate remains
+compatible with already-applied production patch. Build uses isolated command
+above; do not use stale ordinary preset. No unrelated SDK source modifications.
+
+Own code/tests/checkpoint/evidence/CHANGELOG locally committed, private ignored
+BACKLOG updated but not staged; pre-existing untracked HANDOFF preserved. No
+push/merge/release. Prior November12 host-only entries below are historical.
 
 **Latest: full descriptor-run HOST prototype completed after Stefan's approval.**
 New tools/native/constant_descriptor_candidate.h is HOST-ONLY, no game includer;

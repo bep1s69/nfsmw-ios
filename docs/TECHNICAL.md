@@ -28076,3 +28076,183 @@ Own tools/checkpoint/native plan/evidence locally committed. Private ignored
 BACKLOG matching investigation updated without force-add; HANDOFF untracked/
 preserved, no unrelated work included. No app tests/build/IPA this HOST-only
 session; no push/merge/release or Desktop changes.
+
+## November 13, 2026 — dev126 production descriptor-run trial delivered
+
+Stefan approved integration/build after6f37e18 host gate. Read AGENTS/checkpoint/
+backlog/latest evidence, git status/log15: HEAD6f37e18, pre-existing untracked
+HANDOFF only, preserved. No changes to shared/reference SDK sources or game assets.
+
+### Implementation and flag
+
+New production ios/src/game_constant_descriptors.h/.cpp, new
+ tools/ios/patch_game_constant_descriptors.py and test_game_constant_descriptors.py.
+Defaultfalse restart-only `nfsmw_native_descriptor_runs`, defined/logged in
+ ios_main.mm. Independent of battery group and existing constant-copy control;
+old copy helpers retained for fallback. Startup [descriptor-runs]dev126 prints
+ON/OFF and sampling. Native renderer's three build labels updated dev125->126.
+No other renderer algorithms, shader/data defaults or gameplay changes.
+
+Core Run body byte-for-byte identical to host6f37e18 (verified by extraction).
+Old tools/native/constant_descriptor_candidate.h now compatibility include/alias
+so prior differential gate exercises production core, not divergent copies.
+Base host test strips applied production edits before extracting original/current.
+Host canonical SDK PPC context/intrinsics/fpscr headers verified byte-identical to
+actual isolated production SDK; hashes in host-sdk-context-equivalence.json.
+
+Patch requires exact original FULL descriptor-body hashes already recorded;
+applies AFTER old copy patch. New entry and native-done labels retain original
+body. On refusal/partial success, current suffix loops at a FALLBACK label which
+BYPASSES new admission for the rest of that run. External next-run discovery can
+enter again. No retry per refused descriptor. Inverse removal returns exact
+pre-trial source; all additions/backedge/source hashes checked before writing.
+Prologue caches restart flag once, OFF skips core/sampling and leaves Counts
+uninitialized/unread. New Report call only for sampled completed invocations,
+before original register restore; no guest context arguments to Report.
+
+Coverage: ON once per guest82699100 invocation, relaxed atomic sequence/mixed
+selector chooses about1/1024; only selected invocations initialize local counters.
+Observe counts VS/PS attempts, completed/partial/refused runs, covered native
+prefix and remaining entry-span descriptors, single/multiple/invalid spans.
+Fallback descriptor counts derive from ENTRY SPAN, not instrumentation of actual
+fallback iterations; don't treat changing/invalid spans as exact executed work.
+Report merges only samples under mutex and emits two lines about5s apart.
+No shared per-descriptor atomics, clocks/TLS/log calls on unsampled run path.
+Sampling has real admission cost and can perturb short runs; not claimed free.
+
+Codegen automatically applies new patch after old; CMake requires both statuses
+and compiles new helper CPP/header. For rollback/reverting edits remove new patch
+BEFORE reverting old copy patch. Runtime rollback simply flagfalse + cold restart.
+CHANGELOG records opt-in CPU trial, no energy/FPS claims.
+
+### Production patch and execution checks
+
+Ignored audit ios/build/dev126-descriptor-runs-20261113/:
+
+```
+python3 tools/ios/test_game_constant_descriptors.py --output ios/build/dev126-descriptor-runs-20261113
+python3 tools/ios/test_game_constant_descriptors.py --benchmark --output ios/build/dev126-descriptor-runs-20261113
+python3 tools/ios/patch_game_constant_descriptors.py --status
+python3 tools/ios/patch_game_constant_copies.py --status
+```
+
+All final commands exit0, both statuses applied. integration-sanitized-final.log:
+PASS production apply/idempotence/status/revert/old-patch coexistence/atomic
+rejection of altered full body/entry/backedge/missing exit instrumentation;
+**PASS5428 FIVE-arm full-state comparisons** original/current/core/installedOFF/
+installedON,26unchanged core refusals, late prefix. Exact sampled single-admission
+counts checked; OFF leaves sample_sequence/reports untouched, ON forced sample
+matches full PPCContext/CR/XER/temp/ea/all128KiB guest memory. Includes previously
+recorded overlap, metadata aliases and injected post-copy index changes.
+ASan/UBSan -O1; no device MMIO/fault/concurrency/GPU proof.
+
+Integration-benchmark.log exit0:5420 non-injected cases,64x7trials,30000runs/arm,
+CURRENT/actual installed OFF/actual installed ON, hot and32rotating fixtures.
+Includes cached flag admission, sampler and Observe, but host Report is counter
+stub (actual rare mutex/clock/fmt checked by iOS compile/link, not timed here).
+Host benchmark models one descriptor run per invocation; real whole function
+may contain several runs and amortize sampling differently. No weighted real
+run-distribution/whole-function timing claim. integration-costs.json64medians:
+
+- ON supported4–64runs: -55.33..-37.88%hot /-53.72..-39.23%rotating vsCURRENT.
+- ON supported singles across hot/rotating: -29.77..+10.72% (mixed).
+- ON first-refused singles: +14.86..+65.84%scoped overhead (mixed).
+- OFF all64case-median deltas -15.946..+18.675ns/run, singles-2.172..+3.839ns.
+  Not proof exact zero overhead or regression-free game performance.
+
+Initial apply made old copy patch status fail "patch placement changed" because
+include/prologue insertion order normalized differently. Reverted NEW edits,
+changed placement AFTER old include/local, reapplied; both status checks pass.
+Failure preserved here; old source bodies unchanged. First test log says three
+arms because inherited label; final fixture labels FIVE arms correctly, same
+five-arm checks. No dropped/failing differential case. No new app benefit claimed.
+
+### Build attempts, actual build configuration and runtime identity
+
+Initial documented ordinary preset command used stale shared cache:
+`cmake --build --preset ios --target ipa -j12` fromios. Exit1/0.1773335s,
+CMake reconfiguration correctly refused shared SDK because current branch needs
+isolated multiplayer SDK. build-stale-cache.log/result preserved. Did not bypass
+guard or modify shared SDK. Workspace procedure corrected to actual dev125 path.
+
+Successful incremental command:
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit0,25.844338208s. Config source main repository/ios/generated/default,
+SDK/Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk, Release/arm64/iOS18,
+NativeShaders cache unchanged. build.log/result retained. Existing SDK inlineasm,
+UIKit deprecation and duplicate-library warnings, no compile/link failure.
+Attempt to git-status isolated SDK exit128: it is a source snapshot without.git,
+not a new dirty repo. Canonical SDK/reference before/after git statuses unchanged
+(verification.json), preserving their pre-existing changes; no edits by session.
+
+CMake reconfiguration rebuilt SDK debug_overlay.cpp and runtime to update build
+watermark rexglue-v0.10.0-dev.g1bbb88b-ios-arm64-Release@20261111_2241 ->
+rexglue-v0.10.0-dev.g6f37e18-ios-arm64-Release@20261113_0654. This is why runtime
+is NOT byte-identical125. First all-library-byte assertion failed (artifact
+check exit1); inspected differences before delivery. Mach-O section comparison
+shows exactly12changed bytes in runtime __TEXT,__cstring, ALL other file-backed
+sections including5839896-byte machine-code __text identical. GPU library entirely
+byte-identical. Initial diagnostic incorrectly sliced zerofill BSS/common at
+file offset0, causing spurious header diffs; corrected by excluding zerofill
+section types. Final runtime-section-comparison.json is corrected. UUID and
+code signature changed, not CPU algorithm. No replacing/pinning/bypassing SDK
+binary required; keep NEW runtime UUID for symbolication.
+
+### Final artifact and delivery
+
+Retained /Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/
+NFSMW-0.6.1-dev126-descriptor-runs.ipa:30768156bytes,
+SHA25607053a93bffa1ce07ce40527f6a54fb78c0b9fa96d711c4004c80b77c3ffe83a.
+Bundle0.6.0/code11 as existing development series. Main UUID
+079971D1-3C90-31C1-8074-D77D7DC23BCF, executable SHA256
+918e4d144c23542fc80232f5cdec25494547377b998cb96622a2e44c90462263.
+Runtime UUID96738934-2740-375A-A2EC-587CF040296C, SHA256
+07a76149f8b5a1ef9eb1d0738c69d225670e0688d91b3f4702476e9e0e4f91ee.
+GPU UUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F, SHA256
+cf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113(unchanged125).
+
+ZIP testzip pass, codesign --verify --deep --strict extracted NFSMW.app exit0.
+All109NativeShaders files/104metallibs/pipeline seed byte-identical125. Retained
+unpacked signed app plus artifact.json/codesign-verify.log/source hashes in audit.
+No new device test (device/OS/settings results pending, not invented).
+
+Verified same SHA IPA copied to /Users/bep1s/Library/Mobile Documents/
+com~apple~CloudDocs/Desktop/NFSMW-0.6.1-dev126-descriptor-runs.ipa.
+Desktop dev125 moved to /Users/bep1s/.Trash/NFSMW-0.6.1-dev125-compact-matching.ipa
+(hash88aa7c0c7e70b236d176c337258370654bae468933dfd46074b94be0b5e0e2e5).
+Stable Desktop NFS-Most-Wanted-0.6.0.ipa hash
+cbc7ebc85010573a49f1a580fcf70db610ce6bdfb51fd872df533bcdc7641285 unchanged.
+All prior ios/build IPAs preserved. delivery.json exact paths/hashes. No provided
+Desktop game log this session, no trace/log deleted or data/cache reset.
+
+### Next device check — one run, no power request
+
+Install126 preserving data/settings/shader caches, cold force-quit LiveContainer,
+retain complete B controls and add ONLY --nfsmw_native_descriptor_runs=true:
+
+```
+--nfsmw_native_command_reuse=true
+--nfsmw_native_command_encoding=false
+--nfsmw_native_repeat_counter=false
+--nfsmw_native_geometry_handoff=true
+--nfsmw_native_owner_index=true
+--nfsmw_native_vfetch_cache=true
+--nfsmw_native_prepared_geometry=true
+--nfsmw_native_register_batches=false
+--nfsmw_native_register_flushes=false
+--nfsmw_native_descriptor_runs=true
+```
+
+Same60cap/1x/MetalFXoff/FXAAoff/MSAA0/auto and native_constant_copies=true control
+as125 (latter defaulttrue, printed startup). One uninterrupted90–120s comparable
+pursuit, TimeProfiler+log and picture/controls/audio/pacing report. Analyze new
+UUID/flag, sampled admission/native/fallback rates, whole82699100 incl sampler/
+Report plus adjacent unchanged workers, FPS/pacing/audio. Host-only cost does not
+establish net CPU/energy; no new power pair until correctness/practical CPU
+supports it. Runtime rollback is new flagfalse, B otherwise unchanged. No default
+promotion, G2/packed-mesh route remain parked.
+
+Own code/tests/checkpoint/native plan/CHANGELOG locally committed, private ignored
+BACKLOG updated/not force-added, pre-existing HANDOFF preserved untracked.
+No push/merge/release. Current build procedure documents actual isolated cache
+and source patch ordering; new failures/limits above retained for next agent.

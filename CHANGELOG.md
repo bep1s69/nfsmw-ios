@@ -28,6 +28,8 @@
   An off-by-default geometry trial reuses prepared vertex descriptions across
   repeated draws while keeping the existing buffer-content checks.
   That trial now checks shared vertex bindings once and uses a smaller cache.
+  A separate off-by-default CPU trial prepares complete shader-constant
+  descriptor runs, with the existing path retained for unsupported data.
 
 ## 0.6.0
 

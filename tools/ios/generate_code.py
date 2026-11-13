@@ -192,6 +192,11 @@ def main():
             "patch_game_constant_copies.py")), "--dir", str(out)])
         if copies.returncode:
             fail("patch_game_constant_copies.py failed. See its output above.")
+        print("\n== Native descriptor runs")
+        descriptors = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
+            "patch_game_constant_descriptors.py")), "--dir", str(out)])
+        if descriptors.returncode:
+            fail("patch_game_constant_descriptors.py failed. See its output above.")
         print("\n== Native transform copies")
         transforms = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(
             "patch_game_transform_copies.py")), "--dir", str(out)])

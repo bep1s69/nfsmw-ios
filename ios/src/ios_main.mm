@@ -97,6 +97,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_battery_optimizations, true, "GPU",
                     "Combined battery experiment: force all five optimizations on or off (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_constant_copies, true, "CPU",
                     "Native float-constant copy loops in the USA game graphics front end (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_descriptor_runs, false, "CPU",
+                    "Trial: prepare complete USA float-constant descriptor runs (restart required)");
 
 REXCVAR_DEFINE_BOOL(nfsmw_native_transform_copies, true, "CPU",
                     "Avoid float mode round-trips in two USA transform transfers (restart required)");
@@ -391,6 +393,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               rex::cvar::Query<bool>("nfsmw_native_gpr_helpers") ? "on" : "off");
   REXLOG_INFO("[constant-copies] native float copies {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_constant_copies) ? "on" : "off");
+  REXLOG_INFO("[descriptor-runs] dev126 native descriptor runs {} (restart required; default off; coverage samples about 1/1024 invocations)",
+              REXCVAR_GET(nfsmw_native_descriptor_runs) ? "on" : "off");
   REXLOG_INFO("[transform-copies] native scalar transfers {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_transform_copies) ? "on" : "off");
   if (REXCVAR_GET(ios_gpu_capture)) {
