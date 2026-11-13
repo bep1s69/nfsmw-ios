@@ -24,6 +24,11 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November14 (Stefan, latest): also DELETE supplied Desktop traces after archival
+  and per-file size/SHA256 verification, just like Desktop game logs. This
+  supersedes preserving those Desktop trace originals. Never delete before
+  successful verification; keep dated Debug archives and non-Desktop originals.
+
 
 - November 11 (Stefan, latest): ALWAYS delete the game log he provides on the
   Desktop after copying it to the capture-date Debug folder and verifying
@@ -520,7 +525,58 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
-## Current checkpoint — November 13, 2026
+## Current checkpoint — November 14, 2026
+
+**Latest: dev126 ON device check analyzed; correctness/coverage PASS, CPU
+benefit INCONCLUSIVE.** User says everything felt fine. Main079971D1/runtime
+96738934/GPUF35FCE03 captured UUIDs match retained126; descriptor flagON, oldcopyON,
+same B ownership/index/prepared/fetchON, encoding/repeat/registerOFF. Graphics
+all25baseline lines1x/60/MetalFXoff/FXAAoff/MSAA0, auto/controller/group unchanged.
+Capture Nov13 23:57:56.860–23:59:28.759+02,91.899121s, iPhone17ProMax/iOS27.3,
+High100us. Driving+1.915s, no restart in log; background1.057s AFTER stop.
+4800fully summarized guardedframes all60FPS,0audio gaps,1off-grid/4800(worst4.2ms),
+no errors/watchdogs/GPU errors INSIDE capture, Nominal throughout. Startup997error
+lines are two watchdog/semaphore dumps before recording; after-background61.4ms
+GPU hitch is outside capture. No attribution/new bug investigation from those.
+
+16complete guarded sampled-report intervals:14946sampled invocations counted ONCE,
+55852VS+PSruns/113482native descriptors,0partial/refused/fallback/invalid. This is
+sampled reach, not proof all possible inputs accepted. Most runs single (~65%VS/
+91%PS); CPU gate still matters despite perfect observed admission.
+
+Correct CPU scope is UNION(82699100 wrapper/body OR ALL descriptor helpers),
+including helper samples whose parent unwinds to unknown. Do NOT report apparent
+44%self drop or26.85%named-parent drop as saving: work moved to outlined helpers.
+Primary preselected8–50s42s: dev1251988.5 vs1261771.3ms(-10.92%target); wholeapp
+51988.2vs46661.5(-10.25%), target share3.825vs3.796%essentiallyflat. Common8–85s77s:
+3686.1vs3886.2ms(+5.43%target), app104941.3vs105925.2(+0.94%). Parent-missing helper
+316.8/676.0ms INCLUDED, Report1.7/3.5ms INCLUDED. Same graphics and similar work
+proxies, but historical different-build/sitting/live pursuit and core/clock
+confounds; no useful net CPU/energy acceptance/default promotion yet.
+
+**Next:** ONE SAME dev126 OFF reference, cold restart, replace only the new line
+with `--nfsmw_native_descriptor_runs=false`, keep remaining B/settings unchanged.
+90–120s comparable uninterrupted pursuit, TimeProfiler+log. No new IPA/power
+profile or expanding matrix. This control has a concrete purpose: isolate runtime
+trial from historical125/build/layout and scene variability. If still mixed,
+park/disable rather than keep requesting traces to rescue it. Established B stays
+working reference; no code/flag defaults changed this analysis.
+
+Received Desktop Untitled.trace/nfsmw.log archived under capture-date Nov13 Debug:
+dev126_iphone_pursuit_time_profile.trace (293files/125342993bytes,
+treeSHAa4b0c45eae8018ec38730ca53ceda73c99e41426ff340b126c736b1c359b0cde)
+and matching _nfsmw.log847816bytes/SHA
+b9e0e10da9eec5fd570d018090eb64ca1b92943ebe653ababf06b355eb81a31a.
+BOTH Desktop copies deleted ONLY after verification per latest standing rule;
+all293archive files/log reverified after exports. Debug originals remain intact.
+Audit ios/build/dev126-time-profile-20261114/ (analysis date14, capture date13),
+comparison.json final corrected result; earlier target-cpu.log has parent-only
+intermediate metrics, not accepted speedup. Full paths/methods/limits TECHNICAL.
+Own evidence docs committed locally; ignored private BACKLOG updated/not staged,
+pre-existing untracked HANDOFF preserved, no app/SDK/build/IPA/push/merge/release.
+
+Earlier dev126 delivery checkpoint below is historical; its pending ON check is
+completed, next is the single same-build OFF reference above.
 
 **Latest: dev126 descriptor-run trial implemented, checked, signed, delivered.**
 Stefan approved device trial. New restart-only defaultfalse

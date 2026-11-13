@@ -28256,3 +28256,178 @@ Own code/tests/checkpoint/native plan/CHANGELOG locally committed, private ignor
 BACKLOG updated/not force-added, pre-existing HANDOFF preserved untracked.
 No push/merge/release. Current build procedure documents actual isolated cache
 and source patch ordering; new failures/limits above retained for next agent.
+
+## November 14, 2026 — dev126 ON device profile: reach passes, CPU inconclusive
+
+Stefan reports "everything felt fine" and supplies Desktop trace/log. New
+standing instruction ALSO DELETE supplied Desktop traces once archived/verified,
+like logs. Recorded in working rules; supersedes Desktop-trace preservation,
+not non-Desktop originals or dated Debug archives. Read AGENTS/checkpoint/backlog/
+latest evidence and git status/log15: HEADb6361f1, only pre-existing untracked
+HANDOFF. No app/SDK/code/default/settings/IPA changes this session.
+
+### Inputs, capture date, verified archive then deletion
+
+Received /Users/bep1s/Desktop/Untitled.trace and /Users/bep1s/Desktop/nfsmw.log.
+TOC capture starts Nov13 23:57:56.860+02, ends23:59:28.759,91.899121s. Although
+analysis/save crossed midnight November14, capture-date destination is:
+
+- /Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/13 November 2026/dev126_iphone_pursuit_time_profile.trace
+  293files/125342993bytes, canonical sorted per-file size/SHA manifest tree hash
+  a4b0c45eae8018ec38730ca53ceda73c99e41426ff340b126c736b1c359b0cde.
+- Same folder dev126_iphone_pursuit_time_profile_nfsmw.log,847816bytes,
+  SHA256b9e0e10da9eec5fd570d018090eb64ca1b92943ebe653ababf06b355eb81a31a.
+
+Copied, verified source unchanged and archive identical per-file/byte hashes,
+then deleted BOTH exact Desktop copies as authorized. Reverified293/293archived
+files/log after exports, Desktop originals absent. No other Desktop files touched.
+Private audit ios/build/dev126-time-profile-20261114/ (analysis date) includes
+archive-manifest.json with all paths/entries/deletion flags and post-export-
+verification.json. Essential context is this shared record, not /tmp or chat.
+
+Initial sandboxed xcrun xctrace export --toc failed exit134: InstrumentsCLI could
+not create cache path_manager (permission), not game/trace corruption. Retried
+with required cache access, exit0. TOC was read to determine date before archival.
+Subsequent exports read VERIFIED ARCHIVE, never deleted sources:
+
+```
+xcrun xctrace export --input <archived trace> --toc --output <audit>/toc.xml
+xcrun xctrace export --input <archived trace> --xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' --output <audit>/time-profile.xml
+xcrun xctrace export --input <archived trace> --xpath '/trace-toc/run[@number="1"]/data/table[@schema="dyld-library-load" or @schema="device-thermal-state-intervals"]' --output <audit>/images-thermal.xml
+```
+
+All permitted exports exit0. dyld table empty; actual binary identities are
+embedded in time-profile.xml, extracted to image-identity.txt/JSON. Do not infer
+missing build identity from empty dyld export. One thermal row Nominal covers
+0–91.899121284s. TOC TimeProfiler/Deferred/High, iPhone17ProMax/iOS27.3(24C5037i),
+LiveContainerPID702, Instruments27.2(27B52), Mac hostOS27.3(26C5035r), stop by user.
+All selected Running sample weights100000ns (High100us).
+
+### Identity, controls and functional evidence
+
+Captured mainUUID079971D1-3C90-31C1-8074-D77D7DC23BCF load0x10E500000;
+runtime96738934-2740-375A-A2EC-587CF040296C load0x10B478000;
+GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F load0x141544000. All match retained
+signed126, not125. Executable SHA918e4d144c23542fc80232f5cdec25494547377b998cb96622a2e44c90462263
+reverified against retained unpacked app. IPA identity remains prior entry
+07053a93bffa1ce07ce40527f6a54fb78c0b9fa96d711c4004c80b77c3ffe83a.
+
+Log startup descriptor_runsON, constant_copiesON, battery groupallfiveON,
+baselineQoSOFF/auto cap controller. Ownership/geometry/index/preparedON,
+encoding/repeat/registerbatches/registerflushesOFF; fetch-layout cacheON,
+prepared table4632KiB. All25energy-baseline lines scale1.000/cap60/MetalFXoff/
+FXAAoff/forcedMSAA0. Complete ExtraArgs not printed, don't invent other settings.
+No changes inferred from version label alone; matching flags/UUID verified.
+
+One driving event23:57:58.775(+1.915s); no logged restart within capture.
+Background23:59:29.816(+1.057s AFTER stop). Guard driving+5s through end yields
+16complete native summary windows/4800CPU-owned/ICB0frames, all rounded60FPS;
+15complete audio windows/0gaps;1off-grid of4800,worst4.2ms. Off-grid is NOT an
+exact dropped-frame/input-latency count. Primary8–50s8native summaries2400frames
+all60; longer8–85s15summaries4500frames all60. Diagnostic reporting phases differ
+(native command/FPS/pacing/audio), so do not treat complete-window frame sums as
+whole capture rendered-frame total. User confirms normal experience.
+
+Capture itself0error-level/watchdog/GPU-error/invalid-token lines, logged thermal
+nominal, peak1676MiB (no memory reduction claim). Whole supplied log has997error
+lines: two startup watchdog/thread/semaphore dumps23:57:36.932 through52.995,
+before recording/gameplay. Preserve them; do NOT say whole log error-free, infer
+optimization-caused hang or reopen parked stutter work from this normal report.
+After background,61.4msGPU hitch23:59:30.119(+1.360s after stop) and partial final
+profile line are outside capture, not part of pursuit CPU/pacing acceptance.
+
+### Real sampled admission: zero refusals, mostly short runs
+
+Private descriptor-coverage.py uses actual previous report timestamps as interval
+starts, includes only complete intervals within each window, avoids double-counting
+VS/PS duplicated invocation totals. In guarded16intervals14946sampled invocations
+ONCE (not29892),55852runs/113482native descriptors;0partial/refused/fallback/
+invalid. Sampled about1/1024invocations, not an exact all-game count.
+
+| Window | Sampled calls | VS runs/native descriptors | PS runs/native descriptors |
+|---|---:|---:|---:|
+|8–50s|6654|19656/45578|6553/9184|
+|8–85s|12884|37408/85355|11217/14547|
+|guarded|14946|43276/97364|12576/16118|
+
+Every observed run complete. Guarded single-run fraction65.34%VS/91.39%PS,
+mean descriptors/run2.250VS/1.282PS. Good real functional reach, but not proof all
+possible inputs accepted/safe or net CPU benefit. Known host short-run costs and
+full-function code layout/sampling remain relevant despite zero fallback here.
+
+### Window choice, corrected full CPU accounting and comparison
+
+window-plan.json saved BEFORE CPU results: primary8–50s42s matches earlier125;
+secondary8–85s77s trims final6.899s of shorter126capture. Same intervals selected
+from125 existing raw export; not comparing91.9/120s untrimmed totals. User normal,
+no logged capture interruption; no deterministic replay/same-sitting or samebinary
+reference supplied YET.125 is historicalNov12. Capture13 analyzed14.
+
+Public summarize_battery_exports.py profile <newXML> --skip 8 --end 50 --process
+LiveContainer --register-flush-hooks, then
+newXML/old125XML --skip 8 --end 85, exit0, pre-8-50.json/common-8-85.jsonl.
+Same old hook-analysis control as earlier125. Private target-cpu.py separately
+streams exact LiveContainer Running samples and namespace/helper/root scopes;
+compare.py verifies app totals against public parser <0.01ms and union arithmetic,
+100us weight histograms, captured UUIDs; exit0. Baseline primary totals reused
+verified pre-8-50.json. Both use global XML interning and dedup per-stack union.
+
+IMPORTANT correction discovered before conclusion: new Run templates are outlined,
+and MANY samples omit the named82699100 parent, unwinding through unknown/guest-
+looking addresses to Main XThread engine callers. New helpers have only this game
+includer/call path. A parent-only or self-only metric loses that moved work.
+Initial parent-only target1454.5ms vs1251988.5 would suggest26.85%lower, but omits
+316.8ms helpers. Longer parent3210.2 vs3686.1 likewise falsely looks12.91%lower
+while missing676.0ms. No such reduction accepted or reported as final saving.
+
+FINAL metric UNION(named82699100 wrapper/body OR ANY new descriptor helper), each
+sample counted once; includes missing-parent helper samples and Report. Not sum
+of overlapping inclusive/self scopes. Parent-self948.5 vs1702.1 primary is also
+NOT a44%CPU saving: some work moved out of that symbol. Missing-parent stacks
+preserved in dev126-target-cpu.json; initial target-cpu.log is intermediate only,
+target-cpu-complete.log/comparison.json have corrected analysis.
+
+| Common window |125 target union ms|126 target+allhelpers union ms|Change|125/126 wholeapp sample ms|
+|---|---:|---:|---:|---:|
+|8–50s|1988.5|1771.3|-10.92%|51988.2/46661.5(-10.25%)|
+|8–85s|3686.1|3886.2|+5.43%|104941.3/105925.2(+0.94%)|
+
+Primary target share3.8249->3.7961%app, essentiallyflat; longer3.5125->3.6688%.
+Report1.7ms/3.5ms INCLUDED; inlined sampler/admission inside parent also included.
+Unresolved stacks reference/trial2618.5/2501.5ms primary,5459.1/5681.8ms longer;
+union is visible attributable sample weight, not exact cycles/all unknowable
+unwind omissions. Never infer physical CPU/GPU power fractions from CPU shares.
+
+No imagined graphics mismatch: settings verified same. Primary reported direct
+Draws/ownedframe3290.69->3286.63(-0.12%), equivalent attribute sites23,952,368->
+23,870,330(-0.34%), reported constant words/frame314091.5->304966.0(-2.91%), nearby
+GPU7.431->7.639ms(+2.79%). Longer draws+1.40%,sites+0.23%,words/frame-2.61%,
+GPU10.146->7.567ms(-25.43%). Reporting phases differ (e.g.7vs8native groups), these
+are workload proxies, not complete identical-work counters or normalization for
+all CPU. Main XThread P-core fraction93.10/93.98%primary,81.25/89.84%longer;
+clocks unmeasured. App/global-work/core differences and historical build/session
+prevent causal attribution. Raw wholeapp-10.25% is NOT a descriptor saving.
+
+### Decision and ONE next control
+
+Correctness/observed reach pass; net CPU/energy acceptance INCONCLUSIVE, no default
+promotion or claimed useful reduction yet. Not proof trial regresses either:
+windows are historical different builds/live pursuits. Established B remains
+working reference and prior group power evidence is not erased/credited here.
+
+One justified SAME dev126 OFF reference now isolates runtime trial from old125
+layout/build differences: replace ONLY new arg with
+`--nfsmw_native_descriptor_runs=false`, cold force-quit/restart LiveContainer,
+keep all other B/graphics/controller/conditions,90–120s comparable uninterrupted
+pursuit, TimeProfiler+log. No new IPA or power profile. Confirm flagOFF/new126UUID,
+no sampled reports expected, compare both windows/CPU/FPS/neighbor workers using
+correct helper-union treatment. If still mixed/unsupported, park/disable rather
+than request an expanding uncontrolled matrix or power test to rescue a marginal
+result. No source tuning based on absent per-symbol self time alone.
+
+Private audit retains parsers/results/manifests/exports/image identities and
+comparison.json; full Debug archives remain intact. No app tests/build repeated
+(no source change); independent numerical/hash/UUID checks above are validation.
+Working rule/checkpoint/native plan/private ignored BACKLOG updated. Own three
+tracked evidence docs locally committed, BACKLOG not force-added, HANDOFF left
+untracked/preserved. No push/merge/release or CHANGELOG change for analysis.

@@ -1124,3 +1124,16 @@ host timing supports multi runs but short/refused cases mixed; no app/battery wi
 claimed. Signed dev126 delivered, source/artifact/cache correction in checkpoint.
 Next ONE device correctness/CPU+log underB/newflagtrue, no power yet. Old false
 flag is direct rollback. G2/packed-mesh route remain parked.
+
+
+#### Dev126 ON device analysis — November 14
+
+Correctness/reach pass: usernormal,60FPS summaries/no audio gaps/incapture errors,
+all observed sampled55852runs complete,0refusals. CPU net benefit inconclusive.
+Include UNION of entire82699100 path AND all outlined descriptor helpers, including
+unknown-parent stacks: primary8–50s1988.5->1771.3ms(-10.92%) but app-10.25%;
+longer8–85s3686.1->3886.2(+5.43%), app+0.94%. Named-parent-only or self drops
+exclude moved work and are NOT savings. Historical125 differentbuild/session/
+live-work/core-clock confounds; no energy/default acceptance. Next ONEsame126
+flagOFF control underB, no new IPA/power/matrix. Park if still mixed. Archives/
+new verified-Desktop-trace deletion rule and full evidence TECHNICAL/checkpoint.
