@@ -28823,3 +28823,127 @@ shader/draw cost or energy. Capture overhead not gameplay power evidence.
 Checkpoint/matching ignored BACKLOG updated. Own code/CHANGELOG/shared evidence
 committed locally, BACKLOG not force-added, HANDOFF preserved untracked. No push,
 merge/release or default promotion; descriptor/G2/packed-mesh remain parked.
+
+## November 14, 2026 — Dev127 Shader Timeline run: real intervals, anonymous programs, naming prototype
+
+Stefan supplies Desktop trace/log. Session started86bfc53; AGENTS/checkpoint/
+backlog/latest evidence/git status/log15 read, only pre-existing untracked HANDOFF.
+No new user subjective normal/uninterrupted report inferred. No game/SDK source,
+flags/defaults/live shaders/cache change, new IPA, push/merge/release this session.
+
+### Archive, controls and device evidence
+
+TOC export from supplied `/Users/bep1s/Desktop/Untitled.trace` exit0. Capture
+Nov14 01:20:20.146–01:20:32.370+02,12.224187s, not rejected for being longer than
+requested7s. iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2(27B52), LiveContainer
+PID1132, MetalSystemTrace. ShaderTimeline Enabled/PerformanceLimiters/default
+induced GPUstate recorded. Driving01:19:11.873,68.273s warm before start; no
+later logged restart/background during recording. Nominal thermal entire12.224s.
+B controls/descriptorfalse/oldcopyON, scale1/cap60/MetalFXoff/FXAAoff/MSAA0 verified.
+Native renderer builtNov14 01:08:04.0error-level lines in189in-capture log lines;
+2complete5s pacing groups within capture600frames/0off-grid,2completeaudio windows
+0gaps. First overlapping group starts before trace and not counted as fullyinside.
+Logs not proof every frame perfect or user subjective acceptance; no battery claim.
+
+Private `ios/build/dev127-gpu-profile-20261114/archive.py` copies and per-file
+size/SHA verifies before deleting supplied Desktop trace/log under standing rule.
+All commands final exit0; archive-manifest.json retains663entry manifest:
+
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/dev127_iphone_gpu_shader_timeline.trace`:663files,414659087bytes,
+  canonical manifest treeSHA256`b9103a3bb118d74851d9ab27e6084c45df04dc62a5c200a16417ace11e171153`.
+- Same folder `dev127_iphone_gpu_shader_timeline_nfsmw.log`:940656bytes,
+  SHA256`e3c8763ef6811348eee03cb57566cfa3e89f46b3bb87f18a7a3628d72b63abda`.
+
+Both Desktop copies deleted ONLY after source/archive verification. Independent
+post-export all663file/log rehash passes; Desktop sources absent, JSON retained.
+Previous archives/other Desktop files unchanged.
+
+### Exports and parser validation
+
+xcrun xctrace export --input <archive> --xpath '/trace-toc/run[@number="1"]/data/table[...]'
+with schema selections, each export final exit0:
+- shaders.xml: compiled list, raw samples, raw profiler intervals, derived timeline.
+- shader-intervals.xml: raw intervals alone for complete column schema.
+- core.xml: GPU intervals/encoders/submissions/thermal/counter definitions and dyld.
+- counters.xml: metal-gpu-counter-profile (0rows;88definitions elsewhere are NOT values).
+- image-samples.xml: existing time-profile solely to verify imageUUIDs, not CPU comparison.
+Full exports/scripts sizes+SHA in analysis-manifest.json; TOC/export rowcounts retained.
+
+Combined xctrace export supplies schema only for first table; rows still present
+in later nodes. Decoded via TOC table indices plus bounded cached column schemas,
+global XMLID intern table, strict column counts. Initial analyze.py mistakenly
+parsed every historical metadata XML, including1.1/3.1GB counter exports; no new
+huge counter export performed. Stopped that own process (final exit143) after
+first exact interpreter-name pkill matched nothing(exit1); corrected case/path
+regex pkill exit0. Replacement reads only required schema headers via iterparse
+and stops at schema, final analyze.py exit0. Avoid repeating unbounded metadata
+reads. No evidence of a device/game fault from this local parser issue.
+
+Image UUID assertions from existing CPU stacks pass: main
+F0B0327E-ED8D-3D4E-A57D-2FB3A950A603 at0x10fd00000; runtime
+96738934-2740-375A-A2EC-587CF040296C at0x10cc78000; GPU
+F35FCE03-AE0C-3B71-82A1-B365C5438C4F at0x13f944000. Match retained127 artifact;
+no build-identity assumption from old dev126 diagnostic line labels.
+
+### Actual GPU attribution and limits
+
+3051compiled metadata rows,148899raw gpu-shader-profiler-interval rows. Raw PC
+sample table0rows and derived metal-shader-profiler-intervals empty. Thus usable
+raw GPU execution intervals exist despite empty other tables. PC interval columns
+start/duration/pc/submission-id/datamaster; material sample data not confused with
+compiled program inventory. App filter LiveContainer(1132) excludes otherprocesses.
+
+rank_shaders.py selects complete appcommandbuffers fully within1–11s BEFORE rank:
+599frames. GPUsubmissionID + overlapping stage time joins111005profiler rows to
+app work. Each joined ID asserted one appstage key; mapped PC range shader stage
+matches GPUstage, duplicate ranges/metadata preserved rather than first-match
+silently.323unique app compiled shader ranges. No cross-build numericID matching.
+
+Dominant Fragment RenderCommand24:1833.539ms accumulated/599=3.061ms/frame;
+its Vertex898.299ms/599=1.500ms/frame. Stage times may overlap and cannot be
+added as wall time or energy.24 is current ordinal (not old41's18). Main-scene
+identity inferred from dominant cost/pass ordering/current periodic target logs,
+not an explicit target label in this trace. Whole selected stages Vertex2022.760,
+Fragment4844.348,Compute516.161ms; sums likewise not utilization/power fractions.
+
+Render24 fragment49379profiler rows: six anonymous programs128,113,17,137,156,219
+have13.24/12.51/12.26/11.94/9.85/9.40%of duration-weighted joined fragment profiler
+occupancy (~69.19%combined).3.43%weight unmapped. Raw row-count and duration shares
+both retained, not exact isolated shader times. Unmapped PCs not assigned guesses.
+These numbers DO NOT identify tree/road/car, savings or one overwhelmingly dominant
+material. No measured PerformanceLimiter/bandwidth classification from empty
+counter-profile output;88counter definitions don't prove measured values.
+
+### Correction and bounded local next-fix proof
+
+ALL app compiled shader names generic shaderMain/Motion; function-label field
+empty. Dev127 runtime f.label assignments therefore did NOT solve Instruments
+identification. This device diagnostic acceptance FAILED even though compilation
+and GPU-data collection passed. Corrected premature CHANGELOG wording to assignment
+of diagnostic labels only. No request to repeat same capture; no invented map
+from numeric shader IDs, code length, old drawcounts or source sample counts.
+
+Offline private prototype_entry_names.py renames exported shaderMain/Motion entry
+identifiers to nfsmw_ps_KEY[/_motion] for recovered tree27d82ea0, road af393d,
+car2442daf2 sources. Exact inverse-renaming restores entire original source,
+asserted before compilation (no arithmetic/declarations/control-flow edits).
+3MacOS14 Metal3.1 -O2/-D__air__/-fno-fast-math/-ffp-contract=off compiles+links
+exit0 (11.464/1.252/0.172s); result.json source hashes retained. Compiler/link
+commands use xcrun -sdk macosx metal, not separate metallib utility (initial
+xcrun -f metallib lookup unavailable; metal linker itself works).
+
+Private Objective-C++ verify.mm compiled with xcrun clang++ -fobjc-arc -framework
+Foundation -framework Metal exit0, then loaded all3libraries on Mac Metaldevice:
+expected named base AND motion entries present, shaderMain absent,3checks pass.
+No game rendering, iPhone shader comparison/driver profile proof, source-cache
+replacement or new IPA. This is local feasibility only; original shader sources
+and binaries are private ignored artifacts, not tracked game content.
+
+Next production work: deterministic compiled-entry naming in shader build script,
+compatible named-first/legacy-fallback loader, exact interface/constants/variant
+checks and isolated regenerated libraries before delivery/new phone request.
+Keep exact math/startup pipeline preparation and normal B/descriptorfalse; no
+cache clearing, native CAPTURE repair, repeated omission or power matrix. No new
+recording requested now. This run localizes GPU execution but proves no battery
+reduction. Checkpoint/matching ignored BACKLOG/CHANGELOG updated, own tracked docs
+committed locally, ignored BACKLOG not staged, HANDOFF preserved untracked.

@@ -531,6 +531,55 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev127 trace analyzed; real profiler intervals present, material names
+still missing.** Desktop12.224187s MetalSystemTrace Nov14
+01:20:20.146–01:20:32.370+02, iPhone17ProMax/iOS27.3(24C5037i), Instruments27.2;
+ShaderTimelineENABLED/PerformanceLimiters/defaultstate verified. ExactmainUUID
+F0B0327E/runtime96738934/GPUF35FCE03 verified in exported image samples. B/new
+flagfalse/1x60/noAA/MetalFXoff confirmed; driving68.273s before capture, no logged
+restart/background within. Nominal throughout,0captureerror-level lines;
+2complete in-capture pacing groups600frames0off-grid and2completeaudio windows
+0gaps. No new subjective user report inferred.
+
+663tracefiles/414659087bytes archived to capture-date14November Debug/
+dev127_iphone_gpu_shader_timeline.trace, matchinglog940656bytes. Every file/log
+size+SHA verified before BOTH Desktop inputs deleted, and again after exports.
+Archive treeSHAb9103a3bb118d74851d9ab27e6084c45df04dc62a5c200a16417ace11e171153;
+logSHAe3c8763ef6811348eee03cb57566cfa3e89f46b3bb87f18a7a3628d72b63abda.
+Full paths/manifests in TECHNICAL/private ios/build/dev127-gpu-profile-20261114/.
+
+148899raw gpu-shader-profiler-interval rows,3051compiled-shader metadata rows;
+rawPCsample/derivedMetalShaderTimeline tables empty, so don't call whole trace
+empty.1–11s complete-frame window599appcommandbuffers,111005profiler rows joined
+byGPUsubmissionID+timeoverlap, PC mapped to323unique appshader ranges. Dominant
+RenderCommand24 fragment3.061ms/frame/vertex1.500ms/frame; separate stage durations,
+not additive wall time. Main-scene identity is strong pass-order/timing inference,
+not an explicit target label. Six anonymous programs69.19%duration-weighted
+fragment profiler share there;3.43%weight unmapped. Shares are sampled occupancy,
+NOT shader/energy savings or material identities. Counters export had88definitions
+but0profile rows, no measured ALU/bandwidth-limiter diagnosis claimed.
+
+**Correction:** all app compiled names remain generic shaderMain/Motion; function
+label field empty. Dev127 label assignments compiled but DID NOT solve actual
+Instruments identification. CHANGELOG wording corrected; no request to repeat
+same capture. Do not guess material keys from numeric IDs/byte lengths/drawcounts.
+Offline prototype renaming COMPILED entry points for tree/road/car sources passes
+3Maccompile+links, exact inverse-rename source equality, and Metal-library loading
+exposes both expected unique base/motion names with oldshaderMain absent. This
+is a local feasibility proof, NOT yet iOS profiler acceptance or game integration.
+No live cache/shader/default/app/SDK changes or newIPA in this session.
+
+**Next:** implement source naming in shader build pipeline and compatible loader
+(named entry first, legacy fallback), validate interfaces/constants/variants and
+isolated regenerated libraries before delivery/another phone request. Keep exact
+math, shader algorithms, textures/graphics, startup preparation and B unchanged;
+do not clear caches, enable native CAPTURE or repeat omission/power matrix.
+Production named entries NOT IMPLEMENTED yet; user need not record again now.
+Private prototypes/results/scripts retained. Own evidence/CHANGELOG committed
+locally, matching ignored BACKLOG updated, pre-existing HANDOFF preserved;
+no push/merge/release. No battery reduction established by this diagnostic run.
+
+
 **Latest: dev127 GPU shader labels built, verified and delivered.** Main-scene
 material attribution remains the gate. Existing41 trace shader-list export has
 3365compiled metadata rows but0shader-profiler samples/0interval rows (Shader
