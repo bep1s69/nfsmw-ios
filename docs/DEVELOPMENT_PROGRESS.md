@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November14 (Stefan, latest): consolidate tested/proven changes as defaults and
+  shift active optimization work to scheduling, thread dependencies, multithreading
+  and QoS while preserving current FPS/visuals/audio. Pause further CPU/GPU shader/
+  cache micro-optimization audits; supersedes GPU-only priority/normalmapped next
+  action. Promote accepted configurations, not merely tested or negative trials.
+  No assertion that all possible CPU/GPU optimizations are exhausted.
+
+
 - November14 (Stefan): agrees to prioritize GPU investigation; CPU is acceptable
   for now. Preserve current performance/visuals, use existing evidence first.
   This is a priority decision, not proof the CPU has reached its ceiling.
@@ -531,6 +539,57 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev129 accepted renderer defaults + opt-in rendering QoS trial built.**
+Stefan redirected work from marginal CPU/GPU source tweaks to scheduling/thread
+use. Three compiled defaults now match accepted dev125 B: command_reuse=true,
+command_encoding=false, prepared_geometry=true. Existing geometry_handoff/
+owner_index=true, repeat_counter/register_batches/register_flushes/descriptor_runs
+false retained. vfetch_cache remains effectively ON via default-on battery group;
+its raw fallback false and group opt-out unchanged. Explicit Extra Args still win
+for the newly promoted flags; old nine-line B list is redundant on this build.
+Accepted evidence is group-level dev125 same-build iPhone power pair ~7.28% lower
+estimated drain/60FPS medians (limits below), not a separate gain from promotion.
+
+New restart-only `--nfsmw_render_utility_trial=false` default OFF. True keeps only
+native encoding work at Utility during cap-controller boosts when cap>40,
+render Utility enabled, adaptive/worker boosts active. Guest/main/CP/audio policies,
+queue order, dependencies and 30/40 behavior unchanged. Explicit
+`--nfsmw_native_render_utility=false` disables trial effect. No affinity/core pinning
+or guaranteed E-core placement. Existing per300frame actual render-entry QoS counts
+and encode/pacing/audio reports suffice; no added hot-path telemetry.
+
+Tests PASS: original command/ownership eight-mode gates, actual native command
+cache/lifetime/state ordering, prepared geometry90kcomparisons per variant/on-off,
+render selector36864states each flag off/on (0/192changed); all remaining scheduler
+source identical to d805bce. Build-0.6 ipa -j12 exit0/6.502914917s final; ZIP and
+strict deep codesign pass. All109NativeShaders files incl104metallibs/seed AND both
+SDK libraries byte-identical128. No shader/SDK/default scheduler rewrite.
+Retained `ios/build/NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa`,30771474bytes,
+SHAc8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336.
+MainUUIDE62BE4C2-B861-3012-B59D-B786A6B9AA5D; runtime2BF028C3-7030-3218-AB7E-53C59017F379,
+GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F. Bundle remains0.6.0/code11 as prior devIPAs.
+LOCAL repository IPA only; no Desktop/iCloud transfer/Trash or deployment this turn.
+
+**Next action:** one bounded scheduling trial on dev129 at1x/60/same graphics/audio/
+controller conditions, caches preserved, cold restart after Extra Args change:
+`--nfsmw_render_utility_trial=true`. A60–90s uninterrupted warm pursuit + Time
+Profiler/log establishes whether rendering still holds60 and actually shifts its
+CPU placement; startup marker/effective renderer states and per-frame-entry QoS
+must be checked FIRST. Trial false is same-build control. No power pair until
+correctness/FPS/pacing/audio are accepted; then at most one same-sitting A/B under
+standing rule. Stop trial on regressions; do not lower guest/audio or add threads
+blindly. Existing CPU samples do NOT establish runnable/blocked dependency chains;
+if trial fails, inspect frame hand-offs/wait provenance before multithreading work.
+No accepted scheduling energy improvement yet; no push/merge/release.
+
+Repro/audit `ios/build/accepted-defaults-scheduling-20261114/` build/verification/
+artifact/scheduling-audit/validation JSONs. New test command
+`python3 tools/ios/test_render_qos_trial.py`; established build command/configuration
+unchanged (isolated SDK and named128shader folder). TECHNICAL exact results/limits;
+matching ignored BACKLOG updated, pre-existing HANDOFF remains untracked.
+
+Prior source-audit checkpoint (superseded as active direction):
+
 **Latest: fence vertex source/compiler/host cost audit complete; no rollout.**
 Found pair-specific unused auxiliary specular export (VS5c1d4bce TEXCOORD6,
 paired PS684f overwrites its incoming value before use). Private host candidate
@@ -547,12 +606,10 @@ renderer variants/PSO selection/new IPA. Candidate PARKED/unshipped; cannot clea
 this VS export globally without proving every linked pixel shader ignores it.
 Mac evidence only, no accepted iPhone power/performance gain or ceiling claim.
 
-**Next action:** source audit of normalmapped fragment d1a189fdbb29cf1a using existing
-ranked dev128 sample/prior investigations, require concrete output-preserving
-redundancy and full-cost evidence before implementation. Fence prepass and unused-
-specular export candidates remain parked; no further synthetic timing refinement
-or phone request for them. Dev128/B/descriptorfalse unchanged. No production code,
-shader cache, SDK, defaults/flags, IPA, push/merge/release changed.
+**Historical next target, now deferred by Stefan:** normalmapped fragment source
+audit. Fence prepass/specular export and further shader/cache microtrials remain
+parked while scheduling is the active priority. No accepted benefit from them.
+
 Private reproducibility/evidence `ios/build/fence-vertex-audit-20261114/`, including
 `audit-summary.json` source/input/artifact hashes and preserved original depth-gate
 costs (restored byte-identical after temporary output-path collision). TECHNICAL

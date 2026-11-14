@@ -14,26 +14,14 @@
   on a progress screen before starting the game. Cache reporting no longer
   waits behind a background pipeline-archive save.
 
-- **Experimental renderer work.** Added an opt-in trial that reuses frame
-  storage and Metal draw commands. Off by default; device correctness,
-  performance and battery savings are not yet established.
-  The trial now avoids repeatedly sorting and declaring the same command
-  resources within a render encoder.
-  Cached geometry now uses frame-owned handles to reduce repeated ownership
-  transfers and GPU-buffer lookups while preserving existing validation.
-  An independent diagnostic switch can keep frame ownership active while
-  using direct Metal draws to measure the cost of cached command encoding.
-  Frame ownership can now reuse its lookup storage across frames to avoid
-  repeatedly allocating and freeing ownership-table entries.
-  A separate off-by-default trial batches changed graphics registers while
-  retaining the existing renderer and ordered game commands.
-  Another trial combines compatible updates within one graphics-state flush
-  to share the cost of handing those updates to the renderer.
-  An off-by-default geometry trial reuses prepared vertex descriptions across
-  repeated draws while keeping the existing buffer-content checks.
-  That trial now checks shared vertex bindings once and uses a smaller cache.
-  A separate off-by-default CPU trial prepares complete shader-constant
-  descriptor runs, with the existing path retained for unsupported data.
+- **Renderer efficiency defaults.** Reuse frame ownership storage and prepared
+  vertex descriptions by default, while preserving buffer validation and direct
+  Metal drawing. This adopts the configuration supported by the device battery
+  comparison; the previous paths remain available through Extra Args.
+  Indirect command encoding, register batching and descriptor-run trials remain
+  off by default.
+  Added a separate off-by-default scheduling trial that lowers only native
+  rendering priority during high-frame-rate controller boosts.
 
 ## 0.6.0
 

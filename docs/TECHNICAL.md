@@ -29556,3 +29556,158 @@ this lead. Next source target normalmapped fragment d1a189fdbb29cf1a with existi
 evidence and prior work first. No claim GPU/battery ceiling reached. Shared checkpoint
 and matching ignored BACKLOG updated, HANDOFF remains untracked; only own evidence
 docs locally committed, no push/merge/release/CHANGELOG needed. git diff --check exit0.
+
+## November 14, 2026 — accepted defaults promoted; dev129 render-only QoS trial starts scheduling focus
+
+Stefan redirects work: make tested/proven changes defaults and focus on scheduling,
+thread efficiency/multithreading/QoS, preserving current performance. This supersedes
+normalmapped fragment audit as next action. Do not infer all CPU/GPU opportunities
+exhausted; stop marginal source/cache/shader trials for now. Startingd805bce, only
+pre-existing untracked HANDOFF_CHATGPT.md, preserved. No push/merge/release.
+
+### Accepted default configuration, no enable-all promotion
+
+Three native_renderer.mm defaults changed:
+
+| Flag | Previous compiled default | New default | Evidence/intent |
+|---|---|---|---|
+|nfsmw_native_command_reuse|false|true|accepted B pooled frame ownership|
+|nfsmw_native_command_encoding|true|false|direct Metal draws, no accepted indirect-encoding win|
+|nfsmw_native_prepared_geometry|false|true|accepted B prepared metadata, validation retained|
+
+Already-on geometry_handoff/owner_index kept. vfetch_cache raw compiled false
+unchanged: ApplyBatteryExperiment injects true via default-on five-option battery
+group; its opt-out semantics must not be silently changed. Repeat diagnostic,
+register_batches, register_flushes, descriptor_runs, async_frame_free,
+audio_thread_low remain false; shader candidates, G2/packed geometry stay parked.
+Residency flag remains true but ICB-only path dormant with encodingOFF. Existing
+pipeline preparation, master mute, exact-wake handoff, cap controller retained.
+Explicit Extra Args override new defaults; no user settings edited or erased.
+Old complete B list now redundant under ordinary battery-group-on settings.
+
+Acceptance is existing dev125 SAME-build A/B on iPhone17ProMax/iOS27.3:
+primary15–175s estimated system drain40.0568743->37.1388130points/hour (~7.28%
+relative lower),60FPS medians/noaudio gaps, unplugged/LPMoff,brightness27%,Nominal.
+Sensitivity windows6.70/6.87% lower. Nonidentical pursuits/warmup/order still confound;
+not a per-flag attribution/universal promised saving, not additional saving from
+changing defaults. This promotion follows Stefan's explicit request; no renewed
+phone battery matrix needed to re-prove prior B acceptance. CHANGELOG rewritten
+around final accepted behavior, unproven optional paths still documented as OFF.
+
+### Scheduling audit and bounded new experiment
+
+Current architecture ALREADY multithreaded: game main/guest workers, GPU command
+recording, serial native Metal encoding, GPU and audio pipeline overlap through
+existing bounded frame handoffs. guest/PM4/query/resolve ordering and GPU lifetime
+constraints prevent blindly parallelizing RenderFrame. Existing exact-wake guest
+handshake and in_flight completion wait already sleep instead of simple polling.
+QoS controller already active: device/cap floor, raise on late frames, no probe-down
+while driving; loading boost reset at driving start. Keep that proven behavior.
+
+Review prior failures before a new proposal: old partial/top3 boosts did not yield
+accepted battery benefit; lowering workers caused pursuit dependency stalls; audio
+Utility + async frame teardown dev111 and draw-order/XMA pool dev112 no accepted
+energy saving. dev108 probing while driving hitched/no saving. Wake cuts measurably
+reduced waits but dev89 power pair did not improve drain; don't repeat them just
+because wake counts look better. Existing historical “QoS exhausted” wording was
+for tested policies, not proof no role-specific policy can help.
+
+Existing dev125 preselected8–50s Time Profiler (42s): app51,988.2ms CPU samples.
+Source `ios/build/dev125-time-profile-20261112/pre-8-50.json`, summarized with input/
+source hashes in new audit scheduling-audit.json. Top thread samples:
+
+| Thread/queue | CPU ms per second | Samples on P cores |
+|---|---:|---:|
+|native render queue|322.87|90.3%|
+|Main XThread|263.37|93.1%|
+|guest XThread10213|249.93|92.6%|
+|GPU Commands|221.53|95.9%|
+|guest XThreadCE23 (audio/decode stacks)|110.04|67.1%|
+
+Names/IDs capture-local. On-CPU sample shares are not blocked/runnable durations,
+queue latency, critical dependency proof or energy. SumCPU~1.24cores average does
+not prove spare E-core capacity can meet the serial frame deadlines. Native render
+queue CPU is substantial, controller boosts it together with guest workers through
+RenderQos; no accepted render-only Utility isolation trial found in prior record.
+
+Implemented restart-only `nfsmw_render_utility_trial` defaultfalse in adaptive_qos.cpp.
+Only RenderQos changes. When true AND cap-controller active AND publishedcap>40 AND
+renderUtility enabled AND adaptive/worker boost active/mode>=1, returns Utility for
+native encode block. Otherwise EXACT old selector. No guest/main/CP/audio/pipeline
+priority changes, no new threads, no changed queue order/inflight limit or device
+synchronization. Explicit renderUtilityfalse opt-out respected;30/40 untouched,
+including tablet Background policy. Live cap/profile changes still evaluated each
+block; trial switch captured once (restart required). No affinity/pinning API.
+
+Apple primary guidance checked for scheduling rationale, not performance evidence:
+[Scheduling CPU work efficiently](https://developer.apple.com/documentation/xcode/scheduling-cpu-work-efficiently)
+and [Prioritize Work with QoS](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/EnergyGuide-iOS/PrioritizeWorkWithQoS.html).
+QoS communicates importance/dependency constraints; priority promotion can occur.
+Requesting Utility does not guarantee E-core residency or lower drain. Existing
+qos_class_self entry histogram in RenderFrame plus encode/pacing/audio/CPU profile
+must verify actual effect; no extra per-draw telemetry added. For multithreading,
+next requirement is actual producer/consumer dependency and ownership evidence,
+not adding workers by core count.
+
+### Validation and retained artifact
+
+New tools/ios/test_render_qos_trial.py extracts ACTUAL RenderQos selector; compares
+all other adaptive_qos.cpp source byte-for-byte to d805bce (new declaration removed).
+36,864live cap/mode/policy/worker/boost combinations each OFF/ON:OFF0changed,
+ON192changed; all expected boundaries/overrides pass. Uses real pthread/qos.h types,
+no GPU execution or scheduler/energy claims. First harness compile failed due fake
+QOS constant redefinitions and missing initializer_list; fixed to real SDK constants
+and explicit include, final exit0. Controller/guest/audio/pipeline source guard PASS.
+No actual native thread scheduling test claimed by selector unit coverage.
+
+Other exact test commands, all exit0:
+- python3 tools/native/test_command_encoding_control.py:8switch modes plus dump/
+  capture/motion/repeat/early/family exclusions, preparation/ICB guards; Record and
+  entire draw loop unchanged from dev119.
+- python3 tools/native/test_native_command_cache.py:actual operands/lifetime/batch
+  order/budget/growth/completion/purge/resource declarations and new default checks.
+- python3 tools/native/test_prepared_geometry.py:90,000comparisons per original/
+  dev124/compact variant,ON/OFF, validation/decoding/index/state/ownership guard PASS.
+Existing two default assertions updated to accepted defaults; no implementation
+rewrites hidden behind expectation updates. git diff --check exit0.
+
+First defaults-only build exit0/20.920319416s; preserved defaults-only-build.log and
+result before new scheduling selector. Final build exit0/6.502914917s:
+`cmake --build /Users/bep1s/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`.
+Existing isolated /Users/bep1s/Developer/GitHub/nfsmw-multiplayer-sdk used unchanged;
+NFSMW_NATIVE_SHADERS_DIR remains repository dev128 named-library folder, pipeline
+seed still dev116 archive. No canonical SDK modification or cache regeneration.
+
+Retained LOCAL repository IPA:
+`/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa`
+30,771,474bytes,SHAc8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336.
+Bundle0.6.0/code11 as prior dev builds. ZIP integrity and codesign --verify --deep
+--strict exit0. All109NativeShaders files incl104metallibs+metadata/seed byte-identical
+128. BOTH SDK dylibs byte-identical128 (not merely section equality).
+MainUUIDE62BE4C2-B861-3012-B59D-B786A6B9AA5D,
+mainSHAce26917d27b736d274a03c2f6ce9624aafb39bb27dac128c3c0cc7360da1ed74.
+RuntimeUUID2BF028C3-7030-3218-AB7E-53C59017F379,
+SHA7971becf8aad2c4acb8d54d219aa760210fe5952a1e0e0575086078a85f77dcc.
+GPUUUIDF35FCE03-AE0C-3B71-82A1-B365C5438C4F,
+SHAcf01ae824c4b1dbc0f38fc64163e0774a9899a55db6cb7ecf075e3ccceede113.
+New startup [renderer-baseline]dev129 and [scheduling]dev129 report effective settings
+and trial state. No Desktop/iCloud copy/Trash, deployment or new device result.
+
+Audit `ios/build/accepted-defaults-scheduling-20261114/`:build.py/build.log/result,
+defaults-only logs,verify_artifact.py/artifact.json/codesign.log/unpacked app,
+scheduling-audit.json/validation.json. Private derived evidence stays ignored.
+Read-only probes also encountered stale package_ipa.py/build* and absent guessed
+old dev110 folder; used actual CMake packaging and existing dev125 evidence instead.
+
+Next bounded device check: same dev129,1x/60/same graphics/audio/controller, warm
+uninterrupted60–90s pursuit+TimeProfiler/log with ONLY
+`--nfsmw_render_utility_trial=true` (cold restart, caches/data preserved). Normal
+baseline is false; old B nine flags unnecessary unless preserving explicit control.
+First verify newUUID/startup flags/actual render QoS samples, FPS/pacing/audio and
+CPU placement. Utility needs not reduce sampled CPU time to save energy; longer
+encoding can erase residency benefit. No power pair before correctness/performance
+pass; if warranted ONE same-sitting false/true pair only. Trial remains OFF until
+real benefit supported; no promised saving. On regression stop, inspect dependency
+waits before more scheduling/multithreading changes. Shared checkpoint and matching
+ignored BACKLOG updated; own changes locally committed, HANDOFF left untracked,
+no push/merge/release or unrelated changes included.

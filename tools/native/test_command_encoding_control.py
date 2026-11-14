@@ -109,6 +109,6 @@ assert 'if(reuse) indirect_pipeline_cache.Prepare' in prepare
 assert 'const auto normal=pipeline_cache.PreparationKeys(false);' in prepare
 assert 'pipeline_cache.Prepare(store.device,normal,tick);' in prepare
 assert 'const auto* geometry_storage=NativeGeometryHandoff() ? frame->native_storage.get() : nullptr;' in source
-assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_encoding, true,' in source
-assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false,' in source
+assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_encoding, false,' in source
+assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, true,' in source
 print('PASS normal preparation/geometry stay independent; all ICB preparation/collection/report gates; Record and entire draw loop unchanged from dev119')

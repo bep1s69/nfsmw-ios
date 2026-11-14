@@ -245,7 +245,7 @@ assert "auto do_resolve = [&](const ResolveEvent& ev, const Draw& last) {\n     
 assert "    flush_commands();\n    if (command_context) command_context->FinishFrame();" in source
 assert "completed_context->busy.store(false, std::memory_order_release)" in source
 assert "!REXCVAR_GET(nfsmw_native_early_commit) && !capture.active" in source
-assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false,' in source
+assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, true,' in source
 assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false,' in source
 assert 'REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true,' in source
 assert 'command_batch.incremental_resources=incremental_command_resources;' in source

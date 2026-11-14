@@ -105,6 +105,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_audio_thread_low, false, "Kernel",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): with the cap controller the game's audio thread (sub_825E3F40: mixing "
                     "and XMA decode) stays at Utility instead of following the frame threads' boost "
                     "(restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial, false, "Kernel",
+                    "Scheduling trial: during cap-controller boosts above 40 FPS, keep native Metal encoding at Utility QoS; "
+                    "game and audio threads keep their existing policy. Requires native render Utility enabled (restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -552,6 +555,12 @@ void Choose(const std::string& name) {
 }
 unsigned RenderQos() {
   const int m = mode.load(std::memory_order_relaxed);
+  static const bool utility_trial = REXCVAR_GET(nfsmw_render_utility_trial);
+  // Isolate encoding from guest-worker boosts without changing queue order or
+  // the established 30/40 policy. Explicit render-utility=false still wins.
+  if (utility_trial && Controller() && policy_cap.load(std::memory_order_relaxed) > 40 &&
+      Flag(RenderUtility) && AdaptiveEnabled() && WorkersOn() && m >= 1)
+    return QOS_CLASS_UTILITY;
   if (AdaptiveEnabled() && WorkersOn() && m >= 1) return BoostQos(m);
   return Flag(RenderUtility) ? LowQos(LowRole::Render) : QOS_CLASS_DEFAULT;
 }

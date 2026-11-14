@@ -146,10 +146,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "dev114 diagnostic (Nov 10): count driving draws identical to the previous frame's and what "
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, false, "GPU",
-                    "Native frame ownership and cached Metal indexed commands (restart required; trial)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_command_encoding, true, "GPU",
-                    "Within command reuse, encode cached Metal indirect commands; off keeps frame ownership with direct Metal draws (restart required; control)");
+// Accepted dev125 B configuration: pooled ownership with direct Metal draws.
+// Indirect encoding remains available separately; it has no accepted net win.
+REXCVAR_DEFINE_BOOL(nfsmw_native_command_reuse, true, "GPU",
+                    "Reuse native frame ownership storage (restart required; false restores reference ownership)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_command_encoding, false, "GPU",
+                    "Trial: within command reuse, encode cached Metal indirect commands instead of direct Metal draws (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_command_residency, true, "GPU",
                     "Within command reuse, declare resources incrementally per encoder (restart required; trial)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_geometry_handoff, true, "GPU",
@@ -197,8 +199,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_foliage_early_alpha, true, "GPU",
                     "identical predicates and surviving outputs (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_fingerprint_memo, true, "GPU",
                     "Experiment: fingerprint a non-dynamic vertex region once per frame, not per draw (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_prepared_geometry, false, "GPU",
-                    "Trial: reuse prepared native vertex descriptions; content validation unchanged (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_prepared_geometry, true, "GPU",
+                    "Reuse prepared native vertex descriptions; content validation unchanged (restart required)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_record_memo, true, "GPU",
                     "Experiment: per-frame index fingerprint memo, per-entry vertex memo and last-key "
                     "constant ranges in draw recording (restart required)");
