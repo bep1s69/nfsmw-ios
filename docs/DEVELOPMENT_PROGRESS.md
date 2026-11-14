@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November14 (Stefan, latest): target the lowest sustainable energy/operating
+  level that preserves the selected resolution and FPS across ALL supported
+  devices. Prefer efficiency cores and lower operating clocks where deadlines
+  allow; scheduling must adapt to device/cap/workload, with performance headroom
+  when required. Core placement/clock requests are not themselves proof of lower
+  power; use measured pacing/audio/energy. No claim all algorithms are exhausted.
+
+
 - November14 (Stefan, latest): consolidate tested/proven changes as defaults and
   shift active optimization work to scheduling, thread dependencies, multithreading
   and QoS while preserving current FPS/visuals/audio. Pause further CPU/GPU shader/
@@ -539,6 +547,48 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev129 render-Utility mechanism/device check PASS; energy pending.**
+Stefan says picture/controls/audio normal and capture uninterrupted. Received
+Desktop Untitled.trace + Pasted2026-11-14at4.15.47PM.log; archived/hashverified in
+November14Debug, then both originals deleted per standing rule; post-export hashes
+unchanged. Trace16:12:39.293–16:14:50.249+02/130.956455s, iPhone17ProMax/iOS27.3,
+TimeProfilerHIGH100us, exact129main/runtime/GPU UUIDs. TrialON, accepteddefaults
+ON/directdraws,1x60/MetalFXoff/FXAAoff/MSAA0,Nominal throughout. Second driving starts
+1.813s into capture, no subsequent interruption, background after capture.
+
+Preselected primary8–110s:1,307,796running samples/130,779.6ms appCPU. Broad render
+worker bucket83.840%E-core samples (includes shared dispatch-worker overhead/other
+work); EXACT RenderFrame symbol scope39,538.3ms/99.970%E, only11.8ms P samples.
+Early8–50s exact RenderFrame99.981%E. Main/GPUCommands/guestframe worker still
+mostly P; no new policy for them. This establishes placement on tested device,
+NOT clock reduction or net energy saving; CPU time can grow on slower cores.
+Old dev125 broad render9.7%E is historical context only, not matched causal delta.
+
+24complete guarded pacing/FPS/audio windows:7200frames,9offgrid(worst83.3ms),
+20x60.0/3x59.9/1x58.6FPS,24audio windows0gaps.7200/7200render-entry Utility.
+One83.3ms miss window16:13:37 has elevated VMcompression/page-ins too; correlation
+only, cannot attribute to QoS or memory without wait data/control. No captured GPU
+errors/pipeline misses; backgroundGPUpermission errors start after capture. Keep
+trial OFF by default pending same-build energy/pacing control; no newIPA/code now.
+
+**Next action:** ONE same-sitting dev129 power A/B,180s each, same1x60/pursuit/
+brightness/audio/controller,unplugged/LPMoff, warm each run then record. A ONLY
+`--nfsmw_render_utility_trial=false`; B ONLY `--nfsmw_render_utility_trial=true`.
+Cold restart each, preserve data/caches. Matching logs to checkeffectiveflags/
+FPS/pacing/audio alongside power. No additional TimeProfiler needed before pair.
+If no energy win or pacing worsens, retain false; no further render micro-matrix.
+Then continue device-adaptive role/dependency scheduling: characterize critical
+main/CP/guest worker deadlines and safe ownership before parallelism/role changes,
+validate hardware families before defaults. Preserve existing30/40fallbacks and
+no probing down while driving (prior regressions). No all-device/clock/power claim.
+
+Full evidence TECHNICAL and ignored audit `ios/build/dev129-render-qos-profile-20261114/`
+archive-manifest/toc/time-profile/thermal/profile-inspection/control-health/
+primary8–110/early8–50/analysis-summary/post-export verification. Matching ignored
+BACKLOG updated; HANDOFF pre-existing untracked preserved. No push/merge/release.
+
+Previous implementation checkpoint (artifact/defaults remain current):
+
 **Latest: dev129 accepted renderer defaults + opt-in rendering QoS trial built.**
 Stefan redirected work from marginal CPU/GPU source tweaks to scheduling/thread
 use. Three compiled defaults now match accepted dev125 B: command_reuse=true,
@@ -572,17 +622,9 @@ November14 follow-up: Stefan requested Desktop delivery; dev129 copied to Deskto
 and verified30771474bytes/SHAabove. Existing Desktop128 preserved, no Trash or
 deployment. Audit desktop-delivery.json. Next device trial remains below.
 
-**Next action:** one bounded scheduling trial on dev129 at1x/60/same graphics/audio/
-controller conditions, caches preserved, cold restart after Extra Args change:
-`--nfsmw_render_utility_trial=true`. A60–90s uninterrupted warm pursuit + Time
-Profiler/log establishes whether rendering still holds60 and actually shifts its
-CPU placement; startup marker/effective renderer states and per-frame-entry QoS
-must be checked FIRST. Trial false is same-build control. No power pair until
-correctness/FPS/pacing/audio are accepted; then at most one same-sitting A/B under
-standing rule. Stop trial on regressions; do not lower guest/audio or add threads
-blindly. Existing CPU samples do NOT establish runnable/blocked dependency chains;
-if trial fails, inspect frame hand-offs/wait provenance before multithreading work.
-No accepted scheduling energy improvement yet; no push/merge/release.
+**Historical device gate, now completed above:** render Utility trial at1x60.
+Placement confirmed; same-build power/pacing acceptance remains pending. No further
+identical CPU recording needed; dev129 artifact/settings below remain current.
 
 Repro/audit `ios/build/accepted-defaults-scheduling-20261114/` build/verification/
 artifact/scheduling-audit/validation JSONs. New test command

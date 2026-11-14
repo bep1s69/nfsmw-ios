@@ -29726,3 +29726,144 @@ change to device acceptance status. Private audit
 Checkpoint and matching ignored BACKLOG updated; next dev129 scheduling trial
 unchanged. Pre-existing HANDOFF untracked preserved; own docs locally committed,
 no push/merge/release. git diff --check exit0.
+
+## November 14, 2026 — dev129 render-Utility device profile; placement passes, energy pending
+
+Stefan supplies two Desktop files and clarifies the cross-device goal: lowest
+sustainable operating energy/clock level maintaining selected resolution/FPS,
+favor E cores where deadlines permit; optimize scheduling/dependencies rather
+than more marginal shader/cache changes. Does not establish a global optimization
+ceiling. User async reply: picture/controls/audio normal, recording uninterrupted.
+Starting9d898a6, only pre-existing untracked HANDOFF_CHATGPT.md, preserved.
+No production code/default/SDK/shader/IPA/push/merge/release changes this analysis.
+
+### Archival/identity and capture controls
+
+Inputs Desktop Untitled.trace and Pasted2026-11-14at4.15.47PM.log. Metadata export
+first determines capture Europe/Bucharest date. Archived under
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/` as:
+- dev129_iphone_render_utility_time_profile.trace:292files,146945317bytes,
+  per-file manifest treeSHA256c7e185ab82a6c45043d0dbb7db004ad7f583abfee407bc4063052345ac303c60.
+- dev129_iphone_render_utility_time_profile_nfsmw.log:1465372bytes,
+  SHA256641a039437f5696ebc72ac390c53548d379ea88de9a5789af88c1ff0ea4acf4a.
+Every file size/SHA verified against original and destination BEFORE deleting both
+Desktop originals under standing instruction. Post-export manifest/log hashes
+identical, originals absent. No unrelated Desktop files touched.
+
+TimeProfiler27.2(27B52), HIGH100us,131s capture130.956455s,
+16:12:39.293–16:14:50.249+02. iPhone17ProMax/iOS27.3(24C5037i),
+MacBookPro/macOS27.3(26C5035r), targetLiveContainerPID3028. On-CPU only:
+record-waiting-threads=0/context-switch-sampling=0; no CPU-frequency or power tables.
+Thermal export Nominal throughout0–130.956454992s, not induced. dyld table empty;
+validated UUID/load addresses from binary metadata embedded in actual CPU frames:
+mainE62BE4C2-B861-3012-B59D-B786A6B9AA5D/base0x10f948000;
+runtime2BF028C3-7030-3218-AB7E-53C59017F379/base0x10c8c0000;
+GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F/base0x126144000.
+All match retained dev129 IPA SHA c8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336
+(30,771,474bytes); no build mismatch. Symbol-store UUIDs also present.
+
+Startup dev129 accepted defaults effective ownershipON/preparedON/indirectOFF;
+render Utility trialON. Battery groupON,cap controllerauto,4Ecores,other guest
+Utility/adaptiveON, baselineQoSOFF. Descriptorfalse,register pathsfalse,1x60,
+MetalFXoff/FXAAoff/MSAA0. Existing effective state reports confirm accepted B.
+Earlier log driving16:10:28–16:12:19 lies OUTSIDE trace; second driving16:12:41.106
+(1.813s into capture), no later exit/restart until background16:14:51.075 AFTER
+trace. Don't misreport earlier log restart as interruption during recording.
+Controller atUserInitiated for game/guest boost during captured driving, rendering
+request Utility. Other game-thread priorities not changed by the trial.
+
+### Analysis and measured placement
+
+Preselected primary8–110s (102s), early8–50s (42s), consistent prior CPU analysis;
+no window selected for favorable results. Existing tool commands, both exit0:
+`python3 tools/analysis/summarize_battery_exports.py profile ios/build/dev129-render-qos-profile-20261114/time-profile.xml --skip 8 --end 110 --process LiveContainer --register-flush-hooks`
+and identical command --end50. Total appRunning rows across trace1,568,553;
+primary1,307,796samples/130779.6000ms CPU sample weight (~1.282cores average).
+Sample weights, NOT exact execution duration, power, clocks or wait/runnable time.
+Core labels explicitCPU0–3(ECore),CPU4–5(SCore/performance); no unknown core labels.
+
+| Primary thread bucket | CPU ms/s | E-core sample share |
+|---|---:|---:|
+|native render worker bucket|510.56|83.840%|
+|Main XThread|210.96|12.101%|
+|GPU Commands|208.62|8.353%|
+|guest XThreadDB33|188.29|6.066%|
+|guest XThreadD723|102.66|23.721%|
+|Main Thread|31.96|4.693%|
+|Audio Worker|11.01|43.649%|
+
+IMPORTANT attribution refinement: existing summarizer groups ALL samples from a
+GCD worker thread under native rendering if that worker ever ran RenderFrame.
+Threads are reused, so bucket includes other work/system/dispatch/teardown, not
+only rendering. Initial private scope used substring RenderFrame (included nested
+callback symbol names); tightened to EXACT RenderFrame symbol identity from
+profile top-inclusive list, independently counts CPU/core labels, asserts total
+matches39,538.3ms. Final exact scope primary:
+39,526.5ms E /11.8ms P /39,538.3ms total =99.9701555%E. Early42s:
+16,645.8E/3.2P/16,649.0total =99.9807796%E. This establishes actual sampled native
+rendering almost entirely on E cores, stronger than Utility request alone.
+Whole-app primary40.779%E; main/CP/guest critical work still mostly P.
+No claims that guest work or clocks were lowered by this render-only flag.
+
+Historical dev125 B early42s broad renderer322.87CPUms/s/~9.7%E vs current504.90/
+85.15%E is CONTEXT ONLY: different pursuit/build/sitting/workload, no matched causal
+CPU delta. Slower-core execution can need more CPU time; don't equate increased
+CPU sample time with energy regression or increased E share with energy savings.
+No new battery percentage can be inferred. Do not ask another CPU trace solely
+because these on-CPU totals differ from old capture.
+
+### FPS/audio/errors and limits
+
+Guard begin last driving+5s=16:12:46.106; endcapture16:14:50.249. Only complete5s
+windows included:24x300frames=7200. All7200render-entry QoS samplesUtility, all24
+settings rows1x60/noAA/MetalFXoff. FPS windows20x60.0,3x59.9,1x58.6,median60.
+Pacing9/7200offgrid (0.125%),worst83.3ms OFF grid, not a measured83.3ms CPU task.
+24complete audio windows0gaps. Primary8–110s19pacing windows5700frames also9misses,
+20audio windows0gaps. Mean nearbyGPU10.742ms guarded (GPU stage/context, not energy).
+
+Largest miss reported windowending16:13:37.273:2/300offgrid,worst83.3ms; nearby VM
+1542page-ins/550decompressions/2448compressions/556purges in5.1s. Following window
+4/300offgrid,worst12.5ms,3109compressions/769purges. Correlation only; cannot blame
+memory or Utility using on-CPU-only trace. Other misses isolated; no sustained
+FPScollapse/user-visible defect reported. Need same-build OFF control pacing in
+power pair before assuming identical performance or universally safe default.
+No recorded GPUerrors/cache-miss lines in captured gameplay; pipelinecount223
+steady,0without-shader draws. Whole-log GPUpermission errors start16:14:51.973,
+after capture AND background16:14:51.075: lifecycle tail, not in gameplay window.
+Do not reject trial based on post-background submit errors or hide recorded misses.
+
+### Decision, next step and cross-device scope
+
+Mechanism and subjective correctness gate PASS on tested iPhone; energy and matched
+pacing comparison PENDING. Trial remains defaultOFF. Next ONE same-sitting SAME
+dev129 power A/B,180s each,1x60/same scene/pursuit/brightness/controller/audio,
+unplugged/LPMoff, warm each run, cold restart between setting changes:
+A `--nfsmw_render_utility_trial=false`; B `--nfsmw_render_utility_trial=true`.
+Matching logs check effective states/FPS/pacing/audio including outlier windows.
+No additional TimeProfiler or newIPA needed before pair. Do not add more trial
+switches, lower simulation/audio or promote this flag before net benefit supported.
+
+Device-wide objective recorded: adapt the minimum safe role/device/cap operating
+policy to observed deadlines, preserve graphics/resolution/selectedFPS, use stronger
+scheduling for actual dependencies when needed. Existing30/40 behavior and no
+probing-down while driving retained because earlier regressions remain evidence.
+Validate additional hardware families before a global default; oneA19profile not
+all-device proof. Future role changes/multithreading need dependency and ownership
+coverage; CPU samples alone cannot discover blocked critical chains. Clock speed
+was NOT measured; iOS controls actual scheduling/throughput via hints, not a game
+clock-setting API used by this code. See Apple primary guidance checked today:
+[Prioritize Work with QoS](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/EnergyGuide-iOS/PrioritizeWorkWithQoS.html).
+No assertion all algorithmic optimizations are exhausted.
+
+Private audit `ios/build/dev129-render-qos-profile-20261114/`:archive.py/manifest,
+toc/time-profile.xml/thermal/dyld exports,primary-8-110.json/pre-8-50.json,
+analyze-logs.py/log-analysis,inspect_profile.py/profile-inspection exact-symbol
+scope and image identity,control-health.json/analysis-summary.json hashes,
+post-export-verification.json. xctrace TOC first failed exit134 sandbox cache
+permission at ~/Library/Caches/com.apple.dt.InstrumentsCLI/path_manager; escalated
+metadata and3table exports succeeded exit0. dyld empty as above; no extra capture
+requested to fill it. Read-only metal_pacer guessed path corrected to actual
+metal_display_pacer files; no source changes from this probe. No production tests
+needed for analysis-only changes; git diff --check exit0. Shared checkpoint/rule
+and existing ignored BACKLOG updated; own tracked evidence docs locally committed,
+HANDOFF remains untracked and BACKLOG not force-added. No push/merge/release.
