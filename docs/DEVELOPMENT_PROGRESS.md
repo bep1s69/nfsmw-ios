@@ -568,7 +568,9 @@ Retained `ios/build/NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa`,3077147
 SHAc8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336.
 MainUUIDE62BE4C2-B861-3012-B59D-B786A6B9AA5D; runtime2BF028C3-7030-3218-AB7E-53C59017F379,
 GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F. Bundle remains0.6.0/code11 as prior devIPAs.
-LOCAL repository IPA only; no Desktop/iCloud transfer/Trash or deployment this turn.
+November14 follow-up: Stefan requested Desktop delivery; dev129 copied to Desktop
+and verified30771474bytes/SHAabove. Existing Desktop128 preserved, no Trash or
+deployment. Audit desktop-delivery.json. Next device trial remains below.
 
 **Next action:** one bounded scheduling trial on dev129 at1x/60/same graphics/audio/
 controller conditions, caches preserved, cold restart after Extra Args change:

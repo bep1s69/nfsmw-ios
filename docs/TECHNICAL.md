@@ -29711,3 +29711,18 @@ real benefit supported; no promised saving. On regression stop, inspect dependen
 waits before more scheduling/multithreading changes. Shared checkpoint and matching
 ignored BACKLOG updated; own changes locally committed, HANDOFF left untracked,
 no push/merge/release or unrelated changes included.
+
+
+## November 14, 2026 — dev129 Desktop delivery corrected
+
+Stefan asked why the IPA was not on Desktop. Previous turn retained only repository
+artifact; copied verified existing dev129 to
+`/Users/bep1s/Desktop/NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa` on this
+request, without rebuild or overwrite. Python copy + byte-size/SHA checks exit0:
+30,771,474bytes, SHA256c8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336,
+identical repository artifact. Desktop dev128 preserved; no Trash/deployment or
+change to device acceptance status. Private audit
+`ios/build/accepted-defaults-scheduling-20261114/desktop-delivery.json`.
+Checkpoint and matching ignored BACKLOG updated; next dev129 scheduling trial
+unchanged. Pre-existing HANDOFF untracked preserved; own docs locally committed,
+no push/merge/release. git diff --check exit0.
