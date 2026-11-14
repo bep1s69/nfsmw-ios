@@ -29233,3 +29233,118 @@ Private exports/parsers/ranks/alignedmaterialgroups/windowplan/model/source and
 analysis hashes/loghealth/imageidentity retained. Updated shared checkpoint and
 matching ignored BACKLOG; own tracked evidence docs locally committed, BACKLOG
 not force-added, HANDOFF preserved. No app code/CHANGELOG change needed for analysis.
+
+## November 14, 2026 — host foliage depth-phase image/cost gate; general rollout rejected
+
+Stefan's “ok lets do it” authorizes the local GPU feasibility test proposed at
+b465729, not a production pass rollout. Starting tree clean except pre-existing
+untracked HANDOFF_CHATGPT.md, preserved. No runtime/SDK/production shader/cache/
+flag/default/IPA or device changes. Current dev128 identity, user visual acceptance,
+settings and established B/descriptor=false remain as recorded immediately above.
+No phone capture/power test requested. No push/merge/release.
+
+Added host tooling `tools/native/test_foliage_depth.py` and
+`tools/native/foliage_depth_fixture.mm`. Exact reproducible final command, from
+repository root:
+
+```
+python3 tools/native/test_foliage_depth.py --sources ios/build/dev128-compiled-shader-names-20261114/shaders/msl --output ios/build/foliage-depth-gate-20261114 --benchmark
+```
+
+Exit0, elapsed18.533765333s, Apple M2 Pro (Mac host, NOT iPhone). Driver builds4
+Mac Metal libraries and fixture with xcrun, Metal3.1/O2/no-fast-math/fp-contract-off,
+macOS14 minimum, C++20/O2/ARC/Foundation/Metal. Without `--benchmark` runs only
+image checks. Private translated game sources are inputs, never committed; shader
+copies, binaries, generated constants config, logs and results stay ignored in
+`ios/build/foliage-depth-gate-20261114/`.
+Source SHA256 locked in driver; fail closed if input changes:
+
+| Actual dev128 source | SHA256 |
+|---|---|
+|vs_03bfebaa942ca64c|e616c083e2e5a5c6c79c3abedb5126df97c60078565948e65c3f309a573aeaf3|
+|ps_27d82ea0faa380a8|b228b77c7c13900038e37f4015d6faf749d86a443f13afc4ee7dc238a84b1d7e|
+|vs_5c1d4bcee3584aa5|dabadf062a2b196317c0945eb1880a2747c6e65b79a59425eb465b9d1e875c04|
+|ps_684f4711f29b9f77|72296b93a70d71dc8bf503424eaed1c6ff11e53b759cfeb70cb37c60cd4d115b|
+
+Driver appends a void fragment entry calling the identical shaderBody/arguments;
+original alpha/discard code unchanged. Depth phase colour mask NONE; compiler may
+eliminate unused colour/shadow arithmetic (not independently disassembled/proved).
+Reference actual shader colour+edge draws use LE/write and LESS/no-write; candidate
+prepasses safe LE/fullRGBA-replacement draws, then replays ORIGINAL colour/edge
+order, candidate colour EQUAL/no-write with original alpha test retained. Explicit
+boundaries for modeled marker, depth-only and strictLESS writers. Candidate metadata
+is synthetic/prequalified. No production state classifier, lifetime collector or
+query/stencil/MRT/motion/resolve/target boundary handling implemented by these tools.
+
+GPU image result: PASS79 cases,79 exact RGBA/depth comparisons,1,388,544 pixels.
+RGBA8Unorm and Depth32Float readback, no tolerance. Tests include tree/fence alpha
+and complementary edges, ordinary opaque fallback, mixed materials,1/8/24 layers,
+1/8 tessellation grids, far-to-near/near-to-far/equal depths, different UVs at equal
+depth, nearest/linear/trilinear filters and minified CPU-built mip chains, alternate
+alpha thresholds, opposite winding, perspective transform, light/shadow branches,
+modeled depth-only and strictLESS boundaries. Nonempty reference assertion accepts
+meaningful colour OR depth (soft-edge-only minified cases can leave depth clear).
+Actual shader VS constants/address tables/texture descriptors and alpha thresholds
+are exercised; geometry, RGBA textures/shadow map, matrices and constants synthetic.
+Host interleaved64-byte vertex format differs from game's separate arrays. No captured
+scene, iPhone raster/driver, culling/bias/viewport-state variants or general production
+resource lifetime equivalence established. Passing79 cases is not whole-game proof.
+
+Full local cost gate:36 cases,960x540; pipelines/data prepared outside timing.
+GPU command-buffer elapsed divided by batch frame count, CPU Encode wall time
+separately. Extra VS/geometry/texture/draw/encode work, clear/store and simple
+segment loops included. No production Record/admission/bounds planning cost modeled.
+Seven adjacent pairs per case, alternating reference/candidate order, medians of
+arms. Adaptive final batches target20ms based on reference warmup,4–512frames.
+
+| Model, layers>=8 | Far-to-near GPU delta range | Near-to-far GPU delta range | CPU encode median delta far / near |
+|---|---:|---:|---:|
+|eligible trees (4cases/order)|-14.45 to -8.84%|+2.28 to +65.88%|+26.04 / +25.45%|
+|eligible fences (4/order)|-60.01 to -39.79%|+3.57 to +14.48%|+24.07 / +27.52%|
+|mixed trees + ordinary non-alpha fences (2/order)|-56.85 to -15.86%|+6.42 to +29.00%|+15.19 / +15.85%|
+|shadow-disabled eligible fences (2/order)|-35.18 to -29.76%|+3.66 to +6.29%|+26.86 / +24.58%|
+|NO candidates, identical GPU commands (2/order)|-13.80 to -2.41%|-1.42 to +5.77%|-1.23 / +0.65%|
+
+These are observed host timings, NOT accepted energy reductions or confidence
+intervals. IMPORTANT failed precision control: initial short batches gave an apparent
+-34.67% GPU delta even with identical commands. Preserved
+`costs-short-batches.json`; extended20ms batches STILL show identical-stream
+-13.80% to +5.77% variation. Small timing effects inconclusive; do not subtract a
+single control delta as a correction or quote small tree wins as reliable. Dense
+far-to-near fences repeatedly show a much larger difference across local runs,
+but exact magnitude and device/scene applicability remain unproved. Large tree
+regressions and extra geometry/encoding prevent general rollout. No instrumented
+power, battery drain, thermal or unprofiled phone performance measurement here.
+
+Artifacts: `gate-long-batches.log` and `gate-long-batches-result.json` final command/
+exit/elapsed/source hashes; `costs.json`36cases incl7individual pairs;
+`summary.json`group statistics; `source-manifest.json`final tooling+renderer hashes.
+Earlier logs/results retained: benchmark-initial-24, benchmark-final, final-gate,
+quality-final (76cases), gate/gate-final (79cases), costs-initial-24 and short batches.
+No image mismatch observed in completed gates; first compilation failed on global
+`shadow` name colliding with MacTypes enum, renamed `shadow_texture` and compile
+passed. Nonempty assertion refined as above for meaningful edge-only cases.
+Final tooling SHA256: Python1f86289c1578167e496acd6bb1895abcfe15a7a34e9d2a2ef7d95000a8c41184;
+fixture9bb6e56d5c510e0fd60619b07a35ea16ee5e9ac6c4aef180aec717ff44f417e7.
+Native renderer unchanged SHA7a1b57b8e9cd86b6e8ebe7a40650dac5a422185c0a6548604096ab2b21a0da7d.
+
+Source audit: `ios/src/native_renderer.mm` Attribute (~967), Draw (~1223) and
+CacheEntry (~1771) already retain frame-owned float positions/indices/constants.
+No existing AABB/projected-overlap/depth-order profitability metadata found there.
+Inference: a fence-only material toggle cannot reliably exclude near-to-far losers;
+new eligibility/profitability work would have its own CPU/lifetime cost. Current
+fixture intentionally does not solve that production problem.
+
+Decision: general foliage depth phase PARKED; no game integration or trial build.
+Dense overlapping far-to-near fence/mixed cases remain a conditional SOURCE research
+lead only. Next gate is cheap conservative admission feasibility, including actual
+planner cost and state/resource boundaries; park if expensive/unreliable. No new
+phone recording, blind generic prepass, complementary-pass deletion, quality
+reduction, write-watch bypass or revival of packed-mesh/G2/zero-alpha microtrial.
+Shared checkpoint and matching ignored BACKLOG updated; own tracked tooling/docs
+committed locally; BACKLOG not force-added and HANDOFF preserved.
+
+Final validation: full driver/Metal compile/GPU gate exit0 as above;
+`git diff --check` exit0. Default `python3 -m py_compile` failed writing bytecode
+under sandbox-protected ~/Library/Caches/com.apple.python (not a syntax error);
+reran py_compile with explicit /tmp/nfsmw-foliage-depth-gate.pyc, exit0.

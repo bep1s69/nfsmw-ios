@@ -531,6 +531,38 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: local foliage GPU gate completed; general rollout rejected.**
+Stefan approved this host-only gate. New reproducible tools:
+`tools/native/test_foliage_depth.py` and `tools/native/foliage_depth_fixture.mm`.
+Actual dev128 tree/fence VS+PS, hash-locked private inputs, synthetic geometry/
+textures/constants on Apple M2 Pro: 79 cases / 1,388,544 pixels match exact RGBA
+and depth bits. This does not establish game-scene/iPhone equivalence. Tests
+cover complementary edges, ties, filtering/mips, perspective, mixed ordinary
+opaque draws, depth-only/strictLESS boundaries; no production admission collector.
+
+36 cost cases include extra geometry/texture/encoding work. Dense far-to-near
+fences repeatedly look cheaper; near-to-far/tree cases can regress substantially
+and CPU encoding grows. Short timing control falsely showed a 34.7% benefit for
+identical GPU work. Longer batches (20ms target, cap512 frames, 7 alternating
+pairs) still show identical-stream -13.8% to +5.8% variation; small differences
+are inconclusive, precise percentages are not accepted savings. No iPhone energy
+or game-wide gain proved. Do not ship a generic foliage depth phase.
+
+**Next action:** source-only feasibility of a cheap, conservative way to identify
+profitable overlapping far-to-near fence groups, including real planner cost and
+strict state/resource boundaries. Existing Draw/Attribute/CacheEntry data has
+positions/indices/constants but no ready projected bounds/overlap/depth-order
+profitability signal. If reliable admission needs costly per-frame geometry
+processing or cannot exclude losing cases, park this approach; no trial IPA or
+phone request before that gate. Do not revive packed-mesh/G2/write-watch shortcuts.
+Dev128 and established B/descriptor=false stay unchanged, no new flag/default/
+shader cache/runtime/SDK change or IPA. Detailed results and limitations in
+TECHNICAL; private reproducible artifacts `ios/build/foliage-depth-gate-20261114/`.
+Matching ignored BACKLOG updated; pre-existing untracked HANDOFF preserved.
+No push, merge or release.
+
+Previous device attribution checkpoint (still valid):
+
 **Latest: dev128 device naming gate PASS; foliage localized, no energy win claimed.**
 User says picture/controls/audio all felt normal. Captured main1463E873/runtime
 2BF028C3/GPUF35FCE03 UUIDs match128. Nov14 02:00:45.940–02:01:17.236+02,
@@ -556,21 +588,12 @@ Tree+fence47.47%weighted in sampledmain region, NOT wholeGPU/time/energy savings
 Main source stage intervals aligned fragment356.22ms/vertex216.01ms across149;
 stages may overlap, profiler weights are occupancy, never additive wall time.
 
-**Next recommended gate:** local GPU feasibility of a narrowly bounded foliage
-alpha/depth phase to reject hidden shading, preserving full original colour/
-alpha tests and edge-blend order. NOT a generic Zprepass or accepted game change.
-Existing TreeEdgeDepth/foliage early-alpha alreadyON; zero-alpha microtrial remains
-parked per November2 decision (only saves final blend/export). No removing one
-of complementary tree passes, changing shadow quality/cadence or blind reordering.
-Private single-pixel ordering model100000randomsafehistories matches colour/depth,
-and explicitly finds failures for depth-only writers and strictLESS candidates.
-This is NOT GPU/texture/raster/shader proof. Required segments: LE/test+Zwrite
-candidate,fullRGBA replacement/no blend; barriers for any query/stencil/motion/
-MRT/resolve/clear/target change or non-replacement Zwriter. Keep normal colour
-shaders/alpha tests (equal-depth texels need them), use same vertex math/bias.
-Actual GPU image equality AND full extra geometry/texture/pass/encoding cost gate
-before any trial IPA/phone recording; stop if marginal. Actual eligibility and
-benefit unknown. No new user recording requested now; no battery saving claim.
+**Historical proposal, now tested above:** bounded foliage alpha/depth phase,
+retaining original colour/alpha tests and complementary edge order. Existing
+TreeEdgeDepth/early-alpha remain ON; November2 zero-alpha microtrial parked.
+Single-pixel model and host image tests support only modeled safe segments;
+actual game eligibility/profitability remain unproved. No generic prepass,
+shadow quality/cadence changes, deleting complementary passes or blind reorder.
 
 BothDesktopinputs archived/hashverified then deleted, postexportreverified:
 Debug/14November2026/dev128_iphone_gpu_shader_timeline.trace695files848291043bytes,
