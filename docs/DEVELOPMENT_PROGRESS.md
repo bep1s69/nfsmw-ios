@@ -24,6 +24,14 @@ input paths, test commands, outcomes and next action for each experiment.
 
 ## Working rules
 
+- November14 (Stefan, latest): finish processing current Desktop power pair and
+  prepare shared-record handoff back to Claude. Current power testing conditions
+  differ from earlier sessions: compare ONLY this pair, never against prior power
+  recordings, and do not add its percentage to older savings. Archive/verify/
+  delete supplied Desktop inputs as usual. No new implementation/build during
+  handoff preparation.
+
+
 - November14 (Stefan, latest): target the lowest sustainable energy/operating
   level that preserves the selected resolution and FPS across ALL supported
   devices. Prefer efficiency cores and lower operating clocks where deadlines
@@ -547,6 +555,77 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
+Stefan explicitly hands continuation back to Claude after this analysis. Current
+priority: device-adaptive scheduling/thread dependencies/QoS for minimum energy at
+selectedresolution/FPS across supported devices; shader/cache microtrials paused.
+Read AGENTS then this checkpoint/BACKLOG/latest TECHNICAL. Worktree remains
+`codex/native-frame-command-reuse`; no push/merge/release. Latest implementation
+613976c; Desktop delivery9d898a6; priorCPU mechanism8d770b4. No app/SDK/code changes
+in this handoff turn. HANDOFF_CHATGPT.md is pre-existing UNTRACKED, preserve it.
+Matching BACKLOG remains ignored/local; essential state is committed here/TECHNICAL.
+
+**IMPORTANT COMPARISON RULE:** Stefan says CURRENT power conditions differ from
+all previous sessions. This analysis compares run1OFF vs run2ON ONLY. Do NOT compare
+absolute drain with dev125/oldcontroller/profile runs or combine savings percentages.
+
+Same-session iPhone17ProMax/iOS27.3, dev129 startup markers,1x60/noAA/MetalFXoff,
+accepted ownership/preparedON/directdraws, both normal/uninterrupted (user), both
+unplugged/LPMoff (user), Nominal throughout. A17:33:13.892–17:36:03.554/169.662230s;
+B17:37:05.164–17:39:55.431/170.267478s. Preselected primary15–160s before means:
+
+| Current pair only | A trial OFF | B trial ON |
+|---|---:|---:|
+|Estimated system drain, percentage points/hour|40.67904|36.00789|
+|Trace brightness|32%|35%|
+|Median logged FPS|60|60|
+|Primary off-grid frames /8400|2|5|
+|Primary audio gaps|0|0|
+|Render entry QoS,8400samples|Default|Utility|
+
+Observed drain-4.67115points/hour/-11.48295%relative; sensitivity10–160/-11.40484%,
+30–160/-11.85051%. **NOT an isolated causal saving:** brightness mismatches,
+instruction rateB-5.457%, work proxies differ (prepared sites-2.295%,last-draw
+snapshots-3.917%,GPUsummary+0.445%), fixed OFFthenON order. Don't normalize brightness
+or instruction counts into a claimed corrected percentage. No netCPU/frequency or
+all-device conclusion. Earlier99.97%E rendering CPU result is separate mechanism
+evidence, NOT an E-core measurement in these power runs.
+
+New scheduling lead: A remains controllerDefault in captured driving; B escalates
+UserInitiated at17:37:07.018 (60ms after game-driving signal), holds there. Rendering
+still Utility. Other policies/source unchanged, but effective guest/main/CP boost
+states differ via controller feedback. Do not say only render's effective QoS
+changed. Inspect early lateness/reset/feedback evidence before designing per-role
+promotion; no automatic lowering/probing while driving (old negative evidence).
+This is next SOURCE question for Claude, not a diagnosis or permission to force E
+cores. Trial remains opt-in/defaultfalse; no additional test/build launched now.
+If causal confirmation/default promotion needed, smallest follow-up is same-build
+pair with identical brightness/conditions and workload controls, not old-session
+comparison. Don't automatically demand another capture before reviewing artifacts.
+
+**Current artifact/defaults:** Desktop AND repo
+`NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa`,30771474bytes,
+SHAc8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336.
+ExpectedmainUUIDE62BE4C2-B861-3012-B59D-B786A6B9AA5D/runtime2BF028C3/GPUF35FCE03;
+exact identities verified in previousCPU trace/artifact, powertrace has no UUID
+symbol stores (identified via startup build/dev129/effectiveflags). No rebuild.
+EmptyExtraArgs=acceptedbaseline. ONLY `--nfsmw_render_utility_trial=true` enables
+trial (coldrestart); false returnsbaseline. OriginaltenB flags redundant. Full
+compiled-default list/tests/bundle0.6.0code11/isolation/build instructions below.
+
+**Evidence archived/deleted:** November14Debug
+`dev129_reference_vs_render_utility_power.trace`183files10852414bytes,
+treeSHA85e4dc45bc5cb190d0437b5bdc3efcfa69f6da0a34d545cce76839cac4f2339f;
+matching `_nfsmw.log`1965650bytes/SHAfef63981dbcf542d8cb915e93f10cc23365152edf4c3f6a7478ffb00d498e686.
+BothDesktoporiginals deleted AFTER per-file verification; postexporthashes unchanged.
+Full exactpaths, outliers, limitations, commands in latest TECHNICAL entry.
+Private audit `ios/build/dev129-render-qos-power-20261114/`:window-plan/manifest/
+TOC,2powerexports/splitlogs,comparison.json,analysis-summary.json,postexportverify,
+reproduciblearchive/analyze-logs/compare scripts. No power retest currently pending
+from Codex; Claude reviews this handoff and picks next work with Stefan.
+
+Previous CPU mechanism checkpoint (power-pair request now fulfilled above):
+
 **Latest: dev129 render-Utility mechanism/device check PASS; energy pending.**
 Stefan says picture/controls/audio normal and capture uninterrupted. Received
 Desktop Untitled.trace + Pasted2026-11-14at4.15.47PM.log; archived/hashverified in
@@ -571,16 +650,9 @@ only, cannot attribute to QoS or memory without wait data/control. No captured G
 errors/pipeline misses; backgroundGPUpermission errors start after capture. Keep
 trial OFF by default pending same-build energy/pacing control; no newIPA/code now.
 
-**Next action:** ONE same-sitting dev129 power A/B,180s each, same1x60/pursuit/
-brightness/audio/controller,unplugged/LPMoff, warm each run then record. A ONLY
-`--nfsmw_render_utility_trial=false`; B ONLY `--nfsmw_render_utility_trial=true`.
-Cold restart each, preserve data/caches. Matching logs to checkeffectiveflags/
-FPS/pacing/audio alongside power. No additional TimeProfiler needed before pair.
-If no energy win or pacing worsens, retain false; no further render micro-matrix.
-Then continue device-adaptive role/dependency scheduling: characterize critical
-main/CP/guest worker deadlines and safe ownership before parallelism/role changes,
-validate hardware families before defaults. Preserve existing30/40fallbacks and
-no probing down while driving (prior regressions). No all-device/clock/power claim.
+**Historical requested power pair now processed above.** No further TimeProfiler
+or old-session comparison needed. Trial remains defaultfalse pending stronger
+causal/device-wide acceptance; scheduling continuation is handed to Claude.
 
 Full evidence TECHNICAL and ignored audit `ios/build/dev129-render-qos-profile-20261114/`
 archive-manifest/toc/time-profile/thermal/profile-inspection/control-health/

@@ -29867,3 +29867,169 @@ metal_display_pacer files; no source changes from this probe. No production test
 needed for analysis-only changes; git diff --check exit0. Shared checkpoint/rule
 and existing ignored BACKLOG updated; own tracked evidence docs locally committed,
 HANDOFF remains untracked and BACKLOG not force-added. No push/merge/release.
+
+## November 14, 2026 — dev129 current-session power OFF/ON pair and handoff to Claude
+
+Stefan supplies latest Desktop trace/log, asks processing followed by handoff back
+to Claude, and explicitly says testing conditions differ from earlier power sessions.
+HARD COMPARISON BOUNDARY: ONLY currentrun1OFF vs currentrun2ON. No comparison of
+absolute drain with dev125/controller/old profiles, no cumulative percentages or
+cross-session savings claim. Current result does not revise earlier records under
+their own conditions. User async confirms BOTHnormal/uninterrupted and BOTHunplugged/
+LowPowerModeOFF (charging table empty, user report supplies those controls).
+Starting8d770b4, only pre-existing untracked HANDOFF_CHATGPT.md, preserved.
+No production code/default/SDK/shader/IPA changes, no new recording/build, no push/
+merge/release. Claude continuation is prepared in existing checkpoint/TECHNICAL/
+matching ignored BACKLOG, not another handoff file or overwritten original HANDOFF.
+
+### Archival, capture mapping and preselected analysis
+
+Source `/Users/bep1s/Desktop/Untitled.trace` and
+`/Users/bep1s/Desktop/Pasted 2026-11-14 at 5.40.09 PM.log` archived into
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/`:
+- dev129_reference_vs_render_utility_power.trace:183files/10852414bytes,
+  per-file manifest treeSHA85e4dc45bc5cb190d0437b5bdc3efcfa69f6da0a34d545cce76839cac4f2339f.
+- dev129_reference_vs_render_utility_power_nfsmw.log:1965650bytes,
+  SHAfef63981dbcf542d8cb915e93f10cc23365152edf4c3f6a7478ffb00d498e686.
+All files verified size/SHA against originals and archives BEFORE deleting supplied
+Desktop originals; post-export manifest/log hashes unchanged, both originals absent.
+Repository/Desktop dev129 IPA and stable IPA untouched.
+
+PowerProfiler27.2(27B52), iPhone17ProMax/iOS27.3(24C5037i), MacBookPro/macOS27.3
+(26C5035r), Deferred. Single trace contains2runs:
+
+| Run | Mapping from startup markers | Capture Europe/Bucharest | Duration |
+|---|---|---|---:|
+|1,PID3293|A render Utility trialOFF|17:33:13.892–17:36:03.554|169.662230s|
+|2,PID3314|B trialON|17:37:05.164–17:39:55.431|170.267478s|
+
+Logs identify dev129 [renderer-baseline]/[scheduling] and identical build watermark
+Nov14 15:52:40, accepted ownership/preparedON/indirectOFF, battery groupON,
+4Ecores/adaptive+guestUtilityON,capcontrollerauto. Graphics rows identical1x60/
+MetalFXoff/FXAAoff/MSAA0,descriptorOFF/register pathsOFF. Trace has no app UUID
+symbol stores; don't claim an independent power-trace UUID match. Expected verified
+artifact remains `/Users/bep1s/Developer/GitHub/nfsmw-ios/ios/build/NFSMW-0.6.1-dev129-accepted-defaults-render-qos.ipa`,
+30,771,474bytes,SHA256c8deb10662e98bfd9a1587f615b64790a5da1a5a72332ebf1b60717eb211d336;
+mainE62BE4C2-B861-3012-B59D-B786A6B9AA5D/runtime2BF028C3/GPUF35FCE03 exact identities
+verified in prior deviceCPUtrace/artifact, not inferred anew from power table.
+Audio mute/controller state not independently inventoried by power export.
+
+Both driving signals occur shortly after record start: A17:33:15.496 (+1.604s),
+B17:37:06.958 (+1.794s). No subsequent interruption during recordings; background
+A17:36:03.980/B17:39:55.826 AFTER capture ends. No fiction of a preceding minute
+of recorded driving warmup. Before reading means, window-plan.json fixes primary
+15–160s (145s), sensitivities10–160/30–160 (150/130s): common duration trims first
+loading/start and at least9s tail. Don't retrospectively choose a more favorable
+window. Capture being~170s instead of requested180s is recorded, not a reason to
+repeat it. Both thermalNominal throughout, not induced.
+
+Exported BOTH runs' SystemPowerLevel,ProcessSubsystemPowerImpact,DeviceChargingState,
+DisplayBrightnessLevel,device-thermal-state-intervals,ProcessQOSExecution with
+`xcrun xctrace export --input <archive> --xpath '/trace-toc/run[@number="N"]/data/table[@schema="SystemPowerLevel" or @schema="ProcessSubsystemPowerImpact" or @schema="DeviceChargingState" or @schema="DisplayBrightnessLevel" or @schema="device-thermal-state-intervals" or @schema="ProcessQOSExecution"]' --output <audit>/runN-power.xml`.
+Metadata +2table-set exports exit0 (normal cache permissions via escalation).
+Charging0rows both; brightness1interval A32%/B35% (also corroborated in system-power
+rows), thermal1Nominal interval each. Do not invent frequency data: there is
+no core-type/frequency/TimeProfiler table in this capture. Actual row counts:
+SystemPower169each,Subsystem367each,ProcessQoS737A/847B,brightness1each.
+
+### Observed current-pair energy result and explicit confounds
+
+Used existing tools/analysis/summarize_battery_exports.py power with --skip15
+--end160, then --skip10 and --skip30. All exit0; ID/ref-aware duration-weighted
+integration clipped to common support. Independent integer-nanosecond power-only
+integration in private compare.py verifies all3windows x2runs within1e-8.
+Primary system coverage144.999994s each (~145s, tiny source interval gaps).
+
+| Current pair only | A OFF | B ON | Observed B-A |
+|---|---:|---:|---:|
+|estimated system drain, points/hour|40.67903935|36.00788633|-4.67115302 / -11.482948%|
+|instruction rate/second|11,180,718,981|10,570,584,458|-5.457024%|
+|kind0impact0 (CPU-associated metric)|33.43174186|27.10565570|-18.922395%|
+|kind2impact2 (GPU-associated metric)|4.06966525|4.20055987|+3.216349%|
+|brightness|32%|35%|+3points|
+
+Sensitivity10–160:40.95107417->36.28066919 (-11.404841%);
+30–160:40.30724391->35.53062835 (-11.850514%). These are estimated/system impacts,
+not measured watts/joules or a long battery-discharge test. Do not sum subsystem
+metrics or reinterpret raw enum indices as physical power units. Kind0impact1=2,
+kind1impact3=0 unchanged. No CPU-time saving or actual clock claim.
+
+Promising positive OBSERVATION, NOT an isolated causal11.48% savings estimate:
+brightness differs WITHIN pair, pursuits not deterministic, OFFthenON order, B
+instruction rate5.46%lower. Complete primary work proxies also differ: equivalent
+prepared-attribute lookup sites35,570,074A vs34,753,569B (-2.29548%), last-draw
+snapshotsmean2891.96vs2778.68 (-3.91726%,NOT average draws/frame), nearbyGPU summaries
+12.67750vs12.73393ms (+0.44511%). Do not normalize brightness or instruction rate
+into an invented corrected percentage, or attribute all decrease to render QoS.
+Higher B brightness does not explain a lower drain by dimming, but it still prevents
+a matched total-energy attribution. Trimming consistency is not statistical confidence.
+No comparisons to any prior power session were made.
+
+### Performance, actual scheduling state and next source question
+
+Primary only complete5s windows:28x300=8400frames each, both8400CPU-owned/0ICB,
+28audio windows each0gaps,medianFPS60 each. FPS A25x60.0/2x59.9/1x59.8;
+B25x60.0/2x59.9/1x59.6. Pacing A2/8400offgrid vsB5/8400,worst16.7ms both.
+Guarded driving+5s to captureend:32windows9600frames each, A2/B8misses,worst16.7ms,
+32audio windows0gaps each. Small count difference not proof identical pacing or
+causal regression with these workload differences. User reports normal throughout.
+0capturedGPUerrors/watchdog/invalid-token/errors each,Nominal logged both; background
+GPUpermission errors startA17:36:04.915/B17:39:56.735 AFTER capture/background.
+No primary pipeline-cache-miss lines. No camera/capture/profiling-switch workaround.
+
+Actual render-entry QoS A8400Default vsB8400Utility, all primary samples. VERY
+IMPORTANT for Claude: original policies unchanged in code, but effective global
+controller level differs. A startsDefault17:33:14.570 before driving and stays
+Default throughout capture; next upUserInitiated17:36:04.144 only after capture/
+background. B startsDefault17:37:05.310, driving17:37:06.958, controller acknowledges
+17:37:06.988, upUserInitiated17:37:07.018 (60ms after game-driving signal), stays
+there. Thus main/CP/guest boost state also differs in the two stable phases via
+existing controller feedback. It is wrong to claim only render's effective QoS
+changed, or all other threads stayed at the same requested class.
+
+ProcessQoSExecution rows confirmed exclusively LiveContainer3293/3314. Duration-
+on-core clipped to primary: ADefault125632.15ms/Utility1.30ms; BUtility54796.00ms/
+UserInitiated87177.03ms (other classes also present). This corroborates changed QoS
+mix, NOT E/P residency or clocks. EarlierCPU trace's exact RenderFrame99.970%E
+remains a separate mechanism result under different conditions, not a core metric
+for this power pair or a basis for historical power comparisons.
+
+Next SOURCE lead for Claude: inspect early late-window/reset/render-lateness
+feedback that takes B to globalUserInitiated almost immediately; determine if it
+reflects real critical deadlines or stale/start/transient/wait-inclusive inputs.
+Source hypothesis ONLY, not diagnosed cause. Existing OnRendered wall duration
+subtracts drawable wait, OnSwap aggregates lateness, driving has no down-probes.
+Before modifying: preserve prior dev108 probing-down hitches and worker-lowering
+pursuit stalls/audio evidence. Do not force all roles to E cores or reintroduce
+blind drive-time down-probes. Need role/dependency ownership evidence before
+parallelism. Current experiment is whole policy+feedback behavior, not isolated
+per-role energy attribution.
+
+### Handoff state, next action and audit
+
+Keep accepted renderer defaults from613976c. Render Utility trial remains default
+FALSE/opt-in; last tested B usedtrue, no user Extra Args edited. No global promotion,
+newIPA or capture launched in handoff. Candidate remains promising/supported for
+further scheduling work, not parked as a negative result. If causal confirmation
+or broad default promotion needed, smallest potential follow-up is matched-brightness/
+conditions same-build pair; Claude should first inspect current artifacts and
+feedback source rather than automatically requesting repeats. User's cross-device
+resolution/FPS/low-energy goal stays active; only this phone/pair observed, no
+all-device claim. No further work by Codex after handing off the committed record.
+
+Updated DEVELOPMENT_PROGRESS top CLAUDE HANDOFF with exact next source question,
+comparison restriction, artifact/defaults/paths/commit index; matching ignored
+BACKLOG updated. Claude should start AGENTS->checkpoint->BACKLOG->latestTECHNICAL.
+Pre-existing HANDOFF_CHATGPT.md stays untracked and untouched; no new parallel notes.
+
+Private audit `ios/build/dev129-render-qos-power-20261114/`:archive.py/manifest,
+TOC/per-runTOCs,window-plan,2powerXMLexports,splitlogs,analyze-logs.py/loganalyses,
+compare.py/comparison.json/comparison.stdout,analysis-summary.json hashes,
+post-export-verification.json. Reproduce with analyzer commands above or
+`python3 ios/build/dev129-render-qos-power-20261114/analyze-logs.py` then
+`python3 ios/build/dev129-render-qos-power-20261114/compare.py` after exports.
+First read-only schema inventory probe failed because multi-table export omits
+schema nodes after first; corrected to engineering-tag/ID-ref-aware parsing, no
+missing power rows. Post-export hash verification PASS; no software tests needed
+for docs/data-only analysis. git diff --check exit0. Own tracked docs committed
+locally, ignoredBACKLOG not force-added, no push/merge/release.
