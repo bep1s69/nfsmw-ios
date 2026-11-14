@@ -531,6 +531,57 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: dev128 device naming gate PASS; foliage localized, no energy win claimed.**
+User says picture/controls/audio all felt normal. Captured main1463E873/runtime
+2BF028C3/GPUF35FCE03 UUIDs match128. Nov14 02:00:45.940–02:01:17.236+02,
+31.296220s, sameiPhone17ProMax/iOS27.3/Instruments27.2, ShaderTimelineENABLED/
+PerformanceLimiters/defaultstate. B/newdescriptorfalse/1x60/noAA/MetalFXoff,
+111shaders loaded,223known-state pipelines prepared beforegame. Last driving
+02:00:42.913(3.027s before capture; earlier driving/restarts outside), none during.
+Nominal throughout,0captureerrors/pipelinemisses;5completepacinggroups1500frames
+1off-grid(worst16.7ms),5completeaudio windows0gaps. Not an unprofiled performance
+or battery comparison. No default/cache/source changes or newIPA this session.
+
+IMPORTANT sampling limit: rawshader intervals160998span ONLY0.537279459–
+3.495940334s of31.296s trace. Do not extrapolate shader percentages to whole run.
+Compiled metadata3136rows,290material-named rows, app323unique code ranges.
+Initial preselected1–30s frame context1683frames/137300joinedprofilerrows retained;
+FINAL aligned support1–3.495940334s/149completeappframes/136398joinedrows, dominant
+RenderCommand24 fragment58774rows. Currentmain-scene inference from pass shape/
+cost/source order, not explicit target label. PC->compiled name->material now
+works, grouping variants (not guessing alpha states from program IDs):
+treePS27d82ea0 24.923%weighted fragmentoccupancy(29.491%rows), fence/plant684f
+22.544%(23.347%), normalmapped d1a189fd13.652%, carpaint2442daf212.321%.
+Tree+fence47.47%weighted in sampledmain region, NOT wholeGPU/time/energy savings.
+Main source stage intervals aligned fragment356.22ms/vertex216.01ms across149;
+stages may overlap, profiler weights are occupancy, never additive wall time.
+
+**Next recommended gate:** local GPU feasibility of a narrowly bounded foliage
+alpha/depth phase to reject hidden shading, preserving full original colour/
+alpha tests and edge-blend order. NOT a generic Zprepass or accepted game change.
+Existing TreeEdgeDepth/foliage early-alpha alreadyON; zero-alpha microtrial remains
+parked per November2 decision (only saves final blend/export). No removing one
+of complementary tree passes, changing shadow quality/cadence or blind reordering.
+Private single-pixel ordering model100000randomsafehistories matches colour/depth,
+and explicitly finds failures for depth-only writers and strictLESS candidates.
+This is NOT GPU/texture/raster/shader proof. Required segments: LE/test+Zwrite
+candidate,fullRGBA replacement/no blend; barriers for any query/stencil/motion/
+MRT/resolve/clear/target change or non-replacement Zwriter. Keep normal colour
+shaders/alpha tests (equal-depth texels need them), use same vertex math/bias.
+Actual GPU image equality AND full extra geometry/texture/pass/encoding cost gate
+before any trial IPA/phone recording; stop if marginal. Actual eligibility and
+benefit unknown. No new user recording requested now; no battery saving claim.
+
+BothDesktopinputs archived/hashverified then deleted, postexportreverified:
+Debug/14November2026/dev128_iphone_gpu_shader_timeline.trace695files848291043bytes,
+treeSHA38880971209fbe77132c2dc845dfbd73a82755fc7e9b059c095d782eb0e14ab6,
+matchinglog894782bytes/SHA40b36e4459ba941e16eea727be80c2571e90dc8a1cb625bc275f4fe4e0183540.
+Private audit ios/build/dev128-gpu-profile-20261114/ exports/parsers/alignedranks/
+materialgroups/model/loghealth/imageidentity/manifests; TECHNICAL exactpaths/limits.
+Owntracked evidence docs committed locally, matching ignored BACKLOG updated,
+HANDOFF pre-existing untracked preserved. No push/merge/release.
+
+
 **Latest: dev128 compiled-entry naming implemented, validated and delivered.**
 Stefan approved implementation. tools/native/name_shader_entries.py mechanically
 renames base/motion entries to nfsmw_STAGE_KEY[/_motion] AFTER existing shader

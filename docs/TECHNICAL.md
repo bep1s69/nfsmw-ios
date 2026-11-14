@@ -29090,3 +29090,146 @@ active; do not clear caches for naming, first-load compilation behavior untested
 Owncode/tests/CHANGELOG/checkpoint/evidence committed locally; matching ignored
 BACKLOG updated/not staged. Pre-existing HANDOFF preserved untracked. No push,
 merge/release, shader quality reduction or default promotion.
+
+## November 14, 2026 — Dev128 named Shader Timeline: foliage target and bounded local depth gate
+
+Stefan says capture done; later explicitly confirms picture/controls/audio all
+normal. Read AGENTS/checkpoint/backlog/latest evidence/status/log15, initial8bedc5f;
+only pre-existing untracked HANDOFF preserved. Naming/qualitative device gate
+PASS, not a CPU/power comparison or quantified improvement. No app/SDK/shader/
+default/cache changes, new IPA, push/merge/release this session.
+
+### Archive, capture identity and health
+
+TOC export from DesktopUntitled.trace exit0. Nov14 02:00:45.940–02:01:17.236+02,
+31.296220s; accepted longer capture, no repeat for length. iPhone17ProMax/iOS27.3
+(24C5037i), Instruments27.2(27B52), LiveContainerPID1257. ShaderTimelineEnabled,
+PerformanceLimiters/defaultinducedstate recorded. Input nfsmw.log894782bytes.
+archive.py copies and verifies per-file sizes/SHA before removing BOTH Desktop
+inputs under standing instruction; final exit0. Exact archived inputs:
+
+- `/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/14 November 2026/dev128_iphone_gpu_shader_timeline.trace`:695files/848291043bytes,
+  canonical manifest treeSHA256`38880971209fbe77132c2dc845dfbd73a82755fc7e9b059c095d782eb0e14ab6`.
+- Samefolder `dev128_iphone_gpu_shader_timeline_nfsmw.log`:894782bytes,
+  SHA256`40b36e4459ba941e16eea727be80c2571e90dc8a1cb625bc275f4fe4e0183540`.
+
+archive-manifest.json all695entries, independent post-export reread all695/log
+passes/Desktop sources absent, post-export-verification.json. Other Desktop files
+and earlier dated archives untouched. Private audit ios/build/dev128-gpu-profile-20261114/.
+
+ImageUUIDs from existing time-profile stack metadata (solelyidentity) match128:
+NFSMW1463E873-BD01-3F0C-B39C-0B64E846597B, runtime
+2BF028C3-7030-3218-AB7E-53C59017F379, GPUF35FCE03-AE0C-3B71-82A1-B365C5438C4F.
+Retained IPA SHA d8c100d97b65462a88191561440c4cd390653bbf07f2c3b6d65af7cc0b26ec5c;
+no new build this analysis. User normal confirms practical picture/controls/audio,
+not per-pixel proof across all materials/devices/OS or performance/power parity.
+
+Log rendererNov14 01:46:31,111shaders/48vertexinputfamilies/101ranges.223normal/
+0ICB keys prepared beforegame. Descriptorfalse/oldcopyON/establishedB controls,
+scale1/cap60/AAoff/MetalFXoff/auto same. Earlier driving01:59:14.574/02:00:28.399,
+last02:00:42.913(3.027s pre-start), no driving restart/background inside. Thus not
+claim one uninterrupted minute from lastrestart before recording. Nominal thermal
+entire31.296s.448captureloglines,0error-level/0pipeline misses in capture;40misses
+in whole log OUTSIDE capture (not claiming entire log miss-free).5complete in-
+capture pacing groups1500frames/1offgrid,worst16.7ms,5completeaudio windows0gaps.
+First overlapping group each starts beforetrace and excluded from complete totals.
+User normal; no causal regression inference from one missed refresh underprofiler.
+
+### GPU exports, material identification and coverage correction
+
+xcrun xctrace export --input <archive> --xpath '/trace-toc/run[@number="1"]/data/table[...]'
+outputs shaders.xml (compiledlist+rawprofilerinterval), core.xml (GPUintervals/
+encoders/submissions/thermal), image-samples.xml (UUIDs), all final exit0.
+No huge counter-value export or nativeCAPTURE attempt. Bounded schema headers
+reused as documented127, strict column checks/global XMLIDs retained. analyze.py
+exit0:82785CPUencoderrows,124208GPUstageintervals,1802app submissions,1thermalrow;
+3136compiledshader metadata rows,290key-bearing names.323unique appshadercode
+ranges. Compiled-entry fix is now accepted in actual driver profiler; runtime
+function label field still empty, but names nfsmw_ps_KEY/vs_KEY identify source.
+
+rank_shaders.py exit0 with preselected1–30s complete-frame window:1683appframes,
+160998rawprofilerintervals,137300joinedapp rows. SubmissionID+time-overlap joins,
+assert each ID matches one stage and mapped code-range stage agrees; all metadata
+range candidates retained, not first-name guesses. Group base/motion/alpha program
+variants by material key. Numeric IDs are capture-local and DO NOT identify alpha
+compare state; no speculative opaque/edge split by program number/code length.
+
+IMPORTANT discovered limit: raw profiler intervals occupy ONLY0.537279459–
+3.495940334s of31.296s trace (bins0:23698,1:57402,2:53160,3:26738rows). Rest of
+trace has pass execution intervals but no shaderPC intervals. Cause of limited
+sampling not diagnosed; do not blame recording length/user or request an identical
+rerun. It is NOT a31s route-wide material census. Initial context and results
+retained. After observing actual coverage, aligned support1–3.495940334s chosen
+by availability, not by desired result. rank_shaders_aligned.py exit0:
+149fully-contained appframes,136398joinedprofilerrows,58774dominantRender24
+fragment rows. Main-scene identification inferred from pass order/cost/source,
+not an explicit target label; same dominant24 geometry/context as127.
+
+| Material in aligned Render24 fragment samples | Duration-weighted occupancy share | Raw row share |
+|---|---:|---:|
+|tree27d82ea0faa380a8 (2program variants)|24.923%|29.491%|
+|fence/plant684f4711f29b9f77 (3variants)|22.544%|23.347%|
+|normal-mapped lighting d1a189fdbb29cf1a|13.652%|6.979%|
+|car paint2442daf2d3a7097a|12.321%|7.451%|
+|parallax/normalmapped d8bb87fee2d8ec76|5.535%|6.632%|
+|skyfe510d2d256c173b|5.286%|7.046%|
+
+Trees+plants47.47%weighted/52.84%rows in this SAMPLE, not wholeGPU or energy.
+Main aligned stage totals Fragment356.22ms/Vertex216.01ms across149frames; these
+may overlap, not additive wall time. GPUprofiler interval durations are occupancy
+weights, not literal isolated shader milliseconds or percentages of devicepower.
+All-main unaligned1–30s stage totals5022.31/2095.82ms are broader context ONLY;
+never multiply early shader shares by whole-run stage sums to claim savings.
+GPUlimiter/bandwidth not measured/analyzed here; settings alone don't prove bound.
+Main vertex5c1d4bcee3584aa5 ~32.95%weighted vertex samples is substantial too.
+Generatedsource has vertex fog/lighting branches; don't assume all is redundant
+or compiler fails DCE. Driver lists short/full code variants, not a uniform-
+computation optimization proof. No new shader algebra rewrite selected.
+
+### Candidate selection: larger foliage gate, no revival of deferred microtrial
+
+Source reread actual128tree/fence bodies and current TreeEdgeDepth:
+- Tree27 one texture fetch then small colour/fog arithmetic; opaque and blended
+  edge passes remain complementary. TreeEdgeDepth alreadyON changes edgeLE toLESS.
+- Fence684f diffuse+shadow4gathers, early-alpha alreadyON, majority historical
+  opaque draws cannot gain from repeating the same early-alpha trial.
+- Exact-zero-alpha tree edge rejection could only skip final blend/export, not
+  most shading/fetch work. Checked old explicit November2 deprioritization; keep
+  PARKED/unapproved, no implementation/build/device request from this ranking.
+- Blindly deleting a pass, generic prepass, fragment precision/shadow-quality/
+  cadence changes or reordering blended materials remain rejected approaches.
+
+A larger TESTABLE hypothesis is a foliage alpha/depth phase in bounded safe
+segments: depth first for eligible LE/test+write/fullRGBA-replacement candidates,
+then replay original colour and edge order with original colour shaders/alpha
+predicates. Candidate colour replay needs EQUAL/noZwrite, SAME vertex math/bias.
+Retain alpha test: equal-depth triangles with differing UV/coverage can otherwise
+shade holes. Add phase only within proved segment boundaries, never across
+queries/stencil/MRT/motion/clears/resolves/target changes or non-replacement depth
+writers. A colour-masked depth pass could let compiler remove colour/shadow work,
+but this is not proved and extra vertex/texture/encoding work can erase any win.
+Do not implement a new game pass or assume broad admission based on this hypothesis.
+
+Private depth_order_model.py exit0,100000seeded random single-pixel safe draw
+histories: exact quantized-colour/depth matches reference vs depth-first/replay.
+Includes equal depths/coverage/alpha and ordinary opaque+blended non-Zwriter
+interleaving. Explicit unsafe counterexamples pass rejection tests:
+(1) intervening depth-only writer can hide future candidate WITHOUT replacing
+colour; early prepass then wrongly rejects old blended colour that should survive;
+(2) strictLESS candidates tied in depth, replayEQUAL incorrectly admits later one.
+These prove restrictions necessary in model, not renderer/GPU equivalence.
+No geometry, raster/derivative precision, alpha-coverage, stencil, queries,
+resolves, CPU producer lifetime or GPU performance tested by this model.
+
+Next local hostGPU/full-source gate before gameimplementation/phone request:
+prove source/vertex/raster invariance and safe boundaries, compare actual image
+outputs across opaque/edge overlaps/ties/filtering, and measure COMPLETE extra
+geometry/texture/pass/encoding cost against current renderer-style reference.
+No acceptance from a faster isolated shader or from47%scope. Actual candidate
+eligibility unknown. Park if image proof/fullcost fails or is marginal; no new
+capture/new IPA/power pair now. No battery reduction established by this run.
+
+Private exports/parsers/ranks/alignedmaterialgroups/windowplan/model/source and
+analysis hashes/loghealth/imageidentity retained. Updated shared checkpoint and
+matching ignored BACKLOG; own tracked evidence docs locally committed, BACKLOG
+not force-added, HANDOFF preserved. No app code/CHANGELOG change needed for analysis.
