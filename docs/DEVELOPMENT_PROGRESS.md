@@ -531,6 +531,33 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: foliage profitability-admission source gate completed; approach parked.**
+No cheap reliable selector established. Cached homogeneous position bounds could
+be accumulated on validated decode and projected with a bounded per-draw cost,
+so absence of bounds alone does NOT prove high CPU cost or impossibility. However,
+overlapping bounds/far-to-near order/alpha histograms cannot lower-bound actual
+hidden alpha-surviving coverage: private counterexample has identical metadata
+but56 vs0 removable shaded samples. No production selector or cost estimate accepted.
+Historical October21 iPad main-state census:491/7159fence draws meet necessary
+alpha-on/LE-write/replacement/full-mask states (not sufficient admission/current
+coverage). November2 snapshot groups omit alpha/order/positions; cannot recover
+real profitable groups from them. No new phone capture needed to repeat this gate.
+
+**Next action:** return to current ranked GPU source audit, starting actual
+fence VS5c1d4bcee3584aa5 position/lighting/fog work (32.95% weighted vertex samples
+in the short dev128 aligned window). Compare prior work before proposing any
+specific redundant-operation rewrite; compiler DCE/uniform optimization must not
+be assumed absent. Normalmapped d1a189fd remains the next fragment lead. This is
+source research, no accepted optimization/energy benefit or proof of a ceiling.
+Do not continue adding foliage prepass machinery or benchmark synthetic layouts
+without new real qualification evidence. Dev128/B/descriptorfalse unchanged.
+No runtime/SDK/shader/cache/flag/IPA change, no new phone request, no push/release.
+Private audit `ios/build/foliage-admission-audit-20261114/audit.py` + `audit.json`;
+TECHNICAL records exact source constraints, input hashes/counts and model limits.
+Existing ignored BACKLOG updated; pre-existing HANDOFF remains untracked.
+
+Previous completed host gate:
+
 **Latest: local foliage GPU gate completed; general rollout rejected.**
 Stefan approved this host-only gate. New reproducible tools:
 `tools/native/test_foliage_depth.py` and `tools/native/foliage_depth_fixture.mm`.
@@ -548,13 +575,9 @@ pairs) still show identical-stream -13.8% to +5.8% variation; small differences
 are inconclusive, precise percentages are not accepted savings. No iPhone energy
 or game-wide gain proved. Do not ship a generic foliage depth phase.
 
-**Next action:** source-only feasibility of a cheap, conservative way to identify
-profitable overlapping far-to-near fence groups, including real planner cost and
-strict state/resource boundaries. Existing Draw/Attribute/CacheEntry data has
-positions/indices/constants but no ready projected bounds/overlap/depth-order
-profitability signal. If reliable admission needs costly per-frame geometry
-processing or cannot exclude losing cases, park this approach; no trial IPA or
-phone request before that gate. Do not revive packed-mesh/G2/write-watch shortcuts.
+**Historical next gate, now completed above:** investigate cheap conservative
+profitability admission before game integration; not established, approach parked.
+No revival of packed-mesh/G2/write-watch shortcuts.
 Dev128 and established B/descriptor=false stay unchanged, no new flag/default/
 shader cache/runtime/SDK change or IPA. Detailed results and limitations in
 TECHNICAL; private reproducible artifacts `ios/build/foliage-depth-gate-20261114/`.

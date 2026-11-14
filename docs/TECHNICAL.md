@@ -29348,3 +29348,100 @@ Final validation: full driver/Metal compile/GPU gate exit0 as above;
 `git diff --check` exit0. Default `python3 -m py_compile` failed writing bytecode
 under sandbox-protected ~/Library/Caches/com.apple.python (not a syntax error);
 reran py_compile with explicit /tmp/nfsmw-foliage-depth-gate.pyc, exit0.
+
+## November 14, 2026 — fence profitability admission source gate; park depth-phase approach
+
+Continued at Stefan's “ok”, from1654938. Starting git status only pre-existing
+untracked HANDOFF_CHATGPT.md, preserved. Source-only work; no production code,
+SDK, shader, cache, flag, default, IPA or device changes. Dev128 exact identity,
+established B/descriptorfalse and device acceptance remain above. No new phone
+capture, GPU rerun or power test. This gate examines whether a cheap selector can
+exclude the locally losing depth-phase cases before any game implementation.
+
+Source inspected: native_renderer.mm Attribute/Draw/CacheEntry, Record attribute
+validation/decode/capture and constant snapshots; native_frame_storage.h FrameRef/
+FrameOwners; RenderFrame target grouping/resolves, actual alpha specialization,
+depth bias/clip/viewport, motion/jitter/shared constants; actual private named
+fence VS5c1d4bcee3584aa5. Renderer SHA remains
+7a1b57b8e9cd86b6e8ebe7a40650dac5a422185c0a6548604096ab2b21a0da7d;
+VS SHA dabadf062a2b196317c0945eb1880a2747c6e65b79a59425eb465b9d1e875c04.
+
+Feasibility facts versus inference:
+
+- Fence position is homogeneous input transformed by WorldViewProj, with
+  ScreenOffset*c.w added to XY and shared HalfPixelOffset*c.w at the tail.
+  The input swizzles cancel for these position dots; no vertex animation found
+  in this position path. This is specific to this exact shader/source hash.
+- Metadata could theoretically be accumulated on validated position-array
+  decode/replacement and reused with that exact immutable decoded value.
+  Project homogeneous bounds per draw under current matrix/offsets/viewport.
+  Restrict to finite bounds and positive W interval; reject crossing W=0,
+  unsupported clip/clamp/bias/raster states and missing initialized constants.
+  W must be bounded too: shader uses actual input W, not an assumed1.
+  Including unused decoded vertices is conservative but can make bounds loose.
+  This avoids an obligatory per-frame full-vertex scan; NO cost measured or
+  implementation accepted. Missing bounds is not itself proof this is expensive.
+- Metadata lifetime must follow decoded value, or be copied into frame-owned
+  Draw storage. A pointer to mutable CacheEntry metadata is not a snapshot:
+  producer can replace it while an older frame owns the previous FloatArray.
+  Preserve current validation/write-watch behavior; no address-only lifetime
+  claim, no revival of packed-mesh/G2. No metadata/lifetime code changed.
+- Projected overlap and non-overlapping depth intervals can indicate geometric
+  ordering, but do not prove overlap of actual triangles or alpha-surviving
+  texels, or enough fragment cost saved to offset extra VS/encoding/planning.
+  Bounds are an upper envelope of possible coverage, not a lower bound on
+  hidden coverage. Safe image semantics and profitable execution are distinct.
+
+Private reproducible `ios/build/foliage-admission-audit-20261114/audit.py`, run
+`python3 ios/build/foliage-admission-audit-20261114/audit.py`, exit0; writes
+`audit.json` with matched rows, exact inputs/hashes, source hashes and counterexample.
+No proprietary source/log copied into tracked docs. Historical inputs unchanged:
+
+| Input | Bytes | SHA256 |
+|---|---:|---|
+|/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/21 October 2026/nfsmw_run_5_ipad.log|838193|9ca1e91f563e7000a80a574a4d5b8c36b23ab2a0210ae34145d34e7738116e97|
+|/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/2 November 2026/nfsmw.log|532458|e2bb32c2bb05701319a9661ee66a7f92d00073ed123a262b02453cbf12de5b18|
+
+October21 census197 fence cost-state rows (repeated sampled summaries, NOT unique
+objects or all frames). Main000_960_0_d5e4_s1:79rows,7159draws/977517indices,
+6668alphaOFF/491ON. All491ON meet necessary LE-write/replacement/fullmask states,
+109488indices; alpha func4. This6.86%draw subset is NOT a fragment/power share,
+current128 coverage, or a ceiling. Necessary gate does not establish absence of
+query/stencil/MRT/motion/resolve/alpha-to-coverage/unsupported vertex states.
+Other historical targets: shadow d03037draws0candidates; cube d7c04548draws272ON
+but only2draws24indices meet fullmask necessary gate; mirror d776720draws51ON,
+51necessary candidates4080indices. No source pair/order/geometry proof from counts.
+
+November2 snapshot log0cost-state rows; snapshot's main fence groups318LE-write +
+12LE-read-only draws were known already. Group formatting (~7568) omits alpha,
+blend and per-draw positions/order. Three reflective-draw lines1440–1442 explicitly
+show alpha disabled (colorctl87000004), but not the other315. Cannot assume all318
+are off, recover candidate ordering from aggregated groups or infer actual overlap
+from saved final images. No current dev128 per-draw candidate dataset discovered.
+
+Counterexample PASS (CPU visibility model, not a GPU benchmark):8full-bound quads,
+strict far-to-near depths, same texture with1/8-duty periodic alpha mask and same
+per-draw alpha histogram. Aligned UV phases:64alpha-surviving reference samples,
+8visible in final replay,56hidden removed. Disjoint UV phases:64reference and64
+replay,0hidden removed. Both add512depth-phase texture/sample evaluations in this
+64pixel model; not a count of actual GPU helper/earlyZ execution. Thus even
+bounds+depthorder+alpha histogram do not guarantee any saved expensive colour work.
+It does NOT prove every richer heuristic impossible or estimate iPhone timing.
+Triangle holes/occlusion by existing noncandidate depth add further uncertainty.
+
+Decision: park the whole foliage depth-phase approach for now. No reliable cheap
+profitability selector or real eligible dense-group evidence established; do not
+expand runtime/planner/PSO machinery or request more phone data to prolong this
+synthetic lead. Conditional benefit remains historical evidence, not a discarded
+result or accepted whole-game saving. No claim optimization ceiling reached.
+Next: return to ranked source audit, actual fence VS5c1d4bce (32.95%weighted vertex
+samples in SHORT aligned128window), checking previous work/compiler DCE before
+proposing redundant lighting/fog/position work. Normalmapped d1a189fd is next
+fragment lead; no rewrite or new build selected merely from these sample shares.
+
+Updated checkpoint and existing ignored BACKLOG; only own tracked evidence docs
+committed locally. HANDOFF remains untracked; BACKLOG not force-added. No user-
+visible code change/CHANGELOG line. `git diff --check` exit0. Two optional source
+reads used nonexistent guessed header names (native_frame_commands.h and
+native_geometry_handoff.h); inspected actual native_frame_storage.h instead.
+No build/test failure or unobserved performance result inferred from those reads.
