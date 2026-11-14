@@ -29445,3 +29445,114 @@ visible code change/CHANGELOG line. `git diff --check` exit0. Two optional sourc
 reads used nonexistent guessed header names (native_frame_commands.h and
 native_geometry_handoff.h); inspected actual native_frame_storage.h instead.
 No build/test failure or unobserved performance result inferred from those reads.
+
+## November 14, 2026 — fence vertex shader source/compiler/cost audit; unused specular export parked
+
+Stefan approved continuing fence VS5c1d4bcee3584aa5 source audit. Starting2304bdd,
+only pre-existing untracked HANDOFF_CHATGPT.md, preserved. Dev128/B/descriptorfalse
+unchanged; no production source, SDK, shader build pipeline/live caches, flags,
+defaults or IPA changes. No device trace, phone test, power test or rollout.
+
+Prior evidence searched for5c1d4bce, vertex fog/lighting/uniform/DCE work. Existing
+ranked dev128 main-window vertex share32.946%/771rawrows is occupancy in149frames,
+not whole-run power or isolated time; no specific earlier vertex rewrite found.
+Actual source SHA dabadf062a2b196317c0945eb1880a2747c6e65b79a59425eb465b9d1e875c04;
+paired PS684f SHA72296b93a70d71dc8bf503424eaed1c6ff11e53b759cfeb70cb37c60cd4d115b.
+Source audit confirms position/fog/transmittance/diffuse auxiliary-light results
+are live in the paired pixel output; do not remove them or approximate exp/rsqrt.
+Four auxiliary lights and source uniform calculations alone do not prove compiler
+failure or removable work.
+
+Concrete pair-specific lead: auxiliary SPECULAR result exported in TEXCOORD6 is
+not consumed by actual PS684f. Incoming pixel r6 is either unused (shadows off) or
+all components overwritten before first use (shadows on). Other diffuse auxiliary
+lighting remains live in TEXCOORD5; fog scattering/transmittance remain live in
+TEXCOORD3/4. Private candidate changes only final VS TEXCOORD6.xyz export to zero,
+allowing dead-work elimination without algebra/precision changes to live outputs.
+VS interface otherwise retained. This is NOT safe as a global shared-VS rewrite:
+not all possible linked pixel shaders audited. No production pair guard/variant
+implemented. Motion entry correctness and arbitrary game scenes not established.
+
+Private reproducibility/evidence root `ios/build/fence-vertex-audit-20261114/`:
+- `build_archive.py` generates host archive fixture from tracked
+  tools/native/foliage_depth_fixture.mm at1654938 and archives8baseline pipelines.
+- `compare_dead_output.py` copies private host libraries/config to candidate/,
+  applies one-export control, compiles actual VS with O2/Metal3.1/no-fast-math/
+  fp-contract-off/macOS14, builds matching8candidate pipelines/archive.
+- `quality_and_cost.py` generates original-vs-candidate (NO extra depth phase)
+  full render image/cost fixture. Uses actual baseline VS/PS, then candidate VS
+  with SAME PS, original colour/alpha/edge passes and order in both arms.
+- `vertex_stress.py` creates geometry-heavy cost-only extension, no repeat of
+  passed image matrix. Source/binaries/results persisted here, not only /tmp.
+Commands, all from repository root: `python3` followed by each above path in
+order; final runs exit0. Mac GPU access required sandbox escalation; first archive
+attempt compiled but MTLCreateSystemDefaultDevice returned nil/asserted in sandbox.
+Escalated local GPU execution succeeded on Apple M2 Pro/macOS27.3(26C5035r).
+
+Compiler evidence:8baseline and8candidate pipeline archive calls pass (two materials,
+opaque/edge/depth/noalpha variants). Apple toolchain27.2.47.0 installed under
+/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.2.47.0.KAZUSl/Metal.xctoolchain/usr/bin/.
+`xcrun metal-objdump` / `metal-nt` could not locate aliases; actual tools named
+air-objdump/air-nt/air-lipo found there. air-objdump default universal disassembly
+failed; --metallib emits AIR but fails native g14s bad magic. air-lipo -thin
+applegpu_g14s extraction succeeds. Native disassembly still unsupported; do not
+claim native ISA instruction inspection. --macho --build-table=all and --syms
+work on extracted objects. Private tables/object/text-comparison.json and
+compare_text.py record parsed Mach-O __text bytes/hashes, not instruction counts.
+
+Both archives16object rows/12unique object blobs;10unique full blobs identical,
+2changed (including metadata-only differences). Text multiset differs only for
+three references to fence colour VS object:7928->7146bytes, all other text identical.
+Baseline object2 main symbol _agc.main5624bytes, candidate4842bytes; constant_program.cfg
+2304bytes both (bytes/hash differ). Global __text ~9.86%smaller/main symbol~13.90%
+smaller is code SIZE, not a performance improvement. Explicit compiler-emitted
+constant program exists; cannot assume all source uniform normalization is executed
+per vertex, nor infer which operation is hoisted without supported ISA analysis.
+Actual A19 compiled functions in dev128 have different sizes; no native iPhone
+binary changed or compared by this host control.
+
+GPU quality: PASS111 cases/111 exact RGBA+Depth32Float comparisons/2,174,976pixels,
+no tolerance, reference nonempty check retained. Existing79synthetic image cases
+plus32cases:all16auxiliary light masks x shadows off/on, changing directional-light
+and eye constants, perspective/equal depths/filtering/mips/alpha/edges/winding as
+before. Includes unchanged tree controls and modeled mixed/fallback boundaries.
+No image mismatch observed. Not exhaustive floats/NaNs/driver variants, not motion
+pipelines or captured scene validation. Actual shader constants/buffer/texture
+address ABI exercised but meshes, maps and constants synthetic.
+
+Full ordinary cost run:28cases960x540,7adjacent alternating pairs, adaptive50ms
+reference target batches (4–512frames), GPU command-buffer elapsed and CPU encoding
+separate. No production-planner/variant-selection overhead modeled. Results:
+
+| Group | Cases | GPU candidate delta range | Median delta |
+|---|---:|---:|---:|
+|unchanged trees control|12|-2.586 to +1.185%|+0.451%|
+|fences with alpha+complementary edges|12|-2.428 to +0.442%|-0.062%|
+|fences without alpha (no candidates in old depth terminology)|4|-0.180 to +0.671%|+0.402%|
+
+Geometry-heavy extension:12cases,1/8layers,8/64/128grid subdivisions,far-to-near,
+960x540,same7pairs/50ms target.6unchanged tree controls range-0.355..+1.422%,median
++0.010%;6candidate fence cases-1.178..-0.053%,median-0.685%. Largest fence scene
+reference1.4258ms/candidate1.4090ms. These small effects do NOT establish a
+meaningful total-cost benefit over control variation. Code-size decrease does not
+justify shipping on these results; no battery/energy reduction measured.
+
+Artifacts:quality-and-cost.log, costs.json (28cases inclindividual7pairs),
+vertex-stress.log/vertex-stress-costs.json(12cases), pipelines/candidate-pipelines
+archives, extracted g14s objects/tables and AIR output, text-comparison.json,
+audit-summary.json exact host OS, source/library/fixture/script/result SHA256s.
+Bookkeeping issue caught: first ordinary run inherited prior fixture output path
+and temporarily overwrote foliage-depth-gate-20261114/costs.json. Preserved original
+36case costs in depth-phase-costs-original.json before completion, copied new28case
+results here, restored old36case bytes and asserted exact byte equality, exit0.
+Driver now writes this audit's own costs path; no earlier evidence lost. Compiler
+inspection failures above preserved as negative tooling results, not game failures.
+
+Decision: pair-specific unused-specular export candidate PARKED/unshipped because
+measured host net benefit marginal/inconclusive; no new flag, game integration,
+PSO/caching work or phone request. Source audit establishes a concrete removable
+export but not enough practical saving. Do not keep refining synthetic timing for
+this lead. Next source target normalmapped fragment d1a189fdbb29cf1a with existing
+evidence and prior work first. No claim GPU/battery ceiling reached. Shared checkpoint
+and matching ignored BACKLOG updated, HANDOFF remains untracked; only own evidence
+docs locally committed, no push/merge/release/CHANGELOG needed. git diff --check exit0.

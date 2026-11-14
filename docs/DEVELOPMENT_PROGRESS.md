@@ -531,6 +531,35 @@ condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
 ## Current checkpoint — November 14, 2026
 
+**Latest: fence vertex source/compiler/host cost audit complete; no rollout.**
+Found pair-specific unused auxiliary specular export (VS5c1d4bce TEXCOORD6,
+paired PS684f overwrites its incoming value before use). Private host candidate
+clears that export; no lighting/fog approximation. Linked Mac g14s __text falls
+7928->7146bytes (main symbol5624->4842); this is code size, NOT execution savings.
+Compiler also emits a constant program; don't assume all uniform source math is
+repeated per vertex. No supported native ISA disassembly obtained.
+
+Original/candidate actual shader pair:111 exact RGBA/depth image checks pass,
+2,174,976pixels including16aux-light masks/shadows on-off.28ordinary host cost
+cases show no clear total GPU benefit;12geometry-heavy stress cases show candidate
+at most1.18% faster, unchanged control varies up to1.42%. Too marginal to justify
+renderer variants/PSO selection/new IPA. Candidate PARKED/unshipped; cannot clear
+this VS export globally without proving every linked pixel shader ignores it.
+Mac evidence only, no accepted iPhone power/performance gain or ceiling claim.
+
+**Next action:** source audit of normalmapped fragment d1a189fdbb29cf1a using existing
+ranked dev128 sample/prior investigations, require concrete output-preserving
+redundancy and full-cost evidence before implementation. Fence prepass and unused-
+specular export candidates remain parked; no further synthetic timing refinement
+or phone request for them. Dev128/B/descriptorfalse unchanged. No production code,
+shader cache, SDK, defaults/flags, IPA, push/merge/release changed.
+Private reproducibility/evidence `ios/build/fence-vertex-audit-20261114/`, including
+`audit-summary.json` source/input/artifact hashes and preserved original depth-gate
+costs (restored byte-identical after temporary output-path collision). TECHNICAL
+exact outcomes/failures/limits; ignored BACKLOG updated. HANDOFF remains untracked.
+
+Previous completed source gate:
+
 **Latest: foliage profitability-admission source gate completed; approach parked.**
 No cheap reliable selector established. Cached homogeneous position bounds could
 be accumulated on validated decode and projected with a bounded per-draw cost,
@@ -543,12 +572,9 @@ alpha-on/LE-write/replacement/full-mask states (not sufficient admission/current
 coverage). November2 snapshot groups omit alpha/order/positions; cannot recover
 real profitable groups from them. No new phone capture needed to repeat this gate.
 
-**Next action:** return to current ranked GPU source audit, starting actual
-fence VS5c1d4bcee3584aa5 position/lighting/fog work (32.95% weighted vertex samples
-in the short dev128 aligned window). Compare prior work before proposing any
-specific redundant-operation rewrite; compiler DCE/uniform optimization must not
-be assumed absent. Normalmapped d1a189fd remains the next fragment lead. This is
-source research, no accepted optimization/energy benefit or proof of a ceiling.
+**Historical next gate, now completed above:** fence vertex source/compiler/cost
+audit. Its32.95%weighted vertex occupancy in the short128window is not a promised
+saving. No accepted optimization/energy benefit or proof of a ceiling.
 Do not continue adding foliage prepass machinery or benchmark synthetic layouts
 without new real qualification evidence. Dev128/B/descriptorfalse unchanged.
 No runtime/SDK/shader/cache/flag/IPA change, no new phone request, no push/release.
