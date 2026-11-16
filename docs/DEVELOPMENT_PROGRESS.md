@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev183 iPad run
+
+Archived (verified, Desktop copies deleted): `Debug/17 November 2026/
+dev183_ipad_nfsmw_1.log`, `dev183_ipad_PowerProfiler_26-11-17_002845_to_26-11-17_003105.aar`.
+Recorded drive 00:28:47-00:31:03 (139 s, 27% brightness, Nominal): 27.66 %/h
+whole, 27.65 (15 s to end-5 s); pacing 0-2 off per 300 after the start
+(97 at the start). That drive started at the learned Default and stayed
+there (the calm step-down never goes below the drive's start level), then
+learned Low again. The drive before (00:26:41-00:28:40) shows the real
+limit: started Low, stepped up after 30 s, calm step-down to Low at
+00:26:56, late again 7 s later at 00:27:03 and latched at Default. So at
+1.5x / 60 the iPad does not hold 60 on the efficiency cores alone (Background)
+for long; the learned level alternates Default/Low between drives. Same-sitting
+comparisons with the earlier dev181 runs (27% brightness): Default start
+29.0, Background start with one step-up 27.8, this Default drive 27.7 %/h:
+little energy difference between the levels at this load.
+
 ## November 17, 2026 — dev184: free look back to dev178
 
 Stefan (dev183): the free look is still affected by speed and elevation; it
