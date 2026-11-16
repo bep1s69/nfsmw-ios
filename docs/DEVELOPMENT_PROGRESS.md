@@ -752,6 +752,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev141: iPad app window on an extended display
+
+Stefan, dev140 on the iPad, USB-C monitor in extended mode, game opened only
+on the monitor: LiveContainer and the launcher showed there, the game picture
+stayed black, audio ran. Log `Debug/16 November 2026/dev140_ipad_external_display_black_nfsmw.log`:
+the app's own scene is on the 5120x2880 screen ("the app's, not on the main
+screen"), no `[external]` lines (#20 not involved). Cause (inferred): the SDL
+scene filter in `patch_ios_sdl_scene.py` (since eb2c435/014a034, before the
+PRs) kept only scenes on `UIScreen.mainScreen`, so SDL's window had no scene.
+dev141: scenes on the device's screen as before; if none, application-role
+scenes elsewhere. SDK re-patched. IPA
+`ios/build/NFSMW-0.6.1-dev141-ipad-monitor-window.ipa`, on Desktop. Pending:
+Stefan's iPad monitor retest. May also be the remaining iPhone Duo cause (#14).
+
 ## November 16, 2026 — dev140: contributor PRs merged for 0.6.1
 
 Branch `claude/project-thread-dph4wh` (off `codex/native-frame-command-reuse`

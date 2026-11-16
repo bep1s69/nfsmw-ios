@@ -14,7 +14,8 @@ external display's. UIKit_GetActiveWindowScene took the first foreground one
 it found, so SDL's window could land on the TV: the TV showed the game, the
 phone kept the launcher. Scenes on another screen than the phone's are now
 skipped (their session role is not enough: under LiveContainer, mirroring) (the external display gets its own window from the native
-renderer).
+renderer). When no scene is on the device's screen (an iPad's app window
+opened on an extended display), the application-role scenes are used.
 
 SDL's app delegate answered every scene session with its own scene delegate,
 whatever its role. iOS 17-26 offer an external display (HDMI, USB-C, AirPlay)
@@ -43,12 +44,24 @@ ANCHOR = '''        NSSet<UIScene *> *connectedScenes = [UIApplication sharedApp
         // First, try to find an active foreground scene
 '''
 NEW = '''        // LOCAL PATCH - iOS: only the phone's own scenes, never an external
-        // display's (tools/ios/patch_ios_sdl_scene.py).
+        // display's (tools/ios/patch_ios_sdl_scene.py). The scenes on the
+        // device's screen; if there are none, the application-role scenes
+        // elsewhere (iPad extended display: Stage Manager can open the app's
+        // own window on the monitor, which left SDL with no scene: black).
         NSMutableSet<UIScene *> *connectedScenes = [NSMutableSet set];
+        NSMutableSet<UIScene *> *appScenesElsewhere = [NSMutableSet set];
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]] && ((UIWindowScene *)scene).screen == [UIScreen mainScreen]) {
-                [connectedScenes addObject:scene];
+            if (![scene isKindOfClass:[UIWindowScene class]]) {
+                continue;
             }
+            if (((UIWindowScene *)scene).screen == [UIScreen mainScreen]) {
+                [connectedScenes addObject:scene];
+            } else if ([scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+                [appScenesElsewhere addObject:scene];
+            }
+        }
+        if (connectedScenes.count == 0) {
+            [connectedScenes unionSet:appScenesElsewhere];
         }
 
         // First, try to find an active foreground scene
