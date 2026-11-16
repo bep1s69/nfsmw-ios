@@ -497,6 +497,22 @@ const std::vector<Section>& Sections() {
             {{@"0.85x · 612p", @"0.85"}, {@"1x · 720p (Xbox 360)", @"1"}, {@"1.25x · 900p", @"1.25"}, {@"1.5x · 1080p", @"1.5"},
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"},
              {NativeScaleTitle(), @"native"}}, kInGame | kInGameNative, "nfsmw_native_resolution_scale"},
+           {@"metalfx", Type::kChoice, @"MetalFX upscaling",
+            @"Draws the 3D scene with fewer pixels and lets Apple's MetalFX rebuild it at the target "
+            @"resolution, smoothing edges too. The HUD and the game's own effects (motion blur) are "
+            @"drawn at the target. While it is on, Render resolution is not used: the scene is drawn "
+            @"at 0.85x (Quality), 0.75x (Balanced) or 0.5x (Performance) of the target. Costs more "
+            @"battery than drawing the same scene without it.",
+            @"off",
+            {{@"Off", @"off"}, {@"Quality · 0.85x", @"quality"}, {@"Balanced · 0.75x", @"balanced"},
+             {@"Performance · 0.5x", @"performance"}}, kInGame | kInGameNative | kNativeOnly,
+            "nfsmw_native_metalfx_preset"},
+           {@"metalfx_target", Type::kChoice, @"MetalFX target",
+            @"The resolution MetalFX builds the picture at: this screen's own (or the external "
+            @"display's, when one is attached), or three quarters of it.",
+            @"native",
+            {{@"Native", @"native"}, {@"0.75x of native", @"0.75"}}, kInGame | kInGameNative | kNativeOnly,
+            "nfsmw_native_metalfx_target"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. Higher caps make motion smoother when the game "
             @"can keep up. 40 and 120 are available on 120 Hz displays.",
@@ -1105,6 +1121,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     // MetalFX removed from the launcher in dev75 (Stefan, Nov 5): on the iPhone 17
     // Pro Max 1x + MetalFX to the screen drew 43.4 %/h vs 33.9 at native (60 fps).
     // The renderer path stays for diagnostics via --nfsmw_native_metalfx (default off).
+    a.push_back("--nfsmw_native_metalfx_preset=" + str(@"metalfx"));
+    a.push_back("--nfsmw_native_metalfx_target=" + str(@"metalfx_target"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
     a.push_back("--nfsmw_native_cost_probe=" + b(On(s, @"cost_probe")));
     a.push_back("--nfsmw_heat_scale=" + b(On(s, @"heat_scale")));

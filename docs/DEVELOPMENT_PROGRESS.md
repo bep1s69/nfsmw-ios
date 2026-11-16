@@ -752,6 +752,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev148 result; dev149 MetalFX presets (step 3)
+
+dev148, iPhone (log `Debug/16 November 2026/dev148_metalfx_nfsmw.log`):
+memory flat (0.8-1.8 GB); `screen` at 1x (1568x720 -> 2868x1317): Stefan
+"flawless", no HUD flicker, no car ghosting. `drawn` (1:1 at 1x) still looked
+smeary vs MetalFX off: proposed to drop AA-only (temporal AA softness at 1x,
+stretched 1.8x by the present pass; upscaling gives the same AA, sharper).
+dev149: launcher and in-game Display rows "MetalFX upscaling" (Off / Quality
+0.85x / Balanced 0.75x / Performance 0.5x, cvar `nfsmw_native_metalfx_preset`)
+and "MetalFX target" (Native / 0.75x, `nfsmw_native_metalfx_target`), live
+in game. With a preset the scene scale = screen scale x target share x
+ratio (Render resolution ignored, heat cap still applies) and MetalFX's
+output = screen x target share; the old `--nfsmw_native_metalfx` stays for
+diagnostics. No AA-only choice. IPA
+`ios/build/NFSMW-0.6.1-dev149-metalfx-presets.ipa`, on Desktop. Untested.
+
 ## November 16, 2026 — dev147 crash (leak), dev148 fix
 
 Stefan, iPhone, dev147 at 1x with `--nfsmw_native_metalfx=screen` (and
