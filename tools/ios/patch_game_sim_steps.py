@@ -22,11 +22,13 @@ import argparse
 import pathlib
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MARK = "nfsmw-sim-steps"
 DECL = f'extern "C" double nfsmw_sim_steps_per_second(double rate); // {MARK}\n'
 # (function, register loaded from 28948(r10), i.e. 0x82057114 = 60.0)
-SITES = [("sub_823C66C8", "f12"), ("sub_823C6858", "f11")]
+SITES = [(game_edition.usa("sub_823C66C8"), "f12"), (game_edition.usa("sub_823C6858"), "f11")]
 
 
 def anchor(reg):

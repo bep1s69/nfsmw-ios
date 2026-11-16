@@ -6,7 +6,7 @@ del proyecto, que estan escritas para la PAL Espana, a las de otra edicion.
 
     python tools/ediciones/ediciones.py detectar [default.xex]
     python tools/ediciones/ediciones.py aplicar <edicion> <carpeta de salida>
-    python tools/ediciones/ediciones.py fuentes <edicion> <carpeta de salida> <fichero>...
+    python tools/ediciones/ediciones.py fuentes <edicion> [--desde usa] <carpeta de salida> <fichero>...
     python tools/ediciones/ediciones.py mapa <edicion> <referencia.xex> <otra.xex>
 
 Sin dependencias: Python 3.8+. Ver docs/ediciones.md.
@@ -30,6 +30,8 @@ QUE SE GUARDA EN EL REPOSITORIO
   <edicion>/direcciones.tsv cada direccion que usa el proyecto y su equivalente
                             en esa edicion, con un resumen de las 16
                             instrucciones (normalizadas) que hay alli
+  <edicion>/desde_usa.tsv   lo mismo para el codigo de iOS escrito con
+                            direcciones USA (fuentes --desde usa)
 
 Son direcciones y resumenes, no codigo del juego. Con eso, quien solo tiene la
 ISO de USA compila sin necesitar el XEX espanol: `aplicar` traduce los
@@ -138,13 +140,14 @@ def direcciones_del_proyecto():
 # La tabla de una edicion
 # ---------------------------------------------------------------------------
 
-def ruta_tabla(edicion):
-    return AQUI / edicion / "direcciones.tsv"
+def ruta_tabla(edicion, desde=None):
+    """desde: la edicion en que estan escritas las direcciones; None, la de referencia."""
+    return AQUI / edicion / ("direcciones.tsv" if desde is None else "desde_%s.tsv" % desde)
 
 
-def cargar_tabla(edicion):
+def cargar_tabla(edicion, desde=None):
     """{(direccion, uso): (destino o None, estado, huella)}"""
-    ruta = ruta_tabla(edicion)
+    ruta = ruta_tabla(edicion, desde)
     if not ruta.is_file():
         fallar("No hay tabla de direcciones para la edicion '%s' (%s)." % (edicion, ruta))
     tabla = {}
@@ -238,10 +241,10 @@ def detectar(ruta_xex):
 # ---------------------------------------------------------------------------
 
 class Traductor:
-    def __init__(self, edicion):
+    def __init__(self, edicion, desde=None):
         self.edicion = edicion
-        self.identidad = edicion == datos()["referencia"]
-        self.tabla = {} if self.identidad else cargar_tabla(edicion)
+        self.identidad = edicion == (desde or datos()["referencia"])
+        self.tabla = {} if self.identidad else cargar_tabla(edicion, desde)
         self.faltan = set()
 
     def texto(self, texto, tipo):
@@ -288,13 +291,14 @@ def _escribir(ruta, texto):
     return True
 
 
-def _cabecera(tipo, edicion, origen):
+def _cabecera(tipo, edicion, origen, desde=None):
     marca = "#" if tipo == "toml" else "//"
     return ("%s GENERADO por tools/ediciones/ediciones.py para la edicion '%s'. NO EDITAR:\n"
             "%s se rehace a partir de %s.\n"
             "%s Las direcciones del codigo son las de esta edicion; las de los comentarios\n"
-            "%s siguen siendo las de la edicion de referencia.\n\n"
-            % (marca, edicion, marca, origen, marca, marca))
+            "%s siguen siendo las de la edicion %s.\n\n"
+            % (marca, edicion, marca, origen, marca, marca,
+               "'%s'" % desde if desde else "de referencia"))
 
 
 def aplicar(edicion, salida, xex="../assets/game_root/default.xex"):
@@ -346,10 +350,14 @@ def aplicar(edicion, salida, xex="../assets/game_root/default.xex"):
     return destino
 
 
-def fuentes(edicion, salida, ficheros):
-    """Traduce ficheros de C++ a `salida`, con el mismo nombre. Lo llama CMake."""
+def fuentes(edicion, salida, ficheros, desde=None):
+    """
+    Traduce ficheros de C++ a `salida`, con el mismo nombre. Lo llama CMake.
+    desde: la edicion en que estan escritas sus direcciones (None: la de
+    referencia); "usa" para el codigo de iOS que solo existia para USA.
+    """
     salida = pathlib.Path(salida)
-    t = Traductor(edicion)
+    t = Traductor(edicion, desde)
     for fichero in ficheros:
         origen = pathlib.Path(fichero)
         try:
@@ -361,7 +369,12 @@ def fuentes(edicion, salida, ficheros):
         # esta copia esta al dia con su original.
         salida.mkdir(parents=True, exist_ok=True)
         with open(salida / origen.name, "w", encoding="utf-8", newline="") as fh:
-            fh.write(_cabecera("cpp", edicion, rel) + texto)
+            fh.write(_cabecera("cpp", edicion, rel, desde) + texto)
+    if t.faltan and desde:
+        fallar("Direcciones %s sin traduccion segura a '%s': %s.\n"
+               "        Si son nuevas en el proyecto hay que anadirlas a %s."
+               % (desde.upper(), edicion, ", ".join(sorted(t.faltan)),
+                  ruta_tabla(edicion, desde).relative_to(RAIZ).as_posix()))
     if t.faltan:
         fallar("Direcciones sin traduccion segura a '%s': %s.\n"
                "        Si son nuevas en el proyecto hay que rehacer la tabla, y eso pide los dos XEX:\n"
@@ -456,6 +469,8 @@ def main():
         print(json.dumps(ficha, ensure_ascii=False, indent=2))
     elif orden == "aplicar" and len(resto) == 2:
         print("[ok] %s" % aplicar(resto[0], resto[1]))
+    elif orden == "fuentes" and len(resto) >= 5 and resto[1] == "--desde":
+        fuentes(resto[0], resto[3], resto[4:], desde=resto[2])
     elif orden == "fuentes" and len(resto) >= 3:
         fuentes(resto[0], resto[1], resto[2:])
     elif orden == "mapa" and len(resto) == 3:

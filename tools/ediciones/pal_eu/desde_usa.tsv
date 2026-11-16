@@ -1,0 +1,188 @@
+usa	uso	seccion	pal_eu	estado	huella
+82033308	dir	.rdata	82033308	misma direccion	-
+82061CC4	dir	.rdata	82061CC4	misma direccion	-
+82061CC8	dir	.rdata	82061CC8	misma direccion	-
+82061CCC	dir	.rdata	82061CCC	misma direccion	-
+82062DC4	dir	.rdata	82062DC4	misma direccion	-
+8207B09C	dir	.rdata	8207B09C	misma direccion	-
+82080030	dir	.rdata	82080030	misma direccion	-
+82087AC4	dir	.rdata	82087BA4	a mano	-
+820AFDD0	dir	.rdata	820AFEA0	a mano	-
+820B065C	dir	.rdata	820B072C	a mano	-
+820B0660	dir	.rdata	820B0730	a mano	-
+820B0664	dir	.rdata	820B0734	a mano	-
+820E44D8	dir	.text	820E44D8	exacta	732ec48a45ba7e56
+820EB6A8	dir	.text	820EB6A8	exacta	22e52798da2f2a6e
+820FFCC8	dir	.text	820FFCC8	exacta	600f428a05cc97bd
+82117950	dir	.text	82117950	exacta	3cbd38720f37893e
+8212BFB8	dir	.text	8212BFB8	exacta	ffd47e08d1eda112
+821725E4	dir	.text	821725E4	exacta	95ece5ac23055902
+82175EF8	dir	.text	82175EF8	exacta	c2837355fa96274e
+822241A0	dir	.text	822241A0	exacta	0010b4bcdcf0527d
+82224240	dir	.text	82224240	exacta	8eeac561ed8fb0e0
+822418E8	dir	.text	822418E8	exacta	1c7461a7f8054c8b
+8226B210	dir	.text	8226B238	exacta	60177b7511c922e8
+8227FD58	dir	.text	8227FD80	exacta	ad0d0090acd8146a
+82282F18	dir	.text	82282F40	exacta	13fda7b67de42411
+82284800	dir	.text	82284828	exacta	4d68011edacc1047
+82284910	dir	.text	82284938	exacta	01fb0fb864cfb1f4
+82284CA8	dir	.text	82284CD0	exacta	b4414ac3bee294a6
+82284D70	dir	.text	82284D98	exacta	929200a951f771e5
+8229B840	dir	.text	8229B868	exacta	4c270a338baec8fb
+822A67F8	dir	.text	822A6820	exacta	d32b3f184caf21a8
+822AA6D0	dir	.text	822AA6F8	exacta	80d0ca31e3850024
+822BBA98	dir	.text	822BBAB0	exacta	67086b1af3582f72
+822C3A60	dir	.text	822C3A78	exacta	d7b7c84d03c62e49
+822C4698	dir	.text	822C46B0	exacta	57897632e545b01a
+822C4E68	dir	.text	822C4E80	exacta	254427be2a704a8a
+822C4FB8	dir	.text	822C4FD0	exacta	35d04137f3ab7e6e
+822C9220	dir	.text	822C9238	exacta	cc452f1233589b3b
+822C9538	dir	.text	822C9550	exacta	4e2b8f29e1538c43
+822C9570	dir	.text	822C9588	exacta	db682084080668a5
+822CAE48	dir	.text	822CAE60	exacta	9b59b2d4626f75a7
+822CB178	dir	.text	822CB190	exacta	21c7887388d15145
+822CB398	dir	.text	822CB3B0	exacta	6f68894347499d87
+822CB870	dir	.text	822CB888	exacta	80a7c2ae4a802f36
+822CB9F0	dir	.text	822CBA08	exacta	13477c59af8c743c
+822CBC00	dir	.text	822CBC18	exacta	527ab97a25426d6a
+822CBC3C	dir	.text	822CBC54	exacta	7ec97dc0c3a3bcc9
+822CC278	dir	.text	822CC290	exacta	d9be2bda18e79b51
+822CC300	dir	.text	822CC318	exacta	894d14bc9467e500
+822CC3B8	dir	.text	822CC3D0	exacta	6e5edc64048ebbbf
+822CC410	dir	.text	822CC428	exacta	f580510be0b18149
+822CC4D8	dir	.text	822CC4F0	exacta	4bd233d1180f12fc
+822CE7D8	dir	.text	822CE7F0	exacta	1544fd8a57142654
+822E7B38	dir	.text	822E7B20	exacta	b4354685b3023188
+822E80E0	dir	.text	822E80C8	exacta	bc8caddd00efef2b
+8231AF60	dir	.text	8231AF48	exacta	8b827890704e4a90
+823B0008	dir	.text	823B0190	exacta	34300bff9b693ddf
+823B4158	dir	.text	823B42E0	exacta	b011e84bdde20642
+823C4B88	dir	.text	823C4D18	exacta	6170d95b02caf202
+823C6500	dir	.text	823C6690	exacta	5046e0b82e28bc6f
+823C65D8	dir	.text	823C6768	exacta	b7bec5173ae4e7b1
+823C66C8	dir	.text	823C6858	exacta	46456dd34f9cc468
+823C6858	dir	.text	823C69E8	exacta	49e4caca763570ed
+823C8210	dir	.text	823C83A0	exacta	793f5b524808e1b2
+823C8290	dir	.text	823C8420	exacta	23073a7311514e5d
+824227D0	dir	.text	82422960	exacta	bbc8b683920359ee
+82424988	dir	.text	82424B18	exacta	b3e3ac1fdd31f32d
+82425BD0	dir	.text	82425D60	exacta	c6f537a0c75451a2
+8243CBF0	dir	.text	8243CD80	exacta	b5957afe5cb05772
+82440D80	dir	.text	82440F10	exacta	073f5cc820535b19
+82441B60	dir	.text	82441CF0	exacta	718dd8654ceb972a
+82441BBC	dir	.text	82441D4C	exacta	2891b27c8b5613fd
+82441DB0	dir	.text	82441F40	exacta	c6fc176ccd4685fb
+82441E4C	dir	.text	82441FDC	exacta	cb5c94c1161edd59
+82441EF0	dir	.text	82442080	exacta	ae6b151bb3ce31e1
+82442310	dir	.text	824424A0	exacta	33f0b071489f7e5e
+82453768	dir	.text	824538F8	exacta	84f1cef04638b053
+82454C18	dir	.text	82454DA8	exacta	d871469ac1ca9b20
+824581A8	dir	.text	82458338	exacta	04ce217a3dbe5f73
+824585E0	dir	.text	82458770	exacta	b0f4f661e74da0f2
+82469920	dir	.text	82469AB0	exacta	05c5f64523603377
+8246C188	dir	.text	8246C318	exacta	6c63151408d0d78f
+824729E0	dir	.text	82472B70	exacta	995d87fa05231b74
+82472F38	dir	.text	824730C8	exacta	7d6db3249d3ae4ed
+82474944	dir	.text	82474AD4	exacta	ff3bee3d63f3e1aa
+82476B08	dir	.text	82476C98	exacta	62494982b7f47825
+824792D8	dir	.text	82479468	exacta	bf8a70e2da5d3d1b
+8249D808	dir	.text	8249D998	exacta	ad16e442671c260e
+824A22B0	dir	.text	824A2440	exacta	cdc79ea344aa25be
+824A2DD8	dir	.text	824A2F68	exacta	193fbdd1e5a37ee4
+824D54B4	dir	.text	824D5644	a mano	66e346686ec66ce4
+824D54FC	dir	.text	824D568C	a mano	a85252eb66ed6e4c
+824D5558	dir	.text	824D56E8	exacta	1583687e746a2123
+824D5704	dir	.text	824D5894	a mano	aa6c6e37bda5e591
+824D574C	dir	.text	824D58DC	a mano	3b714ac598a2ceac
+824FB818	dir	.text	824FB9F8	exacta	97033d9ba9ff8afb
+825380E8	dir	.text	825382C8	a mano	38747b4486b70d00
+82538320	dir	.text	82538500	a mano	9cc669959866ddf1
+82544A78	dir	.text	82544C70	a mano	965571b4ddf13047
+82545A88	dir	.text	82545C80	exacta	9cea119611618e19
+8254E710	dir	.text	8254E950	exacta	a3c9e4f8d40ef8bc
+8255BFD0	dir	.text	8255C210	exacta	14bbbd806ca11a82
+8255C598	dir	.text	8255C7D8	exacta	db91b2f7e90448a5
+82560C78	dir	.text	82560EB8	exacta	ca33537613623ee8
+82561430	dir	.text	82561670	exacta	6c7b95e88ec48112
+82564B88	dir	.text	82564DC8	exacta	84725ddb6b02ba33
+825669F0	dir	.text	82566C30	exacta	214d26e4f46cad98
+8256B248	dir	.text	8256B488	exacta	147639b9fac44b1a
+8256C470	dir	.text	8256C6B0	exacta	19c3963155d148e6
+8256C650	dir	.text	8256C890	exacta	727b953065b38323
+8256C6C0	dir	.text	8256C900	exacta	af6cf1d6ed7c678f
+8256C788	dir	.text	8256C9C8	exacta	aeb25713890d5026
+8256C8C8	dir	.text	8256CB08	exacta	f6c8166e0401cc29
+8256C918	dir	.text	8256CB58	exacta	6b86f60a96734ca1
+82582D78	dir	.text	82582FB8	exacta	9472189e83ac5e05
+82584050	dir	.text	82584290	exacta	884d8aa8af593a2a
+82584080	dir	.text	825842C0	exacta	d6dcb08fefc9fd7b
+82584688	dir	.text	825848C8	exacta	d00505a7a565db8c
+82586768	dir	.text	825869A8	exacta	46129d547468b733
+82586E78	dir	.text	825870B8	exacta	386603c396a14e4b
+82592340	dir	.text	82592580	exacta	0d246c34cec0cb47
+825930E0	dir	.text	82593320	exacta	a7a04193ae1d8681
+82593408	dir	.text	82593648	exacta	eb2acae8778f7a77
+82593818	dir	.text	82593A58	exacta	06b07d2c0b779a35
+82593A58	dir	.text	82593C98	exacta	5abfe0099d96c269
+82597070	dir	.text	825972B0	exacta	1d347ec2b5f6fb2e
+825987E0	dir	.text	82598A20	exacta	9a902583e3d4da6e
+8259A308	dir	.text	8259A548	exacta	65529a5819f4b913
+82601788	dir	.text	826019C8	exacta	e517289d63349caf
+8261ADE8	dir	.text	8261B028	exacta	ef5228213ec5c357
+8261D610	dir	.text	8261D850	exacta	61088cbdce08e788
+8261D674	dir	.text	8261D8B4	exacta	8d6e5854dcb9b2ab
+8261D684	dir	.text	8261D8C4	exacta	1ef9200935d6988d
+8261D698	dir	.text	8261D8D8	exacta	ae3fa65fe9f04f3e
+8262BD18	dir	.text	8262BF58	exacta	b2a3f3c8f84b20d0
+8262D790	dir	.text	8262D9D0	exacta	37427a0b114e4fff
+8262E428	dir	.text	8262E668	exacta	d7f564a19f4d5a39
+82699100	dir	.text	82699340	exacta	2812fe9124bfe25c
+82699210	dir	.text	82699450	exacta	99068d9a6a5ca8fd
+82699378	dir	.text	826995B8	exacta	0fc9cf15086ea218
+828298E0	dir	.text	82829B20	exacta	b667a34fec39b7db
+8282A4F0	dir	.text	8282A730	exacta	52030b46d4e633c3
+8282A5A0	dir	.text	8282A7E0	exacta	2c50abb32e16d65b
+8289B000	dir	.text	8289B238	a mano	d27c4a940584cf23
+8289C4D8	dir	.text	8289C718	a mano	b368b6750c870915
+8289D200	dir	.text	8289D448	a mano	bea34b392fc243d6
+828F4A8F	dir	.data	828F4A8F	misma direccion	-
+828F85AC	dir	.data	828F85AC	misma direccion	-
+828F89AC	dir	.data	828F89AC	misma direccion	-
+828F9D20	dir	.data	828F9D20	misma direccion	-
+828F9D30	dir	.data	828F9D30	misma direccion	-
+828F9D34	dir	.data	828F9D34	misma direccion	-
+828F9D38	dir	.data	828F9D38	misma direccion	-
+828F9D9C	dir	.data	828F9D9C	misma direccion	-
+828F9DA0	dir	.data	828F9DA0	misma direccion	-
+828F9DF8	dir	.data	828F9DF8	misma direccion	-
+828F9E44	dir	.data	828F9E44	misma direccion	-
+828FB8D4	dir	.data	828FB8D4	misma direccion	-
+828FB8D8	dir	.data	828FB8D8	misma direccion	-
+828FB8DC	dir	.data	828FB8DC	misma direccion	-
+828FB90C	dir	.data	828FB90C	misma direccion	-
+828FD868	dir	.data	828FD868	misma direccion	-
+828FD87C	dir	.data	828FD87C	misma direccion	-
+828FF1F8	dir	.data	828FF1F8	misma direccion	-
+828FF1FC	dir	.data	828FF1FC	misma direccion	-
+82A2BD93	dir	.data	82A2BD93	misma direccion	-
+82A2BD94	dir	.data	82A2BD94	misma direccion	-
+82A2C4E4	dir	.data	82A2C4E4	misma direccion	-
+82A2C5C4	dir	.data	82A2C5C4	misma direccion	-
+82A2C5FA	dir	.data	82A2C5FA	misma direccion	-
+82A2C60C	dir	.data	82A2C60C	misma direccion	-
+82A2C610	dir	.data	82A2C610	misma direccion	-
+82A2C684	dir	.data	82A2C684	misma direccion	-
+82A2CE00	dir	.data	82A2CE00	misma direccion	-
+82A2CE01	dir	.data	82A2CE01	misma direccion	-
+82A2CE02	dir	.data	82A2CE02	misma direccion	-
+82A2CE07	dir	.data	82A2CE07	misma direccion	-
+82A2CE71	dir	.data	82A2CE71	misma direccion	-
+82A2CF40	dir	.data	82A2CF40	misma direccion	-
+82A2CF68	dir	.data	82A2CF68	misma direccion	-
+82A2D1AC	dir	.data	82A2D1AC	misma direccion	-
+82A2D1C6	dir	.data	82A2D1C6	misma direccion	-
+82A2D9E8	dir	.data	82A2D9E8	misma direccion	-
+82A39AB8	dir	.data	82A39AB8	misma direccion	-
+82C3F590	dir	.data	82C3F590	misma direccion	-
+82C5E444	dir	.data	82C5E444	misma direccion	-
+82C6F188	dir	.data	82C6F188	misma direccion	-

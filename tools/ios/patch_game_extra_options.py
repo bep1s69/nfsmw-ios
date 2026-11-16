@@ -37,6 +37,8 @@ import pathlib
 import re
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GENERATED = ROOT / "ios" / "generated" / "default"
 FUNC = re.compile(r"DEFINE_REX_FUNC\((sub_[0-9A-F]+)\)")
@@ -197,6 +199,8 @@ FEATURES = {
         ("sub_82117950", heat_step_edit(), 1),
     ],
 }
+FEATURES = {feature: [(game_edition.usa(fn), edit, n) for fn, edit, n in edits]
+            for feature, edits in FEATURES.items()}
 MARKS = {"markers": ("nfsmw-markers", 6), "car-limit": ("nfsmw-car-limit", 1),
          "shadow-size": ("nfsmw-shadow-size", 3), "skip-movies": ("nfsmw-skip-movies", 3),
          "laps": ("nfsmw-laps", 4), "opponents": ("nfsmw-opponents", 6),

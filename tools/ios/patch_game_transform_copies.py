@@ -6,10 +6,17 @@ import pathlib
 import re
 import sys
 
+import game_edition
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GENERATED = ROOT / 'ios/generated/default'
 MARK = 'nfsmw-transform-copies'
-DIGEST = '0a3185dead0f01e7af38e544cb372cb4b09c6d65c8e09f4a8abeb36c72503d99'
+HEAD = game_edition.usa('DEFINE_REX_FUNC(sub_82453768) {')
+# sha256 of the generated function in each edition
+DIGEST = {
+    'usa': '0a3185dead0f01e7af38e544cb372cb4b09c6d65c8e09f4a8abeb36c72503d99',
+    'pal_eu': 'ede88f582029ba646428c4806a0474641f92ca0859ef478ec5b0dfec2757f8bf',
+}[game_edition.EDITION]
 INCLUDE = '#include "../../src/game_transform_copies.h" // ' + MARK + '\n'
 LOCAL = ('\tconst bool native_transform_copies = FLAGS_nfsmw_native_transform_copies_storage_(); // ' + MARK + '\n'
          '\tbool transform_flush_disabled = true; // ' + MARK + '\n')
@@ -18,7 +25,7 @@ SITES = ((1, '\t// lfs f0,12344(r11)\n', '\t// lwz r31,412(r1)\n', '\t// vcfsx v
 
 
 def bounds(text):
-    a = text.index('DEFINE_REX_FUNC(sub_82453768) {')
+    a = text.index(HEAD)
     following = re.search(r'\nDEFINE_REX_FUNC\(', text[a + 1:])
     return a, a + 1 + following.start() if following else len(text)
 
@@ -34,7 +41,7 @@ def transform(text):
     a, b = bounds(text)
     function = text[a:b]
     if hashlib.sha256(function.encode()).hexdigest() != DIGEST:
-        raise ValueError('generated sub_82453768 changed')
+        raise ValueError(f'generated {HEAD[16:-3]} changed')
     for count, start, end, resume in SITES:
         if any(function.count(anchor) != 1 for anchor in (start, end) if anchor):
             raise ValueError('missing or duplicate scalar region')
@@ -82,13 +89,13 @@ def main():
     modes.add_argument('--status', action='store_true')
     modes.add_argument('--revert', action='store_true')
     args = ap.parse_args()
-    matches = [p for p in args.dir.glob('*.cpp') if 'DEFINE_REX_FUNC(sub_82453768) {' in p.read_text()]
+    matches = [p for p in args.dir.glob('*.cpp') if HEAD in p.read_text()]
     if len(matches) != 1:
-        raise ValueError('expected exactly one USA sub_82453768 definition')
+        raise ValueError(f'expected exactly one {HEAD[16:-3]} definition')
     path = matches[0]
     current = path.read_text()
-    if current.count('DEFINE_REX_FUNC(sub_82453768) {') != 1:
-        raise ValueError('duplicate USA sub_82453768 definition')
+    if current.count(HEAD) != 1:
+        raise ValueError(f'duplicate {HEAD[16:-3]} definition')
     original = original_text(current)
     patched = transform(original)
     applied = current == patched
