@@ -768,6 +768,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev181: orb-like art caught
+
+Stefan (dev180 screenshots `IMG_0387/0388`, Sharp HUD on/off): the pause
+menu's orb is still a hard disc. On the disc the orb is most likely
+FRONTB's 32x32 HIGHLIGHT: 1.61% of neighbours differ by >40 (just above the
+1% soft rule) but 0.00% by >80; icons and text measure 1.68-15.66% at >80
+(COPS_ICON 15.66, RADAR_ICON 1.87, PDA_BACKING 1.68). dev181: soft also when
+under 0.3% differ by >80 (FX_SMK01_BLEND 0.47 stays AI). Cache names bumped
+(prepared `_v4`, runtime `_a5`, preparation version 4) so earlier AI copies
+are not reused; no manual cache clearing needed. IPA
+`ios/build/NFSMW-0.6.1-dev181-orbs-plain.ipa`, on Desktop.
+
 ## November 16, 2026 — dev179 iPad log; dev180 soft art uses the original
 
 Archived `Debug/16 November 2026/dev179_run1_nfsmw.log` (Desktop copy

@@ -137,7 +137,7 @@ void SavePngImpl(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>&
 // into a hard disc (Stefan, dev165): those keep the plain (MetalFX spatial)
 // copy instead (dev166).
 bool Soft(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
-  size_t pairs = 0, hard = 0;
+  size_t pairs = 0, hard = 0, very = 0;
   auto lum = [&](size_t i) { return (int(in[i]) * 2 + int(in[i + 1]) * 5 + int(in[i + 2])) / 8; };
   for (uint32_t y = 0; y + 1 < h; ++y) {
     for (uint32_t x = 0; x + 1 < w; ++x) {
@@ -147,10 +147,14 @@ bool Soft(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
         const int da = std::abs(int(in[i + 3]) - int(in[j + 3]));
         const int dl = (in[i + 3] > 32 || in[j + 3] > 32) ? std::abs(lum(i) - lum(j)) : 0;
         hard += da > 40 || dl > 40;
+        very += da > 80 || dl > 80;
       }
     }
   }
-  return pairs && hard * 100 < pairs;  // under 1% of neighbours differ sharply
+  // Under 1% of neighbours differ sharply, or (dev181: the pause menu's
+  // 32x32 HIGHLIGHT orb had 1.6% at 40 but none at 80) under 0.3% very
+  // sharply: icons and text measure 1.7-15.7% at 80 on the USA disc.
+  return pairs && (hard * 100 < pairs || very * 1000 < pairs * 3);
 }
 
 // Photographic art (the Blacklist members' portraits, Stefan, dev166): the
@@ -338,7 +342,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         const uint8_t* px = static_cast<const uint8_t*>(buffer.contents);
         std::vector<uint8_t> in(px, px + size_t(w) * h * 4);
         const uint64_t hash = Hash(in.data(), in.size());
-        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a4.png",
+        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a5.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
         if (content_hash && LoadPng(PreparedFile(content_hash, w, h), r.width, r.height, r.rgba)) {
@@ -430,7 +434,7 @@ NSURL* PreparedFile(uint64_t content_hash, uint32_t w, uint32_t h) {
     [NSFileManager.defaultManager createDirectoryAtURL:d withIntermediateDirectories:YES attributes:nil error:nil];
     return d;
   }();
-  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_v3.png",
+  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_v4.png",
                                                                      (unsigned long long)content_hash, w, h]];
 }
 
