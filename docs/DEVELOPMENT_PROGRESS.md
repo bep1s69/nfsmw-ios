@@ -768,6 +768,30 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev188 scheduler rules checked against the best results
+
+Stefan: make the new scheduler match the best earlier results in every
+scenario first. Best measured per scenario and what dev188 does:
+- iPad (6+ E cores) 60: Nov 4 dev62 frame threads at Utility, no boost (24.0
+  vs ~28 %/h, smooth); Nov 9 Eco = Balanced 22.7-24.0. Rule: start Utility,
+  step up only on 12 late of 60 (dev185). Matches.
+- iPad 30/40: Nov 9 Eco 40 (frame threads + render queue Background, low
+  workers Background, audio Utility) 12.4/13.3 vs Balanced 17.5/17.8, "felt
+  perfectly normal". Rule: same classes. Matches.
+- iPhone 60/120: Nov 9 Default-class boost 34.0 vs UI 38.6, perfect; Nov 10
+  controller (Default start) -4.7 % vs 0.6.0. Mismatch found: the dev179
+  learned level could take it below Default after a calm drive (dev108
+  probing below Default hitched). Fixed: the learned level only adds above
+  the measured start level (Default on phones at 60/120, Low elsewhere).
+- iPhone 40: Nov 9 Eco 40 (Utility, no boost) 17.4/17.5, median 39.5-39.7,
+  "almost perfect". Rule: Utility, 12 late of 60. Matches once the dev185
+  learned Default is gone: stored levels reset (new key `qos_start_level2`).
+- iPhone 30: Nov 5 dev75 E30 (frame threads + render queue Background) 10.8
+  vs 14.0 %/h. dev187 rule. Matches; dev188 also lifts the render queue to
+  Utility with the frame threads at the Background -> Utility step.
+IPA `ios/build/NFSMW-0.6.1-dev188-best-results-rules.ipa` (Desktop, dev187
+removed).
+
 ## November 17, 2026 — dev187 iPhones at 30 on Background, with a Utility step
 
 Stefan asked for Background at 30 on iPhones (Nov 5 dev75 measured iPhone

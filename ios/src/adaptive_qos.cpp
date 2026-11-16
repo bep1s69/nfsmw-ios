@@ -228,7 +228,7 @@ std::atomic<bool> background_relaxed{false};
 qos_class_t LowQos(LowRole role) {
   static const bool workers = REXCVAR_GET(ios_background_qos_workers);
   static const bool low_background = REXCVAR_GET(nfsmw_low_background);
-  const bool background = !(role == LowRole::Frame && background_relaxed.load(std::memory_order_relaxed)) &&
+  const bool background = !(role != LowRole::Worker && background_relaxed.load(std::memory_order_relaxed)) &&
                           ((low_background && Controller()) || (role == LowRole::Worker ? workers : Flag(Background)));
   return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
@@ -427,7 +427,7 @@ void OnSwap(double interval_ms) {
     static const bool learn = REXCVAR_GET(nfsmw_qos_learn);
     static int learned_cap = -1, learned = 0;
     auto pref_key = [](int c) {
-      return CFStringCreateWithFormat(nullptr, nullptr, CFSTR("nfsmw.qos_start_level.cap%d"), c);
+      return CFStringCreateWithFormat(nullptr, nullptr, CFSTR("nfsmw.qos_start_level2.cap%d"), c);
     };
     if (learn) {
       if (learned_cap != cap) {
@@ -440,7 +440,10 @@ void OnSwap(double interval_ms) {
         if (valid) learned = int(std::clamp<CFIndex>(v, 0, 2));
         if (lines++ < 200) REXLOG_INFO("[cap-controller] learned start level for cap {}: {}", cap, LevelName(learned));
       }
-      floor_level = learned;
+      // dev188 (Stefan: match the best measured results first): the learned
+      // level only adds to the measured start level (iPhone 60/120 Default,
+      // dev109/dev113), never goes below it (dev108 probing below hitched).
+      floor_level = std::max(floor_level, learned);
     }
     static Clock::time_point drive_began{}, last_late{}, last_tick{}, stepped_down_at{};
     static int drive_max = 0;
@@ -480,7 +483,8 @@ void OnSwap(double interval_ms) {
         // dev183: raised only when the drive spent a third of its time above
         // its start level (one GPU hitch, e.g. a recording starting, no
         // longer teaches the iPad to drive on the performance cores).
-        if (drive_max > learned && secs_above > secs / 3) next = drive_max;
+        // dev188: relative to the measured start level (learned is the extra).
+        if (drive_max > std::max(learned, floor_level) && secs_above > secs / 3) next = drive_max;
         else if (secs >= 120 && learned > 0) next = learned - 1;  // two calm minutes: try lower
         if (next != learned) {
           learned = next;
