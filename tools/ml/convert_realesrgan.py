@@ -5,8 +5,8 @@ The app upscales its HUD textures 4x once with it (native_renderer.mm, sharp
 HUD). Run with the converter venv:
   ~/Library/Caches/nfsmw-ios/ml-venv/bin/python tools/ml/convert_realesrgan.py \
       ~/Library/Caches/nfsmw-ios/ml-model/RealESRGAN_x4plus_anime_6B.pth ios/resources/HudUpscale.mlpackage
-Input "image" [1,3,H,W] float16 RGB 0..1 (H, W in 32..512, powers of two);
-output "upscaled" [1,3,4H,4W].
+Input "image" [1,3,128,128] RGB 0..1 (a tile);
+output "upscaled" [1,3,512,512].
 """
 import sys
 import torch
@@ -75,9 +75,9 @@ def main():
     net.eval()
     example = torch.rand(1, 3, 64, 64)
     traced = torch.jit.trace(net, example)
-    sizes = [32, 64, 128, 256, 512]
-    shapes = ct.EnumeratedShapes(shapes=[[1, 3, h, w] for h in sizes for w in sizes], default=[1, 3, 64, 64])
-    model = ct.convert(traced, inputs=[ct.TensorType(name="image", shape=shapes)],
+    # One fixed tile (dev158): 25 enumerated shapes took the Neural Engine
+    # over 30 s to load on the iPad; the app tiles textures of any size.
+    model = ct.convert(traced, inputs=[ct.TensorType(name="image", shape=(1, 3, 128, 128))],
                        outputs=[ct.TensorType(name="upscaled")],
                        compute_precision=ct.precision.FLOAT16, minimum_deployment_target=ct.target.iOS17,
                        convert_to="mlprogram")
@@ -85,10 +85,10 @@ def main():
     model.save(dst)
     # Quick check: an edge stays an edge.
     import numpy as np
-    x = np.zeros((1, 3, 32, 32), np.float32)
-    x[:, :, :, 16:] = 1
+    x = np.zeros((1, 3, 128, 128), np.float32)
+    x[:, :, :, 64:] = 1
     y = model.predict({"image": x})["upscaled"]
-    print("ok", y.shape, float(y[0, 0, 64, 60]), float(y[0, 0, 64, 68]))
+    print("ok", y.shape, float(y[0, 0, 256, 250]), float(y[0, 0, 256, 262]))
 
 
 main()

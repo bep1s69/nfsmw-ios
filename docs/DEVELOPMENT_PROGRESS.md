@@ -752,6 +752,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev157 result; dev158 fixed tile model, menus
+
+dev157 iPad log (`Debug/16 November 2026/dev157_hud_ai_log_nfsmw.log`): model
+found in the app (LiveContainer path fine), setting on, requests 512x512 /
+32x32 / 128x128 at 17:39:32, then no "model loaded" in the remaining 32 s:
+Core ML was still loading/compiling the 25 enumerated shapes. Stefan's idea:
+upscale every texture that is not part of the 3D world. dev158:
+model reconverted with one fixed input (1,3,128,128) -> (1,3,512,512);
+`hud_upscale.mm` tiles any texture 8-1024 px (112 px cores + 8 px repeated
+margins), averages the 4x colour to 2x, bilinear alpha; the model loads in
+the background as soon as the sharp HUD or MetalFX is active
+(`[hud-ai] model ready in N ms`). New split rule for frames without the post
+composite (menus, garage, loading): the trailing run of depth-test-off draws
+on the displayed target goes to the HUD target (3D car before it keeps the
+render scale); their textures are upscaled too. IPA
+`ios/build/NFSMW-0.6.1-dev158-ui-ai-tiles.ipa`, on Desktop.
+
 ## November 16, 2026 — dev156 result: AI path never ran; dev157 log
 
 iPad log `Debug/16 November 2026/dev156_hud_ai_nfsmw.log`: 42 spatial HUD

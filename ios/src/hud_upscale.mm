@@ -69,7 +69,9 @@ uint64_t Hash(const uint8_t* p, size_t n) {
   return h;
 }
 
-bool Supported(uint32_t v) { return v == 32 || v == 64 || v == 128 || v == 256 || v == 512; }
+bool Supported(uint32_t v) { return v >= 8 && v <= 1024; }
+
+constexpr uint32_t kTile = 128, kMargin = 8, kCore = kTile - 2 * kMargin;  // the model's one input size
 
 bool LoadPng(NSURL* url, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
   CGImageSourceRef src = CGImageSourceCreateWithURL((__bridge CFURLRef)url, nullptr);
@@ -123,55 +125,71 @@ void SavePng(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>& rgb
   CGImageRelease(image);
 }
 
-// Serial queue: w x h RGBA8 in, 2w x 2h RGBA8 out (the network's 4x colour
-// averaged 2x2, the alpha scaled up bilinearly).
+// Serial queue: w x h RGBA8 in, 2w x 2h RGBA8 out. The model takes 128x128
+// tiles: each covers 112x112 of the texture plus 8 px on every side (edges
+// repeated), and only its middle is kept, so tiles meet without seams. Its 4x
+// colour is averaged 2x2; the alpha is scaled up bilinearly.
 bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
   MLModel* model = Model();
   if (!model || !Supported(w) || !Supported(h)) return false;
   NSError* error = nil;
-  MLMultiArray* x = [[MLMultiArray alloc] initWithShape:@[ @1, @3, @(h), @(w) ]
+  MLMultiArray* x = [[MLMultiArray alloc] initWithShape:@[ @1, @3, @(kTile), @(kTile) ]
                                                dataType:MLMultiArrayDataTypeFloat32
                                                   error:&error];
   if (!x) return false;
-  float* xp = static_cast<float*>(x.dataPointer);
-  const size_t plane = size_t(w) * h;
-  for (size_t i = 0; i < plane; ++i)
-    for (int c = 0; c < 3; ++c) xp[c * plane + i] = in[i * 4 + c] / 255.0f;
-  MLDictionaryFeatureProvider* features =
-      [[MLDictionaryFeatureProvider alloc] initWithDictionary:@{@"image" : x} error:&error];
-  if (!features) return false;
-  id<MLFeatureProvider> result = [model predictionFromFeatures:features error:&error];
-  MLMultiArray* y = [result featureValueForName:@"upscaled"].multiArrayValue;
-  if (!y || y.shape.count != 4 || y.shape[2].unsignedIntValue != 4 * h || y.shape[3].unsignedIntValue != 4 * w) {
-    REXLOG_WARN("[hud-ai] {}x{}: {}", w, h, error ? error.localizedDescription.UTF8String : "unexpected output");
-    return false;
-  }
-  const uint32_t ow = 2 * w, oh = 2 * h, yw = 4 * w;
-  const size_t ys_c = y.strides[1].unsignedLongValue, ys_h = y.strides[2].unsignedLongValue,
-               ys_w = y.strides[3].unsignedLongValue;
-  auto at = [&](int c, uint32_t yy, uint32_t xx) -> float {
-    const size_t off = c * ys_c + yy * ys_h + xx * ys_w;
-    if (y.dataType == MLMultiArrayDataTypeFloat16) return float(static_cast<const _Float16*>(y.dataPointer)[off]);
-    return static_cast<const float*>(y.dataPointer)[off];
-  };
-  (void)yw;
+  const uint32_t ow = 2 * w, oh = 2 * h;
   out.assign(size_t(ow) * oh * 4, 0);
+  float* xp = static_cast<float*>(x.dataPointer);
+  const size_t plane = size_t(kTile) * kTile;
+  for (uint32_t ty = 0; ty < h; ty += kCore) {
+    for (uint32_t tx = 0; tx < w; tx += kCore) {
+      for (uint32_t yy = 0; yy < kTile; ++yy) {
+        const uint32_t sy = uint32_t(std::clamp(int(ty + yy) - int(kMargin), 0, int(h) - 1));
+        for (uint32_t xx = 0; xx < kTile; ++xx) {
+          const uint32_t sx = uint32_t(std::clamp(int(tx + xx) - int(kMargin), 0, int(w) - 1));
+          const uint8_t* p = &in[(size_t(sy) * w + sx) * 4];
+          for (int c = 0; c < 3; ++c) xp[c * plane + size_t(yy) * kTile + xx] = p[c] / 255.0f;
+        }
+      }
+      MLDictionaryFeatureProvider* features =
+          [[MLDictionaryFeatureProvider alloc] initWithDictionary:@{@"image" : x} error:&error];
+      if (!features) return false;
+      id<MLFeatureProvider> result = [model predictionFromFeatures:features error:&error];
+      MLMultiArray* y = [result featureValueForName:@"upscaled"].multiArrayValue;
+      if (!y || y.shape.count != 4 || y.shape[2].unsignedIntValue != 4 * kTile) {
+        REXLOG_WARN("[hud-ai] tile: {}", error ? error.localizedDescription.UTF8String : "unexpected output");
+        return false;
+      }
+      const size_t ys_c = y.strides[1].unsignedLongValue, ys_h = y.strides[2].unsignedLongValue,
+                   ys_w = y.strides[3].unsignedLongValue;
+      const bool half = y.dataType == MLMultiArrayDataTypeFloat16;
+      auto at = [&](int c, uint32_t yy, uint32_t xx) -> float {
+        const size_t off = c * ys_c + yy * ys_h + xx * ys_w;
+        return half ? float(static_cast<const _Float16*>(y.dataPointer)[off]) : static_cast<const float*>(y.dataPointer)[off];
+      };
+      // The tile's middle, in output (2x) pixels.
+      const uint32_t cw = std::min(kCore, w - tx), ch = std::min(kCore, h - ty);
+      for (uint32_t oy = 0; oy < 2 * ch; ++oy) {
+        for (uint32_t ox = 0; ox < 2 * cw; ++ox) {
+          const uint32_t my = 4 * kMargin + 2 * oy, mx = 4 * kMargin + 2 * ox;  // in the model's 4x output
+          uint8_t* p = &out[(size_t(2 * ty + oy) * ow + (2 * tx + ox)) * 4];
+          for (int c = 0; c < 3; ++c) {
+            const float v = (at(c, my, mx) + at(c, my, mx + 1) + at(c, my + 1, mx) + at(c, my + 1, mx + 1)) * 0.25f;
+            p[c] = uint8_t(std::clamp(std::lround(v * 255.0f), 0L, 255L));
+          }
+        }
+      }
+    }
+  }
   for (uint32_t oy = 0; oy < oh; ++oy) {
     for (uint32_t ox = 0; ox < ow; ++ox) {
-      uint8_t* p = &out[(size_t(oy) * ow + ox) * 4];
-      for (int c = 0; c < 3; ++c) {
-        const float v = (at(c, 2 * oy, 2 * ox) + at(c, 2 * oy, 2 * ox + 1) + at(c, 2 * oy + 1, 2 * ox) +
-                         at(c, 2 * oy + 1, 2 * ox + 1)) * 0.25f;
-        p[c] = uint8_t(std::clamp(std::lround(v * 255.0f), 0L, 255L));
-      }
-      // Alpha: bilinear from the source, at the output pixel's centre.
       const float sx = std::clamp((ox + 0.5f) / 2.0f - 0.5f, 0.0f, float(w - 1));
       const float sy = std::clamp((oy + 0.5f) / 2.0f - 0.5f, 0.0f, float(h - 1));
       const uint32_t x0 = uint32_t(sx), y0 = uint32_t(sy), x1 = std::min(x0 + 1, w - 1), y1 = std::min(y0 + 1, h - 1);
       const float fx = sx - x0, fy = sy - y0;
       auto a = [&](uint32_t xx, uint32_t yy) { return float(in[(size_t(yy) * w + xx) * 4 + 3]); };
       const float v = (a(x0, y0) * (1 - fx) + a(x1, y0) * fx) * (1 - fy) + (a(x0, y1) * (1 - fx) + a(x1, y1) * fx) * fy;
-      p[3] = uint8_t(std::clamp(std::lround(v), 0L, 255L));
+      out[(size_t(oy) * ow + ox) * 4 + 3] = uint8_t(std::clamp(std::lround(v), 0L, 255L));
     }
   }
   return true;
@@ -182,8 +200,17 @@ bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector
 bool Available() {
   static const bool present = [] {
     NSURL* url = ModelURL();
-    REXLOG_INFO("[hud-ai] model in the app: {} (bundle {})", url ? url.path.UTF8String : "none",
-                NSBundle.mainBundle.bundlePath.UTF8String);
+    REXLOG_INFO("[hud-ai] model in the app: {}", url ? "yes" : "no");
+    if (url) {
+      // Loaded (and compiled for the Neural Engine) in the background now,
+      // not when the first HUD texture needs it.
+      dispatch_async(Queue(), ^{
+        const auto t0 = std::chrono::steady_clock::now();
+        if (Model())
+          REXLOG_INFO("[hud-ai] model ready in {:.0f} ms",
+                      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+      });
+    }
     return url != nil;
   }();
   static bool said = false;

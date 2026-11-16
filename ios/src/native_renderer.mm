@@ -6188,6 +6188,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                                                    : std::max(resolution_scale, screen);
     }
     if ((REXCVAR_GET(nfsmw_native_hud_split) || mfx_scene) && !dump && !capture.active) {
+      static const bool ai_started = (nfsmw::hud_upscale::Available(), true);  // loads the model early
+      (void)ai_started;
       const float screen_scale = mfx_scene ? mfx_scale : std::min(native_screen_scale.load(), 4.0f);
       int32_t shown = -1;
       for (size_t r = frame->resolves.size(); r-- > 0;) {
@@ -6226,6 +6228,25 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                 best = area;
                 mfx_resolve = int32_t(r);
               }
+            }
+          }
+          if (composite == SIZE_MAX && !last.second_target) {
+            // No post composite (menus, the garage, loading screens): the
+            // trailing 2D draws (depth test off) on the displayed target, so
+            // menus, tooltips and maps are drawn at the screen's scale and
+            // a 3D car before them keeps the chosen one (dev158).
+            size_t i = upto;
+            for (size_t j = upto; j-- > 0;) {
+              const Draw& d = frame->draws[j];
+              if (EdramKey(d.surface_info, d.color_info, d.depth_info) != base) continue;
+              if ((d.depth_control & 2) || d.second_target) break;
+              i = j;
+            }
+            if (i < upto && screen_scale > resolution_scale + 0.01f) {
+              hud_from = i;
+              hud_base = base;
+              hud_virtual = base + "|hud";
+              hud_scale = screen_scale;
             }
           }
           if (composite != SIZE_MAX && !last.second_target) {
