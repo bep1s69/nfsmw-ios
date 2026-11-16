@@ -7513,6 +7513,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             scaler.depthReversed = depth_function == 4 || depth_function == 6;
             scaler.reset = reset;
             [scaler encodeToCommandBuffer:cb];
+            // The scene's copy: back to the pool after this frame (it was
+            // made from the pool every frame and is not kept: dev147 leaked
+            // one per frame, ~270 MB/s, and crashed).
+            gpu_pool.Retire(dest, number);
             dest = upscaled;
             registered_scale = mfx_scale;
             mfx_scene_done = true;

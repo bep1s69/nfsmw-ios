@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev147 crash (leak), dev148 fix
+
+Stefan, iPhone, dev147 at 1x with `--nfsmw_native_metalfx=screen` (and
+`drawn`): crashed twice; log `Debug/16 November 2026/dev147_metalfx_crash_nfsmw.log`.
+`MetalFX on the scene: 1568x720 to 2868x1317` worked, then Metal device memory
+grew ~4.6 GB within ~20 s (footprint 6024 MiB, 120 MiB left): the scene's
+per-frame copy (from the GPU pool) was replaced by the kept upscaled texture
+and never retired (kept_resolves only retires what it replaces). dev148
+retires the copy after encoding. Stefan's preference for the base: 0.85x or
+0.75x of the target (for step 3 presets).
+IPA `ios/build/NFSMW-0.6.1-dev148-metalfx-scene-leak-fix.ipa`, on Desktop.
+
 ## November 16, 2026 — dev147: MetalFX on the scene (MetalFX step 2)
 
 Stefan: go for step 2; HD HUD textures noted in BACKLOG. dev147
