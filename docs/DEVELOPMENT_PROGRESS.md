@@ -752,6 +752,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev162 iPhone Power Profiler baseline (no comparison)
+
+Stefan's on-device Power Profiler recording 18:15:54-18:17:25, archived
+`Debug/16 November 2026/dev162_iphone_PowerProfiler_181554_181725.aar` with
+the log `dev162_iphone_power_profiler_nfsmw.log`. Method: `aa extract`, then
+`xcrun xctrace import` (.atrc -> .trace), SystemPowerLevel percent-per-hour
+duration-weighted. 92 rows / 91.1 s, brightness 47%, thermal Nominal, no
+charging rows. Estimated system drain 34.82 %/h (whole), 34.50 (10 s-end),
+34.29 (15 s to end-5 s). Settings: scene 0.75, MetalFX Performance, target
+0.75, cap 60. Baseline only (Stefan: not compared with older builds). Before
+recording, target 0.75 pacing 0-5 of 300 off, GPU 7-9 ms; from ~15 s into
+the recording GPU spans 20-28 ms and pacing 70-226 off: the recording also
+captures Metal performance counters (metal-perf-overview tables): profiler
+overhead is the likely cause (inferred, not isolated).
+
 ## November 16, 2026 — dev162 iPhone: MetalFX native target too heavy in races
 
 Stefan: splat fixed; iPhone drops frames. Log
