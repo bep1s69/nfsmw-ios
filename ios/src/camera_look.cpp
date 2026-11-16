@@ -52,6 +52,7 @@
 #include "battery.h"
 #include "touch_controls.h"
 
+REXCVAR_DEFINE_BOOL(nfsmw_fov_probe, true, "Input", "Diagnostics: log fields that look like the camera's field of view as they change");
 REXCVAR_DEFINE_BOOL(nfsmw_look_fixed_orbit, true, "Input", "Free look: the camera orbits the car fixed in the car's frame (not the chase camera's spring)");
 REXCVAR_DEFINE_BOOL(nfsmw_look_probe, false, "Input", "Diagnostics: log where the car's matrix is (free look)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
@@ -112,6 +113,65 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   const uint32_t view = REX_LOAD_U32(mover + 172);
   const bool behind = REX_LOAD_U8(mover + 177) != 0;
   const float tx = LoadF(base, to), ty = LoadF(base, to + 4), tz = LoadF(base, to + 8);
+  // dev175 diagnostic: the field of view (Stefan: with the camera fixed to
+  // the car, it still moves with gear shifts and acceleration: likely the
+  // game's speed zoom). Every 0.5 s while driving, the first-level objects
+  // the mover points to (and the mover) are compared with the previous
+  // sample; fields that changed and look like a field of view (u16 binary
+  // angle 9000-19000 = 50-104 degrees, or a float 40-110 degrees or
+  // 0.7-1.9 radians) are logged with their old and new values.
+  if (REXCVAR_GET(nfsmw_fov_probe) && (view == 2 || view == 3)) {
+    static auto next_fov = now;
+    static int fov_lines = 0;
+    static std::vector<std::pair<uint32_t, std::vector<uint8_t>>> prev;
+    if (now >= next_fov && fov_lines < 80) {
+      next_fov = now + std::chrono::milliseconds(500);
+      auto rd = [&](uint32_t a, uint8_t* out, size_t n) {
+        vm_size_t got = 0;
+        return vm_read_overwrite(mach_task_self(), vm_address_t(base + a), n, vm_address_t(out), &got) ==
+                   KERN_SUCCESS && got == n;
+      };
+      std::vector<uint32_t> objs{mover};
+      uint8_t mv[0x400];
+      if (rd(mover, mv, sizeof(mv)))
+        for (uint32_t o = 0; o < sizeof(mv); o += 4) {
+          const uint32_t p1 = uint32_t(mv[o]) << 24 | uint32_t(mv[o + 1]) << 16 | uint32_t(mv[o + 2]) << 8 | mv[o + 3];
+          if (p1 >= 0x40000000u && p1 < 0xC0000000u && std::find(objs.begin(), objs.end(), p1) == objs.end() &&
+              objs.size() < 40)
+            objs.push_back(p1);
+        }
+      std::string changed;
+      std::vector<std::pair<uint32_t, std::vector<uint8_t>>> cur;
+      for (uint32_t ob : objs) {
+        std::vector<uint8_t> b(0x600);
+        if (!rd(ob, b.data(), b.size())) continue;
+        for (const auto& [pa, pb] : prev) {
+          if (pa != ob) continue;
+          for (uint32_t k = 0; k + 4 <= b.size(); k += 2) {
+            const uint16_t a16 = uint16_t(pb[k] << 8 | pb[k + 1]), b16 = uint16_t(b[k] << 8 | b[k + 1]);
+            if (a16 != b16 && a16 >= 9000 && a16 <= 19000 && b16 >= 9000 && b16 <= 19000 && changed.size() < 900)
+              changed += fmt::format(" [{:08x}+{:x} u16 {}->{}]", ob, k, a16, b16);
+            if (k % 4) continue;
+            const uint32_t av = uint32_t(pb[k]) << 24 | uint32_t(pb[k + 1]) << 16 | uint32_t(pb[k + 2]) << 8 | pb[k + 3];
+            const uint32_t bv = uint32_t(b[k]) << 24 | uint32_t(b[k + 1]) << 16 | uint32_t(b[k + 2]) << 8 | b[k + 3];
+            float af, bf;
+            std::memcpy(&af, &av, 4);
+            std::memcpy(&bf, &bv, 4);
+            const bool deg = af > 40 && af < 110 && bf > 40 && bf < 110;
+            const bool rad = af > 0.7f && af < 1.9f && bf > 0.7f && bf < 1.9f;
+            if (av != bv && (deg || rad) && std::fabs(af - bf) < 0.25f * af && changed.size() < 900)
+              changed += fmt::format(" [{:08x}+{:x} f {:.4f}->{:.4f}]", ob, k, af, bf);
+          }
+        }
+        cur.emplace_back(ob, std::move(b));
+      }
+      prev = std::move(cur);
+      if (!changed.empty()) {
+        ++fov_lines;
+        REXLOG_INFO("[fov-probe] mover {:08x}:{}", mover, changed);
+      }
+    }
+  }
   // dev172 diagnostic (fixed free look): the car's position and matrix.
   // dev171 (14 Pro Max log): the mover holds the look-at point at +0x140
   // and its pointers within 64 MB only led back into itself. Now every
@@ -286,6 +346,10 @@ extern "C" REX_FUNC(sub_8243CBF0) {
           rest_target_up += (tup - rest_target_up) * k;
         }
       } else if (rest_back > 0) {
+        static int said = 0;
+        if (said++ == 0)
+          REXLOG_INFO("[look] fixed to the car: {:.2f} behind, {:.2f} up, look-at {:.2f} up", rest_back, rest_up,
+                      rest_target_up);
         // Behind the car (-F) turned by the yaw about U (Rodrigues), plus height.
         const float a = yaw_offset * kDeg, c = std::cos(a), sn = std::sin(a);
         const float bx = -F[0], by = -F[1], bz = -F[2];

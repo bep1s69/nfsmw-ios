@@ -768,6 +768,26 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev174 results; dev175 field-of-view probe
+
+Stefan (dev174, iPhone): got busted; `missing_vs_5595c163168c74ef.bin` (468
+bytes, 117 dwords, host order) archived in `Debug/16 November 2026/` with
+`dev174_busted_nfsmw.log`; its masked FNV key is 5595c163168c74ef (verified).
+Four vfetches from fetch constant 95, stride 12 dwords: float3 at 0 (r6),
+float2 at 3 (r2), float3 at 6 (r1), float3 at 9 (r0). None of the 98 game
+vertex containers has the same input layout, so no container to borrow; a
+hand-built 0x11 container needs vertex elements, a constant table and
+interpolators matching ps 8c8b535864c59f03 (not done; effort vs one 2D piece
+of the busted overlay to be weighed with Stefan).
+Camera: Stefan says the car-fixed free look still moves with gear shifts and
+acceleration/deceleration. With the eye and look-at now on the car's own
+matrix, the remaining motion is most likely the game's speed zoom (field of
+view; not in the look-at call). dev175: `[look] fixed to the car` once when
+engaged; `[fov-probe]` (`nfsmw_fov_probe`, default true for now) every 0.5 s
+lists fields of the mover and the objects it points to that changed and look
+like a field of view (u16 binary angle 9000-19000, or float 40-110 degrees /
+0.7-1.9 rad). IPA `ios/build/NFSMW-0.6.1-dev175-fov-probe.ipa`, on Desktop.
+
 ## November 16, 2026 — missing busted-overlay shader: dev174 dump
 
 Stefan asked to fix the missing shaders. All Debug logs: `no shader library`
