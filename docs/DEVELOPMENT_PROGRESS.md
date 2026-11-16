@@ -752,6 +752,17 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev169 result: no visible change
+
+Stefan: the free-look camera still moves in/out with gear shifts and changes
+angle with elevation. Reading (inferred): the hook only has the chase
+camera's eye and look-at point; the look-at point is the CubicCameraMover's
+sprung target (it lags the car on acceleration) and slopes are world-relative,
+and the speed FOV zoom is separate. A car-attached orbit needs the car's
+matrix (the mover's target pointer, offsets unknown on the 360) and the FOV
+for the zoom: a few diagnostic builds. Proposed: after 0.6.1 (dev169's held
+distance/pitch kept, harmless), awaiting Stefan.
+
 ## November 16, 2026 — dev169: free look orbits at a fixed distance and height
 
 Stefan: free look should not follow the chase camera's distance/height
