@@ -55,6 +55,19 @@ std::atomic<uint64_t> published_ns{0}, published_period_ns{0};
 std::atomic<uint64_t> managed_frame_period_ns{0};
 }  // namespace
 
+@class NFSDisplayRate;
+namespace {
+// Main thread. The link ticks with the screen the game's picture is shown on:
+// the device's, or an external display's (FollowScreen): their refreshes run
+// on separate clocks, and a game timed by the iPad's while its frames go to a
+// monitor came out uneven there (GitHub issue 21).
+CADisplayLink* g_link = nil;
+NFSDisplayRate* g_target = nil;
+UIScreen* g_screen = nil;  // nil: the device's own
+CAFrameRateRange g_range;
+bool g_have_range = false;
+}  // namespace
+
 @interface NFSDisplayRate : NSObject
 - (void)tick:(CADisplayLink*)link;
 @end
@@ -117,8 +130,6 @@ std::atomic<uint64_t> managed_frame_period_ns{0};
 namespace nfsmw::display {
 
 void RequestRateForCap(int fps_cap) {
-  static CADisplayLink* link = nil;
-  static NFSDisplayRate* target = nil;
   // 60 too, if asked (IPA91): asking 60 Hz, the 120 Hz panel still ran at
   // 120 at times. A steady 120 did not help the choppiness Stefan saw (IPA91)
   // and costs display power: off by default since IPA93.
@@ -135,19 +146,43 @@ void RequestRateForCap(int fps_cap) {
     nfsmw::metal_pacer::Tick();
   }
   asked_hz.store(int(preferred));
-  if (!link) {
-    target = [[NFSDisplayRate alloc] init];
-    link = [CADisplayLink displayLinkWithTarget:target selector:@selector(tick:)];
-    [link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+  if (!g_link) {
+    if (!g_target) g_target = [[NFSDisplayRate alloc] init];
+    g_link = g_screen ? [g_screen displayLinkWithTarget:g_target selector:@selector(tick:)]
+                      : [CADisplayLink displayLinkWithTarget:g_target selector:@selector(tick:)];
+    [g_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   }
+  CADisplayLink* link = g_link;
   // The 40 cap: 120 Hz as the minimum too (0.4.2). With 80-120 the frame
   // trace (IPA127) showed every frame finished on an even 25 ms, but shown
   // 16.7 / 33.3 ms apart in stretches: the screen at 60 Hz there.
   link.preferredFrameRateRange =
       match ? CAFrameRateRangeMake(preferred, preferred, preferred)
             : CAFrameRateRangeMake(fps_cap == 40 ? 120.0f : high ? 80.0f : 30.0f, preferred, preferred);
+  g_range = link.preferredFrameRateRange;
+  g_have_range = true;
   REXLOG_INFO("[display] cap {} fps: asking for {:.0f} Hz{} (screen max {} Hz)", fps_cap, preferred,
               match ? ", the cap's rate" : "", int(UIScreen.mainScreen.maximumFramesPerSecond));
+}
+
+void FollowScreen(UIScreen* screen) {
+  if (screen == UIScreen.mainScreen) screen = nil;
+  if (screen == g_screen && g_link) return;
+  g_screen = screen;
+  if (g_link) {
+    [g_link invalidate];
+    g_link = nil;
+  }
+  // A new clock: the published vblank starts again from its first tick.
+  published_ns.store(0, std::memory_order_release);
+  published_period_ns.store(0, std::memory_order_relaxed);
+  if (!g_target) g_target = [[NFSDisplayRate alloc] init];
+  g_link = screen ? [screen displayLinkWithTarget:g_target selector:@selector(tick:)]
+                  : [CADisplayLink displayLinkWithTarget:g_target selector:@selector(tick:)];
+  if (g_have_range) g_link.preferredFrameRateRange = g_range;
+  [g_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+  REXLOG_INFO("[display] timing from {} (max {} Hz)", screen ? "the external display" : "the device's screen",
+              int((screen ?: UIScreen.mainScreen).maximumFramesPerSecond));
 }
 
 bool MatchesCap() { return REXCVAR_GET(ios_display_match_cap); }

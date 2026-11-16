@@ -763,8 +763,13 @@ from 0 to 67-155 of 300 frames off the 16.7 ms grid with 8.3/25 ms gaps
 memory pressure. Inferred cause: pacing (CADisplayLink, guest vblank lock)
 follows the iPad's own display while frames are presented on the monitor,
 which has its own vsync clock; the beat between them gives the uneven frames
-and the FPS dips (~49). Proposed fix (not built): when the picture is on an
-external display, pace from that screen's display link and its refresh.
+and the FPS dips (~49). dev142 (approved by Stefan): with the picture on an external
+display, the CADisplayLink (and so the guest vblank) is created from that
+screen (`display::FollowScreen`, cvar `nfsmw_native_external_display_timing`,
+default true); back to the device's screen when the display goes. Log line
+`[display] timing from the external display`. The `[native] pacing` stats
+still measure the device's layer, so judge the monitor by eye / FPS counter.
+IPA `ios/build/NFSMW-0.6.1-dev142-external-display-timing.ipa`, on Desktop.
 Log `Debug/16 November 2026/dev141_ipad_hdmi_mirroring_fps_drops_nfsmw.log`.
 
 ## November 16, 2026 — dev141: iPad app window on an extended display

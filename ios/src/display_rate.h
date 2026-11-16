@@ -4,12 +4,22 @@
 
 #include <cstdint>
 
+#ifdef __OBJC__
+@class UIScreen;
+#endif
+
 namespace nfsmw::display {
 
 // Tells iOS which refresh rate suits the frame rate cap (ProMotion): 120 Hz
 // for the 40 and 120 caps (40 fps is exactly 3 refreshes), 60 Hz otherwise.
 // Main thread.
 void RequestRateForCap(int fps_cap);
+
+#ifdef __OBJC__
+// Main thread: the display refresh (and so the guest vblank) follows this
+// screen; nil or the main screen: the device's own (external displays).
+void FollowScreen(UIScreen* screen);
+#endif
 
 // --ios_display_match_cap: the display follows cap changes (Battery mode's 30).
 bool MatchesCap();

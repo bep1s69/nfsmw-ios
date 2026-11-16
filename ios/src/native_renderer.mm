@@ -29,6 +29,7 @@
 // the native renderer's target allocation and pipeline settings below.
 
 #include "app_scene.h"
+#include "display_rate.h"
 #include "external_display.h"
 #import <CoreImage/CoreImage.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -144,6 +145,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_external_display_timing, true, "GPU",
+                    "iOS: with the picture on an external display, time frames from that display's "
+                    "refreshes instead of the device's own (GitHub issue 21)");
+
 REXCVAR_DEFINE_BOOL(nfsmw_native_repeat_counter, false, "GPU",
                     "dev114 diagnostic (Nov 10): count driving draws identical to the previous frame's and what "
                     "changes in the rest, logged every 300 frames (render queue CPU; turn off for release)");
@@ -9937,6 +9942,7 @@ void AttachExternalDisplay(id<MTLDevice> device, UIView* host) {
     external_view = nil;
     phone_controls_only = false;  // the picture back on the phone
     ShowExternalCaption(false);
+    nfsmw::display::FollowScreen(nil);
     REXLOG_INFO("[native] external display: the picture is back on the phone");
   }
   if (!host || !REXCVAR_GET(nfsmw_native_external_display)) {
@@ -9961,6 +9967,10 @@ void AttachExternalDisplay(id<MTLDevice> device, UIView* host) {
   if (present_view && REXCVAR_GET(nfsmw_native_external_controls_only)) {
     phone_controls_only = true;
     ShowExternalCaption(true);
+  }
+  // Frame timing from that display's refreshes, not the phone's.
+  if (REXCVAR_GET(nfsmw_native_external_display_timing)) {
+    nfsmw::display::FollowScreen(host.window.windowScene.screen);
   }
   REXLOG_INFO("[native] external display: the picture shown there by itself, {}x{} pixels",
               int(layer.drawableSize.width), int(layer.drawableSize.height));
