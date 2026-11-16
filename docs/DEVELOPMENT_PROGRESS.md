@@ -752,6 +752,26 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev156: neural-network HUD textures (trial)
+
+Stefan approved trying it now and the downloads: converter venv
+`~/Library/Caches/nfsmw-ios/ml-venv` (pip torch 2.8.0, coremltools 9.0),
+model `~/Library/Caches/nfsmw-ios/ml-model/RealESRGAN_x4plus_anime_6B.pth`
+(17938799 bytes, SHA256 f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da,
+xinntao/Real-ESRGAN v0.2.2.4, BSD-3). `tools/ml/convert_realesrgan.py`
+(own RRDBNet 6 blocks, strict load of params_ema) -> `HudUpscale.mlpackage`
+(fp16 mlprogram, iOS 17, enumerated input shapes 32-512 powers of two,
+8.7 MB; edge check 0.0 / 0.9995). CMake `NFSMW_HUD_UPSCALE_MODEL` (default
+that cache path; not in git) compiles it into the app (HudUpscale.mlmodelc).
+`ios/src/hud_upscale.mm`: when the sharp HUD makes a MetalFX spatial copy,
+the RGBA8 copy is read back at command-buffer completion; a serial Utility
+queue hashes it (FNV-1a), loads `Caches/HudUpscale/<hash>_WxH.png` or runs
+the model (4x RGB, averaged to 2x; alpha bilinear 2x) and saves the PNG; the
+render thread swaps the result in for the spatial copy (`[hud-ai]` log).
+cvar `nfsmw_native_hud_ai` (default true). Needs Display > Sharp HUD or
+MetalFX. IPA `ios/build/NFSMW-0.6.1-dev156-hud-ai-upscale.ipa` (model
+bundled), on Desktop. Untested.
+
 ## November 16, 2026 — dev155 result: HUD art is low-detail, not 1x targets
 
 Log `Debug/16 November 2026/dev155_hud_texture_log_nfsmw.log`: 85 distinct

@@ -30,6 +30,7 @@
 
 #include "app_scene.h"
 #include "display_rate.h"
+#include "hud_upscale.h"
 #include "external_display.h"
 #import <CoreImage/CoreImage.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -8047,6 +8048,25 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               for (auto& [k, u] : ups) residency::Remove(u.up);
               ups.clear();
             }
+            // The neural network's results (hud_upscale.mm): replace the
+            // MetalFX spatial copies they were made for.
+            for (auto& r : nfsmw::hud_upscale::Take()) {
+              auto it2 = ups.find(r.key);
+              if (it2 == ups.end()) continue;  // evicted meanwhile
+              MTLTextureDescriptor* ad = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                           width:r.width
+                                                                                          height:r.height
+                                                                                       mipmapped:NO];
+              ad.usage = MTLTextureUsageShaderRead;
+              ad.storageMode = MTLStorageModeShared;
+              id<MTLTexture> ai = [device newTextureWithDescriptor:ad];
+              if (!ai) continue;
+              [ai replaceRegion:MTLRegionMake2D(0, 0, r.width, r.height) mipmapLevel:0 withBytes:r.rgba.data()
+                    bytesPerRow:r.width * 4];
+              residency::Add(ai);
+              residency::Remove(it2->second.up);
+              it2->second.up = ai;
+            }
             id<MTLRenderPipelineState> copy = UpscalePipeline(device, MTLPixelFormatRGBA8Unorm);
             id<MTLRenderPipelineState> merge = HudMergePipeline(device);
             auto* tex_ids = static_cast<MTLResourceID*>(texture_heap.contents);
@@ -8137,6 +8157,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                       up = out;
                       residency::Add(up);
                       ups[(__bridge const void*)src] = {src, up};
+                      if (nfsmw::hud_upscale::Available()) nfsmw::hud_upscale::Request((__bridge const void*)src, flat, cb);
                       ++made;
                       ++made_total;
                     }

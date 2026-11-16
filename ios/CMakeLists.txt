@@ -192,6 +192,7 @@ target_include_directories(nfsmw PRIVATE "${NFSMW_SDK}/include"
     "${NFSMW_SDK}/thirdparty/inja/third_party/include")
 target_link_libraries(nfsmw PRIVATE rex::runtime nfsmw_headers
     "-framework Foundation" "-framework UIKit" "-framework Metal" "-framework MetalFX" "-framework QuartzCore" "-framework CoreImage"
+    "-framework CoreML" "-framework ImageIO"
     "-framework UniformTypeIdentifiers" z)
 # The Xbox 360 language and country of the edition. With the game, from
 # ios/generated/edicion.json (tools/ios/generate_code.py); without it, USA's,
@@ -312,7 +313,8 @@ if(NFSMW_WITH_GAME)
         endif()
         list(APPEND _usa_sources src/game_extra_options.cpp src/render_probe.cpp
             src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp
-            src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp src/game_constant_descriptors.cpp)
+            src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp src/game_constant_descriptors.cpp
+            src/hud_upscale.mm)
         message(STATUS "NFSMW: ${_extra}")
         execute_process(
             COMMAND "${Python3_EXECUTABLE}" "${NFSMW_REPO}/tools/ios/patch_game_constant_copies.py"
@@ -425,6 +427,15 @@ set(NFSMW_NATIVE_PIPELINE_KEYS "" CACHE FILEPATH
 if(NFSMW_NATIVE_PIPELINE_KEYS AND NOT EXISTS "${NFSMW_NATIVE_PIPELINE_KEYS}")
     message(FATAL_ERROR "NFSMW_NATIVE_PIPELINE_KEYS does not exist: ${NFSMW_NATIVE_PIPELINE_KEYS}")
 endif()
+# Sharp HUD: the HUD texture upscaler (Real-ESRGAN x4 anime 6B, BSD-3,
+# converted by tools/ml/convert_realesrgan.py), compiled into the app when
+# present. Not in git (a converted model file).
+set(NFSMW_HUD_UPSCALE_MODEL "$ENV{HOME}/Library/Caches/nfsmw-ios/ml-model/HudUpscale.mlpackage" CACHE PATH
+    "Core ML package of the HUD texture upscaler (empty or missing: none)")
+set(_hud_model_ok FALSE)
+if(NFSMW_HUD_UPSCALE_MODEL AND EXISTS "${NFSMW_HUD_UPSCALE_MODEL}")
+    set(_hud_model_ok TRUE)
+endif()
 set(_app "$<TARGET_BUNDLE_DIR:nfsmw>")
 set(_fw "${_app}/Frameworks")
 add_custom_target(nfsmw_package ALL
@@ -453,6 +464,10 @@ add_custom_target(nfsmw_package ALL
     COMMAND ${CMAKE_COMMAND} -E rm -f "${_app}/NativeShaders/pipeline_keys.bin"
     COMMAND ${CMAKE_COMMAND} -E $<IF:$<BOOL:${NFSMW_NATIVE_PIPELINE_KEYS}>,copy_if_different,true>
             "${NFSMW_NATIVE_PIPELINE_KEYS}" "${_app}/NativeShaders/pipeline_keys.bin"
+    # The HUD texture upscaler's model, compiled (.mlmodelc) into the app.
+    COMMAND $<IF:$<BOOL:${_hud_model_ok}>,xcrun,true> $<$<BOOL:${_hud_model_ok}>:coremlcompiler>
+            $<$<BOOL:${_hud_model_ok}>:compile> $<$<BOOL:${_hud_model_ok}>:${NFSMW_HUD_UPSCALE_MODEL}>
+            $<$<BOOL:${_hud_model_ok}>:${_app}>
     # codesign will not sign files with extended attributes ("resource fork,
     # Finder information, or similar detritus"): the MoltenVK tar and macOS'
     # provenance tagging bring them.
