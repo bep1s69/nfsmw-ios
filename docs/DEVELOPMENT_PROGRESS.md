@@ -763,6 +763,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev171 14 Pro Max result; dev172 safer, deeper probe
+
+Stefan's iPhone 14 Pro Max run on dev171 (log archived by the other thread:
+`Debug/16 November 2026/dev171_iphone14promax_nfsmw.log`): mostly 60 fps,
+some drops in the police chase, moderate heat; Stefan counts the 14 Pro Max
+performance test as passed. `[look-probe]` (60 lines): the only position near
+the look-at point is the mover's own +0x140; its pointers within 64 MB all
+lead back into the mover (+0x94/+0x98/+0x9c/+0x10c/+0x24c), no car matrix.
+dev172: every guest pointer in the mover's first 0x400 bytes, and in the
+first 0x100 bytes of each object it points to (two levels, up to 600
+objects), is read with `vm_read_overwrite` (an unmapped page is an error, not
+a crash) and searched over 0x600 bytes for a position within 10 units of the
+look-at point, "MATRIX" when three unit rows precede it. IPA
+`ios/build/NFSMW-0.6.1-dev172-look-probe2.ipa`, on Desktop.
+
 ## November 16, 2026 — 0.6.1 scope grows; dev171 look probe
 
 Stefan: no rush; the fixed free-look camera, pursuit cost reductions and the

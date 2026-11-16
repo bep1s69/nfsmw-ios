@@ -33,12 +33,16 @@
 // with the option off, or while a touch SHIFT button holds the right stick,
 // the state goes to the game untouched (shifting as before).
 
+#include <mach/mach.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -107,41 +111,65 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   const uint32_t view = REX_LOAD_U32(mover + 172);
   const bool behind = REX_LOAD_U8(mover + 177) != 0;
   const float tx = LoadF(base, to), ty = LoadF(base, to + 4), tz = LoadF(base, to + 8);
-  // dev171 diagnostic (fixed free look): where the car's position and
-  // orientation live. Every 3 s in a chase view: the mover's own floats near
-  // the look-at point, and the objects its fields point to (only pointers
-  // within 64 MB of the mover: the same heap) holding such a position with
-  // three unit-length rows before it (a matrix).
+  // dev172 diagnostic (fixed free look): the car's position and matrix.
+  // dev171 (14 Pro Max log): the mover holds the look-at point at +0x140
+  // and its pointers within 64 MB only led back into itself. Now every
+  // guest pointer in the mover (two levels deep) is read safely
+  // (vm_read_overwrite: an unmapped page is an error, not a crash) and
+  // searched for a position within 10 units of the look-at point with three
+  // unit-length rows before it.
   if (REXCVAR_GET(nfsmw_look_probe) && (view == 2 || view == 3)) {
     static auto next = now;
     static int lines = 0;
-    if (now >= next && lines < 60) {
+    if (now >= next && lines < 40) {
       next = now + std::chrono::seconds(3);
-      auto near = [&](uint32_t a, float r) {
-        const float x = LoadF(base, a), y = LoadF(base, a + 4), z = LoadF(base, a + 8);
-        return std::isfinite(x) && std::fabs(x - tx) < r && std::fabs(y - ty) < r && std::fabs(z - tz) < r;
+      auto read = [&](uint32_t a, uint8_t* out, size_t n) {
+        vm_size_t got = 0;
+        return vm_read_overwrite(mach_task_self(), vm_address_t(base + a), n, vm_address_t(out), &got) ==
+                   KERN_SUCCESS && got == n;
       };
-      auto unit = [&](uint32_t a) {
-        const float x = LoadF(base, a), y = LoadF(base, a + 4), z = LoadF(base, a + 8);
-        const float l = std::sqrt(x * x + y * y + z * z);
+      auto be32 = [](const uint8_t* p) { return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3]; };
+      auto f32 = [&](const uint8_t* p) { const uint32_t v = be32(p); float f; std::memcpy(&f, &v, 4); return f; };
+      auto unit = [&](const uint8_t* p) {
+        const float x = f32(p), y = f32(p + 4), z = f32(p + 8), l = std::sqrt(x * x + y * y + z * z);
         return std::isfinite(l) && std::fabs(l - 1.0f) < 0.02f;
       };
-      std::string own, objs;
-      for (uint32_t o = 0; o < 0x400; o += 4) {
-        if (near(mover + o, 8.0f) && own.size() < 400) own += fmt::format(" +{:x}", o);
-        const uint32_t ptr = REX_LOAD_U32(mover + o);
-        if (ptr < 0x40000000u || ptr > 0xBFFFFFF0u || ptr == mover) continue;
-        if (ptr + 0x400 < mover - 0x4000000u || ptr > mover + 0x4000000u) continue;
-        for (uint32_t k = 48; k < 0x300; k += 4) {
-          if (!near(ptr + k, 8.0f)) continue;
-          const bool matrix = unit(ptr + k - 48) && unit(ptr + k - 32) && unit(ptr + k - 16);
-          if (objs.size() < 600)
-            objs += fmt::format(" [+{:x}->{:08x}+{:x}{}]", o, ptr, k, matrix ? " matrix" : "");
+      std::string found;
+      std::vector<uint32_t> seen;
+      auto scan = [&](uint32_t obj, const std::string& path) {
+        uint8_t buf[0x600];
+        if (!read(obj, buf, sizeof(buf))) return false;
+        for (uint32_t k = 0; k + 12 <= sizeof(buf); k += 4) {
+          const float x = f32(buf + k), y = f32(buf + k + 4), z = f32(buf + k + 8);
+          if (!std::isfinite(x) || std::fabs(x - tx) > 10 || std::fabs(y - ty) > 10 || std::fabs(z - tz) > 10) continue;
+          const bool matrix = k >= 48 && unit(buf + k - 48) && unit(buf + k - 32) && unit(buf + k - 16);
+          if (found.size() < 900)
+            found += fmt::format(" [{}+{:x}{} ({:.2f},{:.2f},{:.2f})]", path, k, matrix ? " MATRIX" : "", x, y, z);
+        }
+        return true;
+      };
+      uint8_t mv[0x400];
+      if (read(mover, mv, sizeof(mv))) {
+        for (uint32_t o = 0; o < sizeof(mv); o += 4) {
+          const uint32_t p1 = be32(mv + o);
+          if (p1 < 0x40000000u || p1 >= 0xC0000000u || std::find(seen.begin(), seen.end(), p1) != seen.end()) continue;
+          if (p1 >= mover && p1 < mover + 0x400) continue;  // itself
+          seen.push_back(p1);
+          if (!scan(p1, fmt::format("+{:x}", o))) continue;
+          uint8_t ob[0x100];
+          if (!read(p1, ob, sizeof(ob))) continue;
+          for (uint32_t o2 = 0; o2 < sizeof(ob); o2 += 4) {
+            const uint32_t p2 = be32(ob + o2);
+            if (p2 < 0x40000000u || p2 >= 0xC0000000u || std::find(seen.begin(), seen.end(), p2) != seen.end()) continue;
+            seen.push_back(p2);
+            if (seen.size() > 600) break;
+            scan(p2, fmt::format("+{:x}>+{:x}", o, o2));
+          }
         }
       }
       ++lines;
-      REXLOG_INFO("[look-probe] to ({:.2f},{:.2f},{:.2f}) mover {:08x} own:{} objects:{}", tx, ty, tz, mover,
-                  own.empty() ? " none" : own, objs.empty() ? " none" : objs);
+      REXLOG_INFO("[look-probe] to ({:.2f},{:.2f},{:.2f}) mover {:08x}:{}", tx, ty, tz, mover,
+                  found.empty() ? " none" : found);
     }
   }
   // A new race or view, or the car put somewhere else: back behind the car.
