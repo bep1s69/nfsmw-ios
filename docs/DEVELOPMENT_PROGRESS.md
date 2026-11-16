@@ -752,6 +752,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev166: instant look-back; soft art kept plain
+
+Stefan: dev165 splat fixed. (1) Right-stick look-back (stick down) should be
+instant; left/right keep the easing. dev166 `camera_look.cpp`: a held stick
+within 30 degrees of straight back sets the yaw at once, and releasing from
+there snaps forward at once. (2) Sharp HUD: the pause menu's glow behind the
+selected item became a hard disc (`dev165_IMG_0385/0386.png`, sharp HUD
+off/on). The network makes flat colours with crisp edges; soft art (under 1%
+of neighbouring pixels differing by more than 40 in alpha or luminance) now
+skips it and keeps the MetalFX spatial copy. Checked on the disc: all 23
+HudTexturesSingleRace textures stay AI (1.6-21.6% hard), GRAD_1 0.0% and
+FX_GLOW01_ADDITIVE 0.24% are soft. Prepared files renamed `_v2` and the
+preparation version bumped to 2 (re-runs once); runtime cache `_a3`. IPA
+`ios/build/NFSMW-0.6.1-dev166-lookback-soft-glow.ipa`, on Desktop.
+
 ## November 16, 2026 — dev164 iPad splat (Sharp HUD, no MetalFX); dev165
 
 Log `Debug/16 November 2026/dev164_ipad_splat_nfsmw.log`, screenshot

@@ -131,7 +131,29 @@ void SavePngImpl(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>&
 // tiles: each covers 112x112 of the texture plus 8 px on every side (edges
 // repeated), and only its middle is kept, so tiles meet without seams. Its 4x
 // colour is averaged 2x2; the alpha is scaled up bilinearly.
+// Soft art (glows, gradients, blurred shadows): few hard edges. The network
+// draws flat colours with crisp edges, which turned the pause menu's glow
+// into a hard disc (Stefan, dev165): those keep the plain (MetalFX spatial)
+// copy instead (dev166).
+bool Soft(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
+  size_t pairs = 0, hard = 0;
+  auto lum = [&](size_t i) { return (int(in[i]) * 2 + int(in[i + 1]) * 5 + int(in[i + 2])) / 8; };
+  for (uint32_t y = 0; y + 1 < h; ++y) {
+    for (uint32_t x = 0; x + 1 < w; ++x) {
+      const size_t i = (size_t(y) * w + x) * 4, r = i + 4, d = i + size_t(w) * 4;
+      for (size_t j : {r, d}) {
+        ++pairs;
+        const int da = std::abs(int(in[i + 3]) - int(in[j + 3]));
+        const int dl = (in[i + 3] > 32 || in[j + 3] > 32) ? std::abs(lum(i) - lum(j)) : 0;
+        hard += da > 40 || dl > 40;
+      }
+    }
+  }
+  return pairs && hard * 100 < pairs;  // under 1% of neighbours differ sharply
+}
+
 bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
+  if (Soft(in, w, h)) return false;
   MLModel* model = Model();
   std::lock_guard<std::mutex> predicting(g_model_lock);
   if (!model || !Supported(w) || !Supported(h)) return false;
@@ -296,7 +318,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         const uint8_t* px = static_cast<const uint8_t*>(buffer.contents);
         std::vector<uint8_t> in(px, px + size_t(w) * h * 4);
         const uint64_t hash = Hash(in.data(), in.size());
-        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a2.png",
+        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a3.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
         if (content_hash && LoadPng(PreparedFile(content_hash, w, h), r.width, r.height, r.rgba)) {
@@ -312,7 +334,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         if (!from_disk) {
           if (!Upscale(in, w, h, r.rgba)) {
             static uint32_t fails = 0;
-            if (fails++ < 5) REXLOG_WARN("[hud-ai] {}x{}: not upscaled (model {})", w, h, Model() ? "loaded" : "missing");
+            if (fails++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (soft art, or no model)", w, h);
             return;
           }
           SavePngImpl(file, r.width, r.height, r.rgba);
@@ -362,7 +384,7 @@ NSURL* PreparedFile(uint64_t content_hash, uint32_t w, uint32_t h) {
     [NSFileManager.defaultManager createDirectoryAtURL:d withIntermediateDirectories:YES attributes:nil error:nil];
     return d;
   }();
-  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u.png",
+  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_v2.png",
                                                                      (unsigned long long)content_hash, w, h]];
 }
 

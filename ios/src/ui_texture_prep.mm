@@ -37,7 +37,7 @@ namespace nfsmw::ui_texture_prep {
 namespace {
 
 constexpr uint64_t kGameOffset = 0xFD90000;  // XGD2
-constexpr int kVersion = 1;                  // bump to prepare everything again
+constexpr int kVersion = 2;  // 2: soft art (glows) no longer through the network                  // bump to prepare everything again
 
 struct Disc {
   FILE* f = nullptr;

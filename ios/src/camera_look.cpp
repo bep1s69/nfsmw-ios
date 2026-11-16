@@ -140,7 +140,14 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     const bool held = sx != 0 || sy != 0;
     const float target = held ? std::atan2(-sx, sy) / kDeg : 0.0f;
     const float step = std::remainder(target - yaw_offset, 360.0f);
-    yaw_offset = std::fabs(step) < 0.5f ? target : yaw_offset + step * (1.0f - std::exp(-dt / 0.05f));
+    // dev166 (Stefan): looking back (stick down, within 30 degrees of
+    // straight back) is instant, both ways, like a look-back button; left
+    // and right keep the easing.
+    static bool looking_back = false;
+    const bool back_now = held && std::fabs(target) > 150.0f;
+    const bool snap = back_now || (looking_back && !back_now && !held);
+    looking_back = back_now;
+    yaw_offset = snap || std::fabs(step) < 0.5f ? target : yaw_offset + step * (1.0f - std::exp(-dt / 0.05f));
     yaw_offset = std::remainder(yaw_offset, 360.0f);
     pitch_offset = 0;
     last_input = now;
