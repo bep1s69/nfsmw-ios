@@ -3,6 +3,8 @@
 #include "app_scene.h"
 #include "external_display.h"
 #import <UIKit/UIKit.h>
+#import <Metal/Metal.h>
+#import <MetalFX/MetalFX.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -249,8 +251,34 @@ NSString* ScaleChoiceTitle(NSString* value, NSDictionary<NSString*, NSString*>* 
                                     [value isEqualToString:@"1"] ? @" (Xbox 360)" : @""];
 }
 
+// A MetalFX preset's title with the scene size it really gets on this device
+// (dev153): the preset's share of 720p, raised to the target / MetalFX's
+// largest scale where that is more (an iPad's native target: Balanced to
+// Ultra Performance all come out alike there).
+NSString* MetalFxChoiceTitle(const Choice& c, NSDictionary<NSString*, NSString*>* s) {
+  const double f = [c.value isEqualToString:@"quality"] ? 1.0 : [c.value isEqualToString:@"balanced"] ? 0.85
+                   : [c.value isEqualToString:@"performance"] ? 0.75 : [c.value isEqualToString:@"ultra_performance"] ? 0.5 : 0;
+  if (f <= 0) return c.title;
+  static const double max_scale = [] {
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    const double m = device ? [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] : 2.0;
+    return m > 1.0 ? m : 2.0;
+  }();
+  const CGSize scene = SceneSize(ResolvedAspect(s));
+  const CGSize px = ScreenPixels();
+  const double share = [[s objectForKey:@"metalfx_target"] isEqualToString:@"0.75"] ? 0.75 : 1.0;
+  const double target = std::min(px.width / scene.width, px.height / scene.height) * share;
+  const double floor_scale = target / max_scale * 1.01;
+  const bool limited = floor_scale > f;
+  const double k = std::max(f, floor_scale);
+  NSString* name = [c.title componentsSeparatedByString:@" · "].firstObject;
+  return [NSString stringWithFormat:@"%@ · %ld×%ld%@", name, std::lround(scene.width * k), std::lround(scene.height * k),
+                                    limited ? @" (MetalFX's limit)" : @""];
+}
+
 // A choice's title as shown (the render resolutions depend on the device and shape).
 NSString* ChoiceTitle(NSString* key, const Choice& c, NSDictionary<NSString*, NSString*>* s) {
+  if ([key isEqualToString:@"metalfx"]) return MetalFxChoiceTitle(c, s);
   return [key isEqualToString:@"scale"] ? ScaleChoiceTitle(c.value, s) : c.title;
 }
 

@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev153: iPad scheduled presents at 60; MetalFX titles
+
+Test 1 (dev152 iPad, `--nfsmw_native_present_at_time_60=true`, log
+`Debug/16 November 2026/dev152_ipad_present_at_time_60_nfsmw.log`): pacing
+0-11 of 300 frames off the grid (was 56-169); Stefan: fixed apart from the
+odd hitch. dev153: new `nfsmw_native_present_at_time_60_ipad` (default true)
+schedules 60 fps presents on iPads only; phones unchanged (D-014). MetalFX
+preset titles show the scene size on this device and target, raised to the
+target / MetalFX's largest scale, marked "(MetalFX's limit)" (an iPad's
+native target: Balanced to Ultra alike), Stefan's call delegated. Energy
+baseline label fix included. IPA
+`ios/build/NFSMW-0.6.1-dev153-ipad-pacing-metalfx-titles.ipa`, on Desktop.
+
 ## November 16, 2026 — dev152 iPad result; iPad 60 fps pacing next
 
 Log `Debug/16 November 2026/dev152_ipad_metalfx_presets_nfsmw.log`. Native
