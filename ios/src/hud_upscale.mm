@@ -173,7 +173,7 @@ bool Photo(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
 }
 
 bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
-  if (Soft(in, w, h) || Photo(in, w, h)) return false;
+  if (size_t(w) * h >= size_t(1024) * 512 || Soft(in, w, h) || Photo(in, w, h)) return false;  // dev189: backdrops too
   MLModel* model = Model();
   std::lock_guard<std::mutex> predicting(g_model_lock);
   if (!model || !Supported(w) || !Supported(h)) return false;
@@ -345,6 +345,20 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a5.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
+        // dev189 (Stefan: the title screen's backdrop, the M3 GTR with the
+        // police behind it, still came out oily on the iPhone): screen-sized
+        // pictures (1024x512 and up) are backdrops, not HUD art. They keep the
+        // original texture whatever the colour count says, ahead of any
+        // prepared or cached copy made by an earlier build.
+        if (size_t(w) * h >= size_t(1024) * 512) {
+          Result o{key, 0, 0, {}};
+          o.plain = true;
+          static uint32_t said_big = 0;
+          if (said_big++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (backdrop)", w, h);
+          std::lock_guard<std::mutex> g(g_lock);
+          g_done.push_back(std::move(o));
+          return;
+        }
         if (content_hash && LoadPng(PreparedFile(content_hash, w, h), r.width, r.height, r.rgba)) {
           r.prepared = true;
           static uint32_t said = 0;

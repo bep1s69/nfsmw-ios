@@ -768,6 +768,27 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev188 iPhone 60 workers A/B (log only); dev189 backdrop plain
+
+Log `Debug/17 November 2026/dev188_iphone_60_workers_ab_pursuits_nfsmw.log`
+(SHA256 2d081f2e..., Desktop copy deleted). Launch A 01:19:49
+`--ios_adaptive_qos_workers=false` (log: "guest workers and render queue stay
+at Utility"), two pursuits; launch B 01:24:44 default ("follow the mode"), one
+pursuit. Both at Default the whole time (UI only in the last second at the
+bust). Pacing: A 0-3 off per 300, B 0-4 off per 300. Hitch lines in the
+drives: A1 one event at 01:21:41 (encode waiting 43.8 ms for a drawable, two
+lines; the two hitches Stefan saw), A2 one at the pursuit's end, B one at
+its start. So workers at Utility still hold 60; no Power Profiler traces, so
+the energy question is open ("% of a core" is inflated on E cores: A 165-180,
+B 152). Next: the same pair with Power Profiler.
+
+Stefan: the title screen backdrop (M3 GTR with police) still upscaled and
+oily on the iPhone, fine on the iPad. Log: `1024x512 from disk` (a runtime
+`_a5` cache copy): the photo rule (over 1500 colours) did not catch it.
+dev189: textures of 1024x512 and larger always keep the original texture
+(before prepared/cached copies are looked up, and in Upscale). IPA
+`ios/build/NFSMW-0.6.1-dev189-backdrop-plain.ipa` (Desktop, dev188 removed).
+
 ## November 17, 2026 — dev188 scheduler rules checked against the best results
 
 Stefan: make the new scheduler match the best earlier results in every
