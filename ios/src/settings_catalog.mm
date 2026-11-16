@@ -542,10 +542,11 @@ const std::vector<Section>& Sections() {
             @"native",
             {{@"Native", @"native"}, {@"0.75x of native", @"0.75"}}, kInGame | kInGameNative | kNativeOnly,
             "nfsmw_native_metalfx_target"},
-           {@"sharp_hud", Type::kSwitch, @"Sharp HUD",
-            @"Below the screen's resolution: the HUD, mirror frame and menus drawn at the screen's "
-            @"pixels with their textures upscaled, while the 3D scene keeps the Render resolution. "
-            @"About 1 ms more GPU time per frame. Always on with MetalFX upscaling.",
+           {@"sharp_hud", Type::kSwitch, @"Sharp HUD (AI upscaling, experimental)",
+            @"Below the screen's resolution: the HUD, menus, tooltips and maps drawn at the screen's "
+            @"pixels, with their textures upscaled on this device by an AI model (Real-ESRGAN, on "
+            @"the Neural Engine, once each, kept on disk), while the 3D scene keeps the Render "
+            @"resolution. About 1 ms more GPU time per frame. Always on with MetalFX upscaling.",
             @"false", {}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_hud_split"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. Higher caps make motion smoother when the game "
