@@ -768,6 +768,32 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev176 iPad pursuit trace; dev177
+
+Stefan (standing rule, again): delete Desktop logs/traces once archived and
+verified. Archived: `Debug/16 November 2026/dev176_pursuit_busted_nfsmw.log`
+(SHA256 073d16b4...512a) and `dev176_pursuit_busted.trace` (iPad Pro M4,
+Time Profiler 204 s; tree hash a73d0840...68c5), Desktop copies deleted.
+Challenge Series pursuit, busted at the end on purpose.
+Camera: in this pursuit the free look moved with speed/slopes again: no
+`[look] fixed` line, the dev176 path (mover+0x250 -> +0x4) did not hold
+there. dev177: the car matrix path is searched like the probe (mover
+pointers, one or two levels, position within 10 of the look-at with three
+unit rows), cached per mover, re-searched every 3 s while missing;
+`[look] car matrix: mover+X > +Y +K` logged.
+Trace (pursuit part, after 40 s): XThreadD80B ~31.6 s of samples (game
+simulation: sub_823AFE20 / sub_823B0008 / sub_8261A318 inclusive), Main
+XThread ~26.9 s (sub_82699100 self 4.5 s), GPU Commands ~25.5 s (Record
+self 11.8 s), render queue blocks on workqueue threads (~20 s, ~14 s, ~14 s:
+RenderFrame), audio XThread10807 ~14 s (XMA / WMA decode). Log [cpu]: ~105-
+140% of a core in the pursuit. Not yet split pursuit vs free roam (no
+baseline in this trace). Found: `hud_upscale::Upscale` 17.6 s of samples,
+mostly in the first ~30 s (tid at ~63% of a core): -[MLMultiArray
+dataPointer] called per value; and textures kept plain (soft/photo) were
+re-judged each time. dev177 reads the output pointer once and remembers the
+plain verdicts (by pixel hash). A likely part of the iPad warmth with Sharp
+HUD on. IPA `ios/build/NFSMW-0.6.1-dev177-look-search-ai-cpu.ipa`.
+
 ## November 16, 2026 — dev176 confirmed: free look fixed to the car
 
 Stefan: fixed now, both for elevation changes and the speed-related zoom.

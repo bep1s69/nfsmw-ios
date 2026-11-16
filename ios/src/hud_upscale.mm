@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 
 #include <rex/cvar.h>
@@ -203,9 +204,12 @@ bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector
       const size_t ys_c = y.strides[1].unsignedLongValue, ys_h = y.strides[2].unsignedLongValue,
                    ys_w = y.strides[3].unsignedLongValue;
       const bool half = y.dataType == MLMultiArrayDataTypeFloat16;
+      // The output's memory once (dev177: -[MLMultiArray dataPointer] per
+      // value was most of the upscaler's CPU time in the iPad pursuit trace).
+      const void* yp = y.dataPointer;
       auto at = [&](int c, uint32_t yy, uint32_t xx) -> float {
         const size_t off = c * ys_c + yy * ys_h + xx * ys_w;
-        return half ? float(static_cast<const _Float16*>(y.dataPointer)[off]) : static_cast<const float*>(y.dataPointer)[off];
+        return half ? float(static_cast<const _Float16*>(yp)[off]) : static_cast<const float*>(yp)[off];
       };
       // The tile's middle, in output (2x) pixels.
       const uint32_t cw = std::min(kCore, w - tx), ch = std::min(kCore, h - ty);
@@ -248,11 +252,12 @@ bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector
         const size_t ys_c = y.strides[1].unsignedLongValue, ys_h = y.strides[2].unsignedLongValue,
                      ys_w = y.strides[3].unsignedLongValue;
         const bool half = y.dataType == MLMultiArrayDataTypeFloat16;
+        const void* yp = y.dataPointer;
         auto at = [&](uint32_t yy, uint32_t xx) -> float {
           float v = 0;
           for (int c = 0; c < 3; ++c) {
             const size_t off = c * ys_c + yy * ys_h + xx * ys_w;
-            v += half ? float(static_cast<const _Float16*>(y.dataPointer)[off]) : static_cast<const float*>(y.dataPointer)[off];
+            v += half ? float(static_cast<const _Float16*>(yp)[off]) : static_cast<const float*>(yp)[off];
           }
           return v / 3.0f;
         };
@@ -344,10 +349,23 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
           g_done.push_back(std::move(r));
           return;
         }
+        // Textures already judged soft or photographic (kept plain): not
+        // run again (dev177: new texture objects for the same picture kept
+        // asking).
+        static std::mutex plain_lock;
+        static std::set<uint64_t> plain;
+        {
+          std::lock_guard<std::mutex> g(plain_lock);
+          if (plain.count(hash)) return;
+        }
         bool from_disk = LoadPng(file, r.width, r.height, r.rgba);
         const auto t0 = std::chrono::steady_clock::now();
         if (!from_disk) {
           if (!Upscale(in, w, h, r.rgba)) {
+            {
+              std::lock_guard<std::mutex> g(plain_lock);
+              plain.insert(hash);
+            }
             static uint32_t fails = 0;
             if (fails++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (soft or photographic art, or no model)", w, h);
             return;

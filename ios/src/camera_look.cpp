@@ -300,34 +300,81 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     static float rest_back = 0, rest_up = 0, rest_target_up = 0;
     bool ok = false;
     float cp[3], ax[3][3];
-    // Two pointers: the dev172 probe's path was mover+0x250 -> +0x4 -> the
-    // matrix object (dev173-175 read one level too early and never engaged).
-    uint32_t car = 0;
-    {
-      const uint32_t p1 = REX_LOAD_U32(mover + 0x250);
-      uint8_t q[4];
-      vm_size_t got = 0;
-      if (p1 >= 0x40000000u && p1 < 0xC0000000u &&
-          vm_read_overwrite(mach_task_self(), vm_address_t(base + p1 + 4), 4, vm_address_t(q), &got) == KERN_SUCCESS &&
-          got == 4)
-        car = uint32_t(q[0]) << 24 | uint32_t(q[1]) << 16 | uint32_t(q[2]) << 8 | q[3];
-    }
-    if (REXCVAR_GET(nfsmw_look_fixed_orbit) && car >= 0x40000000u && car < 0xC0000000u) {
-      uint8_t m[0x40];
-      vm_size_t got = 0;
-      if (vm_read_overwrite(mach_task_self(), vm_address_t(base + car + 0x24), sizeof(m), vm_address_t(m), &got) ==
-              KERN_SUCCESS && got == sizeof(m)) {
-        auto f = [&](int o) {
-          const uint32_t v = uint32_t(m[o]) << 24 | uint32_t(m[o + 1]) << 16 | uint32_t(m[o + 2]) << 8 | m[o + 3];
-          float x;
-          std::memcpy(&x, &v, 4);
-          return x;
-        };
-        for (int r = 0; r < 3; ++r)
-          for (int c = 0; c < 3; ++c) ax[r][c] = f(r * 16 + c * 4);
-        for (int c = 0; c < 3; ++c) cp[c] = f(0x30 + c * 4);
-        ok = std::isfinite(cp[0]) && std::fabs(cp[0] - tx) < 10 && std::fabs(cp[1] - ty) < 10 &&
-             std::fabs(cp[2] - tz) < 10;
+    // The car's matrix: found by a search like the dev172 probe's and kept
+    // (dev177: in a Challenge Series pursuit the dev176 path, mover+0x250 ->
+    // +0x4, did not hold and the free look fell back to the sprung camera).
+    // Paths: mover+o1 -> object (+o2 -> object) with a position within 10
+    // of the look-at point at +k and three unit rows before it.
+    if (REXCVAR_GET(nfsmw_look_fixed_orbit)) {
+      static uint32_t path_mover = 0, o1 = 0x250, o2 = 4, kpos = 0x54;
+      static bool two = true;
+      static auto next_search = now;
+      auto rd = [&](uint32_t a, uint8_t* out, size_t n) {
+        vm_size_t got = 0;
+        return a >= 0x40000000u && a < 0xC0000000u &&
+               vm_read_overwrite(mach_task_self(), vm_address_t(base + a), n, vm_address_t(out), &got) ==
+                   KERN_SUCCESS && got == n;
+      };
+      auto be = [](const uint8_t* q) { return uint32_t(q[0]) << 24 | uint32_t(q[1]) << 16 | uint32_t(q[2]) << 8 | q[3]; };
+      auto fl = [&](const uint8_t* q) { const uint32_t v = be(q); float x; std::memcpy(&x, &v, 4); return x; };
+      auto matrix_at = [&](const uint8_t* q, bool fill) {  // q points at the position; rows 48..16 bytes before
+        const float px = fl(q), py = fl(q + 4), pz = fl(q + 8);
+        if (!std::isfinite(px) || std::fabs(px - tx) > 10 || std::fabs(py - ty) > 10 || std::fabs(pz - tz) > 10)
+          return false;
+        float r[3][3];
+        for (int i = 0; i < 3; ++i) {
+          for (int c = 0; c < 3; ++c) r[i][c] = fl(q - 48 + i * 16 + c * 4);
+          const float l = std::sqrt(r[i][0] * r[i][0] + r[i][1] * r[i][1] + r[i][2] * r[i][2]);
+          if (!std::isfinite(l) || std::fabs(l - 1.0f) > 0.02f) return false;
+        }
+        if (fill) {
+          std::memcpy(ax, r, sizeof(r));
+          cp[0] = px, cp[1] = py, cp[2] = pz;
+        }
+        return true;
+      };
+      auto try_path = [&](uint32_t m, uint32_t a1, uint32_t a2, bool second, uint32_t k) {
+        uint8_t q[4];
+        if (!rd(m + a1, q, 4)) return false;
+        uint32_t obj = be(q);
+        if (second) {
+          if (!rd(obj + a2, q, 4)) return false;
+          obj = be(q);
+        }
+        uint8_t mm[64];
+        return k >= 48 && rd(obj + k - 48, mm, sizeof(mm)) && matrix_at(mm + 48, true);
+      };
+      ok = path_mover == mover && try_path(mover, o1, o2, two, kpos);
+      if (!ok && (path_mover != mover || now >= next_search)) {
+        next_search = now + std::chrono::seconds(3);
+        uint8_t mv[0x400];
+        bool found = false;
+        if (rd(mover, mv, sizeof(mv))) {
+          for (uint32_t a1 = 0; a1 < sizeof(mv) && !found; a1 += 4) {
+            const uint32_t p1 = be(mv + a1);
+            if (p1 >= mover && p1 < mover + 0x400) continue;
+            uint8_t ob[0x600];
+            if (!rd(p1, ob, sizeof(ob))) continue;
+            for (uint32_t k = 48; k + 12 <= sizeof(ob) && !found; k += 4)
+              if (matrix_at(ob + k, false)) found = true, o1 = a1, two = false, kpos = k;
+            for (uint32_t a2 = 0; a2 < 0x100 && !found; a2 += 4) {
+              const uint32_t p2 = be(ob + a2);
+              uint8_t o2b[0x600];
+              if (!rd(p2, o2b, sizeof(o2b))) continue;
+              for (uint32_t k = 48; k + 12 <= sizeof(o2b) && !found; k += 4)
+                if (matrix_at(o2b + k, false)) found = true, o1 = a1, o2 = a2, two = true, kpos = k;
+            }
+          }
+        }
+        if (found) {
+          path_mover = mover;
+          ok = try_path(mover, o1, o2, two, kpos);
+          REXLOG_INFO("[look] car matrix: mover+{:x}{} +{:x} ({})", o1, two ? fmt::format(" > +{:x}", o2) : "", kpos,
+                      ok ? "ok" : "not confirmed");
+        } else {
+          static int misses = 0;
+          if (misses++ < 10) REXLOG_INFO("[look] car matrix not found (mover {:08x})", mover);
+        }
       }
     }
     if (ok) {
