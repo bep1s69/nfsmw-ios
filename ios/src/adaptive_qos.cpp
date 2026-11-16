@@ -101,6 +101,9 @@ REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
 REXCVAR_DEFINE_BOOL(nfsmw_low_background, true, "Kernel",
                     "Cap controller: its lowest level is Background QoS (the efficiency cores only) for the frame "
                     "threads and guest workers, at every cap (dev179; before: Utility above 30)");
+REXCVAR_DEFINE_BOOL(nfsmw_ipad_tolerant_low, true, "Kernel",
+                    "Cap controller: on iPads with 6+ efficiency cores at caps up to 60, Low (efficiency cores) "
+                    "steps up only when a fifth of the last 60 frames were late, as at 30/40");
 REXCVAR_DEFINE_BOOL(nfsmw_drive_step_down, true, "Kernel",
                     "Cap controller: while driving, one level down after a calm stretch (15 s on 6+ efficiency-core "
                     "iPads, 30 s on phones); back up and kept for the drive if late again within 10 s");
@@ -448,7 +451,13 @@ void OnSwap(double interval_ms) {
     if (drive_ui && floor_level == 1) floor_level = 2;
     // On Low while driving at 30/40 an isolated late frame is accepted (Eco's
     // behaviour): step up only when a fifth of the last 60 frames were late.
-    const int up_threshold = (drive && m == 0 && cap <= 40) ? 12 : 3;
+    // dev185: iPads with 6+ efficiency cores also accept isolated late frames
+    // on Low while driving at 60 (a fifth of the last 60 before stepping up):
+    // the Nov 3-4 tablet profile (dev50 trace: frame threads entirely on the
+    // efficiency cores, dev62 24.0 vs 28 %/h, smooth for Stefan) never
+    // boosted; dev183/184 logs show Low lasting only 7-15 s on the 3-of-60 rule.
+    const bool tolerant = REXCVAR_GET(nfsmw_ipad_tolerant_low) && efficiency_cores >= 6 && cap <= 60;
+    const int up_threshold = (drive && m == 0 && (cap <= 40 || tolerant)) ? 12 : 3;
     static bool was_driving = false;
     bool started = false;
     if (drive != was_driving) {

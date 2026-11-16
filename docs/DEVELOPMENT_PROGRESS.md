@@ -768,6 +768,27 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev184 Sharp HUD off; dev185 iPad tolerant Low
+
+`Debug/17 November 2026/dev184_ipad_sharp_hud_off_nfsmw.log` (archived,
+Desktop copy deleted): Sharp HUD off, same outcome: Low at drive start, up
+to Default after ~9 s (00:37:26), calm step-down 00:37:41, up 00:37:52, down
+00:38:07, late again at once -> latched Default; learned Default. So Sharp
+HUD is not the reason. Stefan asked whether the iPad really held 1.5x / 60
+on the efficiency cores before: yes per the record: Nov 3 dev50 System
+Trace (iPad Pro M4): Balanced ran GPU Commands, Main XThread and the guest
+workers essentially entirely on E cores (same work ~1.8-1.9x the core time
+of P); Nov 4 dev62 restored that tablet profile (Utility, no adaptive boost
+below 120): 24.0 vs 28 %/h, smooth for Stefan. The difference now: the cap
+controller steps up on 3 late frames of 60, the old tablet profile never
+boosted. dev185 (`nfsmw_ipad_tolerant_low`, default true): on 6+ E-core iPads
+at caps up to 60, Low steps up only when 12 of the last 60 frames were late
+(the 30/40-cap rule). Boost scope (answer to Stefan): a step up raises the
+two frame threads (Main XThread, GPU Commands) and the guest workers
+together (`ios_adaptive_qos_workers` default true); the render queue follows
+its own rule (Utility at 41-60 fps); the UI main thread is not touched.
+IPA `ios/build/NFSMW-0.6.1-dev185-ipad-tolerant-low.ipa`, on Desktop.
+
 ## November 17, 2026 — dev183 iPad run
 
 Archived (verified, Desktop copies deleted): `Debug/17 November 2026/
