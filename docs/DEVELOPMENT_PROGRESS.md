@@ -768,6 +768,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev186 iPhone at 40 and 30
+
+`Debug/17 November 2026/dev186_iphone_40_then_30_nfsmw.log`, same race
+twice. Low is Utility again. 40 fps: started at the learned Default (learned
+in the dev185 Background run), no step during the drive, pacing 0-6 off per
+300 after the start (76 during load), no CoreAudio gaps; the drive lasted
+~119 s, just under the 120 s calm rule, so the start level stayed Default.
+30 fps: Low (Utility) from the start, never stepped up, pacing 0-2 off after
+the start (45 at load), no audio gaps.
+
 ## November 17, 2026 — dev185 iPhone at 40: Background broke it; dev186
 
 Stefan: the iPhone no longer holds 40 on the efficiency cores, with audio
