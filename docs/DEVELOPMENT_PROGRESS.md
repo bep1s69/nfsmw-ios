@@ -752,6 +752,28 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev145 logs; dev146 per-draw HUD split (MetalFX step 1b)
+
+dev145 `[hud-split]` logs (`Debug/16 November 2026/dev145_ipad_hud_split_nfsmw.log`,
+`dev145_iphone_hud_split_nfsmw.log`; iPhone at 1x). Same tail on both: post
+composite ps 20710a9a2fef88e9 (blend off, full viewport), 20 x ps
+36dac18d9d15b7a8 (post group), mirror frame ps 8436534cfafcc0eb, then HUD
+draws (ps 2d8bf2c63ddd2608 ...; 67-86), final resolve. iPhone: own target
+000_1600_0_d47c_s1 (67-87 draws, composite resolve -> 09689000 after the
+composite, final -> 08dbb000); iPad: inside the scene target
+000_960_0_d5e4_s1 (850-1700 draws; resolves -> 0983e000 before the
+composite, final -> 0958c000). Stefan: iPhone presentation smooth, frames
+16.67 ms apart apart from a few hitches.
+dev146 (`nfsmw_native_hud_split`, default true; replaces dev144's
+whole-target rule): below the screen's scale, draws from the first one after
+the post group on the displayed target go to a virtual target `KEY|hud` at
+the screen's scale (1 sample), which starts with the base target's picture
+scaled up (bilinear, "sharp HUD: picture scaled up" pass); the displayed
+resolve and later resolves of that target read it (`resolve_key`). Base
+target's colour kept for the upscale; colour handoff off for both keys.
+Log `[native] sharp HUD: from draw N on KEY at S`. `[hud-split]` log still
+on. IPA `ios/build/NFSMW-0.6.1-dev146-hud-split.ipa`, on Desktop. Untested.
+
 ## November 16, 2026 — dev144 iPad result; dev145 HUD split diagnostic
 
 dev144 on the iPad (1.5x, log `Debug/16 November 2026/dev144_ipad_sharp_hud_nfsmw.log`,

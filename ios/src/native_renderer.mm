@@ -148,9 +148,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_hud_full_res, false, "GPU",
-                    "Native renderer: below the screen's scale, the displayed target (post composite, "
-                    "HUD, menus) drawn at the screen's scale so that the HUD stays sharp");
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split, true, "GPU",
+                    "Native renderer: below the screen's scale, the HUD (the draws after the game's post "
+                    "effects) drawn at the screen's scale so that it stays sharp");
 
 REXCVAR_DEFINE_INT32(nfsmw_native_external_queue, 3, "GPU",
                      "iOS: external display frames allowed to wait to be shown before the next is "
@@ -4395,6 +4395,37 @@ id<MTLRenderPipelineState> ScaledCopyPipeline(id<MTLDevice> device, MTLPixelForm
   return made[format] = [device newRenderPipelineStateWithDescriptor:desc error:&error];
 }
 
+// Sharp HUD: a picture scaled up to the whole target (bilinear).
+id<MTLRenderPipelineState> UpscalePipeline(id<MTLDevice> device, MTLPixelFormat format) {
+  static std::map<MTLPixelFormat, id<MTLRenderPipelineState>> made;
+  auto it = made.find(format);
+  if (it != made.end()) return it->second;
+  static id<MTLLibrary> library;
+  if (!library) {
+    NSString* source = @"#include <metal_stdlib>\n"
+                        "using namespace metal;\n"
+                        "struct V { float4 p [[position]]; float2 uv; };\n"
+                        "vertex V vs(uint id [[vertex_id]]) {\n"
+                        "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                        "  V v; v.p = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0); v.uv = uv; return v; }\n"
+                        "fragment float4 ps(V in [[stage_in]], texture2d<float> t [[texture(0)]]) {\n"
+                        "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+                        "  return t.sample(s, in.uv); }\n";
+    NSError* error = nil;
+    library = [device newLibraryWithSource:source options:nil error:&error];
+    if (!library) {
+      REXLOG_WARN("[native] upscale shader: {}", error.localizedDescription.UTF8String);
+      return made[format] = nil;
+    }
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+  desc.colorAttachments[0].pixelFormat = format;
+  NSError* error = nil;
+  return made[format] = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+}
+
 // --- GPU-side state kept across frames (render queue only) ----------------------
 
 struct GpuBuffer {
@@ -6042,6 +6073,69 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       }
     }
     size_t draw_number = 0;
+    // Sharp HUD (dev146): the game's frame ends, on the target it displays,
+    // with its post composite (ps 20710a9a), the post group drawn over it
+    // (ps 36dac18d), then the mirror's frame and the HUD (the menus' 2D too).
+    // On the iPhone that target is a post target of its own, on the iPad the
+    // scene's (logged by [hud-split], November 16). Below the screen's scale,
+    // the draws from the first one after the post group are drawn into a
+    // target of their own at the screen's scale ("|hud"), which starts as the
+    // picture so far scaled up: the HUD at the screen's pixels, the scene and
+    // its post effects at the chosen scale. The displayed resolve reads it.
+    size_t hud_from = SIZE_MAX;
+    std::string hud_base, hud_virtual;
+    float hud_scale = 0.0f;
+    if (REXCVAR_GET(nfsmw_native_hud_split) && !dump && !capture.active) {
+      const float screen_scale = std::min(native_screen_scale.load(), 4.0f);
+      int32_t shown = -1;
+      for (size_t r = frame->resolves.size(); r-- > 0;) {
+        if (!frame->resolves[r].depth && !frame->resolves[r].array) {
+          shown = int32_t(r);
+          break;
+        }
+      }
+      if (shown >= 0 && screen_scale > resolution_scale + 0.01f) {
+        const ResolveEvent& ev = frame->resolves[shown];
+        const size_t upto = std::min<size_t>(ev.after_draws, frame->draws.size());
+        if (upto > 0) {
+          const Draw& last = frame->draws[upto - 1];
+          const std::string base = EdramKey(last.surface_info, last.color_info, last.depth_info);
+          size_t composite = SIZE_MAX;
+          for (size_t i = upto; i-- > 0;) {
+            const Draw& d = frame->draws[i];
+            if (d.ps_key == 0x20710a9a2fef88e9ull && EdramKey(d.surface_info, d.color_info, d.depth_info) == base) {
+              composite = i;
+              break;
+            }
+          }
+          if (composite != SIZE_MAX && !last.second_target) {
+            size_t i = composite + 1;
+            while (i < upto && frame->draws[i].ps_key == 0x36dac18d9d15b7a8ull) ++i;
+            bool same = i < upto;
+            for (size_t j = i; same && j < upto; ++j) {
+              const Draw& d = frame->draws[j];
+              if (EdramKey(d.surface_info, d.color_info, d.depth_info) != base) continue;
+              same = !d.second_target;
+            }
+            if (same) {
+              hud_from = i;
+              hud_base = base;
+              hud_virtual = base + "|hud";
+              hud_scale = screen_scale;
+            }
+          }
+        }
+      }
+      static std::string said;
+      const std::string now = hud_from == SIZE_MAX ? std::string("off")
+                                                   : fmt::format("from draw {} on {} at {:.3f}", hud_from, hud_base, hud_scale);
+      static uint32_t lines = 0;
+      if ((now == "off") != (said == "off") && lines < 40) {
+        ++lines;
+        REXLOG_INFO("[native] sharp HUD: {} (scene {:.3f})", now, resolution_scale);
+      }
+      said = now;
+    }
     auto target_key = [&](const Draw& d) {
       const size_t i = &d - frame->draws.data();
       (void)draw_number;
@@ -6049,7 +6143,15 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       // EDRAM: a resolve copies everything drawn there since its last clear
       // (pass_of is kept for the log only).
       (void)pass_of[i];
-      return EdramKey(d.surface_info, d.color_info, d.depth_info);
+      std::string key = EdramKey(d.surface_info, d.color_info, d.depth_info);
+      if (i >= hud_from && key == hud_base) key = hud_virtual;
+      return key;
+    };
+    // A resolve's own target: the HUD's after its first draw.
+    auto resolve_key = [&](const ResolveEvent& ev) {
+      std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+      if (hud_from != SIZE_MAX && ev.after_draws > hud_from && key == hud_base) key = hud_virtual;
+      return key;
     };
     const bool reuse_target_lookup = TargetLookupEnabled();
     const bool reuse_pipeline_lookup = PipelineLookupEnabled();
@@ -6088,7 +6190,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     uint32_t* setup_depth_only = nullptr;
     for (const Draw& d : frame->draws) {
       if (!setup_prev || setup_prev->surface_info != d.surface_info || setup_prev->color_info != d.color_info ||
-          setup_prev->depth_info != d.depth_info) {
+          setup_prev->depth_info != d.depth_info || size_t(&d - frame->draws.data()) == hud_from) {
         setup_key = target_key(d);
         setup_target = &setup_target_lookup.Find(targets, setup_key, reuse_target_lookup);
         setup_size = &sizes[setup_key];
@@ -6155,8 +6257,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // or more pixels wide, mostly drawn with colour: not a shadow map), and
     // their second targets. Small targets (reflections, the bloom chain) and
     // shadow maps keep the game's.
+    if (!hud_virtual.empty()) sample_counts[hud_virtual] = 1;  // the HUD: no MSAA
     if (forced_samples > 1) {
       for (auto& [key, size] : sizes) {
+        if (key == hud_virtual) continue;
         if (second_of.count(key) || sample_counts[key] > 1 || size.first < 640) continue;
         if (depth_only_draws[key] * 2 > targets[key].draws) continue;
         uint32_t samples = forced_samples;
@@ -6193,7 +6297,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       };
       for (const ResolveEvent& ev : frame->resolves) {
         if (ev.depth) continue;
-        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        std::string key = resolve_key(ev);
         if (!sizes.count(key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size()) {
           key = target_key(frame->draws[ev.after_draws - 1]);  // as the resolve below picks its source
         }
@@ -6219,38 +6323,6 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           scene_pitch = std::max<uint32_t>(scene_pitch, size.first);
       }
     }
-    // Sharp HUD (dev144): the target the frame displays (the source of its
-    // last colour resolve) holds the game's post composite and then the HUD
-    // and menus, drawn over it. Below the screen's own scale it is made at
-    // the screen's scale: the post composite samples the scene's image
-    // (scaled up there, as the present pass did) and the HUD is drawn at the
-    // screen's pixels instead of being stretched with the picture. Not when
-    // that target is the scene itself (many draws: no post target).
-    std::string hud_key;
-    float hud_scale = 0.0f;
-    if (REXCVAR_GET(nfsmw_native_hud_full_res)) {
-      const float screen_scale = native_screen_scale.load();
-      for (size_t r = frame->resolves.size(); r-- > 0;) {
-        const ResolveEvent& ev = frame->resolves[r];
-        if (ev.depth || ev.array) continue;
-        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
-        if (!sizes.count(key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size()) {
-          key = target_key(frame->draws[ev.after_draws - 1]);
-        }
-        if (sizes.count(key) && sizes[key].first >= 640 && targets[key].draws <= 600 &&
-            screen_scale > resolution_scale + 0.01f && !second_of.count(key)) {
-          hud_key = std::move(key);
-          hud_scale = std::min(screen_scale, 4.0f);
-        }
-        break;
-      }
-      static std::string said;
-      const std::string now = hud_key.empty() ? std::string("off") : fmt::format("{} at {:.3f}", hud_key, hud_scale);
-      if (now != said) {
-        said = now;
-        REXLOG_INFO("[native] sharp HUD: displayed target {} (scene {:.3f})", now, resolution_scale);
-      }
-    }
     // HUD split diagnostic (dev145): every 20 s, the displayed target's draws
     // in order (index, shaders, screen-space, blend, depth, viewport) and the
     // resolves taken from it, to find where the scene, the post chain and the
@@ -6262,7 +6334,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       for (size_t r = frame->resolves.size(); r-- > 0;) {
         const ResolveEvent& ev = frame->resolves[r];
         if (ev.depth || ev.array) continue;
-        shown_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        shown_key = resolve_key(ev);
         if (!sizes.count(shown_key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size())
           shown_key = target_key(frame->draws[ev.after_draws - 1]);
         break;
@@ -6294,7 +6366,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     auto scale_of = [&](const std::string& key) -> float {
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
-      if (!hud_key.empty() && k == hud_key) return hud_scale;
+      if (!hud_virtual.empty() && k == hud_virtual) return hud_scale;
       if (cube_sources.count(k)) return 1.0f;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
       if (!shadow && scene_pitch && sizes.count(k) && sizes[k].first * 2 <= scene_pitch) return 1.0f;
@@ -6367,7 +6439,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       for (size_t r = 0; r < frame->resolves.size(); ++r) {
         const ResolveEvent& ev = frame->resolves[r];
         // The source as do_resolve picks it.
-        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        std::string key = resolve_key(ev);
         auto found = targets.find(key);
         if (found == targets.end() || !(found->second.color || sizes.count(key))) {
           if (ev.after_draws == 0 || ev.after_draws > frame->draws.size()) continue;
@@ -6388,6 +6460,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     auto plan_handoff = [&](const std::string& key, const Target& t, float scale, uint32_t pitch, uint32_t height,
                             int32_t& resolve) -> uint32_t {
       if (sizes[key].first < 640 || depth_only_draws[key] * 2 > t.draws) return pitch;  // not a scene: not counted
+      if (!hud_virtual.empty() && (key == hud_base || key == hud_virtual)) return pitch;  // split for the HUD
       auto reject = [&](HandoffPlan why) {
         ++color_handoff_counts.plans[size_t(why)];
         return pitch;
@@ -6559,7 +6632,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       std::string keyed_key;
       auto key_of = [&](const Draw& d) -> const std::string& {
         if (!keyed || keyed->surface_info != d.surface_info || keyed->color_info != d.color_info ||
-            keyed->depth_info != d.depth_info) {
+            keyed->depth_info != d.depth_info || size_t(&d - frame->draws.data()) == hud_from) {
           keyed_key = target_key(d);
         }
         keyed = &d;
@@ -6638,7 +6711,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // for the next frame): the clear values of the last clearing resolve of
     // that layout in this frame.
     for (const ResolveEvent& ev : frame->resolves) {
-      auto it = targets.find(EdramKey(ev.surface_info, ev.color_info, ev.depth_info));
+      auto it = targets.find(resolve_key(ev));
       if (it == targets.end()) continue;
       if (ev.clear_color) {
         const uint32_t c = ev.clear_color_value;
@@ -6989,7 +7062,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       // The source: the EDRAM layout in the resolve's own registers (a
       // thumbnail drawn in another layout may come between the scene and
       // its resolve); the last draw's target if that layout was not drawn.
-      const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+      const std::string own_key = resolve_key(ev);
       auto found = targets.find(own_key);
       const bool own = found != targets.end() && found->second.color;
       Target& src = own ? found->second : targets[target_key(last)];
@@ -7490,7 +7563,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       }
       for (const ResolveEvent& ev : frame->resolves) {
         if (ev.after_draws == 0) continue;
-        const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        const std::string own_key = resolve_key(ev);
         auto found = targets.find(own_key);
         const bool own = found != targets.end() && found->second.color;
         const size_t before = std::min<size_t>(ev.after_draws, frame->draws.size()) - 1;
@@ -7503,6 +7576,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           last_color_read[draw_keys[before]] = ev.after_draws;
         }
       }
+      // The HUD's target starts as the base target's picture: read there.
+      if (!hud_base.empty()) last_color_read[hud_base] = std::max(last_color_read[hud_base], hud_from + 1);
     }
     // Battery: the environment cube's faces drawn half each frame (even
     // faces, then odd), the others kept from the frame before in the cube
@@ -7525,7 +7600,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         }
         if (skip) {
           skip_resolve[r] = 1;
-          const std::string own_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+          const std::string own_key = resolve_key(ev);
           auto found = targets.find(own_key);
           const std::string source = found != targets.end() && found->second.color ? own_key
                                                                                     : target_key(frame->draws[upto - 1]);
@@ -7630,7 +7705,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       static thread_local const Draw* tk_prev = nullptr;
       static thread_local std::string tk_cached;
       if (position == 0 || !tk_prev || tk_prev->surface_info != d.surface_info || tk_prev->color_info != d.color_info ||
-          tk_prev->depth_info != d.depth_info) {
+          tk_prev->depth_info != d.depth_info || di == hud_from) {
         tk_cached = target_key(d);
       }
       tk_prev = &d;
@@ -7729,6 +7804,25 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         rp.colorAttachments[0].texture = t.multisample_color;
         rp.colorAttachments[0].loadAction = clear_color ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.colorAttachments[0].clearColor = t.clear_color ? t.clear_color_value : MTLClearColorMake(0, 0, 0, 0);
+        if (!hud_virtual.empty() && tk == hud_virtual && !t.used) {
+          // The HUD's target starts as the picture so far, scaled up.
+          const Target& base = targets[hud_base];
+          id<MTLRenderPipelineState> up = UpscalePipeline(device, t.color.pixelFormat);
+          if (up && base.color && t.color && base.color.pixelFormat == t.color.pixelFormat) {
+            MTLRenderPassDescriptor* uprp = [MTLRenderPassDescriptor renderPassDescriptor];
+            uprp.colorAttachments[0].texture = t.color;
+            uprp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+            uprp.colorAttachments[0].storeAction = MTLStoreActionStore;
+            if (!lazy_diagnostics || (profile && profile_labels->size() < 255))
+              profile_pass(uprp, "sharp HUD: picture scaled up");
+            id<MTLRenderCommandEncoder> ue = [cb renderCommandEncoderWithDescriptor:uprp];
+            [ue setRenderPipelineState:up];
+            [ue setFragmentTexture:base.color atIndex:0];
+            [ue drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+            [ue endEncoding];
+            rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
+          }
+        }
         if (last_pass && !color_read_later && !t1) {
           // No resolve reads its colour (a shadow map's: only its depth).
           rp.colorAttachments[0].storeAction = MTLStoreActionDontCare;
