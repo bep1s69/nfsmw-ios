@@ -752,6 +752,35 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev161: version 0.6.1 (12); sharp UI prepared ahead of time
+
+Stefan: bump to 0.6.1, label Sharp HUD as AI upscaling, and do AOT now (the
+14 Pro Max is not available yet). Version 0.6.1 / code 12 (d92a623); Display
+row "Sharp HUD (AI upscaling, experimental)". AOT prototype on the Mac against
+the USA ISO (`~/Downloads/Need for Speed - Most Wanted (USA).iso`, read only,
+nothing extracted kept outside the session scratchpad): XDVDFS at 0xFD90000,
+NFS/ZDIR.BIN little-endian 24-byte entries (hash, archive, sector in archive,
+global sector, size, checksum), bStringHash x33 of the upper-case path;
+FRONTB.LZC JDLZ 5,703,541 -> 25,297,188 bytes; texture packs 0xB3300000 with
+name (0x33310001 +0x20), infos 0x33310004 (124 B: name +12, hash +36,
+placement +48, size +56, width +68, height +70), Xenos format dword
+0x33310005 (+20 of 32 B: format bits 0-5, endian 6-7, tiled 8), pixels
+0x33320003 from the next 4 KB file boundary; decoded RGBA visually right
+(METER_BACKING2 arc, COPS_ICON). Packs: FrontEndTextures (394), HudTexturesSingleRace
+(23), HudTexturesGlobal, GlobalMessageTextures (5), PhotoFinish / Language /
+HUDS_Custom (0 found with this layout yet).
+dev161: `ios/src/ui_texture_prep.mm` does this in the app (decoded level 0
+as the renderer's decoder writes it; key `hud_upscale::ContentHash`, also
+computed by the renderer at decode as `Texture::content_hash`), upscales each
+texture with the network (RGB and alpha) and saves
+`Caches/HudUpscale/prepared/<hash>_WxH.png`; "Preparing sharp HUD" progress
+screen after "Preparing graphics" when Sharp HUD or MetalFX is on, once per
+version (`done_v1`). While playing, a texture with a prepared copy loads it
+(with its fetch swizzle as a view) instead of running the network
+(`[hud-ai] WxH prepared copy`). hud_upscale.mm and ui_texture_prep.mm moved to
+the app target (not edition-specific). IPA
+`ios/build/NFSMW-0.6.1-dev161-sharp-ui-aot.ipa`, on Desktop. Untested.
+
 ## November 16, 2026 — dev160 result: much better
 
 dev160 iPad (log `Debug/16 November 2026/dev160_ui_ai_alpha_nfsmw.log`): 47

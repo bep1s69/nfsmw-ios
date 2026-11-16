@@ -32,6 +32,8 @@ std::filesystem::path Run(const std::filesystem::path& documents);
 
 // Responsive preparation screen between Play and starting the game threads.
 void PrepareGraphics();
+// Sharp HUD: the UI textures upscaled ahead of time, with a progress screen.
+void PrepareSharpUi(const std::string& iso);
 
 // The game's arguments for the saved settings ("--name=value" each). They
 // replace the defaults with the same name; Documents/extra_args.txt comes

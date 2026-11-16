@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <mutex>
 #include <string>
 
@@ -36,10 +37,11 @@ NSURL* ModelURL() {
   return [NSBundle.mainBundle URLForResource:@"HudUpscale" withExtension:@"mlmodelc"];
 }
 
-// Serial queue only.
+std::mutex g_model_lock;  // loading and predictions (the queue and the preparation)
 MLModel* Model() {
   static MLModel* model = nil;
   static bool tried = false;
+  std::lock_guard<std::mutex> g(g_model_lock);
   if (tried) return model;
   tried = true;
   NSURL* url = ModelURL();
@@ -103,7 +105,7 @@ bool LoadPng(NSURL* url, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
   return ok;
 }
 
-void SavePng(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>& rgba) {
+void SavePngImpl(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>& rgba) {
   CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
   CGDataProviderRef provider = CGDataProviderCreateWithData(nullptr, rgba.data(), rgba.size(), nullptr);
   CGImageRef image = CGImageCreate(w, h, 8, 32, w * 4, cs, kCGImageAlphaLast | kCGBitmapByteOrder32Big, provider,
@@ -131,6 +133,7 @@ void SavePng(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>& rgb
 // colour is averaged 2x2; the alpha is scaled up bilinearly.
 bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
   MLModel* model = Model();
+  std::lock_guard<std::mutex> predicting(g_model_lock);
   if (!model || !Supported(w) || !Supported(h)) return false;
   NSError* error = nil;
   MLMultiArray* x = [[MLMultiArray alloc] initWithShape:@[ @1, @3, @(kTile), @(kTile) ]
@@ -269,7 +272,7 @@ bool Available() {
   return present && REXCVAR_GET(nfsmw_native_hud_ai);
 }
 
-void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
+void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint64_t content_hash) {
   const uint32_t w = uint32_t(flat.width), h = uint32_t(flat.height);
   if (!Supported(w) || !Supported(h)) return;
   id<MTLBuffer> buffer = [flat.device newBufferWithLength:size_t(w) * h * 4 options:MTLResourceStorageModeShared];
@@ -296,6 +299,14 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
         NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a2.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
+        if (content_hash && LoadPng(PreparedFile(content_hash, w, h), r.width, r.height, r.rgba)) {
+          r.prepared = true;
+          static uint32_t said = 0;
+          if (said++ < 20) REXLOG_INFO("[hud-ai] {}x{} prepared copy", w, h);
+          std::lock_guard<std::mutex> g(g_lock);
+          g_done.push_back(std::move(r));
+          return;
+        }
         bool from_disk = LoadPng(file, r.width, r.height, r.rgba);
         const auto t0 = std::chrono::steady_clock::now();
         if (!from_disk) {
@@ -304,7 +315,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
             if (fails++ < 5) REXLOG_WARN("[hud-ai] {}x{}: not upscaled (model {})", w, h, Model() ? "loaded" : "missing");
             return;
           }
-          SavePng(file, r.width, r.height, r.rgba);
+          SavePngImpl(file, r.width, r.height, r.rgba);
         }
         static uint32_t lines = 0;
         if (lines++ < 60) {
@@ -327,5 +338,36 @@ std::vector<Result> Take() {
   out.swap(g_done);
   return out;
 }
+
+uint64_t ContentHash(const uint8_t* p, size_t n) {
+  uint64_t h = 0xcbf29ce484222325ull ^ n;
+  size_t i = 0;
+  for (; i + 8 <= n; i += 8) {
+    uint64_t v;
+    std::memcpy(&v, p + i, 8);
+    h = (h ^ v) * 0x100000001b3ull;
+    h ^= h >> 29;
+  }
+  for (; i < n; ++i) h = (h ^ p[i]) * 0x100000001b3ull;
+  return h;
+}
+
+bool UpscaleRgba(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
+  return Upscale(in, w, h, out);
+}
+
+NSURL* PreparedFile(uint64_t content_hash, uint32_t w, uint32_t h) {
+  static NSURL* dir = [] {
+    NSURL* d = [CacheDir() URLByAppendingPathComponent:@"prepared" isDirectory:YES];
+    [NSFileManager.defaultManager createDirectoryAtURL:d withIntermediateDirectories:YES attributes:nil error:nil];
+    return d;
+  }();
+  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u.png",
+                                                                     (unsigned long long)content_hash, w, h]];
+}
+
+void SavePngFile(NSURL* url, uint32_t w, uint32_t h, const std::vector<uint8_t>& rgba) { SavePngImpl(url, w, h, rgba); }
+
+bool ModelPresent() { return ModelURL() != nil; }
 
 }  // namespace nfsmw::hud_upscale

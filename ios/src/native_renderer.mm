@@ -1141,6 +1141,7 @@ struct Texture {
   uint32_t depth = 1;          // 3D textures: depth slices in data, one after another
   bool volume = false;
   bool bc_on_gpu = false;      // BC blocks kept, expanded to RGBA8 by a GPU kernel (no BC on this GPU)
+  uint64_t content_hash = 0;   // level 0 decoded (2D, up to 1024): the sharp HUD's prepared-copy key
   uint32_t guest_format = 0;   // the fetch constant's format (diagnostics)
   uint32_t guest_endian = 0;   // the fetch constant's endianness (diagnostics)
   bool guest_tiled = false;    // (diagnostics)
@@ -2707,6 +2708,8 @@ int TextureOf(Frame& frame, const uint32_t* fetch) {
     copy_blocks(base, pitch_blocks, linear_row, face, bh, 0, 0, bw, bh,
                 tex.data.data() + face * face_bytes, tex.row_bytes);
   }
+  if (layers == 1 && !volume && width <= 1024 && height <= 1024 && REXCVAR_GET(nfsmw_native_hud_split))
+    tex.content_hash = nfsmw::hud_upscale::ContentHash(tex.data.data(), face_bytes);
   for (uint32_t level = 1; level <= mip_max; ++level) {
     const uint32_t stored = std::min(level, mip_layout.packed_level);
     const auto& guest = mip_layout.mips[stored];
@@ -8089,13 +8092,31 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                                                                                            width:r.width
                                                                                           height:r.height
                                                                                        mipmapped:NO];
-              ad.usage = MTLTextureUsageShaderRead;
+              ad.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
               ad.storageMode = MTLStorageModeShared;
               id<MTLTexture> ai = [device newTextureWithDescriptor:ad];
               if (!ai) continue;
               [ai replaceRegion:MTLRegionMake2D(0, 0, r.width, r.height) mipmapLevel:0 withBytes:r.rgba.data()
                     bytesPerRow:r.width * 4];
-              residency::Add(ai);
+              // A prepared copy is the texture's own channels: the source's
+              // swizzle (the fetch swizzle view) on it too.
+              if (r.prepared) {
+                const MTLTextureSwizzleChannels sw = it2->second.source.swizzle;
+                if (sw.red != MTLTextureSwizzleRed || sw.green != MTLTextureSwizzleGreen ||
+                    sw.blue != MTLTextureSwizzleBlue || sw.alpha != MTLTextureSwizzleAlpha) {
+                  id<MTLTexture> view = [ai newTextureViewWithPixelFormat:ai.pixelFormat
+                                                              textureType:MTLTextureType2D
+                                                                   levels:NSMakeRange(0, 1)
+                                                                   slices:NSMakeRange(0, 1)
+                                                                  swizzle:sw];
+                  if (view) {
+                    residency::Add(ai);  // the texture; the view uses its memory
+                    it2->second.spatial_kept = ai;  // kept alive with the view
+                    ai = view;
+                  }
+                }
+              }
+              if (!(r.prepared && ai.parentTexture)) residency::Add(ai);
               it2->second.next = ai;
               it2->second.next_from = number + 1;
             }
@@ -8195,7 +8216,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                       residency::Add(out);
                       ups[(__bridge const void*)src] = {src, out, number + 1};
                       up = nil;  // bound from the next frame
-                      if (nfsmw::hud_upscale::Available()) nfsmw::hud_upscale::Request((__bridge const void*)src, flat, cb);
+                      if (nfsmw::hud_upscale::Available())
+                        nfsmw::hud_upscale::Request((__bridge const void*)src, flat, cb, ft.content_hash);
                       ++made;
                       ++made_total;
                     }

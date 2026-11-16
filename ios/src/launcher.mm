@@ -34,6 +34,7 @@
 #include <unordered_map>
 
 #include "launcher.h"
+#include "ui_texture_prep.h"
 #include "native_renderer.h"
 #include "settings_catalog.h"
 #include "settings_ui.h"
@@ -1436,6 +1437,62 @@ void PrepareGraphics() {
       const uint32_t n=state.completed.load(std::memory_order_relaxed);
       if(total) {
         detail.text=n<total ? [NSString stringWithFormat:@"%u of %u",n,total] : @"Finishing preparation…";
+        bar.progress=std::min(1.0f,float(n)/total);
+      }
+      [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+  }
+  window.hidden=YES; window.rootViewController=nil;
+  [previous makeKeyAndVisible];
+}
+
+// Sharp HUD: the UI textures upscaled ahead of time (ui_texture_prep.mm),
+// once per version, with the same kind of screen as the graphics' above.
+void PrepareSharpUi(const std::string& iso) {
+  struct State { std::atomic<uint32_t> completed{0},total{0}; std::atomic<bool> done{false}; } state;
+  UIWindowScene* scene=nfsmw::AppScene();
+  UIWindow* previous=scene.keyWindow;
+  UIWindow* window=scene ? [[UIWindow alloc] initWithWindowScene:scene]
+                         : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+  UIViewController* controller=[UIViewController new];
+  controller.view.backgroundColor=UIColor.systemBackgroundColor;
+  UILabel* title=[UILabel new]; title.text=@"Preparing sharp HUD";
+  title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2]; title.textAlignment=NSTextAlignmentCenter;
+  UILabel* detail=[UILabel new]; detail.text=@"Reading the game's menu and HUD textures…";
+  detail.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody]; detail.textAlignment=NSTextAlignmentCenter;
+  UILabel* note=[UILabel new];
+  note.text=@"Each texture is upscaled once on this device with AI and kept. This only happens once.";
+  note.numberOfLines=0;
+  note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]; note.textColor=UIColor.secondaryLabelColor;
+  note.textAlignment=NSTextAlignmentCenter;
+  UIProgressView* bar=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+  UIStackView* stack=[[UIStackView alloc] initWithArrangedSubviews:@[title,detail,bar,note]];
+  stack.axis=UILayoutConstraintAxisVertical; stack.spacing=18; stack.translatesAutoresizingMaskIntoConstraints=NO;
+  [controller.view addSubview:stack];
+  [NSLayoutConstraint activateConstraints:@[
+      [stack.centerXAnchor constraintEqualToAnchor:controller.view.safeAreaLayoutGuide.centerXAnchor],
+      [stack.centerYAnchor constraintEqualToAnchor:controller.view.safeAreaLayoutGuide.centerYAnchor],
+      [stack.widthAnchor constraintLessThanOrEqualToConstant:420],
+      [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:controller.view.safeAreaLayoutGuide.leadingAnchor constant:24],
+      [stack.trailingAnchor constraintLessThanOrEqualToAnchor:controller.view.safeAreaLayoutGuide.trailingAnchor constant:-24]]];
+  window.rootViewController=controller; window.windowLevel=UIWindowLevelNormal+2; [window makeKeyAndVisible];
+  auto* status=&state;
+  const std::string path=iso;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0), ^{
+    @autoreleasepool {
+      nfsmw::ui_texture_prep::Run(path, [status](uint32_t n, uint32_t total) {
+        status->total.store(total,std::memory_order_relaxed);
+        status->completed.store(n,std::memory_order_relaxed);
+      });
+      status->done.store(true,std::memory_order_release);
+    }
+  });
+  while(!state.done.load(std::memory_order_acquire)) {
+    @autoreleasepool {
+      const uint32_t total=state.total.load(std::memory_order_relaxed);
+      const uint32_t n=state.completed.load(std::memory_order_relaxed);
+      if(total) {
+        detail.text=[NSString stringWithFormat:@"%u of %u textures",n,total];
         bar.progress=std::min(1.0f,float(n)/total);
       }
       [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];

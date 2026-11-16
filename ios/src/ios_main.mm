@@ -51,6 +51,7 @@
 #include "external_display.h"
 #include "performance_profile.h"
 #include "launcher.h"
+#include "ui_texture_prep.h"
 #include "memory_report.h"
 #include "native_renderer.h"
 #include "probe.h"
@@ -418,6 +419,16 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
     boot::Trace("game: preparing graphics before SDL/runtime starts");
     nfsmw::launcher::PrepareGraphics();
     boot::Trace("game: graphics preparation finished");
+  }
+  // Sharp HUD (or MetalFX, which uses it): the UI textures upscaled ahead of
+  // time once per version (ui_texture_prep.mm).
+  if ((rex::cvar::Query<bool>("nfsmw_native_hud_split") ||
+       rex::cvar::Query<std::string>("nfsmw_native_metalfx_preset") != "off") &&
+      nfsmw::ui_texture_prep::Needed()) {
+    const std::string iso = rex::cvar::Query<std::string>("game_data_root");
+    boot::Trace("game: preparing the sharp HUD's textures");
+    nfsmw::launcher::PrepareSharpUi(iso);
+    boot::Trace("game: sharp HUD textures prepared");
   }
   boot::Trace("game: initializing the SDL context");
 
