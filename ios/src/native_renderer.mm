@@ -148,6 +148,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx_scene, true, "GPU",
+                    "Native renderer: MetalFX on the 3D scene before the game's post effects, with the "
+                    "post effects and HUD drawn at the output scale (instead of on the finished picture)");
+
 REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split, false, "GPU",
                     "Native renderer: below the screen's scale, the HUD (the draws after the game's post "
                     "effects) drawn at the screen's scale so that it stays sharp");
@@ -6085,8 +6089,23 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     size_t hud_from = SIZE_MAX;
     std::string hud_base, hud_virtual;
     float hud_scale = 0.0f;
-    if (REXCVAR_GET(nfsmw_native_hud_split) && !dump && !capture.active) {
-      const float screen_scale = std::min(native_screen_scale.load(), 4.0f);
+    // MetalFX on the scene (dev147): the colour resolve the post composite
+    // samples (the finished 3D scene) is upscaled by MetalFX temporal to the
+    // output scale, and the frame is split at the composite instead of after
+    // the post group: composite, post effects (motion blur) and HUD at the
+    // output scale. MetalFX sees neither the HUD nor the game's post effects.
+    const bool mfx_scene = MetalFxTemporal() && REXCVAR_GET(nfsmw_native_metalfx_scene) && !dump && !capture.active;
+    int32_t mfx_resolve = -1;
+    float mfx_scale = resolution_scale;
+    if (mfx_scene) {
+      const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
+      const float screen = std::min(native_screen_scale.load(), 4.0f);
+      mfx_scale = mode == "drawn" || !(screen > 0) ? resolution_scale
+                  : mode == "lower"                ? std::max(resolution_scale, 0.75f * screen)
+                                                   : std::max(resolution_scale, screen);
+    }
+    if ((REXCVAR_GET(nfsmw_native_hud_split) || mfx_scene) && !dump && !capture.active) {
+      const float screen_scale = mfx_scene ? mfx_scale : std::min(native_screen_scale.load(), 4.0f);
       int32_t shown = -1;
       for (size_t r = frame->resolves.size(); r-- > 0;) {
         if (!frame->resolves[r].depth && !frame->resolves[r].array) {
@@ -6094,7 +6113,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           break;
         }
       }
-      if (shown >= 0 && screen_scale > resolution_scale + 0.01f) {
+      if (shown >= 0) {
         const ResolveEvent& ev = frame->resolves[shown];
         const size_t upto = std::min<size_t>(ev.after_draws, frame->draws.size());
         if (upto > 0) {
@@ -6108,16 +6127,35 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               break;
             }
           }
+          if (composite != SIZE_MAX && mfx_scene) {
+            // The scene's resolve: the largest colour resolve before the
+            // composite into a texture it samples.
+            const Draw& c = frame->draws[composite];
+            uint64_t best = 0;
+            for (size_t r = 0; r < frame->resolves.size(); ++r) {
+              const ResolveEvent& ev2 = frame->resolves[r];
+              if (ev2.depth || ev2.array || ev2.after_draws > composite) continue;
+              bool sampled = false;
+              for (int t2 = 0; t2 < 16 && !sampled; ++t2)
+                sampled = c.textures[t2] >= 0 && frame->textures[c.textures[t2]]->address == ev2.dest_base;
+              const uint64_t area = uint64_t(std::max(ev2.x1 - ev2.x0, 0)) * uint64_t(std::max(ev2.y1 - ev2.y0, 0));
+              if (sampled && area >= best) {
+                best = area;
+                mfx_resolve = int32_t(r);
+              }
+            }
+          }
           if (composite != SIZE_MAX && !last.second_target) {
             size_t i = composite + 1;
             while (i < upto && frame->draws[i].ps_key == 0x36dac18d9d15b7a8ull) ++i;
+            if (mfx_scene) i = composite;  // with MetalFX: from the composite on
             bool same = i < upto;
             for (size_t j = i; same && j < upto; ++j) {
               const Draw& d = frame->draws[j];
               if (EdramKey(d.surface_info, d.color_info, d.depth_info) != base) continue;
               same = !d.second_target;
             }
-            if (same) {
+            if (same && screen_scale > resolution_scale + 0.01f) {
               hud_from = i;
               hud_base = base;
               hud_virtual = base + "|hud";
@@ -6617,6 +6655,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // shaders' motion entry points; after that draw the scene's depth is
     // copied for MetalFX (later passes on the target do not keep it).
     const bool temporal = MetalFxTemporal();
+    bool mfx_scene_done = false;  // MetalFX ran on the scene's resolve this frame
     const bool motion_debug = REXCVAR_GET(nfsmw_native_motion_debug);
     std::string motion_key;
     size_t last_motion_draw = 0;
@@ -7397,6 +7436,90 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           }
           [blit endEncoding];  // nil when the scaled copy did it and nothing was written back: no-op
         }
+        float registered_scale = scale;
+        static bool mfx_said_linear = false;
+        if (mfx_scene && this_resolve == mfx_resolve && dest && dest.buffer && !mfx_said_linear) {
+          mfx_said_linear = true;
+          REXLOG_WARN("[native] MetalFX on the scene: resolve {:08x} is a linear texture; not upscaled", ev.dest_base);
+        }
+        if (mfx_scene && this_resolve == mfx_resolve && !ev.depth && motion_ready && !motion_debug && dest &&
+            !dest.buffer && motion_texture && motion_depth) {
+          // MetalFX temporal on the scene: the copy just made (jittered,
+          // this frame's motion and depth) to the output scale.
+          static id<MTLFXTemporalScaler> scaler;
+          static id<MTLTexture> upscaled;
+          static NSUInteger made_in_w = 0, made_in_h = 0, made_out_w = 0, made_out_h = 0;
+          static MTLPixelFormat made_format = MTLPixelFormatInvalid;
+          static bool failed = false;
+          static auto last_time = std::chrono::steady_clock::now();
+          const NSUInteger iw = std::min({dest.width, motion_texture.width, motion_depth.width});
+          const NSUInteger ih = std::min({dest.height, motion_texture.height, motion_depth.height});
+          const NSUInteger ow = std::max<NSUInteger>(NSUInteger(std::lround(double(dest.width) * mfx_scale / scale)), iw);
+          const NSUInteger oh = std::max<NSUInteger>(NSUInteger(std::lround(double(dest.height) * mfx_scale / scale)), ih);
+          bool reset = false;
+          if (!(made_in_w == iw && made_in_h == ih && made_out_w == ow && made_out_h == oh &&
+                made_format == dest.pixelFormat && (scaler || failed))) {
+            made_in_w = iw;
+            made_in_h = ih;
+            made_out_w = ow;
+            made_out_h = oh;
+            made_format = dest.pixelFormat;
+            scaler = nil;
+            upscaled = nil;
+            reset = true;
+            failed = true;
+            if ([MTLFXTemporalScalerDescriptor supportsDevice:device]) {
+              MTLFXTemporalScalerDescriptor* td = [MTLFXTemporalScalerDescriptor new];
+              td.inputWidth = iw;
+              td.inputHeight = ih;
+              td.outputWidth = ow;
+              td.outputHeight = oh;
+              td.colorTextureFormat = dest.pixelFormat;
+              td.depthTextureFormat = MTLPixelFormatDepth32Float;
+              td.motionTextureFormat = kMotionFormat;
+              td.outputTextureFormat = dest.pixelFormat;
+              td.autoExposureEnabled = NO;
+              scaler = [td newTemporalScalerWithDevice:device];
+              if (scaler) {
+                MTLTextureDescriptor* od = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:dest.pixelFormat
+                                                                                             width:ow
+                                                                                            height:oh
+                                                                                         mipmapped:NO];
+                od.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
+                od.storageMode = MTLStorageModePrivate;
+                upscaled = [device newTextureWithDescriptor:od];
+                failed = !upscaled;
+              }
+            }
+            REXLOG_INFO("[native] MetalFX on the scene: {}x{} to {}x{}{}", iw, ih, ow, oh,
+                        failed ? ": no scaler on this GPU, plain copy" : "");
+          }
+          metalfx_failed = failed;
+          if (scaler && upscaled) {
+            const uint32_t depth_function = (frame->draws[last_motion_draw].depth_control >> 4) & 7;
+            const auto now_t = std::chrono::steady_clock::now();
+            reset = reset || now_t - last_time > std::chrono::milliseconds(250);
+            last_time = now_t;
+            scaler.colorTexture = dest;
+            scaler.depthTexture = motion_depth;
+            scaler.motionTexture = motion_texture;
+            scaler.outputTexture = upscaled;
+            scaler.inputContentWidth = iw;
+            scaler.inputContentHeight = ih;
+            scaler.jitterOffsetX = jitter[0];
+            scaler.jitterOffsetY = jitter[1];
+            scaler.motionVectorScaleX = float(iw);
+            scaler.motionVectorScaleY = float(ih);
+            scaler.depthReversed = depth_function == 4 || depth_function == 6;
+            scaler.reset = reset;
+            [scaler encodeToCommandBuffer:cb];
+            dest = upscaled;
+            registered_scale = mfx_scale;
+            mfx_scene_done = true;
+            temporal_lod_bias_eighths =
+                std::clamp(int32_t(std::lround(8.0 * std::log2(double(scale) / double(mfx_scale)))), -16, 0);
+          }
+        }
         static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = dest.gpuResourceID;
         // A depth copy (R32Float) where the GPU cannot filter 32-bit floats
         // (A16, M1): sampled nearest, not linear (undefined there).
@@ -7409,13 +7532,13 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         resolved[ev.dest_base] = next_heap++; ++resolved_generation;
         resolved_texture[ev.dest_base] = dest;
         resolved_swap[ev.dest_base] = !ev.depth && ev.swap;
-        resolved_scale[ev.dest_base] = scale;
+        resolved_scale[ev.dest_base] = registered_scale;
         // The texture it replaces: back to the pool after this frame (which
         // may still sample it, from before this resolve).
         if (auto old = kept_resolves.find(ev.dest_base); old != kept_resolves.end() && old->second.texture != dest) {
           gpu_pool.Retire(old->second.texture, number);
         }
-        kept_resolves[ev.dest_base] = {dest, !ev.depth && ev.swap, scale};
+        kept_resolves[ev.dest_base] = {dest, !ev.depth && ev.swap, registered_scale};
         // A face of a cube the frame samples: also copied into that cube.
         for (const CubeTarget& ct : cube_targets) {
           if (ev.dest_base < ct.base || (ev.dest_base - ct.base) % ct.face_stride != 0) continue;
@@ -8834,7 +8957,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         bool temporal_done = false;
         bool temporal_shown = false;  // this frame: the last one shown, for the history's reset
         static bool temporal_last_shown = false;
-        if (temporal && motion_ready && !motion_debug && final_rect.origin.x == 0 && final_rect.origin.y == 0 &&
+        if (temporal && !mfx_scene && motion_ready && !motion_debug && final_rect.origin.x == 0 && final_rect.origin.y == 0 &&
             shown_w + 8 >= NSUInteger(sw) && shown_h + 8 >= NSUInteger(sh)) {
           static id<MTLFXTemporalScaler> scaler;
           static id<MTLTexture> upscaled;
@@ -8944,7 +9067,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           }
         }
         temporal_last_shown = temporal_shown;
-        if (!temporal_done) temporal_lod_bias_eighths = 0;
+        if (!temporal_done && !mfx_scene_done) temporal_lod_bias_eighths = 0;
         // FXAA, without MetalFX.
         id<MTLTexture> source = final_texture;
         if (!temporal_done) {

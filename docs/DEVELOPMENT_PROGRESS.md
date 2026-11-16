@@ -752,6 +752,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev147: MetalFX on the scene (MetalFX step 2)
+
+Stefan: go for step 2; HD HUD textures noted in BACKLOG. dev147
+(`nfsmw_native_metalfx_scene`, default true, only with `--nfsmw_native_metalfx`
+= screen / lower / drawn; still no menu entry): the colour resolve the post
+composite (ps 20710a9a) samples (largest one before it into one of its
+textures) is upscaled by MetalFX temporal (jittered scene copy, this frame's
+motion and depth) to the output scale (screen: `native_screen_scale`; lower:
+0.75 of it; drawn: the render scale, 1:1 anti-aliasing) and registered as
+that resolve's texture at that scale. The frame splits at the composite
+(virtual `KEY|hud` target at the output scale): composite, post group with
+the game's motion blur, mirror frame and HUD drawn at the output scale. The
+old MetalFX on the finished picture is skipped then. Mip bias from scale /
+output. Linear (buffer) resolve textures are not upscaled (warning once).
+Log `[native] MetalFX on the scene: WxH to WxH`. IPA
+`ios/build/NFSMW-0.6.1-dev147-metalfx-scene.ipa`, on Desktop. Untested.
+
 ## November 16, 2026 — dev146 result: works, off by default
 
 Stefan (both devices): no flicker, works; little visible difference on the
