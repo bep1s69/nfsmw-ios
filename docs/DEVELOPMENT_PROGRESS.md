@@ -709,11 +709,16 @@ SHA256 586545b6...17ca). Stefan: held 60 for the most part, some drops in the po
 chase, moderate heat; he counts it as a pass. Log: 4 E cores, every drive started at
 Default with the grace, one genuine step to User Initiated in a pursuit (21:39:50),
 render on Utility during boosts as designed. Per-minute mean fps 59.1-59.8 while
-driving; the chase dip (21:40, min 40 fps) is one 475.7 ms encode at 21:40:13 right
-after "no shader library: vs 5595c163168c74ef (missing)" plus texture streaming,
-not scheduling; 326.5 ms at 21:40:28 is the post-pursuit transition. Thermal mostly
+driving; the chase dip (21:40, min 40 fps) is the BUSTED transition: one 475.7 ms
+encode at 21:40:13 (BUSTED_OVERLAY.fng up 21:40:14.9), not scheduling; 326.5 ms at
+21:40:28 is the post-pursuit transition. CORRECTION (same day): a missing shader
+does not compile or stall; NativeDraw skips that draw (`!d.vs || !d.ps` ->
+skipped_shader). vs 5595c163168c74ef + ps 8c8b535864c59f03 ("vte" rectangle/2D
+shader), 672 indices, target 640, drawn once at the bust: one 2D element of the
+busted effect is not drawn. Seen in 15 logs since Oct 21 on every device (with
+vs 568a011c39fb416c in 16); never investigated, not related to the hitch. Thermal mostly
 Fair, Serious only at 21:42:49-55 after the last drive. CoreAudio no gap windows.
-Follow-up candidate: add vs 5595c163168c74ef to the shipped shader libraries.
+Follow-up candidate: find why vs 5595c163/568a011c have no library and whether the skipped busted-screen draw is visible.
 
 dev133 (Stefan asked, Nov 16): right stick camera while driving (not in drag
 races, where it shifts gear); camera_look.cpp wraps the game's XInputGetState
