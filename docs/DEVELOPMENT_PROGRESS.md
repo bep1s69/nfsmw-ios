@@ -749,6 +749,9 @@ on all 4 frame objects): the frame's objects also get alpha 0 and the
 SHA256 69b59832bdc4fa7e168fe8e6545f513c23d520537a26f6efaf83c67ad182fae0, on Desktop. If this fails too, next is skipping the frame's draws
 in the native renderer, or leaving the frame.
 
+Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
+while looking. Right stick camera done (unpushed, no release yet).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

@@ -30139,3 +30139,8 @@ its flags (present on the shown images; inferred to be a "changed" bit),
 saving and restoring alpha and the hidden bit on release. Build exit 0,
 `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev139-mirror-frame-alpha.ipa`
 SHA256 69b59832bdc4fa7e168fe8e6545f513c23d520537a26f6efaf83c67ad182fae0, on Desktop (dev138 removed from Desktop, kept in ios/build).
+
+Stefan (Nov 16, dev139 on a device with a controller): stick camera "smooth as
+butter" and the mirror (frame and picture) fully hidden while looking. So the
+alpha-0 / 0x00400000 step is what hides the HUD frame (which of the two
+matters was not isolated). Feature accepted as built.
