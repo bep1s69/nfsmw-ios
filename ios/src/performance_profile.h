@@ -16,7 +16,11 @@ inline Policy Resolve(int mode, int efficiency_cores, int cap) {
   // low-priority guest workers, as Eco measured (Nov 9: 12.4-13.3 %/h at 40).
   if (mode == 3) {
     const bool low = efficiency_cores >= 6 && cap > 0 && cap <= 40;
-    return {false, true, true, false, true, low, low};
+    // dev187 (Stefan): phones at the 30 cap too: frame threads at Background
+    // (Nov 5 dev75: iPhone E30 10.8 vs A30 14.0 %/h, smooth); their guest
+    // workers (the audio thread among them) stay at Utility.
+    const bool phone30 = cap > 0 && cap <= 30;
+    return {false, true, true, false, true, low || phone30, low};
   }
   const bool eco = mode == 0, max = mode == 2;
   // Balanced with 6+ efficiency cores (M-series iPads): main and GPU command

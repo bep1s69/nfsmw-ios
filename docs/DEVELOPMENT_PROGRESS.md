@@ -768,6 +768,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev187 iPhones at 30 on Background, with a Utility step
+
+Stefan asked for Background at 30 on iPhones (Nov 5 dev75 measured iPhone
+E30 10.8 vs A30 14.0 %/h, smooth). `performance_profile.h` mode 3: frame
+threads at Background for any device at caps <= 30 (iPads with 6+ efficiency
+cores keep Background at <= 40 as before); guest workers, the audio thread
+among them, stay at Utility (LowWorkers unchanged), so the dev185 audio gaps
+cannot recur. `adaptive_qos.cpp`: when late at Low while Low is Background,
+the controller first relaxes Low to Utility (`background_relaxed`, still the
+efficiency cores in practice, higher priority), resets the late window, and
+only then steps to Default and User Initiated. The relaxation holds until the
+cap changes. Answers Stefan's question: an older iPhone that can't hold 30 on
+Background goes Background -> Utility -> Default -> User Initiated. IPA
+`ios/build/NFSMW-0.6.1-dev187-phone30-background.ipa` (on Desktop, dev186
+removed). Wants: one 30 fps iPhone race (smoothness, CoreAudio gaps).
+
 ## November 17, 2026 — dev186 iPhone at 40 and 30
 
 `Debug/17 November 2026/dev186_iphone_40_then_30_nfsmw.log`, same race

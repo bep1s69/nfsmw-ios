@@ -222,10 +222,14 @@ bool Flag(unsigned flag);
 // Background. ios_background_qos_workers still lowers the workers too.
 enum class LowRole { Frame, Render, Worker };
 bool Controller();
+// dev187: Background found too low on this device and cap: Low is Utility
+// (still the efficiency cores in practice) before any step to Default.
+std::atomic<bool> background_relaxed{false};
 qos_class_t LowQos(LowRole role) {
   static const bool workers = REXCVAR_GET(ios_background_qos_workers);
   static const bool low_background = REXCVAR_GET(nfsmw_low_background);
-  const bool background = (low_background && Controller()) || (role == LowRole::Worker ? workers : Flag(Background));
+  const bool background = !(role == LowRole::Frame && background_relaxed.load(std::memory_order_relaxed)) &&
+                          ((low_background && Controller()) || (role == LowRole::Worker ? workers : Flag(Background)));
   return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
 // ios_boost_threads: whether a boost raises this frame thread (read once).
@@ -356,6 +360,7 @@ void OnSwap(double interval_ms) {
   const unsigned epoch = profile_epoch.load(std::memory_order_acquire);
   if (epoch != seen_epoch) {
     seen_epoch = epoch;
+    background_relaxed.store(false, std::memory_order_relaxed);  // a new cap: Background again where it applies
     RaiseGuestThreads(QOS_CLASS_UNSPECIFIED);
     std::fill(std::begin(late), std::end(late), false);
     at = late_count = 0;
@@ -513,6 +518,16 @@ void OnSwap(double interval_ms) {
     } else if (drive && m < floor_level) {
       m = floor_level;
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
+    } else if (m == 0 && late_count >= up_threshold && LowQos(LowRole::Frame) == QOS_CLASS_BACKGROUND) {
+      // dev187: from Background first to Utility (efficiency cores, higher
+      // priority), then Default; kept until the frame rate cap changes.
+      background_relaxed.store(true, std::memory_order_relaxed);
+      std::fill(std::begin(late), std::end(late), false);
+      late_count = 0;
+      applied = -1;  // re-apply the low class
+      RaiseGuestThreads(QOS_CLASS_UNSPECIFIED);
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] up to Utility from Background (cap {}, {})", cap,
+                                     drive ? "driving" : "not driving");
     } else if (m < 2 && late_count >= up_threshold) {
       ++m;
       if (drive) {
