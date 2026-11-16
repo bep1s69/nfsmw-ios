@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- **Right stick camera.** While driving, a controller's right stick now turns
-  the camera around the car and it swings back behind the car when you let
-  go. In drag races the right stick still shifts gear. On by default, with a
-  speed choice, under Controls > Controller (also in-game).
+- **Right stick camera.** While driving, a controller's right stick shows the
+  car from the side it points to (pull it toward you to see the front) and
+  the camera is back behind the car the moment you let go. In drag races the
+  right stick still shifts gear. On by default under Controls > Controller
+  (also in-game).
 
 - **GPU profiling labels.** Translated shaders now use material-specific
   compiled entry names for GPU diagnostics. Existing shader libraries remain

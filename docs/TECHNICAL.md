@@ -30061,3 +30061,15 @@ are now ignored when mouse look is off). New cvars `nfsmw_stick_look`
 (true) and `nfsmw_stick_look_speed` (1.0); settings Controls > Controller,
 also in-game. Inference, not tested: with manual transmission in normal
 races the controller loses right-stick shifting while the option is on.
+
+dev134 (Stefan tested dev133 on a controller, Nov 16: "it works", but wants
+the camera to follow the stick's direction and return the moment it is
+released; only for a physical controller, touch keeps swipe look, which
+dev133 already did). The stick branch now sets yaw_offset = atan2(-x, y) in
+degrees (up 0 = behind, toward the player 180 = front, left +90 = car's right
+side, right -90 = left side) and pitch 0, no rate and no easing; on release
+both go to 0 at once. Assumption, not checked in code: the game's world is
+right-handed z-up, so +yaw puts the eye on the car's right; if left/right
+come out swapped, negate x. `nfsmw_stick_look_speed` and its setting removed.
+Build exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev134-right-stick-points-camera.ipa`
+SHA256 7b988bb156d9cfe8b51ee82472173513b5b4c35e569fca4603cdea850a41e74c, on Desktop (dev133 removed from Desktop, kept in ios/build). Not run on a device yet.

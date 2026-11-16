@@ -714,6 +714,12 @@ Build exit 0, both wrappers T in camera_look.cpp.o, `unzip -tq` ok. IPA
 (dev132 removed from Desktop, kept in ios/build). Pending: Stefan's controller
 test (free roam, a normal race, a drag race shifting). Not run on a device yet.
 
+dev134 (Stefan, Nov 16, after testing dev133): the right stick now points the
+camera (toward you = front, left = car's right side) and it snaps back on
+release; speed option removed. IPA `ios/build/NFSMW-0.6.1-dev134-right-stick-points-camera.ipa`
+SHA256 7b988bb156d9cfe8b51ee82472173513b5b4c35e569fca4603cdea850a41e74c, on Desktop. Pending: Stefan's test, especially whether left/right
+match his description (one sign flip if swapped).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
