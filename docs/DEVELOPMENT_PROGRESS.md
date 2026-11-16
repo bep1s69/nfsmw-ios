@@ -752,6 +752,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev156 result: AI path never ran; dev157 log
+
+iPad log `Debug/16 November 2026/dev156_hud_ai_nfsmw.log`: 42 spatial HUD
+copies made, but no `[hud-ai]` line at all (no model load, no request, no
+failure): the network never ran, so Stefan's "no difference" says nothing
+about it yet. Stefan also wants all UI upscaled (main menu items, tooltips,
+the maps). dev157 logs whether the model is in the app (path, bundle), the
+setting, the first requests and failures. IPA
+`ios/build/NFSMW-0.6.1-dev157-hud-ai-log.ipa`, on Desktop.
+
 ## November 16, 2026 — dev156: neural-network HUD textures (trial)
 
 Stefan approved trying it now and the downloads: converter venv

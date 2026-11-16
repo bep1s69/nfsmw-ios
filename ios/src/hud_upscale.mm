@@ -180,7 +180,17 @@ bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector
 }  // namespace
 
 bool Available() {
-  static const bool present = ModelURL() != nil;
+  static const bool present = [] {
+    NSURL* url = ModelURL();
+    REXLOG_INFO("[hud-ai] model in the app: {} (bundle {})", url ? url.path.UTF8String : "none",
+                NSBundle.mainBundle.bundlePath.UTF8String);
+    return url != nil;
+  }();
+  static bool said = false;
+  if (!said) {
+    said = true;
+    REXLOG_INFO("[hud-ai] setting {}", REXCVAR_GET(nfsmw_native_hud_ai) ? "on" : "off");
+  }
   return present && REXCVAR_GET(nfsmw_native_hud_ai);
 }
 
@@ -200,6 +210,8 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
     destinationBytesPerRow:w * 4
   destinationBytesPerImage:size_t(w) * h * 4];
   [blit endEncoding];
+  static uint32_t requests = 0;
+  if (requests++ < 3) REXLOG_INFO("[hud-ai] request {}x{}", w, h);
   [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
     dispatch_async(Queue(), ^{
       @autoreleasepool {
@@ -212,7 +224,11 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
         bool from_disk = LoadPng(file, r.width, r.height, r.rgba);
         const auto t0 = std::chrono::steady_clock::now();
         if (!from_disk) {
-          if (!Upscale(in, w, h, r.rgba)) return;
+          if (!Upscale(in, w, h, r.rgba)) {
+            static uint32_t fails = 0;
+            if (fails++ < 5) REXLOG_WARN("[hud-ai] {}x{}: not upscaled (model {})", w, h, Model() ? "loaded" : "missing");
+            return;
+          }
           SavePng(file, r.width, r.height, r.rgba);
         }
         static uint32_t lines = 0;
