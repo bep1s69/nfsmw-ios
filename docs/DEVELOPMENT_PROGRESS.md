@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev154 result; dev155 HUD texture log
+
+iPad, 1.5x, Sharp HUD (log `Debug/16 November 2026/dev154_sharp_hud_textures_nfsmw.log`):
+35 HUD textures upscaled within ~10 s of the race start (1-10 per frame, no
+hitch attributable beyond the race-load frame). Stefan: speedometer and
+minimap still look low-res. Hypotheses: (a) they are drawn into small
+offscreen targets kept at 1x and sampled as resolves (skipped by the
+upscaler); (b) MetalFX spatial 2x only sharpens edges, adds no detail.
+dev155 logs `[hud-tex]` once per (address, size, ps): each HUD draw's
+texture, plain or "resolve (not upscaled)". IPA
+`ios/build/NFSMW-0.6.1-dev155-hud-texture-log.ipa`, on Desktop.
+
 ## November 16, 2026 — dev154: sharp HUD textures (trial)
 
 Stefan: dev153 preset titles OK; try HUD texture upscaling now; 0.6.1 release

@@ -8059,8 +8059,19 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                 const int ti = hd.textures[s2];
                 if (ti < 0 || hud_slot.count(ti) || next_heap >= heap_capacity) continue;
                 const Texture& ft = *frame->textures[ti];
-                if (ft.cube || ft.volume || resolved.count(ft.address)) continue;
+                static std::set<std::tuple<uint32_t, uint32_t, uint32_t, uint64_t>> said_tex;
+                auto note = [&](const char* what, uint32_t w0, uint32_t h0) {
+                  if (said_tex.size() < 400 && said_tex.insert({ft.address, w0, h0, hd.ps_key}).second)
+                    REXLOG_INFO("[hud-tex] {} {:08x} {}x{} fmt {} ps {:016x} draw {}", what, ft.address, w0, h0,
+                                uint64_t(ft.format), hd.ps_key, j);
+                };
+                if (ft.cube || ft.volume) continue;
+                if (resolved.count(ft.address)) {
+                  note("resolve (not upscaled)", ft.width, ft.height);
+                  continue;
+                }
                 id<MTLTexture> src = textures[NSUInteger(ti) + 1];
+                if (src && src != white) note("texture", uint32_t(src.width), uint32_t(src.height));
                 if (!src || src == white || src.textureType != MTLTextureType2D || src.width < 8 || src.height < 8 ||
                     src.width > 1024 || src.height > 1024)
                   continue;
