@@ -768,6 +768,26 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev179: efficiency cores first, learned per device
+
+Stefan: use the efficiency cores as much as possible on iPad and iPhone,
+adapting per device (older iPhones included). dev179 (`adaptive_qos.cpp`):
+- `nfsmw_low_background` (default true): under the cap controller the Low
+  level is Background QoS (efficiency cores only) for the frame threads and
+  guest workers at every cap (was Utility above 30, which iPadOS ran ~91% on
+  P cores in the dev176 trace).
+- `nfsmw_qos_learn` (default true): the driving start level is learned per
+  device and cap (CFPreferences `nfsmw.qos_start_level.cap<N>`): first drive
+  starts at Low; the highest level a drive needed becomes the next start; a
+  drive of 120 s+ that never stepped up lowers it one level. No probing while
+  driving (the existing up-on-3-late-of-60 rule and the 2 s drive-start
+  grace stay). Logs: `[cap-controller] learned start level ...`.
+Risk: a device that needs Default/User Initiated sees a short step-up at the
+start of its first drive (and after a calm long drive lowers it again).
+IPA `ios/build/NFSMW-0.6.1-dev179-ecores-learned-levels.ipa`, on Desktop.
+Needs: pacing check + power pair on both devices (vs dev178 or with
+`--nfsmw_low_background=false --nfsmw_qos_learn=false`).
+
 ## November 16, 2026 — iPad core placement in the pursuit trace
 
 dev176 iPad Pro M4 pursuit trace, all samples: P 1,462,178 / E 1,198,245

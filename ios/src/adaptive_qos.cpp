@@ -47,6 +47,7 @@
 #include "performance_profile.h"
 #include <pthread/qos.h>
 #include <mach/mach.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <algorithm>
 #include <atomic>
@@ -97,6 +98,12 @@ REXCVAR_DEFINE_BOOL(ios_background_qos_workers, false, "Kernel",
 REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_low_background, true, "Kernel",
+                    "Cap controller: its lowest level is Background QoS (the efficiency cores only) for the frame "
+                    "threads and guest workers, at every cap (dev179; before: Utility above 30)");
+REXCVAR_DEFINE_BOOL(nfsmw_qos_learn, true, "Kernel",
+                    "Cap controller: each device learns its driving start level per frame rate cap (kept between "
+                    "sessions): up after a drive that needed a higher level, one down after a long drive that did not");
 REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
                     "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
@@ -180,7 +187,7 @@ qos_class_t BoostQos(int m) {
   return Settings().qos;
 }
 const char* LevelName(int m) {
-  return m <= 0 ? "Low" : m == 1 ? "Default" : "User Initiated";
+  return m <= 0 ? "Low (efficiency cores)" : m == 1 ? "Default" : "User Initiated";
 }
 void PublishProfile(int cap) {
   const int selected = selected_profile.load(std::memory_order_relaxed);
@@ -208,9 +215,11 @@ bool Flag(unsigned flag);
 // dev65's 40 cap starved audio (31 gaps in 5 s) with every worker at
 // Background. ios_background_qos_workers still lowers the workers too.
 enum class LowRole { Frame, Render, Worker };
+bool Controller();
 qos_class_t LowQos(LowRole role) {
   static const bool workers = REXCVAR_GET(ios_background_qos_workers);
-  const bool background = role == LowRole::Worker ? workers : Flag(Background);
+  static const bool low_background = REXCVAR_GET(nfsmw_low_background);
+  const bool background = (low_background && Controller()) || (role == LowRole::Worker ? workers : Flag(Background));
   return background ? QOS_CLASS_BACKGROUND : QOS_CLASS_UTILITY;
 }
 // ios_boost_threads: whether a boost raises this frame thread (read once).
@@ -397,6 +406,33 @@ void OnSwap(double interval_ms) {
     // (Eco 40 measured Nov 9: 17.4-17.5 vs 26-28 %/h, median 39.5-39.7 fps,
     // "almost perfect"); only 60 starts at Default.
     int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    // dev179 (Stefan: as much as possible on the efficiency cores, adapting
+    // to each device, older iPhones included): with the learned start level
+    // a device starts every drive at Low (Background: efficiency cores) until
+    // a drive shows it needs more; the level it needed is kept for that cap
+    // (CFPreferences, between sessions), and after a long drive (60 s+)
+    // that never stepped up (120 s+) it tries one level lower next time. Never probed
+    // while driving (dev108 hitched).
+    static const bool learn = REXCVAR_GET(nfsmw_qos_learn);
+    static int learned_cap = -1, learned = 0;
+    auto pref_key = [](int c) {
+      return CFStringCreateWithFormat(nullptr, nullptr, CFSTR("nfsmw.qos_start_level.cap%d"), c);
+    };
+    if (learn) {
+      if (learned_cap != cap) {
+        learned_cap = cap;
+        learned = 0;
+        CFStringRef key = pref_key(cap);
+        Boolean valid = false;
+        const CFIndex v = CFPreferencesGetAppIntegerValue(key, kCFPreferencesCurrentApplication, &valid);
+        CFRelease(key);
+        if (valid) learned = int(std::clamp<CFIndex>(v, 0, 2));
+        if (lines++ < 200) REXLOG_INFO("[cap-controller] learned start level for cap {}: {}", cap, LevelName(learned));
+      }
+      floor_level = learned;
+    }
+    static Clock::time_point drive_began{};
+    static int drive_max = 0;
     static const bool drive_ui = REXCVAR_GET(nfsmw_drive_start_user_initiated);
     if (drive_ui && floor_level == 1) floor_level = 2;
     // On Low while driving at 30/40 an isolated late frame is accepted (Eco's
@@ -407,6 +443,27 @@ void OnSwap(double interval_ms) {
     if (drive != was_driving) {
       was_driving = drive;
       started = drive;
+      if (drive) {
+        drive_began = now;
+        drive_max = floor_level;
+      } else if (learn) {
+        const double secs = std::chrono::duration<double>(now - drive_began).count();
+        int next = learned;
+        if (drive_max > learned) next = drive_max;
+        else if (secs >= 120 && learned > 0) next = learned - 1;  // two calm minutes: try lower
+        if (next != learned) {
+          learned = next;
+          CFStringRef key = pref_key(cap);
+          CFNumberRef num = CFNumberCreate(nullptr, kCFNumberIntType, &next);
+          CFPreferencesSetAppValue(key, num, kCFPreferencesCurrentApplication);
+          CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+          CFRelease(num);
+          CFRelease(key);
+          if (lines++ < 200)
+            REXLOG_INFO("[cap-controller] learned start level for cap {} now {} (drive {:.0f} s, highest {})", cap,
+                        LevelName(next), secs, LevelName(drive_max));
+        }
+      }
       if (lines++ < 200)
         REXLOG_INFO("[cap-controller] {} (start level {}, cap {})", drive ? "driving: no step down" : "driving stopped: step down allowed",
                     LevelName(floor_level), cap);
@@ -432,6 +489,7 @@ void OnSwap(double interval_ms) {
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
     } else if (m < 2 && late_count >= up_threshold) {
       ++m;
+      if (drive) drive_max = std::max(drive_max, m);
       hold_until = now + std::chrono::seconds(5);
       if (lines++ < 200)
         REXLOG_INFO("[cap-controller] up to {} ({} late frames of 60, cap {}, {})", LevelName(m), late_count, cap,
