@@ -703,6 +703,17 @@ SHA256 c19fafe1017b58c88e09f8080b4156e5e91840db2148fc6c8fda00b4f3b93a60, on Desk
 should hold ~120 fps as dev131 trial-off did.
 Stefan (Nov 16): short dev132 iPhone drive at 120 held 120. Pending: test on an
 iPhone 14 Pro Max when available (older SoC; check 60 holds with render Utility).
+iPhone 14 Pro Max check (Nov 16 21:36-21:43, dev171 build with dev132 scheduling
+defaults, 1x/60, no Extra Args; log `16 November 2026/dev171_iphone14promax_nfsmw.log`,
+SHA256 586545b6...17ca). Stefan: held 60 for the most part, some drops in the police
+chase, moderate heat; he counts it as a pass. Log: 4 E cores, every drive started at
+Default with the grace, one genuine step to User Initiated in a pursuit (21:39:50),
+render on Utility during boosts as designed. Per-minute mean fps 59.1-59.8 while
+driving; the chase dip (21:40, min 40 fps) is one 475.7 ms encode at 21:40:13 right
+after "no shader library: vs 5595c163168c74ef (missing)" plus texture streaming,
+not scheduling; 326.5 ms at 21:40:28 is the post-pursuit transition. Thermal mostly
+Fair, Serious only at 21:42:49-55 after the last drive. CoreAudio no gap windows.
+Follow-up candidate: add vs 5595c163168c74ef to the shipped shader libraries.
 
 dev133 (Stefan asked, Nov 16): right stick camera while driving (not in drag
 races, where it shifts gear); camera_look.cpp wraps the game's XInputGetState
