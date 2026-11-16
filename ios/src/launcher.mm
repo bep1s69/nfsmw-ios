@@ -743,7 +743,7 @@ NSString* AchievementSummary(const Achievements& a) {
     }
     case 2: {
       NSArray* names = PresetNames();
-      NSArray* summaries = @[@"Lower render resolution, half-rate reflections and Eco CPU profile.",
+      NSArray* summaries = @[@"Lower render resolution, half-rate reflections, 30 fps when warm.",
                              @"Original render scale and 60 fps.",
                              @"Native resolution, MSAA 4x and sharper reflections."];
       NSArray* icons = @[@"battery.100", @"gauge.with.dots.needle.50percent", @"sparkles"];

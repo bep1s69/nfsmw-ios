@@ -752,6 +752,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev163: Eco / Balanced / Max gone from the menus
+
+Stefan: remove every mention of the old performance profiles before the
+release. dev163: Battery tab "Performance" row removed (launcher and in-game,
+same catalog); the presets no longer set `performance_mode`; the launcher no
+longer passes `--nfsmw_performance_mode` / `_source` (cap controller default,
+Nov 9; saved choices ignored); first-launch "Longest battery" summary now
+"Lower render resolution, half-rate reflections, 30 fps when warm." IPA
+`ios/build/NFSMW-0.6.1-dev163-no-profile-menus.ipa`, on Desktop.
+
 ## November 16, 2026 — dev162 iPhone Power Profiler baseline (no comparison)
 
 Stefan's on-device Power Profiler recording 18:15:54-18:17:25, archived

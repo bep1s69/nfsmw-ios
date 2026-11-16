@@ -577,15 +577,6 @@ const std::vector<Section>& Sections() {
             @"Native renderer: the render resolution drops to 0.75x while the phone is hot (iOS "
             @"thermal state \"serious\") and goes back to the one chosen once it has cooled down.",
             @"false", {}, kInGame | kInGameNative | kNativeOnly, "nfsmw_heat_scale"},
-           {@"performance_mode", Type::kChoice, @"Performance",
-            @"Which CPU cores the game's threads ask for. Eco: the efficient ones always (the "
-            @"default with Battery mode on), for battery life over smoothness. Balanced: the "
-            @"efficient ones in menus and loading, the fast ones while driving (iPads with 6 or "
-            @"more efficient cores keep their original, tested setting). Max: always the "
-            @"fast ones, for the steadiest frame rate. Sound and the screen's timing keep their "
-            @"own priority in every mode. iOS takes this as a hint, not a fixed choice of cores.",
-            @"balanced",
-            {{@"Eco", @"eco"}, {@"Balanced", @"balanced"}, {@"Max", @"max"}}, kInGame},
        }, kTabBattery},
       {@"HUD", @"Also in the options while playing (the gear in pause screens, or L3+R3), where "
                @"they apply at once: the HUD shows them as soon as driving starts again.",
@@ -834,7 +825,6 @@ NSMutableDictionary<NSString*, NSString*>* LoadSettings(const fs::path& docs) {
       }
     }
     effective[@"fps_cap"] = [s[@"fps_cap"] isEqualToString:@"40"] && SupportsHighFrameRates() ? @"40" : @"30";
-    effective[@"performance_mode"] = s[@"performance_mode"] ?: @"eco";
     [s addEntriesFromDictionary:effective];
   }
   [s removeObjectForKey:@"battery_mode"];
@@ -882,20 +872,18 @@ NSArray<NSString*>* PresetNames() {
 
 static NSDictionary<NSString*, NSString*>* QualityOverrides() {
   return @{@"scale": @"native", @"antialiasing": @"msaa4", @"anisotropic": @"5",
-           @"reflection_size": @"scaled", @"performance_mode": @"max",
+           @"reflection_size": @"scaled",
            @"fps_cap": UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad &&
                         SupportsHighFrameRates() ? @"120" : @"60"};
 }
 
 static bool PresetOption(NSString* key) {
-  return BatteryValue(key) || [key isEqualToString:@"fps_cap"] ||
-         [key isEqualToString:@"performance_mode"];
+  return BatteryValue(key) || [key isEqualToString:@"fps_cap"];
 }
 
 static NSString* PresetValue(const Option& option, NSInteger preset, NSString* fps, NSString* reflection) {
   if (preset == 0) {
     if ([option.key isEqualToString:@"fps_cap"]) return fps;
-    if ([option.key isEqualToString:@"performance_mode"]) return @"eco";
     if ([option.key isEqualToString:@"reflection_rate"]) return reflection;
     return BatteryValue(option.key);
   }
@@ -1097,10 +1085,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_wide_scene_width=" + std::to_string(width));
   }
   a.push_back("--ios_show_fps=" + b(On(s, @"show_fps")));
-  a.push_back("--nfsmw_performance_mode=" + str(@"performance_mode"));
-  a.push_back(std::string("--nfsmw_performance_source=") +
-              (s[@"performance_mode"].length ? "setting"
-                                                              : "default"));
+  // Eco / Balanced / Max removed from the menus (0.6.1, Stefan): the cap
+  // controller replaced them (November 9); saved choices are ignored.
   a.push_back("--nfsmw_hud_scale=" + str(@"hud_scale"));
   a.push_back("--nfsmw_hud_safe_zone=" + str(@"hud_safe_zone"));
   // The HUD editor's layout (it replaced the per-side offsets of 0.4.2).
