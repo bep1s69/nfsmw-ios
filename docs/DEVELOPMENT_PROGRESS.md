@@ -768,6 +768,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev183: back down to the efficiency cores while driving
+
+Stefan: the iPad used to run on the efficiency cores only and now still ends
+up on the performance cores. From the dev181 log: once a drive stepped up
+(e.g. run B at 00:07:45 right after the recording-start GPU hitch) it stayed
+there for the whole drive (no step-down while driving since dev109), and one
+brief step-up taught the learned start level Default. dev183:
+- `nfsmw_drive_step_down` (default true): while driving, one level down after
+  15 s (6+ efficiency-core iPads) or 30 s (phones) without a late frame; if
+  late again within 10 s, back up and latched for the rest of the drive.
+- learning raises the start level only if the drive spent over a third of
+  its time above its start level.
+IPA `ios/build/NFSMW-0.6.1-dev183-calm-step-down.ipa` (includes dev182's
+camera fixes), on Desktop.
+
 ## November 17, 2026 — dev181 iPad power runs; dev182 steady free look
 
 Archived (verified, Desktop copies deleted): `Debug/16 November 2026/

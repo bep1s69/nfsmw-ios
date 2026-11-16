@@ -101,6 +101,9 @@ REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
 REXCVAR_DEFINE_BOOL(nfsmw_low_background, true, "Kernel",
                     "Cap controller: its lowest level is Background QoS (the efficiency cores only) for the frame "
                     "threads and guest workers, at every cap (dev179; before: Utility above 30)");
+REXCVAR_DEFINE_BOOL(nfsmw_drive_step_down, true, "Kernel",
+                    "Cap controller: while driving, one level down after a calm stretch (15 s on 6+ efficiency-core "
+                    "iPads, 30 s on phones); back up and kept for the drive if late again within 10 s");
 REXCVAR_DEFINE_BOOL(nfsmw_qos_learn, true, "Kernel",
                     "Cap controller: each device learns its driving start level per frame rate cap (kept between "
                     "sessions): up after a drive that needed a higher level, one down after a long drive that did not");
@@ -431,8 +434,16 @@ void OnSwap(double interval_ms) {
       }
       floor_level = learned;
     }
-    static Clock::time_point drive_began{};
+    static Clock::time_point drive_began{}, last_late{}, last_tick{}, stepped_down_at{};
     static int drive_max = 0;
+    static double secs_above = 0;  // this drive, above its start level
+    static bool latched = false;   // a step-down was followed by lateness: stay up this drive
+    {
+      const double tick = last_tick.time_since_epoch().count() ? std::chrono::duration<double>(now - last_tick).count() : 0;
+      last_tick = now;
+      if (driving.load(std::memory_order_relaxed) && mode.load(std::memory_order_relaxed) > floor_level)
+        secs_above += std::min(tick, 0.5);
+    }
     static const bool drive_ui = REXCVAR_GET(nfsmw_drive_start_user_initiated);
     if (drive_ui && floor_level == 1) floor_level = 2;
     // On Low while driving at 30/40 an isolated late frame is accepted (Eco's
@@ -446,10 +457,16 @@ void OnSwap(double interval_ms) {
       if (drive) {
         drive_began = now;
         drive_max = floor_level;
+        secs_above = 0;
+        latched = false;
+        last_late = now;
       } else if (learn) {
         const double secs = std::chrono::duration<double>(now - drive_began).count();
         int next = learned;
-        if (drive_max > learned) next = drive_max;
+        // dev183: raised only when the drive spent a third of its time above
+        // its start level (one GPU hitch, e.g. a recording starting, no
+        // longer teaches the iPad to drive on the performance cores).
+        if (drive_max > learned && secs_above > secs / 3) next = drive_max;
         else if (secs >= 120 && learned > 0) next = learned - 1;  // two calm minutes: try lower
         if (next != learned) {
           learned = next;
@@ -489,11 +506,29 @@ void OnSwap(double interval_ms) {
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);
     } else if (m < 2 && late_count >= up_threshold) {
       ++m;
-      if (drive) drive_max = std::max(drive_max, m);
+      if (drive) {
+        drive_max = std::max(drive_max, m);
+        if (stepped_down_at.time_since_epoch().count() && now - stepped_down_at < std::chrono::seconds(10)) {
+          latched = true;  // it needed the level: no more step-downs this drive
+          if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: stays at {} for this drive", LevelName(m));
+        }
+      }
+      last_late = now;
       hold_until = now + std::chrono::seconds(5);
       if (lines++ < 200)
         REXLOG_INFO("[cap-controller] up to {} ({} late frames of 60, cap {}, {})", LevelName(m), late_count, cap,
                     drive ? "driving" : "not driving");
+    } else if (drive && m > floor_level && !latched && REXCVAR_GET(nfsmw_drive_step_down) &&
+               now - last_late > std::chrono::seconds(efficiency_cores >= 6 ? 15 : 30) && now >= hold_until) {
+      // dev183 (Stefan: the iPad still ended up on the performance cores):
+      // while driving, after 15 s (iPads with 6+ efficiency cores) or 30 s
+      // (phones) without a late frame, one level down; if it is late again
+      // within 10 s it goes back up and stays there for this drive.
+      --m;
+      stepped_down_at = now;
+      hold_until = now + std::chrono::seconds(5);
+      last_late = now;
+      if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: down to {} (calm, cap {})", LevelName(m), cap);
     } else if (!drive && m > 0 && now >= hold_until) {
       --m;
       hold_until = now + std::chrono::seconds(5);
