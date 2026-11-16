@@ -145,6 +145,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_full_res, true, "GPU",
+                    "Native renderer: below the screen's scale, the displayed target (post composite, "
+                    "HUD, menus) drawn at the screen's scale so that the HUD stays sharp");
+
 REXCVAR_DEFINE_INT32(nfsmw_native_external_queue, 3, "GPU",
                      "iOS: external display frames allowed to wait to be shown before the next is "
                      "skipped (1-3; was 2)");
@@ -6212,9 +6216,42 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           scene_pitch = std::max<uint32_t>(scene_pitch, size.first);
       }
     }
+    // Sharp HUD (dev144): the target the frame displays (the source of its
+    // last colour resolve) holds the game's post composite and then the HUD
+    // and menus, drawn over it. Below the screen's own scale it is made at
+    // the screen's scale: the post composite samples the scene's image
+    // (scaled up there, as the present pass did) and the HUD is drawn at the
+    // screen's pixels instead of being stretched with the picture. Not when
+    // that target is the scene itself (many draws: no post target).
+    std::string hud_key;
+    float hud_scale = 0.0f;
+    if (REXCVAR_GET(nfsmw_native_hud_full_res)) {
+      const float screen_scale = native_screen_scale.load();
+      for (size_t r = frame->resolves.size(); r-- > 0;) {
+        const ResolveEvent& ev = frame->resolves[r];
+        if (ev.depth || ev.array) continue;
+        std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        if (!sizes.count(key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size()) {
+          key = target_key(frame->draws[ev.after_draws - 1]);
+        }
+        if (sizes.count(key) && sizes[key].first >= 640 && targets[key].draws <= 600 &&
+            screen_scale > resolution_scale + 0.01f && !second_of.count(key)) {
+          hud_key = std::move(key);
+          hud_scale = std::min(screen_scale, 4.0f);
+        }
+        break;
+      }
+      static std::string said;
+      const std::string now = hud_key.empty() ? std::string("off") : fmt::format("{} at {:.3f}", hud_key, hud_scale);
+      if (now != said) {
+        said = now;
+        REXLOG_INFO("[native] sharp HUD: displayed target {} (scene {:.3f})", now, resolution_scale);
+      }
+    }
     auto scale_of = [&](const std::string& key) -> float {
       const auto first = second_of.find(key);
       const std::string& k = first != second_of.end() ? first->second : key;
+      if (!hud_key.empty() && k == hud_key) return hud_scale;
       if (cube_sources.count(k)) return 1.0f;
       const bool shadow = depth_only_draws[k] * 2 > targets[k].draws;
       if (!shadow && scene_pitch && sizes.count(k) && sizes[k].first * 2 <= scene_pitch) return 1.0f;

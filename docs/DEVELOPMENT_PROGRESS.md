@@ -752,6 +752,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev144: sharp HUD below the screen's scale (MetalFX step 1)
+
+Stefan approved the MetalFX return plan (motion blur stays on). Step 1, dev144:
+`nfsmw_native_hud_full_res` (default true). The displayed target (source of
+the frame's last colour resolve; post composite PS 20710a9a, then HUD/menus,
+d47c on the iPhone) is made at the screen's scale (`native_screen_scale`)
+when that is above the render scale, the target is 640+ wide, has at most 600
+draws (not the scene itself) and is not an MRT second target. The post
+composite samples the lower-scale scene image (an upscale where the present
+pass did it before); the HUD is drawn at screen pixels. Log line
+`[native] sharp HUD: displayed target KEY at S (scene R)`. Expected cost: the
+post/HUD pass at native size (iPhone d47c ~2 ms at native, Nov 5). Next
+(step 2): MetalFX at the scene's resolve into this target, motion blur kept.
+IPA `ios/build/NFSMW-0.6.1-dev144-sharp-hud.ipa`, on Desktop. Untested.
+
 ## November 16, 2026 — dev143 fixes iPad HDMI mirroring (Stefan confirmed)
 
 Stefan: "this change seems to have fixed it". Log
