@@ -20,8 +20,10 @@
   comparison; the previous paths remain available through Extra Args.
   Indirect command encoding, register batching and descriptor-run trials remain
   off by default.
-  Added a separate off-by-default scheduling trial that lowers only native
-  rendering priority during high-frame-rate controller boosts.
+  Native rendering now runs at lower priority during high-frame-rate
+  controller boosts (about 19% less battery drain in a matched iPhone test at
+  60 FPS). Each drive also starts with a clean late-frame count, so loading
+  hitches no longer keep the game boosted.
 
 ## 0.6.0
 

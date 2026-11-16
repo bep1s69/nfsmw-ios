@@ -89,5 +89,12 @@ normalized = normalized.replace('''  static Clock::time_point drive_grace_until{
 s0 = normalized.index('    if (started) {\n      // dev130')
 s1 = normalized.index('    if (started && m != floor_level) {', s0)
 normalized = normalized[:s0] + normalized[s1:]
+# dev131: the drive-start User Initiated variant (default off).
+# (its cvar sits inside the dev130 block stripped above)
+normalized = normalized.replace('''    int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    static const bool drive_ui = REXCVAR_GET(nfsmw_drive_start_user_initiated);
+    if (drive_ui && floor_level == 1) floor_level = 2;
+''', '''    const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+''', 1)
 assert normalized == baseline
 print('PASS all guest/audio/controller/pipeline QoS source unchanged from accepted baseline')

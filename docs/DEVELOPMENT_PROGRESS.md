@@ -628,6 +628,16 @@ threads and lowers the cluster's operating point. Proposed next: dev131 makes
 the render Utility trial default and adds an opt-in "drive starts at User
 Initiated with render Utility" variant; one pair with the variant FIRST.
 
+dev131 (Stefan approved, Nov 16): `nfsmw_render_utility_trial` default TRUE
+(false = dev130 behaviour); new opt-in `nfsmw_drive_start_user_initiated`
+(default false, restart): where a drive's start level is Default, it starts and
+stays at User Initiated. Startup markers `[scheduling] dev131 ...`. Test
+`test_render_qos_trial.py` PASS (baseline strip extended). Build exit 0, deep
+codesign pass, marker in binary. IPA `ios/build/NFSMW-0.6.1-dev131-render-utility-default.ipa`
+SHA256 5cb8007d152adcc50b7bcc2c578f06e4790a6de449794bd02c8e8ca4e037766c, on
+Desktop (dev130 removed from Desktop). Requested pair, same sitting/brightness:
+run 1 `--nfsmw_drive_start_user_initiated=true`, run 2 empty Extra Args.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

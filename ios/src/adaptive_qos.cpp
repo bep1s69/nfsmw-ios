@@ -105,7 +105,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_audio_thread_low, false, "Kernel",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): with the cap controller the game's audio thread (sub_825E3F40: mixing "
                     "and XMA decode) stays at Utility instead of following the frame threads' boost "
                     "(restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial, false, "Kernel",
+REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial, true,  // dev131 default (Nov 16 pair: -19% drain)
+                    "Kernel",
                     "Scheduling trial: during cap-controller boosts above 40 FPS, keep native Metal encoding at Utility QoS; "
                     "game and audio threads keep their existing policy. Requires native render Utility enabled (restart required)");
 // dev130 (Stefan, Nov 16): ignore late frames for this long after each drive
@@ -114,6 +115,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial, false, "Kernel",
 // where it then stayed. 0 restores the dev129 behaviour.
 REXCVAR_DEFINE_INT32(nfsmw_drive_start_grace_ms, 2000, "Kernel",
                      "Cap controller: ms after a drive starts in which late frames are not counted (0 = off)");
+// dev131 variant (Stefan, Nov 16): where a drive would start at Default, start
+// it (and hold it) at User Initiated instead. dev130's trial-on run drained
+// least after stepping up to User Initiated (26.7 vs 35.3 %/h at Default).
+REXCVAR_DEFINE_BOOL(nfsmw_drive_start_user_initiated, false, "Kernel",
+                    "Cap controller variant: drives that start at Default start and stay at User Initiated (restart required)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -390,7 +396,9 @@ void OnSwap(double interval_ms) {
     // dev113 (Stefan, Nov 10): iPhones at 30/40 drive on the efficiency cores
     // (Eco 40 measured Nov 9: 17.4-17.5 vs 26-28 %/h, median 39.5-39.7 fps,
     // "almost perfect"); only 60 starts at Default.
-    const int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    static const bool drive_ui = REXCVAR_GET(nfsmw_drive_start_user_initiated);
+    if (drive_ui && floor_level == 1) floor_level = 2;
     // On Low while driving at 30/40 an isolated late frame is accepted (Eco's
     // behaviour): step up only when a fifth of the last 60 frames were late.
     const int up_threshold = (drive && m == 0 && cap <= 40) ? 12 : 3;
