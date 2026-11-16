@@ -768,6 +768,28 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — iPhone 60 workers-at-Utility race power pair: no saving, stays off
+
+Stefan, iPhone 17 Pro Max, dev189, cap 60, race, brightness 15 % both, no
+charging rows, thermal Nominal both. Archive `Debug/17 November 2026/dev189
+iPhone 60 workers Utility race power pair/` (two .aar, `extracted/`,
+nfsmw.log; Desktop copies deleted after SHA256 check). Windows: drive start
++15 s to drive end -5 s.
+
+| | A `--ios_adaptive_qos_workers=false` | B default |
+|---|---:|---:|
+| system drain %/h | 21.73 | 21.73 |
+| LiveContainer CPU impact | 19.11 | 19.80 |
+| frame threads | Default 6 s, then UI (late; down at 01:36:38, late again, latched) | UI whole drive (learned from A) |
+| hitch seconds / pacing mean, max per 300 | 22 / 1.5, 6 | 2 / 0.4, 3 |
+
+A's untraced first race had no hitches (0.3 mean). Confound: A raised the
+learned start level for 60 to User Initiated, so B started at UI; the pair
+compares workers Utility vs UI with frame threads at UI in both. Result:
+identical drain, A less smooth; Stefan felt B hotter (not in the thermal
+state). Decision per Stefan's rule (default only if favourable): default
+unchanged, workers follow the boost.
+
 ## November 17, 2026 — dev188 iPhone 60 workers A/B (log only); dev189 backdrop plain
 
 Log `Debug/17 November 2026/dev188_iphone_60_workers_ab_pursuits_nfsmw.log`
