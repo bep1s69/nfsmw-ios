@@ -752,6 +752,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev141 iPad HDMI mirroring: uneven frames (GitHub #21 reproduced)
+
+Stefan, iPad, monitor set to mirroring: #20's path engaged (scene
+ExternalDisplayNonInteractive, `external display: ... 2560x1440 pixels`, so the
+1440p setting applied to the drawable). The game still renders 1920x1080
+(internal scale 1.5x); the drawable is upscaled. While driving, pacing went
+from 0 to 67-155 of 300 frames off the 16.7 ms grid with 8.3/25 ms gaps
+(1:/3: refresh gaps), worst 8-12 ms; GPU 7.6 ms per frame, LPM off, no
+memory pressure. Inferred cause: pacing (CADisplayLink, guest vblank lock)
+follows the iPad's own display while frames are presented on the monitor,
+which has its own vsync clock; the beat between them gives the uneven frames
+and the FPS dips (~49). Proposed fix (not built): when the picture is on an
+external display, pace from that screen's display link and its refresh.
+Log `Debug/16 November 2026/dev141_ipad_hdmi_mirroring_fps_drops_nfsmw.log`.
+
 ## November 16, 2026 — dev141: iPad app window on an extended display
 
 Stefan, dev140 on the iPad, USB-C monitor in extended mode, game opened only
