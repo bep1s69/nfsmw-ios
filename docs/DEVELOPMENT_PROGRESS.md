@@ -659,6 +659,18 @@ keep dev131 defaults (Default drive start, render Utility during boosts).
 Next: device-adaptive confirmation, render trial OFF/ON pair on iPad and at
 other caps (120, 30/40 where the trial is inert by design).
 
+dev131 iPad pair (Nov 16 14:19-14:26, iPad Pro M4, 6 E cores, 1.5x/60, brightness
+27% both, no charging rows, Nominal). Archive `16 November 2026/dev131 iPad
+render trial power pair/` (.aar 1cd835bf.../bfc37b42..., nfsmw.log d5602bcf...;
+Desktop copies deleted after verification). Run 1 trial OFF 22.89 %/h (CPU 4.68,
+GPU 2.77, display 5.32, 8.41 G instr/s); run 2 default/trial ON 22.76 (4.71, 2.78,
+5.28, 8.51). Both drives stayed at the 6-E-core start level Low (Utility) with no
+step-up, so the trial (acts only at boost levels) never engaged: effectively an
+A/A check, -0.6% noise, pacing clean (no window over 5 off-grid). Conclusion:
+iPad at 60 already runs everything on Utility; the dev131 default is harmless
+there. The lever matters on 4-E-core iPhones (Default start at >40). Remaining
+device-adaptive gap: 120 cap (iPhone Default/UI, iPad Default) untested.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
