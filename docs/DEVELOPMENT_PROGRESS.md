@@ -752,6 +752,13 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev152: Ultra Performance preset
+
+Stefan: add Ultra Performance = 0.5x (360p). dev152 adds it; any preset's
+base is raised to at least target / MetalFX's largest input scale for the
+device (x1.01), so the scaler can always be made. IPA
+`ios/build/NFSMW-0.6.1-dev152-metalfx-ultra-performance.ipa`, on Desktop.
+
 ## November 16, 2026 — dev151: MetalFX presets in 720p terms
 
 Stefan wanted the three presets back (dev150 had only Off/On). dev151:

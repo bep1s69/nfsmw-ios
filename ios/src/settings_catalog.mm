@@ -500,12 +500,13 @@ const std::vector<Section>& Sections() {
            {@"metalfx", Type::kChoice, @"MetalFX upscaling",
             @"Draws the 3D scene with fewer pixels and lets Apple's MetalFX rebuild it at the target "
             @"below, smoothing edges too. Quality draws the scene at the Xbox 360's 720p, Balanced "
-            @"at 0.85x (612p), Performance at 0.75x (540p); while one is on, Render resolution is not "
+            @"at 0.85x (612p), Performance at 0.75x (540p), Ultra Performance at 0.5x (360p, raised where MetalFX cannot scale that far); while one is on, Render resolution is not "
             @"used. The HUD and the game's own effects (motion blur) are drawn at the target. Costs "
             @"more battery than the same scene without it.",
             @"off",
             {{@"Off", @"off"}, {@"Quality · 720p", @"quality"}, {@"Balanced · 0.85x", @"balanced"},
-             {@"Performance · 0.75x", @"performance"}}, kInGame | kInGameNative | kNativeOnly,
+             {@"Performance · 0.75x", @"performance"}, {@"Ultra Performance · 0.5x", @"ultra_performance"}},
+            kInGame | kInGameNative | kNativeOnly,
             "nfsmw_native_metalfx_preset"},
            {@"metalfx_target", Type::kChoice, @"MetalFX target",
             @"The resolution MetalFX builds the picture at: this screen's own (or the external "

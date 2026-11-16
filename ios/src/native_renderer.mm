@@ -150,7 +150,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
 
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_preset, "off", "GPU",
                       "Native renderer: MetalFX upscaling to the target: off, quality (scene at 720p), balanced "
-                      "(0.85x), performance (0.75x), on (scene at the render scale)");
+                      "(0.85x), performance (0.75x), ultra_performance (0.5x), on (scene at the render scale)");
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_target, "native", "GPU",
                       "Native renderer: MetalFX target: native (the screen's or external display's pixels) or 0.75");
 
@@ -499,7 +499,8 @@ float MetalFxPresetBase() {
   const uint32_t generation = settings_generation.load(std::memory_order_acquire);
   if (read_at.load(std::memory_order_acquire) != generation) {
     const std::string p = REXCVAR_GET(nfsmw_native_metalfx_preset);
-    base.store(p == "quality" ? 1.0f : p == "balanced" ? 0.85f : p == "performance" ? 0.75f : p == "on" ? -1.0f : 0.0f,
+    base.store(p == "quality" ? 1.0f : p == "balanced" ? 0.85f : p == "performance" ? 0.75f
+               : p == "ultra_performance" ? 0.5f : p == "on" ? -1.0f : 0.0f,
                std::memory_order_relaxed);
     read_at.store(generation, std::memory_order_release);
   }
@@ -554,7 +555,14 @@ float NativeResolutionScale() {
   float f = fixed.load(std::memory_order_relaxed);
   bool use_native = native.load(std::memory_order_relaxed);
   if (const float preset = MetalFxPresetBase(); preset > 0) {
-    f = preset;  // a MetalFX preset sets the scene's scale
+    // A MetalFX preset sets the scene's scale; not below what MetalFX can
+    // scale up to the target on this GPU (its largest input scale).
+    static const float max_scale = [] {
+      id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+      const float m = device ? [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device] : 2.0f;
+      return m > 1.0f ? m : 2.0f;
+    }();
+    f = s > 0 ? std::max(preset, s * MetalFxTargetShare() / max_scale * 1.01f) : preset;
     use_native = false;
   }
   const float chosen = !use_native ? (std::isfinite(f) && f > 0 ? f : 1.0f)
