@@ -752,6 +752,14 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev167 accepted; 0.6.1 candidate
+
+Stefan: much better; the title screen background (same oily look) is plain
+again too; no photo model (not worth ~30 MB). dev167 = 0.6.1 candidate on
+branch `claude/project-thread-dph4wh` (unpushed). Remaining before release:
+Stefan's iPhone 14 Pro Max performance test, then CHANGELOG, push to main
+(PRs #17, #19, #20 close by their commits), Stefan tags and replies on GitHub.
+
 ## November 16, 2026 — dev167: photographic art kept plain
 
 Stefan: the Blacklist members' portraits look too soft and oily with Sharp
