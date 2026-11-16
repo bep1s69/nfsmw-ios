@@ -768,6 +768,37 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — new direction: fewer draws (dev190 pass-skip trials)
+
+Stefan (Nov 17): shift back to cutting CPU/GPU time, "hackier" ways allowed
+(supersedes the Nov 14 pause on CPU/GPU cuts for now). Draw census from the
+dev189 race log (`[native] guest culling target` lines, 300 frames at 60,
+iPhone): shadow map d030 674 draws/frame, main scene d468 975, cube faces
+d7c0 798, rear-view mirror d71a 350, HUD ~68; ~2870 in all, so the main
+picture is ~34 % of the draws. Every draw costs the game thread, Record (GPU
+Commands) and the render queue; earlier passes (dev115-126) made draws
+cheaper, none removed draws. GPU shares (Nov 14): main 42 %, cube 17-19 %,
+shadow 10-11 % + 5 % copies.
+
+dev190, all default off (restart required), in RenderFrame (saves the render
+queue's CPU and the GPU; the game thread and Record still handle the draws):
+- `--nfsmw_native_reflection_divisor=3` (2-6): one in N cube faces a frame.
+- `--nfsmw_native_mirror_every=2`: the mirror's scene every 2nd frame, its
+  kept resolve bound in between (image in a quad: no geometric mismatch).
+- `--nfsmw_native_shadow_every=2`: the shadow map every 2nd frame; the kept
+  depth copy is sampled with the current frame's shadow matrix, so shadows of
+  things moving relative to the car may shimmer (to be judged by eye).
+Log line every 600 frames: `[native] passes left out (dev190): ... N draws a
+frame not rendered`. Compare `rendering ms/frame` and `GPU ms/frame` in the
+`[native] frame` lines. IPA `ios/build/NFSMW-0.6.1-dev190-pass-skip-trials.ipa`
+(Desktop; dev189 moved to Trash). Not run on a device.
+Next if the picture is accepted: the same cadence in the game itself (guest
+call-stack diagnostic at the cube/mirror/shadow resolves to find the pass
+functions), which also removes the game thread's and Record's share. Other
+candidates: decoded-PCM cache for looping XMA streams (audio decode ~10 % of
+app CPU, Nov 10), native rewrites of hot guest functions (sub_82699100 14.6 %
+of the main thread), Sharp HUD pass 0.81 ms at 2926x1317.
+
 ## November 17, 2026 — iPhone 60 workers-at-Utility race power pair: no saving, stays off
 
 Stefan, iPhone 17 Pro Max, dev189, cap 60, race, brightness 15 % both, no

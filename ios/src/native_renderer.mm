@@ -407,6 +407,15 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_sparse_touch_overlay, true, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
                     "Native renderer (battery): half the environment cube's faces drawn each frame, the "
                     "others kept from the frame before");
+REXCVAR_DEFINE_INT32(nfsmw_native_reflection_divisor, 0, "GPU",
+                     "Native renderer (battery trial, dev190): one in this many of the environment cube's faces drawn "
+                     "each frame (3: two faces a frame), the others kept; 0: as nfsmw_native_half_rate_reflections");
+REXCVAR_DEFINE_INT32(nfsmw_native_mirror_every, 1, "GPU",
+                     "Native renderer (battery trial, dev190): the rear-view mirror's scene (target 000_800_0_d71a) "
+                     "drawn every this many frames, its last picture kept in between (2: half the frames)");
+REXCVAR_DEFINE_INT32(nfsmw_native_shadow_every, 1, "GPU",
+                     "Native renderer (battery trial, dev190): the shadow map (target 000_1600_0_d030) drawn every "
+                     "this many frames, the last one kept in between (2: half the frames)");
 REXCVAR_DEFINE_DOUBLE(nfsmw_native_shadow_scale, 1.0, "GPU",
                     "Native renderer (battery): the shadow map's size, times the game's (0.5: half)");
 REXCVAR_DEFINE_BOOL(nfsmw_native_scale_shadows, false, "GPU",
@@ -7224,6 +7233,30 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       flush_commands();
       if (!skip_resolve.empty() && skip_resolve[&ev - frame->resolves.data()]) {
         ++resolves_skipped;
+        if (skip_resolve[&ev - frame->resolves.data()] == 2) {
+          // dev190: a mirror or shadow pass left out this frame: the copy
+          // kept from the frame before is what later draws sample.
+          auto kept = kept_resolves.find(ev.dest_base);
+          if (kept != kept_resolves.end() && next_heap < heap_capacity) {
+            static_cast<MTLResourceID*>(texture_heap.contents)[next_heap] = kept->second.texture.gpuResourceID;
+            if ((kept->second.texture.pixelFormat == MTLPixelFormatR32Float ||
+                 kept->second.texture.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) &&
+                !device.supports32BitFloatFiltering) {
+              static_cast<MTLResourceID*>(sampler_heap.contents)[next_heap] =
+                  SamplerFor(device, false, 2, 2, false).gpuResourceID;
+            }
+            if (prepare_snapshots) heap_object[next_heap] = kept->second.texture;
+            resolved[ev.dest_base] = next_heap++; ++resolved_generation;
+            resolved_texture[ev.dest_base] = kept->second.texture;
+            resolved_swap[ev.dest_base] = kept->second.swap;
+            resolved_scale[ev.dest_base] = kept->second.scale;
+            [resolved_textures addObject:kept->second.texture];
+            if (prepare_snapshots) {
+              resolve_names.push_back("kept (pass left out)");
+              resolve_rects.push_back(CGRectZero);
+            }
+          }
+        }
         return;
       }
       // The source: the EDRAM layout in the resolve's own registers (a
@@ -7837,7 +7870,22 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // Battery: the environment cube's faces drawn half each frame (even
     // faces, then odd), the others kept from the frame before in the cube
     // the renderer keeps. Only once a kept cube exists for that address.
-    if (REXCVAR_GET(nfsmw_native_half_rate_reflections) && !dump && !cube_targets.empty()) {
+    // dev190 (Stefan: hackier cuts; a race frame is ~2870 draws, only ~975 of
+    // them the main picture): the cube's faces one in N per frame, the
+    // rear-view mirror's scene and the shadow map every Mth frame, each kept
+    // from the frame it was last drawn in (trials, off by default).
+    static const uint32_t cube_divisor = [] {
+      const int32_t v = REXCVAR_GET(nfsmw_native_reflection_divisor);
+      return uint32_t(v >= 2 ? std::min(v, 6) : 0);
+    }();
+    static const uint32_t mirror_every = uint32_t(std::clamp<int32_t>(REXCVAR_GET(nfsmw_native_mirror_every), 1, 4));
+    static const uint32_t shadow_every = uint32_t(std::clamp<int32_t>(REXCVAR_GET(nfsmw_native_shadow_every), 1, 4));
+    const uint32_t cube_n = cube_divisor ? cube_divisor : REXCVAR_GET(nfsmw_native_half_rate_reflections) ? 2 : 0;
+    const bool skip_cube = cube_n >= 2 && !cube_targets.empty();
+    const bool skip_mirror = mirror_every > 1 && number % mirror_every != 0;
+    const bool skip_shadow = shadow_every > 1 && number % shadow_every != 0;
+    static uint64_t left_out_draws = 0, left_out_frames = 0;
+    if ((skip_cube || skip_mirror || skip_shadow) && !dump) {
       skip_draw.assign(frame->draws.size(), 0);
       skip_resolve.assign(frame->resolves.size(), 0);
       size_t from = 0;  // the first draw after the resolve before
@@ -7845,25 +7893,47 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         const ResolveEvent& ev = frame->resolves[r];
         const size_t upto = std::min<size_t>(ev.after_draws, frame->draws.size());
         bool skip = false;
-        if (!ev.depth && !ev.array && upto > 0) {
+        char kind = 1;
+        if (skip_cube && !ev.depth && !ev.array && upto > 0) {
           for (const CubeTarget& ct : cube_targets) {
             if (ev.dest_base < ct.base || (ev.dest_base - ct.base) % ct.face_stride != 0) continue;
             const uint32_t face = (ev.dest_base - ct.base) / ct.face_stride;
-            skip = face < 6 && kept_cubes.count(ct.base) && ((face + number) & 1);
+            skip = face < 6 && kept_cubes.count(ct.base) && ((face + number) % cube_n) != 0;
             break;
           }
         }
+        if (!skip && !ev.array && upto > from && (skip_mirror || skip_shadow)) {
+          // Only with a 2D copy kept for the destination, and only the
+          // layouts measured in races: the mirror's colour (000_800_0_d71a)
+          // and the shadow map's depth (000_1600_0_d030).
+          auto kept = kept_resolves.find(ev.dest_base);
+          if (kept != kept_resolves.end() && kept->second.texture.textureType == MTLTextureType2D) {
+            const std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+            if ((skip_mirror && !ev.depth && key == "000_800_0_d71a_s1") ||
+                (skip_shadow && ev.depth && key == "000_1600_0_d030_s1")) {
+              skip = true;
+              kind = 2;
+            }
+          }
+        }
         if (skip) {
-          skip_resolve[r] = 1;
+          skip_resolve[r] = kind;
           const std::string own_key = resolve_key(ev);
           auto found = targets.find(own_key);
-          const std::string source = found != targets.end() && found->second.color ? own_key
+          const std::string source = kind == 2 ? own_key
+                                     : found != targets.end() && found->second.color ? own_key
                                                                                     : target_key(frame->draws[upto - 1]);
           for (size_t i = from; i < upto; ++i) {
-            if (target_key(frame->draws[i]) == source) skip_draw[i] = 1;
+            if (target_key(frame->draws[i]) == source) skip_draw[i] = 1, ++left_out_draws;
           }
         }
         from = std::max(from, upto);
+      }
+      if (++left_out_frames % 600 == 0) {
+        REXLOG_INFO("[native] passes left out (dev190): cube faces one in {}, mirror every {}, shadow map every {}: "
+                    "{:.0f} draws a frame not rendered over 600 frames",
+                    cube_n, mirror_every, shadow_every, double(left_out_draws) / 600.0);
+        left_out_draws = 0;
       }
     }
     // The sky drawn after the solid geometry that follows it, only where
