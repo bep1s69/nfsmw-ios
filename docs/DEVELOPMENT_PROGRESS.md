@@ -752,6 +752,13 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+<<<<<<< HEAD
+## November 16, 2026 — dev169 reverted; fixed free look is 0.6.2's first item
+
+Stefan: revert the last camera change and put the fixed free-look camera
+first in the 0.6.2 backlog (BACKLOG feature ideas). dev169's commit reverted;
+camera behaviour = dev168 (instant look-back entry, smooth otherwise).
+
 ## November 16, 2026 — dev169 result: no visible change
 
 Stefan: the free-look camera still moves in/out with gear shifts and changes
@@ -774,6 +781,8 @@ camera orbits the car at those held values (yaw still from the chase
 camera's direction plus the stick/mouse angle). IPA
 `ios/build/NFSMW-0.6.1-dev169-fixed-orbit-look.ipa`, on Desktop.
 
+=======
+>>>>>>> parent of 2aafa65 (dev169: free look orbits the car at a fixed distance and height)
 ## November 16, 2026 — dev168: look-back smooth after the snap; release held
 
 Stefan: in dev166/167 the look-back zone snapped every frame (jittery while
