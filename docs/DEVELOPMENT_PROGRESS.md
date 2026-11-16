@@ -768,6 +768,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev175 result: the fixed look never engaged; dev176
+
+Stefan: busted text overlay still shows when busted, so the missing vs
+5595c163 is left alone for good. dev175 log
+(`Debug/16 November 2026/dev175_fov_probe_nfsmw.log`): no `[look] fixed to
+the car` line at all: dev173-175 read the matrix at [mover+0x250]+0x24, but
+the dev172 probe's path was mover+0x250 -> +0x4 -> object (+0x54 position),
+so the check failed and the old sprung orbit ran. The FOV probe found no
+clear field of view (mover+0x198 ~1.0 is a direction component; the u16 hits
+are float high halves; 82c42230+0x70..0x7c floats 1.0-1.86 unidentified).
+dev176 follows both pointers (safe reads); FOV probe default off again. IPA
+`ios/build/NFSMW-0.6.1-dev176-look-fixed-pointer.ipa`, on Desktop.
+
 ## November 16, 2026 — dev174 results; dev175 field-of-view probe
 
 Stefan (dev174, iPhone): got busted; `missing_vs_5595c163168c74ef.bin` (468

@@ -52,7 +52,7 @@
 #include "battery.h"
 #include "touch_controls.h"
 
-REXCVAR_DEFINE_BOOL(nfsmw_fov_probe, true, "Input", "Diagnostics: log fields that look like the camera's field of view as they change");
+REXCVAR_DEFINE_BOOL(nfsmw_fov_probe, false, "Input", "Diagnostics: log fields that look like the camera's field of view as they change");
 REXCVAR_DEFINE_BOOL(nfsmw_look_fixed_orbit, true, "Input", "Free look: the camera orbits the car fixed in the car's frame (not the chase camera's spring)");
 REXCVAR_DEFINE_BOOL(nfsmw_look_probe, false, "Input", "Diagnostics: log where the car's matrix is (free look)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
@@ -300,7 +300,18 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     static float rest_back = 0, rest_up = 0, rest_target_up = 0;
     bool ok = false;
     float cp[3], ax[3][3];
-    const uint32_t car = REX_LOAD_U32(mover + 0x250);
+    // Two pointers: the dev172 probe's path was mover+0x250 -> +0x4 -> the
+    // matrix object (dev173-175 read one level too early and never engaged).
+    uint32_t car = 0;
+    {
+      const uint32_t p1 = REX_LOAD_U32(mover + 0x250);
+      uint8_t q[4];
+      vm_size_t got = 0;
+      if (p1 >= 0x40000000u && p1 < 0xC0000000u &&
+          vm_read_overwrite(mach_task_self(), vm_address_t(base + p1 + 4), 4, vm_address_t(q), &got) == KERN_SUCCESS &&
+          got == 4)
+        car = uint32_t(q[0]) << 24 | uint32_t(q[1]) << 16 | uint32_t(q[2]) << 8 | q[3];
+    }
     if (REXCVAR_GET(nfsmw_look_fixed_orbit) && car >= 0x40000000u && car < 0xC0000000u) {
       uint8_t m[0x40];
       vm_size_t got = 0;
