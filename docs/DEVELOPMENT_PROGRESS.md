@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev162 iPhone: MetalFX native target too heavy in races
+
+Stefan: splat fixed; iPhone drops frames. Log
+`Debug/16 November 2026/dev162_iphone_frame_drops_nfsmw.log` (MetalFX
+Performance, target native, scene 0.75 = 1176x540 -> 2868x1317; thermal
+nominal, LPM off): pacing 0-31 of 300 off in races (265/51 at load); GPU
+spans 16-19 ms in races (attributed ~9 ms: scene 2.54, composite/post/HUD at
+2926x1317 1.87, cube faces 1.33, shadow 0.82...; unattributed 6.5-10 ms,
+mostly the untimed MetalFX encode). dev148/152 MetalFX runs: ~7 ms in menus
+/ free roam, 14-15 ms in heavier scenes. Reading: MetalFX to the native
+2868x1317 is the cost; proposed Target 0.75x on the iPhone (or default it
+there); not related to the sharp-UI work.
+
 ## November 16, 2026 — dev161 MetalFX black splat; dev162 fix
 
 Log `Debug/16 November 2026/dev161_metalfx_black_splat_nfsmw.log`: AOT works:
