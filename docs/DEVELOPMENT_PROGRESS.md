@@ -732,6 +732,12 @@ frame now gets the FE hidden flag instead of a move. IPA
 Pending: Stefan's test; if the frame still shows, his log's `[hud] mirror frame`
 lines tell whether the object was found.
 
+dev137 (Stefan, Nov 16: dev136 frame still shown): the hidden flag goes on
+the mirror frame and all its children (the two image halves). IPA
+`ios/build/NFSMW-0.6.1-dev137-mirror-frame-children-hidden.ipa` SHA256 4e9f9ccc53dde13990b50d13062e396d97cdb08bbe837a3e58272b90e48d46aa,
+on Desktop. Pending: Stefan's test; a log that reaches driving shows
+`[hud] mirror frame ... objects flagged`.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

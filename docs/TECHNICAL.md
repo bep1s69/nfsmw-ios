@@ -30099,3 +30099,19 @@ look hides the mirror, clearing it only if set here; `[hud] mirror frame ...`
 lines (4 at most) log the object, its type and flags, or "not found". Build
 exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev136-mirror-frame-hidden.ipa`
 SHA256 a48d0815021acadf5044adf0f4e351918d575e103ce04b6acb69b1f0d002ef92, on Desktop (dev135 removed from Desktop, kept in ios/build).
+
+dev137 (Stefan, Nov 16: dev136 still hides only the picture). Log archived as
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/16 November 2026/nfsmw_dev136_mirror_frame_still_shown.log` (SHA256 prefix 908c55f0ddef19f2; chat upload, no Desktop copy).
+Sessions 14:59, 15:03, 15:08, 15:11; the 15:11 one (dev136, inferred from
+timing) ends after 32 s, before any HUD package line, so it has no
+`[hud] mirror frame` line: the log does not show whether dev136's flag was
+set. The hud-tree dump shows the frame 7FAC287B (type 5 group, flags
+40000001) holding 9EE06631 (group) with two type-1 images 5630E0B9 (128x87
+at x +-64, flags 42C00001). Guest sub_82282BF8 is confirmed to only set
+(`oris 1024`) or clear bit 26 of +0x1C, nothing else. Inference: the
+renderer checks the images' own flags, not their group's. dev137 sets bit
+26 on the frame and every descendant (breadth-first, up to 32 objects, the
+children list at +0x64 as MovePiece walks it), records which it set and
+clears only those. Log line now also counts the objects flagged. Build
+exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev137-mirror-frame-children-hidden.ipa`
+SHA256 4e9f9ccc53dde13990b50d13062e396d97cdb08bbe837a3e58272b90e48d46aa, on Desktop (dev136 removed from Desktop, kept in ios/build).

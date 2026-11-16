@@ -972,23 +972,38 @@ extern "C" REX_FUNC(sub_822AA6D0) {
     if (frame) {
       MoveGroup(base, frame, 0, mirror_dy, g_mirror);
       nfsmw_mirror_shift_y = mirror_dy * g_half_height_per_unit;
-      // dev136: moving the frame 1000 units up (dev135) left it on screen
-      // (Stefan); the FE hidden flag (FEObject+0x1C bit 26, as the game's
-      // show/hide sub_82282BF8) instead, cleared only if set here.
-      static bool flagged = false;
-      const uint32_t flags = REX_LOAD_U32(frame + 0x1C);
-      if (hide_mirror && !(flags & (1u << 26))) {
-        REX_STORE_U32(frame + 0x1C, flags | (1u << 26));
-        flagged = true;
-      } else if (!hide_mirror && flagged) {
-        REX_STORE_U32(frame + 0x1C, flags & ~(1u << 26));
-        flagged = false;
+      // dev136/137: moving the frame 1000 units up (dev135) left it on screen
+      // (Stefan), and so did the FE hidden flag (FEObject+0x1C bit 26, as
+      // the game's show/hide sub_82282BF8) on the group alone (dev136). The
+      // flag now goes on the group and everything in it (the two 128x87
+      // halves 5630E0B9 and their parent), cleared only where set here.
+      static std::vector<uint32_t> flagged;
+      if (hide_mirror && flagged.empty()) {
+        std::vector<uint32_t> todo{frame};
+        for (size_t i = 0; i < todo.size() && i < 32; ++i) {
+          const uint32_t o = todo[i];
+          const uint32_t f = REX_LOAD_U32(o + 0x1C);
+          if (!(f & (1u << 26))) {
+            REX_STORE_U32(o + 0x1C, f | (1u << 26));
+            flagged.push_back(o);
+          }
+          if (REX_LOAD_U32(o + 0x18) != 5) continue;  // a group: its children
+          int n = 0;
+          for (uint32_t c = REX_LOAD_U32(o + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 16;
+               c = REX_LOAD_U32(c + 4), ++n) {
+            todo.push_back(c);
+          }
+        }
+      } else if (!hide_mirror && !flagged.empty()) {
+        for (uint32_t o : flagged) REX_STORE_U32(o + 0x1C, REX_LOAD_U32(o + 0x1C) & ~(1u << 26));
+        flagged.clear();
       }
+      const uint32_t flags = REX_LOAD_U32(frame + 0x1C);
       static int said = 0;
       if (mirror_move && said < 4) {
         ++said;
-        REXLOG_INFO("[hud] mirror frame {:08X} type {} flags {:08X} -> {}", frame, REX_LOAD_U32(frame + 0x18), flags,
-                    hide_mirror ? "hidden" : "shown");
+        REXLOG_INFO("[hud] mirror frame {:08X} type {} flags {:08X}, {} objects flagged -> {}", frame,
+                    REX_LOAD_U32(frame + 0x18), flags, flagged.size(), hide_mirror ? "hidden" : "shown");
       }
     } else if (mirror_move) {
       static int said = 0;
