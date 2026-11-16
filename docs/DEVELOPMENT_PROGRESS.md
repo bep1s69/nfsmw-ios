@@ -752,6 +752,17 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — 0.6.1 scope grows; dev171 look probe
+
+Stefan: no rush; the fixed free-look camera, pursuit cost reductions and the
+power check all go into 0.6.1 (not 0.6.2). dev171: `[look-probe]` every 3 s
+in a chase view (`nfsmw_look_probe`, default true for now): the
+CubicCameraMover's own floats within 8 units of the look-at point, and the
+objects its fields point to (pointers within 64 MB of the mover) holding
+such a position, marked "matrix" when three unit-length rows precede it.
+Risk: reading a pointed-to object that is not mapped would crash (bounded
+range, diagnostic only). IPA `ios/build/NFSMW-0.6.1-dev171-look-probe.ipa`.
+
 ## November 16, 2026 — dev169 reverted; fixed free look is 0.6.2's first item
 
 Stefan: revert the last camera change and put the fixed free-look camera

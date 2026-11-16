@@ -48,6 +48,7 @@
 #include "battery.h"
 #include "touch_controls.h"
 
+REXCVAR_DEFINE_BOOL(nfsmw_look_probe, true, "Input", "Diagnostics: log where the car's matrix is (free look)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
 REXCVAR_DEFINE_DOUBLE(nfsmw_mouse_look_speed, 1.0, "Input", "Mouse look speed (1 = 0.15 degrees per mouse count)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, true, "Input", "Mouse look: moving the mouse up looks down");
@@ -106,6 +107,43 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   const uint32_t view = REX_LOAD_U32(mover + 172);
   const bool behind = REX_LOAD_U8(mover + 177) != 0;
   const float tx = LoadF(base, to), ty = LoadF(base, to + 4), tz = LoadF(base, to + 8);
+  // dev171 diagnostic (fixed free look): where the car's position and
+  // orientation live. Every 3 s in a chase view: the mover's own floats near
+  // the look-at point, and the objects its fields point to (only pointers
+  // within 64 MB of the mover: the same heap) holding such a position with
+  // three unit-length rows before it (a matrix).
+  if (REXCVAR_GET(nfsmw_look_probe) && (view == 2 || view == 3)) {
+    static auto next = now;
+    static int lines = 0;
+    if (now >= next && lines < 60) {
+      next = now + std::chrono::seconds(3);
+      auto near = [&](uint32_t a, float r) {
+        const float x = LoadF(base, a), y = LoadF(base, a + 4), z = LoadF(base, a + 8);
+        return std::isfinite(x) && std::fabs(x - tx) < r && std::fabs(y - ty) < r && std::fabs(z - tz) < r;
+      };
+      auto unit = [&](uint32_t a) {
+        const float x = LoadF(base, a), y = LoadF(base, a + 4), z = LoadF(base, a + 8);
+        const float l = std::sqrt(x * x + y * y + z * z);
+        return std::isfinite(l) && std::fabs(l - 1.0f) < 0.02f;
+      };
+      std::string own, objs;
+      for (uint32_t o = 0; o < 0x400; o += 4) {
+        if (near(mover + o, 8.0f) && own.size() < 400) own += fmt::format(" +{:x}", o);
+        const uint32_t ptr = REX_LOAD_U32(mover + o);
+        if (ptr < 0x40000000u || ptr > 0xBFFFFFF0u || ptr == mover) continue;
+        if (ptr + 0x400 < mover - 0x4000000u || ptr > mover + 0x4000000u) continue;
+        for (uint32_t k = 48; k < 0x300; k += 4) {
+          if (!near(ptr + k, 8.0f)) continue;
+          const bool matrix = unit(ptr + k - 48) && unit(ptr + k - 32) && unit(ptr + k - 16);
+          if (objs.size() < 600)
+            objs += fmt::format(" [+{:x}->{:08x}+{:x}{}]", o, ptr, k, matrix ? " matrix" : "");
+        }
+      }
+      ++lines;
+      REXLOG_INFO("[look-probe] to ({:.2f},{:.2f},{:.2f}) mover {:08x} own:{} objects:{}", tx, ty, tz, mover,
+                  own.empty() ? " none" : own, objs.empty() ? " none" : objs);
+    }
+  }
   // A new race or view, or the car put somewhere else: back behind the car.
   const bool restart = now - last_call > std::chrono::milliseconds(250) ||
                        std::hypot(tx - last_to[0], ty - last_to[1]) > 20.0f;
