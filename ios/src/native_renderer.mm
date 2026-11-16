@@ -3143,6 +3143,20 @@ void Record(Frame& frame, const NfsmwNativeDraw& in) {
     if (in.vs_key == 0xacc15ef6157ec934ull || in.ps_key == 0x2d2462de73d283deull) {
       ++frame.movie_draws;
     }
+    // dev174: a vertex shader with no library (5595c163168c74ef, the busted
+    // overlay's; 568a011c39fb416c): its microcode written once to
+    // Documents/logs/missing_vs_<key>.bin (host-order dwords), to be
+    // translated offline and added to the shader libraries.
+    if (!d.vs && in.vs_microcode && in.vs_dwords && in.vs_dwords < 65536) {
+      static std::set<uint64_t> dumped;
+      if (dumped.size() < 16 && dumped.insert(in.vs_key).second) {
+        NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString* path = [docs stringByAppendingPathComponent:
+                                   [NSString stringWithFormat:@"logs/missing_vs_%016llx.bin", (unsigned long long)in.vs_key]];
+        [[NSData dataWithBytes:in.vs_microcode length:size_t(in.vs_dwords) * 4] writeToFile:path atomically:YES];
+        REXLOG_INFO("[native] missing vertex shader {:016x}: {} dwords written to logs/", in.vs_key, in.vs_dwords);
+      }
+    }
     {  // Which shaders the renderer has no library for (once each): e.g. the
        // movie player's, built into the executable, not the game's files.
       static std::set<std::pair<uint64_t, uint64_t>> said;

@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — missing busted-overlay shader: dev174 dump
+
+Stefan asked to fix the missing shaders. All Debug logs: `no shader library`
+for vs 5595c163168c74ef (missing) + ps 8c8b535864c59f03 in 15 logs (the
+busted overlay's 2D draw, skipped); the 568a011c / d1a204bd / others "missing"
+only in 4 old logs (older shader builds), not now. The decrypted image
+(rexglue `NFSMW_DUMP_IMAGE`, scratch only) holds 3 old-format containers (the
+movie player's vs acc15ef6157ec934, ps 2d2462de73d283de and one more ps), not
+5595c163: it is raw microcode (D3D-built or embedded without a container),
+so the ZZDATA0 container path cannot build it. dev174 writes a missing
+vertex shader's microcode once to `Documents/logs/missing_vs_<key>.bin`
+(`[native] missing vertex shader ... written`), to wrap and translate offline.
+IPA `ios/build/NFSMW-0.6.1-dev174-missing-shader-dump.ipa`, on Desktop.
+
 ## November 16, 2026 — dev172 found the car's matrix; dev173 car-fixed free look
 
 dev172 log (`Debug/16 November 2026/dev172_look_probe2_nfsmw.log`, iPhone,
