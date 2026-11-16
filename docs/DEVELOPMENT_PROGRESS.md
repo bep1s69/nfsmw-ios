@@ -701,6 +701,8 @@ caps above 60 asserted unchanged). Build exit 0, deep codesign pass, marker
 SHA256 c19fafe1017b58c88e09f8080b4156e5e91840db2148fc6c8fda00b4f3b93a60, on Desktop
 (dev131 removed from Desktop, kept in ios/build). Optional check: a 120 drive
 should hold ~120 fps as dev131 trial-off did.
+Stefan (Nov 16): short dev132 iPhone drive at 120 held 120. Pending: test on an
+iPhone 14 Pro Max when available (older SoC; check 60 holds with render Utility).
 
 ## Current checkpoint — November 14, 2026
 
