@@ -768,6 +768,17 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — iPad core placement in the pursuit trace
+
+dev176 iPad Pro M4 pursuit trace, all samples: P 1,462,178 / E 1,198,245
+(55% / 45%). XThreadD80B 375,004 P / 33,058 E, Main XThread 325,405 / 33,667,
+GPU Commands 305,519 / 30,508: the three main game threads ~91% on P cores;
+render-queue and helper threads mostly on E. So the iPad's `[cpu]` % is
+mostly real P-core time (not E-core inflation), consistent with Stefan's
+"warmer than it used to be at 60 / 1.5x". Proposed: in the iPad power pair,
+add a run that pushes the game threads harder toward E cores (lower QoS /
+Background at 60 on the iPad), checking pacing.
+
 ## November 16, 2026 — dev177 free-roam run; dev178 smooth return
 
 Archived (verified, Desktop copies deleted): `Debug/16 November 2026/
