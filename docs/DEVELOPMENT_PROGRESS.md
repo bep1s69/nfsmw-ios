@@ -569,6 +569,19 @@ Stefan): clear the late window and ignore hitch frames for ~2 s at every drive
 start, then design per-role levels (main, GPU commands, workers, render, audio)
 raised by stage attribution instead of one shared mode. No code change yet.
 
+dev130 (Stefan approved step 1, Nov 16): `nfsmw_drive_start_grace_ms` (default
+2000, 0 = dev129) in the cap controller: each drive start clears the late window
+and ignores late frames for the grace period, whatever level loading left. Log
+lines `[scheduling] dev130 drive-start grace` (startup) and `[cap-controller]
+driving: late frames ignored for N ms`. Render Utility trial unchanged and still
+opt-in. `tools/ios/test_render_qos_trial.py` PASS (baseline check now strips the
+dev130 hunks). build-0.6 ipa exit 0, deep codesign pass, marker string in binary.
+IPA `ios/build/NFSMW-0.6.1-dev130-drive-start-grace.ipa`, SHA256
+2ca156caf00ad29a9e9169be2830da730c0f950b1c1ce5dee1c7bfaaa06513a1, copied to
+Desktop (dev129 removed from Desktop, kept in ios/build). Next: Stefan checks
+that drives start at Default without an early User Initiated jump; then
+same-build power pair trial OFF/ON with matched brightness.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

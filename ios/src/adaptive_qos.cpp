@@ -108,6 +108,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_audio_thread_low, false, "Kernel",
 REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial, false, "Kernel",
                     "Scheduling trial: during cap-controller boosts above 40 FPS, keep native Metal encoding at Utility QoS; "
                     "game and audio threads keep their existing policy. Requires native render Utility enabled (restart required)");
+// dev130 (Stefan, Nov 16): ignore late frames for this long after each drive
+// starts. dev129's power pair showed world-entry hitches (texture decoding,
+// 231 ms frames) raising the controller to User Initiated 30 ms into a drive,
+// where it then stayed. 0 restores the dev129 behaviour.
+REXCVAR_DEFINE_INT32(nfsmw_drive_start_grace_ms, 2000, "Kernel",
+                     "Cap controller: ms after a drive starts in which late frames are not counted (0 = off)");
 REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48, false, "Kernel",
                     "Adaptive QoS: the IPA48 boost (user_initiated, 240 s, all guest threads); "
                     "overrides the three settings above (restart required)");
@@ -365,8 +371,10 @@ void OnSwap(double interval_ms) {
   const bool rendered_late = render_late.exchange(0, std::memory_order_relaxed) > 0 && !original;
   const bool is_late = (interval_ms > budget * (original ? 1.2 : 1.1) && interval_ms < 250.0) ||
                        rendered_late;  // not loading stalls
-  late_count += int(is_late) - int(late[at]);
-  late[at] = is_late;
+  static Clock::time_point drive_grace_until{};
+  const bool counted = is_late && !(Controller() && now < drive_grace_until);
+  late_count += int(counted) - int(late[at]);
+  late[at] = counted;
   at = (at + 1) % window;
   if (Controller()) {
     // dev109 cap controller (Stefan, Nov 9: dev108's probing down while
@@ -398,6 +406,16 @@ void OnSwap(double interval_ms) {
     // dev110: driving always starts at the start level. dev109 kept a level
     // raised by loading-screen late frames (User Initiated) for the whole
     // drive (Nov 10 iPhone run: 40.2 %/h instead of Default's ~38).
+    if (started) {
+      // dev130: every drive starts with an empty late window and a short
+      // grace period, whatever level the loading screens left.
+      std::fill(std::begin(late), std::end(late), false);
+      late_count = 0;
+      const int32_t grace_ms = std::max<int32_t>(REXCVAR_GET(nfsmw_drive_start_grace_ms), 0);
+      drive_grace_until = now + std::chrono::milliseconds(grace_ms);
+      if (grace_ms > 0 && lines++ < 200)
+        REXLOG_INFO("[cap-controller] driving: late frames ignored for {} ms", grace_ms);
+    }
     if (started && m != floor_level) {
       m = floor_level;
       if (lines++ < 200) REXLOG_INFO("[cap-controller] driving: {} (start level, cap {})", LevelName(m), cap);

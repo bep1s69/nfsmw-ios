@@ -401,6 +401,8 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               rex::cvar::Query<bool>("nfsmw_native_command_encoding") ? "on" : "off");
   REXLOG_INFO("[scheduling] dev129 render Utility trial {} (default off; only native encoding during controller boosts above 40 FPS; render-utility opt-out respected)",
               rex::cvar::Query<bool>("nfsmw_render_utility_trial") ? "on" : "off");
+  REXLOG_INFO("[scheduling] dev130 drive-start grace {} ms (cap controller ignores late frames after each drive starts; 0 = dev129)",
+              rex::cvar::Query<int32_t>("nfsmw_drive_start_grace_ms"));
   REXLOG_INFO("[transform-copies] native scalar transfers {}; separate from the five-option battery group",
               REXCVAR_GET(nfsmw_native_transform_copies) ? "on" : "off");
   if (REXCVAR_GET(ios_gpu_capture)) {

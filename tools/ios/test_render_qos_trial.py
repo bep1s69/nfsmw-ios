@@ -75,5 +75,19 @@ start = source.index('REXCVAR_DEFINE_BOOL(nfsmw_render_utility_trial,')
 end = source.index(');', start) + 3
 normalized = source[:start] + source[end:]
 normalized = normalized.replace(selector, function(baseline, 'unsigned RenderQos()'), 1)
+# dev130's drive-start grace (controller only) is the one intended change since.
+g0 = normalized.index('// dev130 (Stefan, Nov 16)')
+g1 = normalized.index('REXCVAR_DEFINE_BOOL(ios_adaptive_qos_ipa48', g0)
+normalized = normalized[:g0] + normalized[g1:]
+normalized = normalized.replace('''  static Clock::time_point drive_grace_until{};
+  const bool counted = is_late && !(Controller() && now < drive_grace_until);
+  late_count += int(counted) - int(late[at]);
+  late[at] = counted;
+''', '''  late_count += int(is_late) - int(late[at]);
+  late[at] = is_late;
+''', 1)
+s0 = normalized.index('    if (started) {\n      // dev130')
+s1 = normalized.index('    if (started && m != floor_level) {', s0)
+normalized = normalized[:s0] + normalized[s1:]
 assert normalized == baseline
 print('PASS all guest/audio/controller/pipeline QoS source unchanged from accepted baseline')
