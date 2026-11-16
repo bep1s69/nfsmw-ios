@@ -1967,6 +1967,7 @@ UIWindow* GameWindow() {
     if ([scene isKindOfClass:UIWindowScene.class] &&
         nfsmw::IsAppScene(scene)) {
       for (UIWindow* w in ((UIWindowScene*)scene).windows) {
+        if (nfsmw::IsHelperWindow(w)) continue;
         if (w.isKeyWindow || !window) {
           window = w;
         }

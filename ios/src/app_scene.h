@@ -5,7 +5,8 @@
 // and code that picked "the phone's scene" by comparing a scene's screen to
 // mainScreen found none there, so the game layer was never attached (a black
 // inner screen with sound, issue #14). The app's scene is the one with the
-// application role; an external display (HDMI, AirPlay) gets another role.
+// application role; an external display (HDMI, AirPlay) gets another role
+// (external_display.mm).
 // Main thread only (connectedScenes is UIKit state).
 #pragma once
 
@@ -43,9 +44,12 @@ inline UIScreen* AppScreen() {
   return scene && scene.screen ? scene.screen : UIScreen.mainScreen;
 }
 
-// A screen that is neither the app's nor the device's own (an external display).
-inline bool IsExternalScreen(UIScreen* screen) {
-  return screen && screen != UIScreen.mainScreen && screen != AppScreen();
+// A window of the app's scene that is never the game's or the launcher's:
+// the 1-point window external_display.mm keeps for an external display's
+// scene accessory (iOS 27). Lookups of "the key window, else the first" skip it.
+inline bool IsHelperWindow(UIWindow* window) {
+  static Class anchor = NSClassFromString(@"NFSExternalDisplayAnchorWindow");
+  return anchor && [window isKindOfClass:anchor];
 }
 
 }  // namespace nfsmw
