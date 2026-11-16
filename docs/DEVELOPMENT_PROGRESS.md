@@ -671,6 +671,29 @@ iPad at 60 already runs everything on Utility; the dev131 default is harmless
 there. The lever matters on 4-E-core iPhones (Default start at >40). Remaining
 device-adaptive gap: 120 cap (iPhone Default/UI, iPad Default) untested.
 
+dev131 iPhone 120 pair (Nov 16 14:36-14:46, iPhone 17 Pro Max, 1x, brightness 27%
+both, no charging rows). Archive `16 November 2026/dev131 iPhone 120 render trial
+power pair/` (.aar 5ff2ac69.../7bc0df6f..., nfsmw.log cc0b5db7...; Desktop copies
+deleted after verification). Run 1 trial OFF: drive 14:36:56-14:40:16, Default
+then UI from 14:38:45 (genuine). Run 2 trial ON (default): drive 14:42:54-14:46:08,
+UI from 14:42:56.881 (2.75 s in, just after the grace) for the whole drive;
+thermal Fair for the trace's last 46 s (run 1 Nominal throughout).
+
+| | run 1 OFF | (Default part) | (UI part) | run 2 ON |
+|---|---:|---:|---:|---:|
+| system drain %/h | 44.37 | 47.2 | 41.46 | 40.76 |
+| CPU impact | 23.92 | 27.06 | 20.68 | 22.93 |
+| GPU impact | 12.87 | 12.68 | 13.07 | 10.25 |
+| instructions G/s | 16.09 | | | 14.96 |
+| fps mean (from pacing windows) | 117.9 | | | 110.2 (114.9 then 105.8) |
+
+At 120 the trial did NOT hold the cap: mean 110 fps, falling to ~106 as thermal
+reached Fair; the lower drain (-8%) mostly follows ~7% less rendered work (GPU
+-20%, instructions -7%). Run 1's UI part (render at UI) held ~120 at 41.5 %/h.
+Confounds: fixed order (ON second and hotter). Per Stefan's rule (preserve FPS),
+the trial is not acceptable at 120 as is. Proposed dev132: limit render Utility
+to caps 41-60 (render follows the boost above 60).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
