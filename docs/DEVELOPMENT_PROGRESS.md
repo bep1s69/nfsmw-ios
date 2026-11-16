@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev163 iPhone power run 2 (baseline, 1.5x MSAA 4x)
+
+`Debug/16 November 2026/dev163_iphone_PowerProfiler_182733_182922.aar` +
+`dev163_iphone_power2_nfsmw.log`: 109.2 s, brightness 46-48%, Nominal;
+estimated drain 36.94 %/h whole, 36.18 (15 s to end-5 s). Settings: scale
+1.5, MetalFX off, forced MSAA 4, Sharp HUD on, cap 60. GPU frames 5-9 ms in
+calm driving, 14-19 ms in the pursuit (fully attributed, unattributed ~0.02):
+scene 2400x1080 MSAA4 5.57, cube faces 1.92, shadow 1.71, post 1.15, HUD
+layer 0.82 ms. Pacing 0-232 of 300 off (worst in the pursuit). Stefan felt
+lag near the police: GPU over the 16.7 ms budget there. Suggested headroom:
+MSAA 2x, half-rate reflections, Sharp HUD off, 1.25x.
+
 ## November 16, 2026 — dev163: Eco / Balanced / Max gone from the menus
 
 Stefan: remove every mention of the old performance profiles before the
