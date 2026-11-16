@@ -48,15 +48,15 @@ int main(int argc, char** argv) {
     policy_cap=cap; mode=m; flags=f; controller=c; workers=w; boost=b;
     const unsigned original=AdaptiveEnabled() && workers && m>=1 ? b
         : Flag(RenderUtility) ? LowQos(LowRole::Render) : QOS_CLASS_DEFAULT;
-    const bool isolated=trial && controller && cap>40 && Flag(RenderUtility)
+    const bool isolated=trial && controller && cap>40 && cap<=60 && Flag(RenderUtility)
         && AdaptiveEnabled() && workers && m>=1;
     const unsigned actual=RenderQos();
     assert(actual==(isolated ? QOS_CLASS_UTILITY : original));
-    if (!trial || cap<=40 || !controller || !Flag(RenderUtility)) assert(actual==original);
+    if (!trial || cap<=40 || cap>60 || !controller || !Flag(RenderUtility)) assert(actual==original);
     changed+=actual!=original; ++checked;
   }
   assert(trial ? changed>0 : changed==0);
-  std::printf("PASS trial=%d: %u live cap/mode/policy/worker/boost cases, %u changed; low caps and opt-outs preserved\n",trial,checked,changed);
+  std::printf("PASS trial=%d: %u live cap/mode/policy/worker/boost cases, %u changed; low caps, caps above 60 and opt-outs preserved\n",trial,checked,changed);
 }
 '''
 with tempfile.TemporaryDirectory(prefix='nfsmw-render-qos-') as tmp:

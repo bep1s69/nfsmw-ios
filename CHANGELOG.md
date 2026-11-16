@@ -20,8 +20,8 @@
   comparison; the previous paths remain available through Extra Args.
   Indirect command encoding, register batching and descriptor-run trials remain
   off by default.
-  Native rendering now runs at lower priority during high-frame-rate
-  controller boosts (about 19% less battery drain in a matched iPhone test at
+  Native rendering now runs at lower priority during controller boosts
+  at 41-60 FPS caps (about 19% less battery drain in a matched iPhone test at
   60 FPS). Each drive also starts with a clean late-frame count, so loading
   hitches no longer keep the game boosted.
 

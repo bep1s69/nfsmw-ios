@@ -584,7 +584,10 @@ unsigned RenderQos() {
   static const bool utility_trial = REXCVAR_GET(nfsmw_render_utility_trial);
   // Isolate encoding from guest-worker boosts without changing queue order or
   // the established 30/40 policy. Explicit render-utility=false still wins.
-  if (utility_trial && Controller() && policy_cap.load(std::memory_order_relaxed) > 40 &&
+  // dev132 (Stefan, Nov 16): only caps 41-60; at 120 encoding on Utility
+  // missed the cap on the iPhone (110 vs 118 fps mean).
+  const int render_cap = policy_cap.load(std::memory_order_relaxed);
+  if (utility_trial && Controller() && render_cap > 40 && render_cap <= 60 &&
       Flag(RenderUtility) && AdaptiveEnabled() && WorkersOn() && m >= 1)
     return QOS_CLASS_UTILITY;
   if (AdaptiveEnabled() && WorkersOn() && m >= 1) return BoostQos(m);

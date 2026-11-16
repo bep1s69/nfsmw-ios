@@ -694,6 +694,14 @@ Confounds: fixed order (ON second and hotter). Per Stefan's rule (preserve FPS),
 the trial is not acceptable at 120 as is. Proposed dev132: limit render Utility
 to caps 41-60 (render follows the boost above 60).
 
+dev132 (Stefan approved, Nov 16): RenderQos trial condition now cap 41-60 only;
+above 60 render follows the boost again (pre-dev131). Test PASS (64 changed cases,
+caps above 60 asserted unchanged). Build exit 0, deep codesign pass, marker
+"caps 41-60 since dev132" in binary. IPA `ios/build/NFSMW-0.6.1-dev132-render-utility-41-60.ipa`
+SHA256 c19fafe1017b58c88e09f8080b4156e5e91840db2148fc6c8fda00b4f3b93a60, on Desktop
+(dev131 removed from Desktop, kept in ios/build). Optional check: a 120 drive
+should hold ~120 fps as dev131 trial-off did.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

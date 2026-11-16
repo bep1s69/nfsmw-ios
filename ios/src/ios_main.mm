@@ -399,7 +399,7 @@ int RunGame(int argc, char* argv[], const fs::path& docs) {
               rex::cvar::Query<bool>("nfsmw_native_command_reuse") ? "on" : "off",
               rex::cvar::Query<bool>("nfsmw_native_prepared_geometry") ? "on" : "off",
               rex::cvar::Query<bool>("nfsmw_native_command_encoding") ? "on" : "off");
-  REXLOG_INFO("[scheduling] dev131 render Utility trial {} (default on since dev131; only native encoding during controller boosts above 40 FPS; render-utility opt-out respected)",
+  REXLOG_INFO("[scheduling] dev131 render Utility trial {} (default on since dev131; only native encoding during controller boosts at caps 41-60 since dev132; render-utility opt-out respected)",
               rex::cvar::Query<bool>("nfsmw_render_utility_trial") ? "on" : "off");
   REXLOG_INFO("[scheduling] dev131 drive start at User Initiated {} (default off; render Utility trial now default on)",
               rex::cvar::Query<bool>("nfsmw_drive_start_user_initiated") ? "on" : "off");
