@@ -146,7 +146,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, false, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_preset, "off", "GPU",

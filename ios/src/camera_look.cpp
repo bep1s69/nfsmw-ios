@@ -145,7 +145,10 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     // and right keep the easing.
     static bool looking_back = false;
     const bool back_now = held && std::fabs(target) > 150.0f;
-    const bool snap = back_now || (looking_back && !back_now && !held);
+    // Only the moment it enters the back zone (and the release from it)
+    // snaps; moving the stick within it eases like the rest (dev168,
+    // Stefan: dev166 snapped every frame there: jittery).
+    const bool snap = (back_now && !looking_back) || (looking_back && !back_now && !held);
     looking_back = back_now;
     yaw_offset = snap || std::fabs(step) < 0.5f ? target : yaw_offset + step * (1.0f - std::exp(-dt / 0.05f));
     yaw_offset = std::remainder(yaw_offset, 360.0f);

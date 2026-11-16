@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev168: look-back smooth after the snap; release held
+
+Stefan: in dev166/167 the look-back zone snapped every frame (jittery while
+moving the stick there); only entering it (and releasing from it) should
+snap, the full 360 degrees otherwise easing. dev168 does that. Also the
+`[hud-split]` diagnostic (160 lines every 20 s) is now default off. Release
+held until power profiles on iPad and iPhone: Stefan feels the iPad warmer
+than it used to be at 60 fps / 1.5x. Suspects introduced today (unmeasured):
+iPad scheduled presents at 60 (`nfsmw_native_present_at_time_60_ipad`),
+Sharp HUD if on, the hud-split log. Proposed same-sitting iPad pair: dev168
+default vs `--nfsmw_native_present_at_time_60_ipad=false` (Sharp HUD and
+MetalFX off in both). IPA `ios/build/NFSMW-0.6.1-dev168-lookback-smooth.ipa`.
+
 ## November 16, 2026 — dev167 accepted; 0.6.1 candidate
 
 Stefan: much better; the title screen background (same oily look) is plain
