@@ -145,7 +145,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
-REXCVAR_DEFINE_BOOL(nfsmw_native_hud_full_res, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
+                    "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
+
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_full_res, false, "GPU",
                     "Native renderer: below the screen's scale, the displayed target (post composite, "
                     "HUD, menus) drawn at the screen's scale so that the HUD stays sharp");
 
@@ -6246,6 +6249,46 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (now != said) {
         said = now;
         REXLOG_INFO("[native] sharp HUD: displayed target {} (scene {:.3f})", now, resolution_scale);
+      }
+    }
+    // HUD split diagnostic (dev145): every 20 s, the displayed target's draws
+    // in order (index, shaders, screen-space, blend, depth, viewport) and the
+    // resolves taken from it, to find where the scene, the post chain and the
+    // HUD begin on each device.
+    if (REXCVAR_GET(nfsmw_native_hud_split_log)) {
+      static auto next_log = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+      const auto now_t = std::chrono::steady_clock::now();
+      std::string shown_key;
+      for (size_t r = frame->resolves.size(); r-- > 0;) {
+        const ResolveEvent& ev = frame->resolves[r];
+        if (ev.depth || ev.array) continue;
+        shown_key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
+        if (!sizes.count(shown_key) && ev.after_draws > 0 && ev.after_draws <= frame->draws.size())
+          shown_key = target_key(frame->draws[ev.after_draws - 1]);
+        break;
+      }
+      if (now_t >= next_log && !shown_key.empty() && frame->draws.size() > 300) {
+        next_log = now_t + std::chrono::seconds(20);
+        std::vector<size_t> on;
+        for (size_t i = 0; i < frame->draws.size(); ++i)
+          if (target_key(frame->draws[i]) == shown_key) on.push_back(i);
+        REXLOG_INFO("[hud-split] frame: {} draws, displayed target {}: {} draws (first {}, last {})",
+                    frame->draws.size(), shown_key, on.size(), on.empty() ? 0 : on.front(),
+                    on.empty() ? 0 : on.back());
+        for (const ResolveEvent& ev : frame->resolves) {
+          if (ev.depth || ev.array || ev.after_draws == 0 || ev.after_draws > frame->draws.size()) continue;
+          if (target_key(frame->draws[ev.after_draws - 1]) != shown_key) continue;
+          REXLOG_INFO("[hud-split]   resolve after draw {} -> {:08x} rect {},{} {}x{}", ev.after_draws - 1,
+                      ev.dest_base, ev.x0, ev.y0, ev.x1 - ev.x0, ev.y1 - ev.y0);
+        }
+        const size_t from = on.size() > 160 ? on.size() - 160 : 0;
+        for (size_t j = from; j < on.size(); ++j) {
+          const Draw& d = frame->draws[on[j]];
+          REXLOG_INFO("[hud-split]   {} ps {:016x} vs {:016x} {} blend {:08x} depth {:08x} vp {:.0f}x{:.0f} n {}",
+                      on[j], d.ps_key, d.vs_key, (d.vte & 1) ? "vp" : "px", d.blend_control, d.depth_control,
+                      std::fabs(d.viewport[0]) * 2, std::fabs(d.viewport[2]) * 2,
+                      d.index_count() ? d.index_count() : d.vertex_count);
+        }
       }
     }
     auto scale_of = [&](const std::string& key) -> float {

@@ -752,6 +752,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev144 iPad result; dev145 HUD split diagnostic
+
+dev144 on the iPad (1.5x, log `Debug/16 November 2026/dev144_ipad_sharp_hud_nfsmw.log`,
+Metal HUD screenshot `dev144_ipad_metal_hud_IMG_0379.png`): the rule only
+applied to menu frames (`000_960_0_d5e4_s1 at 2.867`); in races it was off.
+On the iPad the game draws post and HUD into the scene target itself (no
+separate post target, as the Nov 5 pass table showed), so race frames have
+>600 draws there; transition frames dropped under 600 and flipped the target
+to native and back (Stefan saw split-second sharp frames; target remakes).
+Race pacing: 85-150 of 300 frames 25/8 ms apart on the 120 Hz panel (the
+Metal HUD spikes); dev144 was off in races, so not its cause (inferred; pre-
+existing status unverified). dev145: `nfsmw_native_hud_full_res` default
+false; new `[hud-split]` log every 20 s (displayed target's last 160 draws:
+index, ps, vs, px/vp, blend, depth, viewport, count; its resolves) to find a
+per-draw split point that works on both devices.
+IPA `ios/build/NFSMW-0.6.1-dev145-hud-split-log.ipa`, on Desktop.
+
 ## November 16, 2026 — dev144: sharp HUD below the screen's scale (MetalFX step 1)
 
 Stefan approved the MetalFX return plan (motion blur stays on). Step 1, dev144:
