@@ -768,6 +768,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev184: free look back to dev178
+
+Stefan (dev183): the free look is still affected by speed and elevation; it
+was best with dev177's behaviour (before the dev180 change). dev184 restores
+`camera_look.cpp` exactly as in dev178/dev179 (6ff25a0: car-matrix search
+with the 10-unit window, forward row per frame, 0.2 s fade back to the chase
+camera); dev180's 3-unit window and dev182's changes are dropped. Everything
+else as dev183 (efficiency-core controller with calm step-down). IPA
+`ios/build/NFSMW-0.6.1-dev184-camera-dev178.ipa`, on Desktop.
+
 ## November 17, 2026 — dev183: back down to the efficiency cores while driving
 
 Stefan: the iPad used to run on the efficiency cores only and now still ends

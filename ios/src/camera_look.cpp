@@ -317,15 +317,9 @@ extern "C" REX_FUNC(sub_8243CBF0) {
       };
       auto be = [](const uint8_t* q) { return uint32_t(q[0]) << 24 | uint32_t(q[1]) << 16 | uint32_t(q[2]) << 8 | q[3]; };
       auto fl = [&](const uint8_t* q) { const uint32_t v = be(q); float x; std::memcpy(&x, &v, 4); return x; };
-      auto matrix_at = [&](const uint8_t* q, bool fill, float window) {  // q: the position; rows 48..16 bytes before
+      auto matrix_at = [&](const uint8_t* q, bool fill) {  // q points at the position; rows 48..16 bytes before
         const float px = fl(q), py = fl(q + 4), pz = fl(q + 8);
-        // Searching: within 3 of the look-at point (dev180: dev179's iPad log
-        // found another matrix with 10, possibly a nearby car). A path once
-        // found stays valid within 12 (dev182: with 3 the sprung look-at point
-        // left it while accelerating and the camera fell back to the chase
-        // camera's spring, then searched again: elevation and jitter).
-        if (!std::isfinite(px) || std::fabs(px - tx) > window || std::fabs(py - ty) > window ||
-            std::fabs(pz - tz) > window)
+        if (!std::isfinite(px) || std::fabs(px - tx) > 10 || std::fabs(py - ty) > 10 || std::fabs(pz - tz) > 10)
           return false;
         float r[3][3];
         for (int i = 0; i < 3; ++i) {
@@ -348,7 +342,7 @@ extern "C" REX_FUNC(sub_8243CBF0) {
           obj = be(q);
         }
         uint8_t mm[64];
-        return k >= 48 && rd(obj + k - 48, mm, sizeof(mm)) && matrix_at(mm + 48, true, 12.0f);
+        return k >= 48 && rd(obj + k - 48, mm, sizeof(mm)) && matrix_at(mm + 48, true);
       };
       ok = path_mover == mover && try_path(mover, o1, o2, two, kpos);
       if (!ok && (path_mover != mover || now >= next_search)) {
@@ -362,13 +356,13 @@ extern "C" REX_FUNC(sub_8243CBF0) {
             uint8_t ob[0x600];
             if (!rd(p1, ob, sizeof(ob))) continue;
             for (uint32_t k = 48; k + 12 <= sizeof(ob) && !found; k += 4)
-              if (matrix_at(ob + k, false, 3.0f)) found = true, o1 = a1, two = false, kpos = k;
+              if (matrix_at(ob + k, false)) found = true, o1 = a1, two = false, kpos = k;
             for (uint32_t a2 = 0; a2 < 0x100 && !found; a2 += 4) {
               const uint32_t p2 = be(ob + a2);
               uint8_t o2b[0x600];
               if (!rd(p2, o2b, sizeof(o2b))) continue;
               for (uint32_t k = 48; k + 12 <= sizeof(o2b) && !found; k += 4)
-                if (matrix_at(o2b + k, false, 3.0f)) found = true, o1 = a1, o2 = a2, two = true, kpos = k;
+                if (matrix_at(o2b + k, false)) found = true, o1 = a1, o2 = a2, two = true, kpos = k;
             }
           }
         }
@@ -397,22 +391,8 @@ extern "C" REX_FUNC(sub_8243CBF0) {
       const int other = 3 - up - fw;
       auto dotv = [&](int r) { return ax[r][0] * vx + ax[r][1] * vy + ax[r][2] * vz; };
       if (std::fabs(dotv(other)) > std::fabs(dotv(fw))) fw = other;
-      float sign = dotv(fw) < 0 ? -1.0f : 1.0f;
-      // The car's forward row and its sign are taken from the chase view only
-      // while not looking and kept while looking (dev182: looking back, the
-      // view runs against the car, so re-deciding each frame flipped the
-      // orbit: jitter to the left/right with the stick held down).
-      static int kept_fw = -1;
-      static float kept_sign = 1.0f;
-      const bool looking_now = yaw_offset != 0 || pitch_offset != 0;
-      if (!looking_now || kept_fw < 0) {
-        kept_fw = fw;
-        kept_sign = sign;
-      } else {
-        fw = kept_fw;
-        sign = kept_sign;
-      }
-      float F[3] = {ax[fw][0] * sign, ax[fw][1] * sign, ax[fw][2] * sign};
+      float F[3] = {ax[fw][0], ax[fw][1], ax[fw][2]};
+      if (dotv(fw) < 0) F[0] = -F[0], F[1] = -F[1], F[2] = -F[2];
       const float rx = ex - cp[0], ry = ey - cp[1], rz = ez - cp[2];
       // dev178 (Stefan: on release it eased back, then jumped to the chase
       // camera's own position): the car-fixed camera's weight eases from 1
