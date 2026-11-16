@@ -752,6 +752,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev150: MetalFX base = Render resolution
+
+Stefan on dev149 (iPhone, Metal HUD: Quality input 2438x1119 -> 2868x1316):
+the 0.85x should be of the game's 720p, not of the screen; live switching
+works. dev150: "MetalFX upscaling" is Off / On; the scene is drawn at Render
+resolution (0.85x 612p ... 2x 1440p of 720p), MetalFX to the target (Native
+or 0.75x of it); only active when the target is larger than the render scale
+(`MetalFxTemporal()`), else plain rendering. IPA
+`ios/build/NFSMW-0.6.1-dev150-metalfx-base-render-res.ipa`, on Desktop.
+
 ## November 16, 2026 — dev148 result; dev149 MetalFX presets (step 3)
 
 dev148, iPhone (log `Debug/16 November 2026/dev148_metalfx_nfsmw.log`):

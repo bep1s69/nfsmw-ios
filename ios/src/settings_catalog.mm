@@ -498,14 +498,12 @@ const std::vector<Section>& Sections() {
              {@"1.75x · 1260p", @"1.75"}, {@"2x · 1440p", @"2"},
              {NativeScaleTitle(), @"native"}}, kInGame | kInGameNative, "nfsmw_native_resolution_scale"},
            {@"metalfx", Type::kChoice, @"MetalFX upscaling",
-            @"Draws the 3D scene with fewer pixels and lets Apple's MetalFX rebuild it at the target "
-            @"resolution, smoothing edges too. The HUD and the game's own effects (motion blur) are "
-            @"drawn at the target. While it is on, Render resolution is not used: the scene is drawn "
-            @"at 0.85x (Quality), 0.75x (Balanced) or 0.5x (Performance) of the target. Costs more "
-            @"battery than drawing the same scene without it.",
-            @"off",
-            {{@"Off", @"off"}, {@"Quality · 0.85x", @"quality"}, {@"Balanced · 0.75x", @"balanced"},
-             {@"Performance · 0.5x", @"performance"}}, kInGame | kInGameNative | kNativeOnly,
+            @"Draws the 3D scene at the Render resolution above and lets Apple's MetalFX rebuild it "
+            @"at the target below, smoothing edges too: 0.85x or 1x with a Native target looks close "
+            @"to native for less GPU work. The HUD and the game's own effects (motion blur) are drawn "
+            @"at the target. Only used when the target is larger than the Render resolution. Costs "
+            @"more battery than the same Render resolution without it.",
+            @"off", {{@"Off", @"off"}, {@"On", @"on"}}, kInGame | kInGameNative | kNativeOnly,
             "nfsmw_native_metalfx_preset"},
            {@"metalfx_target", Type::kChoice, @"MetalFX target",
             @"The resolution MetalFX builds the picture at: this screen's own (or the external "

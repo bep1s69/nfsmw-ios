@@ -149,8 +149,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_preset, "off", "GPU",
-                      "Native renderer: MetalFX upscaling of the scene: off, quality (0.85x of the target), "
-                      "balanced (0.75x), performance (0.5x)");
+                      "Native renderer: MetalFX upscaling of the scene (drawn at the render scale) to the target: off, on");
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_target, "native", "GPU",
                       "Native renderer: MetalFX target: native (the screen's or external display's pixels) or 0.75");
 
@@ -483,26 +482,26 @@ constexpr uint64_t kPurgeIdleFrames = 30;
 
 // MetalFX temporal on (any size). Read once per frame by the recording
 // (Frame's motion and jitter follow it), so a change starts on a new frame.
-// MetalFX presets (dev149, the launcher's "MetalFX upscaling"): the scene
-// at a share of the target (0 = off, or the diagnostic nfsmw_native_metalfx).
-float MetalFxPresetRatio() {
-  static std::atomic<uint32_t> read_at{~0u};
-  static std::atomic<float> ratio{0.0f};
-  const uint32_t generation = settings_generation.load(std::memory_order_acquire);
-  if (read_at.load(std::memory_order_acquire) != generation) {
-    const std::string p = REXCVAR_GET(nfsmw_native_metalfx_preset);
-    ratio.store(p == "quality" ? 0.85f : p == "balanced" ? 0.75f : p == "performance" ? 0.5f : 0.0f,
-                std::memory_order_relaxed);
-    read_at.store(generation, std::memory_order_release);
-  }
-  return ratio.load(std::memory_order_relaxed);
-}
-// The target as a share of the screen's (or external display's) pixels.
+// MetalFX upscaling (dev150, the launcher's "MetalFX upscaling"): the scene
+// at the Render resolution, MetalFX to the target (the screen's or external
+// display's pixels, or 0.75 of them). Only when the target is larger.
 float MetalFxTargetShare() {
   return REXCVAR_GET(nfsmw_native_metalfx_target) == "0.75" ? 0.75f : 1.0f;
 }
+float NativeResolutionScale();
+bool MetalFxUpscaling() {
+  static std::atomic<uint32_t> read_at{~0u};
+  static std::atomic<bool> on{false};
+  const uint32_t generation = settings_generation.load(std::memory_order_acquire);
+  if (read_at.load(std::memory_order_acquire) != generation) {
+    on.store(REXCVAR_GET(nfsmw_native_metalfx_preset) == "on", std::memory_order_relaxed);
+    read_at.store(generation, std::memory_order_release);
+  }
+  return on.load(std::memory_order_relaxed);
+}
 bool MetalFxTemporal() {
-  if (MetalFxPresetRatio() > 0) return true;
+  if (MetalFxUpscaling() && native_screen_scale.load() * MetalFxTargetShare() > NativeResolutionScale() + 0.01f)
+    return true;
   static std::atomic<uint32_t> read_at{~0u};
   static std::atomic<bool> on{false};
   const uint32_t generation = settings_generation.load(std::memory_order_acquire);
@@ -546,12 +545,6 @@ float NativeResolutionScale() {
   }
   const float s = native_screen_scale.load();
   const float f = fixed.load(std::memory_order_relaxed);
-  if (const float ratio = MetalFxPresetRatio(); ratio > 0 && s > 0) {
-    // MetalFX: the scene at the preset's share of the target.
-    const float base = std::clamp(s * MetalFxTargetShare() * ratio, 0.5f, 4.0f);
-    const float hot = nfsmw::battery::HeatScale();
-    return hot > 0 ? std::min(base, hot) : base;
-  }
   const float chosen = !native.load(std::memory_order_relaxed) ? (std::isfinite(f) && f > 0 ? f : 1.0f)
                        : s > 0                                 ? s
                                                                : 1.0f;  // until the first frame has been shown
@@ -6131,7 +6124,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     if (mfx_scene) {
       const std::string mode = REXCVAR_GET(nfsmw_native_metalfx);
       const float screen = std::min(native_screen_scale.load(), 4.0f);
-      mfx_scale = MetalFxPresetRatio() > 0 ? std::max(resolution_scale, screen * MetalFxTargetShare())
+      mfx_scale = MetalFxUpscaling() ? std::max(resolution_scale, screen * MetalFxTargetShare())
                   : mode == "drawn" || !(screen > 0) ? resolution_scale
                   : mode == "lower"                ? std::max(resolution_scale, 0.75f * screen)
                                                    : std::max(resolution_scale, screen);
