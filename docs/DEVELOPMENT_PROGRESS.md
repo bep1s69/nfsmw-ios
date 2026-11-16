@@ -768,6 +768,31 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev181 iPad power runs; dev182 steady free look
+
+Archived (verified, Desktop copies deleted): `Debug/16 November 2026/
+dev181_runA_PowerProfiler_235525_235749.aar`, `Debug/17 November 2026/
+dev181_runB_PowerProfiler_000740_000956.aar` and
+`Debug/17 November 2026/dev181_power_pair_nfsmw.log` (iPad Pro M4, both
+sessions). Brightness 27% both, thermal Nominal. Run A (23:55:25, 144 s):
+29.17 %/h whole, 28.99 (15 s to end-5 s); learned start level was Default
+(from a 4 s drive at 23:45 that stepped up), so A drove at Default; after
+its 140 s drive the learned level went back to Low. Run B (00:07:40, 136 s):
+27.62 / 27.84 %/h; the log shows `Low is Background` and no learned-level
+lines: `--nfsmw_qos_learn=false` took effect but `--nfsmw_low_background=false`
+did not (B = efficiency cores from the start, no learning), one driving
+step to Default at 00:07:45. So not the planned old-vs-new pair; observed B
+(Background start) ~4% lower than A (Default start), same sitting, not a
+causal result. The ~40 fps dip at B's start: GPU frames 45-65 ms at
+00:07:39 (recording starting), not CPU.
+Stefan: since dev180 the free look got worse: elevation again and left/right
+jitter with the stick held down. Causes: (1) dev180's 3-unit window also
+validated the cached path, so while the sprung look-at point drifted the
+fixed camera dropped out (and re-searched); (2) the forward row's sign was
+re-decided each frame from the view direction, which reverses when looking
+back. dev182: 3 units only when searching, 12 for a found path; forward row
+and sign kept while looking. IPA `ios/build/NFSMW-0.6.1-dev182-look-steady.ipa`.
+
 ## November 16, 2026 — dev181 confirmed: orbs good
 
 Stefan: the orbs look right now. Remaining for 0.6.1: iPad/iPhone power pair
