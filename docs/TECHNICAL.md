@@ -30089,3 +30089,13 @@ as an empty viewport). Not tested on a device: whether the frame really
 leaves the screen with Custom HUD off. Build exit 0, `unzip -tq` ok. IPA
 `ios/build/NFSMW-0.6.1-dev135-look-hides-mirror.ipa` SHA256 23b41db9666ff901063169949a7f8c7fa79a39bcced6c64069baca7a433b612a, on Desktop
 (dev134 removed from Desktop, kept in ios/build).
+
+dev136 (Stefan, Nov 16, dev135 with Custom HUD on and off: the mirror picture
+disappears, its frame stays). Moving 0x7FAC287B 1000 units up did nothing
+visible (cause not known: not found, or not that object's position that is
+drawn). dev136 keeps the frame's normal move and instead sets the FE hidden
+flag (FEObject+0x1C bit 26, as the game's show/hide sub_82282BF8) while the
+look hides the mirror, clearing it only if set here; `[hud] mirror frame ...`
+lines (4 at most) log the object, its type and flags, or "not found". Build
+exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev136-mirror-frame-hidden.ipa`
+SHA256 a48d0815021acadf5044adf0f4e351918d575e103ce04b6acb69b1f0d002ef92, on Desktop (dev135 removed from Desktop, kept in ios/build).

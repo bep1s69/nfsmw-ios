@@ -726,6 +726,12 @@ view ahead). IPA `ios/build/NFSMW-0.6.1-dev135-look-hides-mirror.ipa` SHA256
 23b41db9666ff901063169949a7f8c7fa79a39bcced6c64069baca7a433b612a, on Desktop. Pending: Stefan's test (mirror frame and picture both gone
 while looking, back on release).
 
+dev136 (Stefan, Nov 16: dev135 hid the mirror picture, not its frame): the
+frame now gets the FE hidden flag instead of a move. IPA
+`ios/build/NFSMW-0.6.1-dev136-mirror-frame-hidden.ipa` SHA256 a48d0815021acadf5044adf0f4e351918d575e103ce04b6acb69b1f0d002ef92, on Desktop.
+Pending: Stefan's test; if the frame still shows, his log's `[hud] mirror frame`
+lines tell whether the object was found.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

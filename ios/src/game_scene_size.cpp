@@ -215,8 +215,8 @@ float nfsmw_mirror_scale_y = 1.0f;
 // And moved down by this much (of the screen's half height), with the
 // mirror's frame (nfsmw_hud_*: kept at its top margin).
 float nfsmw_mirror_shift_y = 0.0f;
-// The free look hides the mirror (camera_look.cpp, dev135): its frame moved
-// off the top, its picture not drawn (native_renderer.mm).
+// The free look hides the mirror (camera_look.cpp, dev135/136): its frame
+// flagged hidden, its picture not drawn (native_renderer.mm).
 extern "C" bool nfsmw_look_hides_mirror() __attribute__((weak));
 bool nfsmw_mirror_hidden = false;
 }
@@ -967,11 +967,32 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       MovePiece(base, p, offset[p.element][0], offset[p.element][1]);
     }
     g_pieces_moved = true;
-    const float mirror_dy = offset[kTopCentre][1] + (hide_mirror ? -1000.0f : 0.0f);
+    const float mirror_dy = offset[kTopCentre][1];
     const uint32_t frame = active || mirror_move || std::abs(mirror_dy) > 0.01f ? FindObject(ctx, base, package, kMirrorFrame) : 0;
     if (frame) {
       MoveGroup(base, frame, 0, mirror_dy, g_mirror);
-      nfsmw_mirror_shift_y = offset[kTopCentre][1] * g_half_height_per_unit;
+      nfsmw_mirror_shift_y = mirror_dy * g_half_height_per_unit;
+      // dev136: moving the frame 1000 units up (dev135) left it on screen
+      // (Stefan); the FE hidden flag (FEObject+0x1C bit 26, as the game's
+      // show/hide sub_82282BF8) instead, cleared only if set here.
+      static bool flagged = false;
+      const uint32_t flags = REX_LOAD_U32(frame + 0x1C);
+      if (hide_mirror && !(flags & (1u << 26))) {
+        REX_STORE_U32(frame + 0x1C, flags | (1u << 26));
+        flagged = true;
+      } else if (!hide_mirror && flagged) {
+        REX_STORE_U32(frame + 0x1C, flags & ~(1u << 26));
+        flagged = false;
+      }
+      static int said = 0;
+      if (mirror_move && said < 4) {
+        ++said;
+        REXLOG_INFO("[hud] mirror frame {:08X} type {} flags {:08X} -> {}", frame, REX_LOAD_U32(frame + 0x18), flags,
+                    hide_mirror ? "hidden" : "shown");
+      }
+    } else if (mirror_move) {
+      static int said = 0;
+      if (said++ < 4) REXLOG_INFO("[hud] mirror frame {:08X} not found", kMirrorFrame);
     }
   }
   ctx = saved;
