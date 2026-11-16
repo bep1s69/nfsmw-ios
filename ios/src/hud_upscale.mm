@@ -152,8 +152,23 @@ bool Soft(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
   return pairs && hard * 100 < pairs;  // under 1% of neighbours differ sharply
 }
 
+// Photographic art (the Blacklist members' portraits, Stefan, dev166): the
+// network (trained for drawn art) makes them look painted and oily. Many
+// distinct colours mark a photo: over 1500 at 5 bits per channel among the
+// visible pixels (UI art: a few hundred); those keep the plain copy (dev167).
+bool Photo(const std::vector<uint8_t>& in, uint32_t w, uint32_t h) {
+  std::vector<uint8_t> seen(32768, 0);
+  uint32_t colours = 0;
+  for (size_t i = 0; i < size_t(w) * h * 4; i += 4) {
+    if (in[i + 3] < 128) continue;
+    const uint32_t k = (in[i] >> 3) << 10 | (in[i + 1] >> 3) << 5 | (in[i + 2] >> 3);
+    if (!seen[k]) seen[k] = 1, ++colours;
+  }
+  return colours > 1500;
+}
+
 bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector<uint8_t>& out) {
-  if (Soft(in, w, h)) return false;
+  if (Soft(in, w, h) || Photo(in, w, h)) return false;
   MLModel* model = Model();
   std::lock_guard<std::mutex> predicting(g_model_lock);
   if (!model || !Supported(w) || !Supported(h)) return false;
@@ -318,7 +333,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         const uint8_t* px = static_cast<const uint8_t*>(buffer.contents);
         std::vector<uint8_t> in(px, px + size_t(w) * h * 4);
         const uint64_t hash = Hash(in.data(), in.size());
-        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a3.png",
+        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a4.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
         if (content_hash && LoadPng(PreparedFile(content_hash, w, h), r.width, r.height, r.rgba)) {
@@ -334,7 +349,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         if (!from_disk) {
           if (!Upscale(in, w, h, r.rgba)) {
             static uint32_t fails = 0;
-            if (fails++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (soft art, or no model)", w, h);
+            if (fails++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (soft or photographic art, or no model)", w, h);
             return;
           }
           SavePngImpl(file, r.width, r.height, r.rgba);
@@ -384,7 +399,7 @@ NSURL* PreparedFile(uint64_t content_hash, uint32_t w, uint32_t h) {
     [NSFileManager.defaultManager createDirectoryAtURL:d withIntermediateDirectories:YES attributes:nil error:nil];
     return d;
   }();
-  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_v2.png",
+  return [dir URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_v3.png",
                                                                      (unsigned long long)content_hash, w, h]];
 }
 

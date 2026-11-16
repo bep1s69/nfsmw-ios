@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev167: photographic art kept plain
+
+Stefan: the Blacklist members' portraits look too soft and oily with Sharp
+HUD (the anime-art network paints photos). dev167: textures with over 1500
+distinct colours (5 bits per channel, visible pixels) skip the network and
+keep the MetalFX spatial copy. On the disc's FrontEndTextures only 3 of 394
+are flagged (ENDGAME 2199, DEMO_SPLASH 2089, POST_BUSTED_BACKING 1595; next
+GRAF_01 585). The portraits are not in the AOT packs (drawn at runtime);
+expected to be flagged there (DXT photos, unverified). Caches renamed (`_v3`,
+`_a4`), preparation version 3. A photo-trained model (Real-ESRGAN x4plus) is
+the alternative if plain is not enough. IPA
+`ios/build/NFSMW-0.6.1-dev167-photos-plain.ipa`, on Desktop.
+
 ## November 16, 2026 — dev166: instant look-back; soft art kept plain
 
 Stefan: dev165 splat fixed. (1) Right-stick look-back (stick down) should be
