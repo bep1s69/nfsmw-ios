@@ -638,6 +638,27 @@ SHA256 5cb8007d152adcc50b7bcc2c578f06e4790a6de449794bd02c8e8ca4e037766c, on
 Desktop (dev130 removed from Desktop). Requested pair, same sitting/brightness:
 run 1 `--nfsmw_drive_start_user_initiated=true`, run 2 empty Extra Args.
 
+dev131 pair result (Nov 16 14:06-14:13, iPhone 17 Pro Max, brightness 26% both,
+no charging rows, Nominal). Archive `16 November 2026/dev131 drive-start UI power
+pair/` (.aar SHA 3c8d6d03.../59c96510..., nfsmw.log ffee4c2d...; Desktop copies
+deleted after verification). Windows drive start +15 s to drive end.
+
+| | run 1 variant ON (UI whole drive) | run 2 dev131 default |
+|---|---:|---:|
+| system drain %/h | 23.7 | 24.0 (Default part 24.5, after UI step 23.7) |
+| CPU impact | 14.01 | 14.51 |
+| GPU impact | 3.96 | 3.82 |
+| instructions G/s | 8.69 | 8.79 |
+
+Variant -1.2%, within noise: no reason to add it; stays opt-in/off. Run 2
+stepped up to UI at 14:11:48 (genuine late frames) and its UI part equals run 1.
+Pacing clean in both (no 300-frame window with more than 5 off-grid). Absolute
+levels (~24 %/h) are far below the 13:45 pair (30-37) one hour earlier, so the
+sitting-to-sitting drift rule holds; do NOT combine across sittings. Decision:
+keep dev131 defaults (Default drive start, render Utility during boosts).
+Next: device-adaptive confirmation, render trial OFF/ON pair on iPad and at
+other caps (120, 30/40 where the trial is inert by design).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
