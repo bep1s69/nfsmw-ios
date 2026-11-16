@@ -154,6 +154,10 @@ REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_preset, "off", "GPU",
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_target, "native", "GPU",
                       "Native renderer: MetalFX target: native (the screen's or external display's pixels) or 0.75");
 
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_textures, true, "GPU",
+                    "Native renderer: with the HUD drawn at the screen's scale, its textures upscaled 2x once "
+                    "(MetalFX spatial) so that they are sharp too");
+
 REXCVAR_DEFINE_BOOL(nfsmw_native_metalfx_scene, true, "GPU",
                     "Native renderer: MetalFX on the 3D scene before the game's post effects, with the "
                     "post effects and HUD drawn at the output scale (instead of on the finished picture)");
@@ -4477,6 +4481,36 @@ id<MTLRenderPipelineState> UpscalePipeline(id<MTLDevice> device, MTLPixelFormat 
   return made[format] = [device newRenderPipelineStateWithDescriptor:desc error:&error];
 }
 
+// Sharp HUD textures: MetalFX spatial's colour with the source's alpha
+// (bilinear), which the spatial scaler is not made for.
+id<MTLRenderPipelineState> HudMergePipeline(id<MTLDevice> device) {
+  static id<MTLRenderPipelineState> made;
+  static bool tried = false;
+  if (tried) return made;
+  tried = true;
+  NSString* source = @"#include <metal_stdlib>\n"
+                      "using namespace metal;\n"
+                      "struct V { float4 p [[position]]; float2 uv; };\n"
+                      "vertex V vs(uint id [[vertex_id]]) {\n"
+                      "  float2 uv = float2((id << 1) & 2, id & 2);\n"
+                      "  V v; v.p = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0); v.uv = uv; return v; }\n"
+                      "fragment float4 ps(V in [[stage_in]], texture2d<float> c [[texture(0)]], texture2d<float> a [[texture(1)]]) {\n"
+                      "  constexpr sampler s(filter::linear, address::clamp_to_edge);\n"
+                      "  return float4(c.read(uint2(in.p.xy)).rgb, a.sample(s, in.uv).a); }\n";
+  NSError* error = nil;
+  id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
+  if (!library) {
+    REXLOG_WARN("[native] HUD merge shader: {}", error.localizedDescription.UTF8String);
+    return nil;
+  }
+  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:@"vs"];
+  desc.fragmentFunction = [library newFunctionWithName:@"ps"];
+  desc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
+  made = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+  return made;
+}
+
 // --- GPU-side state kept across frames (render queue only) ----------------------
 
 struct GpuBuffer {
@@ -5851,7 +5885,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     auto heap = [&](NSArray* objects, bool are_samplers) {
       // Room for the textures resolves make while the frame is encoded.
       const size_t bytes = (std::max<NSUInteger>(objects.count, 1) + frame->resolves.size() * 4 +
-                            frame->textures.size() * 2) * 8;
+                            frame->textures.size() * 3) * 8;  // * 3: room for the sharp HUD's textures too
       // Five persistent heaps: texture, sampler, array, volume, cube.
       id<MTLBuffer> b = command_context ? command_context->Heap(device, command_heap_index, bytes) : nil;
       ++command_heap_index;
@@ -6233,6 +6267,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (i >= hud_from && key == hud_base) key = hud_virtual;
       return key;
     };
+    // Sharp HUD textures (dev154): frame texture index -> heap index of its
+    // upscaled copy, for the HUD target's draws.
+    std::unordered_map<int, int> hud_slot;
     // A resolve's own target: the HUD's after its first draw.
     auto resolve_key = [&](const ResolveEvent& ev) {
       std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
@@ -6897,7 +6934,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     uint32_t resolves_done = 0, resolves_skipped = 0;
     std::vector<std::string> resolve_names;  // what each resolve copied, to save
     std::vector<CGRect> resolve_rects;
-    const NSUInteger heap_capacity = textures.count + frame->resolves.size() * 4 + frame->textures.size() * 2;
+    const NSUInteger heap_capacity = textures.count + frame->resolves.size() * 4 + frame->textures.size() * 3;
 
     // What each 2D heap index holds (for the snapshot of watched draws' inputs).
     // Diagnostic-only extra ownership. The actual texture lists and resource
@@ -7997,6 +8034,116 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             [ue endEncoding];
             rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
           }
+          // Sharp HUD textures: the HUD's own 2D textures upscaled once
+          // (MetalFX spatial, 2x, alpha bilinear), kept by texture object.
+          if (REXCVAR_GET(nfsmw_native_hud_textures) && [MTLFXSpatialScalerDescriptor supportsDevice:device]) {
+            struct HudUp {
+              id<MTLTexture> source, up;
+            };
+            static std::unordered_map<const void*, HudUp> ups;
+            static std::map<std::pair<NSUInteger, NSUInteger>, id<MTLFXSpatialScaler>> scalers;
+            static uint64_t made_total = 0;
+            if (ups.size() > 768) {
+              for (auto& [k, u] : ups) residency::Remove(u.up);
+              ups.clear();
+            }
+            id<MTLRenderPipelineState> copy = UpscalePipeline(device, MTLPixelFormatRGBA8Unorm);
+            id<MTLRenderPipelineState> merge = HudMergePipeline(device);
+            auto* tex_ids = static_cast<MTLResourceID*>(texture_heap.contents);
+            auto* smp_ids = static_cast<MTLResourceID*>(sampler_heap.contents);
+            int made = 0;
+            for (size_t j = hud_from; j < frame->draws.size(); ++j) {
+              const Draw& hd = frame->draws[j];
+              if (target_key(hd) != hud_virtual) continue;
+              for (int s2 = 0; s2 < 16; ++s2) {
+                const int ti = hd.textures[s2];
+                if (ti < 0 || hud_slot.count(ti) || next_heap >= heap_capacity) continue;
+                const Texture& ft = *frame->textures[ti];
+                if (ft.cube || ft.volume || resolved.count(ft.address)) continue;
+                id<MTLTexture> src = textures[NSUInteger(ti) + 1];
+                if (!src || src == white || src.textureType != MTLTextureType2D || src.width < 8 || src.height < 8 ||
+                    src.width > 1024 || src.height > 1024)
+                  continue;
+                auto found_up = ups.find((__bridge const void*)src);
+                id<MTLTexture> up = found_up != ups.end() ? found_up->second.up : nil;
+                if (!up && made < 12 && copy && merge) {
+                  const NSUInteger w = src.width, h = src.height, ow = w * 2, oh = h * 2;
+                  id<MTLFXSpatialScaler> scaler = scalers[{w, h}];
+                  if (!scaler) {
+                    MTLFXSpatialScalerDescriptor* sd = [MTLFXSpatialScalerDescriptor new];
+                    sd.inputWidth = w;
+                    sd.inputHeight = h;
+                    sd.outputWidth = ow;
+                    sd.outputHeight = oh;
+                    sd.colorTextureFormat = MTLPixelFormatRGBA8Unorm;
+                    sd.outputTextureFormat = MTLPixelFormatRGBA8Unorm;
+                    sd.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
+                    scaler = [sd newSpatialScalerWithDevice:device];
+                    scalers[{w, h}] = scaler;
+                  }
+                  if (scaler) {
+                    MTLTextureDescriptor* d1 = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                                 width:w
+                                                                                                height:h
+                                                                                             mipmapped:NO];
+                    d1.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+                    d1.storageMode = MTLStorageModePrivate;
+                    id<MTLTexture> flat = [device newTextureWithDescriptor:d1];
+                    MTLTextureDescriptor* d2 = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                                 width:ow
+                                                                                                height:oh
+                                                                                             mipmapped:NO];
+                    d2.usage = scaler.outputTextureUsage | MTLTextureUsageShaderRead;
+                    d2.storageMode = MTLStorageModePrivate;
+                    id<MTLTexture> spatial = [device newTextureWithDescriptor:d2];
+                    d2.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+                    id<MTLTexture> out = [device newTextureWithDescriptor:d2];
+                    if (flat && spatial && out) {
+                      MTLRenderPassDescriptor* p1 = [MTLRenderPassDescriptor renderPassDescriptor];
+                      p1.colorAttachments[0].texture = flat;
+                      p1.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+                      p1.colorAttachments[0].storeAction = MTLStoreActionStore;
+                      id<MTLRenderCommandEncoder> e1 = [cb renderCommandEncoderWithDescriptor:p1];
+                      [e1 setRenderPipelineState:copy];
+                      [e1 setFragmentTexture:src atIndex:0];
+                      [e1 drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                      [e1 endEncoding];
+                      scaler.colorTexture = flat;
+                      scaler.outputTexture = spatial;
+                      scaler.inputContentWidth = w;
+                      scaler.inputContentHeight = h;
+                      [scaler encodeToCommandBuffer:cb];
+                      MTLRenderPassDescriptor* p2 = [MTLRenderPassDescriptor renderPassDescriptor];
+                      p2.colorAttachments[0].texture = out;
+                      p2.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+                      p2.colorAttachments[0].storeAction = MTLStoreActionStore;
+                      id<MTLRenderCommandEncoder> e2 = [cb renderCommandEncoderWithDescriptor:p2];
+                      [e2 setRenderPipelineState:merge];
+                      [e2 setFragmentTexture:spatial atIndex:0];
+                      [e2 setFragmentTexture:flat atIndex:1];
+                      [e2 drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                      [e2 endEncoding];
+                      up = out;
+                      residency::Add(up);
+                      ups[(__bridge const void*)src] = {src, up};
+                      ++made;
+                      ++made_total;
+                    }
+                  }
+                }
+                if (!up) continue;
+                tex_ids[next_heap] = up.gpuResourceID;
+                smp_ids[next_heap] = smp_ids[NSUInteger(ti) + 1];
+                hud_slot[ti] = int(next_heap++);
+              }
+            }
+            static uint32_t said = 0;
+            if (made && said < 20) {
+              ++said;
+              REXLOG_INFO("[native] sharp HUD textures: {} upscaled this frame ({} kept, {} made)", made, ups.size(),
+                          made_total);
+            }
+          }
         }
         if (last_pass && !color_read_later && !t1) {
           // No resolve reads its colour (a shadow map's: only its depth).
@@ -8588,6 +8735,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               }
             }
           }
+        }
+        if (!hud_slot.empty() && d.textures[s] >= 0 && index == d.textures[s] + 1 && tk == hud_virtual) {
+          if (auto hs = hud_slot.find(d.textures[s]); hs != hud_slot.end()) index = hs->second;
         }
         shared[s] = uint32_t(index);        // Texture2D index
         shared[64 + s] = uint32_t(index);   // sampler index

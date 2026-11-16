@@ -752,6 +752,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev154: sharp HUD textures (trial)
+
+Stefan: dev153 preset titles OK; try HUD texture upscaling now; 0.6.1 release
+held until his iPhone 14 Pro Max performance test. No Xbox 360 HD pack known
+(PC packs incompatible/third-party). dev154: when the HUD target is split
+(`nfsmw_native_hud_split`, new Display switch "Sharp HUD", default off; always
+with MetalFX), the HUD target's draws' plain 2D textures (8-1024 px, not
+resolves, cubes or volumes) are upscaled once, 2x: copied to RGBA8, MetalFX
+spatial (perceptual), then merged with the source's bilinear alpha; kept by
+texture object (cleared past 768), at most 12 new per frame, own heap slots
+with the original's sampler (heap capacity frame textures x3). cvar
+`nfsmw_native_hud_textures` (default true). Log `[native] sharp HUD textures:
+N upscaled`. Risks: shaders with unnormalized fetches would sample wrong
+(none expected in FE), texture objects reused across frames assumed stable.
+IPA `ios/build/NFSMW-0.6.1-dev154-sharp-hud-textures.ipa`, on Desktop.
+
 ## November 16, 2026 — dev153: iPad scheduled presents at 60; MetalFX titles
 
 Test 1 (dev152 iPad, `--nfsmw_native_present_at_time_60=true`, log

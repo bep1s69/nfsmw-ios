@@ -542,6 +542,11 @@ const std::vector<Section>& Sections() {
             @"native",
             {{@"Native", @"native"}, {@"0.75x of native", @"0.75"}}, kInGame | kInGameNative | kNativeOnly,
             "nfsmw_native_metalfx_target"},
+           {@"sharp_hud", Type::kSwitch, @"Sharp HUD",
+            @"Below the screen's resolution: the HUD, mirror frame and menus drawn at the screen's "
+            @"pixels with their textures upscaled, while the 3D scene keeps the Render resolution. "
+            @"About 1 ms more GPU time per frame. Always on with MetalFX upscaling.",
+            @"false", {}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_hud_split"},
            {@"fps_cap", Type::kChoice, @"Frame rate cap",
             @"30 saves battery and heat. Higher caps make motion smoother when the game "
             @"can keep up. 40 and 120 are available on 120 Hz displays.",
@@ -1150,6 +1155,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     // MetalFX removed from the launcher in dev75 (Stefan, Nov 5): on the iPhone 17
     // Pro Max 1x + MetalFX to the screen drew 43.4 %/h vs 33.9 at native (60 fps).
     // The renderer path stays for diagnostics via --nfsmw_native_metalfx (default off).
+    a.push_back("--nfsmw_native_hud_split=" + b(On(s, @"sharp_hud")));
     a.push_back("--nfsmw_native_metalfx_preset=" + str(@"metalfx"));
     a.push_back("--nfsmw_native_metalfx_target=" + str(@"metalfx_target"));
     a.push_back("--nfsmw_native_motion_debug=" + b(On(s, @"motion_debug")));
