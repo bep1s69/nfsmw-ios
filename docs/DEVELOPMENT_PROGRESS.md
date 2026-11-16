@@ -768,6 +768,12 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev181 confirmed: orbs good
+
+Stefan: the orbs look right now. Remaining for 0.6.1: iPad/iPhone power pair
+on dev181 (efficiency-core levels vs `--nfsmw_low_background=false
+--nfsmw_qos_learn=false`), then CHANGELOG and push.
+
 ## November 16, 2026 — dev181: orb-like art caught
 
 Stefan (dev180 screenshots `IMG_0387/0388`, Sharp HUD on/off): the pause
