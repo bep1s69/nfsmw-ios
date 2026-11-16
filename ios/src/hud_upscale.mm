@@ -181,6 +181,54 @@ bool Upscale(const std::vector<uint8_t>& in, uint32_t w, uint32_t h, std::vector
       }
     }
   }
+  // The alpha: text and many icons are drawn by their alpha (a white
+  // texture with the shape in alpha): the network on the alpha too, as grey
+  // (dev160), unless the texture is opaque or alpha-free.
+  bool varied = false;
+  for (size_t i = 3; i < in.size() && !varied; i += 4) varied = in[i] != in[3];
+  if (varied) {
+    for (uint32_t ty = 0; ty < h; ty += kCore) {
+      for (uint32_t tx = 0; tx < w; tx += kCore) {
+        for (uint32_t yy = 0; yy < kTile; ++yy) {
+          const uint32_t sy = uint32_t(std::clamp(int(ty + yy) - int(kMargin), 0, int(h) - 1));
+          for (uint32_t xx = 0; xx < kTile; ++xx) {
+            const uint32_t sx = uint32_t(std::clamp(int(tx + xx) - int(kMargin), 0, int(w) - 1));
+            const float a = in[(size_t(sy) * w + sx) * 4 + 3] / 255.0f;
+            for (int c = 0; c < 3; ++c) xp[c * plane + size_t(yy) * kTile + xx] = a;
+          }
+        }
+        MLDictionaryFeatureProvider* features =
+            [[MLDictionaryFeatureProvider alloc] initWithDictionary:@{@"image" : x} error:&error];
+        id<MLFeatureProvider> result = features ? [model predictionFromFeatures:features error:&error] : nil;
+        MLMultiArray* y = [result featureValueForName:@"upscaled"].multiArrayValue;
+        if (!y || y.shape.count != 4 || y.shape[2].unsignedIntValue != 4 * kTile) {
+          varied = false;  // bilinear below
+          break;
+        }
+        const size_t ys_c = y.strides[1].unsignedLongValue, ys_h = y.strides[2].unsignedLongValue,
+                     ys_w = y.strides[3].unsignedLongValue;
+        const bool half = y.dataType == MLMultiArrayDataTypeFloat16;
+        auto at = [&](uint32_t yy, uint32_t xx) -> float {
+          float v = 0;
+          for (int c = 0; c < 3; ++c) {
+            const size_t off = c * ys_c + yy * ys_h + xx * ys_w;
+            v += half ? float(static_cast<const _Float16*>(y.dataPointer)[off]) : static_cast<const float*>(y.dataPointer)[off];
+          }
+          return v / 3.0f;
+        };
+        const uint32_t cw = std::min(kCore, w - tx), ch = std::min(kCore, h - ty);
+        for (uint32_t oy = 0; oy < 2 * ch; ++oy) {
+          for (uint32_t ox = 0; ox < 2 * cw; ++ox) {
+            const uint32_t my = 4 * kMargin + 2 * oy, mx = 4 * kMargin + 2 * ox;
+            const float v = (at(my, mx) + at(my, mx + 1) + at(my + 1, mx) + at(my + 1, mx + 1)) * 0.25f;
+            out[(size_t(2 * ty + oy) * ow + (2 * tx + ox)) * 4 + 3] = uint8_t(std::clamp(std::lround(v * 255.0f), 0L, 255L));
+          }
+        }
+      }
+      if (!varied) break;
+    }
+  }
+  if (varied) return true;
   for (uint32_t oy = 0; oy < oh; ++oy) {
     for (uint32_t ox = 0; ox < ow; ++ox) {
       const float sx = std::clamp((ox + 0.5f) / 2.0f - 0.5f, 0.0f, float(w - 1));
@@ -245,7 +293,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb) {
         const uint8_t* px = static_cast<const uint8_t*>(buffer.contents);
         std::vector<uint8_t> in(px, px + size_t(w) * h * 4);
         const uint64_t hash = Hash(in.data(), in.size());
-        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u.png",
+        NSURL* file = [CacheDir() URLByAppendingPathComponent:[NSString stringWithFormat:@"%016llx_%ux%u_a2.png",
                                                                                          (unsigned long long)hash, w, h]];
         Result r{key, 2 * w, 2 * h, {}};
         bool from_disk = LoadPng(file, r.width, r.height, r.rgba);

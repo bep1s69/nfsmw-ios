@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev159 result; dev160 network on alpha too
+
+dev159 iPad (log `Debug/16 November 2026/dev159_ui_ai_nfsmw.log`, screenshots
+`dev159_IMG_0380-0382.png`): no GPU errors; 27 textures AI-upscaled (21 of
+them 32x32, 64x64 x15, 640x360 x6 ...). Stefan: better but not perfect;
+tooltips and text still low-res, speedometer not good enough. Reading: text
+and many icons carry their shape in alpha (white texture, glyphs in alpha),
+which dev156-159 only scaled bilinearly. dev160 runs the network on the alpha
+as grey too when alpha varies (2x the work for those); cache files renamed
+`_a2.png` so dev159's are not reused. IPA
+`ios/build/NFSMW-0.6.1-dev160-ui-ai-alpha.ipa`, on Desktop.
+
 ## November 16, 2026 — dev158 freeze (GPU page fault), dev159 fix
 
 dev158 iPad (log `Debug/16 November 2026/dev158_title_freeze_nfsmw.log`):
