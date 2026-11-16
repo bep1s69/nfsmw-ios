@@ -489,6 +489,7 @@ float MetalFxTargetShare() {
   return REXCVAR_GET(nfsmw_native_metalfx_target) == "0.75" ? 0.75f : 1.0f;
 }
 float NativeResolutionScale();
+extern std::atomic<float> native_screen_scale;
 bool MetalFxUpscaling() {
   static std::atomic<uint32_t> read_at{~0u};
   static std::atomic<bool> on{false};
