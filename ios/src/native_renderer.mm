@@ -8059,14 +8059,25 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           // Sharp HUD textures: the HUD's own 2D textures upscaled once
           // (MetalFX spatial, 2x, alpha bilinear), kept by texture object.
           if (REXCVAR_GET(nfsmw_native_hud_textures) && [MTLFXSpatialScalerDescriptor supportsDevice:device]) {
+            // Textures made here are added to the residency set, which the
+            // queue applies before the next frame: bound from that frame on
+            // (dev159; bound at once, dev158 page-faulted the GPU).
             struct HudUp {
               id<MTLTexture> source, up;
+              uint32_t ready_from = 0;      // first frame that may bind `up`
+              id<MTLTexture> next = nil;    // the network's, bound from next_from
+              uint32_t next_from = 0;
+              id<MTLTexture> spatial_kept = nil;  // the replaced one, kept (frames in flight)
             };
             static std::unordered_map<const void*, HudUp> ups;
             static std::map<std::pair<NSUInteger, NSUInteger>, id<MTLFXSpatialScaler>> scalers;
             static uint64_t made_total = 0;
+            // Dropped entries kept a few frames: argument-buffer bindings do
+            // not keep textures alive for frames still on the GPU.
+            static std::vector<std::pair<uint32_t, HudUp>> grave;
+            std::erase_if(grave, [&](const auto& g) { return number - g.first > 4; });
             if (ups.size() > 768) {
-              for (auto& [k, u] : ups) residency::Remove(u.up);
+              for (auto& [k, u] : ups) grave.push_back({number, u});
               ups.clear();
             }
             // The neural network's results (hud_upscale.mm): replace the
@@ -8085,8 +8096,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               [ai replaceRegion:MTLRegionMake2D(0, 0, r.width, r.height) mipmapLevel:0 withBytes:r.rgba.data()
                     bytesPerRow:r.width * 4];
               residency::Add(ai);
-              residency::Remove(it2->second.up);
-              it2->second.up = ai;
+              it2->second.next = ai;
+              it2->second.next_from = number + 1;
             }
             id<MTLRenderPipelineState> copy = UpscalePipeline(device, MTLPixelFormatRGBA8Unorm);
             id<MTLRenderPipelineState> merge = HudMergePipeline(device);
@@ -8117,8 +8128,14 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     src.width > 1024 || src.height > 1024)
                   continue;
                 auto found_up = ups.find((__bridge const void*)src);
-                id<MTLTexture> up = found_up != ups.end() ? found_up->second.up : nil;
-                if (!up && made < 12 && copy && merge) {
+                if (found_up != ups.end() && found_up->second.next && number >= found_up->second.next_from) {
+                  found_up->second.spatial_kept = found_up->second.up;
+                  found_up->second.up = found_up->second.next;
+                  found_up->second.next = nil;
+                }
+                id<MTLTexture> up = found_up != ups.end() && number >= found_up->second.ready_from ? found_up->second.up : nil;
+                const bool known = found_up != ups.end();
+                if (!known && made < 12 && copy && merge) {
                   const NSUInteger w = src.width, h = src.height, ow = w * 2, oh = h * 2;
                   id<MTLFXSpatialScaler> scaler = scalers[{w, h}];
                   if (!scaler) {
@@ -8175,9 +8192,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                       [e2 setFragmentTexture:flat atIndex:1];
                       [e2 drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
                       [e2 endEncoding];
-                      up = out;
-                      residency::Add(up);
-                      ups[(__bridge const void*)src] = {src, up};
+                      residency::Add(out);
+                      ups[(__bridge const void*)src] = {src, out, number + 1};
+                      up = nil;  // bound from the next frame
                       if (nfsmw::hud_upscale::Available()) nfsmw::hud_upscale::Request((__bridge const void*)src, flat, cb);
                       ++made;
                       ++made_total;

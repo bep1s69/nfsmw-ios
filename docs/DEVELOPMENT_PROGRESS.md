@@ -752,6 +752,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev158 freeze (GPU page fault), dev159 fix
+
+dev158 iPad (log `Debug/16 November 2026/dev158_title_freeze_nfsmw.log`):
+froze on the title screen. The AI path worked: model ready in 1475 ms;
+32x32 in ~20 ms, 128x128 93 ms, 256x256 265 ms, 640x360 ~790 ms per
+texture (tiles), PNG cache hit seen. 7 ms after the first AI texture was
+swapped in: `kIOGPUCommandBufferCallbackErrorPageFault`, then every command
+buffer ignored (freeze). Cause: textures made mid-frame were bound through
+the argument heap the same frame, but residency::Add only takes effect when
+the queue applies the set before the next frame (and dropped/replaced
+textures were released while frames in flight could still read them).
+dev159: new spatial and AI textures bound from the next frame
+(`ready_from`, `next_from`), replaced ones kept, cleared entries kept 4
+frames. Stefan: wants AOT preparation of all UI textures (plan in BACKLOG).
+IPA `ios/build/NFSMW-0.6.1-dev159-ui-ai-residency-fix.ipa`, on Desktop.
+
 ## November 16, 2026 — dev157 result; dev158 fixed tile model, menus
 
 dev157 iPad log (`Debug/16 November 2026/dev157_hud_ai_log_nfsmw.log`): model
