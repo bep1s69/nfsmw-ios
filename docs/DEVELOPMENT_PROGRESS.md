@@ -768,6 +768,25 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev172 found the car's matrix; dev173 car-fixed free look
+
+dev172 log (`Debug/16 November 2026/dev172_look_probe2_nfsmw.log`, iPhone,
+21 probe lines): `[mover+0x250]+0x54` is a position ~0.5 below the look-at
+point with three unit rows before it (`MATRIX`), consistent every line (also
+`[mover+0x250]+0xfc`+0x540). dev173 (`camera_look.cpp`,
+`nfsmw_look_fixed_orbit` default true; probe now default off): rows read
+safely from `[mover+0x250]+0x24` (16-byte rows, position +0x54); up = the
+row with the largest world z, forward = the other row along the chase view.
+While not looking the eye's back/up offsets in the car frame and the look-at
+point's height are averaged (1 s); while looking the eye = car + (behind
+turned by the yaw about the car's up) x back + up x height, the look-at =
+car + up x its height (the game's target restored after the call: it may be
+the mover's sprung state). Falls back to the old orbit if the matrix is not
+found. Also renamed the preparation screens: "Caching shaders" (was
+"Preparing graphics") and "Caching sharp HUD textures". Stefan's next ask:
+the missing vertex shaders (5595c163168c74ef, 568a011c; coordinator note,
+local commit fa2ac6a). IPA `ios/build/NFSMW-0.6.1-dev173-car-fixed-look.ipa`.
+
 ## November 16, 2026 — dev171 14 Pro Max result; dev172 safer, deeper probe
 
 Stefan's iPhone 14 Pro Max run on dev171 (log archived by the other thread:

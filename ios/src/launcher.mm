@@ -1395,11 +1395,11 @@ void PrepareGraphics() {
                          : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
   UIViewController* controller=[UIViewController new];
   controller.view.backgroundColor=UIColor.systemBackgroundColor;
-  UILabel* title=[UILabel new]; title.text=@"Preparing graphics";
+  UILabel* title=[UILabel new]; title.text=@"Caching shaders";
   title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2]; title.textAlignment=NSTextAlignmentCenter;
-  UILabel* detail=[UILabel new]; detail.text=@"Getting ready to play…";
+  UILabel* detail=[UILabel new]; detail.text=@"Compiling the game's shaders for this device…";
   detail.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody]; detail.textAlignment=NSTextAlignmentCenter;
-  UILabel* note=[UILabel new]; note.text=@"This may take a moment after an update."; note.numberOfLines=0;
+  UILabel* note=[UILabel new]; note.text=@"Only after an update or a new install, so that playing does not stutter."; note.numberOfLines=0;
   note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]; note.textColor=UIColor.secondaryLabelColor;
   note.textAlignment=NSTextAlignmentCenter;
   UIActivityIndicatorView* spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
@@ -1456,7 +1456,7 @@ void PrepareSharpUi(const std::string& iso) {
                          : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
   UIViewController* controller=[UIViewController new];
   controller.view.backgroundColor=UIColor.systemBackgroundColor;
-  UILabel* title=[UILabel new]; title.text=@"Preparing sharp HUD";
+  UILabel* title=[UILabel new]; title.text=@"Caching sharp HUD textures";
   title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2]; title.textAlignment=NSTextAlignmentCenter;
   UILabel* detail=[UILabel new]; detail.text=@"Reading the game's menu and HUD textures…";
   detail.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody]; detail.textAlignment=NSTextAlignmentCenter;

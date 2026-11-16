@@ -52,7 +52,8 @@
 #include "battery.h"
 #include "touch_controls.h"
 
-REXCVAR_DEFINE_BOOL(nfsmw_look_probe, true, "Input", "Diagnostics: log where the car's matrix is (free look)");
+REXCVAR_DEFINE_BOOL(nfsmw_look_fixed_orbit, true, "Input", "Free look: the camera orbits the car fixed in the car's frame (not the chase camera's spring)");
+REXCVAR_DEFINE_BOOL(nfsmw_look_probe, false, "Input", "Diagnostics: log where the car's matrix is (free look)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
 REXCVAR_DEFINE_DOUBLE(nfsmw_mouse_look_speed, 1.0, "Input", "Mouse look speed (1 = 0.15 degrees per mouse count)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, true, "Input", "Mouse look: moving the mouse up looks down");
@@ -228,6 +229,89 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     if (std::fabs(yaw_offset) < 0.05f && std::fabs(pitch_offset) < 0.05f) yaw_offset = pitch_offset = 0;
   }
   g_look_hides_mirror.store(std::fabs(yaw_offset) > 20.0f, std::memory_order_relaxed);
+  // dev173 (fixed free look, Stefan): the car's own matrix, found by the
+  // dev172 probe at [mover+0x250]+0x24 (three rows of 16 bytes, position at
+  // +0x54, about 0.5 below the look-at point). While not looking, where the
+  // chase camera sits in the car's frame (behind, above) and the look-at
+  // point's height are averaged; while looking, the eye orbits the car at
+  // those, turned about the car's up axis: no spring with acceleration or
+  // gear shifts, and it tilts with the car on slopes.
+  {
+    static float rest_back = 0, rest_up = 0, rest_target_up = 0;
+    bool ok = false;
+    float cp[3], ax[3][3];
+    const uint32_t car = REX_LOAD_U32(mover + 0x250);
+    if (REXCVAR_GET(nfsmw_look_fixed_orbit) && car >= 0x40000000u && car < 0xC0000000u) {
+      uint8_t m[0x40];
+      vm_size_t got = 0;
+      if (vm_read_overwrite(mach_task_self(), vm_address_t(base + car + 0x24), sizeof(m), vm_address_t(m), &got) ==
+              KERN_SUCCESS && got == sizeof(m)) {
+        auto f = [&](int o) {
+          const uint32_t v = uint32_t(m[o]) << 24 | uint32_t(m[o + 1]) << 16 | uint32_t(m[o + 2]) << 8 | m[o + 3];
+          float x;
+          std::memcpy(&x, &v, 4);
+          return x;
+        };
+        for (int r = 0; r < 3; ++r)
+          for (int c = 0; c < 3; ++c) ax[r][c] = f(r * 16 + c * 4);
+        for (int c = 0; c < 3; ++c) cp[c] = f(0x30 + c * 4);
+        ok = std::isfinite(cp[0]) && std::fabs(cp[0] - tx) < 10 && std::fabs(cp[1] - ty) < 10 &&
+             std::fabs(cp[2] - tz) < 10;
+      }
+    }
+    if (ok) {
+      // Up: the row with the largest world z; forward: of the other two, the
+      // one along the chase camera's view (eye to look-at), signed.
+      int up = 0;
+      for (int r = 1; r < 3; ++r)
+        if (std::fabs(ax[r][2]) > std::fabs(ax[up][2])) up = r;
+      float U[3] = {ax[up][0], ax[up][1], ax[up][2]};
+      if (U[2] < 0) U[0] = -U[0], U[1] = -U[1], U[2] = -U[2];
+      const float ex = LoadF(base, from), ey = LoadF(base, from + 4), ez = LoadF(base, from + 8);
+      const float vx = tx - ex, vy = ty - ey, vz = tz - ez;
+      int fw = up == 0 ? 1 : 0;
+      const int other = 3 - up - fw;
+      auto dotv = [&](int r) { return ax[r][0] * vx + ax[r][1] * vy + ax[r][2] * vz; };
+      if (std::fabs(dotv(other)) > std::fabs(dotv(fw))) fw = other;
+      float F[3] = {ax[fw][0], ax[fw][1], ax[fw][2]};
+      if (dotv(fw) < 0) F[0] = -F[0], F[1] = -F[1], F[2] = -F[2];
+      const float rx = ex - cp[0], ry = ey - cp[1], rz = ez - cp[2];
+      if (yaw_offset == 0 && pitch_offset == 0) {
+        const float back = -(rx * F[0] + ry * F[1] + rz * F[2]), upv = rx * U[0] + ry * U[1] + rz * U[2];
+        const float tup = (tx - cp[0]) * U[0] + (ty - cp[1]) * U[1] + (tz - cp[2]) * U[2];
+        if (back > 0.5f && back < 40.0f && std::fabs(upv) < 20.0f) {
+          const float k = rest_back == 0 ? 1.0f : 1.0f - std::exp(-dt / 1.0f);
+          rest_back += (back - rest_back) * k;
+          rest_up += (upv - rest_up) * k;
+          rest_target_up += (tup - rest_target_up) * k;
+        }
+      } else if (rest_back > 0) {
+        // Behind the car (-F) turned by the yaw about U (Rodrigues), plus height.
+        const float a = yaw_offset * kDeg, c = std::cos(a), sn = std::sin(a);
+        const float bx = -F[0], by = -F[1], bz = -F[2];
+        const float cx = U[1] * bz - U[2] * by, cy = U[2] * bx - U[0] * bz, cz = U[0] * by - U[1] * bx;
+        const float d = U[0] * bx + U[1] * by + U[2] * bz;
+        const float hx = bx * c + cx * sn + U[0] * d * (1 - c), hy = by * c + cy * sn + U[1] * d * (1 - c),
+                    hz = bz * c + cz * sn + U[2] * d * (1 - c);
+        const float px = cp[0] + U[0] * rest_target_up, py = cp[1] + U[1] * rest_target_up,
+                    pz = cp[2] + U[2] * rest_target_up;
+        // `to` may be the mover's own (sprung) target: restored after the
+        // call so its spring is not disturbed.
+        const float otx = tx, oty = ty, otz = tz;
+        StoreF(base, to, px);
+        StoreF(base, to + 4, py);
+        StoreF(base, to + 8, pz);
+        StoreF(base, from, cp[0] + hx * rest_back + U[0] * rest_up);
+        StoreF(base, from + 4, cp[1] + hy * rest_back + U[1] * rest_up);
+        StoreF(base, from + 8, cp[2] + hz * rest_back + U[2] * rest_up);
+        __imp__sub_8243CBF0(ctx, base);
+        StoreF(base, to, otx);
+        StoreF(base, to + 4, oty);
+        StoreF(base, to + 8, otz);
+        return;
+      }
+    }
+  }
   if (yaw_offset != 0 || pitch_offset != 0) {
     const float fx = LoadF(base, from) - tx, fy = LoadF(base, from + 4) - ty, fz = LoadF(base, from + 8) - tz;
     const float dist = std::sqrt(fx * fx + fy * fy + fz * fz);
