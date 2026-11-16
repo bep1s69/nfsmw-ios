@@ -752,6 +752,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev152 iPhone result
+
+Log `Debug/16 November 2026/dev152_iphone_metalfx_presets_nfsmw.log`: inputs
+1568x720 / 1333x612 / 1176x540 / 966x443 (Ultra raised from 360p by the max
+scale) to 2868x1317. GPU frames ~7.8-8.1 ms (Quality) to ~7.0 (Performance),
+~6.7 (Ultra; few samples): MetalFX and the target-size composite/post/HUD
+are a fixed cost. Stefan: all looked the same until Ultra Performance;
+Performance the sweet spot on the iPhone. iPad not yet tested. Proposed:
+MetalFX default off, Performance marked recommended after the iPad check.
+
 ## November 16, 2026 — dev152: Ultra Performance preset
 
 Stefan: add Ultra Performance = 0.5x (360p). dev152 adds it; any preset's
