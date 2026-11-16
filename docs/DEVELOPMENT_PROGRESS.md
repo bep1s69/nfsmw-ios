@@ -752,6 +752,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev151: MetalFX presets in 720p terms
+
+Stefan wanted the three presets back (dev150 had only Off/On). dev151:
+Off / Quality (scene at 1x, 720p) / Balanced (0.85x, 612p) / Performance
+(0.75x, 540p), base relative to the game's 720p; a preset overrides Render
+resolution; target Native or 0.75x; MetalFX only when the target is larger
+(cvar value "on" still means: base = Render resolution). dev149 log archived
+as `dev149_iphone_metalfx_presets_nfsmw.log` (2438x1119 -> 2868x1316). IPA
+`ios/build/NFSMW-0.6.1-dev151-metalfx-presets-720p.ipa`, on Desktop.
+
 ## November 16, 2026 — dev150: MetalFX base = Render resolution
 
 Stefan on dev149 (iPhone, Metal HUD: Quality input 2438x1119 -> 2868x1316):

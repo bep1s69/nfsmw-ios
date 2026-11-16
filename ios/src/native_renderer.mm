@@ -149,7 +149,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_preset, "off", "GPU",
-                      "Native renderer: MetalFX upscaling of the scene (drawn at the render scale) to the target: off, on");
+                      "Native renderer: MetalFX upscaling to the target: off, quality (scene at 720p), balanced "
+                      "(0.85x), performance (0.75x), on (scene at the render scale)");
 REXCVAR_DEFINE_STRING(nfsmw_native_metalfx_target, "native", "GPU",
                       "Native renderer: MetalFX target: native (the screen's or external display's pixels) or 0.75");
 
@@ -490,16 +491,21 @@ float MetalFxTargetShare() {
 }
 float NativeResolutionScale();
 extern std::atomic<float> native_screen_scale;
-bool MetalFxUpscaling() {
+// The preset's base, in the game's 720p (dev151, Stefan): quality 1x,
+// balanced 0.85x, performance 0.75x; 0 = off. "on": the Render resolution.
+float MetalFxPresetBase() {
   static std::atomic<uint32_t> read_at{~0u};
-  static std::atomic<bool> on{false};
+  static std::atomic<float> base{0.0f};
   const uint32_t generation = settings_generation.load(std::memory_order_acquire);
   if (read_at.load(std::memory_order_acquire) != generation) {
-    on.store(REXCVAR_GET(nfsmw_native_metalfx_preset) == "on", std::memory_order_relaxed);
+    const std::string p = REXCVAR_GET(nfsmw_native_metalfx_preset);
+    base.store(p == "quality" ? 1.0f : p == "balanced" ? 0.85f : p == "performance" ? 0.75f : p == "on" ? -1.0f : 0.0f,
+               std::memory_order_relaxed);
     read_at.store(generation, std::memory_order_release);
   }
-  return on.load(std::memory_order_relaxed);
+  return base.load(std::memory_order_relaxed);
 }
+bool MetalFxUpscaling() { return MetalFxPresetBase() != 0.0f; }
 bool MetalFxTemporal() {
   if (MetalFxUpscaling() && native_screen_scale.load() * MetalFxTargetShare() > NativeResolutionScale() + 0.01f)
     return true;
@@ -545,8 +551,13 @@ float NativeResolutionScale() {
     read_at.store(generation, std::memory_order_release);
   }
   const float s = native_screen_scale.load();
-  const float f = fixed.load(std::memory_order_relaxed);
-  const float chosen = !native.load(std::memory_order_relaxed) ? (std::isfinite(f) && f > 0 ? f : 1.0f)
+  float f = fixed.load(std::memory_order_relaxed);
+  bool use_native = native.load(std::memory_order_relaxed);
+  if (const float preset = MetalFxPresetBase(); preset > 0) {
+    f = preset;  // a MetalFX preset sets the scene's scale
+    use_native = false;
+  }
+  const float chosen = !use_native ? (std::isfinite(f) && f > 0 ? f : 1.0f)
                        : s > 0                                 ? s
                                                                : 1.0f;  // until the first frame has been shown
   const float hot = nfsmw::battery::HeatScale();
