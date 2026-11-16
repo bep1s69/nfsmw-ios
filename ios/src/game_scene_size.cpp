@@ -977,16 +977,23 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       // the game's show/hide sub_82282BF8) on the group alone (dev136). The
       // flag now goes on the group and everything in it (the two 128x87
       // halves 5630E0B9 and their parent), cleared only where set here.
-      static std::vector<uint32_t> flagged;
+      // dev138 log: 4 objects flagged, frame still drawn. dev139: also each
+      // image's FEColor alpha (data +12) set to 0, and 0x00400000 (set on
+      // the shown images, inferred: the FE's "changed" bit) on every object
+      // touched, so the FE takes the change; all put back on release.
+      struct Saved { uint32_t object, alpha; bool flagged; };
+      static std::vector<Saved> flagged;
+      constexpr uint32_t kHidden = 1u << 26, kChanged = 0x00400000;
       if (hide_mirror && flagged.empty()) {
         std::vector<uint32_t> todo{frame};
         for (size_t i = 0; i < todo.size() && i < 32; ++i) {
           const uint32_t o = todo[i];
           const uint32_t f = REX_LOAD_U32(o + 0x1C);
-          if (!(f & (1u << 26))) {
-            REX_STORE_U32(o + 0x1C, f | (1u << 26));
-            flagged.push_back(o);
-          }
+          const uint32_t data = REX_LOAD_U32(o + 44);
+          Saved sv{o, Plausible(data) ? REX_LOAD_U32(data + 12) : 0, !(f & kHidden)};
+          REX_STORE_U32(o + 0x1C, f | kHidden | kChanged);
+          if (Plausible(data)) REX_STORE_U32(data + 12, 0);
+          flagged.push_back(sv);
           if (REX_LOAD_U32(o + 0x18) != 5) continue;  // a group: its children
           int n = 0;
           for (uint32_t c = REX_LOAD_U32(o + 0x64); Plausible(c) && REX_LOAD_U32(c) != kListVtable && n < 16;
@@ -995,7 +1002,13 @@ extern "C" REX_FUNC(sub_822AA6D0) {
           }
         }
       } else if (!hide_mirror && !flagged.empty()) {
-        for (uint32_t o : flagged) REX_STORE_U32(o + 0x1C, REX_LOAD_U32(o + 0x1C) & ~(1u << 26));
+        for (const Saved& sv : flagged) {
+          uint32_t f = REX_LOAD_U32(sv.object + 0x1C) | kChanged;
+          if (sv.flagged) f &= ~kHidden;
+          REX_STORE_U32(sv.object + 0x1C, f);
+          const uint32_t data = REX_LOAD_U32(sv.object + 44);
+          if (Plausible(data)) REX_STORE_U32(data + 12, sv.alpha);
+        }
         flagged.clear();
       }
       const uint32_t flags = REX_LOAD_U32(frame + 0x1C);

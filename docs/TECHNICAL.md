@@ -30127,3 +30127,15 @@ camera stepping 0/2 ticks per frame (October entries), if that is what he
 sees. Includes dev137's mirror change. Build exit 0, `unzip -tq` ok. IPA
 `ios/build/NFSMW-0.6.1-dev138-smooth-stick-camera.ipa` SHA256 7f090e6063d1f4cd655ac88964d131341bf20bfbbc8cdeba8cd201c99df241a9, on Desktop
 (dev137 removed from Desktop, kept in ios/build).
+
+dev139 (Stefan, Nov 16: dev137/138 still hide only the picture). Log
+`/Users/bep1s/Developer/Debug/Most Wanted (2005) Debug/16 November 2026/nfsmw_dev137_mirror_frame_still_shown.log` (SHA256 prefix 262474dc388d6714, chat upload): at 15:14:03 four
+`[hud] mirror frame BE8E0740 type 5 flags 44000001, 4 objects flagged ->
+hidden` lines, so the frame was found and bit 26 set on all four objects,
+yet the frame stayed drawn: the FE hidden bit alone does not stop these HUD
+images (measured), as the 1000-unit move did not (dev135). dev139 also sets
+each touched object's FEColor alpha (data +12) to 0 and ORs 0x00400000 into
+its flags (present on the shown images; inferred to be a "changed" bit),
+saving and restoring alpha and the hidden bit on release. Build exit 0,
+`unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev139-mirror-frame-alpha.ipa`
+SHA256 69b59832bdc4fa7e168fe8e6545f513c23d520537a26f6efaf83c67ad182fae0, on Desktop (dev138 removed from Desktop, kept in ios/build).

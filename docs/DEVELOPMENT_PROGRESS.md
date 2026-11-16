@@ -743,6 +743,12 @@ stick angle (50 ms) instead of jumping; includes dev137's mirror frame change.
 IPA `ios/build/NFSMW-0.6.1-dev138-smooth-stick-camera.ipa` SHA256 7f090e6063d1f4cd655ac88964d131341bf20bfbbc8cdeba8cd201c99df241a9, on
 Desktop. Pending: Stefan's test of both (smoothness, mirror frame hidden).
 
+dev139 (Stefan, Nov 16: frame still shown; log proves the hidden flag was set
+on all 4 frame objects): the frame's objects also get alpha 0 and the
+0x00400000 bit. IPA `ios/build/NFSMW-0.6.1-dev139-mirror-frame-alpha.ipa`
+SHA256 69b59832bdc4fa7e168fe8e6545f513c23d520537a26f6efaf83c67ad182fae0, on Desktop. If this fails too, next is skipping the frame's draws
+in the native renderer, or leaving the frame.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
