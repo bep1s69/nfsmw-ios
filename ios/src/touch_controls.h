@@ -36,6 +36,10 @@ void SetDriveContext(int bits);
 // A drag race (game_state.cpp: HUD_Drag.fng up), on the game's thread: the
 // DRAG layout.
 void SetDragRace(bool on);
+// What SetDragRace last said (camera_look.cpp: the right stick shifts gear).
+bool DragRace();
+// A touch control (a SHIFT button) holds the right stick right now.
+bool RightStickHeld();
 
 // The world map is up (game_state.cpp): a menu swipe moves the right stick.
 void SetMapUp(bool up);

@@ -30033,3 +30033,31 @@ schema nodes after first; corrected to engineering-tag/ID-ref-aware parsing, no
 missing power rows. Post-export hash verification PASS; no software tests needed
 for docs/data-only analysis. git diff --check exit0. Own tracked docs committed
 locally, ignoredBACKLOG not force-added, no push/merge/release.
+
+
+### November 16: right stick camera while driving (dev133)
+
+Request (Stefan via coordinator): the right stick turns/orbits the chase
+camera while driving, except in drag races where it shifts gear. No right
+on-screen joystick exists (the touch Drive layout has swipe look and SHIFT
+buttons that push the right stick's Y), so touch is unchanged. The 360 game
+has no look-around action (camera_look.cpp header), so the existing free-look
+hook is reused.
+
+Input point: generated `sub_8262D6B8` (nfsmw_recomp.35.cpp) is the game's
+XInputGetState wrapper (`mr r5,r4; li r4,0; b XamInputGetState`, so r3 user,
+r4 the X_INPUT_STATE pointer; 2 callers). camera_look.cpp wraps it: after
+the original returns 0, while driving (`battery::InMenu() == 0`), not in a
+drag race (`touch::DragRace()`, the HUD_Drag.fng flag from game_state.cpp)
+and no touch control holding the right stick (`touch::RightStickHeld()`, set
+in SetPadState), it reads RX/RY (big-endian s16 at +12/+14), zeroes them in
+the guest state (so no gear shift) and stores a radial-dead-zoned (0.265,
+XInput's 8689) value. The chase-camera hook turns yaw by -x x 150 deg/s x
+`nfsmw_stick_look_speed` x dt (dt clamped to 0.1 s) and pitch by half that,
+using the mouse invert setting; it eases back 0.25 s after stick release
+(1.5 s after mouse). The hook's early-out now needs both mouse look and
+stick look off (before: mouse look off disabled the whole hook; mouse deltas
+are now ignored when mouse look is off). New cvars `nfsmw_stick_look`
+(true) and `nfsmw_stick_look_speed` (1.0); settings Controls > Controller,
+also in-game. Inference, not tested: with manual transmission in normal
+races the controller loses right-stick shifting while the option is on.

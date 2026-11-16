@@ -138,6 +138,8 @@ std::atomic<bool> g_movie_playing{false}, g_showcase_up{false};
 
 // nfsmw::touch::SetDragRace, from the game's thread.
 std::atomic<bool> g_drag{false};
+// SetPadState: the touch controls hold the right stick (RightStickHeld).
+std::atomic<bool> g_right_held{false};
 
 // nfsmw::touch::SetDriveContext, from the game's thread.
 std::atomic<int> g_drive_context{0};
@@ -174,6 +176,7 @@ Sint16 AxisToS16(float v) { return Sint16(std::clamp(v, -1.0f, 1.0f) * 32767.0f)
 Sint16 TriggerToS16(float v) { return Sint16(std::clamp(v, 0.0f, 1.0f) * 65535.0f - 32768.0f); }
 
 void SetPadState(int buttons, float lx, float ly, float rx, float ry, float lt, float rt) {
+  g_right_held.store(rx != 0 || ry != 0, std::memory_order_relaxed);
   if (!g_pad) {
     SDL_VirtualJoystickDesc desc;
     SDL_INIT_INTERFACE(&desc);
@@ -2135,6 +2138,8 @@ UIViewController* MakeLayoutEditor(NSString* steering) {
 void SetDriveContext(int bits) { g_drive_context.store(bits); }
 
 void SetDragRace(bool on) { g_drag.store(on); }
+bool DragRace() { return g_drag.load(std::memory_order_relaxed); }
+bool RightStickHeld() { return g_right_held.load(std::memory_order_relaxed); }
 
 void SetMapUp(bool up) { g_map_up.store(up); }
 void SetMoviePlaying(bool on) { g_movie_playing.store(on); }

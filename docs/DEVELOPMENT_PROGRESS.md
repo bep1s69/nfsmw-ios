@@ -704,6 +704,16 @@ should hold ~120 fps as dev131 trial-off did.
 Stefan (Nov 16): short dev132 iPhone drive at 120 held 120. Pending: test on an
 iPhone 14 Pro Max when available (older SoC; check 60 holds with render Utility).
 
+dev133 (Stefan asked, Nov 16): right stick camera while driving (not in drag
+races, where it shifts gear); camera_look.cpp wraps the game's XInputGetState
+sub_8262D6B8, details in TECHNICAL.md "November 16: right stick camera".
+Options Controls > Controller (`nfsmw_stick_look` on, `nfsmw_stick_look_speed` 1).
+Build exit 0, both wrappers T in camera_look.cpp.o, `unzip -tq` ok. IPA
+`ios/build/NFSMW-0.6.1-dev133-right-stick-camera.ipa` SHA256
+5249069db96227e8184fded9a0a489bfbd23e8916ad7060b22afb7461206359e, on Desktop
+(dev132 removed from Desktop, kept in ios/build). Pending: Stefan's controller
+test (free roam, a normal race, a drag race shifting). Not run on a device yet.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

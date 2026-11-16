@@ -622,6 +622,16 @@ const std::vector<Section>& Sections() {
             @"DRIVE/PAD button still switches by hand.",
             @"true"},
        }, kTabControls},
+      {@"Controller", nil,
+       {
+           {@"stick_look", Type::kSwitch, @"Right stick camera",
+            @"While driving, a controller's right stick turns the camera around the car. It swings "
+            @"back behind the car when you let go. In drag races the right stick still shifts gear.",
+            @"true", {}, kInGame, "nfsmw_stick_look"},
+           {@"stick_look_speed", Type::kChoice, @"Right stick camera speed", @"How fast the stick turns the camera.",
+            @"1",
+            {{@"Slow", @"0.5"}, {@"Normal", @"1"}, {@"Fast", @"1.5"}, {@"Very fast", @"2.5"}}, kInGame, "nfsmw_stick_look_speed"},
+       }, kTabControls},
       {@"Keyboard", nil,
        {
            {@"keyboard", Type::kSwitch, @"Keyboard controls",
@@ -1049,6 +1059,8 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   a.push_back("--nfsmw_mouse_look=" + b(On(s, @"mouse_look")));
   a.push_back("--nfsmw_mouse_look_speed=" + str(@"mouse_look_speed"));
   a.push_back("--nfsmw_mouse_look_invert=" + b(On(s, @"mouse_look_invert")));
+  a.push_back("--nfsmw_stick_look=" + b(On(s, @"stick_look")));
+  a.push_back("--nfsmw_stick_look_speed=" + str(@"stick_look_speed"));
   for (const KeyBind& kb : KeyBinds()) {
     a.push_back(std::string("--") + kb.setting.UTF8String + "=" + KeyBindValue(s, kb).UTF8String);
   }

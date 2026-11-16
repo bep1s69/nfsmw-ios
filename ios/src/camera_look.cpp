@@ -21,6 +21,16 @@
 // The mouse deltas come from keyboard_prompts.mm (GameController's mouse,
 // chained after SDL's handler); the pointer is locked by the SDK's own mouse
 // mode (mnk_mouse, its stick part at sensitivity 0) while driving.
+//
+// Right stick (dev133, Stefan, Nov 16): a controller's right stick turns the
+// same camera while driving, at a rate (full tilt = 150 degrees a second x
+// speed), and swings back behind the car a quarter of a second after it is
+// let go. The game's XInputGetState wrapper sub_8262D6B8 (r3 user, r4 state;
+// it branches to XamInputGetState) is wrapped: while driving and not in a
+// drag race, the right stick is read there and taken out of the state the
+// game sees, so its up/down no longer shifts gear. In a drag race, in menus,
+// with the option off, or while a touch SHIFT button holds the right stick,
+// the state goes to the game untouched (shifting as before).
 
 #include <algorithm>
 #include <atomic>
@@ -34,14 +44,23 @@
 
 #include "nfsmw_pch.h"
 
+#include "battery.h"
+#include "touch_controls.h"
+
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
 REXCVAR_DEFINE_DOUBLE(nfsmw_mouse_look_speed, 1.0, "Input", "Mouse look speed (1 = 0.15 degrees per mouse count)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, true, "Input", "Mouse look: moving the mouse up looks down");
+REXCVAR_DEFINE_BOOL(nfsmw_stick_look, true, "Input",
+                    "Turn the chase camera with the controller's right stick while driving (not in drag races, "
+                    "where it shifts gear)");
+REXCVAR_DEFINE_DOUBLE(nfsmw_stick_look_speed, 1.0, "Input", "Right stick look speed (1 = 150 degrees a second)");
 
 namespace {
 
 std::atomic<float> mouse_x{0}, mouse_y{0};
+std::atomic<float> stick_x{0}, stick_y{0};  // right stick, -1..1, past its dead zone
 float yaw_offset = 0, pitch_offset = 0;  // degrees, game thread
+bool last_input_stick = false;
 std::chrono::steady_clock::time_point last_input, last_call;
 float last_to[3] = {};
 
@@ -82,21 +101,35 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   // A new race or view, or the car put somewhere else: back behind the car.
   const bool restart = now - last_call > std::chrono::milliseconds(250) ||
                        std::hypot(tx - last_to[0], ty - last_to[1]) > 20.0f;
+  const float dt = std::min(std::chrono::duration<float>(now - last_call).count(), 0.1f);
   last_call = now;
   last_to[0] = tx, last_to[1] = ty, last_to[2] = tz;
-  if (restart || !REXCVAR_GET(nfsmw_mouse_look) || behind || (view != 2 && view != 3)) {
+  const bool mouse_on = REXCVAR_GET(nfsmw_mouse_look), stick_on = REXCVAR_GET(nfsmw_stick_look);
+  if (restart || (!mouse_on && !stick_on) || behind || (view != 2 && view != 3)) {
     yaw_offset = pitch_offset = 0;
     __imp__sub_8243CBF0(ctx, base);
     return;
   }
-  const float speed = 0.15f * float(REXCVAR_GET(nfsmw_mouse_look_speed));
-  if (dx != 0 || dy != 0) {
+  const bool invert = REXCVAR_GET(nfsmw_mouse_look_invert);
+  const float sx = stick_on ? stick_x.load(std::memory_order_relaxed) : 0.0f;
+  const float sy = stick_on ? stick_y.load(std::memory_order_relaxed) : 0.0f;
+  if (mouse_on && (dx != 0 || dy != 0)) {
+    const float speed = 0.15f * float(REXCVAR_GET(nfsmw_mouse_look_speed));
     last_input = now;
+    last_input_stick = false;
     yaw_offset -= dx * speed;
-    pitch_offset += (REXCVAR_GET(nfsmw_mouse_look_invert) ? -dy : dy) * speed;
+    pitch_offset += (invert ? -dy : dy) * speed;
     pitch_offset = std::clamp(pitch_offset, -20.0f, 60.0f);
     yaw_offset = std::remainder(yaw_offset, 360.0f);
-  } else if (now - last_input > std::chrono::milliseconds(1500)) {
+  } else if (sx != 0 || sy != 0) {
+    const float rate = 150.0f * float(REXCVAR_GET(nfsmw_stick_look_speed)) * dt;
+    last_input = now;
+    last_input_stick = true;
+    yaw_offset -= sx * rate;
+    pitch_offset += (invert ? -sy : sy) * rate * 0.5f;
+    pitch_offset = std::clamp(pitch_offset, -20.0f, 60.0f);
+    yaw_offset = std::remainder(yaw_offset, 360.0f);
+  } else if (now - last_input > std::chrono::milliseconds(last_input_stick ? 250 : 1500)) {
     // Idle: back behind the car over about half a second.
     yaw_offset *= 0.9f;
     pitch_offset *= 0.9f;
@@ -112,6 +145,37 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     StoreF(base, from + 8, tz + dist * std::sin(pitch));
   }
   __imp__sub_8243CBF0(ctx, base);
+}
+
+// The game's XInputGetState (see the top): the right stick to the camera.
+extern "C" void __imp__sub_8262D6B8(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_8262D6B8) {
+  const uint32_t state = ctx.r4.u32;
+  __imp__sub_8262D6B8(ctx, base);
+  if (ctx.r3.u32 != 0 || state == 0) return;  // no pad on this user
+  if (!REXCVAR_GET(nfsmw_stick_look) || nfsmw::battery::InMenu() != 0 || nfsmw::touch::DragRace() ||
+      nfsmw::touch::RightStickHeld()) {
+    stick_x.store(0, std::memory_order_relaxed);
+    stick_y.store(0, std::memory_order_relaxed);
+    return;
+  }
+  // X_INPUT_STATE: packet number, buttons, triggers, LX, LY, RX (+12), RY (+14).
+  float x = float(int16_t(REX_LOAD_U16(state + 12))) / 32767.0f;
+  float y = float(int16_t(REX_LOAD_U16(state + 14))) / 32767.0f;
+  REX_STORE_U16(state + 12, 0);
+  REX_STORE_U16(state + 14, 0);
+  // Radial dead zone (XInput's right-stick 8689 / 32767), rescaled to 0..1.
+  const float m = std::hypot(x, y);
+  constexpr float kDead = 0.265f;
+  if (m < kDead) {
+    x = y = 0;
+  } else {
+    const float k = std::min((m - kDead) / (1.0f - kDead), 1.0f) / m;
+    x *= k;
+    y *= k;
+  }
+  stick_x.store(x, std::memory_order_relaxed);
+  stick_y.store(y, std::memory_order_relaxed);
 }
 
 // SHOWCASE CAMERA: direct touch control (drag turns, pinch zooms).
