@@ -768,6 +768,14 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev176 confirmed: free look fixed to the car
+
+Stefan: fixed now, both for elevation changes and the speed-related zoom.
+Fixed free look done for 0.6.1 (`nfsmw_look_fixed_orbit` default true; probes
+`nfsmw_look_probe` / `nfsmw_fov_probe` default off). Remaining for 0.6.1:
+pursuit cost analysis (needs a pursuit Time Profiler + log), power check (iPad
+pair + iPhone baseline), then CHANGELOG and push.
+
 ## November 16, 2026 — dev175 result: the fixed look never engaged; dev176
 
 Stefan: busted text overlay still shows when busted, so the missing vs
