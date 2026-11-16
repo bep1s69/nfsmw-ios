@@ -582,6 +582,21 @@ Desktop (dev129 removed from Desktop, kept in ios/build). Next: Stefan checks
 that drives start at Default without an early User Initiated jump; then
 same-build power pair trial OFF/ON with matched brightness.
 
+dev130 device check (Nov 16, iPhone, log archived as `16 November 2026/
+dev130_drive_start_and_40fps_nfsmw.log`, SHA256 2d452cff...6a72, Desktop copy
+deleted after verification): drive 13:37:01.557-13:38:49.292 at 60 started at
+Default with the 2000 ms grace and never stepped up (108 s); pacing 0-4 of 300
+off-grid, CoreAudio 0 gaps. Step 1 works.
+Same log, Nov 16 00:34-00:57 session (dev129, render trial on but inert at 40):
+the two visible drop bursts (00:45:52 pacing 57/300, worst 116.7 ms; 00:54:15
+56/300) coincide with system-wide paging ("system VM in 1.1 s: 1822 swap-ins,
+8702 compressions"; 1883 swap-ins at 00:54) while the game's footprint stayed
+~1.45-1.55 GiB with ~4.6 GiB headroom: memory reclaim by iOS, not game load or
+the controller. CoreAudio reported 0 gaps all session, so the audio fault is not
+output starvation; unattributed pending Stefan's timing/description. Vigilante
+"5 s no register moved" alerts at 00:40:39/00:46:22 fired during perfect pacing
+(false positives).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
