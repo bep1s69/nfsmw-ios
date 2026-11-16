@@ -354,9 +354,21 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
         // asking).
         static std::mutex plain_lock;
         static std::set<uint64_t> plain;
+        auto keep_original = [&] {
+          // dev180 (Stefan: the glow orbs behind menu items still looked
+          // bad): soft or photographic art goes back to the original
+          // texture, not the MetalFX spatial copy.
+          Result o{key, 0, 0, {}};
+          o.plain = true;
+          std::lock_guard<std::mutex> g(g_lock);
+          g_done.push_back(std::move(o));
+        };
         {
           std::lock_guard<std::mutex> g(plain_lock);
-          if (plain.count(hash)) return;
+          if (plain.count(hash)) {
+            keep_original();
+            return;
+          }
         }
         bool from_disk = LoadPng(file, r.width, r.height, r.rgba);
         const auto t0 = std::chrono::steady_clock::now();
@@ -366,6 +378,7 @@ void Request(const void* key, id<MTLTexture> flat, id<MTLCommandBuffer> cb, uint
               std::lock_guard<std::mutex> g(plain_lock);
               plain.insert(hash);
             }
+            keep_original();
             static uint32_t fails = 0;
             if (fails++ < 5) REXLOG_INFO("[hud-ai] {}x{}: kept plain (soft or photographic art, or no model)", w, h);
             return;

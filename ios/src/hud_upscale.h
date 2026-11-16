@@ -30,6 +30,7 @@ struct Result {
   uint32_t width, height;  // 2x the source
   std::vector<uint8_t> rgba;
   bool prepared = false;  // from the ahead-of-time set: not swizzled yet
+  bool plain = false;     // soft or photographic art: draw the original texture (no rgba)
 };
 
 // The key of a texture's decoded level 0 (untiled, byte-swapped blocks, as

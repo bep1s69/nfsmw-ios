@@ -319,7 +319,10 @@ extern "C" REX_FUNC(sub_8243CBF0) {
       auto fl = [&](const uint8_t* q) { const uint32_t v = be(q); float x; std::memcpy(&x, &v, 4); return x; };
       auto matrix_at = [&](const uint8_t* q, bool fill) {  // q points at the position; rows 48..16 bytes before
         const float px = fl(q), py = fl(q + 4), pz = fl(q + 8);
-        if (!std::isfinite(px) || std::fabs(px - tx) > 10 || std::fabs(py - ty) > 10 || std::fabs(pz - tz) > 10)
+        // Within 3 of the look-at point (the player's car is ~1 below it):
+        // dev179's iPad log found another matrix at mover+24 > +40 +5b0 with
+        // the 10-unit window, possibly a nearby car.
+        if (!std::isfinite(px) || std::fabs(px - tx) > 3 || std::fabs(py - ty) > 3 || std::fabs(pz - tz) > 3)
           return false;
         float r[3][3];
         for (int i = 0; i < 3; ++i) {

@@ -768,6 +768,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev179 iPad log; dev180 soft art uses the original
+
+Archived `Debug/16 November 2026/dev179_run1_nfsmw.log` (Desktop copy
+deleted). iPad: Low is Background; first drive escalated to Default ~4 s in
+(23:37:53, after the 2 s grace), so the learned start level for cap 60
+became Default after a 10 s drive; pacing then 0-2 off per 300 for the rest.
+Whether that escalation was a real need or a load hitch is open; a calm
+120 s drive will try Low again. The car-matrix search also found
+`mover+24 > +40 +5b0` with the 10-unit window (possibly another car):
+dev180 narrows the search window to 3 units of the look-at point.
+Stefan: the glow orbs behind menu items (also on Blacklist race selection
+and the cop-takedown HUD overlay) still look very bad: soft art kept the
+MetalFX spatial copy. dev180: textures judged soft or photographic go back
+to the original texture (`Result::plain`, bound from the next frame). IPA
+`ios/build/NFSMW-0.6.1-dev180-orbs-original.ipa`, on Desktop.
+
 ## November 16, 2026 — dev179: efficiency cores first, learned per device
 
 Stefan: use the efficiency cores as much as possible on iPad and iPhone,

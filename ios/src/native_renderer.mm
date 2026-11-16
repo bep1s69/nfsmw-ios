@@ -8106,6 +8106,11 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             for (auto& r : nfsmw::hud_upscale::Take()) {
               auto it2 = ups.find(r.key);
               if (it2 == ups.end()) continue;  // evicted meanwhile
+              if (r.plain) {  // soft / photographic art: the original from the next frame
+                it2->second.next = it2->second.source;
+                it2->second.next_from = number + 1;
+                continue;
+              }
               MTLTextureDescriptor* ad = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
                                                                                            width:r.width
                                                                                           height:r.height
