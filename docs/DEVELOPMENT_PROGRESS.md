@@ -752,6 +752,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev140: contributor PRs merged for 0.6.1
+
+Branch `claude/project-thread-dph4wh` (off `codex/native-frame-command-reuse`
+c4aca5a, local, unpushed) merges GitHub PRs #19 (itsAllexB, 16:9 + MSAA in one
+pass), #20 (itsAllexB, external display alone on a monitor/TV) and #17
+(Lieforse, PAL Europe edition), keeping their commits so the PRs close when
+this reaches main. Conflicts: TECHNICAL.md (both entries kept) and the USA
+source list in ios/CMakeLists.txt (dev line's extra files kept, #17's
+per-edition structure kept). SDK: `patch_ios_sdl_scene.py` applied to
+nfsmw-multiplayer-sdk (2 new app-delegate blocks). IPA
+`ios/build/NFSMW-0.6.1-dev140-contributor-prs.ipa` (USA build), on Desktop.
+Pending Stefan: 16:9 + MSAA on the phone, HDMI monitor (picture, FPS counter),
+USA boot. Not checked: a PAL Europe build. The dev line's post-0.6.0 USA
+patches (register batches, constant descriptors, camera look, ...) are not in
+#17's `desde_usa.tsv`, so a pal_eu build may need address additions.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
