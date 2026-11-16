@@ -394,7 +394,16 @@ extern "C" REX_FUNC(sub_8243CBF0) {
       float F[3] = {ax[fw][0], ax[fw][1], ax[fw][2]};
       if (dotv(fw) < 0) F[0] = -F[0], F[1] = -F[1], F[2] = -F[2];
       const float rx = ex - cp[0], ry = ey - cp[1], rz = ez - cp[2];
-      if (yaw_offset == 0 && pitch_offset == 0) {
+      // dev178 (Stefan: on release it eased back, then jumped to the chase
+      // camera's own position): the car-fixed camera's weight eases from 1
+      // while looking to 0 after it (0.2 s), and the eye and look-at are
+      // blended with the chase camera's meanwhile.
+      static float weight = 0;
+      const bool looking = yaw_offset != 0 || pitch_offset != 0;
+      weight += ((looking ? 1.0f : 0.0f) - weight) * (1.0f - std::exp(-dt / 0.2f));
+      if (!looking && weight < 0.01f) weight = 0;
+      if (looking && weight > 0.99f) weight = 1;
+      if (weight == 0) {
         const float back = -(rx * F[0] + ry * F[1] + rz * F[2]), upv = rx * U[0] + ry * U[1] + rz * U[2];
         const float tup = (tx - cp[0]) * U[0] + (ty - cp[1]) * U[1] + (tz - cp[2]) * U[2];
         if (back > 0.5f && back < 40.0f && std::fabs(upv) < 20.0f) {
@@ -404,6 +413,7 @@ extern "C" REX_FUNC(sub_8243CBF0) {
           rest_target_up += (tup - rest_target_up) * k;
         }
       } else if (rest_back > 0) {
+        const float w = looking ? std::max(weight, 0.0f) : weight;
         static int said = 0;
         if (said++ == 0)
           REXLOG_INFO("[look] fixed to the car: {:.2f} behind, {:.2f} up, look-at {:.2f} up", rest_back, rest_up,
@@ -420,12 +430,15 @@ extern "C" REX_FUNC(sub_8243CBF0) {
         // `to` may be the mover's own (sprung) target: restored after the
         // call so its spring is not disturbed.
         const float otx = tx, oty = ty, otz = tz;
-        StoreF(base, to, px);
-        StoreF(base, to + 4, py);
-        StoreF(base, to + 8, pz);
-        StoreF(base, from, cp[0] + hx * rest_back + U[0] * rest_up);
-        StoreF(base, from + 4, cp[1] + hy * rest_back + U[1] * rest_up);
-        StoreF(base, from + 8, cp[2] + hz * rest_back + U[2] * rest_up);
+        // While looking the fixed camera fully (it takes over at once when a
+        // look starts: weight only fades it out afterwards).
+        const float k = looking ? 1.0f : w;
+        StoreF(base, to, tx + (px - tx) * k);
+        StoreF(base, to + 4, ty + (py - ty) * k);
+        StoreF(base, to + 8, tz + (pz - tz) * k);
+        StoreF(base, from, ex + (cp[0] + hx * rest_back + U[0] * rest_up - ex) * k);
+        StoreF(base, from + 4, ey + (cp[1] + hy * rest_back + U[1] * rest_up - ey) * k);
+        StoreF(base, from + 8, ez + (cp[2] + hz * rest_back + U[2] * rest_up - ez) * k);
         __imp__sub_8243CBF0(ctx, base);
         StoreF(base, to, otx);
         StoreF(base, to + 4, oty);

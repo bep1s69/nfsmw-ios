@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev177 free-roam run; dev178 smooth return
+
+Archived (verified, Desktop copies deleted): `Debug/16 November 2026/
+dev177_freeroam_nfsmw.log` and `dev177_freeroam.trace` (tree hash
+c1ba0cf4...4e2c). dev177 found the matrix in free roam via the search
+(`mover+250 > +fc +540`) and engaged (`5.45 behind, 1.08 up, look-at 1.07
+up`). Stefan: returning from free look eased back then jumped to the chase
+camera's own position. dev178: the car-fixed camera fades out over 0.2 s
+after the look returns to straight behind (eye and look-at blended with the
+chase camera's); averaging only while fully released. First-minute drops:
+world-load texture bursts (300+ textures, 40 MB decoded at 23:23:44) and
+loading hitches; the AI path only loaded prepared/disk copies. Log CPU in
+free roam 1.35-1.67 cores (Main XThread 31-39%, GPU Commands 25-32%,
+XThreadCD07 19-26%), the dev176 pursuit 1.05-1.4: no pursuit-specific CPU
+growth seen between the two runs (different scenes; Time Profiler
+comparison pending). IPA `ios/build/NFSMW-0.6.1-dev178-look-blend-back.ipa`.
+
 ## November 16, 2026 — dev176 iPad pursuit trace; dev177
 
 Stefan (standing rule, again): delete Desktop logs/traces once archived and
