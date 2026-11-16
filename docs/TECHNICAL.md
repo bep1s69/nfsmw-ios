@@ -30073,3 +30073,19 @@ right-handed z-up, so +yaw puts the eye on the car's right; if left/right
 come out swapped, negate x. `nfsmw_stick_look_speed` and its setting removed.
 Build exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev134-right-stick-points-camera.ipa`
 SHA256 7b988bb156d9cfe8b51ee82472173513b5b4c35e569fca4603cdea850a41e74c, on Desktop (dev133 removed from Desktop, kept in ios/build). Not run on a device yet.
+
+dev135 (Stefan, Nov 16: dev134 "works as expected", but the rear-view mirror
+follows the camera: looking at the front, the mirror shows what is ahead).
+The mirror picture is the environment cube sampled backwards (shader
+8436534c, see the IPA60/61 entries), its direction from the main view, so it
+has no camera of its own to correct here (a real fix would rotate the mirror
+draw's direction constants; not attempted). Instead, while the free look's
+|yaw offset| > 20 degrees (stick, swipe or mouse), camera_look.cpp sets
+`nfsmw_look_hides_mirror()`; game_scene_size.cpp's HUD hook moves the mirror
+frame 0x7FAC287B 1000 units up (forcing its move path while hidden and once
+after, without changing the picture shift) and sets `nfsmw_mirror_hidden`,
+which makes native_renderer.mm skip the mirror picture draw (same `continue`
+as an empty viewport). Not tested on a device: whether the frame really
+leaves the screen with Custom HUD off. Build exit 0, `unzip -tq` ok. IPA
+`ios/build/NFSMW-0.6.1-dev135-look-hides-mirror.ipa` SHA256 23b41db9666ff901063169949a7f8c7fa79a39bcced6c64069baca7a433b612a, on Desktop
+(dev134 removed from Desktop, kept in ios/build).

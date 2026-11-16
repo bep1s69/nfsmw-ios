@@ -720,6 +720,12 @@ release; speed option removed. IPA `ios/build/NFSMW-0.6.1-dev134-right-stick-poi
 SHA256 7b988bb156d9cfe8b51ee82472173513b5b4c35e569fca4603cdea850a41e74c, on Desktop. Pending: Stefan's test, especially whether left/right
 match his description (one sign flip if swapped).
 
+dev135 (Stefan, Nov 16: dev134 works as expected): the rear-view mirror is
+hidden while the free look is turned more than 20 degrees away (it showed the
+view ahead). IPA `ios/build/NFSMW-0.6.1-dev135-look-hides-mirror.ipa` SHA256
+23b41db9666ff901063169949a7f8c7fa79a39bcced6c64069baca7a433b612a, on Desktop. Pending: Stefan's test (mirror frame and picture both gone
+while looking, back on release).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

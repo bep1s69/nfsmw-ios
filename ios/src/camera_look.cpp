@@ -81,6 +81,14 @@ void StoreF(uint8_t* base, uint32_t a, float f) {
 
 }  // namespace
 
+// dev135 (Stefan, Nov 16): the rear-view mirror's picture follows the main
+// camera's direction (it samples the environment cube backwards from the
+// view), so looking at the front showed what is ahead in it. While the free
+// look is turned more than 20 degrees away from behind the car, the mirror
+// (frame and picture) is hidden (game_scene_size.cpp, native_renderer.mm).
+std::atomic<bool> g_look_hides_mirror{false};
+extern "C" bool nfsmw_look_hides_mirror() { return g_look_hides_mirror.load(std::memory_order_relaxed); }
+
 extern "C" void nfsmw_look_mouse(float dx, float dy) {
   mouse_x.store(mouse_x.load(std::memory_order_relaxed) + dx, std::memory_order_relaxed);
   mouse_y.store(mouse_y.load(std::memory_order_relaxed) + dy, std::memory_order_relaxed);
@@ -106,6 +114,7 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   const bool mouse_on = REXCVAR_GET(nfsmw_mouse_look), stick_on = REXCVAR_GET(nfsmw_stick_look);
   if (restart || (!mouse_on && !stick_on) || behind || (view != 2 && view != 3)) {
     yaw_offset = pitch_offset = 0;
+    g_look_hides_mirror.store(false, std::memory_order_relaxed);
     __imp__sub_8243CBF0(ctx, base);
     return;
   }
@@ -138,6 +147,7 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     pitch_offset *= 0.9f;
     if (std::fabs(yaw_offset) < 0.05f && std::fabs(pitch_offset) < 0.05f) yaw_offset = pitch_offset = 0;
   }
+  g_look_hides_mirror.store(std::fabs(yaw_offset) > 20.0f, std::memory_order_relaxed);
   if (yaw_offset != 0 || pitch_offset != 0) {
     const float fx = LoadF(base, from) - tx, fy = LoadF(base, from + 4) - ty, fz = LoadF(base, from + 8) - tz;
     const float dist = std::sqrt(fx * fx + fy * fy + fz * fz);

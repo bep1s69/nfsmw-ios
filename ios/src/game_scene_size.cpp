@@ -215,6 +215,10 @@ float nfsmw_mirror_scale_y = 1.0f;
 // And moved down by this much (of the screen's half height), with the
 // mirror's frame (nfsmw_hud_*: kept at its top margin).
 float nfsmw_mirror_shift_y = 0.0f;
+// The free look hides the mirror (camera_look.cpp, dev135): its frame moved
+// off the top, its picture not drawn (native_renderer.mm).
+extern "C" bool nfsmw_look_hides_mirror() __attribute__((weak));
+bool nfsmw_mirror_hidden = false;
 }
 
 namespace {
@@ -913,7 +917,12 @@ extern "C" REX_FUNC(sub_822AA6D0) {
   }
   static uint32_t dumped_package = 0;
   const bool dump = package && package != dumped_package;
-  if (!dump && !active && extra == 0 && !g_left.object && !g_right.object) {
+  const bool hide_mirror = nfsmw_look_hides_mirror && nfsmw_look_hides_mirror();
+  static bool mirror_was_hidden = false;
+  const bool mirror_move = hide_mirror || mirror_was_hidden;
+  mirror_was_hidden = hide_mirror;
+  nfsmw_mirror_hidden = hide_mirror;
+  if (!dump && !active && !mirror_move && extra == 0 && !g_left.object && !g_right.object) {
     return;  // nothing to move, and nothing moved
   }
   const PPCContext saved = ctx;
@@ -958,11 +967,11 @@ extern "C" REX_FUNC(sub_822AA6D0) {
       MovePiece(base, p, offset[p.element][0], offset[p.element][1]);
     }
     g_pieces_moved = true;
-    const float mirror_dy = offset[kTopCentre][1];
-    const uint32_t frame = active || std::abs(mirror_dy) > 0.01f ? FindObject(ctx, base, package, kMirrorFrame) : 0;
+    const float mirror_dy = offset[kTopCentre][1] + (hide_mirror ? -1000.0f : 0.0f);
+    const uint32_t frame = active || mirror_move || std::abs(mirror_dy) > 0.01f ? FindObject(ctx, base, package, kMirrorFrame) : 0;
     if (frame) {
       MoveGroup(base, frame, 0, mirror_dy, g_mirror);
-      nfsmw_mirror_shift_y = mirror_dy * g_half_height_per_unit;
+      nfsmw_mirror_shift_y = offset[kTopCentre][1] * g_half_height_per_unit;
     }
   }
   ctx = saved;

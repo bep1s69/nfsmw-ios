@@ -543,6 +543,7 @@ uint32_t NativeSampleCount(id<MTLDevice> device, uint32_t surface_info, bool msa
 }
 
 extern "C" float nfsmw_mirror_scale_x, nfsmw_mirror_scale_y, nfsmw_mirror_shift_y;  // game_scene_size.cpp
+extern "C" bool nfsmw_mirror_hidden;  // game_scene_size.cpp: the free look turned away (dev135)
 
 namespace nfsmw::adaptive_qos {
 void OnRendered(double ms);  // adaptive_qos.cpp: a frame encoded over the cap's budget
@@ -8051,6 +8052,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           REXLOG_INFO("[native] mirror picture: scaled {:.3f} x {:.3f} ({})", nfsmw_mirror_scale_x,
                       nfsmw_mirror_scale_y, pixels ? "positions in pixels: not scaled" : "by its viewport");
         }
+        if (nfsmw_mirror_hidden) continue;
       }
       MTLViewport vp;
       if (pixels) {

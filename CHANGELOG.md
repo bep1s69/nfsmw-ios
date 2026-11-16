@@ -6,7 +6,8 @@
   car from the side it points to (pull it toward you to see the front) and
   the camera is back behind the car the moment you let go. In drag races the
   right stick still shifts gear. On by default under Controls > Controller
-  (also in-game).
+  (also in-game). The rear-view mirror hides while the camera is turned
+  away (stick, swipe or mouse look), since it would show the wrong way.
 
 - **GPU profiling labels.** Translated shaders now use material-specific
   compiled entry names for GPU diagnostics. Existing shader libraries remain
