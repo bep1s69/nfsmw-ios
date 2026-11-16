@@ -597,6 +597,37 @@ output starvation; unattributed pending Stefan's timing/description. Vigilante
 "5 s no register moved" alerts at 00:40:39/00:46:22 fired during perfect pacing
 (false positives).
 
+dev130 render-trial power pair (Nov 16, iPhone 17 Pro Max, same sitting, both
+dev130, 60 cap/1x/no AA/MetalFX off, brightness 27% in BOTH traces (fixed),
+no charging rows, thermal Nominal). Archive: `16 November 2026/dev130 render
+trial power pair/` (two .aar SHA 43f21e72.../a63a9d29..., nfsmw.log SHA
+3ebafee9...; Desktop originals deleted after verification; extracted .atrc).
+A trial OFF trace 13:45:42.284 (drive 13:45:47.870-13:49:00.415); B trial ON
+(`--nfsmw_render_utility_trial=true`, cold restart) trace 13:53:27.941 covering
+B's SECOND drive 13:53:30.188-13:56:51.627. Windows: drive start +15 s to drive
+end. Parser: xctrace export SystemPowerLevel / ProcessSubsystemPowerImpact,
+duration-weighted (scratch pp.py/sub.py).
+
+| | A OFF | B ON (all) | B before UI | B after UI |
+|---|---:|---:|---:|---:|
+| system drain %/h | 37.43 | 30.30 | 35.27 | 26.73 |
+| LiveContainer CPU impact | 28.52 | 19.29 | 24.69 | 15.42 |
+| GPU impact | 4.14 | 4.29 | 4.51 | 4.12 |
+| display impact | 2.00 | 2.00 | 2.00 | 2.00 |
+| instructions G/s | 8.67 | 8.84 | 9.02 | 8.72 |
+
+-19.0% system drain with brightness, GPU and instruction rate matched; nearly
+all CPU. A stayed Default all drive; B started Default and stepped up to User
+Initiated while driving at 13:55:03.175 (3 late frames, genuine, not loading),
+and the lowest drain came after that (main/CP/workers UI + render Utility).
+Pacing both clean (0-1/300 typical). Log "% of a core" rose in B (inflated by
+slower cores; consistent with more work on E cores, not measured here).
+Remaining confounds: fixed order A then B; B is its launch's second drive.
+Hypothesis (unproven): encoding on Utility frees P-core time for the frame
+threads and lowers the cluster's operating point. Proposed next: dev131 makes
+the render Utility trial default and adds an opt-in "drive starts at User
+Initiated with render Utility" variant; one pair with the variant FIRST.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
