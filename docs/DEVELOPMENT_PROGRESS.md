@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev160 result: much better
+
+dev160 iPad (log `Debug/16 November 2026/dev160_ui_ai_alpha_nfsmw.log`): 47
+textures AI-upscaled, no GPU errors. Stefan: "much better now even without
+relaunching"; still wants AOT. UI packs seen: FRONTEND/FRONTB.LZC,
+FRONTEND/PLATFORMS/*, GLOBAL/HUDTEXRACE.BIN, GLOBAL/HUDTEXTURESPHOTOFINISH.BIN,
+GLOBAL/GLOBALA.BUN, GLOBAL/INGAMEB.LZC, GLOBAL/DYNTEX.BIN,
+LANGUAGES/LANGUAGETEXTURES.BIN. AOT needs ZDIR/ZZDATA lookup, LZC
+decompression, TPK parsing and 360 texture decode. Proposed: ship the
+runtime version in 0.6.1 (Sharp HUD off by default, experimental), AOT for
+0.6.2; awaiting Stefan.
+
 ## November 16, 2026 — dev159 result; dev160 network on alpha too
 
 dev159 iPad (log `Debug/16 November 2026/dev159_ui_ai_nfsmw.log`, screenshots
