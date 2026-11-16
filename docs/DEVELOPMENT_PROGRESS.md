@@ -752,6 +752,13 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev161 result
+
+Stefan: "seems to work just fine"; Sharp HUD stays optional and off by
+default (it is: `sharp_hud` default false; MetalFX preset default off). No
+log received yet, so prepared-copy hash matches are unverified. 0.6.1 release
+still waits for Stefan's iPhone 14 Pro Max performance test.
+
 ## November 16, 2026 — dev161: version 0.6.1 (12); sharp UI prepared ahead of time
 
 Stefan: bump to 0.6.1, label Sharp HUD as AI upscaling, and do AOT now (the
