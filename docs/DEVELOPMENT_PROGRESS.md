@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev155 result: HUD art is low-detail, not 1x targets
+
+Log `Debug/16 November 2026/dev155_hud_texture_log_nfsmw.log`: 85 distinct
+HUD textures, all plain (none a resolve), 32x32 to 512x512, formats 70/130/
+132/134, ps 2d8bf2c63ddd2608 (one 256x64 under the mirror frame ps
+8436534c). Stefan: speedometer and minimap still soft. So the art itself
+limits sharpness; MetalFX spatial 2x adds no detail. Proposed: park an
+on-device AI upscale (Core ML super-resolution once per texture, disk cache,
+preload on the pipeline screen; no redistribution of game art) until after
+0.6.1; keep HUD split + 2x textures automatic with MetalFX; Sharp HUD switch
+default off (menu visibility: Stefan's call).
+
 ## November 16, 2026 — dev154 result; dev155 HUD texture log
 
 iPad, 1.5x, Sharp HUD (log `Debug/16 November 2026/dev154_sharp_hud_textures_nfsmw.log`):
