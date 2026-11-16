@@ -752,6 +752,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev152 iPad result; iPad 60 fps pacing next
+
+Log `Debug/16 November 2026/dev152_ipad_metalfx_presets_nfsmw.log`. Native
+target 2752x2064: Quality 960x720; Balanced, Performance and Ultra all
+clamped to 927x695 (MetalFX's largest scale ~3x here), so they look alike.
+Target 0.75x (2064x1548): Performance 720x540, Ultra 695x521. Memory flat
+(1.0-1.8 GB). GPU frames ~7.5-9 ms (some 15 ms profiles). Two 5-6 s
+"vigilante" stalls coincide with the in-game options menu (paused), then
+recovered. The `energy baseline` line said "MetalFX off" with a preset (it
+read the old cvar): label fixed in source (next build).
+iPad pacing at 60 (cap 60, `[display] refresh now 60 Hz`): 56-169 of 300
+frames off the 16.7 ms grid, gaps of 1 and 3 120 Hz refreshes (8.3/25 ms):
+the panel composites at 120 Hz and unscheduled 60 fps presents (default since
+D-014, Oct 30: `nfsmw_native_present_at_time_60` false) land on alternate
+refreshes. First test proposed (no build): iPad, one race, Extra Args
+`--nfsmw_native_present_at_time_60=true`.
+
 ## November 16, 2026 — dev152 iPhone result
 
 Log `Debug/16 November 2026/dev152_iphone_metalfx_presets_nfsmw.log`: inputs

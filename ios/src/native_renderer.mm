@@ -10092,7 +10092,11 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                     "({:.1f} arrays/frame); arena {:.0f} MiB live / {:.0f} MiB reserved | "
                     "recording estimated from 1/8 draws; encoding includes drawable waits; "
                     "MetalFX GPU work not individually timed",
-                    resolution_scale, REXCVAR_GET(nfsmw_native_metalfx), REXCVAR_GET(nfsmw_native_fxaa),
+                    resolution_scale,
+                    MetalFxUpscaling() ? "preset " + REXCVAR_GET(nfsmw_native_metalfx_preset) + " target " +
+                                             REXCVAR_GET(nfsmw_native_metalfx_target)
+                                       : std::string(REXCVAR_GET(nfsmw_native_metalfx)),
+                    REXCVAR_GET(nfsmw_native_fxaa),
                     REXCVAR_GET(nfsmw_native_force_msaa), rex::cvar::Query<int32_t>("ios_fps_cap"),
                     vertex_diagnostics.decoded_bytes / kMiB / frames,
                     vertex_diagnostics.dynamic_decoded_bytes / kMiB / frames,
