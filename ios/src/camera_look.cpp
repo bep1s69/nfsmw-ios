@@ -109,6 +109,7 @@ extern "C" REX_FUNC(sub_8243CBF0) {
   // A new race or view, or the car put somewhere else: back behind the car.
   const bool restart = now - last_call > std::chrono::milliseconds(250) ||
                        std::hypot(tx - last_to[0], ty - last_to[1]) > 20.0f;
+  const float dt = std::min(std::chrono::duration<float>(now - last_call).count(), 0.1f);
   last_call = now;
   last_to[0] = tx, last_to[1] = ty, last_to[2] = tz;
   const bool mouse_on = REXCVAR_GET(nfsmw_mouse_look), stick_on = REXCVAR_GET(nfsmw_stick_look);
@@ -129,18 +130,21 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     pitch_offset += (invert ? -dy : dy) * speed;
     pitch_offset = std::clamp(pitch_offset, -20.0f, 60.0f);
     yaw_offset = std::remainder(yaw_offset, 360.0f);
-  } else if (sx != 0 || sy != 0) {
+  } else if (sx != 0 || sy != 0 || last_input_stick) {
     // dev134: the camera points where the stick points (up: behind, as
     // normal; toward you: the front; left: the car's right side; right: its
-    // left side), at once, at the normal height.
-    last_input = now;
-    last_input_stick = true;
-    yaw_offset = std::atan2(-sx, sy) / kDeg;
+    // left side), at the normal height, back behind the car on release.
+    // dev138 (Stefan: choppy): it follows that angle with a 50 ms time
+    // constant instead of jumping to it every frame (stick wobble and the
+    // game's input steps showed as jerks); within half a degree it is there.
+    const bool held = sx != 0 || sy != 0;
+    const float target = held ? std::atan2(-sx, sy) / kDeg : 0.0f;
+    const float step = std::remainder(target - yaw_offset, 360.0f);
+    yaw_offset = std::fabs(step) < 0.5f ? target : yaw_offset + step * (1.0f - std::exp(-dt / 0.05f));
+    yaw_offset = std::remainder(yaw_offset, 360.0f);
     pitch_offset = 0;
-  } else if (last_input_stick) {
-    // Stick let go: straight back behind the car.
-    yaw_offset = pitch_offset = 0;
-    last_input_stick = false;
+    last_input = now;
+    last_input_stick = held || yaw_offset != 0;
   } else if (now - last_input > std::chrono::milliseconds(1500)) {
     // Idle: back behind the car over about half a second.
     yaw_offset *= 0.9f;

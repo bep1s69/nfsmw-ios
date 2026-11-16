@@ -738,6 +738,11 @@ the mirror frame and all its children (the two image halves). IPA
 on Desktop. Pending: Stefan's test; a log that reaches driving shows
 `[hud] mirror frame ... objects flagged`.
 
+dev138 (Stefan, Nov 16: stick camera choppy): the stick camera eases to the
+stick angle (50 ms) instead of jumping; includes dev137's mirror frame change.
+IPA `ios/build/NFSMW-0.6.1-dev138-smooth-stick-camera.ipa` SHA256 7f090e6063d1f4cd655ac88964d131341bf20bfbbc8cdeba8cd201c99df241a9, on
+Desktop. Pending: Stefan's test of both (smoothness, mirror frame hidden).
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**

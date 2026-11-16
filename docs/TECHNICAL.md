@@ -30115,3 +30115,15 @@ children list at +0x64 as MovePiece walks it), records which it set and
 clears only those. Log line now also counts the objects flagged. Build
 exit 0, `unzip -tq` ok. IPA `ios/build/NFSMW-0.6.1-dev137-mirror-frame-children-hidden.ipa`
 SHA256 4e9f9ccc53dde13990b50d13062e396d97cdb08bbe837a3e58272b90e48d46aa, on Desktop (dev136 removed from Desktop, kept in ios/build).
+
+dev138 (Stefan, Nov 16: moving the camera with the stick does not feel like
+60 fps, choppy). Likely cause (inference): dev134 set the yaw straight to the
+stick's angle every camera update, so stick wobble (atan2 of a noisy small
+vector) and the game's input steps showed as jerks. The stick yaw now
+follows its target (the stick angle, 0 on release) exponentially with a 50 ms
+time constant (dt from the camera calls, clamped to 0.1 s), shortest way
+round, snapping when within 0.5 degree. Not addressed: the game's own chase
+camera stepping 0/2 ticks per frame (October entries), if that is what he
+sees. Includes dev137's mirror change. Build exit 0, `unzip -tq` ok. IPA
+`ios/build/NFSMW-0.6.1-dev138-smooth-stick-camera.ipa` SHA256 7f090e6063d1f4cd655ac88964d131341bf20bfbbc8cdeba8cd201c99df241a9, on Desktop
+(dev137 removed from Desktop, kept in ios/build).
