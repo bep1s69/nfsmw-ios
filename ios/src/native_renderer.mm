@@ -148,7 +148,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
 REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split_log, true, "GPU",
                     "Native renderer diagnostics: every 20 s, the displayed target's draws (HUD split)");
 
-REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_native_hud_split, false, "GPU",
                     "Native renderer: below the screen's scale, the HUD (the draws after the game's post "
                     "effects) drawn at the screen's scale so that it stays sharp");
 

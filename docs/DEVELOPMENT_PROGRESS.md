@@ -752,6 +752,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev146 result: works, off by default
+
+Stefan (both devices): no flicker, works; little visible difference on the
+iPad (the HUD's own textures are low resolution); unsure it is worth a default.
+Logs `Debug/16 November 2026/dev146_ipad_hud_split_nfsmw.log`,
+`dev146_iphone_hud_split_nfsmw.log`. GPU profiles: iPad (1.5x, HUD at 2.867,
+2752x2064) race frames 9.7-11.9 ms with the HUD pass 0.8-1.4 ms; iPhone (1x,
+HUD at 1.829, 2926x1317) HUD pass 0.2-1.0 ms; upscale pass <= 0.1 ms. Few
+profiles (5 and 3), no power measurement. Decision proposed: default false;
+used with MetalFX (step 2), where the upscale would otherwise blur the HUD.
+Source default changed to false (not rebuilt).
+
 ## November 16, 2026 — dev145 logs; dev146 per-draw HUD split (MetalFX step 1b)
 
 dev145 `[hud-split]` logs (`Debug/16 November 2026/dev145_ipad_hud_split_nfsmw.log`,
