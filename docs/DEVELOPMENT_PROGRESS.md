@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev164: which textures get upscaled (audit)
+
+Stefan: make sure no in-game (world, car, police) textures are upscaled.
+Audit of `[hud-tex]` in dev161-163 logs: only ps 2d8bf2c63ddd2608 (HUD/FE
+2D, 142-229 textures), 8436534cfafcc0eb (mirror frame), fe90661a7df6f953
+(1-2, 2D) and 2d2462de73d283de (the movies' picture, 6-36). By design only
+draws on the split HUD target after the post group (races) or the trailing
+depth-test-off run (menus) are considered, and only those draws bind the
+replacements; world draws (depth test on, scene target) never do; AOT reads
+only the UI packs. Found: movie frames (a new texture each frame) were being
+upscaled and sent to the network each frame. dev164 skips ps 2d2462de. IPA
+`ios/build/NFSMW-0.6.1-dev164-no-movie-upscale.ipa`, on Desktop.
+
 ## November 16, 2026 — dev163 iPhone power run 2 (baseline, 1.5x MSAA 4x)
 
 `Debug/16 November 2026/dev163_iphone_PowerProfiler_182733_182922.aar` +

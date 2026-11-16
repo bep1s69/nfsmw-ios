@@ -8131,6 +8131,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             for (size_t j = std::max(hud_from, hud_tex_from); j < frame->draws.size(); ++j) {
               const Draw& hd = frame->draws[j];
               if (target_key(hd) != hud_virtual) continue;
+              // Not the movies' picture (ps 2d2462de): a new texture every
+              // frame, which would be upscaled (and sent to the network)
+              // every frame (dev164).
+              if (hd.ps_key == 0x2d2462de73d283deull) continue;
               for (int s2 = 0; s2 < 16; ++s2) {
                 const int ti = hd.textures[s2];
                 if (ti < 0 || hud_slot.count(ti) || next_heap >= heap_capacity) continue;
