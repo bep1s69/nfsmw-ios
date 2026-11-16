@@ -6298,6 +6298,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // Sharp HUD textures (dev154): frame texture index -> heap index of its
     // upscaled copy, for the HUD target's draws.
     std::unordered_map<int, int> hud_slot;
+    std::vector<uint8_t> hud_keep;  // per draw: 1 = binds a resolve (post effects): its textures never replaced
     // A resolve's own target: the HUD's after its first draw.
     auto resolve_key = [&](const ResolveEvent& ev) {
       std::string key = EdramKey(ev.surface_info, ev.color_info, ev.depth_info);
@@ -8135,6 +8136,18 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               // frame, which would be upscaled (and sent to the network)
               // every frame (dev164).
               if (hd.ps_key == 0x2d2462de73d283deull) continue;
+              // A draw that reads a resolve is a post effect (the game's
+              // other visual treatments have their own composites, ps
+              // ed7d7eea: a 256x256 mask there became the black splat on the
+              // iPad, dev164): its textures are data, never replaced (dev165).
+              bool reads_resolve = false;
+              for (int s2 = 0; s2 < 16 && !reads_resolve; ++s2)
+                reads_resolve = hd.textures[s2] >= 0 && resolved.count(frame->textures[hd.textures[s2]]->address);
+              if (reads_resolve) {
+                if (hud_keep.size() != frame->draws.size()) hud_keep.assign(frame->draws.size(), 0);
+                hud_keep[j] = 1;
+                continue;
+              }
               for (int s2 = 0; s2 < 16; ++s2) {
                 const int ti = hd.textures[s2];
                 if (ti < 0 || hud_slot.count(ti) || next_heap >= heap_capacity) continue;
@@ -8836,7 +8849,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           }
         }
         if (!hud_slot.empty() && d.textures[s] >= 0 && index == d.textures[s] + 1 && tk == hud_virtual &&
-            di >= hud_tex_from) {
+            di >= hud_tex_from && !(di < hud_keep.size() && hud_keep[di])) {
           if (auto hs = hud_slot.find(d.textures[s]); hs != hud_slot.end()) index = hs->second;
         }
         shared[s] = uint32_t(index);        // Texture2D index

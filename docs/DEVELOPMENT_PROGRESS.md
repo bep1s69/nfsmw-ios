@@ -752,6 +752,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev164 iPad splat (Sharp HUD, no MetalFX); dev165
+
+Log `Debug/16 November 2026/dev164_ipad_splat_nfsmw.log`, screenshot
+`dev164_ipad_splat_IMG_0384.png` (black splat during a pursuit camera,
+MetalFX off, Sharp HUD on). `[hud-tex]`: ps ed7d7eea75715d08 at draw 1877
+binds the scene and its blur chain resolves (960x720, 480x360, 240x180,
+120x90) plus a 256x256 RGBA8 texture: another visual treatment's post
+composite (not 20710a9a), so the frame took the menu rule (trailing
+depth-off draws) and the composite's mask texture was replaced. dev165: a
+draw that binds any resolve is a post effect; its textures are never
+upscaled or replaced (`hud_keep`), whatever the split. IPA
+`ios/build/NFSMW-0.6.1-dev165-post-mask-fix.ipa`, on Desktop.
+
 ## November 16, 2026 — dev164: which textures get upscaled (audit)
 
 Stefan: make sure no in-game (world, car, police) textures are upscaled.
