@@ -553,6 +553,22 @@ At 30 FPS the app requests 60 Hz and uses display-locked guest vblank with
 sleeping waits. Blindly changing CADisplayLink to 30 breaks the current lock
 condition. CPU utilization and GPU milliseconds alone are not energy metrics.
 
+## Claude note — November 16, 2026 (read-only, scheduling start)
+
+Stefan approved continuing with device-adaptive scheduling. Log review of the
+dev129 power pair (`14 November 2026/dev129_reference_vs_render_utility_power_nfsmw.log`):
+run B's User Initiated escalation at 17:37:07.018 is a cap-controller artefact,
+not trial feedback. Driving began 17:37:06.958 with m already at the start level
+(Default), so the dev110 start reset did not clear the late window; world-entry
+hitches (frame 1685: 231.1 ms, 167 textures decoded, under the 250 ms stall
+filter) supplied the 3 late frames 30 ms after the drive started, and the level
+cannot step down while driving. Run A did not get 3 late frames at its start and
+stayed Default. Run B was therefore UI main/CP/workers + Utility render, against
+A's Default everywhere; the -11.5% stays unattributed. Proposed next step (awaiting
+Stefan): clear the late window and ignore hitch frames for ~2 s at every drive
+start, then design per-role levels (main, GPU commands, workers, render, audio)
+raised by stage attribution instead of one shared mode. No code change yet.
+
 ## Current checkpoint — November 14, 2026
 
 **CLAUDE HANDOFF — dev129 power pair processed; promising observation, trial remains opt-in.**
