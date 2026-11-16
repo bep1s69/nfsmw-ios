@@ -145,6 +145,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_async_frame_free, false, "GPU",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): free each recorded frame (its draws' references, fresh arrays and arena) "
                     "on a Utility-QoS queue after it is encoded, not on the render queue (iPhone pursuit "
                     "profile: ~44 ms/s of the render queue, mostly on performance cores)");
+REXCVAR_DEFINE_INT32(nfsmw_native_external_queue, 3, "GPU",
+                     "iOS: external display frames allowed to wait to be shown before the next is "
+                     "skipped (1-3; was 2)");
+
 REXCVAR_DEFINE_BOOL(nfsmw_native_external_display_timing, true, "GPU",
                     "iOS: with the picture on an external display, time frames from that display's "
                     "refreshes instead of the device's own (GitHub issue 21)");
@@ -9070,7 +9074,10 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         // The same picture on the external display, fitted to its shape.
         // Skipped while two of its frames are still waiting to be shown (a
         // 60 Hz TV behind a 120 Hz phone must not hold the game back).
-        if (CAMetalLayer* ext = external_layer; ext && external_in_flight.load() < 2) {
+        static std::atomic<uint32_t> external_skipped{0};
+        const int32_t external_queue = std::clamp(REXCVAR_GET(nfsmw_native_external_queue), 1, 3);
+        if (external_layer && external_in_flight.load() >= external_queue) ++external_skipped;
+        if (CAMetalLayer* ext = external_layer; ext && external_in_flight.load() < external_queue) {
           if (id<CAMetalDrawable> xd = [ext nextDrawable]) {
             const float xw = float(xd.texture.width), xh = float(xd.texture.height), xdst = xw / xh;
             const float xfit[4] = {src > xdst ? 1.0f : src / xdst, src > xdst ? xdst / src : 1.0f, 0, 0};
@@ -9094,8 +9101,29 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             [xe drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
             [xe endEncoding];
             ++external_in_flight;
-            [xd addPresentedHandler:^(id<MTLDrawable>) {
+            [xd addPresentedHandler:^(id<MTLDrawable> shown) {
               --external_in_flight;
+              // What the external display really shows, every 300 frames:
+              // its own gaps, not the phone's (the [native] pacing line).
+              static std::atomic<double> last{0};
+              static std::atomic<uint32_t> count{0}, dropped{0}, buckets[6];
+              const double at = shown.presentedTime;
+              if (at <= 0) {
+                ++dropped;
+              } else {
+                const double before = last.exchange(at);
+                if (before > 0) {
+                  const double ms = (at - before) * 1000.0;
+                  ++buckets[ms < 12.0 ? 0 : ms < 21.0 ? 1 : ms < 29.0 ? 2 : ms < 38.0 ? 3 : ms < 60.0 ? 4 : 5];
+                }
+              }
+              if (++count % 300 == 0) {
+                REXLOG_INFO("[native] external pacing: 300 frames, gaps <12 ms {}, ~16.7 {}, ~25 {}, ~33 {}, "
+                            "38-60 {}, longer {}; dropped {}, skipped before drawing {}",
+                            buckets[0].exchange(0), buckets[1].exchange(0), buckets[2].exchange(0),
+                            buckets[3].exchange(0), buckets[4].exchange(0), buckets[5].exchange(0),
+                            dropped.exchange(0), external_skipped.exchange(0));
+              }
             }];
             [cb presentDrawable:xd];
           }

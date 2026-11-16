@@ -752,6 +752,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev142 result, dev143 external pacing stats
+
+dev142 on the iPad mirroring to the 1440p monitor (log
+`Debug/16 November 2026/dev142_ipad_hdmi_mirroring_choppy_nfsmw.log`):
+`[display] timing from the external display (max 60 Hz)` and 2560x1440 output
+confirmed, but Stefan still saw general choppiness and ~49 fps dips. The
+`[native] pacing` line measures only the iPad's layer, so the monitor's own
+cadence was unknown. dev143: `[native] external pacing` line every 300
+external frames (presentedTime gap buckets, dropped, skipped before drawing)
+and the skip threshold raised from 2 to 3 frames waiting
+(`nfsmw_native_external_queue`, 1-3). Stefan parked MetalFX until external
+displays work; when MetalFX returns, keep the game's motion blur on.
+IPA `ios/build/NFSMW-0.6.1-dev143-external-pacing-stats.ipa`, on Desktop.
+
 ## November 16, 2026 — dev141 iPad HDMI mirroring: uneven frames (GitHub #21 reproduced)
 
 Stefan, iPad, monitor set to mirroring: #20's path engaged (scene
