@@ -48,6 +48,9 @@
 #include "battery.h"
 #include "touch_controls.h"
 
+REXCVAR_DEFINE_BOOL(nfsmw_look_fixed_orbit, true, "Input",
+                    "Free look: a fixed distance and height around the car while looking (not the chase "
+                    "camera's, which moves with acceleration and slopes)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look, true, "Input", "Turn the chase camera with the mouse while driving");
 REXCVAR_DEFINE_DOUBLE(nfsmw_mouse_look_speed, 1.0, "Input", "Mouse look speed (1 = 0.15 degrees per mouse count)");
 REXCVAR_DEFINE_BOOL(nfsmw_mouse_look_invert, true, "Input", "Mouse look: moving the mouse up looks down");
@@ -162,11 +165,29 @@ extern "C" REX_FUNC(sub_8243CBF0) {
     if (std::fabs(yaw_offset) < 0.05f && std::fabs(pitch_offset) < 0.05f) yaw_offset = pitch_offset = 0;
   }
   g_look_hides_mirror.store(std::fabs(yaw_offset) > 20.0f, std::memory_order_relaxed);
+  // dev169 (Stefan): while looking around, a fixed distance and height
+  // around the car. The game's chase camera moves in and out with
+  // acceleration and gear changes and drops toward the road uphill (behind
+  // the car you then saw the ground); its usual distance and pitch, averaged
+  // over the last seconds while not looking, are held instead.
+  static float rest_dist = 0, rest_pitch = 0;
+  {
+    const float fx = LoadF(base, from) - tx, fy = LoadF(base, from + 4) - ty, fz = LoadF(base, from + 8) - tz;
+    const float d = std::sqrt(fx * fx + fy * fy + fz * fz);
+    const float p = std::atan2(fz, std::hypot(fx, fy));
+    if (yaw_offset == 0 && pitch_offset == 0 && std::isfinite(d) && d > 0.5f && d < 50.0f) {
+      const float k = rest_dist == 0 ? 1.0f : 1.0f - std::exp(-dt / 2.0f);
+      rest_dist += (d - rest_dist) * k;
+      rest_pitch += (p - rest_pitch) * k;
+    }
+  }
   if (yaw_offset != 0 || pitch_offset != 0) {
     const float fx = LoadF(base, from) - tx, fy = LoadF(base, from + 4) - ty, fz = LoadF(base, from + 8) - tz;
-    const float dist = std::sqrt(fx * fx + fy * fy + fz * fz);
+    const bool hold = REXCVAR_GET(nfsmw_look_fixed_orbit) && rest_dist > 0;
+    const float dist = hold ? rest_dist : std::sqrt(fx * fx + fy * fy + fz * fz);
     const float yaw = std::atan2(fy, fx) + yaw_offset * kDeg;
-    const float pitch = std::clamp(std::atan2(fz, std::hypot(fx, fy)) + pitch_offset * kDeg, -1.39626f, 1.39626f);
+    const float pitch = std::clamp((hold ? rest_pitch : std::atan2(fz, std::hypot(fx, fy))) + pitch_offset * kDeg,
+                                   -1.39626f, 1.39626f);
     StoreF(base, from, tx + dist * std::cos(pitch) * std::cos(yaw));
     StoreF(base, from + 4, ty + dist * std::cos(pitch) * std::sin(yaw));
     StoreF(base, from + 8, tz + dist * std::sin(pitch));
