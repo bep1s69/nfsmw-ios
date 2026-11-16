@@ -752,6 +752,15 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev143 fixes iPad HDMI mirroring (Stefan confirmed)
+
+Stefan: "this change seems to have fixed it". Log
+`Debug/16 November 2026/dev143_ipad_hdmi_mirroring_fixed_nfsmw.log`: external
+pacing lines show the monitor's frames 16.7 ms apart, 0 dropped, 0 skipped
+(see counts below the heading in TECHNICAL if added later). Reading: dev142's
+monitor-clock timing plus room for a third waiting frame (skips at 2 were
+the 49 fps dips, inferred) together fix GitHub #21's HDMI drops.
+
 ## November 16, 2026 — dev142 result, dev143 external pacing stats
 
 dev142 on the iPad mirroring to the 1440p monitor (log
