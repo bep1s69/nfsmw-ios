@@ -98,7 +98,7 @@ REXCVAR_DEFINE_BOOL(ios_background_qos_workers, false, "Kernel",
 REXCVAR_DEFINE_STRING(ios_boost_threads, "both", "Kernel",
                       "Adaptive QoS: which frame thread a driving boost raises: both, gpu (GPU "
                       "Commands), main (Main XThread) or none (Nov 4 battery trial; restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_low_background, true, "Kernel",
+REXCVAR_DEFINE_BOOL(nfsmw_low_background, false, "Kernel",
                     "Cap controller: its lowest level is Background QoS (the efficiency cores only) for the frame "
                     "threads and guest workers, at every cap (dev179; before: Utility above 30)");
 REXCVAR_DEFINE_BOOL(nfsmw_ipad_tolerant_low, true, "Kernel",

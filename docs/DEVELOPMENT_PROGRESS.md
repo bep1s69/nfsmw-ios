@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev185 iPhone at 40: Background broke it; dev186
+
+Stefan: the iPhone no longer holds 40 on the efficiency cores, with audio
+stutters. Log `Debug/17 November 2026/dev185_iphone_40fps_nfsmw.log`: cap 40,
+`Low is Background`, the audio thread "follows the boost" (so it sat at
+Background too): 77 CoreAudio gaps in the 5 s window at 00:49:55; driving
+stepped up twice on 12 late of 60; pacing up to 78/56 off per 300 in places;
+learned Default for cap 40. Before dev179 the iPhone's Low at 40 was Utility
+(the Nov 9-10 Eco 40 result: efficiency cores, smooth), and the good Nov 4
+iPad profile was Utility too. Background (lowest priority, E cores only) was
+the regression. dev186: `nfsmw_low_background` default false (Low = Utility
+again, as before dev179); kept: learned start levels, calm step-down while
+driving, iPad tolerant Low. IPA `ios/build/NFSMW-0.6.1-dev186-low-utility-again.ipa`.
+
 ## November 17, 2026 — dev184 Sharp HUD off; dev185 iPad tolerant Low
 
 `Debug/17 November 2026/dev184_ipad_sharp_hud_off_nfsmw.log` (archived,
