@@ -752,6 +752,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 16, 2026 — dev161 MetalFX black splat; dev162 fix
+
+Log `Debug/16 November 2026/dev161_metalfx_black_splat_nfsmw.log`: AOT works:
+`[ui-prep]` FRONTB 394, HUDTEXRACE 23, INGAMEA 34, GLOBALA 5 (PhotoFinish /
+Language / HUDS_Custom 0): 456 textures, 442 upscaled, 14 already there,
+34.7 s on the iPad; in game the drawn textures matched prepared copies
+(`prepared copy` lines). With MetalFX on, a black splat covered the middle of
+the screen (`dev161_metalfx_black_splat_IMG_0383.png`): MetalFX splits at the
+post composite, so the post group's draws (ps 36dac18d, a distortion map
+read as data) had their textures replaced by upscaled pictures. dev162:
+textures are upscaled/replaced only from the first draw after the post group
+(`hud_tex_from`), whatever the split. IPA
+`ios/build/NFSMW-0.6.1-dev162-metalfx-splat-fix.ipa`, on Desktop.
+
 ## November 16, 2026 — dev161 result
 
 Stefan: "seems to work just fine"; Sharp HUD stays optional and off by

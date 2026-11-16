@@ -6172,6 +6172,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // picture so far scaled up: the HUD at the screen's pixels, the scene and
     // its post effects at the chosen scale. The displayed resolve reads it.
     size_t hud_from = SIZE_MAX;
+    size_t hud_tex_from = SIZE_MAX;  // the first draw whose textures may be upscaled (after the post group)
     std::string hud_base, hud_virtual;
     float hud_scale = 0.0f;
     // MetalFX on the scene (dev147): the colour resolve the post composite
@@ -6246,6 +6247,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
               i = j;
             }
             if (i < upto && screen_scale > resolution_scale + 0.01f) {
+              hud_tex_from = i;
               hud_from = i;
               hud_base = base;
               hud_virtual = base + "|hud";
@@ -6255,6 +6257,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           if (composite != SIZE_MAX && !last.second_target) {
             size_t i = composite + 1;
             while (i < upto && frame->draws[i].ps_key == 0x36dac18d9d15b7a8ull) ++i;
+            hud_tex_from = i;  // not the composite's or the post group's (data, not pictures: dev162)
             if (mfx_scene) i = composite;  // with MetalFX: from the composite on
             bool same = i < upto;
             for (size_t j = i; same && j < upto; ++j) {
@@ -8125,7 +8128,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             auto* tex_ids = static_cast<MTLResourceID*>(texture_heap.contents);
             auto* smp_ids = static_cast<MTLResourceID*>(sampler_heap.contents);
             int made = 0;
-            for (size_t j = hud_from; j < frame->draws.size(); ++j) {
+            for (size_t j = std::max(hud_from, hud_tex_from); j < frame->draws.size(); ++j) {
               const Draw& hd = frame->draws[j];
               if (target_key(hd) != hud_virtual) continue;
               for (int s2 = 0; s2 < 16; ++s2) {
@@ -8828,7 +8831,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
             }
           }
         }
-        if (!hud_slot.empty() && d.textures[s] >= 0 && index == d.textures[s] + 1 && tk == hud_virtual) {
+        if (!hud_slot.empty() && d.textures[s] >= 0 && index == d.textures[s] + 1 && tk == hud_virtual &&
+            di >= hud_tex_from) {
           if (auto hs = hud_slot.find(d.textures[s]); hs != hud_slot.end()) index = hs->second;
         }
         shared[s] = uint32_t(index);        // Texture2D index
