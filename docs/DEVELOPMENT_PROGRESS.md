@@ -768,6 +768,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — sim 60 retried on dev192 (iPhone, donut test)
+
+Stefan retried `--nfsmw_sim_rate=60` on dev192 at cap 60: motion "honestly
+just fine", including the donut test that first showed the world-update
+problem in October. He wants more testing (advanced camera logs) after
+sleeping; if it holds, 120 Hz simulation would only be needed at the 120
+cap. Log `Debug/17 November 2026/dev192_iphone_60_sim60_donut_nfsmw.log`
+(Desktop copy deleted after SHA256 check): `[extra-options] sim step count:
+the game's 60`, pacing 0-2 off per 300 in most windows. `[cpu]` lines
+(10 s windows, % of a core, inflated on E cores): total 134, world thread
+(XThread11E0B) 18.3 %; dev190 race at 120 Hz: total 134, world 19.3 %;
+dev189 race: 141, world 16.7 %. Different content (donut vs races), so no
+saving is visible at this resolution; sizing needs a same-content pair
+(Time Profiler or Power Profiler), sim 60 vs 120. dev192 itself: no crash
+or picture report in this run.
+
 ## November 17, 2026 — handoff notes for the next session (CPU/GPU cuts)
 
 Open, in the order suggested:
