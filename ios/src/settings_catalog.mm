@@ -617,22 +617,25 @@ const std::vector<Section>& Sections() {
             {{@"Full", @"1"}, {@"Half", @"0.5"}}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_shadow_scale"},
            {@"reflection_rate", Type::kChoice, @"Car reflections update rate",
             @"How many times a second the environment reflected on the cars updates (never more often "
-            @"than the frame rate). Lower: less work for the CPU and GPU, reflections that lag a little.",
-            @"60",
+            @"than the frame rate). Lower: less work for the CPU and GPU, reflections that lag a little. "
+            @"Default 30: in play it is hard to tell from 60.",
+            @"30",
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
              {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_reflection_hz"},
            {@"mirror_rate", Type::kChoice, @"Rear-view mirror update rate",
             @"How many times a second the rear-view mirror updates (never more often than the frame "
-            @"rate). Lower: less work for the CPU and GPU, a less fluid mirror.",
-            @"60",
+            @"rate; also the car's trunk reflection). Lower: less work for the CPU and GPU, a less fluid "
+            @"mirror. Default 30: in play it is hard to tell from 60.",
+            @"30",
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
              {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_mirror_hz"},
            {@"road_reflection_rate", Type::kChoice, @"Wet road reflections update rate",
             @"How many times a second the reflections on wet roads update in the rain (never more often "
-            @"than the frame rate; not drawn at all on dry roads). Lower: less work for the CPU and GPU.",
-            @"60",
+            @"than the frame rate; not drawn at all on dry roads). Lower: less work for the CPU and GPU. "
+            @"Default 30: in play it is hard to tell from 60.",
+            @"30",
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
              {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_road_reflection_hz"},
@@ -891,6 +894,7 @@ NSArray<NSString*>* PresetNames() {
 static NSDictionary<NSString*, NSString*>* QualityOverrides() {
   return @{@"scale": @"native", @"antialiasing": @"msaa4", @"anisotropic": @"5",
            @"reflection_size": @"scaled",
+           @"reflection_rate": @"60", @"mirror_rate": @"60", @"road_reflection_rate": @"60",
            @"fps_cap": UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad &&
                         SupportsHighFrameRates() ? @"120" : @"60"};
 }

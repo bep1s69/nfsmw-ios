@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — iPad 1.5x/60 with all reflection rates at 30; dev216 defaults
+
+Stefan, iPad Pro M4 (6 efficiency cores), dev214, 1.5x, cap 60, all three
+rates 30 (log `Debug/17 November 2026/dev214_ipad_60_reflections_30_nfsmw.log`,
+Desktop copy deleted). The iPad starts at Low (Utility: efficiency cores)
+at caps <= 60 by default (tolerant rule since dev185), learned start Low.
+Drive 17:56:01-17:57:13 (log end): Low the whole time, no step-up, pacing
+0-1 off per 300, 1 hitch line, 2100-2400 of 4200 blocks left out per 10 s
+(more once the road dried). He finds 30 hard to tell from 60.
+
+dev216 = dev215 + defaults: car reflections, mirror and wet road update
+rates default 30 (descriptions say so: "Default 30: in play it is hard to
+tell from 60"); Best looking preset sets 60; Longest battery 15 / 30 / 30;
+the mirror's description mentions the trunk. Saved settings keep their
+value. IPA `ios/build/NFSMW-0.6.1-dev216-reflection-rates-default-30.ipa`
+(Desktop; dev215 to Trash).
+
 ## November 17, 2026 — dev215: game render thread waits instead of spinning
 
 Stefan: go ahead with the next cuts toward holding 60 on the iPhone's
