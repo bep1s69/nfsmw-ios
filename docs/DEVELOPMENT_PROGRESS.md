@@ -768,6 +768,40 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — handoff notes for the next session (CPU/GPU cuts)
+
+Open, in the order suggested:
+1. dev192 device check (picture, no crash; then one pursuit Time Profile to
+   confirm objc_autoreleaseReturnValue left the render queue).
+2. Guest-side pass cadence (cube faces, mirror): run dev191's
+   `--nfsmw_diag_resolve_callers=true` (still in dev192) for 20 s of driving;
+   the `[resolve-callers]` lines give the guest call chains per resolve. The
+   per-view resolve is probably sub_8245D788 (destination and face from a
+   struct). Find the function that renders one cube face / the mirror view
+   above it and skip its call on the frames the host keeps the old copy
+   (host side: `nfsmw_native_reflection_divisor`, `nfsmw_native_mirror_every`
+   already keep the copies). The shadow map must NOT be skipped (dev190: the
+   car's shadowing lags, reads as 30 fps).
+3. Correction to the dev190 reading: `rendering ms/frame` in the `[native]
+   frame` line is not CPU time alone, so "-36 % draws gave only -7 %" does not
+   prove skipped draws are cheap for the render queue; only a same-race Time
+   Profile or `[cpu]` pair can size it.
+4. Render thread spin: the game's render thread (Main XThread, sub_82441B60)
+   runs the deferred queue through sub_823C8290 and, when it has caught up
+   with the producer (world thread) before the frame's end flag, loops
+   calling it with a count of 0 (loc_82441C04). In the dev176 profile the
+   loop's own cost is ~13 % of that thread (sub_823C8290 self 4.0,
+   __savegprlr_29 2.9, __restgprlr_29 2.5, sub_82441B60 self 1.9, OnMainLoop
+   1.7), ~21 ms/s on the iPad. A wake per pushed entry would ping-pong; a
+   short timed wait (or a wait until N entries or the end flag) is the
+   candidate, with pacing to be checked. Small (≈1.7 % of app CPU).
+5. Remaining render queue ObjC traffic (objc_msgSend 2 %, direct retains),
+   IOGPU resource list adds (~4.4 % of the queue), Frame::~Frame 2.8 %.
+6. Game mixer functions on the guest audio thread (list above), only if a
+   native rewrite of one loop is small.
+Rejected/dropped today: sim 60 (Stefan), shadow-map skipping, PCM cache,
+workers at Utility at iPhone 60 (no saving).
+
 ## November 17, 2026 — Nov 16 pursuit Time Profile re-read; dev192 unretained lookups
 
 Stefan's answers to the candidate list: (1) sim 60 rejected (it broke world
