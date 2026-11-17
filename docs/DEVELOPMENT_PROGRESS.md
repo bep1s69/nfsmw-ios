@@ -776,6 +776,28 @@ launcher passes 60 at every cap except 120. IPA
 `ios/build/NFSMW-0.6.1-dev194-sim60-at-40.ipa` (Desktop; dev193 to Trash).
 Not run yet; check with `--nfsmw_native_camera_log=true` at 40.
 
+Result (Stefan 10:35, same race, cap 40, same skip/camera args; archived
+as `run4_cap40_sim60_dev194.*` in the sim pair folder, Desktop copies
+deleted). Stefan: felt great; lap 2 camera oddities are his free-cam test
+(free cam jittery, once jumped off the car: still not OK). Window
+10:35:32-10:37:52, vs run 3 (cap 40, sim 120):
+
+| | run 3 sim 120 | run 4 sim 60 |
+|---|---:|---:|
+| app ms/s (P / E cores) | 1350 (87 / 1264) | 1514 (106 / 1408) |
+| render queue / GPU Commands / Main / world | 332/322/259/240 | 388/372/283/247 |
+| recording ms/frame | 7.14 | 8.45 |
+| rendering / GPU ms/frame | 14.7 / 12.7 | 12.2 / 13.2 |
+| pacing off per 300 mean (max) | 0.4 (3) | 0.5 (4) |
+| camera: frames off their neighbours by >25 %, per 60 | 11.2 | 48.9 (lap 1 alone 51.8) |
+| camera: stalled frames | 0.24 % | 0.66 % |
+
+At 40 the 60 Hz simulation saves no CPU here (+12 %, all on E cores) and the
+camera's per-frame movement alternates (1 and 2 world steps a frame), in
+lap 1 as well, before the free-cam play. The `[live-fps]` line still says
+guest 120 Hz at the 40 cap. Recommendation: keep 120 Hz at 40 (dev193).
+Free-cam jitter/jump: open bug, separate.
+
 ## November 17, 2026 — sim 60 vs 120 same-race Time Profile pair; dev193 sim 60 below the 120 cap
 
 Stefan, iPhone 17 Pro Max, dev192, cap 60, same race twice, both with
