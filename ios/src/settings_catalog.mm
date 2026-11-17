@@ -1057,7 +1057,14 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // alternated 1 and 2 steps, camera log, Oct 28). At 60 the first ~15 s of
   // a pursuit moved the world on 2 of 3 frames, which 120 Hz removes (iPad
   // camera logs, Oct 29). --nfsmw_sim_rate=60 in Extra Args for tests.
-  a.push_back("--nfsmw_sim_rate=120");
+  // dev193 (Stefan, Nov 17): 60 Hz at the 30 and 60 caps (whole steps per
+  // frame). Same-race iPhone pair at 60 (dev192 Time Profiles): app 0.83 vs
+  // 1.22 cores, world thread 97 vs 175 ms/s, no visible motion change
+  // (isolated stalled frames 0.57 vs 0.26 %, pursuit start fine). 120 Hz
+  // stays at the 40 cap (1.5 steps per frame) and the 120 cap. Applied at
+  // launch: a live switch to 40/120 keeps 60 Hz until the next launch.
+  const std::string cap_for_sim = str(@"fps_cap");
+  a.push_back(std::string("--nfsmw_sim_rate=") + (cap_for_sim == "30" || cap_for_sim == "60" ? "60" : "120"));
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).
   NSString* scale = Value(s, @"scale");

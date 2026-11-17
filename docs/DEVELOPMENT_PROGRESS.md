@@ -768,6 +768,45 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — sim 60 vs 120 same-race Time Profile pair; dev193 sim 60 below the 120 cap
+
+Stefan, iPhone 17 Pro Max, dev192, cap 60, same race twice, both with
+`--nfsmw_native_camera_log=true --nfsmw_native_reflection_divisor=3
+--nfsmw_native_mirror_every=2`; run 1 adds `--nfsmw_sim_rate=60` (log: sim
+step count the game's 60), run 2 normal (120 per second). Archive
+`Debug/17 November 2026/dev192 iPhone sim 60 vs 120 race pair/` (two traces,
+two logs, tree/file hashes verified, Desktop copies deleted). Windows: drive
+start +10 s to end -5 s (run 1 10:04:39-10:06:51, run 2 10:10:16-10:12:22).
+
+| ms of CPU per second | run 1 sim 60 | run 2 sim 120 |
+|---|---:|---:|
+| app (cores) | 0.83 | 1.22 |
+| render queue | 320 | 420 |
+| GPU Commands | 146 | 237 |
+| Main XThread | 152 | 217 |
+| world thread | 97 | 175 |
+| guest audio | 60 | 91 |
+| UIKit main | 24 | 42 |
+| log: recording ms/frame | 1.95 | 3.31 |
+| log: rendering / GPU ms/frame | 16.0 / 12.6 | 15.1 / 12.3 |
+| pacing off per 300 | 0-2 | 0-2 |
+| camera: isolated stalled frames (zero turn between moving neighbours) | 29 / 5088 (0.57 %) | 14 / 5339 (0.26 %) |
+| camera: off-neighbour frames per 60, mean | 14.3 | 13.2 |
+
+Run 1 also drove a pursuit start afterwards (10:07:14-10:08:30): stalled
+0.22 % and 0.08 %, the October "world moves on 2 of 3 frames" not present.
+Result: -32 % app CPU at the same race, every thread lower (the guest's
+render-side work per world step also halves: recording 1.95 vs 3.31 ms).
+Motion: Stefan found it fine (donut test, Nov 17 night); stalled frames
+about one in 175 vs one in 380, both rare. Single pair, fixed order.
+
+dev193: the launcher passes `--nfsmw_sim_rate=60` at the 30 and 60 caps and
+120 at the 40 and 120 caps (40: 1.5 steps per frame, Oct 28). Applied at
+launch (the step constant is patched once), so a live switch to 40/120
+keeps 60 Hz until the next launch. Extra Args still override. IPA
+`ios/build/NFSMW-0.6.1-dev193-sim60-below-120.ipa` (Desktop; dev192 to
+Trash). Not run yet.
+
 ## November 17, 2026 — dev192 iPhone race Time Profile: ARC traffic gone; sim 60 halves the world thread (confounded)
 
 Stefan, iPhone 17 Pro Max, dev192, cap 60, race, Extra Args
