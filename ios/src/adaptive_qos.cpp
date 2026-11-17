@@ -114,6 +114,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
                     "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
                     "stepping down only outside driving (dev109); false restores the profiles (restart required)");
+REXCVAR_DEFINE_INT32(nfsmw_start_level, -1, "Kernel",
+                     "dev199 test: the cap controller's measured start level while driving: -1 per device and cap "
+                     "(default), 0 Low (efficiency cores), 1 Default, 2 User Initiated");
 REXCVAR_DEFINE_BOOL(nfsmw_audio_thread_low, false, "Kernel",
                     "dev111 (Nov 10; off since: no saving in the iPhone A/B): with the cap controller the game's audio thread (sub_825E3F40: mixing "
                     "and XMA decode) stays at Utility instead of following the frame threads' boost "
@@ -445,6 +448,10 @@ void OnSwap(double interval_ms) {
       // dev109/dev113), never goes below it (dev108 probing below hitched).
       floor_level = std::max(floor_level, learned);
     }
+    // dev199 (after learning) (Stefan: with sim 60 the iPhone does ~30 % less work at 60; can
+    // it drive on the efficiency cores now?): a forced measured start level.
+    if (const int32_t forced = REXCVAR_GET(nfsmw_start_level); forced >= 0 && forced <= 2) floor_level = forced;
+
     static Clock::time_point drive_began{}, last_late{}, last_tick{}, stepped_down_at{};
     static int drive_max = 0;
     static double secs_above = 0;  // this drive, above its start level

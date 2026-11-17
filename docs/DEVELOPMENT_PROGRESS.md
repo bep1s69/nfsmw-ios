@@ -768,6 +768,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev199: forced start level switch (iPhone 60 on the efficiency cores?)
+
+Stefan: 30 % less work should be usable: run slower or sleep more. iOS
+gives apps no clock control; the QoS level is the lever (Low = Utility,
+efficiency cores in practice). iPhones at 60 start at Default (Nov 9: Eco
+60 missed 60 at sim 120). With sim 60 (and dev192's ARC cut) the work may
+now fit the efficiency cores. dev199 = dev198 + `--nfsmw_start_level=0|1|2`
+(default -1: per device/cap and learned), applied after learning; the
+controller still steps up on late frames. IPA
+`ios/build/NFSMW-0.6.1-dev199-start-level-switch.ipa` (Desktop; dev198 to
+Trash). Test: same race at 60 (sim 60 default), Power Profiler, run 1
+`--nfsmw_start_level=0`, run 2 none; watch `[cap-controller] up to` lines.
+
 ## November 17, 2026 — dev198 60 fps power pair: sim 60 vs 120, no battery difference
 
 Stefan, iPhone 17 Pro Max, dev198, cap 60, same race twice with Power
