@@ -784,6 +784,16 @@ saving is visible at this resolution; sizing needs a same-content pair
 (Time Profiler or Power Profiler), sim 60 vs 120. dev192 itself: no crash
 or picture report in this run.
 
+Race part of the same log (drive 02:21:28-02:23:52, before the donut test),
+`[cpu]` 10 s windows, sum of the unnamed render-queue threads among the top 8
+(% of a core): dev192 race 38 %, dev190 race (pass skips) 36 %, dev189 race B
+48 %, race A 47 %, race A untraced 42 %. Totals 135 / 134 / 141 / 160 / 142;
+draws 2074 / 1421 / 2250 / 2272 / 2055; `rendering ms/frame` 14.7 / 13.9 /
+15.0 / 15.2 / 15.6. So the render queue's CPU is ~10 points of a core (~20 %)
+lower than the dev189 races at similar draw counts, consistent with dev192
+removing ARC traffic; confounds: different races, sim 60 on, coarse
+sampling. A same-race Time Profiler pair (dev192 vs dev191) would confirm.
+
 ## November 17, 2026 — handoff notes for the next session (CPU/GPU cuts)
 
 Open, in the order suggested:
