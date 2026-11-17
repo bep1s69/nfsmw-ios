@@ -105,7 +105,9 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
     clear_after = false;
     resolve_off = false;
   }
-  if (in_road_view && (fn == kEndMirror || fn == kBeginFace)) in_road_view = false;
+  // dev213: not at its end entry (the resolve runs inside that entry, so
+  // dev212 cleared it too early and never learned the address).
+  if (in_road_view && fn == kBeginFace) in_road_view = false;
   if (skipping) {
     if (fn == kEndFace || fn == kEndMirror || ++skipped_entries > 48) {
       skipping = false;

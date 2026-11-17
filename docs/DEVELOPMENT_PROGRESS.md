@@ -768,6 +768,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev212 wet road: rate works, dry-road skip never armed; dev213
+
+Stefan: the wet road rate works, 30 looks like 60; he drove on after the
+rain stopped. Log `Debug/17 November 2026/dev212_iphone_wet_road_rain_then_dry_nfsmw.log`
+(Desktop copy deleted): `wet road reflection read in 0 of 600 frames`
+throughout and no `resolves to` line: the view's address was never
+captured (in_road_view was cleared at the end entry, before the resolve
+that runs inside it), so the dry-road skip never armed and the view was
+drawn at its rate the whole time (rain and dry). The renderer's own line
+shows the view's picture (07280000, 784x360) is sampled. dev213: cleared
+at the next face's begin instead. IPA
+`ios/build/NFSMW-0.6.1-dev213-wet-road-detect-fix.ipa` (Desktop; dev212 to
+Trash). Wanted: the same rain-then-dry drive; the log's `read in N of 600`
+lines then show whether dry roads still sample it.
+
 ## November 17, 2026 — why 21 %/h at 17:27 vs 35.5 %/h at 15:39-15:58 (same phone, 60 fps)
 
 Stefan asked. Same settings in both logs (scale 1.000, no MetalFX/FXAA/MSAA,
