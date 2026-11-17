@@ -800,6 +800,27 @@ render-side work per world step also halves: recording 1.95 vs 3.31 ms).
 Motion: Stefan found it fine (donut test, Nov 17 night); stalled frames
 about one in 175 vs one in 380, both rare. Single pair, fixed order.
 
+Run 3 (same race, dev192, cap 40, sim 120 = 3 world steps per frame, same
+skip/camera args; archived in the same folder as `run3_cap40_sim120.*`,
+Desktop copies deleted after hash check), window 10:22:21-10:24:20, start
+level Low, never stepped up:
+
+| | run 1 cap 60 sim 60 | run 2 cap 60 sim 120 | run 3 cap 40 sim 120 |
+|---|---:|---:|---:|
+| app ms/s | 829 | 1222 | 1350 |
+| on performance cores | 517 | 737 | 87 |
+| on efficiency cores | 312 | 484 | 1264 |
+| render queue / GPU Commands / Main / world | 320/146/152/97 | 420/237/217/175 | 332/322/259/240 |
+| recording ms/frame | 1.95 | 3.31 | 7.14 |
+| pacing off per 300 mean (max) | 0.2 (2) | 0.1 (2) | 0.4 (3) |
+| camera stalled frames | 0.57 % | 0.26 % | 0.24 % |
+
+At 40 the work runs almost entirely on the efficiency cores, where the same
+work takes more CPU time but far less energy per unit; CPU milliseconds
+cannot rank run 3 against runs 1-2. Run 3's guest work per second is higher
+(3 world steps per displayed frame, recording 7.1 ms per frame = 286 ms/s vs
+117 at 60/sim 60). Energy needs Power Profiler (40 vs 60/sim 60), same race.
+
 dev193: the launcher passes `--nfsmw_sim_rate=60` at the 30 and 60 caps and
 120 at the 40 and 120 caps (40: 1.5 steps per frame, Oct 28). Applied at
 launch (the step constant is patched once), so a live switch to 40/120
