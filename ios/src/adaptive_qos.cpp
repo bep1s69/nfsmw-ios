@@ -730,17 +730,25 @@ unsigned PipelineQos() {
 // tools/ios/patch_game_deferred_queue.py): the main thread's QoS, then the original.
 extern "C" void __imp__sub_823C8290(PPCContext& __restrict ctx, uint8_t* base);
 REXCVAR_DEFINE_BOOL(nfsmw_diag_deferred_entries, false, "Kernel",
-                    "Diagnostic (dev203): 30 s after launch, log the next 3000 entries the game's render thread "
+                    "Diagnostic (dev203): 10 s into the first drive, log the next 3000 entries the game's render thread "
                     "runs from its deferred-call queue (function, size, first data words), to map each pass");
 // dev203: the queue (0x82909650): +0 entries written, +4 entries run, +20
 // the write pointer, +24 the read pointer; an entry is its function (+0),
 // its size in bytes (+4), then its data. sub_823C8290 runs up to r4 of them.
 static void LogDeferredEntries(PPCContext& ctx, uint8_t* base) {
-  static const auto start = std::chrono::steady_clock::now();
+  // From 10 s into the first drive (race frames, not menus).
+  static std::chrono::steady_clock::time_point drive_since{};
   static uint32_t logged = 0;
   static std::string line;
   static uint32_t in_line = 0;
-  if (logged >= 3000 || std::chrono::steady_clock::now() - start < std::chrono::seconds(30)) return;
+  if (logged >= 3000) return;
+  const auto now = std::chrono::steady_clock::now();
+  if (!driving.load(std::memory_order_relaxed)) {
+    if (!logged) drive_since = {};
+    return;
+  }
+  if (drive_since == std::chrono::steady_clock::time_point{}) drive_since = now;
+  if (now - drive_since < std::chrono::seconds(10)) return;
   constexpr uint32_t kQueue = 0x82909650;
   const uint32_t written = REX_LOAD_U32(kQueue + 0), run = REX_LOAD_U32(kQueue + 4);
   uint32_t at = REX_LOAD_U32(kQueue + 24);

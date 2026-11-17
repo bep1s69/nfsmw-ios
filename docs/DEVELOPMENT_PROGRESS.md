@@ -770,7 +770,7 @@ while looking. Right stick camera done (unpushed, no release yet).
 
 ## November 17, 2026 — dev203: deferred-queue diagnostic
 
-dev203 = dev202 + `--nfsmw_diag_deferred_entries=true`: 30 s after launch,
+dev203 = dev202 + `--nfsmw_diag_deferred_entries=true`: 10 s into the first drive,
 the next 3000 entries the render thread runs from the deferred queue
 (0x82909650: +0 written, +4 run, +20 write pointer, +24 read pointer; entry
 = function +0, size +4, data) are logged six per line (`[deferred] #N:
@@ -778,8 +778,7 @@ FUNC/size:d0,d1,d2 ...`), from the sub_823C8290 hook in adaptive_qos.cpp.
 Goal: the entries from each cube face's / the mirror's first entry to its
 end entry (sub_82442B00 / sub_82442938). IPA
 `ios/build/NFSMW-0.6.1-dev203-deferred-queue-diag.ipa` (Desktop; dev202 to
-Trash). Wanted: be driving 30 s after launch (or launch, start a race within
-30 s) so the logged entries are race frames.
+Trash). Starts 10 s into the first drive (race frames, not menus).
 
 ## November 17, 2026 — resolve-caller diagnostic result; dev202 adds 25 per second
 
