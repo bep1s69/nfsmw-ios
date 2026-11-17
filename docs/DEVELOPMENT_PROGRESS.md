@@ -768,6 +768,29 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev217 power pair: iPhone 60 on Low vs Default (-13.5 %)
+
+Stefan, iPhone 17 Pro Max, dev217, cap 60, same race, all three rates 15,
+half shadow map size, 26 %, Nominal. Run 1 `--nfsmw_start_level=0
+--nfsmw_phone_tolerant_low=true` (Low the whole drive), run 2 none (Default
+the whole drive). Archive `Debug/17 November 2026/dev217 iPhone 60 Low vs
+Default power pair/` (two .aar, extracted, log; Desktop copies deleted).
+Windows drive start +15 s to end -5 s.
+
+| | Low (efficiency cores) | Default |
+|---|---:|---:|
+| system drain %/h | 17.31 | 20.02 |
+| LiveContainer CPU / GPU impact | 8.48 / 3.42 | 12.97 / 3.54 |
+| pacing off per 300 | 1-7 (mostly 4-6) | 0-1 |
+| hitch lines | 12 | 0 |
+
+-13.5 % drain (CPU energy -35 %), the largest single saving of the day.
+Smoothness is worse on Low while Power Profiler records (Stefan noticed the
+profiler's overhead); without the profiler the same settings gave 0-2 off
+per 300 and 0 hitches (18:06 run). Fixed order (Low first). Decision for
+Stefan: Low + tolerant rule as the iPhone default at 60 (all settings, or
+only with low reflection rates / Longest battery), or as an option.
+
 ## November 17, 2026 — dev217 iPhone 60 stays on the efficiency cores
 
 Stefan, iPhone 17 Pro Max, dev217, cap 60, `--nfsmw_start_level=0
