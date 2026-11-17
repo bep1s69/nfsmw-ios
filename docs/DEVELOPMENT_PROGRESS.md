@@ -782,7 +782,11 @@ dev211 (game_pass_cadence.cpp): face 2 follows `nfsmw_native_mirror_hz`
 the renderer-only fallback (`--nfsmw_game_pass_cadence=false`) still
 applies the mirror rate to that view, not to face 2. IPA
 `ios/build/NFSMW-0.6.1-dev211-mirror-face-2.ipa` (Desktop; dev210 to Trash).
-Not run yet.
+Stefan: works; he cannot even tell which part of the car reflection is
+choppy. Log `Debug/17 November 2026/dev211_iphone_mirror_face_2_check_nfsmw.log`
+(Desktop copy deleted): reflections 60, mirror 15 -> `1045-1050 of 4200`
+blocks left out per 10 s = 600 (the 784x360 view, every frame) + 450
+(face 2, three in four), as expected.
 
 ## November 17, 2026 — dev210 results: the mirror is one of cube faces 0-2
 
