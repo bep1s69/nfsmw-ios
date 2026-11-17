@@ -789,6 +789,17 @@ or dev198 was still installed: the switch is in the dev199 binary). Drain
 35.48 %/h (CPU 27.11, GPU 4.24, 27 %, Nominal), i.e. a repeat of the
 15:39 run (35.64): the within-sitting spread is ~0.2 %/h.
 
+Second run (15:56, dev199 installed, `--nfsmw_start_level=0`; archive
+`.../dev199 iPhone 60 fps start Low power run 2/`, Desktop copies deleted):
+drive started at Low, late after 6 s -> Default (15:56:37.9); calm step down
+to Low at 15:57:07.9, late again 2.6 s later -> latched Default for the rest
+(about 9 s of 136 on Low). Drain 35.96 %/h (CPU 27.03, GPU 4.38, 27 %,
+Nominal), pacing 0-4 off per 300, 3 hitch lines. Same as the Default runs
+(35.48 / 35.64). Result: even with sim 60 the iPhone 17 Pro Max cannot hold
+60 on the efficiency cores in a race; the controller returns it to Default
+within seconds. The ~30 % less CPU time at 60 does not show up as energy in
+three Power Profiler runs of this sitting (35.5-36.0 %/h at both sim rates).
+
 ## November 17, 2026 — dev198 60 fps power pair: sim 60 vs 120, no battery difference
 
 Stefan, iPhone 17 Pro Max, dev198, cap 60, same race twice with Power
