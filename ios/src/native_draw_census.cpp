@@ -687,8 +687,12 @@ struct CaptureTimer {
 };
 }  // namespace
 
+extern "C" bool nfsmw_pass_cadence_draws_off();  // game_pass_cadence.cpp
 #define NFSMW_DRAW_HOOK(addr, kind, count_reg)                                          \
   extern "C" REX_FUNC(sub_##addr) {                                                     \
+    /* dev208: a reflection face / mirror left out at its update rate. Only */          \
+    /* the draws that return nothing: DrawPrimitiveUP hands back space. */              \
+    if ((kind == kDraw || kind == kIndexed) && nfsmw_pass_cadence_draws_off()) return;  \
     const uint32_t device = ctx.r3.u32, primitive = ctx.r4.u32,                         \
                    count = ctx.count_reg.u32, start = ctx.r5.u32;                       \
     if (REXCVAR_GET(nfsmw_draw_census)) {                                               \

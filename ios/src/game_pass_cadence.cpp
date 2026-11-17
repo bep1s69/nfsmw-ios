@@ -25,7 +25,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
-REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, false, "GPU",  // dev207: off (mirror draw distance, flicker)
+REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",  // dev208: on again (draw commands only)
                     "dev204/205: the car reflection and mirror update rates applied in the game (their draws "
                     "and resolves left out); false: only the native renderer leaves them out");
 
@@ -97,7 +97,12 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
       clear_after = true;  // its resolve (inside the end entry) stays off
       return false;        // the end entry's state stores run
     }
-    return fn == kDrawList || fn == kDrawList2;
+    // dev208 (dev204-206: mirror draw distance and flicker when the draw
+    // lists were left out: they also hold the game's per-view work, e.g.
+    // visibility and detail levels for the frames after): every entry
+    // runs; only D3D's draw calls (native_draw_census.cpp) and the resolve
+    // are dropped while the block runs.
+    return false;
   }
   if (fn == kBeginMirror) {
     ++blocks_seen;
@@ -143,3 +148,5 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
 // later resolve found a null destination (crash leaving the safehouse,
 // Nov 17, twice).
 extern "C" bool nfsmw_pass_cadence_resolve_off() { return resolve_off; }
+// dev208: also the block's draw calls (DrawVertices, DrawIndexedVertices).
+extern "C" bool nfsmw_pass_cadence_draws_off() { return resolve_off; }

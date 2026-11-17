@@ -768,6 +768,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev208: deeper attempt, only D3D draw commands dropped
+
+Stefan: go for the deeper work. dev208: `nfsmw_game_pass_cadence` on again,
+but every queue entry of a left-out face / mirror block runs (the game's
+traversal, visibility, LOD, queries, state); only D3D's DrawVertices
+(sub_82593818) and DrawIndexedVertices (sub_82593A58) return at once
+(native_draw_census.cpp hook) and the resolve packet is dropped (dev206).
+DrawPrimitiveUP / inline draws still run (they hand back space the caller
+fills). Saves the PM4 writing on the game thread and all of Record / render
+queue / GPU for those draws; not the game's traversal. Risk: occlusion
+queries issued in a skipped block now count no samples (if flicker
+remains, next: drop the query packets too / give the game the last
+answers). IPA `ios/build/NFSMW-0.6.1-dev208-skip-draw-commands-only.ipa`
+(Desktop; dev207 to Trash). Not run yet.
+
 ## November 17, 2026 — dev206: same artifacts; in-game skipping off (dev207)
 
 Stefan: dev206 no crash, but the same as dev204: flicker, shorter mirror
