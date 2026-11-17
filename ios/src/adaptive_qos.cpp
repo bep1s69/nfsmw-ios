@@ -729,8 +729,44 @@ unsigned PipelineQos() {
 // The game's deferred-call runner, from its main loop (see
 // tools/ios/patch_game_deferred_queue.py): the main thread's QoS, then the original.
 extern "C" void __imp__sub_823C8290(PPCContext& __restrict ctx, uint8_t* base);
+REXCVAR_DEFINE_BOOL(nfsmw_diag_deferred_entries, false, "Kernel",
+                    "Diagnostic (dev203): 30 s after launch, log the next 3000 entries the game's render thread "
+                    "runs from its deferred-call queue (function, size, first data words), to map each pass");
+// dev203: the queue (0x82909650): +0 entries written, +4 entries run, +20
+// the write pointer, +24 the read pointer; an entry is its function (+0),
+// its size in bytes (+4), then its data. sub_823C8290 runs up to r4 of them.
+static void LogDeferredEntries(PPCContext& ctx, uint8_t* base) {
+  static const auto start = std::chrono::steady_clock::now();
+  static uint32_t logged = 0;
+  static std::string line;
+  static uint32_t in_line = 0;
+  if (logged >= 3000 || std::chrono::steady_clock::now() - start < std::chrono::seconds(30)) return;
+  constexpr uint32_t kQueue = 0x82909650;
+  const uint32_t written = REX_LOAD_U32(kQueue + 0), run = REX_LOAD_U32(kQueue + 4);
+  uint32_t at = REX_LOAD_U32(kQueue + 24);
+  const uint32_t end = REX_LOAD_U32(kQueue + 20);
+  uint32_t n = std::min<uint32_t>(ctx.r4.u32, written - run);
+  if (!n) return;
+  for (; n && at < end && logged < 3000; --n, ++logged) {
+    const uint32_t fn = REX_LOAD_U32(at), size = REX_LOAD_U32(at + 4);
+    const uint32_t d0 = size > 8 ? REX_LOAD_U32(at + 8) : 0, d1 = size > 12 ? REX_LOAD_U32(at + 12) : 0,
+                   d2 = size > 16 ? REX_LOAD_U32(at + 16) : 0;
+    line += fmt::format(" {:08X}/{}:{:X},{:X},{:X}", fn, size, d0, d1, d2);
+    if (++in_line == 6) {
+      REXLOG_INFO("[deferred] #{}:{}", logged - 5, line);
+      line.clear();
+      in_line = 0;
+    }
+    if (size < 8 || size > 0x10000) break;
+    at += size;
+  }
+  if (logged >= 3000 && in_line) REXLOG_INFO("[deferred] end:{}", line);
+}
+
 extern "C" REX_FUNC(sub_823C8290) {
   nfsmw::adaptive_qos::OnMainLoop();
+  static const bool diag = REXCVAR_GET(nfsmw_diag_deferred_entries);
+  if (diag) LogDeferredEntries(ctx, base);
   __imp__sub_823C8290(ctx, base);
 }
 
