@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev217 iPhone 60 stays on the efficiency cores
+
+Stefan, iPhone 17 Pro Max, dev217, cap 60, `--nfsmw_start_level=0
+--nfsmw_phone_tolerant_low=true`, two sessions in one log
+(`Debug/17 November 2026/dev217_iphone_60_tolerant_low_30_vs_15_nfsmw.log`,
+Desktop copy deleted):
+- A (18:04:14-18:05:30): all three rates 30. Low the whole drive (no
+  step-up); pacing 0-5 off per 300, 10 hitch lines, worst 167 ms.
+- B (18:06:27-18:07:40): all three rates 15 and half shadow map size. Low the
+  whole drive; pacing 0-2 off per 300, 0 hitch lines, worst 33 ms. Stefan:
+  B felt much better.
+First time the iPhone held 60 on Low for whole drives. Next: Power Profiler
+pair with B's settings, Low (these two args) vs Default (none).
+
 ## November 17, 2026 — dev215 iPhone 60 Low start; dev217 phone tolerance test
 
 Stefan, iPhone, dev215 (render thread queue wait), reflections 15 / mirror
