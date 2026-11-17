@@ -768,6 +768,32 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev198 60 fps power pair: sim 60 vs 120, no battery difference
+
+Stefan, iPhone 17 Pro Max, dev198, cap 60, same race twice with Power
+Profiler, brightness 27 % both, no charging, Nominal. Both with reflection
+divisor 3, mirror every 2; run 1 default (log: 120 Hz set, then "60 Hz for
+the 60 cap (live)", step count the game's 60), run 2 adds
+`--nfsmw_sim_rate_follow_cap=false` (120 per second). Archive `Debug/17
+November 2026/dev198 iPhone 60 fps sim 60 vs 120 power pair/` (two .aar,
+extracted, one log with both sessions after the 40 fps pair's; Desktop copies
+deleted after compare). Windows drive start +15 s to end -5 s; both at
+Default all drive, no step-ups, 0 hitch lines, pacing 0-2 off per 300.
+
+| | run 1 sim 60 | run 2 sim 120 |
+|---|---:|---:|
+| system drain %/h | 35.64 | 35.93 |
+| LiveContainer CPU / GPU impact | 27.24 / 4.34 | 27.22 / 4.27 |
+
+-0.8 %, within noise; the CPU energy impact is identical. This contradicts
+the morning Time Profile pair (0.83 vs 1.22 cores, run order sim 60 first
+too). Possible: the CPU-time difference was real but cost no energy at the
+Default level (frame threads' clocks set by the deadline, not by the amount
+of world work), or one of the two pairs is off (fixed order, one run each).
+Not decided: keep 60 Hz at 30/60 (no measured energy gain, slightly more
+isolated camera stalls 0.57 vs 0.26 %) or return to 120 Hz everywhere.
+Suggested: one more pair in the reverse order before deciding.
+
 ## November 17, 2026 — dev198 40 fps power pair: 60 Hz at 40 rejected for good
 
 Stefan, iPhone 17 Pro Max, dev198, cap 40, same race twice with Power
