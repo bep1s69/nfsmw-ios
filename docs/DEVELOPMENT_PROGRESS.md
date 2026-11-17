@@ -768,6 +768,38 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev192 iPhone race Time Profile: ARC traffic gone; sim 60 halves the world thread (confounded)
+
+Stefan, iPhone 17 Pro Max, dev192, cap 60, race, Extra Args
+`--nfsmw_sim_rate=60 --nfsmw_native_reflection_divisor=3
+--nfsmw_native_mirror_every=2` (log: sim step count the game's 60; ~450-576
+draws a frame not rendered). Archive `Debug/17 November 2026/
+dev192_iphone_race_time_profile.trace` (tree SHA256 38de68ce...) and
+`dev192_iphone_race_time_profile_nfsmw.log`; Desktop copies deleted after
+verification. Trace 09:49:08, 140 s, all driving; window 5-135 s. Reference:
+Nov 14 dev129 iPhone Time Profile (same device, 1x, cap 60, sim 120, no
+skips, different content), window 10-125 s. Same parser.
+
+| ms of CPU per second | dev129 (Nov 14) | dev192 |
+|---|---:|---:|
+| app | 1249 | 802 |
+| render queue | 499 | 315 |
+| render queue retain/release/autorelease | 86 (17.2 %) | 9 (2.9 %) |
+| render queue objc_msgSend | 3.7 % | 3.9 % |
+| world thread (XThreadDB33 / XThread973F) | 184 | 93 |
+| world: sub_82468148 / sub_823A2348 inclusive | 53 / 56 | 18 / 20 |
+| Main XThread | 202 | 147 |
+| GPU Commands | 202 | 136 |
+| guest audio | 101 | 57 |
+
+Measured: dev192 removed the reference counting (objc_autoreleaseReturnValue
+0.0 %, retain/release 86 -> 9 ms/s, ~77 ms/s, ~6 % of the old app total);
+this one is attributable (share of the queue, independent of content).
+The rest of the drop is confounded (race vs earlier content, pass skips,
+sim 60): the world thread's two large subtrees fell to about a third and the
+thread to half, consistent with half the simulation steps; a same-race sim
+60/120 pair is still needed to size it.
+
 ## November 17, 2026 — sim 60 retried on dev192 (iPhone, donut test)
 
 Stefan retried `--nfsmw_sim_rate=60` on dev192 at cap 60: motion "honestly
