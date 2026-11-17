@@ -781,6 +781,13 @@ old step; the world word is written whatever it holds, and its previous
 value is logged (`world step was ...`) to learn what the game keeps there.
 IPA `ios/build/NFSMW-0.6.1-dev196-sim-switch-fix.ipa` (Desktop; dev195 to
 Trash). Not run yet.
+Camera log in that dev195 run (on; windows with turn >= 0.1 deg/frame,
+frames off their neighbours by >25 % per 60): 60 @ 60 Hz 2.1 and 0.8; 40
+@ 60 Hz (after the refused switches) 6.0 and 5.5, vs 48.9 in the dev194 run
+(launched at 40 with sim 60) and 11.2 at 40 @ 120 Hz. Short segments (13
+and 4 windows), so weak; but it suggests 60 Hz at 40 is even when reached by
+a live switch from 60, unlike a launch at 40 with sim 60. Not explained yet
+(the game's own timestep in 0x828F85AC may differ between the two starts).
 
 ## November 17, 2026 — dev195: 40 back to 120 Hz; the sim rate follows the chosen cap live
 
