@@ -52,6 +52,9 @@
 
 REXCVAR_DEFINE_BOOL(nfsmw_draw_census, false, "GPU",
                     "Native renderer bring-up: log the game's D3D draw calls every 5 s");
+REXCVAR_DEFINE_BOOL(nfsmw_diag_resolve_callers, false, "GPU",
+                    "Diagnostic (dev191): log each distinct guest call chain that reaches D3D's Resolve (flags, "
+                    "destination texture, face), to find the game's cube face, mirror and shadow pass functions");
 REXCVAR_DEFINE_BOOL(nfsmw_draw_capture, true, "GPU",
                     "Native renderer bring-up: every 30 s, log the state of every draw of one "
                     "frame");
@@ -717,7 +720,51 @@ NFSMW_DRAW_HOOK(825930E0, kOther1, r5)
 NFSMW_DRAW_HOOK(82593408, kOther2, r6)
 NFSMW_DRAW_HOOK(8259A308, kInline, r6)
 
+// dev191: the guest's call chain at a Resolve. Xbox 360 ABI: a function
+// saves its return address at -8 from its caller's stack pointer (the back
+// chain at 0(r1)); on entry here lr returns into the caller, whose frame is
+// at r1.
+static void LogResolveCallers(PPCContext& ctx, uint8_t* base) {
+  static std::mutex lock;
+  static std::map<uint64_t, uint32_t> seen;  // chain hash -> times
+  static uint32_t lines = 0, calls = 0;
+  uint32_t chain[12] = {};
+  size_t n = 0;
+  chain[n++] = uint32_t(ctx.lr);
+  uint32_t sp = ctx.r1.u32;
+  while (n < 12 && sp >= 0x1000 && sp < 0xFFFF0000u) {
+    const uint32_t up = REX_LOAD_U32(sp);
+    if (up <= sp || up - sp > 0x100000) break;
+    const uint32_t ret = REX_LOAD_U32(up - 8);
+    if (ret < 0x82000000u || ret >= 0x83000000u) break;
+    chain[n++] = ret;
+    sp = up;
+  }
+  const uint32_t flags = ctx.r4.u32, dest = ctx.r6.u32, face = ctx.r9.u32;
+  uint64_t h = 1469598103934665603ull;
+  for (size_t i = 0; i < n; ++i) h = (h ^ chain[i]) * 1099511628211ull;
+  h = (h ^ (flags & 0xFF)) * 1099511628211ull;
+  h = (h ^ face) * 1099511628211ull;
+  std::lock_guard<std::mutex> g(lock);
+  ++calls;
+  if (seen[h]++ == 0 && lines < 120) {
+    ++lines;
+    std::string text;
+    for (size_t i = 0; i < n; ++i) text += fmt::format(" {:08X}", chain[i]);
+    // The destination texture's header: its base address and size words.
+    const uint32_t w6 = dest ? REX_LOAD_U32(dest + 24) : 0, w8 = dest ? REX_LOAD_U32(dest + 32) : 0,
+                   w9 = dest ? REX_LOAD_U32(dest + 36) : 0;
+    REXLOG_INFO("[resolve-callers] flags {:08X} dest {:08X} (fetch words {:08X} {:08X} {:08X}) face {} | chain:{}",
+                flags, dest, w6, w8, w9, face, text);
+  }
+  if (calls % 3000 == 0 && lines < 200) {
+    ++lines;
+    REXLOG_INFO("[resolve-callers] {} resolves so far, {} distinct chains", calls, seen.size());
+  }
+}
+
 extern "C" REX_FUNC(sub_82592340) {
+  if (REXCVAR_GET(nfsmw_diag_resolve_callers)) LogResolveCallers(ctx, base);
   if (REXCVAR_GET(nfsmw_draw_census)) {
     Count(kResolve, ctx.r3.u32, 0, 0);
   }

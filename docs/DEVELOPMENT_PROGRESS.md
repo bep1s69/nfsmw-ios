@@ -768,6 +768,33 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — candidate list for "hacky" cuts; dev191 resolve-caller diagnostic
+
+Stefan: the dev189/dev190 races were different tracks (comparison above is
+indicative only). He wants Fable used for finding and first implementations;
+later interpretation/changes by Opus. Candidates given to him, by expected
+size (estimates from the Nov 10 dev110 profile, not measured):
+1. Simulation 60 instead of 120 steps/s (`--nfsmw_sim_rate=60`, exists; world
+   thread ~20 % of app CPU; 120 became default in October for uneven 60 fps
+   motion, before the frame pacing fixes). Stefan asked to try it.
+2. Cube face / mirror cadence inside the game (draws never issued).
+3. Render queue's per-frame fixed cost (dev190: -36 % draws, -7 % time; the
+   log shows ~7700 resource entries declared per frame, "full list on every
+   encoder"); needs a Time Profiler trace.
+4. Decoded-PCM cache for looping XMA streams (audio decode ~10 % of CPU).
+5. Native rewrites of hot guest functions (sub_82699100).
+6. The game's own mirror option off, if it removes the pass.
+
+dev191: `--nfsmw_diag_resolve_callers=true` logs each distinct guest call
+chain reaching D3D Resolve (sub_82592340, hook in native_draw_census.cpp):
+flags r4, destination texture r6 (+ words at +24/+32/+36), face r9, up to 12
+return addresses (360 ABI: saved LR at back chain - 8). Static callers of
+Resolve: sub_82214CD8, sub_82222B60/D40/E70/FA0, sub_822234F0, sub_82224AA0,
+sub_8243BF18, sub_8245D788 (face and destination from a struct: the likely
+per-view target resolve), sub_82598DD0, sub_82599488. IPA
+`ios/build/NFSMW-0.6.1-dev191-resolve-callers-diag.ipa` (Desktop; dev190 to
+Trash). Wanted: 20 s of driving with the flag, then the log.
+
 ## November 17, 2026 — dev190 pass-skip trial, first iPhone race
 
 Log `Debug/17 November 2026/dev190_iphone_60_pass_skip_trials_race_nfsmw.log`
