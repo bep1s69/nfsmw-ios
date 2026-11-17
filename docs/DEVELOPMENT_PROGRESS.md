@@ -768,6 +768,14 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev194 test: sim 60 at the 40 cap too
+
+Stefan wants to try 60 Hz simulation at 40 fps (1.5 world steps per frame:
+the Oct 28 camera log showed frames alternating 1 and 2 steps). dev194: the
+launcher passes 60 at every cap except 120. IPA
+`ios/build/NFSMW-0.6.1-dev194-sim60-at-40.ipa` (Desktop; dev193 to Trash).
+Not run yet; check with `--nfsmw_native_camera_log=true` at 40.
+
 ## November 17, 2026 — sim 60 vs 120 same-race Time Profile pair; dev193 sim 60 below the 120 cap
 
 Stefan, iPhone 17 Pro Max, dev192, cap 60, same race twice, both with
