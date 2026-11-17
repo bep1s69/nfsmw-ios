@@ -235,6 +235,14 @@ def main():
             "patch_game_handoff_wait.py")), "--dir", str(out)])
         if handoff.returncode:
             fail("patch_game_handoff_wait.py failed. See its output above.")
+        # dev204/215: reflection/mirror/wet road passes at their update rates
+        # (deferred runner) and the render thread's wait on an empty queue.
+        for name, title in (("patch_game_pass_cadence.py", "Reflection pass cadence"),
+                            ("patch_game_queue_wait.py", "Render thread queue wait")):
+            print(f"\n== {title}")
+            r = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name(name)), "--dir", str(out)])
+            if r.returncode:
+                fail(f"{name} failed. See its output above.")
 
     n = sum(1 for _ in out.glob("*.cpp"))
     print(f"\n[ok] {n} .cpp files in {out}, edition {info['nombre']}")

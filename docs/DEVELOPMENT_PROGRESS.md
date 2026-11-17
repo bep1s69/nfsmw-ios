@@ -768,6 +768,24 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — 0.6.1 release prepared
+
+Stefan: ready to ship 0.6.1. CHANGELOG `## Unreleased` -> `## 0.6.1` with new
+entries (adaptive CPU level per device and cap replacing the profiles,
+iPhone efficiency cores at 60, reflection / mirror / wet road update rates
+default 30, MetalFX presets and target, experimental Sharp HUD, external
+displays #20, 16:9 MSAA one pass #19, PAL Europe #17, renderer CPU cuts,
+"Caching shaders"); README version paragraph. `tools/ios/generate_code.py`
+now also applies patch_game_pass_cadence.py and patch_game_queue_wait.py
+(both applied in the current tree). Release build = the dev218 sources
+(build-0.6, multiplayer SDK as 0.6.0): codesign --verify --deep --strict
+OK, Info.plist com.bep1s.nfsmwios / NFS Most Wanted / 0.6.1 / 12.
+`ios/build/NFS-Most-Wanted-0.6.1.ipa`, 39180016 bytes, SHA-256
+1e1a71a1dfd9d50100aaa158fa27d2ec43696fbc021803906d08aaa0b7039da0 (also on
+the Desktop). Diagnostic cvars added today all default off. Not yet done:
+fresh-container install check; push to main (Stefan's OK); tag v0.6.1 and
+GitHub release (Stefan).
+
 ## November 17, 2026 — dev218: phones start on the efficiency cores at 60
 
 Stefan chose option 1 (iPhone default at 60, all settings; later sessions

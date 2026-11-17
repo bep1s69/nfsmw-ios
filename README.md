@@ -14,9 +14,11 @@ Metal renderer for the game's shaders.
 > them from your own ISO of the Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-**Version 0.6.0** adds LAN racing, redesigned menus with first-launch setup,
-more Extra Options, and lower memory use. See the [changelog](CHANGELOG.md)
-for the full release notes.
+**Version 0.6.1** lowers battery use (the game picks its CPU level per
+device on its own and runs reflections at adjustable rates), brings back
+MetalFX, adds an experimental AI-sharpened HUD, external display support and
+the PAL Europe edition. See the [changelog](CHANGELOG.md) for the full
+release notes.
 
 ---
 

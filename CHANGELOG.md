@@ -1,6 +1,35 @@
 # Changelog
 
-## Unreleased
+## 0.6.1
+
+- **Longer battery life, same frame rate.** The Eco/Balanced/Max
+  performance profiles are gone. The game now picks how hard to run the
+  CPU on its own, per device and frame rate cap: it starts on the
+  efficiency cores and only moves up while frames run late, then remembers
+  what each cap needed. iPhones now also start on the efficiency cores at
+  60 fps (an iPhone 17 Pro Max test race: 13.5 % less battery drain).
+- **Reflection and mirror update rates.** New Graphics options for how
+  often the car reflections, the rear-view mirror and the wet road
+  reflections update (60, 40, 30, 25, 20 or 15 times a second, never above
+  the frame rate). All three default to 30, which is hard to tell from 60
+  in play; Best looking sets 60. Lower rates leave out the work in the game
+  itself, and wet road reflections are not drawn at all on dry roads.
+- **MetalFX upscaling is back**, with presets measured against 720p
+  (Quality, Balanced, Performance, Ultra Performance) and a choice of
+  target: this screen's own resolution or 0.75x. Motion blur stays on.
+- **Sharp HUD (AI upscaling, experimental).** Optional, off by default: the
+  HUD drawn at the screen's resolution, with its textures upscaled ahead of
+  time from your disc. Photos, soft glows and full-screen backdrops keep
+  their original look; the 3D world is never touched.
+- **External displays.** The game alone on an external display, in that
+  display's shape (thanks to itsAllexB, #20).
+- **16:9 with MSAA in one pass** in the native renderer (thanks to
+  itsAllexB, #19).
+- **PAL Europe edition support** (thanks to Lieforse, #17).
+- **Less CPU work in the renderer.** Fewer per-draw bookkeeping calls and
+  the game's render thread now sleeps instead of spinning while it waits.
+- **"Caching shaders"** is the new name of the first-launch preparation
+  screen.
 
 - **Right stick camera.** While driving, a controller's right stick shows the
   car from the side it points to (pull it toward you to see the front) and
