@@ -793,6 +793,16 @@ draws 2074 / 1421 / 2250 / 2272 / 2055; `rendering ms/frame` 14.7 / 13.9 /
 lower than the dev189 races at similar draw counts, consistent with dev192
 removing ARC traffic; confounds: different races, sim 60 on, coarse
 sampling. A same-race Time Profiler pair (dev192 vs dev191) would confirm.
+CORRECTION (Stefan, same night): the dev192 run also had
+`--nfsmw_native_reflection_divisor=3 --nfsmw_native_mirror_every=2` (log:
+~485-600 draws a frame not rendered in the race). The `N of N draws` count in
+the `[native] frame` line is recorded draws, not rendered ones (dev190's 1421
+was a different race, not the skip effect; the dev190 table above is wrong
+on that row). So the dev192 race combines pass skips (cube+mirror), sim 60
+and the ARC change; vs dev190 (all three skips incl. shadow, ARC traffic
+still there): render queue 38 vs 36 %. The ARC change alone is NOT shown by
+these logs. Needed: same race, same Extra Args, dev192 vs dev191 (or a Time
+Profile of dev192: objc_autoreleaseReturnValue gone from the render queue).
 
 ## November 17, 2026 — handoff notes for the next session (CPU/GPU cuts)
 
