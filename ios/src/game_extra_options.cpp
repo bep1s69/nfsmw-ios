@@ -541,14 +541,26 @@ extern "C" void nfsmw_sim_rate_follow_cap(int cap) {
   auto* memory = rex::system::kernel_state()->memory();
   const auto* shared = memory->TranslateVirtual<const uint8_t*>(kSharedStep);
   const auto* world = memory->TranslateVirtual<const uint8_t*>(kWorldStep);
-  if (!std::equal(old_be, old_be + 4, shared) || !std::equal(old_be, old_be + 4, world)) {
-    REXLOG_WARN("[extra-options] sim rate: not switched to {} Hz for the {} cap (the step words no longer hold "
-                "1/{})", want, cap, have);
+  auto as_float = [](const uint8_t* p) {
+    const uint32_t bits = uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+    float f;
+    std::memcpy(&f, &bits, 4);
+    return f;
+  };
+  // dev196: only the shared read-only step must still hold the old value.
+  // dev195 (Nov 17 log): after a live 120 -> 60 switch, the next switch back
+  // found World_Service's word changed (the game writes its own timestep
+  // there), so 40 stayed at 60 Hz. That word is now set whatever it holds.
+  const float world_before = as_float(world);
+  if (!std::equal(old_be, old_be + 4, shared)) {
+    REXLOG_WARN("[extra-options] sim rate: not switched to {} Hz for the {} cap (shared step {} instead of 1/{}, "
+                "world step {})", want, cap, as_float(shared), have, world_before);
     return;
   }
   const bool ok = PatchGuestBytes(kSharedStep, new_be, 4) && PatchGuestBytes(kWorldStep, new_be, 4);
   if (ok) g_sim_rate.store(want, std::memory_order_relaxed);
-  REXLOG_INFO("[extra-options] sim rate: {} Hz for the {} cap {}", want, cap, ok ? "(live)" : "COULD NOT PATCH");
+  REXLOG_INFO("[extra-options] sim rate: {} Hz for the {} cap {} (world step was {})", want, cap,
+              ok ? "(live)" : "COULD NOT PATCH", world_before);
 }
 
 // The data patches, once the XEX is loaded and before the game reads them

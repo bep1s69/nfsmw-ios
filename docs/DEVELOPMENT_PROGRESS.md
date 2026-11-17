@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev195 live switch result; dev196 fix
+
+Stefan alternated 60 and 40 in game on dev195; it did not feel sped up or
+slowed. Log `Debug/17 November 2026/dev195_iphone_live_cap_switch_60_40_nfsmw.log`:
+launched at 40 (120 Hz set), 40 -> 60 switched live to 60 Hz (step count the
+game's 60), then both 60 -> 40 switches refused: "the step words no longer
+hold 1/60". So after the first switch the world stayed at 60 Hz; World
+_Service's word 0x828F85AC was changed by the game (it holds the game's own
+timestep). dev196: only the shared read-only 1/60 (0x820AFDD0) must hold the
+old step; the world word is written whatever it holds, and its previous
+value is logged (`world step was ...`) to learn what the game keeps there.
+IPA `ios/build/NFSMW-0.6.1-dev196-sim-switch-fix.ipa` (Desktop; dev195 to
+Trash). Not run yet.
+
 ## November 17, 2026 — dev195: 40 back to 120 Hz; the sim rate follows the chosen cap live
 
 Stefan agreed to 120 Hz at 40 again and asked for in-game 60 <-> 40
