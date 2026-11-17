@@ -768,6 +768,24 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev196 live switch run: switches work; 40 uneven after a switch from 60
+
+Log `Debug/17 November 2026/dev196_iphone_live_cap_switch_nfsmw.log` (also
+contains the dev195 session at its start). dev196 session launched at 60
+(sim 60): every switch now applied live (40 -> 120 Hz, 60 -> 60 Hz, x2);
+`world step was 0` each time: the game zeroes 0x828F85AC after start
+(sub_824CE048 stores a constant from 0x82061CE8 there), so that word only
+matters at launch; the shared 1/60 drives the steps. Camera, frames off
+their neighbours by >25 % per 60 (turn >= 0.1): 60 @ 60 Hz 3.2 / 5.5 / 5.7;
+40 @ 120 Hz after a live switch 49.9 / 52.5. Summary of 40 fps so far:
+launched at 40 with 120 Hz 11.2 (run 3, even); launched at 40 with 60 Hz
+48.9 (dev194); launched at 40/120 then live to 40 @ 60 Hz 6.0 (dev195, short);
+launched at 60/60 then live to 40 @ 120 Hz 50-52 (dev196). So evenness at 40
+follows how the session started, not the live rate. Unknown: whether a live
+60 -> 40 switch was already uneven before dev193 (120 Hz at every cap). Test:
+dev196 with `--nfsmw_sim_rate_follow_cap=false --nfsmw_sim_rate=120
+--nfsmw_native_camera_log=true`, launch at 60, switch to 40.
+
 ## November 17, 2026 — dev195 live switch result; dev196 fix
 
 Stefan alternated 60 and 40 in game on dev195; it did not feel sped up or
