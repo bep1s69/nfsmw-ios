@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev215 iPhone 60 Low start; dev217 phone tolerance test
+
+Stefan, iPhone, dev215 (render thread queue wait), reflections 15 / mirror
+30, `--nfsmw_start_level=0`, cap 60 (log `Debug/17 November 2026/dev215_iphone_60_start_low_queue_wait_nfsmw.log`,
+Desktop copy deleted): drive 17:59:42 on Low, late 4 s in (the drive's
+first seconds) -> Default; calm step-down to Low at 18:00:16, held 28 s with
+pacing 0-1 off per 300 (worst 16.7 ms), then 3 late of 60 at 18:00:44 ->
+Default. 11 hitch lines in the whole log. Fewer than 100000 queue waits
+(no `[queue-wait]` line yet). So Low now runs smoothly for stretches; what
+ends it is the 3-of-60 rule. dev217 = dev216 + `--nfsmw_phone_tolerant_low=true`
+(test, default off): phones use the iPad rule at caps <= 60 (step up on
+12 late of 60). IPA `ios/build/NFSMW-0.6.1-dev217-phone-tolerant-low-test.ipa`
+(Desktop; dev216 to Trash).
+
 ## November 17, 2026 — iPad 1.5x/60 with all reflection rates at 30; dev216 defaults
 
 Stefan, iPad Pro M4 (6 efficiency cores), dev214, 1.5x, cap 60, all three

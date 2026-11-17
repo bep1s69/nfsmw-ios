@@ -114,6 +114,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
                     "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
                     "stepping down only outside driving (dev109); false restores the profiles (restart required)");
+REXCVAR_DEFINE_BOOL(nfsmw_phone_tolerant_low, false, "Kernel",
+                    "dev217 test: phones too accept isolated late frames on Low while driving at caps <= 60 "
+                    "(step up on 12 late of 60 instead of 3)");
 REXCVAR_DEFINE_INT32(nfsmw_start_level, -1, "Kernel",
                      "dev199 test: the cap controller's measured start level while driving: -1 per device and cap "
                      "(default), 0 Low (efficiency cores), 1 Default, 2 User Initiated");
@@ -471,7 +474,11 @@ void OnSwap(double interval_ms) {
     // the Nov 3-4 tablet profile (dev50 trace: frame threads entirely on the
     // efficiency cores, dev62 24.0 vs 28 %/h, smooth for Stefan) never
     // boosted; dev183/184 logs show Low lasting only 7-15 s on the 3-of-60 rule.
-    const bool tolerant = REXCVAR_GET(nfsmw_ipad_tolerant_low) && efficiency_cores >= 6 && cap <= 60;
+    // dev217 test (Stefan, iPhone 60 on Low with low reflection rates: 0-1
+    // off per 300 for ~28 s, then 3 late of 60 sent it to Default): phones
+    // may use the same tolerance at 60.
+    const bool tolerant = cap <= 60 && ((REXCVAR_GET(nfsmw_ipad_tolerant_low) && efficiency_cores >= 6) ||
+                                        REXCVAR_GET(nfsmw_phone_tolerant_low));
     const int up_threshold = (drive && m == 0 && (cap <= 40 || tolerant)) ? 12 : 3;
     static bool was_driving = false;
     bool started = false;
