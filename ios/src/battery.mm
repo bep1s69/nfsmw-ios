@@ -46,6 +46,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_heat_scale, false, "Battery",
 REXCVAR_DEFINE_BOOL(nfsmw_heat_scale_test, false, "Battery",
                     "Diagnostics: nfsmw_heat_scale acts as if the phone were hot for 30 s of every minute");
 
+// dev195: game_extra_options.cpp (USA build only).
+extern "C" void nfsmw_sim_rate_follow_cap(int) __attribute__((weak));
+
 namespace nfsmw::battery {
 
 namespace {
@@ -95,6 +98,8 @@ void ChooseCap(int fps) {
   if (!controlled || (fps != 30 && fps != 40 && fps != 60 && fps != 120)) return;
   chosen = fps;
   UpdateCap("chosen in the options");
+  // dev195: the simulation rate follows the chosen cap (USA build only).
+  if (nfsmw_sim_rate_follow_cap) nfsmw_sim_rate_follow_cap(fps);
 }
 
 void SettingsChanged() {

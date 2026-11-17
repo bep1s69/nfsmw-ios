@@ -768,6 +768,24 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev195: 40 back to 120 Hz; the sim rate follows the chosen cap live
+
+Stefan agreed to 120 Hz at 40 again and asked for in-game 60 <-> 40
+switching to keep working. dev195: launcher 60 Hz at 30/60, 120 at 40/120
+(as dev193). New `nfsmw_sim_rate_follow_cap` (default true;
+game_extra_options.cpp): when the cap is chosen in the options
+(battery.mm ChooseCap; not the automatic menu/heat 30), the two step words
+(0x820AFDD0 shared, 0x828F85AC World_Service) are rewritten to 1/60 or
+1/120 if they still hold the old step, and the world step count
+(`nfsmw_sim_steps_per_second`) follows the same live rate. Logs
+`[extra-options] sim rate: N Hz for the C cap (live)` and a new
+`sim step count` line. Untested: whether World_Service keeps reading
+0x828F85AC after start (if it copied it at init, the step size would stay
+while the count changes: watch the camera log / game speed after a switch).
+Why sim 60 at 40 cost more CPU is not established (frame clock built for
+the 120 Hz grid at 40, uneven 1/2-step frames; single run). IPA
+`ios/build/NFSMW-0.6.1-dev195-sim-follows-cap.ipa` (Desktop; dev194 to Trash).
+
 ## November 17, 2026 — dev194 test: sim 60 at the 40 cap too
 
 Stefan wants to try 60 Hz simulation at 40 fps (1.5 world steps per frame:

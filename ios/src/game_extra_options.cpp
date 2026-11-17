@@ -235,6 +235,9 @@ REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
 REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 120, "Game",
                      "Gameplay simulation rate in Hz: 60 (the game's) or 120 (smoother at 60 fps, "
                      "needed for the 120 fps cap)");
+REXCVAR_DEFINE_BOOL(nfsmw_sim_rate_follow_cap, true, "Game",
+                    "dev195: the simulation rate follows the frame rate cap chosen in the options while the game "
+                    "runs (120 Hz at the 40 and 120 caps, 60 Hz at 30 and 60); false: nfsmw_sim_rate for the session");
 REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
                     "Skip the game's movies (EA logo, intro, attract and story movies), as Extra Options' "
                     "SkipMovies");
@@ -508,6 +511,46 @@ extern "C" void nfsmw_extra_options_tunables() {
   }
 }
 
+// The simulation rate in effect (60 or 120), and its two guest words.
+constexpr uint32_t kSharedStep = 0x820AFDD0;  // shared read-only 1/60 (21 functions)
+constexpr uint32_t kWorldStep = 0x828F85AC;   // World_Service's timestep (.data)
+std::atomic<int> g_sim_rate{60};
+
+// dev195 (Stefan, Nov 17: switching 60 <-> 40 in game should keep working):
+// the rate the chosen cap wants, set live. Same-race iPhone runs: at 60 fps
+// 60 Hz used 0.83 vs 1.22 cores at 120 Hz with the same motion; at 40 fps
+// 60 Hz (1.5 steps a frame) saved nothing and the camera alternated 1 and 2
+// steps, so 40 keeps 120 Hz. Both words are rewritten only if they still
+// hold the old step (else nothing changes and it says so). Called from the
+// options (the game paused), so the one-frame mix of old step and new count
+// falls where nothing moves.
+extern "C" void nfsmw_sim_rate_follow_cap(int cap) {
+  if (!REXCVAR_GET(nfsmw_sim_rate_follow_cap) || !rex::system::kernel_state()) return;
+  const int want = cap == 40 || cap == 120 ? 120 : 60;
+  const int have = g_sim_rate.load(std::memory_order_relaxed);
+  if (want == have) return;
+  auto be_of = [](int rate, uint8_t out[4]) {
+    const float step = 1.0f / float(rate);
+    uint32_t bits;
+    std::memcpy(&bits, &step, 4);
+    out[0] = uint8_t(bits >> 24), out[1] = uint8_t(bits >> 16), out[2] = uint8_t(bits >> 8), out[3] = uint8_t(bits);
+  };
+  uint8_t old_be[4], new_be[4];
+  be_of(have, old_be);
+  be_of(want, new_be);
+  auto* memory = rex::system::kernel_state()->memory();
+  const auto* shared = memory->TranslateVirtual<const uint8_t*>(kSharedStep);
+  const auto* world = memory->TranslateVirtual<const uint8_t*>(kWorldStep);
+  if (!std::equal(old_be, old_be + 4, shared) || !std::equal(old_be, old_be + 4, world)) {
+    REXLOG_WARN("[extra-options] sim rate: not switched to {} Hz for the {} cap (the step words no longer hold "
+                "1/{})", want, cap, have);
+    return;
+  }
+  const bool ok = PatchGuestBytes(kSharedStep, new_be, 4) && PatchGuestBytes(kWorldStep, new_be, 4);
+  if (ok) g_sim_rate.store(want, std::memory_order_relaxed);
+  REXLOG_INFO("[extra-options] sim rate: {} Hz for the {} cap {}", want, cap, ok ? "(live)" : "COULD NOT PATCH");
+}
+
 // The data patches, once the XEX is loaded and before the game reads them
 // (IosNfsmwApp::OnPostSetup). Weakly referenced there: this file is only in
 // the USA build.
@@ -520,8 +563,6 @@ extern "C" void nfsmw_extra_options_apply() {
   // (0x828F85AC, .data). Both become 1/rate. Experimental: the shared
   // constant may also be used for things that should stay at 1/60.
   if (const int32_t rate = REXCVAR_GET(nfsmw_sim_rate); rate == 120) {
-    constexpr uint32_t kSharedStep = 0x820AFDD0;
-    constexpr uint32_t kWorldStep = 0x828F85AC;
     auto* memory = rex::system::kernel_state()->memory();
     const auto* shared = memory->TranslateVirtual<const uint8_t*>(kSharedStep);
     const uint8_t sixtieth[4] = {0x3C, 0x88, 0x88, 0x89};  // 1/60, big-endian
@@ -534,6 +575,7 @@ extern "C" void nfsmw_extra_options_apply() {
       const uint8_t be[4] = {uint8_t(bits >> 24), uint8_t(bits >> 16), uint8_t(bits >> 8),
                              uint8_t(bits)};
       const bool ok = PatchGuestBytes(kSharedStep, be, 4) && PatchGuestBytes(kWorldStep, be, 4);
+      if (ok) g_sim_rate.store(120, std::memory_order_relaxed);
       REXLOG_INFO("[extra-options] sim rate: {} Hz {}", rate, ok ? "set" : "COULD NOT PATCH");
     }
   }
@@ -568,10 +610,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_sim_step_count, true, "Game",
                     "At 120 Hz simulation count world steps at 120 per second (the game's loops count "
                     "at 60 while subtracting 1/120 per step); false: the game's count");
 extern "C" double nfsmw_sim_steps_per_second(double rate) {
-  static const bool fixed = REXCVAR_GET(nfsmw_sim_rate) == 120 && REXCVAR_GET(nfsmw_sim_step_count);
-  static bool said = false;
-  if (!said) {
-    said = true;
+  static const bool step_count = REXCVAR_GET(nfsmw_sim_step_count);
+  const bool fixed = step_count && g_sim_rate.load(std::memory_order_relaxed) == 120;  // dev195: live
+  static int said = -1;
+  if (said != int(fixed)) {
+    said = int(fixed);
     REXLOG_INFO("[extra-options] sim step count: {}", fixed ? "120 per second" : "the game's 60");
   }
   return fixed ? 120.0 * (1 + 1e-4) : rate;
