@@ -768,6 +768,14 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — iPhone 60 on the efficiency cores with low reflection rates
+
+dev214, reflections 15 / mirror 30, `--nfsmw_start_level=0`, cap 60 (log
+`Debug/17 November 2026/dev214_iphone_60_start_low_low_rates_nfsmw.log`,
+Desktop copy deleted): drive from 17:52:06 on Low, late (3 of 60) at
+17:52:46 -> Default, 17:53:07 -> User Initiated. Low lasted 40 s (dev199,
+all rates 60: 6 s). Stefan felt the hitches. Closer, not there yet.
+
 ## November 17, 2026 — dev214 wet road works, skipped on dry roads
 
 Stefan: wet road reflections work. Log `Debug/17 November 2026/dev214_iphone_wet_road_rain_check_nfsmw.log`
