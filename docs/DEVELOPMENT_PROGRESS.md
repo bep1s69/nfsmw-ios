@@ -768,6 +768,27 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev209 Time Profile pair: reflections 15 / mirror 30 vs 60 / 60
+
+Same trace, run 1 (15/30, window 16:44:02-16:44:59) and run 2 (60/60,
+window 16:46:49-16:47:46), iPhone 17 Pro Max, cap 60, Default start. Same
+session, different stretches of driving (not the same race segment).
+
+| ms of CPU per second | 15 / 30 | 60 / 60 |
+|---|---:|---:|
+| app (cores) | 1.15 | 1.41 |
+| on performance cores | 758 | 803 |
+| on efficiency cores | 391 | 603 |
+| render queue | 438 | 549 |
+| GPU Commands | 167 | 249 |
+| Main XThread | 199 | 241 |
+| world thread | 171 | 191 |
+
+-18 % app CPU; GPU Commands -33 %, render queue -20 %, Main -17 %. Most of
+the cut is on the efficiency cores (render queue at Utility); the
+performance cores only -6 %, so the energy gain will be smaller than the CPU
+time (as the sim 60 runs showed). Energy needs a Power Profiler pair.
+
 ## November 17, 2026 — the visible mirror follows the reflection rate; dev210 test switches
 
 Stefan: the log has both runs (same session), and in every camera (the
@@ -775,9 +796,8 @@ game shows the mirror in chase view too) mirror 15 + reflections 60 gives a
 60 fps mirror; the reflection rate is what makes the mirror choppy. So the
 visible rear-view mirror is not the 784x360 view 82C3FB90 (block
 82463488..82463490, still skipped at the mirror rate per the log) but comes
-from the environment cube (one or more faces). The trace file itself is
-75 s long (16:43:49-16:45:05): only the 15/30 run was recorded although the
-log continues. dev210 adds two diagnostics (game_pass_cadence.cpp):
+from the environment cube (one or more faces). CORRECTION: the trace holds two runs (run 1 16:43:49, 75 s; run 2
+16:46:41, 69 s); the first export read only run 1. dev210 adds two diagnostics (game_pass_cadence.cpp):
 `--nfsmw_diag_freeze_faces=<bitmask>` (face N never redrawn after the
 first few) and `--nfsmw_diag_hide_view_fb90=true` (that view never
 redrawn). Plan: freeze faces 0-2 (7) vs 3-5 (56), then narrow, to find the
