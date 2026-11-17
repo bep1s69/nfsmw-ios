@@ -768,6 +768,16 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev198: test switch for 60 Hz at 40
+
+Stefan asked whether 40 fps can run at 60 Hz. The dev194 result (uneven,
++12 % CPU) was a session launched at 60 Hz; the dev195 session launched at
+120 Hz and then at 40 @ 60 Hz was even (6 uneven per 60, short). dev198 =
+dev197 + `--nfsmw_sim_rate_at_40=60` (default 120): the 40 cap's followed
+rate. IPA `ios/build/NFSMW-0.6.1-dev198-sim-at-40-switch.ipa` (Desktop;
+dev197 to Trash). Test: same race at 40 with Time Profiler and camera log,
+with and without the switch.
+
 ## November 17, 2026 — 120 Hz throughout: live 60 -> 40 is even; dev197 always launches at 120 Hz
 
 Log `Debug/17 November 2026/dev196_iphone_live_60_to_40_sim120_fixed_nfsmw.log`

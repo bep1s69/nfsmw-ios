@@ -238,6 +238,8 @@ REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 120, "Game",
 REXCVAR_DEFINE_BOOL(nfsmw_sim_rate_follow_cap, true, "Game",
                     "dev195: the simulation rate follows the frame rate cap chosen in the options while the game "
                     "runs (120 Hz at the 40 and 120 caps, 60 Hz at 30 and 60); false: nfsmw_sim_rate for the session");
+REXCVAR_DEFINE_INT32(nfsmw_sim_rate_at_40, 120, "Game",
+                     "dev198: the simulation rate the 40 fps cap follows (120 or 60; test switch)");
 REXCVAR_DEFINE_BOOL(nfsmw_skip_movies, false, "Game",
                     "Skip the game's movies (EA logo, intro, attract and story movies), as Extra Options' "
                     "SkipMovies");
@@ -526,7 +528,7 @@ std::atomic<int> g_sim_rate{60};
 // falls where nothing moves.
 extern "C" void nfsmw_sim_rate_follow_cap(int cap) {
   if (!REXCVAR_GET(nfsmw_sim_rate_follow_cap) || !rex::system::kernel_state()) return;
-  const int want = cap == 40 || cap == 120 ? 120 : 60;
+  const int want = cap == 120 ? 120 : cap == 40 ? (REXCVAR_GET(nfsmw_sim_rate_at_40) == 60 ? 60 : 120) : 60;
   const int have = g_sim_rate.load(std::memory_order_relaxed);
   if (want == have) return;
   auto be_of = [](int rate, uint8_t out[4]) {
