@@ -768,6 +768,22 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev211: mirror option drives cube face 2; the 784x360 view skipped
+
+Stefan (dev210): `freeze_faces=1` (face 0): mirror fine, the top of the
+car's reflections froze; `=2` (face 1): mirror fine, the car's right side
+froze. So face 2 is the rear-view mirror (and the car's front or back).
+His A/B runs with the 784x360 view hidden found nothing that uses it.
+dev211 (game_pass_cadence.cpp): face 2 follows `nfsmw_native_mirror_hz`
+(Rear-view mirror update rate), faces 0, 1, 3, 4, 5 follow
+`nfsmw_native_reflection_hz`; the 784x360 view (block 82463488..82463490,
+~350 draws, 0.6 ms GPU a frame) is drawn only the first few times
+(`nfsmw_diag_hide_view_fb90`, now default true; false restores it). Note:
+the renderer-only fallback (`--nfsmw_game_pass_cadence=false`) still
+applies the mirror rate to that view, not to face 2. IPA
+`ios/build/NFSMW-0.6.1-dev211-mirror-face-2.ipa` (Desktop; dev210 to Trash).
+Not run yet.
+
 ## November 17, 2026 — dev210 results: the mirror is one of cube faces 0-2
 
 Stefan (dev210, both rates 60; log `Debug/17 November 2026/dev210_iphone_mirror_source_tests_nfsmw.log`,

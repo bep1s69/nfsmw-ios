@@ -32,9 +32,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",  // dev208: on again (
 REXCVAR_DEFINE_INT32(nfsmw_diag_freeze_faces, 0, "GPU",
                      "Diagnostic (dev210): bit N set = environment cube face N never redrawn after the first few "
                      "(to find which face, if any, the rear-view mirror shows)");
-REXCVAR_DEFINE_BOOL(nfsmw_diag_hide_view_fb90, false, "GPU",
-                    "Diagnostic (dev210): the 784x360 view the game draws before the cube faces (block "
-                    "82463488..82463490) never redrawn after the first few (what it is)");
+REXCVAR_DEFINE_BOOL(nfsmw_diag_hide_view_fb90, true, "GPU",
+                    "dev211 (default on): the 784x360 view the game draws before the cube faces (block "
+                    "82463488..82463490, ~350 draws and 0.6 ms GPU a frame on the iPhone) drawn only the first "
+                    "few times; Stefan's A/B runs (Nov 17) found nothing on screen that uses it");
 
 namespace {
 constexpr uint32_t kBeginMirror = 0x82463488, kEndMirror = 0x82463490;
@@ -113,8 +114,9 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
   }
   if (fn == kBeginMirror) {
     ++blocks_seen;
+    // dev211: not the rear-view mirror (that is cube face 2, dev210 tests).
     static const bool hide = REXCVAR_GET(nfsmw_diag_hide_view_fb90);
-    const bool due = !hide && Due(mirror_phase, Share("nfsmw_native_mirror_hz"));
+    const bool due = !hide;
     // The first few always drawn: the renderer needs a kept picture.
     if (due || mirror_drawn < 3) {
       ++mirror_drawn;
@@ -131,7 +133,13 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
     const int face = FaceOf(base, entry);
     if (face < 0) return false;  // not the shape seen in races: drawn as it is
     static const int32_t frozen = REXCVAR_GET(nfsmw_diag_freeze_faces);
-    const bool due = !((frozen >> face) & 1) && Due(face_phase[face], Share("nfsmw_native_reflection_hz"));
+    // dev211 (Stefan's dev210 tests): face 2 is what the rear-view mirror
+    // shows (also the matching part of the car's reflection): the mirror
+    // option's rate; the other five the reflection option's.
+    constexpr int kMirrorFace = 2;
+    const bool due = !((frozen >> face) & 1) &&
+                     Due(face_phase[face], Share(face == kMirrorFace ? "nfsmw_native_mirror_hz"
+                                                                     : "nfsmw_native_reflection_hz"));
     if (due || face_drawn[face] < 3) {
       ++face_drawn[face];
       return false;
