@@ -768,6 +768,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev209 rates check: mirror setting reaches the game; trace covers one run
+
+Stefan: dev209 looks good; but the two options seem to act as one (only
+"Car reflections update rate" changes what he sees). Archive `Debug/17
+November 2026/dev209 iPhone reflection rates time profile/` (trace 16:43:49,
+75 s, and log; Desktop copies deleted). Log: 15/30 race -> `3000 of 4200`
+passes left out per 10 s; reflections set to 60 -> 831 (mirror at 30 only);
+mirror set to 15 -> 442 (~450 expected: 600 mirror passes per 10 s at 60,
+three in four left out); mirror 60 -> 0. So the mirror option does change
+the game's mirror pass (view 82C3FB90, block 82463488..82463490, resolve
+784x360 at 4009CFD0) independently. Open: why it does not look different
+to Stefan (camera view without a mirror? or the visible mirror is another
+pass). The trace covers only the 15/30 run (16:43:52-16:45:05); the 60/60
+run at 16:46:41 is not in it, so no pair yet.
+
 ## November 17, 2026 — dev208 good; dev209 also drops the constant commit
 
 Stefan: dev208 looked fine (mirror draw distance and reflections normal),
