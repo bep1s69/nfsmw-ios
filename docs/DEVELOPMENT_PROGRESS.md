@@ -768,6 +768,31 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev190 pass-skip trial, first iPhone race
+
+Log `Debug/17 November 2026/dev190_iphone_60_pass_skip_trials_race_nfsmw.log`
+(SHA256 182eff2c365e...), iPhone, cap 60, race, all three trials on
+(divisor 3, mirror 2, shadow 2), Default all drive, pacing 0 off per 300 in
+most windows. 650-1070 (typically ~780) draws a frame not rendered.
+Averages over the drive's `[native] frame` lines, vs the dev189 race B
+(different launch and sitting, so indicative only):
+
+| | dev190 trials | dev189 race B |
+|---|---:|---:|
+| draws rendered/frame | 1421 | 2236 |
+| recording ms/frame (game thread) | 3.57 | 3.83 |
+| rendering ms/frame (render queue) | 13.90 | 14.98 |
+| GPU ms/frame | 11.51 | 12.45 |
+| `[cpu]` % of a core | 134 | 141 |
+
+-36 % draws rendered but only ~7-8 % render queue and GPU time and ~5 % CPU:
+the render queue's cost is mostly per frame, not per skipped draw, and the
+game thread and Record still handle every draw. Stefan: effects noticeable
+but acceptable; under shadows his car felt like 30 fps while the world was
+60 (the shadow map kept from the frame before lags the car's own movement by
+a frame every other frame). Shadow skipping rejected as is. He would accept
+cube/mirror cadence as an optional switch if the savings are large.
+
 ## November 17, 2026 — new direction: fewer draws (dev190 pass-skip trials)
 
 Stefan (Nov 17): shift back to cutting CPU/GPU time, "hackier" ways allowed
