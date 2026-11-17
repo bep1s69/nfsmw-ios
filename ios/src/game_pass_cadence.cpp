@@ -25,7 +25,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
-REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",
+REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, false, "GPU",  // dev207: off (mirror draw distance, flicker)
                     "dev204/205: the car reflection and mirror update rates applied in the game (their draws "
                     "and resolves left out); false: only the native renderer leaves them out");
 

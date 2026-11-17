@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev206: same artifacts; in-game skipping off (dev207)
+
+Stefan: dev206 no crash, but the same as dev204: flicker, shorter mirror
+draw distance. With the views' setup running (dev205/206), the artifacts
+remain, so the draw lists themselves (sub_824549E8 / sub_8245BD58) carry
+game-side per-view work: likely the occlusion queries (the log's
+`occlusion queries` lines: answers feed the game's visibility) and LOD /
+draw-distance selection done while drawing. Leaving them out changes what
+the game draws in later frames. Not pursued further today. dev207:
+`nfsmw_game_pass_cadence` default false; the two rate options work through
+the renderer's own cadence (dev201: render queue and GPU only, the game
+and GPU Commands still handle the draws), which Stefan found acceptable on
+Nov 17 night. The guest path stays in the build for later work (e.g.
+answering skipped views' queries with their last results). IPA
+`ios/build/NFSMW-0.6.1-dev207-renderer-only-rates.ipa` (Desktop; dev206 to
+Trash).
+
 ## November 17, 2026 — dev205 crash leaving the safehouse; dev206
 
 Stefan: dev205 crashed twice leaving the safehouse. Archive `Debug/17
