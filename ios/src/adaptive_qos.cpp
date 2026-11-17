@@ -114,7 +114,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_cap_controller, true, "Kernel",
                     "dev108/dev109 (Nov 9): hold the FPS cap with the least power instead of the Eco/Balanced/Max "
                     "profiles: frame threads step Low -> Default -> User Initiated only while frames are late, "
                     "stepping down only outside driving (dev109); false restores the profiles (restart required)");
-REXCVAR_DEFINE_BOOL(nfsmw_phone_tolerant_low, false, "Kernel",
+REXCVAR_DEFINE_BOOL(nfsmw_phone_tolerant_low, true, "Kernel",  // dev218: default on
                     "dev217 test: phones too accept isolated late frames on Low while driving at caps <= 60 "
                     "(step up on 12 late of 60 instead of 3)");
 REXCVAR_DEFINE_INT32(nfsmw_start_level, -1, "Kernel",
@@ -422,7 +422,13 @@ void OnSwap(double interval_ms) {
     // dev113 (Stefan, Nov 10): iPhones at 30/40 drive on the efficiency cores
     // (Eco 40 measured Nov 9: 17.4-17.5 vs 26-28 %/h, median 39.5-39.7 fps,
     // "almost perfect"); only 60 starts at Default.
-    int floor_level = efficiency_cores >= 6 ? (cap > 60 ? 1 : 0) : (cap > 40 ? 1 : 0);
+    // dev218 (Stefan, Nov 17): phones start at Low at 60 too. With the
+    // reflection update rates, the render thread's queue wait and the
+    // tolerant rule the iPhone 17 Pro Max held 60 on the efficiency cores
+    // for whole races (pacing 0-2 off per 300 without the profiler), and
+    // its power pair was -13.5 % (17.31 vs 20.02 %/h). Devices that cannot
+    // hold it step up and learn a higher start level (dev179/188).
+    int floor_level = cap > 60 ? 1 : 0;
     // dev179 (Stefan: as much as possible on the efficiency cores, adapting
     // to each device, older iPhones included): with the learned start level
     // a device starts every drive at Low (Background: efficiency cores) until
@@ -433,7 +439,7 @@ void OnSwap(double interval_ms) {
     static const bool learn = REXCVAR_GET(nfsmw_qos_learn);
     static int learned_cap = -1, learned = 0;
     auto pref_key = [](int c) {
-      return CFStringCreateWithFormat(nullptr, nullptr, CFSTR("nfsmw.qos_start_level2.cap%d"), c);
+      return CFStringCreateWithFormat(nullptr, nullptr, CFSTR("nfsmw.qos_start_level3.cap%d")  /* dev218: reset (phones now start Low at 60) */, c);
     };
     if (learn) {
       if (learned_cap != cap) {

@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev218: phones start on the efficiency cores at 60
+
+Stefan chose option 1 (iPhone default at 60, all settings; later sessions
+add small optimizations). dev218 (adaptive_qos.cpp): the measured start
+level is Low for every device at caps <= 60 (Default only above 60; was
+Default for phones above 40 since dev113); `nfsmw_phone_tolerant_low`
+default true (phones step up from Low while driving on 12 late of 60, as
+the iPads). Learned start levels reset (CFPreferences key
+`nfsmw.qos_start_level3.cap%d`) so earlier learned Default/UI does not
+override it; a device that cannot hold Low learns a higher level after a
+drive spent a third above it. IPA
+`ios/build/NFSMW-0.6.1-dev218-iphone-60-efficiency-cores.ipa` (Desktop;
+dev217 to Trash). Not run yet; no Extra Args needed.
+
 ## November 17, 2026 — dev217 power pair: iPhone 60 on Low vs Default (-13.5 %)
 
 Stefan, iPhone 17 Pro Max, dev217, cap 60, same race, all three rates 15,
