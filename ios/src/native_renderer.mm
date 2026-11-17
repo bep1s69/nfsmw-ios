@@ -410,6 +410,12 @@ REXCVAR_DEFINE_BOOL(nfsmw_native_half_rate_reflections, false, "GPU",
 REXCVAR_DEFINE_INT32(nfsmw_native_reflection_divisor, 0, "GPU",
                      "Native renderer (battery trial, dev190): one in this many of the environment cube's faces drawn "
                      "each frame (3: two faces a frame), the others kept; 0: as nfsmw_native_half_rate_reflections");
+REXCVAR_DEFINE_INT32(nfsmw_native_reflection_hz, 0, "GPU",
+                     "Native renderer (dev201, Car reflections option): updates per second of each environment "
+                     "cube face (15-60; 0 or at least the frame rate cap: every frame), the faces staggered");
+REXCVAR_DEFINE_INT32(nfsmw_native_mirror_hz, 0, "GPU",
+                     "Native renderer (dev201, Rear-view mirror option): updates per second of the rear-view "
+                     "mirror's scene (15-60; 0 or at least the frame rate cap: every frame)");
 REXCVAR_DEFINE_INT32(nfsmw_native_mirror_every, 1, "GPU",
                      "Native renderer (battery trial, dev190): the rear-view mirror's scene (target 000_800_0_d71a) "
                      "drawn every this many frames, its last picture kept in between (2: half the frames)");
@@ -7888,9 +7894,33 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     }();
     static const uint32_t mirror_every = uint32_t(std::clamp<int32_t>(REXCVAR_GET(nfsmw_native_mirror_every), 1, 4));
     static const uint32_t shadow_every = uint32_t(std::clamp<int32_t>(REXCVAR_GET(nfsmw_native_shadow_every), 1, 4));
-    const uint32_t cube_n = cube_divisor ? cube_divisor : REXCVAR_GET(nfsmw_native_half_rate_reflections) ? 2 : 0;
-    const bool skip_cube = cube_n >= 2 && !cube_targets.empty();
-    const bool skip_mirror = mirror_every > 1 && number % mirror_every != 0;
+    // dev201 (Stefan: dedicated rates from 15 to 60 updates a second for
+    // the car reflections and the mirror, not a halving): each cube face and
+    // the mirror carry a phase that grows by rate / cap every frame and are
+    // drawn when it passes 1 (the faces start a sixth apart, so the updates
+    // spread over the frames). The cap is the current one (menus, heat).
+    const int32_t cap_now = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
+    auto share_of = [&](int32_t hz) { return hz > 0 ? std::min(1.0, double(hz) / double(cap_now)) : 1.0; };
+    const double cube_share = cube_divisor ? 1.0 / double(cube_divisor)
+                              : REXCVAR_GET(nfsmw_native_half_rate_reflections)
+                                  ? 0.5
+                                  : share_of(REXCVAR_GET(nfsmw_native_reflection_hz));
+    const double mirror_share =
+        mirror_every > 1 ? 1.0 / double(mirror_every) : share_of(REXCVAR_GET(nfsmw_native_mirror_hz));
+    static double face_phase[6] = {0.0, 1.0 / 6, 2.0 / 6, 3.0 / 6, 4.0 / 6, 5.0 / 6};
+    static double mirror_phase = 0.0;
+    bool face_draw[6];
+    for (int f = 0; f < 6; ++f) {
+      face_phase[f] += cube_share;
+      face_draw[f] = face_phase[f] >= 1.0 - 1e-9;
+      if (face_draw[f]) face_phase[f] -= 1.0;
+    }
+    mirror_phase += mirror_share;
+    const bool mirror_draw = mirror_phase >= 1.0 - 1e-9;
+    if (mirror_draw) mirror_phase -= 1.0;
+    const uint32_t cube_n = cube_share < 1.0 ? uint32_t(std::lround(1.0 / cube_share)) : 1;  // for the log
+    const bool skip_cube = cube_share < 1.0 && !cube_targets.empty();
+    const bool skip_mirror = mirror_share < 1.0 && !mirror_draw;
     const bool skip_shadow = shadow_every > 1 && number % shadow_every != 0;
     static uint64_t left_out_draws = 0, left_out_frames = 0;
     if ((skip_cube || skip_mirror || skip_shadow) && !dump) {
@@ -7906,7 +7936,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           for (const CubeTarget& ct : cube_targets) {
             if (ev.dest_base < ct.base || (ev.dest_base - ct.base) % ct.face_stride != 0) continue;
             const uint32_t face = (ev.dest_base - ct.base) / ct.face_stride;
-            skip = face < 6 && kept_cubes.count(ct.base) && ((face + number) % cube_n) != 0;
+            skip = face < 6 && kept_cubes.count(ct.base) && !face_draw[face];
             break;
           }
         }
@@ -7938,9 +7968,11 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         from = std::max(from, upto);
       }
       if (++left_out_frames % 600 == 0) {
-        REXLOG_INFO("[native] passes left out (dev190): cube faces one in {}, mirror every {}, shadow map every {}: "
-                    "{:.0f} draws a frame not rendered over 600 frames",
-                    cube_n, mirror_every, shadow_every, double(left_out_draws) / 600.0);
+        REXLOG_INFO("[native] passes left out (dev201): cube faces {:.0f} and mirror {:.0f} updates a second at the "
+                    "{} cap (about one in {}), shadow map every {}: {:.0f} draws a frame not rendered over 600 "
+                    "frames",
+                    cube_share * cap_now, mirror_share * cap_now, cap_now, cube_n, shadow_every,
+                    double(left_out_draws) / 600.0);
         left_out_draws = 0;
       }
     }

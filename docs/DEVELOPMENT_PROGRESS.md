@@ -768,6 +768,30 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev201: car reflection and mirror update rate options (15-60)
+
+Stefan: try the guest-side pass skipping, with dedicated options for the
+mirror and car reflections update rates from 15 to 60 (not a halving).
+dev201 (host side; guest side next):
+- Options (Graphics, native renderer, live in game): "Car reflections update
+  rate" (`reflection_rate`, replaces Every frame / Half each frame) and
+  "Rear-view mirror update rate" (`mirror_rate`): 60/40/30/20/15 per second,
+  default 60 (every frame up to the 60 cap; at the 120 cap 60 means every
+  other frame). Longest battery preset: reflections 15, mirror 30. Older
+  settings: full -> 60, half -> 15. Onboarding subtitles show the updates
+  a second at the chosen cap.
+- Cvars `nfsmw_native_reflection_hz`, `nfsmw_native_mirror_hz` (0 = every
+  frame). RenderFrame: each cube face and the mirror keep a phase that grows
+  by rate / current cap (ios_fps_cap, so menu/heat 30 counts) per frame and
+  are drawn when it passes 1 (faces start a sixth apart); kept copies used in
+  between (dev190 mechanism). The dev190 test cvars still override.
+- Log: `[native] passes left out (dev201): cube faces N and mirror M updates a
+  second at the C cap ...`.
+IPA `ios/build/NFSMW-0.6.1-dev201-reflection-mirror-rates.ipa` (Desktop;
+dev200 to Trash). Not run yet. Guest side: run dev201 with
+`--nfsmw_diag_resolve_callers=true` (dev191 diagnostic, still built in) for
+~20 s of driving to find the game's cube face and mirror pass functions.
+
 ## November 17, 2026 — dev200: 120 Hz simulation at every cap again
 
 Stefan's decision after the dev199 runs: no energy gain from sim 60 at 60

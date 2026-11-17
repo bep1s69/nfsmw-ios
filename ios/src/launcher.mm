@@ -610,7 +610,7 @@ NSString* AchievementSummary(const Achievements& a) {
     _input = -1;
     _renderedPage = -1;
     _fps = @"30";
-    _reflection = @"half";
+    _reflection = @"15";  // dev201: rates (was half)
     _saves = [saves copy];
     _finish = [finish copy];
   }
@@ -766,9 +766,8 @@ NSString* AchievementSummary(const Achievements& a) {
           [self addLabel:@"Car reflections" style:UIFontTextStyleHeadline color:UIColor.labelColor];
           for (const auto& choice : FindOption(@"reflection_rate")->choices) {
             NSString* value = choice.value;
-            NSInteger hz = [value isEqualToString:@"half"] ? _fps.integerValue / 2 : _fps.integerValue;
-            NSString* subtitle = [NSString stringWithFormat:@"%ld Hz per reflection face at %@ fps",
-                (long)hz, _fps];
+            const NSInteger hz = std::min(value.integerValue, _fps.integerValue);
+            NSString* subtitle = [NSString stringWithFormat:@"%ld updates a second at %@ fps", (long)hz, _fps];
             [self addButton:choice.title subtitle:subtitle image:nil selected:[_reflection isEqualToString:value]
                 action:^{
                   NFSSetupController* me = weak;

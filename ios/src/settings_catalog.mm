@@ -615,11 +615,20 @@ const std::vector<Section>& Sections() {
             @"less GPU work, softer and blockier shadows.",
             @"1",
             {{@"Full", @"1"}, {@"Half", @"0.5"}}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_shadow_scale"},
-           {@"reflection_rate", Type::kChoice, @"Car reflections",
-            @"Choose how often each car reflection face updates. Half rate gives 15 updates per second "
-            @"at 30 fps or 20 at 40 fps.",
-            @"full",
-            {{@"Every frame", @"full"}, {@"Half each frame", @"half"}}, kInGame | kInGameNative | kNativeOnly, "nfsmw_native_half_rate_reflections"},
+           {@"reflection_rate", Type::kChoice, @"Car reflections update rate",
+            @"How many times a second the environment reflected on the cars updates (never more often "
+            @"than the frame rate). Lower: less work for the CPU and GPU, reflections that lag a little.",
+            @"60",
+            {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
+             {@"20 per second", @"20"}, {@"15 per second", @"15"}},
+            kInGame | kInGameNative | kNativeOnly, "nfsmw_native_reflection_hz"},
+           {@"mirror_rate", Type::kChoice, @"Rear-view mirror update rate",
+            @"How many times a second the rear-view mirror updates (never more often than the frame "
+            @"rate). Lower: less work for the CPU and GPU, a less fluid mirror.",
+            @"60",
+            {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
+             {@"20 per second", @"20"}, {@"15 per second", @"15"}},
+            kInGame | kInGameNative | kNativeOnly, "nfsmw_native_mirror_hz"},
            {@"reflection_size", Type::kChoice, @"Reflection and mirror resolution",
             @"Native renderer: the environment reflected on the cars and shown in the rear-view "
             @"mirror, drawn at the Xbox 360's size or scaled with the render resolution. 1x: "
@@ -854,7 +863,8 @@ NSString* BatteryValue(NSString* key) {
     @"postprocessing" : @"true",
     @"motion_blur" : @"true",
     @"shadow_scale" : @"0.5",
-    @"reflection_rate" : @"half",
+    @"reflection_rate" : @"15",
+    @"mirror_rate" : @"30",
     @"reflection_size" : @"1x",
     @"auto_cap" : @"true",
     @"menu_cap" : @"true",
@@ -898,7 +908,8 @@ void ApplyPreset(NSMutableDictionary<NSString*, NSString*>* settings, NSInteger 
                  NSString* fps, NSString* reflection) {
   if (preset < 0 || preset >= NSInteger(PresetNames().count)) return;
   fps = SupportsHighFrameRates() && [fps isEqualToString:@"40"] ? @"40" : @"30";
-  reflection = [reflection isEqualToString:@"full"] ? @"full" : @"half";
+  if ([reflection isEqualToString:@"full"]) reflection = @"60";  // older choices (before dev201)
+  if (!reflection.length || [reflection isEqualToString:@"half"]) reflection = @"15";
   for (const auto& section : Sections()) {
     for (const auto& option : section.options) {
       if (PresetOption(option.key)) settings[option.key] = PresetValue(option, preset, fps, reflection);
@@ -970,6 +981,9 @@ NSString* Value(NSDictionary<NSString*, NSString*>* s, NSString* key) {
     return game;
   }
   NSString* v = s[key];
+  // dev201: older settings files: Every frame / Half each frame.
+  if ([key isEqualToString:@"reflection_rate"] && [v isEqualToString:@"full"]) v = @"60";
+  if ([key isEqualToString:@"reflection_rate"] && [v isEqualToString:@"half"]) v = @"15";
   if ([key isEqualToString:@"fps_cap"] && !SupportsHighFrameRates() &&
       ([v isEqualToString:@"40"] || [v isEqualToString:@"120"])) v = @"60";
   if (!v.length && HudDefault(key)) return HudDefault(key);  // no row of its own (the HUD editor's)
@@ -1149,7 +1163,9 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   if (On(s, @"native_renderer")) {
     a.push_back("--resolution_scale=1");
     a.push_back("--nfsmw_native_resolution_scale=" + str(@"scale"));
-    a.push_back("--nfsmw_native_half_rate_reflections=" + b([Value(s, @"reflection_rate") isEqualToString:@"half"]));
+    a.push_back("--nfsmw_native_half_rate_reflections=false");  // dev201: rates below
+    a.push_back("--nfsmw_native_reflection_hz=" + str(@"reflection_rate"));
+    a.push_back("--nfsmw_native_mirror_hz=" + str(@"mirror_rate"));
     a.push_back("--nfsmw_native_shadow_scale=" + str(@"shadow_scale"));
     a.push_back("--nfsmw_native_scale_reflections=" + b([Value(s, @"reflection_size") isEqualToString:@"scaled"]));
     // MetalFX removed from the launcher in dev75 (Stefan, Nov 5): on the iPhone 17
