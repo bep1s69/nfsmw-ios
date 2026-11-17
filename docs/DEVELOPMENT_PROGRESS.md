@@ -768,6 +768,26 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev215: game render thread waits instead of spinning
+
+Stefan: go ahead with the next cuts toward holding 60 on the iPhone's
+efficiency cores. Touch overlay checked first (dev192 race profile, UIKit
+main thread 24 ms/s: NFSTouchView drawNative ~7 ms/s, SDL event pump the
+rest); it already redraws only changed controls: not worth it.
+
+dev215: `tools/ios/patch_game_queue_wait.py` (applied) +
+`ios/src/game_queue_wait.cpp`: in sub_82441B60's loop, when the runner
+would be called with 0 pending entries, `nfsmw_queue_wait` sleeps on a
+condition variable until the producer sub_823C8210 publishes an entry
+(`nfsmw_queue_wake` after its release fence) or 250 us pass. Cvar
+`nfsmw_queue_wait` (default true). Log `[queue-wait] N waits, M woken by a
+new entry` every 100000 waits. Expected: ~13 % of the game render thread
+(Nov 16 profile) off the efficiency cores. Risk: up to 250 us later at the
+frame's end (the end flag is not woken). IPA
+`ios/build/NFSMW-0.6.1-dev215-render-thread-queue-wait.ipa` (Desktop;
+dev214 to Trash). Not run yet. Test: same Low-start race as 17:52
+(reflections 15, mirror 30, `--nfsmw_start_level=0`).
+
 ## November 17, 2026 — iPhone 60 on the efficiency cores with low reflection rates
 
 dev214, reflections 15 / mirror 30, `--nfsmw_start_level=0`, cap 60 (log

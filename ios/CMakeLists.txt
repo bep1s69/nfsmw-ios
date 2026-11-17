@@ -314,7 +314,7 @@ if(NFSMW_WITH_GAME)
                 "(${_extra}). Run: python3 tools/ios/patch_game_extra_options.py")
         endif()
         list(APPEND _usa_sources src/game_extra_options.cpp src/render_probe.cpp
-            src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp src/game_pass_cadence.cpp
+            src/game_scene_size.cpp src/game_state.cpp src/keyboard_context.cpp src/keyboard_prompts.mm src/camera_look.cpp src/game_job_wait.cpp src/game_handoff_wait.cpp src/game_audio_budget.cpp src/game_gpr_helpers.cpp src/adaptive_qos.cpp src/frame_clock.cpp src/native_draw_census.cpp src/game_pass_cadence.cpp src/game_queue_wait.cpp
             src/native_metal_probe.mm src/native_renderer.mm src/native_register_batches.cpp src/game_constant_descriptors.cpp)
         message(STATUS "NFSMW: ${_extra}")
         execute_process(
