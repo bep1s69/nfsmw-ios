@@ -768,6 +768,30 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev198 40 fps power pair: 60 Hz at 40 rejected for good
+
+Stefan, iPhone 17 Pro Max, dev198, cap 40, same race twice with Power
+Profiler (not Time Profiler), brightness 27 % both, no charging, Nominal.
+Run 1 `--nfsmw_sim_rate_at_40=60` (log: launched 120 Hz, then "60 Hz for the
+40 cap (live) (world step was 0.008333334)"), run 2 default 120 Hz; both
+with camera log, reflection divisor 3, mirror every 2. Archive
+`Debug/17 November 2026/dev198 iPhone 40 fps sim 60 vs 120 power pair/`
+(two .aar, extracted .atrc, one log with both sessions; Desktop copies
+deleted after compare). Windows drive start +15 s to end -5 s.
+
+| | run 1 40 @ 60 Hz | run 2 40 @ 120 Hz |
+|---|---:|---:|
+| system drain %/h | 17.95 | 17.64 |
+| LiveContainer CPU / GPU impact | 8.36 / 2.53 | 8.47 / 2.47 |
+| camera uneven frames per 60 | 51.2 | 12.8 |
+| pacing off per 300 (windows) | 0-12 | 0-12 |
+
+Stefan felt isolated stutters in run 1: the camera's per-frame movement
+alternates (1 and 2 world steps a frame at 25 ms), as in dev194; dev195's
+short "even" stretch was not representative. No energy saving at 40.
+Decision: 40 keeps 120 Hz (the dev198 default); the switch stays as a test
+cvar only.
+
 ## November 17, 2026 — dev198: test switch for 60 Hz at 40
 
 Stefan asked whether 40 fps can run at 60 Hz. The dev194 result (uneven,
