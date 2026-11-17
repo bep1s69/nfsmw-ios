@@ -7024,6 +7024,23 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // Resolves from earlier frames the recording found unchanged: in the
     // heap from the start (a resolve in this frame replaces them).
     uint32_t kept_used = 0;
+    {  // dev212: did any draw of this frame sample the wet road's reflection?
+      static auto road_address = reinterpret_cast<uint32_t (*)()>(dlsym(RTLD_DEFAULT, "nfsmw_pass_cadence_road_address"));
+      static auto road_sampled = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "nfsmw_pass_cadence_road_sampled"));
+      if (road_address && road_sampled && !dump) {
+        const uint32_t road = road_address();
+        bool sampled = false;
+        if (road) {
+          for (const auto& tp : frame->textures) {
+            if (tp && tp->address == road) {
+              sampled = true;
+              break;
+            }
+          }
+        }
+        road_sampled(sampled);
+      }
+    }
     for (const auto& tp : frame->textures) {
       if (!tp->persistent || resolved.count(tp->address)) continue;
       auto kept = kept_resolves.find(tp->address);

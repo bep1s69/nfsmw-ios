@@ -32,7 +32,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",  // dev208: on again (
 REXCVAR_DEFINE_INT32(nfsmw_diag_freeze_faces, 0, "GPU",
                      "Diagnostic (dev210): bit N set = environment cube face N never redrawn after the first few "
                      "(to find which face, if any, the rear-view mirror shows)");
-REXCVAR_DEFINE_BOOL(nfsmw_diag_hide_view_fb90, true, "GPU",
+REXCVAR_DEFINE_INT32(nfsmw_native_road_reflection_hz, 0, "GPU",
+                     "dev212 (Wet road reflections option): updates per second of the wet road's reflection view "
+                     "(15-60; 0 or at least the cap: every frame); never drawn while no road reads it");
+REXCVAR_DEFINE_BOOL(nfsmw_diag_hide_view_fb90, false, "GPU",
                     "dev211 (default on): the 784x360 view the game draws before the cube faces (block "
                     "82463488..82463490, ~350 draws and 0.6 ms GPU a frame on the iPhone) drawn only the first "
                     "few times; Stefan's A/B runs (Nov 17) found nothing on screen that uses it");
@@ -45,6 +48,9 @@ double face_phase[6] = {0.0, 1.0 / 6, 2.0 / 6, 3.0 / 6, 4.0 / 6, 5.0 / 6};
 double mirror_phase = 0.0;
 uint32_t face_drawn[6] = {}, mirror_drawn = 0;
 bool skipping = false;
+bool in_road_view = false;  // dev212: the wet road view's block is being drawn
+std::atomic<uint32_t> road_dest{0};      // its resolve's destination (guest address)
+std::atomic<uint32_t> road_unread{1000}; // renderer frames since a draw last sampled it
 bool resolve_off = false;   // dev205: the block's resolve left out (sub_8245D788)
 bool clear_after = false;   // the block's end entry ran: back to normal at the next entry
 uint32_t skipped_entries = 0;
@@ -99,6 +105,7 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
     clear_after = false;
     resolve_off = false;
   }
+  if (in_road_view && (fn == kEndMirror || fn == kBeginFace)) in_road_view = false;
   if (skipping) {
     if (fn == kEndFace || fn == kEndMirror || ++skipped_entries > 48) {
       skipping = false;
@@ -115,8 +122,13 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
   if (fn == kBeginMirror) {
     ++blocks_seen;
     // dev211: not the rear-view mirror (that is cube face 2, dev210 tests).
+    // dev212 (Stefan: it is the wet road's reflection; dev211 froze it in
+    // the rain): drawn at its own rate, and only while a draw of the last
+    // few frames sampled its picture (the road in the rain).
     static const bool hide = REXCVAR_GET(nfsmw_diag_hide_view_fb90);
-    const bool due = !hide;
+    const bool read = road_unread.load(std::memory_order_relaxed) < 8 || !road_dest.load(std::memory_order_relaxed);
+    const bool due = !hide && read && Due(mirror_phase, Share("nfsmw_native_road_reflection_hz"));
+    if (due || mirror_drawn < 3) in_road_view = true;
     // The first few always drawn: the renderer needs a kept picture.
     if (due || mirror_drawn < 3) {
       ++mirror_drawn;
@@ -178,4 +190,25 @@ extern "C" void __imp__sub_82699100(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" REX_FUNC(sub_82699100) {
   if (resolve_off) return;
   __imp__sub_82699100(ctx, base);
+}
+
+// dev212: the wet road view's resolve (inside its block, sub_82592340):
+// its destination texture's base address (fetch dword 1 at +20).
+extern "C" void nfsmw_pass_cadence_note_resolve(uint8_t* base, uint32_t dest) {
+  if (!in_road_view || !dest) return;
+  const uint32_t address = REX_LOAD_U32(dest + 20) & 0xFFFFF000u;
+  if (address && road_dest.exchange(address) != address)
+    REXLOG_INFO("[pass-cadence] wet road reflection resolves to {:08X}", address);
+}
+// The renderer, once a frame: whether any draw sampled that picture.
+extern "C" uint32_t nfsmw_pass_cadence_road_address() { return road_dest.load(std::memory_order_relaxed); }
+extern "C" void nfsmw_pass_cadence_road_sampled(bool sampled) {
+  static uint32_t frames = 0, read_frames = 0;
+  if (sampled) road_unread.store(0, std::memory_order_relaxed);
+  else road_unread.fetch_add(1, std::memory_order_relaxed);
+  read_frames += sampled;
+  if (++frames == 600) {
+    REXLOG_INFO("[pass-cadence] wet road reflection read in {} of 600 frames", read_frames);
+    frames = read_frames = 0;
+  }
 }

@@ -768,11 +768,13 @@ static void LogResolveCallers(PPCContext& ctx, uint8_t* base) {
 }
 
 extern "C" bool nfsmw_pass_cadence_resolve_off();  // game_pass_cadence.cpp
+extern "C" void nfsmw_pass_cadence_note_resolve(uint8_t* base, uint32_t dest);
 extern "C" REX_FUNC(sub_82592340) {
   if (REXCVAR_GET(nfsmw_diag_resolve_callers)) LogResolveCallers(ctx, base);
   // dev206: a reflection face or the mirror left out at its update rate:
   // its resolve packet is not written (the renderer keeps the last one).
   if (nfsmw_pass_cadence_resolve_off()) return;
+  nfsmw_pass_cadence_note_resolve(base, ctx.r6.u32);  // dev212: the wet road view's destination
   if (REXCVAR_GET(nfsmw_draw_census)) {
     Count(kResolve, ctx.r3.u32, 0, 0);
   }

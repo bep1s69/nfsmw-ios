@@ -768,6 +768,39 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev211 power pair; the 784x360 view is the wet road; dev212
+
+Power Profiler pair, iPhone 17 Pro Max, dev211, cap 60, same race, 26 %,
+Nominal, run 1 reflections 15 / mirror 30, run 2 60 / 60 (both with the
+784x360 view skipped). Archive `Debug/17 November 2026/dev211 iPhone
+reflection rates power pair/` (two .aar, extracted, log; Desktop copies
+deleted). Windows drive start +15 s to end -5 s.
+
+| | 15 / 30 | 60 / 60 |
+|---|---:|---:|
+| system drain %/h | 20.79 | 21.64 |
+| LiveContainer CPU / GPU impact | 13.46 / 3.83 | 14.58 / 4.17 |
+
+-3.9 % drain (CPU impact -7.7 %, GPU -8 %), above the ~0.2-0.5 %/h
+within-sitting spread; fixed order (15/30 first). Stefan: removing work
+rarely shows as energy, only moving to the efficiency cores does; this is
+a small but measurable exception.
+
+Stefan also found: the trunk reflections follow the mirror rate (face 2;
+fine, noticeable only on flat trunks such as the Fiat Punto), and the
+784x360 view is the wet road reflection: in the rain dev211 shows a static
+picture (bad). dev212: the view is drawn again, at its own rate (new
+option "Wet road reflections update rate", 60/40/30/25/20/15, default 60,
+Longest battery 30; cvar `nfsmw_native_road_reflection_hz`), and only while
+a draw in the last 8 frames sampled its picture (the renderer checks the
+frame's textures against the view's resolve address, captured from the
+view's own resolve; game_pass_cadence.cpp / native_renderer.mm). Dry roads
+should skip it entirely, if the dry road shader does not sample it. Log:
+`[pass-cadence] wet road reflection resolves to X` and `... read in N of
+600 frames`. `nfsmw_diag_hide_view_fb90` back to default false. IPA
+`ios/build/NFSMW-0.6.1-dev212-wet-road-rate.ipa` (Desktop; dev211 to
+Trash). Not run yet.
+
 ## November 17, 2026 — dev211: mirror option drives cube face 2; the 784x360 view skipped
 
 Stefan (dev210): `freeze_faces=1` (face 0): mirror fine, the top of the

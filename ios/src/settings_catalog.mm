@@ -629,6 +629,13 @@ const std::vector<Section>& Sections() {
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
              {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_mirror_hz"},
+           {@"road_reflection_rate", Type::kChoice, @"Wet road reflections update rate",
+            @"How many times a second the reflections on wet roads update in the rain (never more often "
+            @"than the frame rate; not drawn at all on dry roads). Lower: less work for the CPU and GPU.",
+            @"60",
+            {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
+             {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
+            kInGame | kInGameNative | kNativeOnly, "nfsmw_native_road_reflection_hz"},
            {@"reflection_size", Type::kChoice, @"Reflection and mirror resolution",
             @"Native renderer: the environment reflected on the cars and shown in the rear-view "
             @"mirror, drawn at the Xbox 360's size or scaled with the render resolution. 1x: "
@@ -865,6 +872,7 @@ NSString* BatteryValue(NSString* key) {
     @"shadow_scale" : @"0.5",
     @"reflection_rate" : @"15",
     @"mirror_rate" : @"30",
+    @"road_reflection_rate" : @"30",
     @"reflection_size" : @"1x",
     @"auto_cap" : @"true",
     @"menu_cap" : @"true",
@@ -1166,6 +1174,7 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
     a.push_back("--nfsmw_native_half_rate_reflections=false");  // dev201: rates below
     a.push_back("--nfsmw_native_reflection_hz=" + str(@"reflection_rate"));
     a.push_back("--nfsmw_native_mirror_hz=" + str(@"mirror_rate"));
+    a.push_back("--nfsmw_native_road_reflection_hz=" + str(@"road_reflection_rate"));
     a.push_back("--nfsmw_native_shadow_scale=" + str(@"shadow_scale"));
     a.push_back("--nfsmw_native_scale_reflections=" + b([Value(s, @"reflection_size") isEqualToString:@"scaled"]));
     // MetalFX removed from the launcher in dev75 (Stefan, Nov 5): on the iPhone 17
