@@ -137,11 +137,9 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
 }
 
 
-// The resolve wrapper the end entries call (sub_82442B00 / sub_82442938 ->
-// sub_8245D788): skipped inside a left-out block, so the renderer keeps
-// the face / mirror from the last frame that drew it.
-extern "C" void __imp__sub_8245D788(PPCContext& __restrict ctx, uint8_t* base);
-extern "C" REX_FUNC(sub_8245D788) {
-  if (resolve_off) return;
-  __imp__sub_8245D788(ctx, base);
-}
+// dev206: the resolve itself (D3D's Resolve, sub_82592340, in
+// native_draw_census.cpp) asks this. dev205 skipped the game's wrapper
+// sub_8245D788 instead; that also skipped the game's own bookkeeping, and a
+// later resolve found a null destination (crash leaving the safehouse,
+// Nov 17, twice).
+extern "C" bool nfsmw_pass_cadence_resolve_off() { return resolve_off; }

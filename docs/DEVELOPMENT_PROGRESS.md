@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev205 crash leaving the safehouse; dev206
+
+Stefan: dev205 crashed twice leaving the safehouse. Archive `Debug/17
+November 2026/dev205 safehouse exit crash/` (two .ips, log; Desktop copies
+deleted). Both: Main XThread, SIGBUS at host 0x7000000024 = guest read of
+0x24 in D3D Resolve (sub_82592340 + 1708) with r3 0x40007200 and r4-r7 0,
+called from sub_8245D788 <- sub_8245D490 <- sub_82442128 <- the deferred
+runner. dev205's override skipped the whole resolve wrapper sub_8245D788
+inside left-out blocks; that also skipped the game's own bookkeeping there,
+so a later resolve (another view) got a null destination. dev206: the
+wrapper runs; only D3D's Resolve itself (sub_82592340 hook in
+native_draw_census.cpp) returns early while a block is left out
+(`nfsmw_pass_cadence_resolve_off`). IPA
+`ios/build/NFSMW-0.6.1-dev206-pass-cadence-resolve-packet.ipa` (Desktop;
+dev205 to Trash). Not run yet. If it still crashes or misdraws: set
+`--nfsmw_game_pass_cadence=false` (renderer-only cadence, dev201).
+
 ## November 17, 2026 — dev204 result; dev205 keeps each view's setup
 
 dev204 on the iPhone (log `Debug/17 November 2026/dev204_iphone_game_pass_cadence_nfsmw.log`):
