@@ -26,8 +26,8 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",
-                    "dev204: the car reflection and mirror update rates applied in the game (whole passes left "
-                    "out); false: only the native renderer leaves them out");
+                    "dev204/205: the car reflection and mirror update rates applied in the game (their draws "
+                    "and resolves left out); false: only the native renderer leaves them out");
 
 namespace {
 constexpr uint32_t kBeginMirror = 0x82463488, kEndMirror = 0x82463490;
@@ -37,6 +37,8 @@ double face_phase[6] = {0.0, 1.0 / 6, 2.0 / 6, 3.0 / 6, 4.0 / 6, 5.0 / 6};
 double mirror_phase = 0.0;
 uint32_t face_drawn[6] = {}, mirror_drawn = 0;
 bool skipping = false;
+bool resolve_off = false;   // dev205: the block's resolve left out (sub_8245D788)
+bool clear_after = false;   // the block's end entry ran: back to normal at the next entry
 uint32_t skipped_entries = 0;
 uint64_t blocks_left_out = 0, blocks_seen = 0;
 
@@ -73,13 +75,29 @@ int FaceOf(uint8_t* base, uint32_t entry) {
 }
 }  // namespace
 
+// dev205 (Stefan, dev204: shorter mirror draw distance, flickering objects
+// in the mirror and on the reflections): leaving whole blocks out also left
+// out the views' own setup (sub_824420B0 begin view, sub_82442CF0 its
+// parameters, 33E8/3380) and the end entries' state stores, which later
+// views read. Now only the draw lists (sub_82463338 -> sub_824549E8,
+// sub_82463368 -> sub_8245BD58) and the end entry's resolve are left out;
+// every other entry runs as the game queued it.
+constexpr uint32_t kDrawList = 0x82463338, kDrawList2 = 0x82463368;
+
 extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t fn) {
   static const bool on = REXCVAR_GET(nfsmw_game_pass_cadence);
   if (!on) return false;
+  if (clear_after) {
+    clear_after = false;
+    resolve_off = false;
+  }
   if (skipping) {
-    // The block's own entries, and its end (the resolve) last.
-    if (fn == kEndFace || fn == kEndMirror || ++skipped_entries > 48) skipping = false;
-    return true;
+    if (fn == kEndFace || fn == kEndMirror || ++skipped_entries > 48) {
+      skipping = false;
+      clear_after = true;  // its resolve (inside the end entry) stays off
+      return false;        // the end entry's state stores run
+    }
+    return fn == kDrawList || fn == kDrawList2;
   }
   if (fn == kBeginMirror) {
     ++blocks_seen;
@@ -90,9 +108,10 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
       return false;
     }
     skipping = true;
+    resolve_off = true;
     skipped_entries = 0;
     ++blocks_left_out;
-    return true;
+    return false;  // its setup runs
   }
   if (fn == kBeginFace) {
     ++blocks_seen;
@@ -104,9 +123,10 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
       return false;
     }
     skipping = true;
+    resolve_off = true;
     skipped_entries = 0;
     ++blocks_left_out;
-    return true;
+    return false;  // its setup runs
   }
   if (blocks_seen >= 4200) {
     REXLOG_INFO("[pass-cadence] {} of {} reflection face and mirror passes left out in the game", blocks_left_out,
@@ -116,3 +136,12 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
   return false;
 }
 
+
+// The resolve wrapper the end entries call (sub_82442B00 / sub_82442938 ->
+// sub_8245D788): skipped inside a left-out block, so the renderer keeps
+// the face / mirror from the last frame that drew it.
+extern "C" void __imp__sub_8245D788(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_8245D788) {
+  if (resolve_off) return;
+  __imp__sub_8245D788(ctx, base);
+}

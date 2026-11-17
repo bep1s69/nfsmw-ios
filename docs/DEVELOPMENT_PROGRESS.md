@@ -768,6 +768,21 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev204 result; dev205 keeps each view's setup
+
+dev204 on the iPhone (log `Debug/17 November 2026/dev204_iphone_game_pass_cadence_nfsmw.log`):
+reflections 15, mirror 30: `[pass-cadence] 3000 of 4200 ... left out`
+(~71 %, as expected). Stefan: the mirror lost draw distance, objects in it
+sometimes flicker, the car reflections sometimes flicker. Cause (reading):
+whole blocks left out also skipped each view's setup (sub_824420B0 begin
+view, sub_82442CF0 parameters, 33E8, 3380) and the end entries' state
+stores, which the next drawn views read. dev205: inside a left-out block
+only the draw lists (82463338 -> sub_824549E8, 82463368 -> sub_8245BD58)
+and the end entry's resolve are left out (new override of the resolve
+wrapper sub_8245D788, off only inside such a block); begin, setup and end
+entries run. IPA `ios/build/NFSMW-0.6.1-dev205-pass-cadence-keep-setup.ipa`
+(Desktop; dev204 to Trash). Not run yet.
+
 ## November 17, 2026 — dev203 queue map; dev204 reflection faces and mirror left out in the game
 
 Log `Debug/17 November 2026/dev203_iphone_deferred_queue_diag_nfsmw.log`
