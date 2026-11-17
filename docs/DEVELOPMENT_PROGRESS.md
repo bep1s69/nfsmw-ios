@@ -768,6 +768,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — why 21 %/h at 17:27 vs 35.5 %/h at 15:39-15:58 (same phone, 60 fps)
+
+Stefan asked. Same settings in both logs (scale 1.000, no MetalFX/FXAA/MSAA,
+cap 60, Low Power Mode off, thermal Nominal, brightness 27 vs 26 %, Default
+start); battery 90 % (15:5x) vs 65 % (17:2x). Power Profiler: LiveContainer
+CPU impact 27.0-27.2 vs 13.5-14.6, GPU 4.2-4.4 vs 3.8-4.2. The app's CPU
+time did not halve (Time Profiles at 60: 1.22 cores at 10:10 sim 120, 1.41
+cores at 16:46 dev209 60/60), so the same work cost about half the CPU
+energy in the later sitting: lower clocks/voltage chosen by iOS, not less
+app work. Not explained further (battery level, background system state);
+the Nov 16 dev131 pairs showed the same jump (24 %/h an hour after 30-37).
+Only same-sitting pairs compare; absolute %/h across sittings do not.
+
 ## November 17, 2026 — dev211 power pair; the 784x360 view is the wet road; dev212
 
 Power Profiler pair, iPhone 17 Pro Max, dev211, cap 60, same race, 26 %,
