@@ -557,7 +557,12 @@ extern "C" void nfsmw_sim_rate_follow_cap(int cap) {
                 "world step {})", want, cap, as_float(shared), have, world_before);
     return;
   }
-  const bool ok = PatchGuestBytes(kSharedStep, new_be, 4) && PatchGuestBytes(kWorldStep, new_be, 4);
+  // dev197: the shared step only. World_Service's word is read at the
+  // world's start and zeroed by the game after (sub_824CE048); it stays at
+  // the launch's 1/120. Nov 17 iPhone logs: sessions launched at 120 Hz
+  // stay even at 40 after any live switch (camera 4-6 uneven frames per 60),
+  // sessions launched at 60 Hz were uneven at 40 even at 120 Hz (50).
+  const bool ok = PatchGuestBytes(kSharedStep, new_be, 4);
   if (ok) g_sim_rate.store(want, std::memory_order_relaxed);
   REXLOG_INFO("[extra-options] sim rate: {} Hz for the {} cap {} (world step was {})", want, cap,
               ok ? "(live)" : "COULD NOT PATCH", world_before);
@@ -589,6 +594,9 @@ extern "C" void nfsmw_extra_options_apply() {
       const bool ok = PatchGuestBytes(kSharedStep, be, 4) && PatchGuestBytes(kWorldStep, be, 4);
       if (ok) g_sim_rate.store(120, std::memory_order_relaxed);
       REXLOG_INFO("[extra-options] sim rate: {} Hz {}", rate, ok ? "set" : "COULD NOT PATCH");
+      // dev197: launched at 120 Hz always; the 30 and 60 caps then step at
+      // 60 Hz through the shared step alone.
+      if (ok) nfsmw_sim_rate_follow_cap(int(rex::cvar::Query<int32_t>("ios_fps_cap")));
     }
   }
   if (REXCVAR_GET(nfsmw_remove_old_bridge_barrier)) {

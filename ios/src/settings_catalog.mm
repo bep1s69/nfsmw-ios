@@ -1064,7 +1064,10 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // stays at the 40 cap (1.5 steps per frame) and the 120 cap. Applied at
   // launch: a live switch to 40/120 keeps 60 Hz until the next launch.
   const std::string cap_for_sim = str(@"fps_cap");
-  a.push_back(std::string("--nfsmw_sim_rate=") + (cap_for_sim == "40" || cap_for_sim == "120" ? "120" : "60"));  // dev195: 40 back to 120
+  // dev197: always launched at 120 Hz; the game then follows the chosen cap
+  // (nfsmw_sim_rate_follow_cap: 60 Hz at 30/60, also right after launch).
+  (void)cap_for_sim;
+  a.push_back("--nfsmw_sim_rate=120");
   // The render scale: the native renderer's own (fractions, or the screen's
   // "native"); the emulated renderer only has whole steps (1x or 2x).
   NSString* scale = Value(s, @"scale");

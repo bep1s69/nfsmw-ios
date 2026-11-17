@@ -768,6 +768,28 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — 120 Hz throughout: live 60 -> 40 is even; dev197 always launches at 120 Hz
+
+Log `Debug/17 November 2026/dev196_iphone_live_60_to_40_sim120_fixed_nfsmw.log`
+(newest session from 11:01:34; earlier sessions in the same file). dev196 with
+`--nfsmw_sim_rate_follow_cap=false --nfsmw_sim_rate=120
+--nfsmw_native_camera_log=true`, launched at 60, switched 60/40/60/40/60.
+Camera uneven frames per 60: 60 @ 120 Hz 1.0 / 6.4 / 5.4; 40 @ 120 Hz after a
+live switch 6.2 / 4.4. So a live switch to 40 is not uneven by itself: the
+uneven 40 in dev196 (50) came from launching at 60 Hz. With dev195 (launched
+at 120 Hz, live 60 Hz at 60 then at 40) also even, the launch rate is what
+matters: World_Service's word (1/rate at launch) is read once at the
+world's start and then zeroed.
+
+dev197: the launcher always passes `--nfsmw_sim_rate=120`; right after the
+launch patch, and on every cap chosen in the options, only the shared step
+(0x820AFDD0) and the step count follow the cap (60 Hz at 30/60, 120 at
+40/120); the world word stays at the launch's 1/120. IPA
+`ios/build/NFSMW-0.6.1-dev197-launch-120-follow-cap.ipa` (Desktop; dev196 to
+Trash). To check: camera log at 60 and 40 with live switches, and a Time
+Profile at 60 to confirm the CPU saving survives (world thread ~97 ms/s at
+sim 60 vs ~175 at 120 in the morning pair).
+
 ## November 17, 2026 — dev196 live switch run: switches work; 40 uneven after a switch from 60
 
 Log `Debug/17 November 2026/dev196_iphone_live_cap_switch_nfsmw.log` (also
