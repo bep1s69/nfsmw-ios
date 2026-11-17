@@ -782,9 +782,11 @@ now also applies patch_game_pass_cadence.py and patch_game_queue_wait.py
 OK, Info.plist com.bep1s.nfsmwios / NFS Most Wanted / 0.6.1 / 12.
 `ios/build/NFS-Most-Wanted-0.6.1.ipa`, 39180016 bytes, SHA-256
 1e1a71a1dfd9d50100aaa158fa27d2ec43696fbc021803906d08aaa0b7039da0 (also on
-the Desktop). Diagnostic cvars added today all default off. Not yet done:
-fresh-container install check; push to main (Stefan's OK); tag v0.6.1 and
-GitHub release (Stefan).
+the Desktop). Diagnostic cvars added today all default off. Pushed to main (fast-forward
+e403ff9..6261bdc) with Stefan's OK; PRs #17/#19/#20 already show merged.
+Left to Stefan: fresh-container install check, tag v0.6.1, GitHub release,
+replies on #14 (Duo inner screen: dev141 scene fix in 0.6.1) and #21 (HDMI
+fix and PAL support in 0.6.1).
 
 ## November 17, 2026 — dev218: phones start on the efficiency cores at 60
 
