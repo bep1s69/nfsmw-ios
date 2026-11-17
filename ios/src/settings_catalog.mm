@@ -620,14 +620,14 @@ const std::vector<Section>& Sections() {
             @"than the frame rate). Lower: less work for the CPU and GPU, reflections that lag a little.",
             @"60",
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
-             {@"20 per second", @"20"}, {@"15 per second", @"15"}},
+             {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_reflection_hz"},
            {@"mirror_rate", Type::kChoice, @"Rear-view mirror update rate",
             @"How many times a second the rear-view mirror updates (never more often than the frame "
             @"rate). Lower: less work for the CPU and GPU, a less fluid mirror.",
             @"60",
             {{@"60 per second", @"60"}, {@"40 per second", @"40"}, {@"30 per second", @"30"},
-             {@"20 per second", @"20"}, {@"15 per second", @"15"}},
+             {@"25 per second", @"25"}, {@"20 per second", @"20"}, {@"15 per second", @"15"}},
             kInGame | kInGameNative | kNativeOnly, "nfsmw_native_mirror_hz"},
            {@"reflection_size", Type::kChoice, @"Reflection and mirror resolution",
             @"Native renderer: the environment reflected on the cars and shown in the rear-view "

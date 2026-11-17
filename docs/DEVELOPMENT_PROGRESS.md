@@ -768,6 +768,34 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — resolve-caller diagnostic result; dev202 adds 25 per second
+
+Log `Debug/17 November 2026/dev201_iphone_resolve_callers_diag_nfsmw.log`
+(Desktop copy deleted), dev201, `--nfsmw_diag_resolve_callers=true`.
+Finding: every pass's resolve runs on the game's render thread from the
+deferred-call queue (runner sub_823C8290, return 823C82F8, called from the
+main loop 82441C5C); the world thread only queues them (producer path via
+823C8248). The resolve wrapper is sub_8245D788 (call at 8245D984), reached
+from small "end of pass" deferred entries:
+- sub_82442B00: environment cube faces (dest 4009D050, fetch dword2
+  0x141FE0FF, face r9 0-5, one call per face). Its view index is
+  `lwz r9,8(r3)` - 18 (the entry's data), so cube faces are views 18-23.
+- sub_82442938: rear-view mirror (dest 4009CFD0, 784x360 from fetch
+  0x002CE30F).
+- sub_82442690 / sub_824427A0: shadow map depth (1600x1600, dests
+  4009CF90 / 4009CF50).
+- sub_82442310: main scene resolves (4000C300/C340/C380).
+These entries end a view; the view's draws are other deferred entries
+queued before them. Skipping a face or the mirror in the guest means
+leaving out that view's entries in sub_823C8290 (between the view's first
+entry and its end entry) or not queueing them on the world thread. Next: log
+the deferred entries' function pointers in order for one frame (a dev203
+diagnostic in the runner) to find each view's begin entry and the
+draw-list entries between.
+
+dev202 = dev201 + 25 per second in both rate options (Stefan). IPA
+`ios/build/NFSMW-0.6.1-dev202-rates-with-25.ipa` (Desktop; dev201 to Trash).
+
 ## November 17, 2026 — dev201: car reflection and mirror update rate options (15-60)
 
 Stefan: try the guest-side pass skipping, with dedicated options for the
