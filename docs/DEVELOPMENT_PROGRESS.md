@@ -781,6 +781,14 @@ controller still steps up on late frames. IPA
 Trash). Test: same race at 60 (sim 60 default), Power Profiler, run 1
 `--nfsmw_start_level=0`, run 2 none; watch `[cap-controller] up to` lines.
 
+First run (15:50, archive `Debug/17 November 2026/dev199 iPhone 60 fps start
+Low power run/`, Desktop copies deleted): the log says `driving: Default
+(start level, cap 60)` for the whole drive, so the forced Low did not take
+effect (the log does not print Extra Args; either the argument was missing
+or dev198 was still installed: the switch is in the dev199 binary). Drain
+35.48 %/h (CPU 27.11, GPU 4.24, 27 %, Nominal), i.e. a repeat of the
+15:39 run (35.64): the within-sitting spread is ~0.2 %/h.
+
 ## November 17, 2026 — dev198 60 fps power pair: sim 60 vs 120, no battery difference
 
 Stefan, iPhone 17 Pro Max, dev198, cap 60, same race twice with Power
