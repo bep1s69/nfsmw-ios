@@ -768,6 +768,37 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev203 queue map; dev204 reflection faces and mirror left out in the game
+
+Log `Debug/17 November 2026/dev203_iphone_deferred_queue_diag_nfsmw.log`
+(Desktop copy deleted): 3000 entries from 10 s into the race, 82 entries a
+frame. Entry functions are small wrappers 0x824632C0-0x824634E0. Per frame:
+- view 82C40C10 entries (shadow?), then 82463488 (sub_824428A8, begin
+  mirror) -> view 82C3FB90: 3318 (sub_824420B0), 3330 (sub_82442CF0), 3338 x2
+  (sub_824549E8, draw a list), 3380, 33E8 -> 82463490 (sub_82442938, end
+  mirror, its resolve);
+- six cube faces: 82463498 (sub_82442A40, begin face, data 0x1000000 or 0)
+  -> view 82C41090 / 41210 / 41390 / 41510 / 41690 / 41810: 3318, 3330, 3338
+  (+3338, 3368 for the third), 33E8, 3380 -> 824634A0 (sub_82442B00, end
+  face, data 0x12-0x17 = view 18 + face);
+- then the main view 82C3F710 (3318 ... 3418).
+
+dev204: `tools/ios/patch_game_pass_cadence.py` (applied) makes the runner
+call `nfsmw_pass_cadence_skip(base, entry, fn)` before each entry
+(ios/src/game_pass_cadence.cpp, new): at a begin entry the face (read from
+the block's end entry) or the mirror advances its phase by rate / cap
+(`nfsmw_native_reflection_hz` / `nfsmw_native_mirror_hz`, the options; the
+current `ios_fps_cap`); not due -> the whole block up to and including its
+end entry is left out (bail after 48 entries). First 3 of each always
+drawn. `nfsmw_game_pass_cadence` (default true); while on, the renderer's
+own cadence (dev201) stays off; the dev190 test cvars still override there.
+The renderer keeps the last face (kept cube) and mirror (persistent
+resolve: own copy for 2 frames, then by fingerprint of guest memory). Log
+`[pass-cadence] N of M ... passes left out` every 4200 blocks. IPA
+`ios/build/NFSMW-0.6.1-dev204-game-pass-cadence.ipa` (Desktop; dev203 to
+Trash). Not run yet. Check: picture of mirror and reflections at 15/30,
+no crash; then a same-race Time Profile pair (rates 60 vs 15/30).
+
 ## November 17, 2026 — dev203: deferred-queue diagnostic
 
 dev203 = dev202 + `--nfsmw_diag_deferred_entries=true`: 10 s into the first drive,

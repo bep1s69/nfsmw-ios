@@ -7901,12 +7901,17 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
     // spread over the frames). The cap is the current one (menus, heat).
     const int32_t cap_now = std::max<int32_t>(rex::cvar::Query<int32_t>("ios_fps_cap"), 1);
     auto share_of = [&](int32_t hz) { return hz > 0 ? std::min(1.0, double(hz) / double(cap_now)) : 1.0; };
+    // dev204: with the game leaving the passes out (game_pass_cadence.cpp),
+    // the renderer's own cadence stays off (the test cvars still apply).
+    static const bool game_cadence = rex::cvar::Query<bool>("nfsmw_game_pass_cadence");
     const double cube_share = cube_divisor ? 1.0 / double(cube_divisor)
+                              : game_cadence ? 1.0
                               : REXCVAR_GET(nfsmw_native_half_rate_reflections)
                                   ? 0.5
                                   : share_of(REXCVAR_GET(nfsmw_native_reflection_hz));
-    const double mirror_share =
-        mirror_every > 1 ? 1.0 / double(mirror_every) : share_of(REXCVAR_GET(nfsmw_native_mirror_hz));
+    const double mirror_share = mirror_every > 1 ? 1.0 / double(mirror_every)
+                                : game_cadence ? 1.0
+                                               : share_of(REXCVAR_GET(nfsmw_native_mirror_hz));
     static double face_phase[6] = {0.0, 1.0 / 6, 2.0 / 6, 3.0 / 6, 4.0 / 6, 5.0 / 6};
     static double mirror_phase = 0.0;
     bool face_draw[6];
