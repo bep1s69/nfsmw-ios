@@ -235,7 +235,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_remove_old_bridge_barrier, false, "Game",
 REXCVAR_DEFINE_INT32(nfsmw_sim_rate, 120, "Game",
                      "Gameplay simulation rate in Hz: 60 (the game's) or 120 (smoother at 60 fps, "
                      "needed for the 120 fps cap)");
-REXCVAR_DEFINE_BOOL(nfsmw_sim_rate_follow_cap, true, "Game",
+REXCVAR_DEFINE_BOOL(nfsmw_sim_rate_follow_cap, false, "Game",  // dev200: off (Nov 17 power runs: no energy gain at 60)
                     "dev195: the simulation rate follows the frame rate cap chosen in the options while the game "
                     "runs (120 Hz at the 40 and 120 caps, 60 Hz at 30 and 60); false: nfsmw_sim_rate for the session");
 REXCVAR_DEFINE_INT32(nfsmw_sim_rate_at_40, 120, "Game",

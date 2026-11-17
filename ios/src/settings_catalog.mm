@@ -1064,8 +1064,11 @@ std::vector<std::string> Arguments(NSDictionary<NSString*, NSString*>* s) {
   // stays at the 40 cap (1.5 steps per frame) and the 120 cap. Applied at
   // launch: a live switch to 40/120 keeps 60 Hz until the next launch.
   const std::string cap_for_sim = str(@"fps_cap");
-  // dev197: always launched at 120 Hz; the game then follows the chosen cap
-  // (nfsmw_sim_rate_follow_cap: 60 Hz at 30/60, also right after launch).
+  // dev197: always launched at 120 Hz. dev200 (Stefan, Nov 17): 120 Hz at
+  // every cap again: at the iPhone 60 cap 60 Hz cut CPU time ~30 % but four
+  // same-sitting Power Profiler runs were 35.5-36.0 %/h either way (frame
+  // threads stay on the performance cores; Low could not hold 60). The live
+  // follow (nfsmw_sim_rate_follow_cap) stays in, off by default.
   (void)cap_for_sim;
   a.push_back("--nfsmw_sim_rate=120");
   // The render scale: the native renderer's own (fractions, or the screen's

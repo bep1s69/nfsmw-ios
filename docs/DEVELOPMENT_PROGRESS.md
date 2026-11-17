@@ -768,6 +768,19 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev200: 120 Hz simulation at every cap again
+
+Stefan's decision after the dev199 runs: no energy gain from sim 60 at 60
+(35.5-36.0 %/h in four same-sitting runs, Low cannot hold 60), so 120 Hz
+everywhere. dev200: launcher `--nfsmw_sim_rate=120` (unchanged since
+dev197), `nfsmw_sim_rate_follow_cap` default false (code kept for tests),
+`--nfsmw_sim_rate_at_40` and `--nfsmw_start_level` kept as test cvars. Kept
+from this sitting: dev192 unretained lookups (render queue ARC traffic 86 ->
+9 ms/s). Still open: guest-side cube/mirror cadence (fewer draws for the
+frame threads, the remaining way to let Low hold 60), the free-cam jitter
+and jump (camera bug). IPA `ios/build/NFSMW-0.6.1-dev200-sim-120-everywhere.ipa`
+(Desktop; dev199 to Trash).
+
 ## November 17, 2026 — dev199: forced start level switch (iPhone 60 on the efficiency cores?)
 
 Stefan: 30 % less work should be usable: run slower or sleep more. iOS
