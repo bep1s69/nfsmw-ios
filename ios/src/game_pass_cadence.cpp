@@ -198,7 +198,11 @@ extern "C" REX_FUNC(sub_82699100) {
 // its destination texture's base address (fetch dword 1 at +20).
 extern "C" void nfsmw_pass_cadence_note_resolve(uint8_t* base, uint32_t dest) {
   if (!in_road_view || !dest) return;
-  const uint32_t address = REX_LOAD_U32(dest + 20) & 0xFFFFF000u;
+  // dev214: the fetch holds the guest view of the address (0xE727F000 in
+  // dev213's log); the renderer names textures by physical address
+  // (0x07280000): the 0xE0000000 range is physical memory 4 KB on.
+  uint32_t address = REX_LOAD_U32(dest + 20) & 0xFFFFF000u;
+  address = address >= 0xE0000000u ? (address & 0x1FFFFFFFu) + 0x1000u : address & 0x1FFFFFFFu;
   if (address && road_dest.exchange(address) != address)
     REXLOG_INFO("[pass-cadence] wet road reflection resolves to {:08X}", address);
 }

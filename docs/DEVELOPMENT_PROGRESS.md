@@ -768,6 +768,17 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev213 wet road always frozen; dev214 address fix
+
+Stefan: dev213's wet road reflection is always frozen. Log
+`Debug/17 November 2026/dev213_iphone_wet_road_frozen_nfsmw.log` (Desktop
+copy deleted): captured `E727F000`, but the renderer names the picture
+`07280000`; the fetch's base is the guest view, the 0xE0000000 range being
+physical memory 4 KB on. No draw ever matched, so after the first few the
+view was never drawn. dev214 converts to the physical address (& 0x1FFFFFFF,
++0x1000 for 0xE...). IPA `ios/build/NFSMW-0.6.1-dev214-wet-road-address-fix.ipa`
+(Desktop; dev213 to Trash).
+
 ## November 17, 2026 — dev212 wet road: rate works, dry-road skip never armed; dev213
 
 Stefan: the wet road rate works, 30 looks like 60; he drove on after the
