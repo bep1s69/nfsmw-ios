@@ -768,6 +768,23 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — the visible mirror follows the reflection rate; dev210 test switches
+
+Stefan: the log has both runs (same session), and in every camera (the
+game shows the mirror in chase view too) mirror 15 + reflections 60 gives a
+60 fps mirror; the reflection rate is what makes the mirror choppy. So the
+visible rear-view mirror is not the 784x360 view 82C3FB90 (block
+82463488..82463490, still skipped at the mirror rate per the log) but comes
+from the environment cube (one or more faces). The trace file itself is
+75 s long (16:43:49-16:45:05): only the 15/30 run was recorded although the
+log continues. dev210 adds two diagnostics (game_pass_cadence.cpp):
+`--nfsmw_diag_freeze_faces=<bitmask>` (face N never redrawn after the
+first few) and `--nfsmw_diag_hide_view_fb90=true` (that view never
+redrawn). Plan: freeze faces 0-2 (7) vs 3-5 (56), then narrow, to find the
+mirror's face(s); hide fb90 to see what that view is. IPA
+`ios/build/NFSMW-0.6.1-dev210-mirror-source-test.ipa` (Desktop; dev209 to
+Trash).
+
 ## November 17, 2026 — dev209 rates check: mirror setting reaches the game; trace covers one run
 
 Stefan: dev209 looks good; but the two options seem to act as one (only

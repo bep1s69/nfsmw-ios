@@ -29,6 +29,13 @@ REXCVAR_DEFINE_BOOL(nfsmw_game_pass_cadence, true, "GPU",  // dev208: on again (
                     "dev204/205: the car reflection and mirror update rates applied in the game (their draws "
                     "and resolves left out); false: only the native renderer leaves them out");
 
+REXCVAR_DEFINE_INT32(nfsmw_diag_freeze_faces, 0, "GPU",
+                     "Diagnostic (dev210): bit N set = environment cube face N never redrawn after the first few "
+                     "(to find which face, if any, the rear-view mirror shows)");
+REXCVAR_DEFINE_BOOL(nfsmw_diag_hide_view_fb90, false, "GPU",
+                    "Diagnostic (dev210): the 784x360 view the game draws before the cube faces (block "
+                    "82463488..82463490) never redrawn after the first few (what it is)");
+
 namespace {
 constexpr uint32_t kBeginMirror = 0x82463488, kEndMirror = 0x82463490;
 constexpr uint32_t kBeginFace = 0x82463498, kEndFace = 0x824634A0;
@@ -106,7 +113,8 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
   }
   if (fn == kBeginMirror) {
     ++blocks_seen;
-    const bool due = Due(mirror_phase, Share("nfsmw_native_mirror_hz"));
+    static const bool hide = REXCVAR_GET(nfsmw_diag_hide_view_fb90);
+    const bool due = !hide && Due(mirror_phase, Share("nfsmw_native_mirror_hz"));
     // The first few always drawn: the renderer needs a kept picture.
     if (due || mirror_drawn < 3) {
       ++mirror_drawn;
@@ -122,7 +130,8 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
     ++blocks_seen;
     const int face = FaceOf(base, entry);
     if (face < 0) return false;  // not the shape seen in races: drawn as it is
-    const bool due = Due(face_phase[face], Share("nfsmw_native_reflection_hz"));
+    static const int32_t frozen = REXCVAR_GET(nfsmw_diag_freeze_faces);
+    const bool due = !((frozen >> face) & 1) && Due(face_phase[face], Share("nfsmw_native_reflection_hz"));
     if (due || face_drawn[face] < 3) {
       ++face_drawn[face];
       return false;
