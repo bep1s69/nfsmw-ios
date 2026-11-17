@@ -150,3 +150,15 @@ extern "C" bool nfsmw_pass_cadence_skip(uint8_t* base, uint32_t entry, uint32_t 
 extern "C" bool nfsmw_pass_cadence_resolve_off() { return resolve_off; }
 // dev208: also the block's draw calls (DrawVertices, DrawIndexedVertices).
 extern "C" bool nfsmw_pass_cadence_draws_off() { return resolve_off; }
+
+// dev209 (Stefan: as much saving as possible): the game's shader constant
+// commit (sub_82699100: copies the draw's dirty constants into the command
+// buffer and marks them sent; the top function of the game's render thread,
+// ~17 % of it in the Nov 16 profile) is left out too while a block's draws
+// are dropped. The constants it would have sent belong to those dropped
+// draws; their dirty bits stay set, so the next drawn view sends them.
+extern "C" void __imp__sub_82699100(PPCContext& __restrict ctx, uint8_t* base);
+extern "C" REX_FUNC(sub_82699100) {
+  if (resolve_off) return;
+  __imp__sub_82699100(ctx, base);
+}

@@ -768,6 +768,18 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev208 good; dev209 also drops the constant commit
+
+Stefan: dev208 looked fine (mirror draw distance and reflections normal),
+wants the most saving possible. dev209: inside a left-out block the game's
+shader constant commit sub_82699100 (its render thread's top function,
+~17 % of it on Nov 16, callers sub_8244EBF0 / sub_8244F680) also returns at
+once (override in game_pass_cadence.cpp); its dirty bits stay set, so the
+next drawn view sends what it needs. IPA
+`ios/build/NFSMW-0.6.1-dev209-skip-constants-too.ipa` (Desktop; dev208 to
+Trash). Not run yet. Then: same-race Time Profile pair, rates 60/60 vs
+15/30, to size the saving per thread.
+
 ## November 17, 2026 — dev208: deeper attempt, only D3D draw commands dropped
 
 Stefan: go for the deeper work. dev208: `nfsmw_game_pass_cadence` on again,
