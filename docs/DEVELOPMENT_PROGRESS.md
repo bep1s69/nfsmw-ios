@@ -768,6 +768,15 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev214 wet road works, skipped on dry roads
+
+Stefan: wet road reflections work. Log `Debug/17 November 2026/dev214_iphone_wet_road_rain_check_nfsmw.log`
+(Desktop copy deleted): `resolves to 07280000` (matches the renderer);
+`read in` 255 / 99 / 600 / 73 of 600 frames while wet, then 0 of 600 on dry
+roads; left-out blocks rose from ~2100 to 2400 of 4200 per 10 s once dry
+(the view's 600 a frame added). So the wet road view is drawn at its own
+rate in the rain and not at all on dry roads. Done.
+
 ## November 17, 2026 — dev213 wet road always frozen; dev214 address fix
 
 Stefan: dev213's wet road reflection is always frozen. Log
