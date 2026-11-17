@@ -4013,9 +4013,13 @@ class PipelineCache {
  public:
   explicit PipelineCache(bool indirect = false) : indirect_(indirect) {}
   // The key's pipeline, or nil: failed (*failed), or still compiling.
-  id<MTLRenderPipelineState> Get(id<MTLDevice> device, const PipelineKey& k, id<MTLFunction> vs,
-                                 id<MTLFunction> ps, bool async, bool* failed, bool reuse_ready_lookup) {
-    if (auto* entry = ready_lookup_.Find(ready_, k, reuse_ready_lookup)) return entry->second;
+  // dev192: returned unretained (void*, kept alive by ready_): the Nov 16
+  // pursuit profile had ~9 % of the render queue's CPU in
+  // objc_autoreleaseReturnValue plus retain/release pairs, from this and the
+  // buffer lookups returning Objective-C objects by value for every draw.
+  void* Get(__unsafe_unretained id<MTLDevice> device, const PipelineKey& k, __unsafe_unretained id<MTLFunction> vs,
+            __unsafe_unretained id<MTLFunction> ps, bool async, bool* failed, bool reuse_ready_lookup) {
+    if (auto* entry = ready_lookup_.Find(ready_, k, reuse_ready_lookup)) return (__bridge void*)entry->second;
     if (failed_.count(k)) {
       *failed = true;
       return nil;
@@ -4040,7 +4044,9 @@ class PipelineCache {
     }
     Finish(k, pso, false, error ? error.localizedDescription.UTF8String : "exception");
     *failed = !pso;
-    return pso;
+    // The one ready_ keeps (this one, or the first made if it was made twice).
+    auto kept = ready_.find(k);
+    return kept != ready_.end() ? (__bridge void*)kept->second : nullptr;
   }
 
   size_t size() const { return ready_.size(); }
@@ -5147,8 +5153,9 @@ bool GpuBufferLookupStatsEnabled() {
   return enabled;
 }
 
+// dev192: returns the buffer unretained (void*; the cache entry keeps it).
 template <typename T>
-id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
+void* GpuBufferFor(__unsafe_unretained id<MTLDevice> device, const std::shared_ptr<T>& values, size_t& offset) {
   GpuBufferSlot& slot = gpu_buffer_slots[GpuBufferSlotIndex(values.get())];
   const bool lookup_stats = GpuBufferLookupStatsEnabled();
   if (slot.key != values.get()) {
@@ -5173,7 +5180,7 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
     const size_t size = std::max<size_t>(values->size() * sizeof(values->front()), 16);
     if (!buffer_arena.Allocate(device, size, g.chunk, g.buffer, g.offset)) {
       offset = 0;
-      return nil;
+      return nullptr;
     }
     ++frame_new_buffers;
     ++geometry_upload_arrays;
@@ -5184,25 +5191,26 @@ id<MTLBuffer> GpuBufferFor(id<MTLDevice> device, const std::shared_ptr<T>& value
                 values->size() * sizeof(values->front()));
   }
   offset = g.offset;
-  return g.buffer;
+  return (__bridge void*)g.buffer;
 }
 
 // One CPU-frame geometry ordinal -> one successful persistent GPU selection.
 // The first call still stamps/allocates/uploads through GpuBufferFor. Sweeps
 // run before encoding, and submission/frame stamps stay fixed throughout it.
-struct GeometryGpuBinding { id<MTLBuffer> buffer=nil; size_t offset=0; };
+struct GeometryGpuBinding { __unsafe_unretained id<MTLBuffer> buffer=nil; size_t offset=0; };  // kept by gpu_buffers
 struct GeometryGpuStats { uint64_t hits=0,lookups=0,fallbacks=0; };
 template<class T>
-id<MTLBuffer> GpuBufferForGeometry(id<MTLDevice> device,const nfsmw::FrameRef<T>& values,
+void* GpuBufferForGeometry(__unsafe_unretained id<MTLDevice> device,const nfsmw::FrameRef<T>& values,
     std::vector<GeometryGpuBinding>& bindings,size_t& offset,GeometryGpuStats& stats) {
   const size_t slot=values.Slot();
   if (slot<bindings.size()) {
     auto& binding=bindings[slot];
-    if (binding.buffer) { ++stats.hits; offset=binding.offset; return binding.buffer; }
+    if (binding.buffer) { ++stats.hits; offset=binding.offset; return (__bridge void*)binding.buffer; }
     ++stats.lookups;
-    binding.buffer=GpuBufferFor(device,values.Owner(),offset);
+    void* raw=GpuBufferFor(device,values.Owner(),offset);
+    binding.buffer=(__bridge id<MTLBuffer>)raw;
     binding.offset=offset;
-    return binding.buffer; // nil remains a miss: allocation failures retry
+    return raw; // nil remains a miss: allocation failures retry
   }
   ++stats.fallbacks;
   return GpuBufferFor(device,values.Owner(),offset);
@@ -6090,7 +6098,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         *this = EncoderState{};
         enc = e;
       }
-      void VertexBuffer(id<MTLBuffer> b, NSUInteger offset, NSUInteger index) {
+      void VertexBuffer(__unsafe_unretained id<MTLBuffer> b, NSUInteger offset, NSUInteger index) {
         if (vb[index] == b) {
           if (vb_offset[index] != offset) {
             [enc setVertexBufferOffset:offset atIndex:index];
@@ -8563,8 +8571,8 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                            t1 ? t1->format + 1 : 0u, alpha_spec, t.sample_count,
                            alpha_to_coverage && t.sample_count > 1, motion};
       bool pipeline_failed = false;
-      id<MTLRenderPipelineState> pso = pipeline_cache.Get(device, pk, d.vs, d.ps, async_pipelines, &pipeline_failed,
-                                                       reuse_pipeline_lookup);
+      __unsafe_unretained id<MTLRenderPipelineState> pso = (__bridge id<MTLRenderPipelineState>)pipeline_cache.Get(
+          device, pk, d.vs, d.ps, async_pipelines, &pipeline_failed, reuse_pipeline_lookup);
       if (!pso) {
         pipeline_failures += pipeline_failed;
         continue;  // failed, or compiling in the background (left out until ready)
@@ -8576,8 +8584,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (reuse_command) {
         ++command_eligible;
         bool failed = false;
-        id<MTLRenderPipelineState> indirect = indirect_pipeline_cache.Get(device, pk, d.vs, d.ps,
-            true, &failed, reuse_pipeline_lookup);
+        __unsafe_unretained id<MTLRenderPipelineState> indirect =
+            (__bridge id<MTLRenderPipelineState>)indirect_pipeline_cache.Get(device, pk, d.vs, d.ps, true, &failed,
+                                                                             reuse_pipeline_lookup);
         reuse_command = indirect && indirect.supportIndirectCommandBuffers;
         if (reuse_command) pso = indirect;
       }
@@ -8654,7 +8663,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
                               ? 0u
                               : TreeEdgeDepth(d);
       const uint32_t smode = stencil_mode.empty() ? 0u : stencil_mode[di];
-      id<MTLDepthStencilState> ds = depth_states[dc | smode << 8];
+      // dev192: unretained (depth_states keeps them): no retain/release per draw.
+      __unsafe_unretained id<MTLDepthStencilState> ds = nil;
+      if (auto found_ds = depth_states.find(dc | smode << 8); found_ds != depth_states.end()) ds = found_ds->second;
       if (!ds) {
         MTLDepthStencilDescriptor* dsd = [MTLDepthStencilDescriptor new];
         if (dc & 2) {
@@ -8674,7 +8685,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           dsd.frontFaceStencil = sd;
           dsd.backFaceStencil = sd;
         }
-        ds = depth_states[dc | smode << 8] = [device newDepthStencilStateWithDescriptor:dsd];
+        id<MTLDepthStencilState> made = [device newDepthStencilStateWithDescriptor:dsd];
+        depth_states[dc | smode << 8] = made;
+        ds = made;
       }
       if (state.ds != ds) {
         flush_commands();
@@ -9163,7 +9176,7 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
         std::memcpy(state.push, &push, sizeof(push));
         state.push_set = true;
       }
-      auto bind_vertex = [&](id<MTLBuffer> buffer, NSUInteger offset, NSUInteger index) {
+      auto bind_vertex = [&](__unsafe_unretained id<MTLBuffer> buffer, NSUInteger offset, NSUInteger index) {
         if (reuse_command) { command_buffers[index] = buffer; command_key.offsets[index] = offset; }
         else state.VertexBuffer(buffer, offset, index);
       };
@@ -9181,9 +9194,9 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
           bind_vertex(data, put(found->values->data(), found->values->size() * 4, kVertexUpload), 9 + k);
         } else if (found && found->values && !found->values->empty()) {
           size_t vb_offset = 0;
-          id<MTLBuffer> vb = geometry_storage
+          __unsafe_unretained id<MTLBuffer> vb = (__bridge id<MTLBuffer>)(geometry_storage
               ? GpuBufferForGeometry(device,found->values,geometry_attributes,vb_offset,geometry_gpu_stats)
-              : GpuBufferFor(device,found->values.Owner(),vb_offset);
+              : GpuBufferFor(device,found->values.Owner(),vb_offset));
           bind_vertex(vb ?: zeros, vb_offset, 9 + k);  // bound: resident without useResource
         } else {
           bind_vertex(zeros, 0, 9 + k);
@@ -9192,12 +9205,12 @@ void RenderFrame(std::unique_ptr<Frame>&& frame, uint32_t number, bool present, 
       if (d.index_count()) {
         // Made this frame: with the frame's data; cached: its own buffer.
         size_t index_at = 0;
-        id<MTLBuffer> ib = data;
+        __unsafe_unretained id<MTLBuffer> ib = data;  // dev192: kept by the frame (data) or the buffer cache
         if (d.indices_fresh) {
           index_at = put(d.indices->data(), d.index_count() * 4, kIndexUpload);
-        } else if (!(ib = geometry_storage
+        } else if (!(ib = (__bridge id<MTLBuffer>)(geometry_storage
                          ? GpuBufferForGeometry(device,d.indices,geometry_indices,index_at,geometry_gpu_stats)
-                         : GpuBufferFor(device, d.indices.Owner(), index_at))) {
+                         : GpuBufferFor(device, d.indices.Owner(), index_at)))) {
           continue;
         }
         if (depth_audit && (d.depth_control & 4)) ++t.depth_generation;

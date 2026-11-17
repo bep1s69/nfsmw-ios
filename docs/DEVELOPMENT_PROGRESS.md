@@ -768,6 +768,51 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — Nov 16 pursuit Time Profile re-read; dev192 unretained lookups
+
+Stefan's answers to the candidate list: (1) sim 60 rejected (it broke world
+and camera refreshes, unrelated to pacing); (2) guest-side pass cadence:
+for Opus tomorrow (dev191 diagnostic flag stays in the build); (3) use the
+existing profiles; (4), (5) approved; (6) mirror-off as an option if worth it.
+
+Profile: `Debug/16 November 2026/dev176_pursuit_busted.trace` (iPad Pro M4,
+1.5x, cap 60, pursuit), `xctrace export` time-profile, 15-195 s, parser in
+the session scratchpad (per thread totals, self, inclusive, caller pairs).
+App 1.24 cores. Per thread ms/s: render queue (unnamed wq threads) 586,
+world XThreadD80B 195, Main XThread 166, GPU Commands 157, guest audio
+XThread10807 88, UIKit main 38.
+- Render queue: RenderFrame self 12.6 %; `objc_autoreleaseReturnValue` self
+  8.8 % (all reached from RenderFrame by tail calls: functions returning
+  Objective-C objects by value per draw), objc_retain_x8 2.1, _x20 1.8 (in
+  PipelineCache::Get), objc_msgSend 2.1, objc_release_x21 1.1: ~17 % of the
+  queue (~100 ms/s, ~8 % of app CPU) in reference counting. AGX
+  drawIndexedPrimitives 7.0, encoder creation 4.0 + 3.5, IOGPU resource list
+  adds ~4.4, memmove 3.2, Frame::~Frame 2.8. HUD AI Upscale 8.0 % in this
+  dev176 trace (repeated requests, fixed in dev177/181).
+- Guest audio: FFmpeg decode only ~15 % (decode_frame 5.2, ff_wma_run_level
+  4.4, split_radix_permutation 3.8, imdct 1.2); the rest is the game's own
+  mixer (sub_82602FC8 7.2, sub_82606698 6.1, sub_825E1178 4.7, sub_826045B8
+  3.9, sub_825CCE90 3.7, ...). A decoded-PCM cache would save ~1 % of app
+  CPU: candidate 4 dropped.
+- Main XThread: sub_82699100 self 16.9 % (callers sub_8244EBF0 10.9,
+  sub_8244F680 4.1), __savegprlr_29 4.2 (2.9 from sub_823C8290) and
+  __restgprlr_29 3.9 (2.5 from sub_82441B60), sub_82453768 4.9.
+- GPU Commands: Record self 45.1 %, FrameOwners 7.2, Fingerprint 3.8.
+
+dev192 (output-identical): `PipelineCache::Get`, `GpuBufferFor`,
+`GpuBufferForGeometry` return unretained `void*` (their caches keep the
+objects), their callers and the per-draw depth-stencil state use
+`__unsafe_unretained` locals, `GeometryGpuBinding::buffer` unretained (per
+frame; the buffer cache is swept before encoding), a pipeline made twice
+returns the kept one. IPA `ios/build/NFSMW-0.6.1-dev192-unretained-lookups.ipa`
+(Desktop; dev191 to Trash). Not run on a device. Check: picture and no crash
+in a race and menus; `rendering ms/frame` in the log; a Time Profiler run
+should show objc_autoreleaseReturnValue gone from the render queue.
+Next candidates on the same profile: __savegprlr/__restgprlr_29 inlined in
+sub_823C8290 / sub_82441B60 (main loop, ~5 % of the main thread), the
+remaining ObjC traffic in RenderFrame (objc_msgSend 2 %, retain_x8 1.35 %
+direct), IOGPU resource list adds, the game mixer's top functions.
+
 ## November 17, 2026 — candidate list for "hacky" cuts; dev191 resolve-caller diagnostic
 
 Stefan: the dev189/dev190 races were different tracks (comparison above is
