@@ -768,6 +768,20 @@ in the native renderer, or leaving the frame.
 Stefan (Nov 16): dev139 confirmed: smooth stick camera, mirror fully hidden
 while looking. Right stick camera done (unpushed, no release yet).
 
+## November 17, 2026 — dev210 results: the mirror is one of cube faces 0-2
+
+Stefan (dev210, both rates 60; log `Debug/17 November 2026/dev210_iphone_mirror_source_tests_nfsmw.log`,
+three sessions): `freeze_faces=7` (faces 0-2) freezes the rear-view mirror
+and the front and back of the car's reflections; `=56` (3-5) freezes only a
+small part of the car's left side; `hide_view_fb90` changes nothing he can
+see. The two Time Profile runs were one lap of the same test race each with
+a restart between (comparable). The 784x360 view (EDRAM 000_800_0_d71a,
+resolve 07280000 host, 0.6 ms GPU, ~350 draws a frame) is resolved and not
+flagged unread by the renderer, but nothing visible depends on it in his
+test: candidate for skipping entirely (needs care: unknown reader). Next:
+`freeze_faces=1` and `=2` to find the mirror's face; then the mirror option
+drives that face and the reflection option the other five.
+
 ## November 17, 2026 — dev209 Time Profile pair: reflections 15 / mirror 30 vs 60 / 60
 
 Same trace, run 1 (15/30, window 16:44:02-16:44:59) and run 2 (60/60,
