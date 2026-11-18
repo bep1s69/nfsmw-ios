@@ -14,11 +14,12 @@ Metal renderer for the game's shaders.
 > them from your own ISO of the Xbox 360 game. This repository contains no
 > game files and no translated game code. See [Legal](#legal).
 
-**Version 0.6.1** lowers battery use (the game picks its CPU level per
-device on its own and runs reflections at adjustable rates), brings back
-MetalFX, adds an experimental AI-sharpened HUD, external display support and
-the PAL Europe edition. See the [changelog](CHANGELOG.md) for the full
-release notes.
+**Version 0.6.2** gives the touch controls new driving buttons, made for
+this port by bagasromadon. Version 0.6.1 lowered battery use (the game picks
+its CPU level per device on its own and runs reflections at adjustable rates),
+brought back MetalFX, and added an experimental AI-sharpened HUD, external
+display support and the PAL Europe edition. See the [changelog](CHANGELOG.md)
+for the full release notes.
 
 ---
 

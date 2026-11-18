@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.2 (in progress)
+## 0.6.2
 
 - **New on-screen driving buttons.** The driving controls now use custom
   button art made for this port: gas and brake pedals, a steering wheel
@@ -9,6 +9,10 @@
   event buttons (thanks to bagasromadon, #22). The gas and brake touch areas
   follow the new pedal shapes. Menus and the full gamepad layout keep their
   look.
+- **The old Balanced behaviour is one line away.** If the CPU scheduling
+  introduced in 0.6.1 gives you dips, stutter or heat, add
+  `--nfsmw_cap_controller=false` to Extra Args and restart the game: it
+  goes back to the 0.6.0 Balanced profile.
 
 ## 0.6.1
 

@@ -788,6 +788,21 @@ Left to Stefan: fresh-container install check, tag v0.6.1, GitHub release,
 replies on #14 (Duo inner screen: dev141 scene fix in 0.6.1) and #21 (HDMI
 fix and PAL support in 0.6.1).
 
+## November 18, 2026 — 0.6.2 release prepared (new driving buttons)
+
+Stefan: dev219 buttons "look fire" (screenshot `Debug/18 November 2026/dev219_iphone17pm_contributed_button_art_screenshot.png`),
+ready to push as a small update. NFSMW_VERSION 0.6.2 / code 13, README paragraph,
+CHANGELOG `## 0.6.2` (button art, credit bagasromadon #22; note that Extra Args
+`--nfsmw_cap_controller=false` restores the 0.6.0 Balanced profile:
+ios_main.mm ApplyUtilityQosDefault falls back to performance_mode "balanced"
+when the cap controller is off). Release build = dev219 sources (build-0.6, as
+0.6.1): codesign --verify --deep --strict OK, Info.plist com.bep1s.nfsmwios / NFS
+Most Wanted / 0.6.2 / 13. `ios/build/NFS-Most-Wanted-0.6.2.ipa`, 39518642 bytes,
+SHA-256 9d79161bfa8f1300da469ac285032383407bdcc3c2353cee2d519b98865a2102 (on the
+Desktop; 0.6.1 moved to Trash from the Desktop). Pushed to main with Stefan's OK.
+Left to Stefan: tag v0.6.2, GitHub release, reply on #22. Scheduler heat plan
+(November 18 analysis below) still on hold.
+
 ## November 18, 2026 — dev219 contributed button art (GitHub #22)
 
 Scheduler/heat changes on hold (Stefan). dev219 draws bagasromadon's button art
