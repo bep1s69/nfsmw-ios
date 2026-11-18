@@ -30235,3 +30235,48 @@ card in place of the game. Not run with the game itself (device-only build).
 - A MacBook over AirPlay reported 3381x2160 (1.565:1) and got the 4:3 mode. An
   external display now goes 4:3 only below 1.5:1; 1.5-1.78 gets 16:9 with thin
   bars. The device's own screen keeps its 1.6 rule (both Duo panels, iPads).
+
+## November 18: late-night iPhone 17 Pro Max logs, heat in session 2 (Claude, analysis only)
+
+Inputs (Stefan's Desktop, archived, SHA256 verified, Desktop copies deleted):
+`Debug/18 November 2026/0.6.1_iphone17pm_late-night_part1_0128-0147_session1_nfsmw.2.log`
+(7321ded6...5ccb), `..._part2_0147-0217_session1-end+session2-start_nfsmw.1.log`
+(24cc9fe7...a37e), `..._part3_0217-0231_session2-end_nfsmw.log` (494ab9fc...742a).
+Two launches: session 1 01:28:57-02:03, session 2 02:03:36-02:31. Cap 60, dev218
+scheduling defaults (tolerant low on phones, learned start level), shadow 1600 + draw
+size Half (pass 000_1600_0_d030 drawn 800x800), `0.75x when hot off`. No code, builds
+or settings changed by Claude.
+
+Measured (10 s `[cpu]` samples, 5 s pacing and GPU profile lines):
+- Session 1 (~34 min, low car reflection/mirror rates: 3150-3300 of 4200 reflection
+  face/mirror passes left out per 10 s): thermal **nominal the whole time**. CPU
+  130-200 % of a core in free roam, GPU frame 7-14 ms, mostly on Low (efficiency
+  cores) while driving. Battery 80 -> 70 %.
+- Pursuits (01:42:20-01:44:20 and 02:01:41-02:02:44): CPU rose to 220-280 %, pacing
+  13-68 of 300 frames off the 16.7 ms grid. The controller stayed on Low: the dev218
+  tolerant rule needs 12 late of 60 on Low while driving; the late frames were spread
+  out, so it stepped up only once (01:44:17, 12 late) and not at all in the 02:01
+  chase (63 s on Low with up to 68/300 off-grid). This is the chase fps loss.
+- Session 2: options at 02:05:26/02:06:18 (cap 40 then 60 again); from ~02:06:40
+  reflection passes left out fell to 0-600 of 4200 (near full rate). GPU frame rose to
+  12-17 ms (about +40 % over session 1). The 02:04 drive had spent >1/3 above Low, so
+  the learned start level became **Default** (02:05:23, again at 02:06:18): the whole
+  20.6 min drive (02:06:30-02:27:06) ran at Default, with seven 30 s User Initiated
+  boosts (3 late of 60 suffices above Low). CPU was 140-210 %, not higher than
+  session 1. Thermal **fair at 02:10:27, serious at 02:21:07** until the end;
+  pacing stayed clean (0-3/300) apart from transitions. Battery 70 -> 60 %.
+- `[vigilante]` reported 7 "5 s, no register moved in 17 threads" stalls, several
+  during driving with 0/300 off-grid frames (01:33:17, 01:39:37, 01:42:17): likely
+  false positives of the watchdog's sampling, not observed freezes (inference).
+
+Inference: session 2's heat came from the same CPU work placed on the performance
+cores for 20 min (learned start level Default plus boosts) together with ~40 % more
+GPU time from full-rate reflections, after ~35 min of earlier play. Earlier 17 Pro Max
+records reach fair after ~10 min at most (Oct 24 IPA49/50); this is the first 17 Pro
+Max serious in the record. Not proven: no power trace, coarse 5 % battery steps, the
+two factors changed together.
+
+Shadow options: not duplicates. "Shadow quality" (`nfsmw_shadow_map_size`) sets the
+map the game allocates (and samples); "Shadow map drawing size"
+(`nfsmw_native_shadow_scale`, native renderer) draws into half of it. They multiply:
+1600 + Half draws 800x800.

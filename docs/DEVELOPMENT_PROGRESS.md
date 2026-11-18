@@ -788,6 +788,16 @@ Left to Stefan: fresh-container install check, tag v0.6.1, GitHub release,
 replies on #14 (Duo inner screen: dev141 scene fix in 0.6.1) and #21 (HDMI
 fix and PAL support in 0.6.1).
 
+## November 18, 2026 — late-night 17 Pro Max heat analysis (Claude, read-only)
+
+Logs `Debug/18 November 2026/0.6.1_iphone17pm_late-night_*`; details in TECHNICAL.md
+"November 18: late-night iPhone 17 Pro Max logs". Findings: low reflection rates on
+E cores stayed nominal for 34 min; chases lose fps because the tolerant rule (12 late
+of 60) keeps Low through spread-out late frames; session 2 reached serious after the
+learned start level flipped to Default (whole 20 min drive on P cores plus boosts) with
+full-rate reflections (+40 % GPU). Next: Stefan picks from the proposed plan (no code
+changed yet).
+
 ## November 17, 2026 — dev218: phones start on the efficiency cores at 60
 
 Stefan chose option 1 (iPhone default at 60, all settings; later sessions
