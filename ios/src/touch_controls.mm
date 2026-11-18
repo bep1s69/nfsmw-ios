@@ -88,6 +88,10 @@ REXCVAR_DEFINE_BOOL(ios_touch_native, true, "Input",
                     "Touch controls drawn into the game's frame with the native renderer. Off: a "
                     "UIKit layer over the game, whose redraws delay the game's frame by a refresh");
 
+REXCVAR_DEFINE_BOOL(ios_touch_skin, true, "Input",
+                    "DRIVE layout drawn with the contributed button art (bagasromadon, GitHub issue 22); "
+                    "off: the outlined buttons with symbols");
+
 extern "C" void NativeRequestDump();  // native_renderer.mm
 
 namespace {
@@ -739,6 +743,8 @@ static CGFloat TouchOpacity() {
   [self setNeedsDisplay];
 }
 
+static void FitPedal(Control& c);  // below, with the button art
+
 // The DRIVE layout (positions as fractions of the view, from the sketch).
 - (void)layoutDriving:(CGFloat)w height:(CGFloat)h unit:(CGFloat)unit {
   auto P = [&](CGFloat fx, CGFloat fy) { return CGPointMake(w * fx, h * fy); };
@@ -772,9 +778,11 @@ static CGFloat TouchOpacity() {
     round(@"NOS", P(.9, .45), unit * .62, kDriveNitrous);
     Control brake{Kind::kTrigger, @"BRAKE", P(.765, .80), 0, CGSizeMake(unit * .9, unit * 1.1)};
     brake.axis = 0;
+    FitPedal(brake);
     _controls.push_back(brake);
     Control accel{Kind::kTrigger, @"GAS", P(.9, .74), 0, CGSizeMake(unit * 1.05, unit * 1.9)};
     accel.axis = 1;
+    FitPedal(accel);
     _controls.push_back(accel);
     const CGFloat top = h * .02 + unit * .25;
     round(@"CAM", CGPointMake(w * .46, top), unit * .36, kDriveCamera);
@@ -825,9 +833,11 @@ static CGFloat TouchOpacity() {
   const CGSize pedal = CGSizeMake(unit * 1.05, unit * (tablet ? 1.35 : 1.75));
   Control brake{Kind::kTrigger, @"BRAKE", T(.765, .84, .795, .92), 0, pedal};
   brake.axis = 0;
+  FitPedal(brake);
   _controls.push_back(brake);
   Control accel{Kind::kTrigger, @"GAS", T(.9, .84, .915, .92), 0, pedal};
   accel.axis = 1;
+  FitPedal(accel);
   _controls.push_back(accel);
   const CGFloat top = h * .02 + unit * .25;  // the pills' middle
   round(@"CAM", CGPointMake(w * .46, top), unit * .36, kDriveCamera);
@@ -1520,6 +1530,69 @@ static NSString* SymbolFor(NSString* label) {
   return symbols[label];
 }
 
+// The DRIVE layout's button art (contributed by bagasromadon, GitHub issue
+// 22; resources/Assets.xcassets touch-*): a whole button picture, or for the
+// gear buttons a chevron drawn over the usual round button. Nil: none (the
+// outlined button with its symbol).
+static UIImage* SkinFor(NSString* label) {
+  static const bool on = rex::cvar::Query<bool>("ios_touch_skin");
+  if (!on || !label.length) return nil;
+  static NSDictionary<NSString*, NSString*>* names = @{
+    @"NOS" : @"touch-nos",
+    @"LOOK\nBACK" : @"touch-look-back",
+    @"SPEED\nBREAKER" : @"touch-speedbreaker",
+    @"HAND\nBRAKE" : @"touch-handbrake",
+    @"GAS" : @"touch-gas",
+    @"BRAKE" : @"touch-brake",
+    @"CAM" : @"touch-camera",
+    @"PAUSE" : @"touch-pause",
+    @"RESET" : @"touch-reset",
+    @"ENTER" : @"touch-enter",
+    @"RACE" : @"touch-race",
+    @"STATS" : @"touch-stats",
+    @"MAP" : @"touch-map",
+    @"SMS" : @"touch-message",
+    @"LIST" : @"touch-list",
+    @"UP" : @"touch-gear-up",
+    @"DOWN" : @"touch-gear-down",
+    @"◀" : @"touch-left",
+    @"▶" : @"touch-right",
+  };
+  NSString* name = names[label];
+  return name ? [UIImage imageNamed:name] : nil;
+}
+
+static bool SkinIsOverlay(NSString* label) { return [label isEqualToString:@"UP"] || [label isEqualToString:@"DOWN"]; }
+
+// The pedals' touch areas follow their pictures' shapes: `width` kept, the
+// height from the picture, the bottom edge where it was (the thumb's rest).
+static void FitPedal(Control& c) {
+  UIImage* image = SkinFor(c.label);
+  if (!image || image.size.width <= 0) return;
+  const CGFloat bottom = c.center.y + c.size.height / 2;
+  c.size.height = c.size.width * image.size.height / image.size.width;
+  c.center.y = bottom - c.size.height / 2;
+}
+
+// A picture in `r`, aspect-fit, darkened while pressed.
+static void DrawSkin(UIImage* image, CGRect r, bool pressed) {
+  const CGSize s = image.size;
+  if (s.width <= 0 || s.height <= 0) return;
+  const CGFloat k = std::min(r.size.width / s.width, r.size.height / s.height);
+  const CGRect f = CGRectMake(CGRectGetMidX(r) - s.width * k / 2, CGRectGetMidY(r) - s.height * k / 2,
+                              s.width * k, s.height * k);
+  CGContextRef context = UIGraphicsGetCurrentContext();
+  if (!pressed) {
+    [image drawInRect:f];
+    return;
+  }
+  CGContextBeginTransparencyLayerWithRect(context, f, nullptr);
+  [image drawInRect:f];
+  [[UIColor colorWithWhite:0 alpha:0.4] setFill];
+  UIRectFillUsingBlendMode(f, kCGBlendModeSourceAtop);
+  CGContextEndTransparencyLayer(context);
+}
+
 // A control's label: its symbol in the DRIVE layout, `size` points tall,
 // or the text.
 - (void)drawIcon:(NSString*)label at:(CGPoint)p size:(CGFloat)size fit:(CGFloat)fit {
@@ -1717,6 +1790,19 @@ static NSString* SymbolFor(NSString* label) {
         CGContextRef context = UIGraphicsGetCurrentContext();
         CGContextSaveGState(context);
         if (!c.pressed && c.dynamic) CGContextSetAlpha(context, c.fade);
+        UIImage* base = _driving && c.horizontal ? [UIImage imageNamed:@"touch-steer-base"] : nil;
+        UIImage* wheel = base && rex::cvar::Query<bool>("ios_touch_skin") ? [UIImage imageNamed:@"touch-steer-wheel"] : nil;
+        if (wheel) {
+          // The contributed art: the wheel turns with the steering (a
+          // quarter turn at full lock) instead of a knob sliding.
+          DrawSkin(base, CGRectInset(CGRectMake(c.center.x, c.center.y, 0, 0), -c.radius, -c.radius), false);
+          CGContextTranslateCTM(context, c.center.x, c.center.y);
+          CGContextRotateCTM(context, CGFloat(c.knob.x * M_PI_2));
+          const CGFloat wr = c.radius * 0.62;
+          DrawSkin(wheel, CGRectMake(-wr, -wr, wr * 2, wr * 2), c.pressed);
+          CGContextRestoreGState(context);
+          break;
+        }
         UIBezierPath* ring = [UIBezierPath
             bezierPathWithOvalInRect:CGRectInset(CGRectMake(c.center.x, c.center.y, 0, 0),
                                                  -c.radius, -c.radius)];
@@ -1748,6 +1834,10 @@ static NSString* SymbolFor(NSString* label) {
           } actions[] = {{@"ENTER", 0, -1}, {@"MAP", -1, 0}, {@"SMS", 1, 0}, {@"LIST", 0, 1}};
           for (const auto& a : actions) {
             const CGPoint p = CGPointMake(c.center.x + a.dx * off, c.center.y + a.dy * off);
+            if (UIImage* skin = SkinFor(a.l)) {
+              DrawSkin(skin, CGRectMake(p.x - r, p.y - r, r * 2, r * 2), false);
+              continue;
+            }
             UIBezierPath* path = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(p.x - r, p.y - r, r * 2, r * 2)];
             [fill setFill];
             [path fill];
@@ -1782,6 +1872,12 @@ static NSString* SymbolFor(NSString* label) {
         break;
       }
       case Kind::kRoundButton: {
+        const CGRect box = CGRectInset(CGRectMake(c.center.x, c.center.y, 0, 0), -c.radius, -c.radius);
+        UIImage* skin = _driving ? SkinFor(c.label) : nil;
+        if (skin && !SkinIsOverlay(c.label)) {
+          DrawSkin(skin, box, c.pressed);
+          break;
+        }
         UIBezierPath* path = [UIBezierPath
             bezierPathWithOvalInRect:CGRectInset(CGRectMake(c.center.x, c.center.y, 0, 0),
                                                  -c.radius, -c.radius)];
@@ -1790,6 +1886,10 @@ static NSString* SymbolFor(NSString* label) {
         [stroke setStroke];
         path.lineWidth = 1.5;
         [path stroke];
+        if (skin) {
+          DrawSkin(skin, CGRectInset(box, c.radius * 0.3, c.radius * 0.3), false);
+          break;
+        }
         [self drawIcon:c.label at:c.center size:c.radius * 0.9 fit:c.radius * 1.4];
         break;
       }
@@ -1797,6 +1897,10 @@ static NSString* SymbolFor(NSString* label) {
       case Kind::kTrigger: {
         const CGRect r = CGRectMake(c.center.x - c.size.width / 2, c.center.y - c.size.height / 2,
                                     c.size.width, c.size.height);
+        if (UIImage* skin = _driving ? SkinFor(c.label) : nil) {
+          DrawSkin(skin, r, c.pressed);
+          break;
+        }
         UIBezierPath* path = [UIBezierPath bezierPathWithRoundedRect:r
                                                         cornerRadius:std::min(c.size.width, c.size.height) * 0.3];
         [(c.pressed ? pressed : fill) setFill];

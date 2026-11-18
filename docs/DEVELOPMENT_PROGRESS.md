@@ -788,6 +788,13 @@ Left to Stefan: fresh-container install check, tag v0.6.1, GitHub release,
 replies on #14 (Duo inner screen: dev141 scene fix in 0.6.1) and #21 (HDMI
 fix and PAL support in 0.6.1).
 
+## November 18, 2026 — dev219 contributed button art (GitHub #22)
+
+Scheduler/heat changes on hold (Stefan). dev219 draws bagasromadon's button art
+in the DRIVE layout and fits the gas/brake touch areas to the pedal shapes
+(details TECHNICAL.md "November 18: dev219"). IPA on the Desktop, not yet run.
+Next: Stefan's device check; then the CHANGELOG 0.6.2 credit line ships with it.
+
 ## November 18, 2026 — late-night 17 Pro Max heat analysis (Claude, read-only)
 
 Logs `Debug/18 November 2026/0.6.1_iphone17pm_late-night_*`; details in TECHNICAL.md

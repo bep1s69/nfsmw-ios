@@ -30280,3 +30280,32 @@ Shadow options: not duplicates. "Shadow quality" (`nfsmw_shadow_map_size`) sets 
 map the game allocates (and samples); "Shadow map drawing size"
 (`nfsmw_native_shadow_scale`, native renderer) draws into half of it. They multiply:
 1600 + Half draws 800x800.
+
+## November 18: dev219 contributed button art in the DRIVE layout
+
+Stefan asked to use the button art bagasromadon contributed in GitHub issue #22
+(23 PNGs, 781-2271 px, alpha; Stefan's renamed copy `~/Desktop/NFS.MW.IOS`, same
+SHA256 as the issue's zip). 21 used, downscaled with `sips -Z` (512 px: steering
+base, gas, brake; 384: nos, look back, speedbreaker, handbrake, left/right; 256:
+the rest) into `ios/resources/Assets.xcassets/touch-*.imageset` (596 KB of PNG),
+compiled by the existing actool step. Round `up.png`/`down.png` left out (Stefan:
+the gear buttons cover shifting).
+
+`touch_controls.mm`: `SkinFor(label)` maps DRIVE labels to the art; round buttons,
+pedals and the ACTIONS editor handle draw the picture aspect-fit in the control's
+box instead of fill, outline and SF Symbol; pressed = picture darkened (black 40 %,
+source-atop). UP/DOWN (gear) draw the white chevron over the usual round button.
+The steering stick (fixed and dynamic, `horizontal`) draws the base with the wheel
+rotated by knob.x (a quarter turn at full lock) instead of a sliding knob.
+`FitPedal`: gas and brake keep their width, take the height from the picture's
+aspect, bottom edge unchanged (normal layout phone gas 1.75 -> ~1.30 units tall,
+brake -> ~1.09; drag layout likewise); hit test slack unchanged. Menus and the PAD
+layout unchanged. Cvar `ios_touch_skin` (default true; false = previous look).
+
+Build `cmake --build ~/Library/Caches/nfsmw-ios/build-0.6 --target ipa -j 12`
+exit 0; `Assets.car` holds 21 touch-* names (`assetutil --info`); IPA
+`ios/build/NFSMW-0.6.1-dev219-contributed-button-art.ipa`, 39518640 bytes, SHA256
+5fb2f668abb426e6990ba28a455225d81ba345523e60bd1778c9b408175e8ce0, `unzip -t` OK;
+on the iCloud Desktop, dev218 moved to Trash from the Desktop. Not yet run on a
+device: look, pressed state, wheel rotation, pedal touch areas and layout-editor
+sizes need Stefan's check.

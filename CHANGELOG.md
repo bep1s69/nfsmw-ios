@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.2 (in progress)
+
+- **New on-screen driving buttons.** The driving controls now use custom
+  button art made for this port: gas and brake pedals, a steering wheel
+  that turns with your thumb, nitrous, speedbreaker, handbrake, look back,
+  gear shifting, camera, pause, reset and the map, SMS, list, stats and
+  event buttons (thanks to bagasromadon, #22). The gas and brake touch areas
+  follow the new pedal shapes. Menus and the full gamepad layout keep their
+  look.
+
 ## 0.6.1
 
 - **Longer battery life, same frame rate.** The Eco/Balanced/Max
